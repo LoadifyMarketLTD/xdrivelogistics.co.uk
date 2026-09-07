@@ -1,10 +1,12 @@
 'use client';
 
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
+import PlatformEntityLink from '@/app/super-admin/_components/control-plane/PlatformEntityLink';
 import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superAdminFormatters';
 
 type Row = {
   id: string;
+  company_id: string | null;
   company_name: string;
   invoice_id: string | null;
   reason: string;
@@ -16,64 +18,38 @@ type Row = {
 };
 
 export default function Page() {
-  return (
-    <SuperAdminLiveTablePage<Row>
-      icon="⚖️"
-      title="Disputes"
-      sectionLabel="Support"
-      description="Invoice dispute investigation and resolution management across all companies."
-      endpoint="/api/super-admin/support?section=disputes&limit=250"
-      summaryField="summary"
-      emptyMessage="No disputes found."
-      columns={[
-        {
-          key: 'company',
-          label: 'Company',
-          render: (row) => <span style={{ fontSize: '0.78rem' }}>{row.company_name}</span>,
-        },
-        {
-          key: 'status',
-          label: 'Status',
-          render: (row) => <StatusChip value={row.status} />,
-        },
-        {
-          key: 'reason',
-          label: 'Reason',
-          render: (row) => (
-            <span style={{ fontSize: '0.75rem' }}>{row.reason}</span>
-          ),
-        },
-        {
-          key: 'details',
-          label: 'Details',
-          render: (row) => (
-            <span style={{ fontSize: '0.72rem', color: '#94a3b8' }}>{row.details ?? '—'}</span>
-          ),
-        },
-        {
-          key: 'resolution_note',
-          label: 'Resolution',
-          render: (row) => (
-            <span style={{ fontSize: '0.72rem', color: row.resolution_note ? '#22c55e' : '#94a3b8' }}>
-              {row.resolution_note ?? '—'}
-            </span>
-          ),
-        },
-        {
-          key: 'created_at',
-          label: 'Filed',
-          render: (row) => <span style={{ fontSize: '0.75rem' }}>{formatDateTime(row.created_at)}</span>,
-        },
-        {
-          key: 'resolved_at',
-          label: 'Resolved',
-          render: (row) => (
-            <span style={{ fontSize: '0.75rem' }}>
-              {row.resolved_at ? formatDateTime(row.resolved_at) : '—'}
-            </span>
-          ),
-        },
-      ]}
-    />
-  );
+  return <SuperAdminLiveTablePage<Row>
+    icon="support"
+    title="Support Disputes"
+    sectionLabel="Support"
+    description="Invoice dispute investigation with canonical company, invoice and dispute drill-down."
+    endpoint="/api/super-admin/support?section=disputes"
+    summaryField="summary"
+    pageSize={50}
+    emptyMessage="No disputes found."
+    columns={[
+      {
+        key: 'dispute', label: 'Dispute',
+        render: (row) => <PlatformEntityLink entityType="dispute" entityId={row.id} compact>Inspect dispute</PlatformEntityLink>,
+      },
+      {
+        key: 'company', label: 'Company',
+        render: (row) => row.company_id
+          ? <PlatformEntityLink entityType="company" entityId={row.company_id} compact>{row.company_name}</PlatformEntityLink>
+          : row.company_name,
+      },
+      {
+        key: 'invoice', label: 'Invoice',
+        render: (row) => row.invoice_id
+          ? <PlatformEntityLink entityType="invoice" entityId={row.invoice_id} compact>Inspect invoice</PlatformEntityLink>
+          : '—',
+      },
+      { key: 'status', label: 'Status', render: (row) => <StatusChip value={row.status} /> },
+      { key: 'reason', label: 'Reason', render: (row) => row.reason },
+      { key: 'details', label: 'Details', render: (row) => <span style={{ color: '#475569' }}>{row.details ?? '—'}</span> },
+      { key: 'resolution', label: 'Resolution', render: (row) => <span style={{ color: row.resolution_note ? '#168553' : '#64748B' }}>{row.resolution_note ?? '—'}</span> },
+      { key: 'filed', label: 'Filed', render: (row) => formatDateTime(row.created_at) },
+      { key: 'resolved', label: 'Resolved', render: (row) => row.resolved_at ? formatDateTime(row.resolved_at) : '—' },
+    ]}
+  />;
 }

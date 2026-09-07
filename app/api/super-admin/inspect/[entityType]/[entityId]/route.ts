@@ -346,23 +346,45 @@ async function inspectTicket(entityId: string): Promise<InspectorPayload | null>
 
 async function inspectDispute(entityId: string): Promise<InspectorPayload | null> {
   if (!supabaseAdmin) return null;
-  const { data: dispute, error } = await supabaseAdmin.from('job_disputes').select('id, job_id, raised_by_company_id, status, description, resolved_by, resolved_at, resolution_note, created_at, updated_at').eq('id', entityId).maybeSingle();
-  if (error) throw new Error(error.message);
+  const jobResult = await supabaseAdmin.from('job_disputes').select('id, job_id, raised_by_company_id, status, description, resolved_by, resolved_at, resolution_note, created_at, updated_at').eq('id', entityId).maybeSingle();
+  if (jobResult.error) throw new Error(jobResult.error.message);
+  if (jobResult.data) {
+    const dispute = jobResult.data;
+    const [company, resolver, job] = await Promise.all([
+      companySummary(dispute.raised_by_company_id), profileSummary(dispute.resolved_by),
+      dispute.job_id ? supabaseAdmin.from('jobs').select('id, load_ref, load_id, title, status, pickup_location, delivery_location').eq('id', dispute.job_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    ]);
+    if (job.error) throw new Error(job.error.message);
+    return {
+      available: true, entityType: 'dispute', entityId, stableId: entityId, reference: entityId,
+      title: value(dispute.description, 'Job dispute').slice(0, 160), subtitle: company?.name ?? 'Job dispute', status: optional(dispute.status),
+      sections: [{ id: 'dispute', title: 'Job dispute state', fields: [field('status', 'Status', dispute.status), field('description', 'Description', dispute.description), field('raised', 'Raised', dispute.created_at), field('updated', 'Updated', dispute.updated_at), field('resolution', 'Resolution note', dispute.resolution_note), field('resolved_at', 'Resolved', dispute.resolved_at)] }],
+      relationshipGroups: [
+        { id: 'job', title: 'Job', rows: job.data ? compactRelations([relation('job', job.data.id, job.data.title ?? `${job.data.pickup_location ?? 'Pickup'} → ${job.data.delivery_location ?? 'Delivery'}`, job.data.load_ref ?? job.data.load_id, job.data.status)]) : [] },
+        { id: 'company', title: 'Raised by company', rows: company ? compactRelations([relation('company', company.id, company.name ?? 'Company', company.xd_id ?? company.company_number, company.status)]) : [] },
+        { id: 'resolver', title: 'Resolver', rows: resolver ? compactRelations([relation('user', resolver.user_id, resolver.full_name ?? 'User', resolver.xd_id, resolver.status)]) : [] },
+      ],
+    };
+  }
+
+  const invoiceResult = await supabaseAdmin.from('invoice_disputes').select('id, invoice_id, company_id, buyer_company_id, supplier_company_id, job_id, reason, details, status, resolution_note, created_at, resolved_at').eq('id', entityId).maybeSingle();
+  if (invoiceResult.error) throw new Error(invoiceResult.error.message);
+  const dispute = invoiceResult.data;
   if (!dispute) return null;
-  const [company, resolver, job] = await Promise.all([
-    companySummary(dispute.raised_by_company_id), profileSummary(dispute.resolved_by),
+  const [company, buyer, supplier, invoice, job] = await Promise.all([
+    companySummary(dispute.company_id), companySummary(dispute.buyer_company_id), companySummary(dispute.supplier_company_id),
+    dispute.invoice_id ? supabaseAdmin.from('invoices').select('id, invoice_number, status, payment_status, job_id').eq('id', dispute.invoice_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     dispute.job_id ? supabaseAdmin.from('jobs').select('id, load_ref, load_id, title, status, pickup_location, delivery_location').eq('id', dispute.job_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
   ]);
-  if (job.error) throw new Error(job.error.message);
+  for (const result of [invoice, job]) if (result.error) throw new Error(result.error.message);
   return {
-    available: true, entityType: 'dispute', entityId, stableId: entityId, reference: entityId, title: value(dispute.description, 'Job dispute').slice(0, 160), subtitle: company?.name ?? 'Job dispute', status: optional(dispute.status),
-    sections: [
-      { id: 'dispute', title: 'Dispute state', fields: [field('status', 'Status', dispute.status), field('description', 'Description', dispute.description), field('raised', 'Raised', dispute.created_at), field('updated', 'Updated', dispute.updated_at), field('resolution', 'Resolution note', dispute.resolution_note), field('resolved_at', 'Resolved', dispute.resolved_at)] },
-    ],
+    available: true, entityType: 'dispute', entityId, stableId: entityId, reference: entityId,
+    title: value(dispute.reason, 'Invoice dispute').slice(0, 160), subtitle: company?.name ?? buyer?.name ?? supplier?.name ?? 'Invoice dispute', status: optional(dispute.status),
+    sections: [{ id: 'dispute', title: 'Invoice dispute state', fields: [field('status', 'Status', dispute.status), field('reason', 'Reason', dispute.reason), field('details', 'Details', dispute.details), field('raised', 'Raised', dispute.created_at), field('resolution', 'Resolution note', dispute.resolution_note), field('resolved_at', 'Resolved', dispute.resolved_at)] }],
     relationshipGroups: [
+      { id: 'invoice', title: 'Invoice', rows: invoice.data ? compactRelations([relation('invoice', invoice.data.id, invoice.data.invoice_number ?? 'Invoice', invoice.data.invoice_number, invoice.data.payment_status ?? invoice.data.status)]) : [] },
       { id: 'job', title: 'Job', rows: job.data ? compactRelations([relation('job', job.data.id, job.data.title ?? `${job.data.pickup_location ?? 'Pickup'} → ${job.data.delivery_location ?? 'Delivery'}`, job.data.load_ref ?? job.data.load_id, job.data.status)]) : [] },
-      { id: 'company', title: 'Raised by company', rows: company ? compactRelations([relation('company', company.id, company.name ?? 'Company', company.xd_id ?? company.company_number, company.status)]) : [] },
-      { id: 'resolver', title: 'Resolver', rows: resolver ? compactRelations([relation('user', resolver.user_id, resolver.full_name ?? 'User', resolver.xd_id, resolver.status)]) : [] },
+      { id: 'companies', title: 'Companies', rows: compactRelations([relation('company', company?.id, company?.name ?? 'Company', company?.xd_id ?? company?.company_number, company?.status), relation('company', buyer?.id, `Buyer · ${buyer?.name ?? 'Company'}`, buyer?.xd_id ?? buyer?.company_number, buyer?.status), relation('company', supplier?.id, `Supplier · ${supplier?.name ?? 'Company'}`, supplier?.xd_id ?? supplier?.company_number, supplier?.status)]) },
     ],
   };
 }

@@ -1,159 +1,93 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Flag } from 'lucide-react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
+import {
+  SuperAdminEmptyState, SuperAdminMetricCard, SuperAdminMetricGrid, SuperAdminNotice,
+  SuperAdminPage, SuperAdminPageHeader, SuperAdminSectionCard, SuperAdminStatusBadge,
+  SuperAdminUnavailableState,
+} from '@/app/super-admin/_components/SuperAdminEnterprisePrimitives';
 
-const THEME = {
-  pageBg: '#F4F6F8',
-  cardBg: '#FFFFFF',
-  cardBorder: '#D9E1EA',
-  text: '#1A1F2B',
-  heading: '#0B2F6B',
-  blue: '#1D57D8',
-  muted: '#64748B',
-  accent: '#F5A300',
-  green: '#16A34A',
-  red: '#DC2626',
-};
-
-type Flag = {
-  key: string;
-  label: string;
-  description: string;
+type FeatureFlag = {
+  key: string; label: string; description: string;
   category: 'Marketplace' | 'Operations' | 'Finance' | 'Compliance' | 'Platform' | 'Governance';
   enabled: boolean;
 };
 
+const categories: FeatureFlag['category'][] = ['Marketplace', 'Operations', 'Finance', 'Compliance', 'Platform', 'Governance'];
+
 export default function Page() {
-  const [flags, setFlags] = useState<Flag[]>([]);
+  const [flags, setFlags] = useState<FeatureFlag[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const load = async () => {
-    setLoading(true);
-    setError(null);
+    setLoading(true); setError(null);
     const auth = await getAuthHeader();
-    if (!auth) {
-      setError('No active session.');
-      setLoading(false);
-      return;
-    }
-    const res = await fetch('/api/super-admin/settings?section=feature-flags', {
-      headers: { Authorization: auth },
-    });
-    const payload = (await res.json().catch(() => ({}))) as { flags?: Flag[]; error?: string };
-    if (!res.ok) {
-      setError('Feature flag service is currently unavailable.');
-      setFlags([]);
-    } else {
-      setFlags(Array.isArray(payload.flags) ? payload.flags : []);
-    }
-    setLoading(false);
+    if (!auth) { setError('No active Platform Owner session.'); setLoading(false); return; }
+    try {
+      const response = await fetch('/api/super-admin/settings?section=feature-flags', { headers: { Authorization: auth }, cache: 'no-store' });
+      const payload = await response.json().catch(() => ({})) as { flags?: FeatureFlag[] };
+      if (!response.ok) { setFlags([]); setError('Feature flag service is currently unavailable.'); }
+      else setFlags(Array.isArray(payload.flags) ? payload.flags : []);
+    } catch { setFlags([]); setError('Feature flag service is currently unavailable.'); }
+    finally { setLoading(false); }
   };
-
-  useEffect(() => {
-    void load();
-  }, []);
-
+  useEffect(() => { void load(); }, []);
+  const summary = useMemo(() => categories.map((category) => {
+    const rows = flags.filter((flag) => flag.category === category);
+    return { category, total: rows.length, enabled: rows.filter((flag) => flag.enabled).length };
+  }), [flags]);
   const setEnabled = (key: string, enabled: boolean) => {
-    setFlags((current) => current.map((flag) => (flag.key === key ? { ...flag, enabled } : flag)));
+    setFlags((current) => current.map((flag) => flag.key === key ? { ...flag, enabled } : flag));
     setMessage(null);
   };
 
   const save = async () => {
-    setSaving(true);
-    setError(null);
-    setMessage(null);
+    setSaving(true); setError(null); setMessage(null);
     const auth = await getAuthHeader();
-    if (!auth) {
-      setError('No active session.');
-      setSaving(false);
-      return;
-    }
-
-    const res = await fetch('/api/super-admin/settings', {
-      method: 'PATCH',
-      headers: { Authorization: auth, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        section: 'feature-flags',
-        flags: flags.map((flag) => ({ key: flag.key, enabled: flag.enabled })),
-      }),
-    });
-    await res.json().catch(() => ({}));
-    if (!res.ok) setError('Feature flags could not be saved right now.');
-    else setMessage('Feature flags saved.');
-    setSaving(false);
+    if (!auth) { setError('No active Platform Owner session.'); setSaving(false); return; }
+    try {
+      const response = await fetch('/api/super-admin/settings', {
+        method: 'PATCH', headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ section: 'feature-flags', flags: flags.map(({ key, enabled }) => ({ key, enabled })) }),
+      });
+      await response.json().catch(() => ({}));
+      if (!response.ok) setError('Feature flags could not be saved right now.');
+      else setMessage('Feature flags saved.');
+    } catch { setError('Feature flags could not be saved right now.'); }
+    finally { setSaving(false); }
   };
 
-  const categorySummary = useMemo(
-    () =>
-      (['Marketplace', 'Operations', 'Finance', 'Compliance', 'Platform', 'Governance'] as const).map((category) => {
-        const categoryFlags = flags.filter((flag) => flag.category === category);
-        return { category, total: categoryFlags.length, enabled: categoryFlags.filter((flag) => flag.enabled).length };
-      }),
-    [flags]
-  );
-
-  return (
-    <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '12px' }}>
-        <header style={{ minHeight: '52px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '20px' }}>🚩</span>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <h1 style={{ fontSize: '20px', fontWeight: 800, color: THEME.heading, margin: 0 }}>Feature Flags</h1>
-                <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9A5D00', backgroundColor: '#FFF4DA', padding: '3px 6px', borderRadius: '4px' }}>Settings</span>
-              </div>
-              <p style={{ color: THEME.muted, margin: '3px 0 0', fontSize: '12px' }}>Toggle platform modules and persist governance changes.</p>
+  return <ProtectedRoute allowedRoles={['owner']}>
+    <SuperAdminPage>
+      <SuperAdminPageHeader eyebrow="Platform" title="Feature Flags" description="Governed module switches. Changes use the existing Platform Owner settings mutation and preserve current authorization." icon={<Flag size={20} aria-hidden="true" />} actions={<div style={{ display: 'flex', gap: 8 }}><button type="button" className="sa-button" onClick={() => void load()} disabled={loading || saving}>Refresh</button><button type="button" className="sa-button" onClick={() => void save()} disabled={loading || saving}>{saving ? 'Saving…' : 'Save'}</button></div>} />
+      {error ? <SuperAdminUnavailableState title="Feature flags unavailable" description={error} /> : null}
+      {message ? <SuperAdminNotice tone="success">{message}</SuperAdminNotice> : null}
+      {!error ? <SuperAdminMetricGrid>
+        {summary.map((item) => <SuperAdminMetricCard key={item.category} label={item.category} value={loading ? '—' : `${item.enabled}/${item.total}`} note="enabled" tone="info" />)}
+      </SuperAdminMetricGrid> : null}
+      {!error && loading ? <SuperAdminEmptyState title="Loading feature flags…" /> : null}
+      {!error && !loading && flags.length === 0 ? <SuperAdminEmptyState title="No feature flags are available." /> : null}
+      {!error && !loading ? <SuperAdminSectionCard title="Governed feature registry" description="Enable or disable only flags returned by the canonical settings service.">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 10 }}>
+          {flags.map((flag) => <article key={flag.key} style={{ border: '1px solid #D9E1EA', borderRadius: 8, padding: 12, background: '#FFFFFF' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, alignItems: 'flex-start' }}>
+              <div><strong>{flag.label}</strong><code style={{ display: 'block', marginTop: 3, color: '#64748B', fontSize: 11 }}>{flag.key}</code></div>
+              <SuperAdminStatusBadge label={flag.enabled ? 'Enabled' : 'Disabled'} tone={flag.enabled ? 'success' : 'neutral'} />
             </div>
-          </div>
-          <div style={{ display: 'flex', gap: '6px' }}>
-            <button type="button" onClick={() => void load()} disabled={loading || saving} style={{ height: '32px', border: `1px solid ${THEME.cardBorder}`, backgroundColor: THEME.cardBg, color: THEME.heading, borderRadius: '4px', padding: '0 10px', fontSize: '11px', fontWeight: 700, cursor: loading || saving ? 'not-allowed' : 'pointer' }}>Refresh</button>
-            <button type="button" onClick={() => void save()} disabled={loading || saving} style={{ height: '32px', border: `1px solid ${THEME.blue}`, backgroundColor: THEME.blue, color: '#FFFFFF', borderRadius: '4px', padding: '0 10px', fontSize: '11px', fontWeight: 800, cursor: loading || saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving…' : 'Save'}</button>
-          </div>
-        </header>
-
-        {error && <div style={{ marginBottom: '12px', border: `1px solid ${THEME.red}`, borderRadius: '4px', color: THEME.red, backgroundColor: '#FEF2F2', padding: '8px 10px', fontSize: '12px' }}>{error}</div>}
-        {message && <div style={{ marginBottom: '12px', border: `1px solid ${THEME.green}`, borderRadius: '4px', color: THEME.green, backgroundColor: '#F0FDF4', padding: '8px 10px', fontSize: '12px' }}>{message}</div>}
-
-        <div style={{ display: 'flex', gap: '6px', marginBottom: '12px', flexWrap: 'wrap' }}>
-          {categorySummary.map((item) => (
-            <div key={item.category} style={{ minHeight: '32px', display: 'inline-flex', alignItems: 'center', backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '0 9px' }}>
-              <span style={{ color: THEME.heading, fontSize: '11px', fontWeight: 800 }}>{item.category}</span>
-              <span style={{ color: THEME.muted, fontSize: '10px', marginLeft: '6px' }}>{item.enabled}/{item.total} enabled</span>
-            </div>
-          ))}
+            <p style={{ color: '#475569', fontSize: 12, lineHeight: 1.5 }}>{flag.description}</p>
+            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderTop: '1px solid #EEF2F6', paddingTop: 10 }}>
+              <span><SuperAdminStatusBadge label={flag.category} tone="info" /></span>
+              <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', fontSize: 12 }}><input type="checkbox" checked={flag.enabled} onChange={(event) => setEnabled(flag.key, event.target.checked)} /> {flag.enabled ? 'On' : 'Off'}</span>
+            </label>
+          </article>)}
         </div>
-
-        {loading ? (
-          <div style={{ color: THEME.muted, fontSize: '12px' }}>Loading…</div>
-        ) : flags.length === 0 ? (
-          <div style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', backgroundColor: THEME.cardBg, minHeight: '88px', display: 'grid', placeItems: 'center', color: THEME.muted, fontSize: '12px' }}>No feature flags are available.</div>
-        ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '12px' }}>
-            {flags.map((flag) => (
-              <section key={flag.key} style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '12px' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '10px' }}>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ color: THEME.heading, fontWeight: 800, fontSize: '12px' }}>{flag.label}</div>
-                    <div style={{ color: THEME.muted, fontSize: '10px', marginTop: '2px' }}>{flag.key}</div>
-                  </div>
-                  <label style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: flag.enabled ? THEME.green : THEME.muted, fontSize: '11px', fontWeight: 800 }}>
-                    <input type="checkbox" checked={flag.enabled} onChange={(event) => setEnabled(flag.key, event.target.checked)} />
-                    {flag.enabled ? 'Enabled' : 'Disabled'}
-                  </label>
-                </div>
-                <p style={{ color: THEME.text, fontSize: '11px', lineHeight: 1.45, margin: '8px 0' }}>{flag.description}</p>
-                <span style={{ display: 'inline-flex', alignItems: 'center', minHeight: '22px', color: THEME.heading, backgroundColor: THEME.pageBg, border: `1px solid ${THEME.cardBorder}`, padding: '0 6px', borderRadius: '4px', fontSize: '10px', fontWeight: 700 }}>{flag.category}</span>
-              </section>
-            ))}
-          </div>
-        )}
-      </div>
-    </ProtectedRoute>
-  );
+      </SuperAdminSectionCard> : null}
+    </SuperAdminPage>
+  </ProtectedRoute>;
 }

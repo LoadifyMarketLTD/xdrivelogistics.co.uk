@@ -9,6 +9,7 @@ import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmM
 
 type Row = {
   id: string;
+  company_id: string | null;
   company_name: string;
   type: string | null;
   severity: string | null;
@@ -100,7 +101,9 @@ export default function Page() {
       {
         key: 'company',
         label: 'Company',
-        render: (row: Row) => row.company_name ?? 'Unknown',
+        render: (row: Row) => row.company_id
+          ? <PlatformEntityLink entityType="company" entityId={row.company_id} compact>{row.company_name}</PlatformEntityLink>
+          : row.company_name ?? 'Unknown',
       },
       {
         key: 'type',
@@ -164,7 +167,7 @@ export default function Page() {
       )}
 
       <SuperAdminLiveTablePage<Row>
-        icon="🎫"
+        icon="support"
         title="Support Tickets"
         sectionLabel="Support"
         description="Ticket queue and SLA visibility across all companies."
