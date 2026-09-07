@@ -68,7 +68,7 @@ type PrimaryTab = 'overview' | 'loads' | 'offers' | 'history' | 'account';
 type LoadFeed = 'available' | 'starred' | 'dismissed';
 type OfferFeed = 'active' | 'won' | 'archived';
 type JobDetailTab = 'overview' | 'route' | 'progress';
-type UtilityPage = 'profile' | 'vehicle' | 'documents' | 'earnings' | 'availability' | 'offline' | 'search' | 'alerts' | 'journeys' | 'support';
+type UtilityPage = 'profile' | 'vehicle' | 'documents' | 'earnings' | 'availability' | 'offline' | 'search' | 'alerts' | 'nearby' | 'journeys' | 'support';
 
 type AppRoute =
   | { kind: 'primary'; tab: PrimaryTab }
@@ -982,7 +982,6 @@ export default function DriverMobileAppV3() {
               resources={resources}
               queueCount={queue.length}
               onOpen={(page) => setRoute({ kind: 'utility', page })}
-              onLoads={() => navigatePrimary('loads')}
               onSignOut={() => void signOut()}
             />
           ) : null}
@@ -1792,11 +1791,10 @@ function WorkStepAction({ job, busy, podOpen, onPress }: { job: JobDetail; busy:
   return <View style={styles.fixedAction}><TouchableOpacity style={[styles.fixedActionButton, busy && styles.disabledButton]} disabled={busy} onPress={onPress}><Text style={styles.fixedActionText}>{busy ? 'Updating...' : label}</Text></TouchableOpacity></View>;
 }
 
-function AccountBody({ resources, queueCount, onOpen, onLoads, onSignOut }: {
+function AccountBody({ resources, queueCount, onOpen, onSignOut }: {
   resources: DriverProfileResource | null;
   queueCount: number;
   onOpen: (page: UtilityPage) => void;
-  onLoads: () => void;
   onSignOut: () => void;
 }) {
   return <View style={styles.stack}>
@@ -1815,7 +1813,7 @@ function AccountBody({ resources, queueCount, onOpen, onLoads, onSignOut }: {
       <AccountRow title="Operations search" subtitle="Search live loads and work records" onPress={() => onOpen('search')} />
       <AccountRow title="Alerts" subtitle={`${resources?.alerts?.length ?? 0} operational events`} onPress={() => onOpen('alerts')} />
       <AccountRow title="Journeys / Return IQ" subtitle="Destination-priority work matching" onPress={() => onOpen('journeys')} />
-      <AccountRow title="Nearby work" subtitle="Location-aware Live Load Board" onPress={onLoads} />
+      <AccountRow title="Nearby work" subtitle="Nearest public loads by pickup distance" onPress={() => onOpen('nearby')} />
       <AccountRow title="Work state" subtitle={String(resources?.driver?.availability_status ?? 'available')} onPress={() => onOpen('availability')} />
       <AccountRow title="Earnings" subtitle={`${resources?.invoices?.length ?? 0} invoices`} onPress={() => onOpen('earnings')} />
       <AccountRow title="Sync queue" subtitle={`${queueCount} pending`} onPress={() => onOpen('offline')} />
@@ -1843,11 +1841,12 @@ function UtilityBody({ page, resources, queue, busy, loads, jobs, preferences, r
 }) {
   if (page === 'search') return <OperationsSearch loads={loads} jobs={jobs} onOpenLoad={onOpenLoad} onOpenJob={onOpenJob} />;
   if (page === 'alerts') return <AlertsFeed alerts={resources?.alerts ?? []} />;
+  if (page === 'nearby') return <NearbyWork loads={loads} onOpenLoad={onOpenLoad} />;
   if (page === 'journeys') return <JourneysPanel preferences={preferences} returnIq={returnIq} busy={busy} onChange={onJourneyPreferences} />;
   if (page === 'profile') return <View style={styles.section}><Text style={styles.sectionTitle}>Driver profile</Text><InfoLine label="Name" value={resources?.name || 'Not supplied'} /><InfoLine label="Email" value={resources?.email || 'Not supplied'} /><InfoLine label="Phone" value={resources?.phone || 'Not supplied'} /><InfoLine label="Company" value={resources?.company?.name || 'Not supplied'} /></View>;
   if (page === 'vehicle') return <View style={styles.section}><Text style={styles.sectionTitle}>Assigned vehicle</Text><InfoLine label="Registration" value={resources?.vehicle?.reg_plate || 'Not supplied'} /><InfoLine label="Type" value={resources?.vehicle?.type || resources?.vehicle?.vehicle_type || 'Not supplied'} /><InfoLine label="Make / model" value={[resources?.vehicle?.make, resources?.vehicle?.model].filter(Boolean).join(' ') || 'Not supplied'} /><InfoLine label="Payload" value={resources?.vehicle?.payload_kg ? `${resources.vehicle.payload_kg} kg` : 'Not supplied'} /></View>;
   if (page === 'documents') return <View style={styles.section}><Text style={styles.sectionTitle}>Driver documents</Text>{(resources?.documents ?? []).length === 0 ? <EmptyState title="No documents" body="Driver and vehicle records will appear here." /> : (resources?.documents ?? []).map((doc, index) => <View key={String(doc.id ?? index)} style={styles.documentRow}><Text style={styles.documentBadge}>FILE</Text><View style={styles.flexOne}><Text style={styles.documentText}>{String(doc.doc_type ?? 'Document')}</Text><Text style={styles.referenceText}>{String(doc.status ?? '')}{doc.expiry_date ? ` · expires ${formatDate(doc.expiry_date)}` : ''}</Text></View></View>)}</View>;
-  if (page === 'earnings') return <View style={styles.section}><Text style={styles.sectionTitle}>Invoices and earnings</Text>{(resources?.invoices ?? []).length === 0 ? <EmptyState title="No invoices" body="Completed XDrive invoices will appear here." /> : (resources?.invoices ?? []).map((invoice, index) => <View key={String(invoice.id ?? index)} style={styles.invoiceRow}><View><Text style={styles.documentText}>{String(invoice.invoice_number ?? `Invoice ${index + 1}`)}</Text><Text style={styles.referenceText}>{String(invoice.client_name ?? '')}</Text></View><Text style={styles.historyRate}>{formatMoney(invoice.amount, invoice.currency || 'GBP')}</Text></View>)}</View>;
+  if (page === 'earnings') return <EarningsPanel invoices={resources?.invoices ?? []} />;
   if (page === 'availability') return <View style={styles.section}><Text style={styles.sectionTitle}>Work state</Text><Text style={styles.longText}>Choose how XDrive should treat your availability for suitable work and operational alerts.</Text>{(['available', 'busy', 'offline'] as const).map((status) => <TouchableOpacity key={status} style={[styles.secondaryAction, busy && styles.disabledButton]} disabled={busy} onPress={() => void onAvailability(status)}><Text style={styles.secondaryActionText}>{status === 'available' ? 'Ready for work' : status === 'busy' ? 'Busy / unavailable for new work' : 'Off duty'}</Text></TouchableOpacity>)}</View>;
   if (page === 'offline') return <View style={styles.section}><Text style={styles.sectionTitle}>Sync queue</Text>{queue.length === 0 ? <EmptyState title="Everything is synced" body="No driver actions are waiting for server confirmation." /> : queue.map((item) => <View key={item.id} style={styles.queueRow}><Text style={styles.documentText}>{item.endpoint}</Text><Text style={styles.referenceText}>{item.jobId} · {item.status}</Text>{item.lastError ? <Text style={styles.errorText}>{item.lastError}</Text> : null}</View>)}<TouchableOpacity style={styles.primaryButton} onPress={onFlush}><Text style={styles.primaryButtonText}>Retry pending sync</Text></TouchableOpacity></View>;
   return <View style={styles.section}><Text style={styles.sectionTitle}>XDrive support</Text><Text style={styles.longText}>For urgent operational issues, use the verified XDrive support channel. Preview does not invent an unverified messaging endpoint.</Text><TouchableOpacity style={styles.secondaryAction} onPress={() => void Linking.openURL('mailto:xdrivelogisticsltd@gmail.com')}><Text style={styles.secondaryActionText}>Email XDrive support</Text></TouchableOpacity></View>;
@@ -1860,21 +1859,63 @@ function OperationsSearch({ loads, jobs, onOpenLoad, onOpenJob }: {
   onOpenJob: (id: string) => void;
 }) {
   const [query, setQuery] = useState('');
+  const [radius, setRadius] = useState<'any' | 25 | 50 | 100 | 250>('any');
+  const [vehicle, setVehicle] = useState('all');
+  const [dateWindow, setDateWindow] = useState<'any' | 'today' | 'tomorrow' | '7d'>('any');
   const term = query.trim().toLowerCase();
-  const loadMatches = term ? loads.filter((load) => [load.reference, load.pickupLocation, load.deliveryLocation, load.postingCompanyName, load.vehicleRequirement, load.cargoType].some((value) => String(value ?? '').toLowerCase().includes(term))).slice(0, 20) : [];
-  const jobMatches = term ? jobs.filter((job) => [job.reference, job.pickupLocation, job.deliveryLocation, job.postingCompanyName, job.vehicleRequirement, job.cargoType].some((value) => String(value ?? '').toLowerCase().includes(term))).slice(0, 20) : [];
+  const vehicleOptions = useMemo(() => ['all', ...Array.from(new Set(loads.map((load) => load.vehicleRequirement.trim()).filter(Boolean))).slice(0, 5)], [loads]);
+  const active = Boolean(term) || radius !== 'any' || vehicle !== 'all' || dateWindow !== 'any';
+  const textMatches = (values: unknown[]) => !term || values.some((value) => String(value ?? '').toLowerCase().includes(term));
+  const vehicleMatches = (value: unknown) => vehicle === 'all' || String(value ?? '').toLowerCase().includes(vehicle.toLowerCase());
+  const loadMatches = active ? loads.filter((load) => {
+    const miles = Number(load.distanceToPickupMiles);
+    return textMatches([load.reference, load.pickupLocation, load.deliveryLocation, load.postingCompanyName, load.vehicleRequirement, load.cargoType])
+      && vehicleMatches(load.vehicleRequirement)
+      && (radius === 'any' || (Number.isFinite(miles) && miles <= radius))
+      && matchesCollectionWindow(load.pickupTime, dateWindow);
+  }).slice(0, 30) : [];
+  const jobMatches = active && radius === 'any' ? jobs.filter((job) => textMatches([job.reference, job.pickupLocation, job.deliveryLocation, job.postingCompanyName, job.vehicleRequirement, job.cargoType])
+    && vehicleMatches(job.vehicleRequirement)
+    && matchesCollectionWindow(job.pickupTime, dateWindow)).slice(0, 20) : [];
+
   return <View style={styles.stack}>
     <View style={styles.section}>
       <Text style={styles.sectionKicker}>XDRIVE SEARCH</Text>
-      <Text style={styles.sectionTitle}>Find operational work</Text>
-      <Text style={styles.longText}>Search live marketplace loads and your own work records by reference, route, company, vehicle or freight.</Text>
+      <Text style={styles.sectionTitle}>Operational search</Text>
+      <Text style={styles.longText}>Filter public loads from your current-position feed, or search your own work records. Pickup-radius filtering applies only where XDrive has a real distance signal.</Text>
       <TextInput style={styles.bigInput} placeholder="Reference, town, company, vehicle..." placeholderTextColor="#98A2B3" value={query} onChangeText={setQuery} autoCapitalize="none" />
+      <Text style={styles.filterLabel}>PICKUP RADIUS</Text>
+      <View style={styles.filterWrap}>{(['any', 25, 50, 100, 250] as const).map((value) => <FilterChip key={String(value)} label={value === 'any' ? 'Any' : `${value} mi`} active={radius === value} onPress={() => setRadius(value)} />)}</View>
+      <Text style={styles.filterLabel}>VEHICLE</Text>
+      <View style={styles.filterWrap}>{vehicleOptions.map((value) => <FilterChip key={value} label={value === 'all' ? 'Any vehicle' : value} active={vehicle === value} onPress={() => setVehicle(value)} />)}</View>
+      <Text style={styles.filterLabel}>COLLECTION WINDOW</Text>
+      <View style={styles.filterWrap}>{([['any', 'Any date'], ['today', 'Today'], ['tomorrow', 'Tomorrow'], ['7d', 'Next 7 days']] as const).map(([value, label]) => <FilterChip key={value} label={label} active={dateWindow === value} onPress={() => setDateWindow(value)} />)}</View>
+      {active ? <TouchableOpacity style={styles.clearFilters} onPress={() => { setQuery(''); setRadius('any'); setVehicle('all'); setDateWindow('any'); }}><Text style={styles.clearFiltersText}>Clear filters</Text></TouchableOpacity> : null}
     </View>
-    {!term ? <EmptyState title="Search XDrive operations" body="Enter a reference, location, company, vehicle or freight term." /> : null}
-    {term && loadMatches.length === 0 && jobMatches.length === 0 ? <EmptyState title="No matching work" body="No current load or work record matches this search." /> : null}
-    {loadMatches.length > 0 ? <View style={styles.stack}><Text style={styles.sectionKicker}>LIVE LOADS · {loadMatches.length}</Text>{loadMatches.map((load) => <TouchableOpacity key={`search-load-${load.id}`} style={styles.historyCard} onPress={() => onOpenLoad(load)} activeOpacity={0.9}><View style={styles.historyTop}><View style={styles.flexOne}><Text style={styles.referenceStrong}>{load.reference}</Text><Text style={styles.referenceText}>{load.postingCompanyName || 'XDrive marketplace'}</Text></View><StatusTag label="LIVE" tone="blue" /></View><RouteBand pickup={load.pickupLocation} pickupTime={load.pickupTime} delivery={load.deliveryLocation} deliveryTime={load.deliveryTime} /></TouchableOpacity>)}</View> : null}
-    {jobMatches.length > 0 ? <View style={styles.stack}><Text style={styles.sectionKicker}>WORK RECORDS · {jobMatches.length}</Text>{jobMatches.map((job) => <HistoryCard key={`search-job-${job.id}`} job={job} onPress={() => onOpenJob(job.id)} />)}</View> : null}
+    {!active ? <EmptyState title="Search XDrive operations" body="Use text, pickup radius, vehicle or collection date to narrow current work." /> : null}
+    {active && loadMatches.length === 0 && jobMatches.length === 0 ? <EmptyState title="No matching work" body="No current load or work record matches these filters." /> : null}
+    {loadMatches.length > 0 ? <View style={styles.stack}><Text style={styles.sectionKicker}>LIVE LOADS ? {loadMatches.length}</Text>{loadMatches.map((load) => <TouchableOpacity key={`search-load-${load.id}`} style={styles.historyCard} onPress={() => onOpenLoad(load)} activeOpacity={0.9}><View style={styles.historyTop}><View style={styles.flexOne}><Text style={styles.referenceStrong}>{load.reference}</Text><Text style={styles.referenceText}>{load.postingCompanyName || 'XDrive marketplace'}</Text></View><StatusTag label={Number.isFinite(Number(load.distanceToPickupMiles)) ? `${Number(load.distanceToPickupMiles).toFixed(1)} MI` : 'LIVE'} tone="blue" /></View><RouteBand pickup={load.pickupLocation} pickupTime={load.pickupTime} delivery={load.deliveryLocation} deliveryTime={load.deliveryTime} /></TouchableOpacity>)}</View> : null}
+    {jobMatches.length > 0 ? <View style={styles.stack}><Text style={styles.sectionKicker}>WORK RECORDS ? {jobMatches.length}</Text>{jobMatches.map((job) => <HistoryCard key={`search-job-${job.id}`} job={job} onPress={() => onOpenJob(job.id)} />)}</View> : null}
+    {radius !== 'any' ? <Banner text="Pickup radius uses XDrive's current-position distance signal. Historical work records are intentionally excluded while a radius filter is active." /> : null}
   </View>;
+}
+
+function matchesCollectionWindow(value: string | null | undefined, window: 'any' | 'today' | 'tomorrow' | '7d') {
+  if (window === 'any') return true;
+  const date = new Date(String(value ?? ''));
+  if (Number.isNaN(date.getTime())) return false;
+  const now = new Date();
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startTomorrow = new Date(startToday); startTomorrow.setDate(startTomorrow.getDate() + 1);
+  const startDayAfter = new Date(startTomorrow); startDayAfter.setDate(startDayAfter.getDate() + 1);
+  const endSeven = new Date(startToday); endSeven.setDate(endSeven.getDate() + 7);
+  if (window === 'today') return date >= startToday && date < startTomorrow;
+  if (window === 'tomorrow') return date >= startTomorrow && date < startDayAfter;
+  return date >= startToday && date < endSeven;
+}
+
+function FilterChip({ label, active, onPress }: { label: string; active: boolean; onPress: () => void }) {
+  return <TouchableOpacity style={[styles.filterChip, active && styles.filterChipActive]} onPress={onPress} activeOpacity={0.85}><Text style={[styles.filterChipText, active && styles.filterChipTextActive]} numberOfLines={1}>{label}</Text></TouchableOpacity>;
 }
 
 function AlertsFeed({ alerts }: { alerts: DriverProfileResource['alerts'] }) {
@@ -1887,6 +1928,63 @@ function AlertsFeed({ alerts }: { alerts: DriverProfileResource['alerts'] }) {
       const route = [textValue(payload.pickup_area), textValue(payload.delivery_area)].filter(Boolean).join(' → ');
       const body = textValue(payload.message) || textValue(payload.body) || route || textValue(payload.vehicle) || textValue(alert.entity_type);
       return <View key={String(alert.id ?? index)} style={styles.historyCard}><View style={styles.historyTop}><View style={styles.flexOne}><Text style={styles.referenceStrong}>{title}</Text><Text style={styles.referenceText}>{String(alert.event_type ?? 'event').replace(/_/g, ' ').toUpperCase()}</Text></View><StatusTag label="ALERT" tone="blue" /></View>{body ? <Text style={styles.longText}>{body}</Text> : null}<Text style={styles.historyDate}>{formatDate(alert.created_at)}</Text></View>;
+    })}
+  </View>;
+}
+
+function NearbyWork({ loads, onOpenLoad }: { loads: LiveLoad[]; onOpenLoad: (load: LiveLoad) => void }) {
+  const ranked = useMemo(() => loads
+    .filter((load) => Number.isFinite(Number(load.distanceToPickupMiles)))
+    .sort((left, right) => Number(left.distanceToPickupMiles) - Number(right.distanceToPickupMiles))
+    .slice(0, 30), [loads]);
+  const unavailable = loads.length - ranked.length;
+  return <View style={styles.stack}>
+    <View style={styles.section}>
+      <Text style={styles.sectionKicker}>NEARBY WORK</Text>
+      <Text style={styles.sectionTitle}>Closest collection opportunities</Text>
+      <Text style={styles.longText}>Loads are ranked by XDrive's real distance-to-pickup signal. This does not expose other drivers or their live positions.</Text>
+      <InfoLine label="Loads with distance" value={String(ranked.length)} />
+      <InfoLine label="Distance unavailable" value={String(Math.max(0, unavailable))} />
+    </View>
+    {ranked.length === 0 ? <EmptyState title="No distance-ranked loads" body="The Load Board may still contain work, but no current pickup-distance signal is available yet." /> : ranked.map((load) => <TouchableOpacity key={`nearby-${load.id}`} style={styles.historyCard} onPress={() => onOpenLoad(load)} activeOpacity={0.9}>
+      <View style={styles.historyTop}><View style={styles.flexOne}><Text style={styles.referenceStrong}>{load.reference}</Text><Text style={styles.referenceText}>{load.postingCompanyName || 'XDrive marketplace'}</Text></View><StatusTag label={`${Number(load.distanceToPickupMiles).toFixed(1)} MI`} tone="blue" /></View>
+      <RouteBand pickup={load.pickupLocation} pickupTime={load.pickupTime} delivery={load.deliveryLocation} deliveryTime={load.deliveryTime} />
+      <Text style={styles.nearbyMeta}>{load.vehicleRequirement}{load.cargoType ? ` ? ${load.cargoType}` : ''}</Text>
+    </TouchableOpacity>)}
+  </View>;
+}
+
+type InvoiceResource = Record<string, unknown>;
+
+function EarningsPanel({ invoices }: { invoices: InvoiceResource[] }) {
+  const buckets = useMemo(() => {
+    const result = { review: [] as InvoiceResource[], awaiting: [] as InvoiceResource[], paid: [] as InvoiceResource[] };
+    for (const invoice of invoices) {
+      const status = `${String(invoice.status ?? '')} ${String(invoice.payment_status ?? '')}`.toLowerCase();
+      if (/\bpaid\b/.test(status) && !/unpaid/.test(status)) result.paid.push(invoice);
+      else if (/overdue|unpaid|partial|sent|issued|approved|awaiting/.test(status)) result.awaiting.push(invoice);
+      else result.review.push(invoice);
+    }
+    return result;
+  }, [invoices]);
+  const gbpTotal = (rows: InvoiceResource[]) => rows.reduce((sum, invoice) => String(invoice.currency ?? 'GBP').toUpperCase() === 'GBP' ? sum + (Number(invoice.amount) || 0) : sum, 0);
+  const summary = [
+    ['IN REVIEW', buckets.review],
+    ['AWAITING PAYMENT', buckets.awaiting],
+    ['PAID', buckets.paid],
+  ] as const;
+  return <View style={styles.stack}>
+    <View style={styles.section}>
+      <Text style={styles.sectionKicker}>FINANCE CONTROL</Text>
+      <Text style={styles.sectionTitle}>Invoices and earnings</Text>
+      <Text style={styles.longText}>Read-only invoice status from XDrive records. No early-payment or payout feature is implied here.</Text>
+      <View style={styles.summaryGrid}>{summary.map(([label, rows]) => <View key={label} style={styles.summaryCard}><Text style={styles.summaryLabel}>{label}</Text><Text style={styles.summaryValue}>{rows.length}</Text><Text style={styles.summaryMeta}>{formatMoney(gbpTotal(rows), 'GBP')} GBP tracked</Text></View>)}</View>
+    </View>
+    {invoices.length === 0 ? <EmptyState title="No invoices" body="Completed XDrive invoices will appear here." /> : invoices.map((invoice, index) => {
+      const status = String(invoice.payment_status ?? invoice.status ?? 'Unknown');
+      const dueDate = textValue(invoice.due_date);
+      const currency = String(invoice.currency ?? 'GBP');
+      return <View key={String(invoice.id ?? index)} style={styles.invoiceRow}><View style={styles.flexOne}><Text style={styles.documentText}>{String(invoice.invoice_number ?? `Invoice ${index + 1}`)}</Text><Text style={styles.referenceText}>{String(invoice.client_name ?? '')}</Text><Text style={styles.referenceText}>{status}{dueDate ? ` ? due ${formatDate(dueDate)}` : ''}</Text></View><Text style={styles.historyRate}>{formatMoney(invoice.amount, currency)}</Text></View>;
     })}
   </View>;
 }
@@ -2001,6 +2099,7 @@ function utilityTitle(page: UtilityPage) {
   if (page === 'offline') return 'Sync Queue';
   if (page === 'search') return 'Operations Search';
   if (page === 'alerts') return 'Alerts';
+  if (page === 'nearby') return 'Nearby Work';
   if (page === 'journeys') return 'Journeys / Return IQ';
   return 'Support';
 }
@@ -2188,6 +2287,15 @@ const styles = StyleSheet.create({
   infoValue: { color: colors.text, fontSize: 12, fontWeight: '900', flex: 1, textAlign: 'right' },
   fieldLabel: { color: colors.secondary, fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginTop: 3 },
   bigInput: { minHeight: 54, borderColor: colors.border, borderWidth: 1, borderRadius: 14, backgroundColor: '#FFFFFF', color: colors.text, paddingHorizontal: 14, fontSize: 16, fontWeight: '600' },
+  filterLabel: { color: colors.secondary, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 2 },
+  filterWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filterChip: { minHeight: 38, maxWidth: '100%', borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: '#FFFFFF', paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
+  filterChipActive: { borderColor: colors.primary, backgroundColor: '#EAF2FF' },
+  filterChipText: { color: colors.muted, fontSize: 11, fontWeight: '800', maxWidth: 170 },
+  filterChipTextActive: { color: colors.primary, fontWeight: '900' },
+  clearFilters: { alignSelf: 'flex-start', paddingVertical: 5 },
+  clearFiltersText: { color: colors.primary, fontSize: 12, fontWeight: '900' },
+  nearbyMeta: { color: colors.muted, fontSize: 11, lineHeight: 16, fontWeight: '700' },
   textarea: { minHeight: 100, paddingTop: 14, textAlignVertical: 'top' },
   primaryButton: { minHeight: 56, backgroundColor: colors.primary, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
   primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
@@ -2229,6 +2337,11 @@ const styles = StyleSheet.create({
   documentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: 11, padding: 10, backgroundColor: '#F8FAFC' },
   documentBadge: { width: 40, color: colors.primary, fontSize: 9, fontWeight: '900' },
   documentText: { color: colors.text, fontSize: 13, fontWeight: '800' },
+  summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  summaryCard: { flexGrow: 1, flexBasis: 96, minHeight: 96, borderRadius: 13, backgroundColor: '#F5F8FC', borderColor: colors.borderSubtle, borderWidth: 1, padding: 11, justifyContent: 'space-between' },
+  summaryLabel: { color: colors.muted, fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
+  summaryValue: { color: colors.secondary, fontSize: 25, fontWeight: '900' },
+  summaryMeta: { color: colors.muted, fontSize: 9, lineHeight: 13, fontWeight: '700' },
   invoiceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 14, borderBottomColor: colors.borderSubtle, borderBottomWidth: 1, paddingVertical: 10 },
   queueRow: { borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: 11, padding: 10 },
   errorText: { color: colors.danger, fontSize: 11, marginTop: 4 },
