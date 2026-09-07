@@ -71,8 +71,8 @@ export default function Page() {
       {!error && !loading ? grouped.map(([category, entries]) => <SuperAdminSectionCard key={category} title={category} description={`${entries.length} governed setting(s)`}>
         <div style={{ display: 'grid', gap: 10 }}>
           {entries.map((setting) => <label key={setting.key} htmlFor={`setting-${setting.key}`} style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1fr) minmax(220px,360px)', gap: 12, alignItems: 'center', paddingBottom: 10, borderBottom: '1px solid #EEF2F6' }}>
-            <span><strong>{setting.label}</strong><code style={{ display: 'block', marginTop: 3, color: '#64748B', fontSize: 11 }}>{setting.key}</code></span>
-            <input id={`setting-${setting.key}`} value={setting.value} onChange={(event) => setValue(setting.key, event.target.value)} style={{ minHeight: 36, border: '1px solid #D9E1EA', borderRadius: 8, padding: '0 10px', color: '#1A1F2B', background: '#FFFFFF' }} />
+            <span><strong>{setting.label}</strong><code style={{ display: 'block', marginTop: 3, color: '#667085', fontSize: 11 }}>{setting.key}</code></span>
+            <input id={`setting-${setting.key}`} value={setting.value} onChange={(event) => setValue(setting.key, event.target.value)} style={{ minHeight: 36, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 10px', color: '#1A1F2B', background: '#FFFFFF' }} />
           </label>)}
         </div>
       </SuperAdminSectionCard>) : null}

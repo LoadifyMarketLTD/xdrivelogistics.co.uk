@@ -8,8 +8,8 @@ import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmM
 
 type FraudAction='investigate'|'clear'|'confirm'|'dismiss';
 type Row={id:string;subject_user_id:string|null;subject_company_id:string|null;onboarding_application_id:string|null;matched_user_id:string|null;matched_company_id:string|null;case_type:string;severity:'medium'|'high'|'critical';status:string;automatic_hold:boolean;evidence:Record<string,unknown>;decision_reason:string|null;created_at:string;updated_at:string;applicant_email:string;account_type:string;application_risk_status:string;application_risk_reason:string|null;subject_company_name:string|null;matched_company_name:string|null;};
-const X={navy:'#0B2F6B',blue:'#1D57D8',orange:'#F5A300',white:'#FFFFFF',charcoal:'#1A1F2B',light:'#F4F6F8',border:'#D9E1EA',muted:'#64748B',danger:'#DC2626'} as const;
-const severityColor:Record<Row['severity'],string>={medium:X.orange,high:'#EA580C',critical:X.danger};
+const X={navy:'#0B2F6B',blue:'#1D57D8',orange:'#F5A300',white:'#FFFFFF',charcoal:'#1A1F2B',light:'#F4F6F8',border:'#E5E7EB',muted:'#667085',danger:'#D92D20'} as const;
+const severityColor:Record<Row['severity'],string>={medium:X.orange,high:'#D92D20',critical:X.danger};
 const summarizeEvidence=(evidence:Record<string,unknown>)=>{const entries=Object.entries(evidence).slice(0,4);if(entries.length===0)return'No evidence metadata recorded.';return entries.map(([key,value])=>`${key.replace(/_/g,' ')}: ${String(value??'—')}`).join(' · ');};
 const friendlyError=(message:string|undefined,status:number)=>{const raw=message??'';if(/schema cache|relation .* does not exist|fraud_review_cases|public\./i.test(raw))return'Fraud review service is currently unavailable. Technical details have been withheld from this interface.';return raw||`Review failed (${status}).`;};
 const actionButton=(tone:'default'|'danger'='default')=>({height:'32px',padding:'0 8px',borderRadius:'4px',border:`1px solid ${tone==='danger'?X.danger:X.border}`,background:X.white,color:tone==='danger'?X.danger:X.navy,fontSize:'11px',fontWeight:700,cursor:'pointer'} as const);

@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { LayoutDashboard, RefreshCw } from 'lucide-react';
 import ProtectedRoute from '../components/ProtectedRoute';
-import { ConnectedExchangePanel } from '../components/workspace/ConnectedExchangePanel';
 import { getAuthHeader } from './_lib/getAuthHeader';
 import SuperAdminOperationalMap, {
   type OperationalDriverPin,
@@ -320,7 +319,7 @@ function CommandCentre() {
         </SuperAdminMetricGrid>
       </section>
 
-      <ConnectedExchangePanel role="super-admin" title="Connected Exchange intelligence" variant="super-admin" />      <SuperAdminSectionCard
+      <SuperAdminSectionCard
         title="Live Operations Map"
         description="Real driver availability/execution positions and active job route coordinates. No provider call is triggered by this view."
         actions={<Link href="/super-admin/operations/fleet-positions">Open Fleet Positions →</Link>}
@@ -344,7 +343,9 @@ function CommandCentre() {
         {loading ? [0, 1, 2, 3, 4].map((index) => <SuperAdminMetricCard key={index} label="Loading…" value="—" tone="neutral" />)
           : attentionList.length ? attentionList.map((indicator) => <SuperAdminMetricCard key={indicator.label} label={indicator.label} value={indicator.count === null ? '—' : indicator.count.toLocaleString()} note={indicator.note ?? indicator.severity} tone={severityTone(indicator.severity)} />)
             : ['Critical actions', 'Jobs at risk', 'Blocked accounts', 'Overdue invoices', 'Degraded services'].map((label) => <SuperAdminMetricCard key={label} label={label} value="—" note="Unavailable — not reported as healthy." tone="unavailable" />)}
-      </SuperAdminMetricGrid>      <SuperAdminSectionCard
+      </SuperAdminMetricGrid>
+
+      <SuperAdminSectionCard
         title="Operational queue"
         description={queue?.queueNote ?? 'Derived owner action queue from canonical source tables.'}
         actions={queue ? <SuperAdminStatusBadge label={queue.total === null ? 'Partial total' : `${queue.total} total`} tone={commandPartial ? 'warning' : 'info'} /> : undefined}

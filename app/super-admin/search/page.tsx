@@ -9,7 +9,7 @@ import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 const X = {
   navy: '#0B2F6B', blue: '#1D57D8', white: '#FFFFFF', charcoal: '#1A1F2B', light: '#F4F6F8',
-  border: '#D9E1EA', muted: '#64748B', orange: '#F5A300', danger: '#DC2626',
+  border: '#E5E7EB', muted: '#667085', orange: '#F5A300', danger: '#D92D20',
 } as const;
 
 type SearchRow = {

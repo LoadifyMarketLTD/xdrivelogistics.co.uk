@@ -37,9 +37,9 @@ export default function Page() {
     columns={[
       { key: 'route', label: 'Route', render: (row) => <strong>{place(row.from_location, row.from_postcode)} → {place(row.to_location, row.to_postcode)}</strong> },
       { key: 'company', label: 'Company', render: (row) => row.company_id ? <PlatformEntityLink entityType="company" entityId={row.company_id} compact>{row.company_name}</PlatformEntityLink> : '—' },
-      { key: 'driver', label: 'Driver', render: (row) => row.driver_id ? <div><PlatformEntityLink entityType="driver" entityId={row.driver_id} compact>{row.driver_name}</PlatformEntityLink>{row.driver_phone ? <div style={{fontSize:10,color:'#64748B',marginTop:3}}>{row.driver_phone}</div> : null}</div> : '—' },
+      { key: 'driver', label: 'Driver', render: (row) => row.driver_id ? <div><PlatformEntityLink entityType="driver" entityId={row.driver_id} compact>{row.driver_name}</PlatformEntityLink>{row.driver_phone ? <div style={{fontSize:10,color:'#667085',marginTop:3}}>{row.driver_phone}</div> : null}</div> : '—' },
       { key: 'vehicle', label: 'Vehicle', render: (row) => row.vehicle_type?.replaceAll('_',' ') ?? '—' },
-      { key: 'window', label: 'Availability', render: (row) => <div>{formatDateTime(row.available_from ?? row.available_date)}<div style={{fontSize:10,color:'#64748B',marginTop:2}}>until {formatDateTime(row.available_to)}</div></div> },
+      { key: 'window', label: 'Availability', render: (row) => <div>{formatDateTime(row.available_from ?? row.available_date)}<div style={{fontSize:10,color:'#667085',marginTop:2}}>until {formatDateTime(row.available_to)}</div></div> },
       { key: 'status', label: 'Status', render: (row) => <StatusChip value={row.status} /> },
       { key: 'notes', label: 'Notes', render: (row) => row.notes?.trim() || '—' },
     ]}

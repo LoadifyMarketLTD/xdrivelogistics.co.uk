@@ -124,7 +124,7 @@ export default function Page() {
         render: (row: Row) => (
           <div>
             <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>{row.entity_name}</div>
-            <div style={{ fontSize: '0.68rem', color: '#94a3b8', textTransform: 'capitalize' }}>
+            <div style={{ fontSize: '0.68rem', color: '#667085', textTransform: 'capitalize' }}>
               {row.entity_type}
             </div>
           </div>
@@ -153,7 +153,7 @@ export default function Page() {
         key: 'issued_date',
         label: 'Issued',
         render: (row: Row) => (
-          <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>
+          <span style={{ fontSize: '0.75rem', color: '#667085' }}>
             {row.issued_date ?? '—'}
           </span>
         ),
@@ -162,7 +162,7 @@ export default function Page() {
         key: 'expiry_date',
         label: 'Expiry',
         render: (row: Row) => (
-          <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#ef4444' : '#475569' }}>
+          <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#D92D20' : '#667085' }}>
             {row.expiry_date ?? '—'}
             {row.is_expired ? ' · EXPIRED' : ''}
           </span>
@@ -220,7 +220,7 @@ export default function Page() {
         open={pendingReject !== null}
         title="❌ Reject document"
         description={
-          <>Reject <strong style={{ color: '#f1f5f9' }}>{pendingReject?.doc_type.replace(/_/g, ' ')}</strong> for <strong style={{ color: '#f1f5f9' }}>{pendingReject?.entity_name}</strong>. The document will be marked as rejected.</>
+          <>Reject <strong style={{ color: '#1A1F2B' }}>{pendingReject?.doc_type.replace(/_/g, ' ')}</strong> for <strong style={{ color: '#1A1F2B' }}>{pendingReject?.entity_name}</strong>. The document will be marked as rejected.</>
         }
         confirmLabel="Confirm rejection"
         danger
@@ -240,7 +240,7 @@ export default function Page() {
         <div
           style={{
             position: 'fixed', top: '1rem', right: '1rem', zIndex: 999,
-            backgroundColor: '#7f1d1d', border: '1px solid #ef4444',
+            backgroundColor: '#7f1d1d', border: '1px solid #D92D20',
             borderRadius: '8px', padding: '0.75rem 1rem',
             color: '#fca5a5', fontSize: '0.82rem', maxWidth: '360px',
             cursor: 'pointer',

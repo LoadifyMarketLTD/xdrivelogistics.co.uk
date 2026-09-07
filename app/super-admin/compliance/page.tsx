@@ -76,11 +76,11 @@ export default function Page() {
       </SuperAdminMetricGrid>
       <SuperAdminSectionCard title="Compliance workspaces" description="Every destination keeps its existing owner-only authorization and audited mutations.">
         <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(220px,1fr))',gap:12}}>
-          {destinations.map(([href,title,description])=><Link key={href} href={href} data-card="enterprise" style={{border:'1px solid #D9E1EA',borderRadius:8,padding:14,textDecoration:'none',color:'#0B2F6B',background:'#fff'}}><strong>{title}</strong><p style={{margin:'6px 0 0',fontSize:12,color:'#64748B',lineHeight:1.45}}>{description}</p></Link>)}
+          {destinations.map(([href,title,description])=><Link key={href} href={href} data-card="enterprise" style={{border:'1px solid #E5E7EB',borderRadius:8,padding:14,textDecoration:'none',color:'#0B2F6B',background:'#FFFFFF'}}><strong>{title}</strong><p style={{margin:'6px 0 0',fontSize:12,color:'#667085',lineHeight:1.45}}>{description}</p></Link>)}
         </div>
       </SuperAdminSectionCard>
       <SuperAdminSectionCard title="Truth boundary" description="Compliance data is evidence-driven and fail-closed.">
-        <p style={{margin:0,fontSize:12,lineHeight:1.55,color:'#475569'}}>This overview reports only the document evidence returned by the canonical compliance review source. Missing source data is not converted into approval, regulator readiness, or a zero-risk state. Document view and review actions remain audit logged.</p>
+        <p style={{margin:0,fontSize:12,lineHeight:1.55,color:'#667085'}}>This overview reports only the document evidence returned by the canonical compliance review source. Missing source data is not converted into approval, regulator readiness, or a zero-risk state. Document view and review actions remain audit logged.</p>
       </SuperAdminSectionCard>
     </>}
   </SuperAdminPage></ProtectedRoute>;

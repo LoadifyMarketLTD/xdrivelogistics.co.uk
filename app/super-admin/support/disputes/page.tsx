@@ -46,8 +46,8 @@ export default function Page() {
       },
       { key: 'status', label: 'Status', render: (row) => <StatusChip value={row.status} /> },
       { key: 'reason', label: 'Reason', render: (row) => row.reason },
-      { key: 'details', label: 'Details', render: (row) => <span style={{ color: '#475569' }}>{row.details ?? '—'}</span> },
-      { key: 'resolution', label: 'Resolution', render: (row) => <span style={{ color: row.resolution_note ? '#168553' : '#64748B' }}>{row.resolution_note ?? '—'}</span> },
+      { key: 'details', label: 'Details', render: (row) => <span style={{ color: '#667085' }}>{row.details ?? '—'}</span> },
+      { key: 'resolution', label: 'Resolution', render: (row) => <span style={{ color: row.resolution_note ? '#168553' : '#667085' }}>{row.resolution_note ?? '—'}</span> },
       { key: 'filed', label: 'Filed', render: (row) => formatDateTime(row.created_at) },
       { key: 'resolved', label: 'Resolved', render: (row) => row.resolved_at ? formatDateTime(row.resolved_at) : '—' },
     ]}

@@ -25,7 +25,7 @@ export default function Page() {
     pageSize={50}
     emptyMessage="No Stripe webhook events found."
     columns={[
-      { key: 'event', label: 'Event', render: (row) => <div><strong>{row.event_type}</strong><div style={{fontSize:10,color:'#64748B',marginTop:3}}>{row.stripe_event_id}</div></div> },
+      { key: 'event', label: 'Event', render: (row) => <div><strong>{row.event_type}</strong><div style={{fontSize:10,color:'#667085',marginTop:3}}>{row.stripe_event_id}</div></div> },
       { key: 'mode', label: 'Mode', render: (row) => row.livemode ? 'Live' : 'Test' },
       { key: 'account', label: 'Account', render: (row) => row.connected_account },
       { key: 'status', label: 'Processing', render: (row) => <StatusChip value={row.processing_status} /> },
