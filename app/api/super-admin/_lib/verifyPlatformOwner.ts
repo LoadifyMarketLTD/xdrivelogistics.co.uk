@@ -18,13 +18,20 @@ export const isSuperAdminDeployPreviewReadOnly = () =>
   || Boolean(process.env.DEPLOY_PRIME_URL?.includes('deploy-preview-'))
   || Boolean(process.env.URL?.includes('deploy-preview-'));
 
+/**
+ * Lightweight authentication-presence check for endpoints that must preserve
+ * the HTTP distinction between unauthenticated (401) and authenticated but
+ * unauthorized (403). Token validation and owner authorization still happen
+ * exclusively in verifyPlatformOwner below.
+ */
+export const hasSuperAdminBearerAuthorization = (request: NextRequest) => Boolean(getBearerToken(request));
+
 export async function verifyPlatformOwner(request: NextRequest): Promise<VerifiedPlatformOwner | null> {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
 
-  // PR #431 is an inspectable Netlify Deploy Preview connected to live data for
-  // read-only truth checks. Fail closed before authentication/data mutation for
-  // every Super Admin write method so no forgotten UI action can write to the
-  // Production-backed environment from a preview deployment.
+  // Deploy Previews may be connected to Production-backed read sources for
+  // truth validation. Fail closed before every Super Admin write method so a
+  // preview can never become an accidental mutation surface.
   if (isSuperAdminDeployPreviewReadOnly() && !READ_ONLY_METHODS.has(request.method.toUpperCase())) {
     return null;
   }
@@ -43,8 +50,8 @@ export async function verifyPlatformOwner(request: NextRequest): Promise<Verifie
     .maybeSingle();
 
   if (profileError || !profile) return null;
-  if (String(profile.role ?? '').toLowerCase() !== 'owner') return null;
-  if (String(profile.status ?? 'active').toLowerCase() !== 'active') return null;
+  if (String(profile.role ?? '').trim().toLowerCase() !== 'owner') return null;
+  if (String(profile.status ?? '').trim().toLowerCase() !== 'active') return null;
 
   return {
     id: authData.user.id,

@@ -44,6 +44,10 @@ export const toCanonicalInvoiceStatus = (
   if (!value) return fallback;
 
   const normalized = value.toLowerCase();
+  // Hosted finance stores a voided invoice as `void`; presentation and business
+  // rules must treat it as the canonical terminal Cancelled state, never Draft.
+  if (normalized === 'void' || normalized === 'canceled') return 'Cancelled';
+
   const canonicalMatch = CANONICAL_INVOICE_STATUSES.find((status) => status.toLowerCase() === normalized);
   if (canonicalMatch) return canonicalMatch;
 
