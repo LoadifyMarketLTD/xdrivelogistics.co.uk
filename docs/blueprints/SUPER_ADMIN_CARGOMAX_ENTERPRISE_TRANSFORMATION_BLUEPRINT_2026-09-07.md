@@ -1,10 +1,10 @@
-﻿# XDrive Super Admin — Cargomax-Level Enterprise Transformation Blueprint
+# XDrive Super Admin � Cargomax-Level Enterprise Transformation Blueprint
 
-**Date:** 2026-09-07  
-**Repository:** `LoadifyMarketLTD/xdrivelogistics.co.uk`  
-**Canonical production site:** `https://www.xdrivelogistics.co.uk`  
-**Benchmark:** Cargomax Shipping & Logistics Admin Dashboard — visual/UX reference only  
-**Benchmark demo:** `https://cargomax-dashboard.vercel.app/`  
+**Date:** 2026-09-07
+**Repository:** `LoadifyMarketLTD/xdrivelogistics.co.uk`
+**Canonical production site:** `https://www.xdrivelogistics.co.uk`
+**Benchmark:** Cargomax Shipping & Logistics Admin Dashboard � visual/UX reference only
+**Benchmark demo:** `https://cargomax-dashboard.vercel.app/`
 **Purpose:** canonical execution blueprint for any agent continuing the Super Admin transformation.
 
 ## 0. Mission
@@ -180,27 +180,27 @@ The desired quality level is Cargomax-like; the design language remains XDrive.
 - Use Inter as the primary UI font unless the canonical design contract is intentionally revised.
 - Prefer 8px radius for controls/cards unless an existing approved component contract requires otherwise.
 - Shadows must be subtle and consistent; avoid floating-card visual noise.
-- Reduce excessive 24px padding inside dense tables. Data rows should target approximately 44–52px where practical.
+- Reduce excessive 24px padding inside dense tables. Data rows should target approximately 44�52px where practical.
 - Section spacing can remain generous while table/content density increases.
 - Keep status chips small, legible and consistent.
 - Use icons to improve scanning, not as decoration.
 - Avoid emoji icons in final production navigation; replace provisional glyphs with the approved icon family.
 
 ### Contract rule
-`docs/super-admin/MASTER_CONTRACT_FINAL.md` remains authoritative until intentionally updated. If this transformation requires changes to that contract, document the delta explicitly and obtain visual acceptance before changing the canonical contract. Do not silently violate it.
+`docs/super-admin/MASTER_CONTRACT_FINAL.md` is MASTER CONTRACT FINAL v3 and is the sole canonical Super Admin contract. MASTER CONTRACT v2 is superseded/cancelled. Execute this blueprint against v3; do not reintroduce cancelled v2 navbar, no-collapse, no-responsive or four-KPI-only constraints.
 
 ## 7. Command Centre target composition
 
 The rebuilt `/super-admin` must become an operations cockpit.
 
-### Row A — page header
+### Row A � page header
 - `Command Centre`
 - current environment badge;
 - last verified refresh time;
 - Refresh action;
 - no fake green/healthy state when a source fails.
 
-### Row B — primary KPIs
+### Row B � primary KPIs
 Target eight compact cards, all backed by canonical sources:
 - Active Jobs
 - Jobs at Risk
@@ -211,35 +211,35 @@ Target eight compact cards, all backed by canonical sources:
 - Active Companies
 - Platform Incidents
 
-### Row C — live operations
+### Row C � live operations
 Two-column or responsive composition:
 - Live Operations Map / geographic operational picture.
 - Jobs requiring attention / active execution queue.
 
 Map markers must originate from canonical tracked entities. Do not expose data that the Platform Owner is not authorized to inspect.
 
-### Row D — Secure Operations
+### Row D � Secure Operations
 - Secure Loads state distribution: Blocked / Review / Awaiting Assignment / Clear.
 - Jobs at Risk reasons.
 - Compliance blockers.
 - POD / delivery evidence readiness.
 - Tracking evidence presence.
 
-### Row E — operational performance
+### Row E � operational performance
 - Job lifecycle trend over a useful, explicit time window.
 - Delivered vs delayed / at-risk trend where canonical evidence supports it.
 - No invented percentage change badges. Every delta must have a defined comparison period and source.
 
-### Row F — fleet status
+### Row F � fleet status
 - Active / Available / Busy / Compliance Blocked / Maintenance if supported.
 - Do not infer mechanical health from compliance documents.
 - Clearly distinguish availability, compliance and telemetry freshness.
 
-### Row G — finance
+### Row G � finance
 - Revenue / invoiced / unpaid / overdue / disputed exposure.
 - Currency handling must be explicit; never silently aggregate incompatible currencies as GBP.
 
-### Row H — platform activity and alerts
+### Row H � platform activity and alerts
 - Recent verified administrative/operational activity.
 - Critical alerts and Action Centre items.
 - Quick actions limited to safe, authorized destinations.
@@ -267,10 +267,10 @@ Use existing schema and logic before considering migrations:
 
 ### Secure Load states
 The read model must expose a small, explainable state set:
-- `CLEAR` — no verified blocker in the evaluated evidence.
-- `REVIEW` — elevated load conditions or requirements merit human review but no hard blocker is established.
-- `BLOCKED` — one or more verified execution/compliance blockers exist.
-- `AWAITING ASSIGNMENT` — the load has not yet reached a state where execution credentials can be evaluated because no driver is assigned.
+- `CLEAR` � no verified blocker in the evaluated evidence.
+- `REVIEW` � elevated load conditions or requirements merit human review but no hard blocker is established.
+- `BLOCKED` � one or more verified execution/compliance blockers exist.
+- `AWAITING ASSIGNMENT` � the load has not yet reached a state where execution credentials can be evaluated because no driver is assigned.
 
 ### Fail-closed rule
 If required credential verification cannot be completed because a canonical source errors, return `UNAVAILABLE` / blocker context. Never label the driver or load `CLEAR` because a query failed.
@@ -341,7 +341,7 @@ For aggregate endpoints:
 
 Do not create parallel status vocabularies where canonical lifecycle/status helpers already exist.
 
-## 11. Cargomax → XDrive functional mapping
+## 11. Cargomax ? XDrive functional mapping
 
 | Cargomax pattern | XDrive destination |
 | --- | --- |
@@ -361,9 +361,9 @@ Do not create parallel status vocabularies where canonical lifecycle/status help
 | Notifications Setup | Notifications / settings |
 | Support Tickets | Support Tickets |
 | Audit Logs | Platform Audit Logs |
-## 12. Execution phases — mandatory order
+## 12. Execution phases � mandatory order
 
-### Phase 0 — baseline and protection
+### Phase 0 � baseline and protection
 1. Verify repository, branch, `main` SHA and active worktrees.
 2. Read `docs/super-admin/MASTER_CONTRACT_FINAL.md` fully.
 3. Read the existing Super Admin current-state/checkpoint documentation.
@@ -374,7 +374,7 @@ Do not create parallel status vocabularies where canonical lifecycle/status help
 
 **Gate 0:** agent can state exactly what already exists, what is being retained and which files are in scope.
 
-### Phase 1 — enterprise shell
+### Phase 1 � enterprise shell
 1. Build/reconcile shared sidebar and top bar.
 2. Implement the Section 4 navigation hierarchy without dropping existing destinations.
 3. Replace provisional emoji/glyph navigation with consistent icon components.
@@ -384,14 +384,14 @@ Do not create parallel status vocabularies where canonical lifecycle/status help
 
 **Gate 1:** every existing Super Admin destination remains reachable and authorization semantics are unchanged.
 
-### Phase 2 — design primitives
+### Phase 2 � design primitives
 1. Centralize page header, metric card, section card, status badge, data grid and unavailable state.
 2. Reconcile spacing and typography with the approved XDrive contract.
 3. Establish table-density tokens and responsive behavior.
 4. Add chart/map wrappers only around existing approved libraries; do not add dependencies casually.
 
 **Gate 2:** representative pages render consistently without breaking existing functional tests.
-### Phase 3 — Command Centre transformation
+### Phase 3 � Command Centre transformation
 1. Rebuild `/super-admin` using Section 7 composition.
 2. Reuse existing command-centre/stats/platform-health truth wherever possible.
 3. Add new read-model fields only where a required KPI is genuinely missing.
@@ -402,7 +402,7 @@ Do not create parallel status vocabularies where canonical lifecycle/status help
 
 **Gate 3:** no displayed metric is fabricated; all primary cards and panels have documented source definitions.
 
-### Phase 4 — Secure Operations
+### Phase 4 � Secure Operations
 1. Finish the shared Secure Load derivation library.
 2. Finish owner-only `/api/super-admin/secure-loads` read model.
 3. Build `/super-admin/operations/secure-loads` with state metrics, filters and dense ledger.
@@ -412,7 +412,7 @@ Do not create parallel status vocabularies where canonical lifecycle/status help
 
 **Gate 4:** credential source failures produce unavailable/blocked truth, never false clear states.
 
-### Phase 5 — Operations and Fleet convergence
+### Phase 5 � Operations and Fleet convergence
 1. Apply the shared data-grid/page-header system to Jobs, Active Jobs, Pending Jobs, Completed Jobs, Allocations and Deliveries.
 2. Upgrade Fleet overview, Drivers, Vehicles, Availability and Fleet Positions.
 3. Add operational map presentation using existing canonical telemetry sources.
@@ -420,7 +420,7 @@ Do not create parallel status vocabularies where canonical lifecycle/status help
 5. Preserve Return Journey / Return IQ semantics; do not clone CX or Cargomax behavior.
 
 **Gate 5:** cross-company Platform Owner inspection works end-to-end without changing tenant permissions.
-### Phase 6 — Companies, Finance and Compliance
+### Phase 6 � Companies, Finance and Compliance
 1. Standardize Companies and Broker oversight using the new shell/grid primitives.
 2. Keep Membership & Access visibly distinct from platform roles.
 3. Upgrade Finance Overview with real invoice/payment/revenue state and explicit currency truth.
@@ -430,7 +430,7 @@ Do not create parallel status vocabularies where canonical lifecycle/status help
 
 **Gate 6:** no finance or compliance action loses existing authorization, audit or fail-closed protection.
 
-### Phase 7 — Platform, support and inspector consistency
+### Phase 7 � Platform, support and inspector consistency
 1. Apply the common visual system to Platform Health, Notifications, Roles & Permissions, Settings, Support and Audit Logs.
 2. Keep Platform Entity Inspector read-only unless a separate audited action flow already exists.
 3. Ensure all important table entities can open the appropriate inspector.
@@ -438,7 +438,7 @@ Do not create parallel status vocabularies where canonical lifecycle/status help
 
 **Gate 7:** the Super Admin feels like one product across all domains.
 
-### Phase 8 — optional advanced polish
+### Phase 8 � optional advanced polish
 Only after light-mode core is accepted:
 - dark mode;
 - saved filters/views;
@@ -449,7 +449,7 @@ Only after light-mode core is accepted:
 
 These are optional. Do not delay the core transformation for them.
 
-### Phase 9 — release hardening
+### Phase 9 � release hardening
 Run the full validation plan in Section 15, generate a Deploy Preview, complete authenticated owner visual E2E, resolve regressions, and only then seek merge/release approval.
 ## 13. Page-level acceptance requirements
 

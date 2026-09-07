@@ -1,383 +1,491 @@
-# 🟩 MASTER CONTRACT FINAL v2 — SUPER ADMIN (INCLUS NAVBAR)
-
-## Document complet, final, neinterpretabil, fără opțiuni, fără completări ulterioare.
-
-# 🔥 0. REGULA SUPREMĂ
-
-Orice componentă, orice pagină, orice stil, orice status, orice acțiune, orice geometrie — trebuie să respecte EXACT valorile din acest contract.
-Nu există excepții. Nu există interpretări. Nu există „aproape”.
-
-# 🔥 1. DESIGN SYSTEM ENTERPRISE
-
-## 1.1 Radius
-
-8px peste TOT.
-
-## 1.2 Shadow
-
-0px 2px 6px rgba(0,0,0,0.08) peste TOT.
-
-## 1.3 Spacing
-
-- 24px = enterprise containers
-- 12px 18px = enterprise buttons
-- 4px 10px = StatusChip
-- 0 14px = pager buttons
-- 0 12px = compact table actions
-
-## 1.4 Typography
-
-- Titluri: Inter 20px / 700
-- Buttons: Inter 16px / 500
-- Dropdown: Inter 14px / 400
-
-## 1.5 Iconuri
-
-24px peste TOT.
-
-## 1.6 Paletă cromatică
-
-- Blue: #1A73E8
-- Green: #34A853
-- Yellow: #FBBC05
-- Red: #EA4335
-- Grey: #8A9099
-- Background: #FFFFFF
-
-# 🔥 2. NAVBAR ENTERPRISE (FINAL)
-
-## 2.1 Fără hamburger
-
-## 2.2 Fără collapse
-
-## 2.3 Fără responsive hiding
-
-## 2.4 FIXED permanent
-
-## 2.5 Structură exactă
-
-`LOGO | SEARCH | Explore areas | Action Centre | Platform Overview | User ▼`
-
-## 2.6 Geometrie
-
-- padding 24px
-- buttons 12px 18px
-- iconuri 24px
-- shadow exact
-
-## 2.7 Dropdown
-
-- Super Admin home
-- Explore all areas
-- Sign out
-
-# 🔥 3. DIRECTORY 3×3 FIX
-
-## 3.1 Fără breakpoints
-
-## 3.2 Carduri enterprise
-
-## 3.3 Iconuri 24px
-
-## 3.4 Titluri Inter 20px
-
-# 🔥 4. COMMAND CENTRE ENTERPRISE
-
-## 4.1 KPI = <div> enterprise, NU <Link>
-
-## 4.2 4× KPI summary
-
-## 4.3 Critical attention
-
-## 4.4 Operational queue
-
-## 4.5 Administrative activity
-
-# 🔥 5. OPERATIONS CONTROL CENTRE
-
-## 5.1 6 KPI enterprise
-
-## 5.2 Live Operational Map (UK + Ireland)
-
-## 5.3 Quick Actions
-
-## 5.4 Live Feed (5 evenimente)
-
-# 🔥 6. JOBS MANAGEMENT
-
-## 6.1 Grid 3–6 carduri
-
-## 6.2 Fără responsive 1×
-
-## 6.3 Acțiuni
-
-- View details
-- Assign driver
-
-# 🔥 7. DRIVERS CENTER
-
-## 7.1 Layout 2×2 sau 4×1
-
-## 7.2 Fără 1×
-
-## 7.3 Acțiuni
-
-- View profile
-- Assign job
-
-# 🔥 8. FLEET OVERVIEW
-
-## 8.1 Layout 4×1 fix
-
-## 8.2 Tail-lift
-
-## 8.3 GPS
-
-## 8.4 Health indicator
-
-## 8.5 Status truth-preserving
-
-# 🔥 9. VEHICLE REGISTRY
-
-## 9.1 Dacă `is_available = true`
-
-WAITING FOR NEXT JOB (AVAILABLE)
-
-## 9.2 Dacă nu
-
-status real, fără inventare
-
-# 🔥 10. DRIVER AVAILABILITY
-
-## 10.1 Doar
-
-- AVAILABLE
-- OFFLINE
-
-# 🔥 11. ACTIVE COMPANIES
-
-## 11.1 Labels exacte
-
-- Company Name
-- Reg. Number
-
-# 🔥 12. FINANCE ENTERPRISE
-
-## 12.1 4 KPI enterprise
-
-## 12.2 Weekly Earnings
-
-## 12.3 Expense Breakdown
-
-## 12.4 Top Clients
-
-# 🔥 13. COMPLIANCE
-
-## 13.1 Titluri
-
+# XDrive Super Admin - MASTER CONTRACT FINAL v3
+
+**Effective date:** 2026-09-07
+**Status:** CANONICAL
+**Supersedes:** MASTER CONTRACT FINAL v2 in full
+**Execution blueprint:** `docs/blueprints/SUPER_ADMIN_CARGOMAX_ENTERPRISE_TRANSFORMATION_BLUEPRINT_2026-09-07.md`
+
+> MASTER CONTRACT FINAL v2 is cancelled and is no longer an implementation target. Git history remains historical evidence only.
+
+## 0. SUPREME RULE
+
+Every Super Admin page, component, status, action, metric and data surface must comply with this v3 contract.
+
+The target is a professional logistics control system with Cargomax-level information architecture, density and operational clarity, implemented natively in XDrive. Cargomax is a benchmark only. Do not copy its source, branding, assets, text or pixel-for-pixel layout.
+
+The Super Admin must remain unmistakably XDrive and must preserve canonical backend truth, authorization, auditability and fail-closed behavior.
+
+## 1. PLATFORM OWNER BOUNDARY
+
+`/super-admin` is the Platform Owner cross-company control plane.
+
+It must not grant implicit access to tenant-only `/broker`, `/customer`, `/driver` or company `/admin` workspaces merely for inspection. Cross-platform oversight belongs inside `/super-admin` through owner-authorized APIs and canonical entity Inspector links.
+All `/api/super-admin/*` privileged routes must use the canonical active Platform Owner verification boundary.
+
+Deploy Preview remains read-only for Super Admin mutations unless a later contract explicitly authorizes otherwise.
+
+No browser-side service-role access is permitted.
+
+## 2. DATA TRUTH / FAIL-CLOSED
+
+1. Failed or unavailable data is never converted to zero, healthy, compliant, clear, paid or complete.
+2. Exact-count `null` is unknown/failure, never zero.
+3. A failed refresh clears stale rows/summaries before rendering the error.
+4. A successful HTTP response with an invalid required contract is an error, not an empty state.
+5. Platform totals must use global/exact sources, not the currently visible page.
+6. Page-scoped counts must be labelled as page-scoped.
+7. Multi-currency amounts must not be silently summed into GBP.
+8. Optional-source failure must mark dependent aggregates partial/unknown.
+9. Empty, unavailable and error states are visually distinct.
+10. No production route may contain fabricated metrics, fake alerts, demo companies, synthetic charts or invented trend percentages.
+
+## 3. ENTERPRISE VISUAL SYSTEM
+
+### 3.1 Brand
+- XDrive Logistics identity only.
+- Primary visual language: XDrive navy / blue with restrained orange accent.
+### 3.2 Status palette
+- Blue `#1A73E8` = active/in-progress/informational.
+- Green `#34A853` = verified/healthy/complete/available.
+- Yellow `#FBBC05` = review/attention/warning.
+- Red `#EA4335` = blocked/critical/cancelled/failure.
+- Grey `#8A9099` = unavailable/inactive/offline/unknown.
+- Background remains light/white for the core accepted mode.
+
+### 3.3 Typography
+- Primary UI font: Inter.
+- Page titles: 20px / 700 minimum canonical baseline.
+- Buttons: 16px / 500 where full-size controls are used.
+- Compact labels/tables may use smaller approved sizes for enterprise density.
+
+### 3.4 Geometry
+- Canonical radius: 8px unless a shared component contract explicitly defines another value.
+- Canonical shadow: `0px 2px 6px rgba(0,0,0,0.08)` for elevated enterprise surfaces.
+- Page/section rhythm: 24px.
+- Dense tables may use reduced cell padding to target approximately 44-52px row height.
+- Status chips remain compact and consistent.
+
+### 3.5 Icons
+Use one approved icon family, preferably Lucide already present in the repository. Production navigation must not use emoji or provisional glyph characters.
+## 4. ENTERPRISE SHELL - FINAL
+
+MASTER CONTRACT v2 navbar rules are cancelled.
+
+The canonical Super Admin shell is now:
+
+`LEFT SIDEBAR | TOP BAR | MAIN OPERATIONS CANVAS`
+
+### 4.1 Left sidebar
+- Persistent on desktop.
+- Collapsible to an icon rail.
+- Grouped by operational domains.
+- Independent vertical scroll when required.
+- Active route and active group must be obvious.
+- Critical destinations must never disappear because the sidebar is collapsed.
+- XDrive brand area at the top.
+
+### 4.2 Top bar
+- Sidebar toggle.
+- Global Platform Search.
+- Notifications with verified unread count only.
+- Platform Owner identity/context.
+- Sign-out entry.
+- Optional theme control only after light mode is complete and visually accepted.
+
+### 4.3 Narrow-screen behavior
+A drawer control is allowed only where the full sidebar cannot fit safely. Responsive behavior must preserve access to all critical destinations.
+## 5. CANONICAL INFORMATION ARCHITECTURE
+
+### COMMAND
+- Command Centre
+- Action Centre
+- Live Operations Map
+- Global Search
+- Platform Analytics
+
+### MARKETPLACE & JOBS
+- Live Marketplace
+- All Jobs
+- Active Jobs
+- Pending Jobs
+- Completed Jobs
+- Quotes
+- Allocations
+- Disputes
+
+### SECURE OPERATIONS
+- Secure Loads
+- Jobs at Risk
+- Tracking & ETA
+- POD Queue
+- Delivery Evidence
+
+### FLEET
+- Drivers
+- Driver Availability
+- Vehicle Registry
+- Fleet Positions
+- Return Journeys
+- Fleet Compliance Status
+### COMPANIES
+- All Companies
+- Brokers
+- Membership & Access
+- Pending Approval
+- Active Companies
+- Suspended Companies
+- Verification
+- Company Compliance
+
+### FINANCE
+- Finance Overview
+- Invoices
+- Payments
+- Revenue
+- Membership Subscriptions
+- Stripe / Webhooks
+- Financial Breakdown
+
+### COMPLIANCE
+- Compliance Overview
+- Identity & Fraud Review
 - Insurance
 - Operator Licences
+- Expiry Tracking
+- Document Review
 
-## 13.2 Acțiuni
+### SUPPORT
+- Support Tickets
+- Complaints
+- Support Disputes
 
-- Review docs
-- Request update
+### PLATFORM
+- Users & Access
+- Roles & Permissions
+- Notifications
+- Platform Health
+- Audit Logs
+- Global Settings
+- Legal & Agreements
+- Feature Flags
+## 6. COMMAND CENTRE - FINAL COMPOSITION
 
-# 🔥 14. SUPPORT
+`/super-admin` is the primary operations cockpit.
 
-## 14.1 UI DTO curat
+### 6.1 Header
+- Command Centre title.
+- Environment badge.
+- Last verified refresh time.
+- Explicit Refresh action.
+- Partial/unavailable source warning when applicable.
 
-## 14.2 Backend poate fi mai bogat
+### 6.2 Primary KPIs
+Up to eight compact, canonical cards:
+- Active Jobs
+- Jobs at Risk
+- Drivers Online
+- Fleet Ready
+- Compliance Blocks
+- Unpaid Exposure
+- Active Companies
+- Platform Incidents
 
-## 14.3 Acțiuni vizibile
+KPI cards are informational surfaces by default. A distinct labelled action may navigate; the entire KPI card must not become an ambiguous link.
+### 6.3 Live operations
+- Live Operations Map / geographic operational picture.
+- Jobs requiring attention / active execution queue.
+- Map markers only from canonical tracked entities.
+- Telemetry freshness must be visible where relevant.
 
-- Open
-- Assign (visual-only)
-- Resolve
+### 6.4 Secure Operations
+- Secure Loads distribution.
+- Jobs at Risk reasons.
+- Compliance blockers.
+- POD / delivery-evidence readiness.
+- Tracking evidence presence.
+### 6.5 Performance
+- Job lifecycle trend over an explicit time window.
+- Delivered / delayed / at-risk trend only when historical source truth exists.
+- No invented deltas or percentages.
 
-# 🔥 15. PLATFORM
+### 6.6 Fleet
+- Active / Available / Busy / Compliance Blocked.
+- Maintenance only when a canonical maintenance domain exists.
+- Do not infer mechanical health from compliance documents.
 
-## 15.1 Nav = 5 pagini FIXE
+### 6.7 Finance and activity
+- Revenue / invoiced / unpaid / overdue / disputed exposure with explicit currency truth.
+- Recent verified platform activity.
+- Action Centre items.
+- Safe quick actions only.
+## 7. SECURE LOAD / COMPLIANCE INTELLIGENCE
 
-## 15.2 Titlu: Global Settings
+Secure Load is a first-class Super Admin domain and is read-only in its first release.
 
-## 15.3 Pagini fizice suplimentare → decizie contractuală
+### 7.1 Canonical states
+- `CLEAR` - no verified blocker in evaluated evidence.
+- `REVIEW` - elevated requirements need human review; no hard blocker established.
+- `BLOCKED` - one or more verified execution/compliance blockers exist.
+- `AWAITING ASSIGNMENT` - execution credentials cannot yet be evaluated because no driver is assigned.
 
-# 🔥 16. STATUS PALETTE
+Credential verification may separately be `VERIFIED`, `BLOCKED`, `UNAVAILABLE` or `NOT ASSIGNED`.
 
-## 16.1 Canonice
+### 7.2 Required evidence domains
+Use existing canonical schema before considering migrations:
+- cargo value and special requirements;
+- document checklist and uploaded job documents;
+- direct-delivery requirement;
+- POD requirement and POD evidence;
+- assigned driver and vehicle;
+- driver operational eligibility;
+- company active/membership state;
+- identity/onboarding/compliance state;
+- vehicle MOT/insurance compliance;
+- tracking evidence / telemetry freshness.
+### 7.3 Fail-closed behavior
+If required credential verification fails because a source cannot be read, the result must expose `UNAVAILABLE` / blocker context. Query failure can never produce `CLEAR`.
 
-available / offline / posted / cancelled / delivered / ready / attention / critical
+### 7.4 Secure Loads overview
+Minimum columns:
+`Load | Route | Secure state | Credentials | Load signals | Tracking | POD | Documents | Posting company | Carrier | Created | Inspect`
 
-## 16.2 Pagini restricționate → allowlist
+Required state metrics:
+`Blocked | Review | Awaiting Assignment | Clear`
 
-# 🔥 17. FĂRĂ VALORI LEGACY
+Every row must link to the canonical job Inspector.
 
-## 17.1 Eliminare treptată
+### 7.5 Job Inspector extension
+The job Inspector must expose the same server-side Secure Load derivation, including:
+- secure state and credential state;
+- explicit blockers and elevated signals;
+- cargo value / direct-delivery requirement;
+- requested vs uploaded documents;
+- driver eligibility checks and canonical vehicle;
+- tracking evidence/freshness;
+- POD requirement/evidence.
 
-## 17.2 Checker extins
+The overview and Inspector must not implement separate derivation logic.
+## 8. OPERATIONS & JOBS
 
-# 🔥 18. FĂRĂ RESPONSIVE NEPERMIS
+All Jobs, Active Jobs, Pending Jobs, Completed Jobs, Quotes, Allocations, Deliveries and Disputes must use a coherent enterprise ledger pattern.
 
-## 18.1 Directory
+Requirements:
+- page header with domain context;
+- filter/search controls before the ledger;
+- canonical backend pagination;
+- stable status chips and date/number formatting;
+- entity inspection action on relevant records;
+- empty state distinct from unavailable/error state;
+- no hidden first-page cap presented as platform truth.
 
-## 18.2 Jobs
+Jobs at Risk is a derived operational view and must expose the reason a job is considered at risk.
 
-## 18.3 Drivers
+Tracking & ETA must distinguish live/recent telemetry, stale telemetry and unavailable telemetry.
 
-## 18.4 Fleet
+POD Queue and Delivery Evidence must preserve canonical POD truth and never claim delivery evidence that is not persisted.
 
-# 🟧 PATCHLIST COMPLET PR #505 (INCLUS NAVBAR)
+## 9. FLEET
 
-## Fișiere + linii + cod exact, complet, final.
+Fleet surfaces must distinguish:
+- driver availability;
+- driver operational/compliance readiness;
+- vehicle availability/status;
+- vehicle compliance state;
+- telemetry freshness/position.
 
-# 📁 app/super-admin/_components/SuperAdminNavbar.tsx
+These concepts must not be collapsed into one generic `healthy` status.
+Return Journey / Return IQ remains an XDrive capability. Do not clone CX or Cargomax semantics.
 
-## Patch 1 — Elimină hamburger
+A maintenance state may be shown only if a canonical persisted maintenance domain exists. Compliance expiry is not mechanical maintenance.
 
-```tsx
-{/* REMOVE */}
-<MobileHamburgerMenu ... />
-```
+## 10. COMPANIES & AUTHORITY
 
-## Patch 2 — Brand
+Company governance, memberships and platform/application roles must remain visibly distinct.
 
-```tsx
-<div className="sa-brand">
-  <LogoIcon size={24} />
-  <span className="sa-brand-title">XDrive Logistics</span>
-</div>
-```
+Required domains:
+- All Companies
+- Broker Oversight
+- Membership & Access
+- Pending Approval
+- Active / Suspended Companies
+- Verification
+- Company Compliance
 
-## Patch 3 — Search bar
+Company approve/reject/suspend/reinstate must retain active-owner authorization, Deploy Preview write lock, audited governance behavior and reconciliation evidence.
 
-```tsx
-<SearchBar placeholder="Search platform..." iconSize={24} />
-```
+No Platform Owner tenant-workspace impersonation is introduced by this UI transformation.
 
-## Patch 4 — Buttons
+## 11. FINANCE
 
-```tsx
-<NavButton icon={<ExploreIcon size={24} />} label="Explore areas" href="/super-admin/directory" />
-<NavButton icon={<ActionIcon size={24} />} label="Action Centre" href="/super-admin/action-centre" />
-<NavButton icon={<OverviewIcon size={24} />} label="Platform Overview" href="/super-admin/platform" />
-```
+Finance must surface canonical invoice/payment/subscription/Stripe state without inventing accounting truth.
 
-## Patch 5 — User dropdown
+Requirements:
+- explicit currency handling;
+- no implicit FX conversion;
+- exact global totals where labelled as platform totals;
+- server-side pagination for ledgers;
+- secure omission of Stripe secrets and sensitive connected-account identifiers;
+- no payout/refund/transfer/replay action without a separately audited action contract.
+## 12. COMPLIANCE
 
-```tsx
-<UserDropdown
-  user="Platform Owner"
-  email="xdrivelogisticsltd@gmail.com"
-  options={[
-    { label: "Super Admin home", href: "/super-admin" },
-    { label: "Explore all areas", href: "/super-admin/directory" },
-    { label: "Sign out", href: "/auth/sign-out" }
-  ]}
-/>
-```
+Compliance Overview must summarize the real workload across:
+- identity / fraud review;
+- insurance;
+- operator licences;
+- expiry tracking;
+- document review.
 
-# 📁 app/super-admin/super-admin-master-contract.css
+Compliance document review mutations must retain owner verification, durable audit evidence and compensating rollback semantics where already implemented.
 
-## Patch 6 — CSS enterprise
+A source failure must block a false-compliant result.
 
-```css
-.sa-navbar {
-  display: flex;
-  align-items: center;
-  gap: 24px;
-  padding: 24px;
-  background: #fff;
-  box-shadow: 0px 2px 6px rgba(0,0,0,0.08);
-}
+## 13. SUPPORT
 
-.sa-brand-title {
-  font-family: Inter;
-  font-size: 20px;
-  font-weight: 700;
-}
+Support Tickets, Complaints and Support Disputes use the shared enterprise ledger and Inspector patterns.
 
-.sa-navbar button {
-  padding: 12px 18px;
-  border-radius: 8px;
-  box-shadow: 0px 2px 6px rgba(0,0,0,0.08);
-}
-```
+Summary counts must not be derived from a capped visible page.
 
-# 🟥 CHECKER UPDATE PR #509 (FINAL)
+Any mutation such as assign/resolve must use an explicit authorized backend contract and must not be simulated as a visual-only production action.
 
-## Reguli noi + verificări noi, complet, final.
+## 14. PLATFORM GOVERNANCE
 
-# 🔥 Rule 1 — Fără hamburger
+First-class areas:
+- Users & Access
+- Roles & Permissions
+- Notifications
+- Platform Health
+- Audit Logs
+- Global Settings
+- Legal & Agreements
+- Feature Flags
+Roles & Permissions remains read-only unless a separately designed authority-mutation contract is approved.
 
-```ts
-expect(navbarSource).not.toContain("Hamburger");
-expect(navbarSource).not.toContain("<MobileHamburgerMenu");
-```
+Promotion/demotion, global session revocation and arbitrary cross-tenant authority mutation are outside this contract.
 
-# 🔥 Rule 2 — Brand obligatoriu
+Platform Health must clear stale state on failure and must not report unavailable services as healthy.
 
-```ts
-expect(navbarSource).toContain("XDrive Logistics");
-```
+## 15. PLATFORM ENTITY INSPECTOR
 
-# 🔥 Rule 3 — Search bar obligatoriu
+The Inspector remains the canonical read-only drill-down for inspectable platform entities.
 
-```ts
-expect(navbarSource).toContain("Search platform");
-```
+Important ledgers should link into the Inspector rather than inventing duplicate detail systems.
 
-# 🔥 Rule 4 — 3 butoane obligatorii
+Target relationship traversal, where canonical relations exist:
+`Company -> User/Driver -> Vehicle -> Job -> POD -> Invoice -> Payment/Audit`
 
-```ts
-expect(navbarSource).toContain("Explore areas");
-expect(navbarSource).toContain("Action Centre");
-expect(navbarSource).toContain("Platform Overview");
-```
+Inspector pages may expose richer contextual sections, but they must remain GET/read-only unless a separately governed action flow already exists.
 
-# 🔥 Rule 5 — User dropdown obligatoriu
+## 16. REUSABLE SUPER ADMIN COMPONENT SYSTEM
 
-```ts
-expect(navbarSource).toContain("Platform Owner");
-```
+The transformed product must centralize repeatable patterns instead of duplicating inline styles page-by-page.
 
-# 🔥 Rule 6 — Geometrie enterprise
+Canonical component families include:
+- Enterprise Shell / Sidebar / Topbar
+- Page Header
+- Metric Card / Metric Grid
+- Section Card
+- Data Grid
+- Status Badge
+- Filter Bar
+- Quick Actions
+- Activity Feed
+- Alert Panel
+- Chart Card
+- Map Card
+- Empty / Unavailable / Error states
+- Entity Link
+## 17. MAPS, CHARTS & ACTIVITY
 
-```ts
-expect(navbarCSS).toContain("padding: 24px");
-expect(navbarCSS).toContain("border-radius: 8px");
-expect(navbarCSS).toContain("box-shadow: 0px 2px 6px rgba(0,0,0,0.08)");
-```
+### Maps
+- No fabricated pins.
+- Canonical coordinates/telemetry only.
+- Telemetry age/freshness visible.
+- Unavailable source renders unavailable state, not an empty healthy map.
+- Provide accessible tabular fallback where practical.
 
-# 🔥 Rule 7 — Fără collapse
+### Charts
+- Explicit time window.
+- Canonical units/currencies.
+- No synthetic trend lines.
+- If historical data does not exist, use current metric cards instead.
 
-```ts
-expect(navbarCSS).not.toContain("@media");
-expect(navbarSource).not.toContain("collapse");
-```
+### Activity
+- Recent activity must be backed by a persisted/auditable source.
+- Do not fabricate friendly activity-feed events from unrelated timestamps.
 
-# 🟩 SELF-VERIFICATION 100/100 (FINAL)
+## 18. RESPONSIVE & ACCESSIBILITY
 
-- Verifică prezența brandului
-- Verifică absența hamburgerului
-- Verifică geometria enterprise
-- Verifică structura completă
-- Verifică lipsa responsive hiding
-- Verifică lipsa collapse
-- Verifică toate butoanele
-- Verifică dropdown-ul
-- Verifică CSS-ul
-- Verifică DOM-ul
-- Verifică AST-ul
-- Verifică patchlist-ul
-- Verifică contractul
-- Verifică runtime-ul
-- Verifică source compliance
-- Verifică Netlify compliance
-- Verifică PR compliance
-- Verifică HEAD compliance
-- Verifică tot
+The v2 prohibition on responsive behavior is cancelled.
 
-Rezultat: 100/100 dacă TOT ce este mai sus este implementat.
+The new shell must work at common desktop widths and degrade safely on narrower screens without hiding critical functions.
 
-GitHub Actions sunt excluse din evidence. PR #505 rămâne DRAFT / NOT MERGED și nu se face merge fără comanda exactă `APROB MERGE #505`. PR #509 este validation-only și nu se merge-uiește.
+Requirements:
+- visible keyboard focus;
+- semantic controls and headings;
+- keyboard-reachable sidebar/topbar actions;
+- sufficient contrast;
+- tables remain inspectable without destructive clipping;
+- no horizontal layout break at accepted desktop widths.
+## 19. FORBIDDEN SHORTCUTS
+
+Do not:
+- import Cargomax source/assets;
+- add Bootstrap/jQuery/Elementor/WordPress;
+- hard-code fake dashboard data;
+- hide source errors behind zero values;
+- weaken owner checks;
+- expose service-role credentials;
+- duplicate canonical business logic in client components;
+- introduce automatic suspensions, refunds, payouts or load cancellations;
+- remove existing Super Admin functionality merely to simplify the UI;
+- alter Driver, Broker, Customer or company workspaces as collateral work;
+- claim PASS without the required evidence.
+
+## 20. VALIDATION GATES
+
+Required before merge/release:
+1. `npm ci` from lockfile when needed.
+2. TypeScript typecheck.
+3. Scoped ESLint for changed TS/TSX.
+4. Targeted Super Admin unit/contract tests.
+5. Existing control-plane/security regression tests.
+6. `git diff --check`.
+7. Production/deploy-preview build in correct context.
+8. Repository release/secret scan gates.
+9. Exact-head canonical Netlify Deploy Preview.
+10. Authenticated Platform Owner browser E2E.
+11. Visual review at representative desktop widths.
+12. User visual approval before merge to Production.
+
+GitHub Actions are not accepted as XDrive validation evidence unless explicitly re-authorized.
+## 21. CHECKER / TEST CONTRACT MIGRATION
+
+All tests/checkers that encode MASTER CONTRACT v2 structural requirements are now superseded and must be updated before they can be used as acceptance gates.
+
+Specifically, v2 assertions requiring:
+- fixed top-only navbar;
+- no collapse;
+- no responsive navigation;
+- exactly four Command Centre KPIs;
+- other v2-only layout constraints;
+
+must be replaced by v3 assertions for:
+- sidebar + topbar shell;
+- collapse/icon-rail behavior;
+- complete destination reachability;
+- Cargomax-level Command Centre composition using canonical data;
+- Secure Operations first-class navigation;
+- fail-closed state rendering;
+- responsive/accessibility behavior.
+
+Security, owner authorization, audit, finance truth, pagination and fail-closed tests remain valid unless their implementation detail specifically depended on the cancelled v2 shell.
+
+## 22. DEFINITION OF DONE
+
+The Super Admin transformation is complete only when a Platform Owner can immediately understand platform operations, risk, fleet readiness, compliance, finance, company/account issues and recent activity, and can drill from important records into canonical evidence.
+
+The product must reach Cargomax-level professional polish while remaining XDrive-native and more deeply connected to real operational truth than the benchmark.
+
+---
+
+**MASTER CONTRACT FINAL v3 is the sole canonical Super Admin contract from 2026-09-07 onward. MASTER CONTRACT FINAL v2 is superseded and cancelled.**
