@@ -1,5 +1,10 @@
 'use client';
 
+import {
+  SuperAdminStatusBadge,
+  type EnterpriseTone,
+} from './SuperAdminEnterprisePrimitives';
+
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return '—';
   return new Date(value).toLocaleString('en-GB', {
@@ -25,39 +30,37 @@ export function routeSummary(
   pickupPostcode: string | null | undefined,
   deliveryLocation: string | null | undefined,
   deliveryPostcode: string | null | undefined,
-): string {
-  const pickup = [pickupLocation, pickupPostcode].filter(Boolean).join(' · ') || '—';
+): string {  const pickup = [pickupLocation, pickupPostcode].filter(Boolean).join(' · ') || '—';
   const delivery = [deliveryLocation, deliveryPostcode].filter(Boolean).join(' · ') || '—';
   return `${pickup} → ${delivery}`;
 }
 
-const BLUE = '#1A73E8';
-const GREEN = '#34A853';
-const YELLOW = '#FBBC05';
-const RED = '#EA4335';
-const GREY = '#8A9099';
-const TEXT = '#4A4A4A';
-const WHITE = '#FFFFFF';
-
-const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  draft: { bg: GREY, text: WHITE },
-  posted: { bg: BLUE, text: WHITE },
-  allocated: { bg: BLUE, text: WHITE },
-  in_transit: { bg: BLUE, text: WHITE },
-  delivered: { bg: GREEN, text: WHITE },
-  cancelled: { bg: RED, text: WHITE },
-  disputed: { bg: RED, text: WHITE },
-  active: { bg: GREEN, text: WHITE },
-  available: { bg: GREEN, text: WHITE },
-  ready: { bg: GREEN, text: WHITE },
-  suspended: { bg: RED, text: WHITE },
-  critical: { bg: RED, text: WHITE },
-  rejected: { bg: RED, text: WHITE },
-  pending: { bg: YELLOW, text: TEXT },
-  pending_approval: { bg: YELLOW, text: TEXT },
-  attention: { bg: YELLOW, text: TEXT },
-  paid: { bg: GREEN, text: WHITE },
-  offline: { bg: GREY, text: WHITE },
+const STATUS_TONES: Record<string, EnterpriseTone> = {
+  draft: 'neutral',
+  posted: 'info',
+  allocated: 'info',
+  in_transit: 'info',
+  delivered: 'success',
+  cancelled: 'danger',
+  disputed: 'danger',
+  active: 'success',
+  available: 'success',
+  ready: 'success',
+  suspended: 'danger',
+  critical: 'danger',
+  rejected: 'danger',
+  pending: 'warning',
+  pending_approval: 'warning',
+  attention: 'warning',
+  paid: 'success',
+  offline: 'neutral',
+  review: 'warning',
+  clear: 'success',
+  verified: 'success',
+  blocked: 'danger',
+  unavailable: 'unavailable',
+  awaiting_assignment: 'neutral',
+  not_assigned: 'neutral',
 };
 
 type StatusAllowlist = ReadonlySet<string> | readonly string[];
@@ -65,7 +68,6 @@ type StatusAllowlist = ReadonlySet<string> | readonly string[];
 function normalizeAllowlist(values: StatusAllowlist): Set<string> {
   return new Set(Array.from(values, (value) => value.toLowerCase()));
 }
-
 export function StatusChip({
   value,
   allowedValues,
@@ -75,27 +77,15 @@ export function StatusChip({
 }) {
   const rawValue = (value ?? 'unknown').toString();
   const normalized = rawValue.toLowerCase();
+
   if (allowedValues && !normalizeAllowlist(allowedValues).has(normalized)) {
     return <span aria-label="Status unavailable">—</span>;
   }
-  const palette = STATUS_COLORS[normalized] ?? { bg: GREY, text: WHITE };
+
   return (
-    <span
-      data-status-chip="true"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '4px 10px',
-        borderRadius: '8px',
-        backgroundColor: palette.bg,
-        color: palette.text,
-        fontFamily: 'Inter, Roboto, Arial, sans-serif',
-        fontSize: '14px',
-        fontWeight: 700,
-        textTransform: 'uppercase',
-      }}
-    >
-      {rawValue.replaceAll('_', ' ')}
-    </span>
+    <SuperAdminStatusBadge
+      label={rawValue.replaceAll('_', ' ')}
+      tone={STATUS_TONES[normalized] ?? 'unavailable'}
+    />
   );
 }
