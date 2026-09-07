@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { telemetryFreshness } from '../../../../lib/telemetryFreshness';
 import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
@@ -95,6 +96,7 @@ export async function GET(request: NextRequest) {
           company_name: company?.name ?? '—',
           assigned_driver_name: driver ? (driver.display_name ?? driver.full_name ?? driver.name ?? driver.email ?? 'Driver') : '—',
           assigned_driver_status: driver?.status ?? null,
+          telemetry_freshness: telemetryFreshness(row.last_tracked_at ? String(row.last_tracked_at) : null),
         };
       }),
       pagination: pagination(page, limit, total),

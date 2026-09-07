@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { coordinatesFromLocation } from '../../../../lib/geoLocation';
+import { telemetryFreshness } from '../../../../lib/telemetryFreshness';
 import { buildJobSearchPattern } from '../_lib/searchFilters';
 import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
 
@@ -87,22 +88,37 @@ const loadCompanyMap = async (companyIds: string[]) => {
   return { map: new Map<string, string>(((data ?? []) as CompanyRow[]).map((row) => [row.id, row.name])), error: null as string | null };
 };
 
+type LatestLocationRow = {
+  id: string;
+  driver_id: string;
+  job_id: string | null;
+  vehicle_id: string | null;
+  recorded_at: string;
+  location: unknown;
+  lat: number | null;
+  lng: number | null;
+  heading: number | null;
+  speed_mph: number | null;
+  source: string | null;
+  source_provider: string | null;
+};
+
 const loadLatestLocations = async (driverIds: string[]) => {
-  if (!supabaseAdmin) return { map: new Map<string, { id: string; recorded_at: string; location: unknown }>(), error: 'Server auth is not configured.' };
+  if (!supabaseAdmin) return { map: new Map<string, LatestLocationRow>(), error: 'Server auth is not configured.' };
   const entries = await Promise.all(Array.from(new Set(driverIds)).map(async (driverId) => {
     const result = await supabaseAdmin!
       .from('driver_locations')
-      .select('id, driver_id, recorded_at, location')
+      .select('id,driver_id,job_id,vehicle_id,recorded_at,location,lat,lng,heading,speed_mph,source,source_provider')
       .eq('driver_id', driverId)
       .order('recorded_at', { ascending: false })
       .limit(1)
       .maybeSingle();
-    return { driverId, data: result.data, error: result.error?.message ?? null };
+    return { driverId, data: result.data as LatestLocationRow | null, error: result.error?.message ?? null };
   }));
   const failed = entries.find((entry) => entry.error);
-  if (failed) return { map: new Map<string, { id: string; recorded_at: string; location: unknown }>(), error: failed.error as string };
+  if (failed) return { map: new Map<string, LatestLocationRow>(), error: failed.error as string };
   return {
-    map: new Map(entries.flatMap((entry) => entry.data ? [[entry.driverId, entry.data as { id: string; recorded_at: string; location: unknown }] as const] : [])),
+    map: new Map(entries.flatMap((entry) => entry.data ? [[entry.driverId, entry.data] as const] : [])),
     error: null as string | null,
   };
 };
@@ -182,15 +198,17 @@ export async function GET(request: NextRequest) {
         section,
         rows: typedDrivers.map((driver) => {
           const location = locationsResult.map.get(driver.id) ?? null;
-          const coordinates = coordinatesFromLocation(location?.location);
+          const embedded = coordinatesFromLocation(location?.location);
           return {
             id: driver.id,
             display_name: driver.display_name ?? 'Unknown driver',
+            company_id: driver.company_id,
             company_name: driver.company_id ? companyResult.map.get(driver.company_id) ?? 'Unknown company' : '—',
             availability_status: driver.availability_status ?? 'unknown',
             last_seen_at: location?.recorded_at ?? null,
-            last_lat: coordinates.lat,
-            last_lng: coordinates.lng,
+            last_lat: location?.lat ?? embedded.lat,
+            last_lng: location?.lng ?? embedded.lng,
+            telemetry_freshness: telemetryFreshness(location?.recorded_at),
           };
         }),
         pagination: pagination(page, limit, count),
@@ -201,18 +219,24 @@ export async function GET(request: NextRequest) {
       section,
       rows: typedDrivers.map((driver) => {
         const location = locationsResult.map.get(driver.id) ?? null;
-        const coordinates = coordinatesFromLocation(location?.location);
+        const embedded = coordinatesFromLocation(location?.location);
         return {
           id: location?.id ?? driver.id,
           driver_id: driver.id,
           driver_name: driver.display_name ?? 'Unknown driver',
           availability_status: driver.availability_status ?? 'unknown',
+          company_id: driver.company_id,
           company_name: driver.company_id ? companyResult.map.get(driver.company_id) ?? 'Unknown company' : '—',
-          lat: coordinates.lat,
-          lng: coordinates.lng,
-          heading: null,
-          speed_mph: null,
+          lat: location?.lat ?? embedded.lat,
+          lng: location?.lng ?? embedded.lng,
+          heading: location?.heading ?? null,
+          speed_mph: location?.speed_mph ?? null,
           recorded_at: location?.recorded_at ?? null,
+          source: location?.source ?? null,
+          source_provider: location?.source_provider ?? null,
+          job_id: location?.job_id ?? null,
+          vehicle_id: location?.vehicle_id ?? null,
+          telemetry_freshness: telemetryFreshness(location?.recorded_at),
         };
       }),
       pagination: pagination(page, limit, count),
@@ -295,6 +319,7 @@ export async function GET(request: NextRequest) {
         posting_company_name: companyNameById.get(job.company_id) ?? 'Unknown company',
         awarded_company_name: job.awarded_carrier_company_id ? companyNameById.get(job.awarded_carrier_company_id) ?? 'Unknown company' : null,
         assigned_driver_name: assignedDriver?.display_name ?? null,
+        assigned_driver_company_id: assignedDriver?.company_id ?? null,
         assigned_driver_company_name: assignedDriver?.company_id ? companyNameById.get(assignedDriver.company_id) ?? null : null,
         bids_count: bidCountByJobId.get(job.id) ?? 0,
         pod_photos_count: Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0,

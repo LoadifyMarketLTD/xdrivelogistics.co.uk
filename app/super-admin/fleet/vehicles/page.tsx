@@ -23,6 +23,7 @@ type Row = {
   pallets_capacity: number | null;
   payload_kg: number | null;
   capacity_kg: number | null;
+  telemetry_freshness: { state: string; ageMinutes: number | null; label: string };
 };
 
 function TailLiftIcon() {
@@ -37,6 +38,7 @@ const vehicleHealth = (row: Row) => {
   const status = (row.status ?? '').toLowerCase();
   if (status === 'inactive' || status === 'suspended') return 'CRITICAL';
   if (row.is_tracked === false) return 'ATTENTION';
+  if (row.telemetry_freshness.state === 'stale' || row.telemetry_freshness.state === 'unavailable') return 'ATTENTION';
   return 'READY';
 };
 
@@ -50,13 +52,13 @@ export default function Page() {
     pageSize={50}
     emptyMessage="No vehicles found."
     columns={[
-      { key: 'vehicle', label: 'Vehicle', render: (row) => <div><strong>{row.registration_label}</strong><div style={{fontSize:14,color:'#4A4A4A',marginTop:24}}>{row.vehicle_label}</div></div> },
+      { key: 'vehicle', label: 'Vehicle', render: (row) => <div><strong>{row.registration_label}</strong><div style={{fontSize:14,color:'#4A4A4A',marginTop:4}}>{row.vehicle_label}</div></div> },
       { key: 'company', label: 'Company', render: (row) => row.company_id ? <PlatformEntityLink entityType="company" entityId={row.company_id} compact>{row.company_name}</PlatformEntityLink> : '—' },
       { key: 'driver', label: 'Driver', render: (row) => row.assigned_driver_id ? <PlatformEntityLink entityType="driver" entityId={row.assigned_driver_id} compact>{row.assigned_driver_name}</PlatformEntityLink> : '—' },
       { key: 'status', label: 'Status', render: (row) => <StatusChip value={vehicleStatus(row)} /> },
       { key: 'capacity', label: 'Capacity', render: (row) => <span>{row.pallets_capacity != null ? `${row.pallets_capacity} pallets · ` : ''}{row.payload_kg ?? row.capacity_kg ?? '—'}{row.payload_kg != null || row.capacity_kg != null ? ' kg' : ''}</span> },
-      { key: 'equipment', label: 'Equipment', render: (row) => <div style={{display:'flex',alignItems:'center',gap:24}}>{row.has_tail_lift ? <><TailLiftIcon /><span>Tail-lift</span></> : <span>No tail-lift</span>}{row.international_work_approved ? <span>· International</span> : null}</div> },
-      { key: 'tracking', label: 'Tracking', render: (row) => <div style={{display:'flex',alignItems:'center',gap:24}}><GpsIcon /><span>{row.is_tracked ? `GPS active · ${formatDateTime(row.last_tracked_at)}` : 'GPS offline'}</span></div> },
+      { key: 'equipment', label: 'Equipment', render: (row) => <div style={{display:'flex',alignItems:'center',gap:8}}>{row.has_tail_lift ? <><TailLiftIcon /><span>Tail-lift</span></> : <span>No tail-lift</span>}{row.international_work_approved ? <span>· International</span> : null}</div> },
+      { key: 'tracking', label: 'Tracking', render: (row) => <div style={{display:'grid',gap:4}}><div style={{display:'flex',alignItems:'center',gap:8}}><GpsIcon /><span>{row.is_tracked ? `Last fix · ${formatDateTime(row.last_tracked_at)}` : 'GPS offline'}</span></div><div><StatusChip value={row.telemetry_freshness.state} /> <span>{row.telemetry_freshness.label}</span></div></div> },
       { key: 'health', label: 'Health', render: (row) => <StatusChip value={vehicleHealth(row)} /> },
       { key: 'inspect', label: 'Inspect', render: (row) => <PlatformEntityLink entityType="vehicle" entityId={row.id} compact>Open</PlatformEntityLink> },
     ]}
