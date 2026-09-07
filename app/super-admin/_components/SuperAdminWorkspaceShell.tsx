@@ -59,6 +59,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'fees', label: 'Financial Breakdown', href: '/super-admin/finance/fees' },
     ] },
     { id: 'compliance', label: 'Compliance', items: [
+      { id: 'compliance-overview', label: 'Compliance Overview', href: '/super-admin/compliance' },
       { id: 'fraud-cases', label: 'Identity & Fraud Review', href: '/super-admin/compliance/fraud-cases' },
       { id: 'insurance', label: 'Insurance', href: '/super-admin/compliance/insurance' },
       { id: 'operator-licences', label: 'Operator Licences', href: '/super-admin/compliance/operator-licences' },

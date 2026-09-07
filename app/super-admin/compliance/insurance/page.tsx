@@ -77,8 +77,8 @@ export default function Page() {
           key: 'expiry_date',
           label: 'Expires',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#ef4444' : '#f1f5f9' }}>
-              {row.expiry_date ?? '—'}{row.is_expired ? ' ⚠️ EXPIRED' : ''}
+            <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#ef4444' : '#475569' }}>
+              {row.expiry_date ?? '—'}{row.is_expired ? ' · EXPIRED' : ''}
             </span>
           ),
         },
