@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+import { resolveDriverOperationalEligibility } from '../../../../driver/_lib/operationalEligibility';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { deriveSecureLoadIntelligence } from '../../../_lib/secureLoadIntelligence';
 import { verifyPlatformOwner } from '../../../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
@@ -217,10 +219,10 @@ async function inspectVehicle(entityId: string): Promise<InspectorPayload | null
 
 async function inspectJob(entityId: string): Promise<InspectorPayload | null> {
   if (!supabaseAdmin) return null;
-  const { data: job, error } = await supabaseAdmin.from('jobs').select('id, company_id, posted_by_company_id, awarded_carrier_company_id, assigned_driver_id, vehicle_id, accepted_bid_id, title, description, status, current_status, load_id, load_ref, load_reference, booking_reference, your_ref, cust_ref, customer_ref, customer_reference, pickup_location, pickup_address_line1, pickup_city, pickup_postcode, pickup_datetime, delivery_location, delivery_address_line1, delivery_city, delivery_postcode, delivery_datetime, requested_vehicle_type, requested_vehicle_label, vehicle_type, cargo_type, requested_cargo_label, pallets, weight_kg, agreed_rate, agreed_rate_gbp, currency, payment_terms, exchange_visibility, direct_delivery_required, pod_required, pod_generated, pod_generated_at, delivery_photos, pod_photos, delivery_signature_data, client_signature_name, delivery_notes, collection_notes, cancellation_reason, created_by, created_at, updated_at, status_updated_at, delivered_at, completed_at').eq('id', entityId).maybeSingle();
+  const { data: job, error } = await supabaseAdmin.from('jobs').select('id, company_id, posted_by_company_id, awarded_carrier_company_id, assigned_driver_id, vehicle_id, accepted_bid_id, title, description, status, current_status, load_id, load_ref, load_reference, booking_reference, your_ref, cust_ref, customer_ref, customer_reference, pickup_location, pickup_address_line1, pickup_city, pickup_postcode, pickup_datetime, delivery_location, delivery_address_line1, delivery_city, delivery_postcode, delivery_datetime, requested_vehicle_type, requested_vehicle_label, vehicle_type, cargo_type, requested_cargo_label, pallets, weight_kg, cargo_value_gbp, special_requirements, document_checklist, hard_copy_pod, agreed_rate, agreed_rate_gbp, currency, payment_terms, exchange_visibility, direct_delivery_required, pod_required, pod_generated, pod_generated_at, delivery_photos, pod_photos, delivery_signature_data, client_signature_name, delivery_notes, collection_notes, cancellation_reason, created_by, created_at, updated_at, status_updated_at, delivered_at, completed_at').eq('id', entityId).maybeSingle();
   if (error) throw new Error(error.message);
   if (!job) return null;
-  const [postingCompany, postedByCompany, awardedCompany, driver, vehicle, bids, invoices, disputes, events, notifications, bidCount, invoiceCount, disputeCount] = await Promise.all([
+  const [postingCompany, postedByCompany, awardedCompany, driver, vehicle, bids, invoices, disputes, events, notifications, jobDocuments, latestTracking, bidCount, invoiceCount, disputeCount] = await Promise.all([
     companySummary(job.company_id), companySummary(job.posted_by_company_id), companySummary(job.awarded_carrier_company_id),
     job.assigned_driver_id ? supabaseAdmin.from('drivers').select('id, display_name, full_name, name, status, company_id, reg_number').eq('id', job.assigned_driver_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
     job.vehicle_id ? supabaseAdmin.from('vehicles').select('id, reg, registration, reg_plate, make, model, status, current_status').eq('id', job.vehicle_id).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -229,13 +231,32 @@ async function inspectJob(entityId: string): Promise<InspectorPayload | null> {
     supabaseAdmin.from('job_disputes').select('id, status, description, raised_by_company_id, created_at, resolved_at').eq('job_id', entityId).order('created_at', { ascending: false }).limit(25),
     supabaseAdmin.from('job_events').select('id, event_type, message, created_by, company_id, created_at').eq('job_id', entityId).order('created_at', { ascending: false }).limit(50),
     supabaseAdmin.from('notification_events').select('id, event_type, status, recipient_user_id, created_at, processed_at, last_error').eq('entity_type', 'job').eq('entity_id', entityId).order('created_at', { ascending: false }).limit(25),
+    supabaseAdmin.from('job_documents').select('id, job_id, doc_type, created_at').eq('job_id', entityId).order('created_at', { ascending: false }).limit(100),
+    supabaseAdmin.from('driver_locations').select('job_id, recorded_at').eq('job_id', entityId).order('recorded_at', { ascending: false }).limit(1).maybeSingle(),
     countRows('job_bids', 'job_id', entityId), countRows('invoices', 'job_id', entityId), countRows('job_disputes', 'job_id', entityId),
   ]);
   for (const result of [driver, vehicle, bids, invoices, disputes, events, notifications]) if (result.error) throw new Error(result.error.message);
   const reference = job.load_ref ?? job.load_id ?? job.load_reference ?? job.booking_reference ?? job.your_ref ?? job.id;
   const podPhotoCount = Array.isArray(job.pod_photos) ? job.pod_photos.length : 0;
   const deliveryPhotoCount = Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0;
-  const podEvidence = Boolean(job.pod_generated || job.delivery_signature_data || podPhotoCount || deliveryPhotoCount);
+  const podEvidence = Boolean(job.pod_generated || job.delivery_signature_data || podPhotoCount || deliveryPhotoCount || job.hard_copy_pod);
+
+  let secureEligibility: Awaited<ReturnType<typeof resolveDriverOperationalEligibility>> | null = null;
+  let secureEligibilityUnavailable = false;
+  if (job.assigned_driver_id) {
+    try { secureEligibility = await resolveDriverOperationalEligibility(supabaseAdmin, String(job.assigned_driver_id)); }
+    catch { secureEligibilityUnavailable = true; }
+  }
+  const secureEvidenceUnavailable = Boolean(jobDocuments.error || latestTracking.error);
+  const secureIntelligence = secureEvidenceUnavailable ? null : deriveSecureLoadIntelligence(
+    job, secureEligibility, secureEligibilityUnavailable, Boolean(latestTracking.data), (jobDocuments.data ?? []).length,
+  );
+  const secureUnavailableReason = [
+    jobDocuments.error ? 'Job document evidence is unavailable.' : null,
+    latestTracking.error ? 'Tracking evidence is unavailable.' : null,
+  ].filter(Boolean).join(' ');
+  const secureStateTone: FieldTone = secureIntelligence?.state === 'blocked' ? 'danger' : secureIntelligence?.state === 'review' ? 'warning' : secureIntelligence?.state === 'clear' ? 'success' : 'muted';
+  const secureCredentialTone: FieldTone = secureIntelligence?.credentialState === 'blocked' || secureIntelligence?.credentialState === 'unavailable' ? 'danger' : secureIntelligence?.credentialState === 'verified' ? 'success' : 'muted';
 
   const bidRelations: InspectorRelation[] = [];
   for (const bid of bids.data ?? []) {
@@ -253,6 +274,7 @@ async function inspectJob(entityId: string): Promise<InspectorPayload | null> {
       { id: 'route', title: 'Route and execution window', fields: [field('pickup', 'Pickup', job.pickup_location), field('pickup_postcode', 'Pickup postcode', job.pickup_postcode), field('pickup_datetime', 'Pickup datetime', job.pickup_datetime), field('delivery', 'Delivery', job.delivery_location), field('delivery_postcode', 'Delivery postcode', job.delivery_postcode), field('delivery_datetime', 'Delivery datetime', job.delivery_datetime), field('direct_delivery', 'Direct delivery', job.direct_delivery_required)] },
       { id: 'load', title: 'Load and vehicle requirement', fields: [field('vehicle', 'Requested vehicle', job.requested_vehicle_label ?? job.requested_vehicle_type ?? job.vehicle_type), field('cargo', 'Cargo', job.requested_cargo_label ?? job.cargo_type), field('pallets', 'Pallets', job.pallets), field('weight', 'Weight kg', job.weight_kg), field('exchange_visibility', 'Exchange visibility', job.exchange_visibility)] },
       { id: 'lifecycle', title: 'Lifecycle', fields: [field('status', 'Status', job.current_status ?? job.status), field('status_updated', 'Status updated', job.status_updated_at), field('delivered_at', 'Delivered', job.delivered_at), field('completed_at', 'Completed', job.completed_at), field('cancel_reason', 'Cancellation reason', job.cancellation_reason), field('updated_at', 'Updated', job.updated_at)] },
+      { id: 'secure-load', title: 'Secure Load / Security', description: 'Read-only, fail-closed execution and evidence intelligence derived from canonical job, driver, vehicle, compliance, document, tracking and POD facts.', fields: secureIntelligence ? [field('secure_state', 'Secure state', secureIntelligence.state, secureStateTone), field('credential_state', 'Credential state', secureIntelligence.credentialState, secureCredentialTone), field('blockers', 'Blockers', secureIntelligence.blockers.length ? secureIntelligence.blockers.join(', ') : 'None', secureIntelligence.blockers.length ? 'danger' : 'success'), field('review_signals', 'Review signals', secureIntelligence.reviewSignals.length ? secureIntelligence.reviewSignals.join(', ') : 'None'), field('cargo_value', 'Cargo value GBP', secureIntelligence.cargoValueGbp), field('high_value', 'High Value Goods', secureIntelligence.highValueGoods), field('direct_delivery', 'Direct delivery', secureIntelligence.directDeliveryRequired), field('requested_documents', 'Requested documents', secureIntelligence.requestedDocuments), field('uploaded_documents', 'Uploaded documents', secureIntelligence.uploadedJobDocuments), field('tracking', 'Tracking evidence present', secureIntelligence.trackingEvidencePresent), field('tracking_recorded', 'Latest tracking', latestTracking.data?.recorded_at), field('pod_required', 'POD required', secureIntelligence.podRequired), field('pod_evidence', 'POD evidence present', secureIntelligence.podEvidencePresent), field('job_vehicle', 'Job vehicle ID', job.vehicle_id), field('canonical_vehicle', 'Canonical driver vehicle ID', secureIntelligence.canonicalVehicleId), field('eligibility_checks', 'Execution eligibility checks', secureIntelligence.eligibilityChecks)] : [], unavailable: !secureIntelligence, unavailableReason: !secureIntelligence ? (secureUnavailableReason || 'Secure Load evidence could not be determined safely.') : undefined },
       { id: 'pod', title: 'Proof of delivery', fields: [field('required', 'POD required', job.pod_required), field('generated', 'POD generated', job.pod_generated), field('generated_at', 'Generated at', job.pod_generated_at), field('signature', 'Signature present', Boolean(job.delivery_signature_data)), field('signatory', 'Signatory', job.client_signature_name), field('pod_photos', 'POD photos', podPhotoCount), field('delivery_photos', 'Delivery photos', deliveryPhotoCount), field('evidence', 'Evidence state', podEvidence ? 'Evidence present' : 'No evidence')], unavailable: !podEvidence && !job.pod_required, unavailableReason: !podEvidence && !job.pod_required ? 'POD is not currently required and no delivery evidence is present.' : undefined },
       { id: 'activity', title: 'Activity volumes', fields: [field('bids', 'Bids', bidCount), field('invoices', 'Invoices', invoiceCount), field('disputes', 'Disputes', disputeCount), field('events', 'Recent events loaded', (events.data ?? []).length), field('notifications', 'Recent notifications loaded', (notifications.data ?? []).length)] },
     ],
