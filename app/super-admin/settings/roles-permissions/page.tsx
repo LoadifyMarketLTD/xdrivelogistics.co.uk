@@ -1,93 +1,79 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { ShieldCheck } from 'lucide-react';
 import ProtectedRoute from '../../../components/ProtectedRoute';
-import { CANONICAL_ROLES, accessLevelBadge } from './rolesRegistry';
+import { CANONICAL_ROLES } from './rolesRegistry';
+import {
+  SuperAdminDataGrid, SuperAdminEmptyState, SuperAdminFilterBar, SuperAdminNotice,
+  SuperAdminPage, SuperAdminPageHeader, SuperAdminSectionCard, SuperAdminStatusBadge,
+  type SuperAdminDataColumn,
+} from '@/app/super-admin/_components/SuperAdminEnterprisePrimitives';
 
 type CanonicalRole = (typeof CANONICAL_ROLES)[number];
-
-const X = {
-  blue: '#1A73E8',
-  green: '#34A853',
-  white: '#FFFFFF',
-  text: '#4A4A4A',
-  background: '#F5F7FA',
-  border: '#E0E3E7',
-  grey: '#8A9099',
-} as const;
-const ENTERPRISE_SHADOW = '0px 2px 6px rgba(0,0,0,0.08)';
-
 const scopeLabel = (role: CanonicalRole) => role.workspaceRole === 'platform_owner' ? 'Global' : 'Company';
-const accessLabel = (role: CanonicalRole) => accessLevelBadge[role.accessLevel]?.label ?? role.accessLevel;
+const toneFor = (role: CanonicalRole) => role.accessLevel === 'platform' ? 'warning' : role.accessLevel === 'limited' ? 'neutral' : 'info';
 
 export default function Page() {
   const [selectedRole, setSelectedRole] = useState<CanonicalRole | null>(null);
   const [query, setQuery] = useState('');
   const roles = useMemo(() => {
     const normalized = query.trim().toLowerCase();
-    if (!normalized) return CANONICAL_ROLES;
-    return CANONICAL_ROLES.filter(role => [role.label, role.description, role.workspaceRole, role.appRole].some(value => String(value).toLowerCase().includes(normalized)));
+    return normalized ? CANONICAL_ROLES.filter((role) => [role.label, role.description, role.workspaceRole, role.appRole].some((value) => String(value).toLowerCase().includes(normalized))) : CANONICAL_ROLES;
   }, [query]);
 
+  const columns: SuperAdminDataColumn<CanonicalRole>[] = [
+    { key: 'role', label: 'Role', render: (role) => <div><strong>{role.label}</strong><div style={{ color: '#64748B', marginTop: 3, fontSize: 11 }}>{role.description}</div></div> },
+    { key: 'scope', label: 'Scope', render: (role) => scopeLabel(role) },
+    { key: 'access', label: 'Access level', render: (role) => <SuperAdminStatusBadge label={role.accessLevel.replaceAll('_', ' ')} tone={toneFor(role)} /> },
+    { key: 'app', label: 'Application role', render: (role) => <code>{role.appRole}</code> },
+    { key: 'action', label: 'Action', render: (role) => <button type="button" className="sa-button" onClick={() => setSelectedRole(role)}>Inspect</button> },
+  ];
   return <ProtectedRoute allowedRoles={['owner']}>
-    <div style={{ minHeight: '100vh', background: X.background, color: X.text, padding: '24px', fontFamily: 'Roboto, Inter, Arial, sans-serif', fontSize: '14px' }}>
-      <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        <div>
-          <h1 style={{ margin: 0, color: X.blue, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '20px', fontWeight: 700 }}>Access Matrix</h1>
-          <p style={{ margin: '24px 0 0', color: X.text, fontSize: '14px' }}>Read-only canonical workspace roles, route boundaries and capability groups. Role assignment is intentionally managed outside this surface until audited mutation controls exist.</p>
+    <SuperAdminPage>
+      <SuperAdminPageHeader
+        eyebrow="Platform"
+        title="Access Matrix"
+        description="Read-only canonical workspace roles, route boundaries and capability groups. Role assignment remains outside this surface until audited mutation controls exist."
+        icon={<ShieldCheck size={20} aria-hidden="true" />}
+      />
+      <SuperAdminNotice tone="info">Profile role and tenant membership authority remain separate. This page documents authorization; it does not mutate user authority.</SuperAdminNotice>
+      <SuperAdminFilterBar>
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search roles, workspace or app role…" aria-label="Search roles" style={{ minHeight: 36, minWidth: 280, flex: 1, border: '1px solid #D9E1EA', borderRadius: 8, padding: '0 10px' }} />
+      </SuperAdminFilterBar>
+      <SuperAdminSectionCard title="Canonical roles" description={`${roles.length} role definition(s) in this view.`} flush>
+        {roles.length ? <SuperAdminDataGrid columns={columns} rows={roles} rowKey={(role) => role.workspaceRole} minWidth={900} /> : <SuperAdminEmptyState title="No roles match your search." />}
+      </SuperAdminSectionCard>
+      <SuperAdminSectionCard title="Capability groups" description="Business capabilities are grouped for readability; the source remains the canonical workspace capability registry.">
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          {['Company management', 'Commercial', 'Jobs & operations', 'Fleet', 'Documents & compliance', 'Finance', 'Platform'].map((group) => <SuperAdminStatusBadge key={group} label={group} tone="neutral" />)}
         </div>
-        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search roles" aria-label="Search roles" style={{ width: '220px', minHeight: '40px', borderRadius: '8px', border: `1px solid ${X.border}`, background: X.white, color: X.text, padding: '0 14px', fontSize: '14px', outline: 'none' }} />
-      </header>
+      </SuperAdminSectionCard>
 
-      <nav aria-label="Access matrix workspace" style={{ minHeight: '40px', display: 'flex', alignItems: 'center', gap: '24px', marginBottom: '24px', flexWrap: 'wrap' }}>
-        <span style={tabStyle(true)}>Access Matrix</span>
-        <a href="#permission-groups" style={tabStyle(false)}>Capability groups</a>
-        <Link href="/super-admin/settings/audit-logs" style={tabStyle(false)}>Audit</Link>
-      </nav>
-
-      <section style={{ border: `1px solid ${X.border}`, borderRadius: '8px', background: X.white, overflow: 'hidden', boxShadow: ENTERPRISE_SHADOW }}>
-        <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: '820px' }}>
-          <thead><tr style={{ background: X.background, borderBottom: `1px solid ${X.border}` }}>
-            {['Role', 'Scope', 'Access level', 'Definition', 'Action'].map(h => <th key={h} style={{ padding: '24px', textAlign: 'left', color: X.blue, fontSize: '14px', fontWeight: 700 }}>{h}</th>)}
-          </tr></thead>
-          <tbody>{roles.map(role => {
-            const badge = accessLevelBadge[role.accessLevel];
-            return <tr key={role.workspaceRole} style={{ borderBottom: `1px solid ${X.border}` }}>
-              <td style={{ padding: '24px' }}><div style={{ display: 'flex', alignItems: 'center', gap: '24px' }}><span aria-hidden="true" style={{ width: '24px', height: '24px', borderRadius: '8px', display: 'grid', placeItems: 'center', background: X.background, fontSize: '14px' }}>{role.emoji}</span><div><div style={{ color: X.blue, fontSize: '14px', fontWeight: 700 }}>{role.label}</div><div style={{ color: X.grey, fontSize: '14px', marginTop: '24px', maxWidth: '420px' }}>{role.description}</div></div></div></td>
-              <td style={cellStyle}>{scopeLabel(role)}</td>
-              <td style={{ padding: '24px' }}><span style={{ color: badge.color, background: badge.bg, borderRadius: '8px', padding: '4px 10px', fontSize: '14px', fontWeight: 700 }}>{accessLabel(role)}</span></td>
-              <td style={{ padding: '24px' }}><span style={{ color: X.green, fontSize: '14px', fontWeight: 700 }}>● Defined</span></td>
-              <td style={{ padding: '24px' }}><button type="button" onClick={() => setSelectedRole(role)} style={{ minHeight: '40px', padding: '0 14px', borderRadius: '8px', border: `1px solid ${X.blue}`, background: X.white, color: X.blue, fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Inspect</button></td>
-            </tr>;
-          })}</tbody>
-        </table></div>
-        {roles.length === 0 && <div style={{ padding: '24px', textAlign: 'center', color: X.grey, fontSize: '14px' }}>No roles match your search.</div>}
-      </section>
-
-      <section id="permission-groups" style={{ marginTop: '24px', border: `1px solid ${X.border}`, borderRadius: '8px', background: X.white, padding: '24px', boxShadow: ENTERPRISE_SHADOW }}>
-        <h2 style={{ margin: 0, color: X.blue, fontFamily: 'Inter, Roboto, Arial, sans-serif', fontSize: '20px', fontWeight: 700 }}>Capability groups</h2>
-        <p style={{ margin: '24px 0', color: X.text, fontSize: '14px' }}>Business capabilities are grouped for readability. This surface documents the canonical authorization model; it does not mutate user authority.</p>
-        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>{['Company', 'Commercial', 'Operations', 'Fleet', 'Compliance', 'Finance', 'Platform'].map(group => <span key={group} style={{ border: `1px solid ${X.border}`, borderRadius: '8px', background: X.background, color: X.blue, padding: '4px 10px', fontSize: '14px', fontWeight: 700 }}>{group}</span>)}</div>
-      </section>
-
-      {selectedRole && <div role="dialog" aria-modal="true" aria-label={`Inspect ${selectedRole.label}`} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(26,115,232,.12)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setSelectedRole(null)}>
-        <aside style={{ width: 'min(520px,94vw)', height: '100%', overflowY: 'auto', background: X.white, borderLeft: `1px solid ${X.border}`, boxShadow: ENTERPRISE_SHADOW }} onClick={e => e.stopPropagation()}>
-          <div style={{ position: 'sticky', top: 0, zIndex: 1, minHeight: '52px', background: X.white, borderBottom: `1px solid ${X.border}`, padding: '24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px' }}>
-            <div><div style={{ color: X.blue, fontSize: '20px', fontWeight: 700 }}>{selectedRole.label}</div><div style={{ color: X.grey, fontSize: '14px', marginTop: '24px' }}>{scopeLabel(selectedRole)} scope · {accessLabel(selectedRole)}</div></div>
-            <button type="button" aria-label="Close role inspection" onClick={() => setSelectedRole(null)} style={{ minWidth: '40px', minHeight: '40px', borderRadius: '8px', border: `1px solid ${X.border}`, background: X.white, color: X.blue, cursor: 'pointer', fontSize: '14px' }}>×</button>
+      {selectedRole ? <div role="dialog" aria-modal="true" aria-label={`Inspect ${selectedRole.label}`} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(7,27,60,.28)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setSelectedRole(null)}>
+        <aside style={{ width: 'min(560px,94vw)', height: '100%', overflowY: 'auto', background: '#FFFFFF', borderLeft: '1px solid #D9E1EA', boxShadow: '-16px 0 44px rgba(7,27,60,.18)' }} onClick={(event) => event.stopPropagation()}>
+          <div style={{ position: 'sticky', top: 0, zIndex: 1, background: '#FFFFFF', borderBottom: '1px solid #D9E1EA', padding: 16, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <div><strong style={{ color: '#0B2F6B', fontSize: 18 }}>{selectedRole.label}</strong><div style={{ color: '#64748B', fontSize: 12, marginTop: 4 }}>{scopeLabel(selectedRole)} scope · {selectedRole.accessLevel}</div></div>
+            <button type="button" className="sa-button" aria-label="Close role inspection" onClick={() => setSelectedRole(null)}>Close</button>
           </div>
-          <div style={{ padding: '24px' }}>
-            <p style={{ color: X.text, fontSize: '14px', lineHeight: 1.5, margin: '0 0 24px' }}>{selectedRole.description}</p>
-            <div style={{ display: 'grid', gap: '24px' }}>{selectedRole.capabilityGroups.map(group => <section key={group.label} style={{ border: `1px solid ${X.border}`, borderRadius: '8px', background: X.white, padding: '24px', boxShadow: ENTERPRISE_SHADOW }}><div style={{ color: X.blue, fontSize: '20px', fontWeight: 700, marginBottom: '24px' }}>{group.label}</div><div style={{ display: 'grid', gap: '24px' }}>{group.capabilities.map(capability => <div key={capability} style={{ minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', color: X.text, fontSize: '14px' }}><span>{capability.split('.').slice(-1)[0].replace(/_/g, ' ')}</span><span aria-hidden="true" style={{ color: X.green, fontWeight: 700 }}>✓</span></div>)}</div></section>)}</div>
-            <details style={{ marginTop: '24px', border: `1px solid ${X.border}`, borderRadius: '8px', background: X.background, padding: '24px' }}><summary style={{ color: X.blue, fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>Advanced technical details</summary><div style={{ marginTop: '24px' }}><Tech label="Workspace role" value={selectedRole.workspaceRole} /><Tech label="Application role" value={selectedRole.appRole} /><div style={{ color: X.grey, fontSize: '14px', margin: '24px 0' }}>Primary routes</div><div style={{ display: 'grid', gap: '24px' }}>{selectedRole.routeAccess.map(route => <code key={route} style={{ color: X.grey, fontSize: '14px' }}>{route}</code>)}</div></div></details>
+          <div style={{ padding: 16 }}>
+            <p style={{ color: '#334155', lineHeight: 1.55, marginTop: 0 }}>{selectedRole.description}</p>
+            <div style={{ display: 'grid', gap: 10 }}>
+              {selectedRole.capabilityGroups.map((group) => <SuperAdminSectionCard key={group.label} title={group.label}>
+                <div style={{ display: 'grid', gap: 6 }}>{group.capabilities.map((capability) => <code key={capability} style={{ color: '#334155', fontSize: 12 }}>{capability}</code>)}</div>
+              </SuperAdminSectionCard>)}
+            </div>
+            <SuperAdminSectionCard title="Technical identity" description="Read-only canonical identifiers and primary route access.">
+              <div style={{ display: 'grid', gap: 8, fontSize: 12 }}>
+                <div><strong>Workspace role:</strong> <code>{selectedRole.workspaceRole}</code></div>
+                <div><strong>Application role:</strong> <code>{selectedRole.appRole}</code></div>
+                <div><strong>Routes:</strong></div>
+                {selectedRole.routeAccess.map((route) => <code key={route}>{route}</code>)}
+              </div>
+            </SuperAdminSectionCard>
           </div>
         </aside>
-      </div>}
-    </div>
+      </div> : null}
+    </SuperAdminPage>
   </ProtectedRoute>;
 }
-
-const cellStyle = { padding: '24px', color: X.text, fontSize: '14px' } as const;
-const tabStyle = (active: boolean) => ({ minHeight: '40px', display: 'inline-flex', alignItems: 'center', padding: '0 14px', borderRadius: '8px', border: `1px solid ${active ? X.blue : X.border}`, background: active ? X.blue : X.white, color: active ? X.white : X.blue, textDecoration: 'none', fontSize: '14px', fontWeight: 700 } as const);
-function Tech({ label, value }: { label: string; value: string }) { return <div style={{ marginBottom: '24px' }}><div style={{ color: X.grey, fontSize: '14px', marginBottom: '24px' }}>{label}</div><code style={{ color: X.blue, fontSize: '14px' }}>{value}</code></div>; }

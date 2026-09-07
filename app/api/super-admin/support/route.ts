@@ -9,7 +9,7 @@ type CompanyRow = { id: string; name: string };
 type DisputeRow = { id: string; invoice_id: string | null; company_id: string | null; reason: string; details: string | null; status: string; resolution_note: string | null; created_at: string; resolved_at: string | null };
 type ReviewRow = { id: string; company_id: string | null; reviewer_id: string | null; rating: number | null; comment: string | null; created_at: string };
 type SupportTicketDbRow = { id: string; company_id: string | null; category: string; priority: string; status: string; created_at: string };
-type SupportTicketDto = { id: string; company_name: string; type: string; severity: string; status: string; created_at: string };
+type SupportTicketDto = { id: string; company_id: string | null; company_name: string; type: string; severity: string; status: string; created_at: string };
 type SupportTicketMutationRow = { ticket_id: string; status: string; resolution_note: string; updated_at: string };
 
 const createTicketSchema = z.object({
@@ -117,6 +117,7 @@ export async function GET(request: NextRequest) {
     if (companyResult.error) return respond(500, { error: companyResult.error });
     const ticketRows: SupportTicketDto[] = rows.map((row) => ({
       id: row.id,
+      company_id: row.company_id,
       company_name: companyResult.map.get(row.company_id as string) ?? 'Unknown company',
       type: row.category,
       severity: row.priority,
