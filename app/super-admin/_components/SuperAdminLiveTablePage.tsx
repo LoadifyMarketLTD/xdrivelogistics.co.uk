@@ -7,6 +7,7 @@ import { getAuthHeader } from '../_lib/getAuthHeader';
 import {
   SuperAdminDataGrid,
   SuperAdminEmptyState,
+  SuperAdminFilterBar,
   SuperAdminMetricCard,
   SuperAdminMetricGrid,
   SuperAdminNotice,
@@ -39,6 +40,7 @@ type SuperAdminLiveTablePageProps<T extends Record<string, unknown>> = {
   emptyMessage: string;
   pageSize?: number;
   refreshKey?: number;
+  searchPlaceholder?: string;
 };
 
 export function readLiveTableNotices(
@@ -84,6 +86,7 @@ type SuperAdminLiveTableViewProps<T extends Record<string, unknown>> = {
   totalCount: number | null;
   onPrevPage: () => void;
   onNextPage: () => void;
+  filterBar?: ReactNode;
 };
 
 export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
@@ -102,6 +105,7 @@ export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
   totalCount,
   onPrevPage,
   onNextPage,
+  filterBar,
 }: SuperAdminLiveTableViewProps<T>) {
   const stableColumns = useMemo<SuperAdminDataColumn<T>[]>(
     () => columns.map((column) => ({ ...column })),
@@ -142,6 +146,8 @@ export function SuperAdminLiveTableView<T extends Record<string, unknown>>({
           ))}
         </SuperAdminMetricGrid>
       ) : null}
+
+      {!error && filterBar ? <SuperAdminFilterBar>{filterBar}</SuperAdminFilterBar> : null}
 
       {!error ? (
         <SuperAdminSectionCard flush>
@@ -186,6 +192,7 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
   emptyMessage,
   pageSize = 50,
   refreshKey = 0,
+  searchPlaceholder,
 }: SuperAdminLiveTablePageProps<T>) {
   const [rows, setRows] = useState<T[]>([]);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
@@ -195,6 +202,8 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
   const [page, setPage] = useState(1);
   const [hasNextPage, setHasNextPage] = useState(false);
   const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [searchDraft, setSearchDraft] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     const run = async () => {
@@ -207,9 +216,14 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
       setTotalCount(null);      try {
         const auth = await getAuthHeader();
         if (!auth) { setError('No active session.'); return; }
-        const separator = endpoint.includes('?') ? '&' : '?';
-        const res = await fetch(`${endpoint}${separator}page=${page}&limit=${pageSize}`, {
+        const url = new URL(endpoint, window.location.origin);
+        url.searchParams.set('page', String(page));
+        url.searchParams.set('limit', String(pageSize));
+        if (search) url.searchParams.set('search', search);
+        else url.searchParams.delete('search');
+        const res = await fetch(`${url.pathname}${url.search}`, {
           headers: { Authorization: auth },
+          cache: 'no-store',
         });
         const body = await res.json().catch(() => ({}));
         if (!res.ok) { setError((body as { error?: string }).error ?? 'The requested service is currently unavailable.'); return; }
@@ -228,7 +242,7 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
       }
     };
     void run();
-  }, [endpoint, rowsField, summaryField, noteField, diagnosticField, page, pageSize, refreshKey]);
+  }, [endpoint, rowsField, summaryField, noteField, diagnosticField, page, pageSize, refreshKey, search]);
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
@@ -248,6 +262,13 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
         totalCount={totalCount}
         onPrevPage={() => setPage((current) => Math.max(1, current - 1))}
         onNextPage={() => setPage((current) => current + 1)}
+        filterBar={searchPlaceholder ? (
+          <form onSubmit={(event) => { event.preventDefault(); setPage(1); setSearch(searchDraft.trim()); }} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%' }}>
+            <input className="sa-input" aria-label={searchPlaceholder} placeholder={searchPlaceholder} value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} style={{ minWidth: 260, flex: '1 1 320px' }} />
+            <button type="submit" className="sa-button">Search</button>
+            {search ? <button type="button" className="sa-button" onClick={() => { setSearchDraft(''); setSearch(''); setPage(1); }}>Clear</button> : null}
+          </form>
+        ) : undefined}
       />
     </ProtectedRoute>
   );
