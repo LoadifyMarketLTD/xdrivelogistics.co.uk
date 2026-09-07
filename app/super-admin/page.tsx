@@ -1,69 +1,145 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { LayoutDashboard, RefreshCw } from 'lucide-react';
 import ProtectedRoute from '../components/ProtectedRoute';
 import { ConnectedExchangePanel } from '../components/workspace/ConnectedExchangePanel';
-import { supabase } from '../../lib/supabaseClient';
+import { getAuthHeader } from './_lib/getAuthHeader';
+import SuperAdminOperationalMap, {
+  type OperationalDriverPin,
+  type OperationalJobPin,
+} from './_components/SuperAdminOperationalMap';
+import {
+  SuperAdminDataGrid,
+  SuperAdminMetricCard,
+  SuperAdminMetricGrid,
+  SuperAdminNotice,
+  SuperAdminPage,
+  SuperAdminPageHeader,
+  SuperAdminSectionCard,
+  SuperAdminStatusBadge,
+  SuperAdminUnavailableState,
+  type EnterpriseTone,
+  type SuperAdminDataColumn,
+} from './_components/SuperAdminEnterprisePrimitives';
+import styles from './CommandCentreV3.module.css';
 
 type Severity = 'critical' | 'warning' | 'caution' | 'ok' | 'unknown';
-type AttentionIndicator =
-  | { count: number | null; label: string; severity: Severity; note?: string }
-  | { amountGbp: number; label: string; severity: Severity; invoiceCount?: number; amountPartial?: boolean; note?: string };
-type AttentionIndicators = { p0p1Incidents: AttentionIndicator; jobsAtRisk: AttentionIndicator; blockedAccounts: AttentionIndicator; financialExposure: AttentionIndicator; degradedServices: AttentionIndicator; };
-type ActionQueueItem = { id: string; type: string; severity: 'P0' | 'P1' | 'P2'; title: string; description: string; entityType: string; entityId: string; entityName: string; detectedAt: string; ageMinutes: number; href: string; };
-type ActionQueue = { derived: boolean; queueNote?: string; total: number; p0: number; p1: number; p2: number; items: ActionQueueItem[]; };
-type CommandCentrePayload = { environment: 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT'; refreshedAt: string; partialData?: boolean; queryErrors?: string[]; unavailableSources?: string[]; attentionIndicators: AttentionIndicators; actionQueue: ActionQueue; };
-type PlatformStats = { refreshedAt?: string; companiesTotal: number; companiesActive: number; companiesSuspended: number; companiesPending: number; driversTotal: number; jobsTotal: number; jobsOpen: number; jobsDelivered: number; invoicesTotal: number; invoicesUnpaid: number; compliancePending: number; };
+type AttentionIndicator = { count: number | null; label: string; severity: Severity; note?: string };
+type AttentionIndicators = {
+  p0p1Incidents: AttentionIndicator;
+  jobsAtRisk: AttentionIndicator;
+  blockedAccounts: AttentionIndicator;
+  financialExposure: AttentionIndicator;
+  degradedServices: AttentionIndicator;
+};
+type ActionQueueItem = {
+  id: string;
+  type: string;
+  severity: 'P0' | 'P1' | 'P2';
+  title: string;
+  description: string;
+  entityType: string;
+  entityId: string;
+  entityName: string;
+  detectedAt: string;
+  ageMinutes: number;
+  href: string;
+};
+type ActionQueue = {
+  derived: boolean;
+  partial?: boolean;
+  queueNote?: string;
+  total: number | null;
+  p0: number | null;
+  p1: number | null;
+  p2: number | null;
+  items: ActionQueueItem[];
+};
+type CommandCentrePayload = {
+  environment: 'PRODUCTION' | 'STAGING' | 'DEVELOPMENT';
+  refreshedAt: string;
+  partialData?: boolean;
+  queryErrors?: string[];
+  unavailableSources?: string[];
+  attentionIndicators: AttentionIndicators;
+  actionQueue: ActionQueue;
+};
+type PlatformStats = {
+  refreshedAt?: string;
+  companiesTotal: number;
+  companiesActive: number;
+  companiesSuspended: number;
+  companiesPending: number;
+  driversTotal: number;
+  jobsTotal: number;
+  jobsOpen: number;
+  jobsDelivered: number;
+  invoicesTotal: number;
+  invoicesUnpaid: number;
+  compliancePending: number;
+};
 
-const X = {
-  blue: '#1A73E8',
-  green: '#34A853',
-  yellow: '#FBBC05',
-  red: '#EA4335',
-  grey: '#8A9099',
-  white: '#FFFFFF',
-  background: '#FFFFFF',
-  text: '#8A9099',
-  border: '#8A9099',
-} as const;
-const ENTERPRISE_SHADOW = '0px 2px 6px rgba(0,0,0,0.08)';
+type OperationsCockpitPayload = {
+  refreshedAt: string;
+  definitions: Record<string, string>;
+  kpis: {
+    activeJobs: number;
+    driversOnline: number;
+    fleetHealth: number | null;
+    lateDeliveries: number;
+    revenueToday: number | null;
+    urgentRequests: number;
+    currency: string | null;
+    mixedCurrency: boolean;
+  };
+  map: {
+    drivers: OperationalDriverPin[];
+    jobs: OperationalJobPin[];
+    routes: OperationalJobPin[];
+    driverLocationSources: string[];
+    trafficEtaSource: string;
+    providerCallsTriggered: boolean;
+  };
+};
+
+type PrimaryKpi = {
+  label: string;
+  value: string;
+  note: string;
+  tone: EnterpriseTone;
+  testId: 'kpi-loading' | 'kpi-ready' | 'kpi-unavailable';
+};
+
 const REQUEST_TIMEOUT_MS = 12_000;
-const KPI_LABELS = ['Active companies', 'Open jobs', 'Pending approvals', 'Unpaid invoices'] as const;
-const ATTENTION_LABELS = ['P0/P1 incidents', 'Jobs at risk', 'Blocked accounts', 'Financial exposure', 'Degraded services'] as const;
+const PRIMARY_KPI_LABELS = [
+  'Active Jobs',
+  'Jobs at Risk',
+  'Drivers Online',
+  'Fleet readiness',
+  'Compliance review',
+  'Outstanding invoices',
+  'Active companies',
+  'Critical actions',
+] as const;
 
-const enterpriseCard = {
-  background: X.white,
-  border: `1px solid ${X.border}`,
-  borderRadius: '8px',
-  padding: '24px',
-  boxShadow: ENTERPRISE_SHADOW,
-} as const;
-const compactControl = {
-  minHeight: '40px',
-  padding: '12px 18px',
-  borderRadius: '8px',
-  boxShadow: ENTERPRISE_SHADOW,
-  fontFamily: 'Inter, Arial, sans-serif',
-  fontSize: '16px',
-  fontWeight: 500,
-} as const;
+function severityTone(severity: Severity): EnterpriseTone {
+  if (severity === 'critical') return 'danger';
+  if (severity === 'warning' || severity === 'caution') return 'warning';
+  if (severity === 'ok') return 'success';
+  return 'unavailable';
+}
 
 function fmtAge(minutes: number) {
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60); const mins = minutes % 60;
-  return mins ? `${hours}h ${mins}m ago` : `${hours}h ago`;
-}
-
-function indicatorValue(indicator: AttentionIndicator) {
-  return 'count' in indicator ? (indicator.count === null ? '—' : indicator.count.toLocaleString()) : `£${indicator.amountGbp.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-function severityColor(severity: Severity) {
-  if (severity === 'critical') return X.red;
-  if (severity === 'warning' || severity === 'caution') return X.yellow;
-  if (severity === 'ok') return X.green;
-  return X.grey;
+  const abs = Math.abs(minutes);
+  const format = (value: number) => {
+    if (value < 60) return `${value}m`;
+    const hours = Math.floor(value / 60);
+    const mins = value % 60;
+    return mins ? `${hours}h ${mins}m` : `${hours}h`;
+  };
+  return minutes < 0 ? `in ${format(abs)}` : `${format(abs)} ago`;
 }
 
 async function fetchJsonWithTimeout<T>(url: string, headers: HeadersInit): Promise<T> {
@@ -95,10 +171,12 @@ async function fetchJsonWithTimeout<T>(url: string, headers: HeadersInit): Promi
 function CommandCentre() {
   const [data, setData] = useState<CommandCentrePayload | null>(null);
   const [stats, setStats] = useState<PlatformStats | null>(null);
+  const [operations, setOperations] = useState<OperationsCockpitPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [pageError, setPageError] = useState<string | null>(null);
   const [commandError, setCommandError] = useState<string | null>(null);
   const [statsError, setStatsError] = useState<string | null>(null);
+  const [operationsError, setOperationsError] = useState<string | null>(null);
   const [refreshCompletedAt, setRefreshCompletedAt] = useState<string | null>(null);
   const refreshGeneration = useRef(0);
 
@@ -108,22 +186,25 @@ function CommandCentre() {
     setPageError(null);
     setCommandError(null);
     setStatsError(null);
+    setOperationsError(null);
     setRefreshCompletedAt(null);
     setData(null);
     setStats(null);
+    setOperations(null);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) {
+      const auth = await getAuthHeader();
+      if (!auth) {
         if (generation !== refreshGeneration.current) return;
         setPageError('Session expired. Please sign in again.');
         return;
       }
 
-      const headers = { Authorization: `Bearer ${session.access_token}` };
-      const [commandResult, statsResult] = await Promise.allSettled([
+      const headers = { Authorization: auth };
+      const [commandResult, statsResult, operationsResult] = await Promise.allSettled([
         fetchJsonWithTimeout<CommandCentrePayload>('/api/super-admin/command-centre', headers),
         fetchJsonWithTimeout<PlatformStats>('/api/super-admin/stats', headers),
+        fetchJsonWithTimeout<OperationsCockpitPayload>('/api/super-admin/operations-cockpit', headers),
       ]);
 
       if (generation !== refreshGeneration.current) return;
@@ -131,6 +212,8 @@ function CommandCentre() {
       else setCommandError(commandResult.reason instanceof Error ? commandResult.reason.message : 'Command Centre data is unavailable.');
       if (statsResult.status === 'fulfilled') setStats(statsResult.value);
       else setStatsError(statsResult.reason instanceof Error ? statsResult.reason.message : 'Platform summary data is unavailable.');
+      if (operationsResult.status === 'fulfilled') setOperations(operationsResult.value);
+      else setOperationsError(operationsResult.reason instanceof Error ? operationsResult.reason.message : 'Operations data is unavailable.');
       setRefreshCompletedAt(new Date().toISOString());
     } catch {
       if (generation !== refreshGeneration.current) return;
@@ -140,67 +223,176 @@ function CommandCentre() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    void load();
+    return () => { refreshGeneration.current += 1; };
+  }, [load]);
+
   const indicators = data?.attentionIndicators;
   const queue = data?.actionQueue;
-  const commandPartial = Boolean(data?.partialData || data?.queryErrors?.length || data?.unavailableSources?.length);
+  const commandPartial = Boolean(
+    data?.partialData || data?.queryErrors?.length || data?.unavailableSources?.length || queue?.partial,
+  );
 
-  const kpis = stats ? [
-    ['Active companies', stats.companiesActive, `${stats.companiesTotal} registered`],
-    ['Open jobs', stats.jobsOpen, `${stats.jobsTotal} total jobs`],
-    ['Pending approvals', stats.companiesPending, 'Requires platform review'],
-    ['Unpaid invoices', stats.invoicesUnpaid, `${stats.invoicesTotal} invoices total`],
-  ] as const : [];
+  const unavailableKpi = (label: string, note: string): PrimaryKpi => ({
+    label,
+    value: '—',
+    note,
+    tone: 'unavailable',
+    testId: 'kpi-unavailable',
+  });
+
+  const loadingKpis: PrimaryKpi[] = PRIMARY_KPI_LABELS.map((label) => ({
+    label,
+    value: '—',
+    note: 'Loading verified source…',
+    tone: 'neutral',
+    testId: 'kpi-loading',
+  }));  const primaryKpis: PrimaryKpi[] = loading ? loadingKpis : [
+    operations
+      ? { label: 'Active Jobs', value: operations.kpis.activeJobs.toLocaleString(), note: operations.definitions.activeJobs ?? 'Open operational jobs.', tone: 'info', testId: 'kpi-ready' }
+      : unavailableKpi('Active Jobs', operationsError ?? 'Operations source unavailable.'),
+    indicators
+      ? { label: 'Jobs at Risk', value: indicators.jobsAtRisk.count === null ? '—' : indicators.jobsAtRisk.count.toLocaleString(), note: indicators.jobsAtRisk.note ?? 'Stale or unassigned operational jobs.', tone: severityTone(indicators.jobsAtRisk.severity), testId: indicators.jobsAtRisk.count === null ? 'kpi-unavailable' : 'kpi-ready' }
+      : unavailableKpi('Jobs at Risk', commandError ?? 'Command Centre source unavailable.'),
+    operations
+      ? { label: 'Drivers Online', value: operations.kpis.driversOnline.toLocaleString(), note: operations.definitions.driversOnline ?? 'Verified availability/tracking presence.', tone: 'success', testId: 'kpi-ready' }
+      : unavailableKpi('Drivers Online', operationsError ?? 'Operations source unavailable.'),
+    operations
+      ? { label: 'Fleet readiness', value: operations.kpis.fleetHealth === null ? '—' : `${operations.kpis.fleetHealth}%`, note: operations.definitions.fleetHealth ?? 'Operational vehicle readiness.', tone: operations.kpis.fleetHealth === null ? 'unavailable' : 'success', testId: operations.kpis.fleetHealth === null ? 'kpi-unavailable' : 'kpi-ready' }
+      : unavailableKpi('Fleet readiness', operationsError ?? 'Operations source unavailable.'),    stats
+      ? { label: 'Compliance review', value: stats.compliancePending.toLocaleString(), note: 'Driver and vehicle documents pending or rejected.', tone: stats.compliancePending > 0 ? 'warning' : 'success', testId: 'kpi-ready' }
+      : unavailableKpi('Compliance review', statsError ?? 'Platform summary unavailable.'),
+    stats
+      ? { label: 'Outstanding invoices', value: stats.invoicesUnpaid.toLocaleString(), note: `${stats.invoicesTotal.toLocaleString()} invoices in the canonical register.`, tone: stats.invoicesUnpaid > 0 ? 'warning' : 'success', testId: 'kpi-ready' }
+      : unavailableKpi('Outstanding invoices', statsError ?? 'Platform summary unavailable.'),
+    stats
+      ? { label: 'Active companies', value: stats.companiesActive.toLocaleString(), note: `${stats.companiesTotal.toLocaleString()} registered companies.`, tone: 'info', testId: 'kpi-ready' }
+      : unavailableKpi('Active companies', statsError ?? 'Platform summary unavailable.'),
+    indicators
+      ? { label: 'Critical actions', value: indicators.p0p1Incidents.count === null ? '—' : indicators.p0p1Incidents.count.toLocaleString(), note: indicators.p0p1Incidents.note ?? 'P0/P1 actions requiring owner attention.', tone: severityTone(indicators.p0p1Incidents.severity), testId: indicators.p0p1Incidents.count === null ? 'kpi-unavailable' : 'kpi-ready' }
+      : unavailableKpi('Critical actions', commandError ?? 'Command Centre source unavailable.'),
+  ];
 
   const attentionList = indicators
     ? [indicators.p0p1Incidents, indicators.jobsAtRisk, indicators.blockedAccounts, indicators.financialExposure, indicators.degradedServices]
     : [];
+  const driverColumns: SuperAdminDataColumn<OperationalDriverPin>[] = [
+    { key: 'driver', label: 'Driver', render: (driver) => driver.name },
+    { key: 'status', label: 'Status', render: (driver) => <SuperAdminStatusBadge label={driver.status} tone={driver.status === 'offline' ? 'danger' : 'success'} /> },
+    { key: 'vehicle', label: 'Vehicle', render: (driver) => driver.vehicle ? `${driver.vehicle.registration} · ${driver.vehicle.label}` : '—' },
+    { key: 'source', label: 'Location source', render: (driver) => driver.location?.source === 'availability_presence' ? 'Availability presence' : driver.location?.source ?? '—' },
+    { key: 'lastFix', label: 'Last fix', render: (driver) => driver.location?.recorded_at ? new Date(driver.location.recorded_at).toLocaleString('en-GB') : '—' },
+  ];
 
-  return <div style={{ minHeight: '100vh', background: X.background, color: X.text, padding: '24px', fontFamily: 'Inter, Arial, sans-serif', fontSize: '14px' }}>
-    <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', marginBottom: '24px', flexWrap: 'wrap', padding: '24px', borderRadius: '8px', background: X.white, boxShadow: ENTERPRISE_SHADOW }}>
-      <div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '24px', flexWrap: 'wrap' }}><h1 style={{ margin: 0, color: X.blue, fontFamily: 'Inter, Arial, sans-serif', fontSize: '20px', fontWeight: 700 }}>Command Centre</h1>{data && <span style={{ padding: '4px 10px', borderRadius: '8px', border: `1px solid ${data.environment === 'PRODUCTION' ? X.red : X.border}`, color: data.environment === 'PRODUCTION' ? X.red : X.blue, background: X.white, boxShadow: ENTERPRISE_SHADOW, fontSize: '14px', fontWeight: 400 }}>{data.environment}</span>}</div>
-        <p style={{ margin: '24px 0 0', color: X.text, fontSize: '14px' }}>Platform health, urgent attention and operational workload in one view.</p>
-        {refreshCompletedAt && <p style={{ margin: '24px 0 0', color: (commandError || statsError || commandPartial) ? X.yellow : X.grey, fontSize: '14px' }}>{commandError || statsError || commandPartial ? 'Refresh incomplete' : 'Refresh completed'} {new Date(refreshCompletedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}</p>}
-      </div>
-      <button onClick={() => void load()} disabled={loading} style={{ ...compactControl, border: `1px solid ${X.blue}`, background: X.white, color: X.blue, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? .7 : 1 }}>{loading ? 'Refreshing…' : 'Refresh'}</button>
-    </header>
+  const queueColumns: SuperAdminDataColumn<ActionQueueItem>[] = [
+    { key: 'severity', label: 'Severity', render: (item) => <SuperAdminStatusBadge label={item.severity} tone={item.severity === 'P0' ? 'danger' : item.severity === 'P1' ? 'warning' : 'info'} /> },
+    { key: 'action', label: 'Action', render: (item) => <><strong>{item.title}</strong><div>{item.description}</div></> },
+    { key: 'entity', label: 'Affected entity', render: (item) => item.entityName },
+    { key: 'age', label: 'Age', render: (item) => fmtAge(item.ageMinutes) },
+    { key: 'review', label: '', render: (item) => <Link href={item.href}>Review →</Link> },
+  ];
 
-    {pageError && <div role="alert" style={{ marginBottom: '24px', border: `1px solid ${X.red}`, borderRadius: '8px', background: X.white, padding: '24px', color: X.red, fontSize: '14px', fontWeight: 400, boxShadow: ENTERPRISE_SHADOW }}>{pageError}</div>}
-    {commandError && <div role="alert" data-testid="command-centre-unavailable" style={{ marginBottom: '24px', border: `1px solid ${X.red}`, borderRadius: '8px', background: X.white, padding: '24px', color: X.red, fontSize: '14px', boxShadow: ENTERPRISE_SHADOW }}><strong>Command Centre data unavailable.</strong> {commandError}</div>}
-    {statsError && <div role="alert" data-testid="platform-summary-unavailable" style={{ marginBottom: '24px', border: `1px solid ${X.border}`, borderRadius: '8px', background: X.white, padding: '24px', color: X.text, fontSize: '14px', boxShadow: ENTERPRISE_SHADOW }}><strong>Platform summary unavailable.</strong> {statsError}</div>}
-    {commandPartial ? <div data-testid="partial-data-warning" style={{ marginBottom: '24px', border: `1px solid ${X.border}`, borderRadius: '8px', background: X.white, padding: '24px', color: X.text, fontSize: '14px', boxShadow: ENTERPRISE_SHADOW }}>Some platform services are temporarily excluded from totals. Available data remains usable; unavailable sources are not treated as zero.</div> : null}
+  const refreshMeta = refreshCompletedAt
+    ? `${commandError || statsError || operationsError || commandPartial ? 'Refresh incomplete' : 'Refresh completed'} ${new Date(refreshCompletedAt).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`
+    : undefined;
+  return (
+    <SuperAdminPage>
+      <SuperAdminPageHeader
+        eyebrow="Command · Platform Control"
+        title="Command Centre"
+        description="Cross-platform operations, risk, compliance and financial attention from canonical XDrive sources."
+        icon={<LayoutDashboard size={20} aria-hidden="true" />}
+        meta={<div className={styles.metaRow}>{data ? <SuperAdminStatusBadge label={data.environment} tone={data.environment === 'PRODUCTION' ? 'danger' : 'info'} /> : null}{refreshMeta ? <span>{refreshMeta}</span> : null}</div>}
+        actions={<button type="button" onClick={() => void load()} disabled={loading}><RefreshCw size={15} aria-hidden="true" />{loading ? 'Refreshing…' : 'Refresh'}</button>}
+      />
 
-    <ConnectedExchangePanel role="super-admin" title="Connected Exchange intelligence" variant="super-admin" />
+      {pageError ? <SuperAdminUnavailableState title="Command Centre unavailable" description={pageError} /> : null}
+      {commandError ? <SuperAdminNotice tone="danger"><strong>Risk and action data unavailable.</strong> {commandError}</SuperAdminNotice> : null}
+      {statsError ? <SuperAdminNotice tone="unavailable"><strong>Platform summary unavailable.</strong> {statsError}</SuperAdminNotice> : null}
+      {operationsError ? <SuperAdminNotice tone="unavailable"><strong>Live operations unavailable.</strong> {operationsError}</SuperAdminNotice> : null}
+      {commandPartial ? <SuperAdminNotice tone="warning">Some Command Centre sources are unavailable. Available records remain visible, but missing sources are never interpreted as zero or healthy.</SuperAdminNotice> : null}
 
-    <section data-contract-surface="command-centre-kpis" style={{ marginBottom: '24px' }}>
-      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '24px', marginBottom: '24px' }}><div><h2 style={{ margin: 0, color: X.blue, fontFamily: 'Inter, Arial, sans-serif', fontSize: '20px', fontWeight: 700 }}>Platform summary</h2><p style={{ margin: '24px 0 0', color: X.text, fontSize: '14px' }}>Primary operational KPIs only.</p></div><Link href="/super-admin/analytics" style={{ color: X.blue, fontSize: '16px', fontWeight: 500, textDecoration: 'none' }}>Full analytics →</Link></div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '24px' }}>
-        {loading ? KPI_LABELS.map((label) => <div key={label} data-card="true" data-testid="kpi-loading" style={{ ...enterpriseCard, minHeight: '88px' }}><div style={{ color: X.blue, fontSize: '20px', lineHeight: 1.05, fontWeight: 700 }}>—</div><div style={{ marginTop: '24px', color: X.text, fontSize: '14px', fontWeight: 400 }}>{label}</div><div style={{ marginTop: '24px', color: X.grey, fontSize: '14px' }}>Loading…</div></div>)
-          : stats ? kpis.map(([label, value, note]) => <div key={label} data-card="true" data-testid="kpi-ready" style={{ ...enterpriseCard, minHeight: '88px' }}><div style={{ color: X.blue, fontSize: '20px', lineHeight: 1.05, fontWeight: 700 }}>{value}</div><div style={{ marginTop: '24px', color: X.text, fontSize: '14px', fontWeight: 400 }}>{label}</div><div style={{ marginTop: '24px', color: X.grey, fontSize: '14px' }}>{note}</div></div>)
-          : KPI_LABELS.map((label) => <div key={label} data-card="true" data-testid="kpi-unavailable" style={{ ...enterpriseCard, minHeight: '88px' }}><div style={{ color: X.grey, fontSize: '20px', lineHeight: 1.05, fontWeight: 700 }}>—</div><div style={{ marginTop: '24px', color: X.text, fontSize: '14px', fontWeight: 400 }}>{label}</div><div style={{ marginTop: '24px', color: X.yellow, fontSize: '14px', fontWeight: 400 }}>Unavailable — not reported as zero</div></div>)}
-      </div>
-    </section>
+      <section data-contract-surface="command-centre-kpis">
+        <div className={styles.sectionHeading}><div><h2>Platform control summary</h2><p>Eight primary signals only. Every value is source-backed or explicitly unavailable.</p></div><Link href="/super-admin/analytics">Full analytics →</Link></div>
+        <SuperAdminMetricGrid>
+          {primaryKpis.map((kpi) => <div key={kpi.label} className={styles.kpiCell} data-testid={kpi.testId}><SuperAdminMetricCard label={kpi.label} value={kpi.value} note={kpi.note} tone={kpi.tone} /></div>)}
+        </SuperAdminMetricGrid>
+      </section>
 
-    <section style={{ marginBottom: '24px' }}>
-      <h2 style={{ margin: '0 0 24px', color: X.blue, fontFamily: 'Inter, Arial, sans-serif', fontSize: '20px', fontWeight: 700 }}>Critical attention</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(150px,1fr))', gap: '24px' }}>
-        {loading ? ATTENTION_LABELS.map((label) => <div key={label} style={{ ...enterpriseCard, minHeight: '88px' }}><div style={{ color: X.grey, fontSize: '20px', fontWeight: 700 }}>—</div><div style={{ marginTop: '24px', color: X.text, fontSize: '14px', fontWeight: 400 }}>{label}</div><div style={{ marginTop: '24px', color: X.grey, fontSize: '14px' }}>Loading…</div></div>)
-          : indicators ? attentionList.map((indicator, index) => <div key={index} style={{ ...enterpriseCard, minHeight: '88px' }}><div style={{ color: severityColor(indicator.severity), fontSize: '20px', fontWeight: 700 }}>{indicatorValue(indicator)}</div><div style={{ marginTop: '24px', color: X.text, fontSize: '14px', fontWeight: 400 }}>{indicator.label}</div><div style={{ marginTop: '24px', color: X.grey, fontSize: '14px' }}>{indicator.note ?? indicator.severity}</div></div>)
-          : ATTENTION_LABELS.map((label) => <div key={label} style={{ ...enterpriseCard, minHeight: '88px' }}><div style={{ color: X.grey, fontSize: '20px', fontWeight: 700 }}>—</div><div style={{ marginTop: '24px', color: X.text, fontSize: '14px', fontWeight: 400 }}>{label}</div><div style={{ marginTop: '24px', color: X.yellow, fontSize: '14px', fontWeight: 400 }}>Unavailable — not reported as healthy</div></div>)}
-      </div>
-    </section>
+      <ConnectedExchangePanel role="super-admin" title="Connected Exchange intelligence" variant="super-admin" />      <SuperAdminSectionCard
+        title="Live Operations Map"
+        description="Real driver availability/execution positions and active job route coordinates. No provider call is triggered by this view."
+        actions={<Link href="/super-admin/operations/fleet-positions">Open Fleet Positions →</Link>}
+      >
+        {operationsError ? (
+          <SuperAdminUnavailableState title="Live map unavailable" description={operationsError} />
+        ) : operations && (operations.map.drivers.length > 0 || operations.map.jobs.length > 0) ? (
+          <>
+            <SuperAdminOperationalMap drivers={operations.map.drivers} jobs={operations.map.jobs} routes={operations.map.routes} />
+            {operations.map.drivers.length > 0 ? <div className={styles.mapFallback}><h3>Accessible live-position ledger</h3><SuperAdminDataGrid columns={driverColumns} rows={operations.map.drivers} rowKey={(driver) => driver.id} minWidth={760} /></div> : null}
+          </>
+        ) : loading ? (
+          <div>Loading verified positions…</div>
+        ) : (
+          <div data-state="empty">No current map-ready driver or job positions are available. No placeholder pins are shown.</div>
+        )}
+      </SuperAdminSectionCard>
 
-    <section style={{ ...enterpriseCard, marginBottom: '24px', overflow: 'hidden' }}>
-      <div style={{ minHeight: '40px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: '24px', borderBottom: `1px solid ${X.border}`, background: X.white }}><div><h2 style={{ margin: 0, color: X.blue, fontSize: '20px', fontWeight: 700 }}>Operational queue</h2>{queue?.queueNote && <p style={{ margin: '24px 0 0', color: X.grey, fontSize: '14px' }}>{queue.queueNote}</p>}</div><span data-testid="operational-queue-total" style={{ color: queue && !commandPartial ? X.grey : X.yellow, fontSize: '14px', fontWeight: 400 }}>{loading ? 'Loading…' : queue ? (commandPartial ? `${queue.total} verified · partial` : `${queue.total} total`) : 'Unavailable'}</span></div>
-      {loading ? <div style={{ padding: '24px', textAlign: 'center', color: X.grey, fontSize: '14px' }}>Loading…</div>
-        : !queue ? <div data-testid="operational-queue-unavailable" style={{ padding: '24px', textAlign: 'center', color: X.yellow, fontSize: '14px', fontWeight: 400 }}>Operational queue unavailable. No zero or healthy state has been inferred.</div>
-        : !queue.items.length ? <div data-testid={commandPartial ? 'operational-queue-partial-empty' : undefined} style={{ padding: '24px', textAlign: 'center', color: commandPartial ? X.yellow : X.grey, fontSize: '14px', fontWeight: 400 }}>{commandPartial ? 'No actions found in currently available sources. Platform-wide zero has not been established.' : 'No critical actions in currently available sources.'}</div>
-        : <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', minWidth: '720px', borderCollapse: 'collapse', background: X.white, boxShadow: ENTERPRISE_SHADOW }}><thead><tr style={{ background: X.white, borderBottom: `1px solid ${X.border}` }}>{['Severity','Action','Affected entity','Age',''].map(h => <th key={h} style={{ padding: '24px', textAlign: 'left', color: X.blue, fontSize: '14px', fontWeight: 400 }}>{h}</th>)}</tr></thead><tbody>{queue.items.slice(0, 8).map(item => <tr key={item.id} style={{ borderBottom: `1px solid ${X.border}` }}><td style={{ padding: '24px' }}><span style={{ color: item.severity === 'P0' ? X.red : X.yellow, fontSize: '14px', fontWeight: 400 }}>{item.severity}</span></td><td style={{ padding: '24px' }}><div style={{ color: X.text, fontSize: '14px', fontWeight: 400 }}>{item.title}</div><div style={{ color: X.grey, fontSize: '14px', marginTop: '24px' }}>{item.description}</div></td><td style={{ padding: '24px', color: X.text, fontSize: '14px' }}>{item.entityName}</td><td style={{ padding: '24px', color: X.grey, fontSize: '14px', whiteSpace: 'nowrap' }}>{fmtAge(item.ageMinutes)}</td><td style={{ padding: '24px' }}><Link href={item.href} style={{ color: X.blue, fontSize: '16px', fontWeight: 500, textDecoration: 'none' }}>Review →</Link></td></tr>)}</tbody></table></div>}
-    </section>
+      <div className={styles.sectionHeading}><div><h2>Critical attention</h2><p>Operational, account, finance and platform-health signals requiring owner awareness.</p></div><Link href="/super-admin/action-centre">Open Action Centre →</Link></div>
+      <SuperAdminMetricGrid>
+        {loading ? [0, 1, 2, 3, 4].map((index) => <SuperAdminMetricCard key={index} label="Loading…" value="—" tone="neutral" />)
+          : attentionList.length ? attentionList.map((indicator) => <SuperAdminMetricCard key={indicator.label} label={indicator.label} value={indicator.count === null ? '—' : indicator.count.toLocaleString()} note={indicator.note ?? indicator.severity} tone={severityTone(indicator.severity)} />)
+            : ['Critical actions', 'Jobs at risk', 'Blocked accounts', 'Overdue invoices', 'Degraded services'].map((label) => <SuperAdminMetricCard key={label} label={label} value="—" note="Unavailable — not reported as healthy." tone="unavailable" />)}
+      </SuperAdminMetricGrid>      <SuperAdminSectionCard
+        title="Operational queue"
+        description={queue?.queueNote ?? 'Derived owner action queue from canonical source tables.'}
+        actions={queue ? <SuperAdminStatusBadge label={queue.total === null ? 'Partial total' : `${queue.total} total`} tone={commandPartial ? 'warning' : 'info'} /> : undefined}
+        flush
+      >
+        {loading ? (
+          <div style={{ padding: 18 }}>Loading verified actions…</div>
+        ) : !queue ? (
+          <SuperAdminUnavailableState title="Operational queue unavailable" description="No zero or healthy state has been inferred." />
+        ) : queue.items.length === 0 ? (
+          commandPartial
+            ? <SuperAdminNotice tone="warning">No actions were found in the currently available sources. A platform-wide zero has not been established.</SuperAdminNotice>
+            : <div data-state="empty" style={{ padding: 18 }}>No critical actions in the verified source set.</div>
+        ) : (
+          <SuperAdminDataGrid columns={queueColumns} rows={queue.items.slice(0, 12)} rowKey={(item) => item.id} minWidth={820} />
+        )}
+      </SuperAdminSectionCard>
 
-    <section style={{ ...enterpriseCard, minHeight: '52px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', flexWrap: 'wrap' }}><div><h2 style={{ margin: 0, color: X.blue, fontSize: '20px', fontWeight: 700 }}>Administrative activity</h2><p style={{ margin: '24px 0 0', color: X.grey, fontSize: '14px' }}>Governance decisions and administrative changes remain in the audit trail.</p></div><Link href="/super-admin/settings/audit-logs" style={{ color: X.blue, fontSize: '16px', fontWeight: 500, textDecoration: 'none' }}>Open audit trail →</Link></section>
-  </div>;
+      <SuperAdminSectionCard title="Operational snapshot" description="Secondary verified operational signals. These do not replace the eight primary Command Centre KPIs.">
+        <SuperAdminMetricGrid>
+          <SuperAdminMetricCard label="Late deliveries" value={operations ? operations.kpis.lateDeliveries.toLocaleString() : '—'} note={operations?.definitions.lateDeliveries ?? operationsError ?? 'Operations source unavailable.'} tone={operations ? (operations.kpis.lateDeliveries > 0 ? 'warning' : 'success') : 'unavailable'} />
+          <SuperAdminMetricCard label="Revenue today" value={operations && operations.kpis.revenueToday !== null && operations.kpis.currency ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: operations.kpis.currency }).format(operations.kpis.revenueToday) : '—'} note={operations?.definitions.revenue ?? (operations?.kpis.mixedCurrency ? 'Mixed currencies — aggregate suppressed.' : operationsError ?? 'Revenue source unavailable.')} tone={operations?.kpis.revenueToday !== null ? 'success' : 'unavailable'} />
+          <SuperAdminMetricCard label="Urgent requests" value={operations ? operations.kpis.urgentRequests.toLocaleString() : '—'} note="Open P0/P1 platform cases plus critical support tickets." tone={operations ? (operations.kpis.urgentRequests > 0 ? 'danger' : 'success') : 'unavailable'} />
+        </SuperAdminMetricGrid>
+      </SuperAdminSectionCard>      <SuperAdminSectionCard title="Quick actions" description="Direct navigation to the highest-value control surfaces. No mutation is triggered from these links.">
+        <div className={styles.quickActions}>
+          <Link href="/super-admin/operations/jobs">All Jobs <span>→</span></Link>
+          <Link href="/super-admin/operations/allocations">Allocations <span>→</span></Link>
+          <Link href="/super-admin/compliance/documents">Document Review <span>→</span></Link>
+          <Link href="/super-admin/finance/control">Trade Control <span>→</span></Link>
+          <Link href="/super-admin/companies">Companies <span>→</span></Link>
+          <Link href="/super-admin/support/tickets">Support Tickets <span>→</span></Link>
+          <Link href="/super-admin/health">Platform Health <span>→</span></Link>
+          <Link href="/super-admin/settings/audit-logs">Audit Logs <span>→</span></Link>
+        </div>
+      </SuperAdminSectionCard>
+
+      <SuperAdminSectionCard
+        title="Administrative activity"
+        description="Governance decisions and administrative changes remain in the canonical audit trail."
+        actions={<Link href="/super-admin/settings/audit-logs">Open audit trail →</Link>}
+      >
+        <p style={{ margin: 0 }}>Platform Owner actions remain evidence-backed and auditable. This Command Centre does not impersonate tenant workspaces or bypass existing governance controls.</p>
+      </SuperAdminSectionCard>
+    </SuperAdminPage>
+  );
 }
 
-export default function SuperAdminDashboardPage() { return <ProtectedRoute allowedRoles={['owner']}><CommandCentre /></ProtectedRoute>; }
+export default function SuperAdminDashboardPage() {
+  return <ProtectedRoute allowedRoles={['owner']}><CommandCentre /></ProtectedRoute>;
+}
