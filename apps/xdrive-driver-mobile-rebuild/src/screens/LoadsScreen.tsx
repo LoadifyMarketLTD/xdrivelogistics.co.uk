@@ -32,12 +32,12 @@ export function LoadsScreen({ jobs, loading, onRefresh, onOpen }: {
 }
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.appBackground },
-  content: { padding: spacing.lg, paddingBottom: 30, gap: 12 },
-  title: { fontFamily: 'Inter_700Bold', fontSize: 24, color: colors.surface },
-  search: { height: 48, backgroundColor: colors.surface, borderRadius: radius.small, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12 },
+  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 22, gap: 8 },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 22, color: colors.surface },
+  search: { height: 44, backgroundColor: colors.surface, borderRadius: radius.small, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 11 },
   searchInput: { flex: 1, fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.text },
-  sectionRow: { marginTop: 4, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  sectionTitle: { fontFamily: 'Inter_700Bold', fontSize: 15, color: colors.surface },
+  sectionRow: { marginTop: 2, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  sectionTitle: { fontFamily: 'Inter_700Bold', fontSize: 14, color: colors.surface },
   count: { minWidth: 30, textAlign: 'center', paddingVertical: 4, paddingHorizontal: 8, backgroundColor: colors.surface, borderRadius: radius.pill, fontFamily: 'Inter_700Bold', fontSize: 11, color: colors.text },
   empty: { backgroundColor: colors.surface, borderRadius: radius.medium, padding: spacing.lg, alignItems: 'center' },
   emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },

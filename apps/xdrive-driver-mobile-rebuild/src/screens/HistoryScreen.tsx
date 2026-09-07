@@ -17,10 +17,10 @@ export function HistoryScreen({ jobs, onOpen }: {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.appBackground },
-  content: { padding: spacing.lg, paddingBottom: 30, gap: 12 },
-  title: { fontFamily: 'Inter_700Bold', fontSize: 24, color: colors.surface },
-  subtitle: { marginBottom: 2, fontFamily: 'Inter_400Regular', fontSize: 12, color: '#ECECEC' },
-  empty: { backgroundColor: colors.surface, borderRadius: radius.medium, padding: spacing.lg, alignItems: 'center' },
+  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 22, gap: 8 },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 22, color: colors.surface },
+  subtitle: { marginBottom: 0, fontFamily: 'Inter_400Regular', fontSize: 10, color: '#ECECEC' },
+  empty: { backgroundColor: colors.surface, borderRadius: radius.medium, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center' },
   emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
   emptyText: { marginTop: 6, fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.muted, textAlign: 'center' },
 });

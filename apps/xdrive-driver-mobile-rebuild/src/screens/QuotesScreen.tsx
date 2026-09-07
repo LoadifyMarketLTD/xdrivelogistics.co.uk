@@ -1,4 +1,5 @@
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useMemo, useState } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { DriverJob, DriverResources } from '../types/driver';
 import { colors, radius, spacing } from '../theme/tokens';
 
@@ -25,14 +26,30 @@ function quoteStatus(row: Record<string, unknown>) {
   return 'Submitted';
 }
 
+type QuoteFilter = 'All' | 'Submitted' | 'Successful' | 'Unsuccessful';
+
 export function QuotesScreen({ resources, jobs = [] }: { resources?: DriverResources; jobs?: DriverJob[] }) {
   const quotes = resources?.quotes ?? [];
   const jobsById = new Map(jobs.map((job) => [job.id, job]));
+  const [filter, setFilter] = useState<QuoteFilter>('All');
+  const filtered = useMemo(() => quotes.filter((quote) => {
+    const status = quoteStatus(quote);
+    if (filter === 'All') return true;
+    if (filter === 'Successful') return status === 'Accepted';
+    return status === filter;
+  }), [quotes, filter]);
   return <ScrollView style={styles.page} contentContainerStyle={styles.content}>
     <Text style={styles.eyebrow}>XDrive Driver</Text>
     <Text style={styles.title}>Quotes</Text>
     <Text style={styles.subtitle}>Quotes you have submitted for available loads.</Text>
-    {quotes.length ? quotes.map((quote, index) => {
+    <View style={styles.filters}>
+      {(['All', 'Submitted', 'Successful', 'Unsuccessful'] as QuoteFilter[]).map((item) => (
+        <Pressable key={item} onPress={() => setFilter(item)} style={[styles.filterChip, filter === item && styles.filterChipActive]}>
+          <Text style={[styles.filterText, filter === item && styles.filterTextActive]}>{item}</Text>
+        </Pressable>
+      ))}
+    </View>
+    {filtered.length ? filtered.map((quote, index) => {
       const status = quoteStatus(quote);
       const jobId = pick(quote, ['job_id', 'load_id'], '');
       const job = jobId ? jobsById.get(jobId) : undefined;
@@ -52,7 +69,7 @@ export function QuotesScreen({ resources, jobs = [] }: { resources?: DriverResou
         </View>
       </View>;
     }) : <View style={styles.empty}>
-      <Text style={styles.emptyTitle}>No submitted quotes</Text>
+      <Text style={styles.emptyTitle}>No {filter.toLowerCase()} quotes</Text>
       <Text style={styles.emptyText}>When you quote on a load, it will appear here.</Text>
     </View>}
   </ScrollView>;
@@ -60,16 +77,21 @@ export function QuotesScreen({ resources, jobs = [] }: { resources?: DriverResou
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.appBackground },
-  content: { padding: spacing.lg, paddingBottom: 30, gap: 12 },
+  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 22, gap: 8 },
   eyebrow: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#ECECEC' },
-  title: { fontFamily: 'Inter_700Bold', fontSize: 26, color: colors.surface },
-  subtitle: { marginBottom: 2, fontFamily: 'Inter_400Regular', fontSize: 12, color: '#ECECEC' },
-  card: { backgroundColor: colors.surface, borderRadius: radius.medium, padding: spacing.md, gap: 9 },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 22, color: colors.surface },
+  subtitle: { marginBottom: 0, fontFamily: 'Inter_400Regular', fontSize: 10, color: '#ECECEC' },
+  filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  filterChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: radius.pill, backgroundColor: colors.surface },
+  filterChipActive: { backgroundColor: colors.primary },
+  filterText: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: colors.text },
+  filterTextActive: { color: colors.surface },
+  card: { backgroundColor: colors.surface, borderRadius: radius.medium, paddingHorizontal: 12, paddingVertical: 11, gap: 6 },
   row: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   ref: { flex: 1, fontFamily: 'Inter_700Bold', fontSize: 14, color: colors.text },
   amount: { fontFamily: 'Inter_700Bold', fontSize: 14, color: colors.primary },
-  route: { fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.muted },
-  badge: { alignSelf: 'flex-start', backgroundColor: colors.info, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 5 },
+  route: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.muted },
+  badge: { alignSelf: 'flex-start', backgroundColor: colors.info, borderRadius: radius.pill, paddingHorizontal: 9, paddingVertical: 4 },
   accepted: { backgroundColor: '#E7F6ED' },
   failed: { backgroundColor: '#FCEAEA' },
   badgeText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: colors.text },

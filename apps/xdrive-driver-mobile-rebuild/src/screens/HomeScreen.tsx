@@ -46,14 +46,15 @@ export function HomeScreen({ jobs, activeJob, recentJob, resources, loading, onR
       <View style={styles.livePill}><View style={styles.liveDot} /><Text style={styles.liveText}>{jobs.length} live</Text></View>
     </View>
     <View style={styles.driverCard}>
-      <View style={styles.driverTop}>
-        <View style={styles.driverAvatar}><Text style={styles.driverAvatarText}>{driverName.slice(0, 1).toUpperCase()}</Text></View>
-        <View style={styles.driverCopy}><Text style={styles.driverName}>{driverName}</Text><Text style={styles.driverEmail}>{resources?.email || ''}</Text></View>
+      <View style={styles.driverAvatar}><Text style={styles.driverAvatarText}>{driverName.slice(0, 1).toUpperCase()}</Text></View>
+      <View style={styles.driverCopy}>
+        <Text style={styles.driverName}>{driverName}</Text>
+        <Text style={styles.driverMeta} numberOfLines={1}>{vehicleType} | {registration}</Text>
       </View>
-      <View style={styles.driverFacts}>
-        <Fact label="Vehicle" value={`${vehicleType} | ${registration}`} />
-        <Fact label="Tracking" value={tracking} />
-        <Fact label="Work" value={activeJob ? 'Active job' : 'No active job'} />
+      <View style={styles.statusStack}>
+        <Text style={styles.statusLabel}>Tracking</Text>
+        <Text style={styles.statusValue}>{tracking}</Text>
+        <Text style={styles.workValue}>{activeJob ? 'On job' : 'Available'}</Text>
       </View>
     </View>
     <View style={styles.quickRow}>
@@ -74,9 +75,6 @@ export function HomeScreen({ jobs, activeJob, recentJob, resources, loading, onR
     </Pressable>
   </ScrollView>;
 }
-function Fact({ label, value }: { label: string; value: string }) {
-  return <View style={styles.fact}><Text style={styles.factLabel}>{label}</Text><Text style={styles.factValue} numberOfLines={1}>{value}</Text></View>;
-}
 function QuickCard({ icon, label, value, onPress }: { icon: keyof typeof Ionicons.glyphMap; label: string; value: string; onPress: () => void }) {
   return <Pressable onPress={onPress} style={styles.quickCard}>
     <Ionicons name={icon} size={20} color={colors.primary} />
@@ -93,34 +91,39 @@ function EmptyCard({ title, text }: { title: string; text: string }) {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: colors.appBackground },
-  content: { padding: spacing.lg, paddingBottom: 28, gap: 12 },
+  content: { paddingHorizontal: 16, paddingTop: 14, paddingBottom: 22, gap: 8 },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   eyebrow: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#ECECEC' },
-  title: { marginTop: 2, fontFamily: 'Inter_700Bold', fontSize: 26, color: colors.surface },
+  title: { marginTop: 1, fontFamily: 'Inter_700Bold', fontSize: 22, color: colors.surface },
   livePill: { backgroundColor: colors.surface, borderRadius: radius.pill, paddingHorizontal: 10, paddingVertical: 7, flexDirection: 'row', alignItems: 'center', gap: 6 },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
   liveText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: colors.text },
-  driverCard: { backgroundColor: colors.surface, borderRadius: radius.medium, padding: spacing.md, gap: 12 },
+  driverCard: { minHeight: 72, backgroundColor: colors.surface, borderRadius: radius.medium, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10 },
   driverTop: { flexDirection: 'row', alignItems: 'center', gap: 11 },
-  driverAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.iconWell, alignItems: 'center', justifyContent: 'center' },
+  driverAvatar: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.iconWell, alignItems: 'center', justifyContent: 'center' },
   driverAvatarText: { fontFamily: 'Inter_700Bold', fontSize: 15, color: colors.primary },
   driverCopy: { flex: 1 },
-  driverName: { fontFamily: 'Inter_700Bold', fontSize: 15, color: colors.text },
+  driverMeta: { marginTop: 2, fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.muted },
+  statusStack: { minWidth: 76, alignItems: 'flex-end' },
+  statusLabel: { fontFamily: 'Inter_400Regular', fontSize: 8, color: colors.muted },
+  statusValue: { marginTop: 1, fontFamily: 'Inter_700Bold', fontSize: 10, color: colors.primary },
+  workValue: { marginTop: 3, fontFamily: 'Inter_600SemiBold', fontSize: 9, color: colors.text },
+  driverName: { fontFamily: 'Inter_700Bold', fontSize: 14, color: colors.text },
   driverEmail: { marginTop: 2, fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.muted },
   driverFacts: { flexDirection: 'row', gap: 8 },
   fact: { flex: 1, minWidth: 0, backgroundColor: colors.iconWell, borderRadius: radius.small, paddingHorizontal: 9, paddingVertical: 8 },
   factLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 9, color: colors.muted },
   factValue: { marginTop: 2, fontFamily: 'Inter_600SemiBold', fontSize: 10, color: colors.text },
-  quickRow: { flexDirection: 'row', gap: 9 },
-  quickCard: { flex: 1, minHeight: 82, backgroundColor: colors.surface, borderRadius: radius.medium, alignItems: 'center', justifyContent: 'center', padding: 8 },
-  quickValue: { marginTop: 2, fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
+  quickRow: { flexDirection: 'row', gap: 7 },
+  quickCard: { flex: 1, minHeight: 58, backgroundColor: colors.surface, borderRadius: radius.medium, alignItems: 'center', justifyContent: 'center', paddingVertical: 6, paddingHorizontal: 5 },
+  quickValue: { marginTop: 1, fontFamily: 'Inter_700Bold', fontSize: 14, color: colors.text },
   quickLabel: { marginTop: 1, fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.muted },
   sectionRow: { marginTop: 3, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   sectionTitle: { fontFamily: 'Inter_700Bold', fontSize: 15, color: colors.surface },
   sectionAction: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#F2F2F2' },
-  empty: { backgroundColor: colors.surface, borderRadius: radius.medium, padding: spacing.lg, alignItems: 'center' },
-  emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 15, color: colors.text },
-  emptyText: { marginTop: 5, fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.muted, textAlign: 'center' },
+  empty: { backgroundColor: colors.surface, borderRadius: radius.medium, paddingHorizontal: 14, paddingVertical: 12, alignItems: 'center' },
+  emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 13, color: colors.text },
+  emptyText: { marginTop: 3, fontFamily: 'Inter_400Regular', fontSize: 10, color: colors.muted, textAlign: 'center' },
   secondaryCard: { minHeight: 72, backgroundColor: colors.surface, borderRadius: radius.medium, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   secondaryTitle: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.text },
   secondaryText: { marginTop: 3, maxWidth: 270, fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.muted },

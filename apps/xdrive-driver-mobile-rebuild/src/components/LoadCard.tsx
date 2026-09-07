@@ -28,18 +28,18 @@ export function LoadCard({ job, onOpen }: { job: DriverJob; onOpen: () => void }
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.surface, borderRadius: radius.medium, padding: spacing.md, gap: 12 },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
+  card: { backgroundColor: colors.surface, borderRadius: radius.medium, paddingHorizontal: 12, paddingVertical: 11, gap: 8 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 10 },
   reference: { flex: 1, fontFamily: 'Inter_700Bold', fontSize: 14, color: colors.text },
   time: { fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.muted },
-  routeRow: { flexDirection: 'row', gap: 10, alignItems: 'center' },
+  routeRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   routeIcon: { width: 24, alignItems: 'center' },
   dot: { width: 9, height: 9, borderRadius: 5, backgroundColor: colors.black },
-  line: { width: 1, height: 18, borderStyle: 'dashed', borderWidth: 1, borderColor: '#A0A0A0' },
-  routeCopy: { flex: 1, gap: 9 },
-  place: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.text },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.iconWell, borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 5 },
+  line: { width: 1, height: 14, borderStyle: 'dashed', borderWidth: 1, borderColor: '#A0A0A0' },
+  routeCopy: { flex: 1, gap: 6 },
+  place: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.text },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  tag: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: colors.iconWell, borderRadius: radius.pill, paddingHorizontal: 7, paddingVertical: 4 },
   tagText: { fontFamily: 'Inter_400Regular', fontSize: 10, color: '#626262', maxWidth: 86 },
   price: { marginLeft: 'auto', fontFamily: 'Inter_700Bold', fontSize: 13, color: colors.primary },
 });
