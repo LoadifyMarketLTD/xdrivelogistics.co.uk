@@ -37,6 +37,8 @@ describe('workspace route contracts', () => {
       '/customer/tracking',
       '/customer/diary',
       '/customer/network',
+      '/customer/disputes',
+      '/settings/billing',
       '/customer/account',
     ]);
   });
@@ -67,6 +69,7 @@ describe('workspace route contracts', () => {
       '/admin/diary',
       '/admin/invoices',
       '/admin/documents',
+      '/settings/billing',
       '/admin/settings',
     ]);
   });
@@ -81,7 +84,9 @@ describe('workspace route contracts', () => {
       '/broker/carrier-network',
       '/broker/customers',
       '/broker/diary',
+      '/broker/disputes',
       '/broker/finance',
+      '/settings/billing',
       '/broker/account',
     ]);
   });

@@ -320,7 +320,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       syncRouteAuthCookie(session);
 
       // TOKEN_REFRESHED: the Supabase client silently rotated the JWT.
@@ -331,29 +331,47 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      try {
-        if (session?.user) {
-          if (isPasswordSetupContext(event)) {
-            setPasswordSetupSessionState();
-          } else if (loginHydrating.current) {
-            // login() is already resolving this session — skip to avoid concurrent
-            // LockManager lock acquisition that causes auth-token lock timeout.
-          } else {
-            await hydrateUser(session.user);
-          }
-        } else if (!isPasswordSetupContext(event)) {
-          resetAuthState();
-        }
-      } catch (error) {
-        console.error('AuthContext auth state handling failed', error);
-        if (session?.user && isServiceUnavailableError(error)) {
-          setHasSupabaseSession(true);
-        } else if (!isPasswordSetupContext(event)) {
-          resetAuthState();
-        }
-      } finally {
+      if (session?.user && isPasswordSetupContext(event)) {
+        setPasswordSetupSessionState();
         if (isMounted) setIsLoading(false);
+        return;
       }
+
+      if (!session?.user) {
+        if (!isPasswordSetupContext(event)) resetAuthState();
+        if (isMounted) setIsLoading(false);
+        return;
+      }
+
+      if (loginHydrating.current) {
+        // login() is already resolving this session. Do not start another
+        // hydration for the same SIGNED_IN event.
+        if (isMounted) setIsLoading(false);
+        return;
+      }
+
+      // Supabase documents a supabase-js deadlock when asynchronous API work is
+      // awaited inside onAuthStateChange. Return from the callback first, then run
+      // the profile/company hydration in the next macrotask so the auth lock is
+      // released before resolveAuthenticatedUser() issues database queries.
+      window.setTimeout(() => {
+        if (!isMounted) return;
+
+        void (async () => {
+          try {
+            await hydrateUser(session.user);
+          } catch (error) {
+            console.error('AuthContext auth state handling failed', error);
+            if (isServiceUnavailableError(error)) {
+              setHasSupabaseSession(true);
+            } else if (!isPasswordSetupContext(event)) {
+              resetAuthState();
+            }
+          } finally {
+            if (isMounted) setIsLoading(false);
+          }
+        })();
+      }, 0);
     });
 
     return () => {

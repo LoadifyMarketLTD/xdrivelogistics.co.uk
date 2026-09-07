@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { COMPANY_CONFIG } from '../config/company';
 
-export const metadata: Metadata = { title: 'Complaints | XDrive Logistics', description: 'How to raise platform, membership and conduct complaints with XDrive Logistics.' };
+export const metadata: Metadata = { title: 'Complaints | XDrive Logistics', description: 'How to raise platform, membership and conduct complaints with XDrive Logistics.', alternates: { canonical: '/complaints' } };
 const LAST_UPDATED='1 September 2026';
 
 export default function ComplaintsPage(){return <main className="min-h-screen bg-[#071B3C] px-6 py-20 text-white"><div className="mx-auto max-w-[900px]">

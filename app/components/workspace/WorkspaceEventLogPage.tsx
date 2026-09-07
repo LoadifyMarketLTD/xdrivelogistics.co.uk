@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useAuth } from '../AuthContext';
-import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
+import { supabase } from '../../../lib/supabaseClient';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader } from './WorkspaceUI';
 
 type EventRow = {
@@ -13,6 +13,8 @@ type EventRow = {
   entity_id: string | null;
   payload: Record<string, unknown> | null;
   created_at: string | null;
+  source?: 'notification' | 'tracking' | string;
+  job_id?: string | null;
 };
 
 const cellLabelStyle = {
@@ -132,7 +134,7 @@ export function WorkspaceEventLogPage({
   const [page, setPage] = useState(1);
 
   const loadEvents = useCallback(async () => {
-    if (!isSupabaseConfigured || !userId) {
+    if (!userId) {
       setEvents([]);
       setLoading(false);
       return;
@@ -140,22 +142,20 @@ export function WorkspaceEventLogPage({
 
     setLoading(true);
     setError('');
-    let query = supabase
-      .from('notification_events')
-      .select('id, event_type, entity_type, entity_id, payload, created_at')
-      .eq('recipient_user_id', userId)
-      .order('created_at', { ascending: false })
-      .limit(500);
-
-    if (fromDate) query = query.gte('created_at', new Date(`${fromDate}T00:00:00`).toISOString());
-    if (toDate) query = query.lte('created_at', new Date(`${toDate}T23:59:59`).toISOString());
-
-    const { data, error: fetchError } = await query;
-    if (fetchError) {
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+    if (!token) { setEvents([]); setError('Your session has expired.'); setLoading(false); return; }
+    const params = new URLSearchParams();
+    if (fromDate) params.set('from', fromDate);
+    if (toDate) params.set('to', toDate);
+    try {
+      const response = await fetch(`/api/workspace/event-log?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+      const payload = await response.json().catch(() => ({})) as { events?: EventRow[]; error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Event Log could not be loaded.');
+      setEvents(payload.events ?? []);
+    } catch (reason) {
       setEvents([]);
-      setError('Event Log could not be loaded. Please refresh and try again.');
-    } else {
-      setEvents((data ?? []) as EventRow[]);
+      setError(reason instanceof Error ? reason.message : 'Event Log could not be loaded. Please refresh and try again.');
     }
     setLoading(false);
   }, [fromDate, toDate, userId]);
@@ -172,6 +172,7 @@ export function WorkspaceEventLogPage({
       event.entity_type,
       eventReference(event),
       payloadSummary(event),
+      event.source,
     ].filter(Boolean).join(' ').toLowerCase().includes(needle));
   }, [appliedSearch, events]);
 
@@ -185,12 +186,13 @@ export function WorkspaceEventLogPage({
 
   const downloadCsv = () => {
     const rows = [
-      ['Date', 'Event', 'Entity', 'Reference', 'Details'],
+      ['Date', 'Event', 'Entity', 'Reference', 'Source', 'Details'],
       ...filteredEvents.map((event) => [
         fmtDate(event.created_at),
         eventLabel(event.event_type),
         event.entity_type ?? '',
         eventReference(event),
+        event.source ?? '',
         payloadSummary(event),
       ]),
     ];
@@ -260,7 +262,9 @@ export function WorkspaceEventLogPage({
             <div className="workspace-panel"><EmptyState compact title="There are no items to display" description="Adjust the date or reference filters and search again." /></div>
           ) : (
             <div className="workspace-record-list">
-              {visibleEvents.map((event) => (
+              {visibleEvents.map((event) => {
+                const replayJobId = event.job_id && UUID_RE.test(event.job_id) ? event.job_id : null;
+                return (
                 <article key={event.id} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><span style={cellLabelStyle}>DATE</span><strong style={cellPrimaryStyle}>{fmtDate(event.created_at)}</strong><div style={cellMetaStyle}>Account event</div></div>
@@ -268,9 +272,10 @@ export function WorkspaceEventLogPage({
                     <div className="workspace-operational-cell"><span style={cellLabelStyle}>REFERENCE</span><strong style={cellPrimaryStyle}>{eventReference(event)}</strong><div style={cellMetaStyle}>Entity {event.entity_id ? event.entity_id.slice(0, 8).toUpperCase() : '—'}</div></div>
                     <div className="workspace-operational-cell"><span style={cellLabelStyle}>DETAILS</span><strong style={cellPrimaryStyle}>{payloadSummary(event)}</strong><div style={cellMetaStyle}>Operational activity</div></div>
                   </div>
-                  <div className="workspace-record-meta"><span>Event #{event.id.slice(0, 8).toUpperCase()}</span></div>
+                  <div className="workspace-record-meta"><span>Event #{event.id.slice(0, 8).toUpperCase()}</span><span>Source: {event.source ?? 'notification'}</span>{replayJobId ? <ActionButton tone="secondary" onClick={() => window.location.assign(`/job-replay/${replayJobId}`)}>Open Replay</ActionButton> : null}</div>
                 </article>
-              ))}
+                );
+              })}
             </div>
           )}
 

@@ -5,6 +5,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../_lib/supabaseAdmin';
+import { enrichBidderDecisionIdentities } from '../../../_lib/bidderDecisionIdentity';
 
 type BidIdentityRow = {
   id: string;
@@ -56,55 +57,15 @@ export async function GET(request: NextRequest) {
   if (bidError) return json(500, { error: 'Unable to load bidder identities.' });
   const bids = (bidData ?? []) as unknown as BidIdentityRow[];
 
-  const driverIds = [...new Set(bids.map((bid) => bid.bidder_driver_id).filter((id): id is string => Boolean(id)))];
-  const userIds = [...new Set(bids.map((bid) => bid.bidder_user_id ?? bid.bidder_id).filter((id): id is string => Boolean(id)))];
-
-  const [driversResult, profilesResult] = await Promise.all([
-    driverIds.length
-      ? supabaseAdmin.from('drivers').select('id, display_name, company_id').in('id', driverIds)
-      : Promise.resolve({ data: [], error: null }),
-    userIds.length
-      ? supabaseAdmin.from('profiles').select('user_id, full_name, company_id').in('user_id', userIds)
-      : Promise.resolve({ data: [], error: null }),
-  ]);
-
-  if (driversResult.error || profilesResult.error) {
-    return json(500, { error: 'Unable to resolve bidder profiles.' });
-  }
-
-  const drivers = new Map((driversResult.data ?? []).map((row) => [row.id, row]));
-  const profiles = new Map((profilesResult.data ?? []).map((row) => [row.user_id, row]));
-
-  const resolvedCompanyIds = [...new Set(bids.map((bid) => {
-    const driver = bid.bidder_driver_id ? drivers.get(bid.bidder_driver_id) : null;
-    const profile = profiles.get(bid.bidder_user_id ?? bid.bidder_id ?? '') ?? null;
-    return bid.bidder_company_id ?? driver?.company_id ?? profile?.company_id ?? null;
-  }).filter((id): id is string => Boolean(id)))];
-
-  const companiesResult = resolvedCompanyIds.length
-    ? await supabaseAdmin.from('companies').select('id, name, company_type').in('id', resolvedCompanyIds)
-    : { data: [], error: null };
-  if (companiesResult.error) return json(500, { error: 'Unable to resolve bidder companies.' });
-  const companies = new Map((companiesResult.data ?? []).map((row) => [row.id, row]));
-
-  const identities = bids.map((bid) => {
-    const driver = bid.bidder_driver_id ? drivers.get(bid.bidder_driver_id) : null;
-    const profile = profiles.get(bid.bidder_user_id ?? bid.bidder_id ?? '') ?? null;
-    const companyId = bid.bidder_company_id ?? driver?.company_id ?? profile?.company_id ?? null;
-    const company = companyId ? companies.get(companyId) : null;
-    const companyName = company?.name?.trim() || null;
-    const personName = driver?.display_name?.trim() || profile?.full_name?.trim() || null;
-
-    return {
+  try {
+    const identities = await enrichBidderDecisionIdentities(supabaseAdmin, bids.map((bid) => ({
       bidId: bid.id,
-      companyId,
+      companyId: bid.bidder_company_id ?? null,
       driverId: bid.bidder_driver_id ?? null,
-      companyName,
-      personName,
-      companyType: company?.company_type?.trim() || (companyId ? null : 'owner_driver'),
-      displayName: companyName || personName || 'Carrier profile incomplete',
-    };
-  });
-
-  return json(200, { identities });
+      userId: bid.bidder_user_id ?? bid.bidder_id ?? null,
+    })));
+    return json(200, { identities });
+  } catch {
+    return json(500, { error: 'Unable to enrich bidder decision profiles.' });
+  }
 }

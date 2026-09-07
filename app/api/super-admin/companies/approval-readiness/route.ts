@@ -1,29 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+const PAGE_SIZE = 1000;
 
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error } = await validatorClient.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: profile } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
-
-type DocState = {
-  status: string | null;
-  expiry_date: string | null;
-};
-
+type DocState = { status: string | null; expiry_date: string | null };
 type CompanyReadiness = {
   companyId: string;
   registrationProvided: boolean;
@@ -39,79 +21,104 @@ type CompanyReadiness = {
   readiness: 'ready' | 'review' | 'blocked';
 };
 
-export async function GET(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
+type PendingCompany = { id: string; company_number: string | null; email: string | null; status: string };
+type EntityRow = { id: string; company_id: string };
+
+type DriverDocRow = { driver_id: string; status: string | null; expiry_date: string | null };
+type VehicleDocRow = { vehicle_id: string; status: string | null; expiry_date: string | null };
+
+const loadPendingCompanies = async () => {
+  if (!supabaseAdmin) return { rows: [] as PendingCompany[], error: 'Server auth is not configured.' };
+  const rows: PendingCompany[] = [];
+  for (let offset = 0; ; offset += PAGE_SIZE) {
+    const result = await supabaseAdmin
+      .from('companies')
+      .select('id, company_number, email, status')
+      .eq('status', 'pending_approval')
+      .order('created_at', { ascending: false })
+      .range(offset, offset + PAGE_SIZE - 1);
+    if (result.error) return { rows: [] as PendingCompany[], error: result.error.message };
+    const page = (result.data ?? []) as PendingCompany[];
+    rows.push(...page);
+    if (page.length < PAGE_SIZE) break;
   }
+  return { rows, error: null as string | null };
+};
 
-  const owner = await verifyOwner(request);
-  if (!owner) return respond(403, { error: 'Forbidden: owner role required.' });
+const loadDocuments = async <T extends DriverDocRow | VehicleDocRow>(
+  table: 'driver_documents' | 'vehicle_documents',
+  foreignKey: 'driver_id' | 'vehicle_id',
+  ids: string[],
+) => {
+  if (!supabaseAdmin || ids.length === 0) return { rows: [] as T[], error: null as string | null };
+  const rows: T[] = [];
+  for (let start = 0; start < ids.length; start += 500) {
+    const chunk = ids.slice(start, start + 500);
+    const result = await supabaseAdmin
+      .from(table)
+      .select(`${foreignKey}, status, expiry_date`)
+      .in(foreignKey, chunk)
+      .limit(10_000);
+    if (result.error) return { rows: [] as T[], error: result.error.message };
+    rows.push(...((result.data ?? []) as unknown as T[]));
+  }
+  return { rows, error: null as string | null };
+};
 
-  const { data: companies, error: companiesError } = await supabaseAdmin
-    .from('companies')
-    .select('id, company_number, email, status')
-    .in('status', ['pending', 'pending_approval'])
-    .order('created_at', { ascending: false })
-    .limit(200);
+export async function GET(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const owner = await verifyPlatformOwner(request);
+  if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
-  if (companiesError) return respond(500, { error: companiesError.message });
-
-  const companyIds = (companies ?? []).map((row) => String(row.id)).filter(Boolean);
-  if (companyIds.length === 0) return respond(200, { readiness: {} });
+  const companyResult = await loadPendingCompanies();
+  if (companyResult.error) return respond(500, { error: companyResult.error });
+  const companies = companyResult.rows;
+  const companyIds = companies.map((row) => row.id);
+  if (companyIds.length === 0) return respond(200, { readiness: {}, totalPendingCompanies: 0 });
 
   const [driversResult, vehiclesResult] = await Promise.all([
-    supabaseAdmin.from('drivers').select('id, company_id').in('company_id', companyIds),
-    supabaseAdmin.from('vehicles').select('id, company_id').in('company_id', companyIds),
+    supabaseAdmin.from('drivers').select('id, company_id').in('company_id', companyIds).limit(10_000),
+    supabaseAdmin.from('vehicles').select('id, company_id').in('company_id', companyIds).limit(10_000),
   ]);
-
   if (driversResult.error) return respond(500, { error: driversResult.error.message });
   if (vehiclesResult.error) return respond(500, { error: vehiclesResult.error.message });
 
-  const drivers = driversResult.data ?? [];
-  const vehicles = vehiclesResult.data ?? [];
-  const driverIds = drivers.map((row) => String(row.id)).filter(Boolean);
-  const vehicleIds = vehicles.map((row) => String(row.id)).filter(Boolean);
-
+  const drivers = (driversResult.data ?? []) as EntityRow[];
+  const vehicles = (vehiclesResult.data ?? []) as EntityRow[];
   const [driverDocsResult, vehicleDocsResult] = await Promise.all([
-    driverIds.length
-      ? supabaseAdmin.from('driver_documents').select('driver_id, status, expiry_date').in('driver_id', driverIds)
-      : Promise.resolve({ data: [], error: null }),
-    vehicleIds.length
-      ? supabaseAdmin.from('vehicle_documents').select('vehicle_id, status, expiry_date').in('vehicle_id', vehicleIds)
-      : Promise.resolve({ data: [], error: null }),
+    loadDocuments<DriverDocRow>('driver_documents', 'driver_id', drivers.map((row) => row.id)),
+    loadDocuments<VehicleDocRow>('vehicle_documents', 'vehicle_id', vehicles.map((row) => row.id)),
   ]);
+  if (driverDocsResult.error) return respond(500, { error: driverDocsResult.error });
+  if (vehicleDocsResult.error) return respond(500, { error: vehicleDocsResult.error });
 
-  if (driverDocsResult.error) return respond(500, { error: driverDocsResult.error.message });
-  if (vehicleDocsResult.error) return respond(500, { error: vehicleDocsResult.error.message });
-
-  const companyByDriver = new Map(drivers.map((row) => [String(row.id), String(row.company_id)]));
-  const companyByVehicle = new Map(vehicles.map((row) => [String(row.id), String(row.company_id)]));
+  const companyByDriver = new Map(drivers.map((row) => [row.id, row.company_id]));
+  const companyByVehicle = new Map(vehicles.map((row) => [row.id, row.company_id]));
   const docsByCompany = new Map<string, DocState[]>();
-
-  for (const row of driverDocsResult.data ?? []) {
-    const companyId = companyByDriver.get(String(row.driver_id));
+  for (const row of driverDocsResult.rows) {
+    const companyId = companyByDriver.get(row.driver_id);
     if (!companyId) continue;
     const list = docsByCompany.get(companyId) ?? [];
-    list.push({ status: row.status ? String(row.status) : null, expiry_date: row.expiry_date ? String(row.expiry_date) : null });
+    list.push({ status: row.status, expiry_date: row.expiry_date });
+    docsByCompany.set(companyId, list);
+  }
+  for (const row of vehicleDocsResult.rows) {
+    const companyId = companyByVehicle.get(row.vehicle_id);
+    if (!companyId) continue;
+    const list = docsByCompany.get(companyId) ?? [];
+    list.push({ status: row.status, expiry_date: row.expiry_date });
     docsByCompany.set(companyId, list);
   }
 
-  for (const row of vehicleDocsResult.data ?? []) {
-    const companyId = companyByVehicle.get(String(row.vehicle_id));
-    if (!companyId) continue;
-    const list = docsByCompany.get(companyId) ?? [];
-    list.push({ status: row.status ? String(row.status) : null, expiry_date: row.expiry_date ? String(row.expiry_date) : null });
-    docsByCompany.set(companyId, list);
-  }
+  const driverCountByCompany = new Map<string, number>();
+  for (const row of drivers) driverCountByCompany.set(row.company_id, (driverCountByCompany.get(row.company_id) ?? 0) + 1);
+  const vehicleCountByCompany = new Map<string, number>();
+  for (const row of vehicles) vehicleCountByCompany.set(row.company_id, (vehicleCountByCompany.get(row.company_id) ?? 0) + 1);
 
   const today = new Date().toISOString().slice(0, 10);
   const readiness: Record<string, CompanyReadiness> = {};
-
-  for (const company of companies ?? []) {
-    const companyId = String(company.id);
-    const docs = docsByCompany.get(companyId) ?? [];
-    const driverCount = drivers.filter((row) => String(row.company_id) === companyId).length;
-    const vehicleCount = vehicles.filter((row) => String(row.company_id) === companyId).length;
+  for (const company of companies) {
+    const docs = docsByCompany.get(company.id) ?? [];
     const approvedDocuments = docs.filter((doc) => doc.status === 'approved').length;
     const pendingDocuments = docs.filter((doc) => doc.status === 'pending').length;
     const rejectedDocuments = docs.filter((doc) => doc.status === 'rejected').length;
@@ -129,13 +136,12 @@ export async function GET(request: NextRequest) {
 
     const blocked = rejectedDocuments > 0 || expiredDocuments > 0;
     const needsReview = !registrationProvided || !emailProvided || pendingDocuments > 0;
-
-    readiness[companyId] = {
-      companyId,
+    readiness[company.id] = {
+      companyId: company.id,
       registrationProvided,
       emailProvided,
-      driverCount,
-      vehicleCount,
+      driverCount: driverCountByCompany.get(company.id) ?? 0,
+      vehicleCount: vehicleCountByCompany.get(company.id) ?? 0,
       documentCount: docs.length,
       approvedDocuments,
       pendingDocuments,
@@ -146,5 +152,5 @@ export async function GET(request: NextRequest) {
     };
   }
 
-  return respond(200, { readiness });
+  return respond(200, { readiness, totalPendingCompanies: companies.length, refreshedAt: new Date().toISOString() });
 }

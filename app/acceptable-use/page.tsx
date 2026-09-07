@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { COMPANY_CONFIG } from '../config/company';
 
-export const metadata: Metadata = { title: 'Acceptable Use Policy | XDrive Logistics', description: 'Rules for lawful and responsible use of the XDrive platform.' };
+export const metadata: Metadata = { title: 'Acceptable Use Policy | XDrive Logistics', description: 'Rules for lawful and responsible use of the XDrive platform.', alternates: { canonical: '/acceptable-use' } };
 const LAST_UPDATED='1 September 2026';
 
 export default function AcceptableUsePage(){return <main className="min-h-screen bg-[#071B3C] px-6 py-20 text-white"><div className="mx-auto max-w-[900px]">

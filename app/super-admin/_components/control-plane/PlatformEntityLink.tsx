@@ -23,7 +23,7 @@ export default function PlatformEntityLink({
     <Link
       href={href ?? platformEntityHref(entityType, entityId)}
       className="sa-button"
-      style={{ minHeight: compact ? 28 : 32, padding: compact ? '0 8px' : '0 10px', textDecoration: 'none', whiteSpace: 'nowrap' }}
+      style={{ minHeight: 40, padding: compact ? '0 12px' : '0 14px', textDecoration: 'none', whiteSpace: 'nowrap' }}
       aria-label={`Inspect ${entityType}`}
     >
       <span>{children}</span>

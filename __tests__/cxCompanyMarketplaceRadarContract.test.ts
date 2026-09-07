@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
@@ -11,10 +11,11 @@ describe('CX-close Company Marketplace Freight Radar', () => {
 
   it('maps the same visible search results by public pickup outcode', () => {
     expect(marketplace).toContain('pickupPostcode: load.pickup_postcode');
+    expect(marketplace).toContain('deliveryPostcode: load.delivery_postcode');
     expect(marketplace).toContain('postedAt: load.exchange_posted_at');
     expect(radar).toContain('api.postcodes.io/outcodes');
     expect(radar).toContain('publicOutcodeFor');
-    expect(radar).toContain('Pre-award radar uses public postcode/outcode centroids only');
+    expect(radar).toContain('Pre-award radar routes use public pickup and delivery postcode/outcode centroids only');
   });
 
   it('does not consume exact pre-award pickup coordinates even if a legacy field is supplied', () => {
@@ -24,10 +25,18 @@ describe('CX-close Company Marketplace Freight Radar', () => {
     expect(api).toContain('deliveryCoordinates: null');
   });
 
+  it('renders privacy-safe pickup-to-delivery direction from public outcodes', () => {
+    expect(radar).toContain('publicDeliveryOutcodeFor');
+    expect(radar).toContain('L.polyline');
+    expect(radar).toContain('marketplace-radar-direction-icon');
+    expect(radar).toContain('Dashed arrow = pickup');
+    expect(radar).not.toContain('load.deliveryCoordinates!');
+  });
+
   it('clusters loads and exposes contextual Details / Quote Now from the selected area', () => {
     expect(radar).toContain('RadarCluster');
     expect(radar).toContain('selectedClusterKey');
-    expect(radar).toContain('multiple loads in this public pickup area');
+    expect(radar).toContain('loads in this public pickup area');
     expect(radar).toContain('Quote Now');
     expect(radar).toContain('Details');
     expect(marketplace).toContain('onQuote={(loadId)');

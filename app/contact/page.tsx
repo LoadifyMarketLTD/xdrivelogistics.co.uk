@@ -6,6 +6,7 @@ import { COMPANY_CONFIG } from '../config/company';
 export const metadata: Metadata = {
   title: 'Contact XDrive Logistics',
   description: 'Contact XDrive Logistics for courier and freight exchange platform access, rollout questions, and operational enquiries.',
+  alternates: { canonical: '/contact' },
 };
 
 const contactCards = [

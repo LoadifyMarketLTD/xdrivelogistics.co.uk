@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { isSuperAdminDeployPreviewReadOnly, verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -11,10 +12,6 @@ type MarketplaceGovernanceMutationRow = {
   exchange_visibility: string;
 };
 
-/**
- * Actions that require an explicit reason.
- * Force-cancel and force-dispute have immediate operational/financial impact.
- */
 const MARKETPLACE_REASON_REQUIRED = new Set(['force_dispute', 'force_cancel']);
 
 const patchSchema = z.object({
@@ -30,49 +27,20 @@ const patchSchema = z.object({
   }
 });
 
-const resolveOwnerProfile = async (authUserId: string) => {
-  if (!supabaseAdmin) return null;
-  const { data, error } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authUserId)
-    .maybeSingle();
-  if (error || !data) return null;
-  return data;
-};
-
-const verifyOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) return null;
-  const profile = await resolveOwnerProfile(authData.user.id);
-  if (!profile || profile.role !== 'owner') return null;
-  return authData.user;
-};
-
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return respond(503, { error: 'Server auth is not configured.' });
-  }
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
 
-  const owner = await verifyOwner(request);
+  const owner = await verifyPlatformOwner(request);
   if (!owner) {
-    return respond(403, { error: 'Forbidden: owner role required.' });
+    if (isSuperAdminDeployPreviewReadOnly()) return respond(403, { error: 'Deploy Preview is read-only. Marketplace governance was not changed.' });
+    return respond(403, { error: 'Forbidden: active Platform Owner required.' });
   }
 
   let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return respond(400, { error: 'Invalid JSON body.' });
-  }
-
+  try { body = await request.json(); } catch { return respond(400, { error: 'Invalid JSON body.' }); }
   const parsed = patchSchema.safeParse(body);
   if (!parsed.success) {
     const flatErrors = parsed.error.flatten();
@@ -82,36 +50,25 @@ export async function PATCH(
 
   const { id: jobId } = await params;
   const { action, reason } = parsed.data;
-  const { data: mutationResult, error: mutationError } = await supabaseAdmin.rpc(
-    'apply_marketplace_governance_action',
-    {
-      p_actor_user_id: owner.id,
-      p_job_id: jobId,
-      p_action: action,
-      p_reason: reason?.trim() || null,
-    },
-  );
+  const { data: mutationResult, error: mutationError } = await supabaseAdmin.rpc('apply_marketplace_governance_action', {
+    p_actor_user_id: owner.id,
+    p_job_id: jobId,
+    p_action: action,
+    p_reason: reason?.trim() || null,
+  });
 
   if (mutationError) {
-    if (mutationError.code === 'P0002') {
-      return respond(404, { error: mutationError.message });
+    if (mutationError.code === 'P0002') return respond(404, { error: mutationError.message });
+    if (mutationError.code === '22P02') return respond(400, { error: mutationError.message });
+    if (mutationError.code === '42501') return respond(403, { error: mutationError.message });
+    if (mutationError.code === '42883' || mutationError.code === 'PGRST202') {
+      return respond(503, { error: 'Marketplace governance mutation schema is not available in this environment.' });
     }
-    if (mutationError.code === '22P02') {
-      return respond(400, { error: mutationError.message });
-    }
-    if (mutationError.code === 'P0001' || mutationError.code === '23514' || mutationError.code === '23502') {
-      return respond(409, { error: mutationError.message });
-    }
+    if (mutationError.code === 'P0001' || mutationError.code === '23514' || mutationError.code === '23502') return respond(409, { error: mutationError.message });
     return respond(500, { error: mutationError.message });
   }
 
-  const updatedJob = (Array.isArray(mutationResult) ? mutationResult[0] : mutationResult) as
-    | MarketplaceGovernanceMutationRow
-    | null;
-
-  return respond(200, {
-    success: true,
-    action,
-    job: updatedJob,
-  });
+  const updatedJob = (Array.isArray(mutationResult) ? mutationResult[0] : mutationResult) as MarketplaceGovernanceMutationRow | null;
+  if (!updatedJob) return respond(500, { error: 'Marketplace governance action returned no job reconciliation data.' });
+  return respond(200, { success: true, action, job: updatedJob });
 }

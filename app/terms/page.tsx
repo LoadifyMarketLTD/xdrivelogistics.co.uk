@@ -5,6 +5,7 @@ import { COMPANY_CONFIG } from '../config/company';
 export const metadata: Metadata = {
   title: 'Terms & Conditions | XDrive Logistics',
   description: 'Terms governing XDrive Logistics platform access, marketplace use and transport operations.',
+  alternates: { canonical: '/terms' },
 };
 
 const LAST_UPDATED = '1 September 2026';

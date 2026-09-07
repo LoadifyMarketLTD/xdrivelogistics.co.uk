@@ -5,6 +5,7 @@ import { COMPANY_CONFIG } from '../config/company';
 export const metadata: Metadata = {
   title: 'Cookie & Storage Policy | XDrive Logistics',
   description: 'How XDrive Logistics uses cookies and similar storage and access technologies.',
+  alternates: { canonical: '/cookies' },
 };
 
 const LAST_UPDATED='1 September 2026';

@@ -3,6 +3,15 @@ import type { Metadata } from 'next';
 import SuperAdminWorkspaceShell from './_components/SuperAdminWorkspaceShell';
 import './super-admin-light.css';
 import './super-admin-light-hardening.css';
+import './super-admin-visual-contract.css';
+import './super-admin-v2-icon-enforcement.css';
+import './super-admin-master-contract.css';
+
+// The protected Super Admin document receives a per-request CSP nonce from
+// middleware. Next.js can only apply that nonce to framework/page scripts when
+// the route is rendered dynamically for the incoming request; a statically
+// prerendered shell can otherwise be blocked by the strict CSP on hard reload.
+export const dynamic = 'force-dynamic';
 
 export const metadata: Metadata = {
   title: 'Super Admin | XDrive Logistics',
