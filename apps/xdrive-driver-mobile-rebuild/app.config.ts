@@ -21,7 +21,7 @@ const config: ExpoConfig = {
   },
   plugins: ['expo-secure-store', 'expo-asset'],
   extra: {
-    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://www.xdrivelogistics.co.uk',
+    apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://deploy-preview-510--xdrivelogistics.netlify.app',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://jqxlauexhkonixtjvljw.supabase.co',
     supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY ?? 'sb_publishable_yxmGBfB7tzCgBXi_6T-uJQ_JNNYmBVO',
     eas: { projectId: 'c19b0bdf-567a-488e-b78f-d36b84f25c99' }
