@@ -217,6 +217,57 @@ async function postcodeDistricts(postcodes: unknown[]) {
 
 type FeedbackSummary = { averageRating: number | null; totalReviews: number; lowRatingCount: number; windowDays: 90 };
 
+
+type PublicJobStopRow = {
+  job_id: string;
+  sequence: number;
+  stop_type: string | null;
+  postcode: string | null;
+  window_start: string | null;
+  window_end: string | null;
+};
+
+type PublicJobStop = {
+  sequence: number;
+  stopType: string;
+  location: string;
+  timeWindowFrom: string | null;
+  timeWindowTo: string | null;
+};
+
+async function fetchPublicJobStops(jobIds: string[]) {
+  if (!supabaseAdmin || jobIds.length === 0) return [] as PublicJobStopRow[];
+  const { data, error } = await supabaseAdmin
+    .from('job_stops')
+    .select('job_id,sequence,stop_type,postcode,window_start,window_end')
+    .in('job_id', jobIds)
+    .order('sequence', { ascending: true });
+  if (error) return [] as PublicJobStopRow[];
+  return (data ?? []) as PublicJobStopRow[];
+}
+
+function groupPublicJobStops(stops: PublicJobStopRow[], districts: Map<string, string>) {
+  const grouped = new Map<string, PublicJobStop[]>();
+  for (const stop of stops) {
+    const location = publicMarketplaceLocation(
+      null,
+      null,
+      stop.postcode,
+      districts.get(postcodeKey(stop.postcode)),
+      'Stop area',
+    );
+    const value: PublicJobStop = {
+      sequence: Number(stop.sequence) || 0,
+      stopType: String(stop.stop_type || 'stop'),
+      location,
+      timeWindowFrom: stop.window_start || null,
+      timeWindowTo: stop.window_end || null,
+    };
+    grouped.set(stop.job_id, [...(grouped.get(stop.job_id) ?? []), value]);
+  }
+  return grouped;
+}
+
 async function companyFeedback(companyIds: Array<string | null>) {
   const result = new Map<string, FeedbackSummary>();
   if (!supabaseAdmin) return result;
@@ -377,12 +428,18 @@ export async function GET(request: NextRequest) {
   if (error) return respond(500, { error: error.message });
 
   const rows = (data ?? []) as unknown as NearbyJobRow[];
-  const districts = await postcodeDistricts(rows.flatMap((row) => [row.pickup_postcode, row.delivery_postcode]));
+  const stopRows = await fetchPublicJobStops(rows.map((row) => row.id));
+  const districts = await postcodeDistricts([
+    ...rows.flatMap((row) => [row.pickup_postcode, row.delivery_postcode]),
+    ...stopRows.map((stop) => stop.postcode),
+  ]);
+  const publicStopsByJob = groupPublicJobStops(stopRows, districts);
   const feedbackByCompany = await companyFeedback(rows.map((row) => row.company_id));
   const publicExtras = (row: NearbyJobRow) => ({
     posterFeedback: row.company_id
       ? feedbackByCompany.get(row.company_id) ?? { averageRating: null, totalReviews: 0, lowRatingCount: 0, windowDays: 90 }
       : { averageRating: null, totalReviews: 0, lowRatingCount: 0, windowDays: 90 },
+    publicStops: publicStopsByJob.get(row.id) ?? [],
   });
   if (!destinationMode) {
     return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, publicExtras(row), districts)) });
@@ -390,7 +447,7 @@ export async function GET(request: NextRequest) {
 
   const { data: currentJob, error: currentJobError } = await supabaseAdmin
     .from('jobs')
-    .select('id,delivery_postcode,delivery_lat,delivery_lng,delivery_datetime,delivery_time_slot,status,updated_at')
+    .select('id,delivery_postcode,delivery_lat,delivery_lng,delivery_datetime,delivery_time_slot,status,delivered_at,updated_at')
     .eq('assigned_driver_id', driver.driverId)
     .in('status', ['allocated', 'collected', 'in_transit', 'delivered'])
     .order('updated_at', { ascending: false })
@@ -400,8 +457,19 @@ export async function GET(request: NextRequest) {
   if (!currentJob) {
     return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, publicExtras(row), districts)), returnIq: { active: false, reason: 'No active delivery is assigned to this driver.' } });
   }
-  if (!['in_transit', 'delivered'].includes(String(currentJob.status))) {
+  const currentStatus = String(currentJob.status);
+  if (!['in_transit', 'delivered'].includes(currentStatus)) {
     return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, publicExtras(row), districts)), returnIq: { active: false, reason: 'Activates when the driver is on the way to delivery.' } });
+  }
+  const RETURN_IQ_DELIVERED_WINDOW_MS = 24 * 60 * 60 * 1000;
+  if (currentStatus === 'delivered') {
+    const deliveredMs = jobTime(currentJob.delivered_at);
+    if (deliveredMs === null || Date.now() - deliveredMs > RETURN_IQ_DELIVERED_WINDOW_MS) {
+      return respond(200, {
+        jobs: rows.map((row) => mapNearbyJob(row, publicExtras(row), districts)),
+        returnIq: { active: false, reason: 'The return-work window after the last delivery has expired.' },
+      });
+    }
   }
 
   const geocoded = await postcodeCoordinates([currentJob.delivery_postcode, ...rows.map((row) => row.pickup_postcode)]);
@@ -420,7 +488,7 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const availableAfter = currentJob.delivery_datetime || currentJob.delivery_time_slot || null;
+  const availableAfter = currentStatus === 'delivered' ? currentJob.delivered_at : currentJob.delivery_datetime || currentJob.delivery_time_slot || null;
   const availableAfterMs = jobTime(availableAfter);
   const requestedRadius = searchParams.get('radius');
   const radiusMiles = ['10', '20', '30'].includes(String(requestedRadius)) ? Number(requestedRadius) : 10;

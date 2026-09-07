@@ -1367,6 +1367,17 @@ function publicLoadRouteUrl(load: LiveLoad) {
   return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
 }
 
+function formatServiceMode(value: string | null | undefined) {
+  const normalized = String(value ?? '').trim().replace(/[_-]+/g, ' ').toLowerCase();
+  if (!normalized) return 'Same-day transport';
+  return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+}
+
+function formatPublicStopType(value: string) {
+  const normalized = value.trim().replace(/[_-]+/g, ' ').toLowerCase();
+  return normalized ? normalized.charAt(0).toUpperCase() + normalized.slice(1) : 'Stop';
+}
+
 function PostedLoadContext({ load, showRouteAction = true }: { load: LiveLoad; showRouteAction?: boolean }) {
   const packageSummary = [
     load.pallets ? `${load.pallets} pallet${load.pallets === 1 ? '' : 's'}` : '',
@@ -1398,9 +1409,17 @@ function PostedLoadContext({ load, showRouteAction = true }: { load: LiveLoad; s
       {load.distanceToPickupMiles != null ? <InfoLine label="Distance to collection" value={`${load.distanceToPickupMiles.toFixed(1)} mi`} /> : null}
       {load.journeyDistanceMiles != null ? <InfoLine label="Load distance" value={`${load.journeyDistanceMiles.toFixed(1)} mi${load.estimatedJourneyMinutes != null ? ` · approx. ${load.estimatedJourneyMinutes} min` : ''}`} /> : null}
       {load.journeyDistanceMiles == null && load.estimatedJourneyMinutes != null ? <InfoLine label="Estimated journey" value={`Approx. ${load.estimatedJourneyMinutes} min`} /> : null}
-      <InfoLine label="Service" value={load.serviceMode || 'Same-day transport'} />
+      <InfoLine label="Service" value={formatServiceMode(load.serviceMode)} />
       {load.directDeliveryRequired ? <InfoLine label="Delivery mode" value="Dedicated / direct delivery required" /> : null}
     </View>
+
+    {(load.publicStops?.length ?? 0) > 2 ? <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Route stops</Text>
+      {load.publicStops?.map((stop) => {
+        const time = stop.timeWindowFrom ? formatDate(stop.timeWindowFrom) : 'Time not supplied';
+        return <InfoLine key={`${stop.sequence}-${stop.stopType}`} label={`${stop.sequence}. ${formatPublicStopType(stop.stopType)}`} value={`${stop.location} ? ${time}`} />;
+      })}
+    </View> : null}
 
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>Vehicle & load</Text>

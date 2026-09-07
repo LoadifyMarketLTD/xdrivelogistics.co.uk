@@ -22,6 +22,7 @@ type ApiLoad = {
   journeyDistanceMiles?: number | null;
   estimatedJourneyMinutes?: number | null;
   posterFeedback?: { averageRating: number | null; totalReviews: number; lowRatingCount: number; windowDays: number };
+  publicStops?: Array<{ sequence: number; stopType: string; location: string; timeWindowFrom?: string | null; timeWindowTo?: string | null }>;
   publicPrice: { visible: boolean; amount: number | null; currency: string | null };
   canQuote?: boolean;
   pickupCountryCode?: string | null;
@@ -68,6 +69,7 @@ export type LiveLoad = {
   journeyDistanceMiles?: number;
   estimatedJourneyMinutes?: number;
   posterFeedback?: { averageRating: number | null; totalReviews: number; lowRatingCount: number; windowDays: number };
+  publicStops?: Array<{ sequence: number; stopType: string; location: string; timeWindowFrom?: string; timeWindowTo?: string }>;
   price: string;
   postingCompanyName?: string;
   postingCompanyMemberCode?: string;
@@ -112,6 +114,7 @@ function mapLiveLoad(load: ApiLoad): LiveLoad {
     journeyDistanceMiles: load.journeyDistanceMiles ?? undefined,
     estimatedJourneyMinutes: load.estimatedJourneyMinutes ?? undefined,
     posterFeedback: load.posterFeedback,
+    publicStops: load.publicStops?.map((stop) => ({ sequence: stop.sequence, stopType: stop.stopType, location: stop.location, timeWindowFrom: stop.timeWindowFrom ?? undefined, timeWindowTo: stop.timeWindowTo ?? undefined })),
     price: priceVisible ? money(load.publicPrice.amount, load.publicPrice.currency || 'GBP') : '',
     postingCompanyName: load.poster?.name || undefined,
     postingCompanyMemberCode: load.poster?.memberCode || undefined,

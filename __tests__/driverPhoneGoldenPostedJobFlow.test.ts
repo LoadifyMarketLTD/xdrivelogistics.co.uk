@@ -46,6 +46,26 @@ describe('phone GOLDEN posted-job decision flow contract', () => {
     expect(apiSource).toContain('if (value === null || value === undefined) return null;');
     expect(apiSource).toContain("if (typeof value === 'string' && value.trim() === '') return null;");
   });
+  it('expires stale delivered Return IQ and uses the real delivered timestamp', () => {
+    expect(apiSource).toContain('status,delivered_at,updated_at');
+    expect(apiSource).toContain('RETURN_IQ_DELIVERED_WINDOW_MS');
+    expect(apiSource).toContain('return-work window after the last delivery has expired');
+  });
+
+  it('publishes public multi-stop sequencing without street-level stop addresses', () => {
+    expect(apiSource).toContain(".from('job_stops')");
+    expect(apiSource).toContain('publicStops: publicStopsByJob.get(row.id) ?? []');
+    expect(apiSource).toContain('stop.postcode,');
+    expect(apiSource).toContain(".select('job_id,sequence,stop_type,postcode,window_start,window_end')");
+    expect(liveSource).toContain('publicStops?: Array');
+    expect(appSource).toContain('Route stops');
+  });
+
+  it('does not expose raw service enum labels to the driver', () => {
+    expect(appSource).toContain('function formatServiceMode');
+    expect(appSource).toContain('value={formatServiceMode(load.serviceMode)}');
+  });
+
   it('preserves pre-award privacy while keeping company decision context', () => {
     expect(appSource).toContain('Company & commercial');
     expect(appSource).toContain('Payment terms');
