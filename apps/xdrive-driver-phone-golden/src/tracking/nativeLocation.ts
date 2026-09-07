@@ -32,6 +32,26 @@ const nativeLocation = NativeModules.XDriveLocation as NativeLocationModule | un
 
 export type DriverTrackingState = 'standby' | 'starting' | 'active' | 'permission-required' | 'unavailable';
 
+export async function getCurrentDriverPosition() {
+  if (Platform.OS !== 'android' || !nativeLocation?.getCurrentPosition) {
+    throw new Error('Native driver location is unavailable in this build.');
+  }
+  const permission = PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION;
+  const alreadyGranted = await PermissionsAndroid.check(permission);
+  const granted = alreadyGranted
+    ? PermissionsAndroid.RESULTS.GRANTED
+    : await PermissionsAndroid.request(permission, {
+        title: 'Allow XDrive Driver to plan your route',
+        message: 'Your current location is used on this device to plan the work-order route. Opening the route does not change job status.',
+        buttonPositive: 'Allow',
+        buttonNegative: 'Not now',
+      });
+  if (granted !== PermissionsAndroid.RESULTS.GRANTED) throw new Error('Location permission is required for current-position route planning.');
+  const point = await nativeLocation.getCurrentPosition();
+  if (!Number.isFinite(point.latitude) || !Number.isFinite(point.longitude)) throw new Error('The device returned an invalid location.');
+  return point;
+}
+
 export async function publishCurrentDriverLocation(token: string) {
   if (Platform.OS !== 'android' || !nativeLocation?.getCurrentPosition) {
     throw new Error('Native driver location is unavailable in this build.');

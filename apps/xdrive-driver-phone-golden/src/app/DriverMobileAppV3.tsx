@@ -18,6 +18,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Network from 'expo-network';
 import * as Notifications from 'expo-notifications';
 import SignatureCanvas from 'react-native-signature-canvas';
+import { WebView } from 'react-native-webview';
 
 import { apiRequest } from '../api/client';
 import { fetchJobs, persistEvidenceFile, persistEvidencePhoto, postJobStatus, uploadPod } from '../api/jobs';
@@ -59,6 +60,7 @@ import {
 import { registerPushToken } from '../push/registerPushToken';
 import {
   classifyTrackingError,
+  getCurrentDriverPosition,
   publishCurrentDriverLocation,
   type DriverTrackingState,
 } from '../tracking/nativeLocation';
@@ -886,7 +888,7 @@ export default function DriverMobileAppV3() {
     onLoadFeed: setLoadFeed,
     onOfferFeed: setOfferFeed,
     onDetailTab: setDetailTab,
-    onBack: () => navigatePrimary(activeTab),
+    onBack: () => route.kind === 'job' && detailTab !== 'overview' ? setDetailTab('overview') : navigatePrimary(activeTab),
   });
 
   const fixedAction = route.kind === 'job' && jobDetail && detailTab === 'progress'
@@ -1037,7 +1039,7 @@ export default function DriverMobileAppV3() {
                     onNotes={setPodNotes}
                     onSubmitPod={() => void submitPod()}
                     onCall={() => { const phone = jobDetail.postingCompanyPhone || jobDetail.contactPhone; return phone ? void Linking.openURL(`tel:${phone}`) : undefined; }}
-                    onMap={() => void openExternalRoute(jobDetail)}
+                    onOpenRoute={() => setDetailTab('route')}
                     busy={actionBusy}
                   />
                 : <EmptyState title="Work order unavailable" body="Refresh History and try again." />
@@ -1548,7 +1550,7 @@ function HistoryCard({ job, onPress }: { job: DriverJob; onPress: () => void }) 
   </TouchableOpacity>;
 }
 
-function WorkOrder({ job, tab, podOpen, recipient, signature, photoUris, documentUris, notes, signatureRef, onRecipient, onSignature, onTakePhoto, onChoosePhotos, onAddDocuments, onRemovePhoto, onRemoveDocument, onNotes, onSubmitPod, onCall, onMap, busy }: {
+function WorkOrder({ job, tab, podOpen, recipient, signature, photoUris, documentUris, notes, signatureRef, onRecipient, onSignature, onTakePhoto, onChoosePhotos, onAddDocuments, onRemovePhoto, onRemoveDocument, onNotes, onSubmitPod, onCall, onOpenRoute, busy }: {
   job: JobDetail;
   tab: JobDetailTab;
   podOpen: boolean;
@@ -1568,10 +1570,10 @@ function WorkOrder({ job, tab, podOpen, recipient, signature, photoUris, documen
   onNotes: (value: string) => void;
   onSubmitPod: () => void;
   onCall: () => void;
-  onMap: () => void;
+  onOpenRoute: () => void;
   busy: boolean;
 }) {
-  if (tab === 'overview') return <WorkOverview job={job} onCall={onCall} onMap={onMap} />;
+  if (tab === 'overview') return <WorkOverview job={job} onCall={onCall} onOpenRoute={onOpenRoute} />;
   if (tab === 'route') return <WorkRoute job={job} />;
   return <View style={styles.stack}>
     <ProgressBoard job={job} />
@@ -1579,7 +1581,7 @@ function WorkOrder({ job, tab, podOpen, recipient, signature, photoUris, documen
   </View>;
 }
 
-function WorkOverview({ job, onCall, onMap }: { job: JobDetail; onCall: () => void; onMap: () => void }) {
+function WorkOverview({ job, onCall, onOpenRoute }: { job: JobDetail; onCall: () => void; onOpenRoute: () => void }) {
   const commercial = objectValue(job.commercial);
   const cargo = objectValue(job.cargo);
   const vehicle = objectValue(job.allocatedVehicle);
@@ -1610,7 +1612,7 @@ function WorkOverview({ job, onCall, onMap }: { job: JobDetail; onCall: () => vo
       <Text style={styles.referenceStrong}>{job.reference}</Text>
       {job.customerName ? <InfoLine label="End customer" value={job.customerName} /> : null}
       <CompactRoute job={job} />
-      <TouchableOpacity style={styles.primaryCompact} onPress={onMap}><Text style={styles.primaryCompactText}>Open full driving route</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.primaryCompact} onPress={onOpenRoute}><Text style={styles.primaryCompactText}>Open full driving route</Text></TouchableOpacity>
       <View style={styles.twoActions}>
         <TouchableOpacity style={styles.secondaryAction} onPress={onCall}><Text style={styles.secondaryActionText}>Call job contact</Text></TouchableOpacity>
         <TouchableOpacity style={styles.secondaryAction} onPress={() => Alert.alert('XDrive Messages', 'Secure job messaging will appear here only after its production contract is enabled.')}><Text style={styles.secondaryActionText}>Messages</Text></TouchableOpacity>
@@ -1677,20 +1679,100 @@ function WorkOverview({ job, onCall, onMap }: { job: JobDetail; onCall: () => vo
   </View>;
 }
 
-function WorkRoute({ job }: { job: JobDetail }) {
-  const stops: JobStop[] = job.stops && job.stops.length > 0
-    ? job.stops
+function operationalStops(job: JobDetail): JobStop[] {
+  return job.stops && job.stops.length > 0
+    ? [...job.stops].sort((left, right) => (left.sequence || 0) - (right.sequence || 0))
     : [
         { sequence: 1, type: 'collection', address: job.pickupLocation, timeWindowFrom: job.pickupTime },
         { sequence: 2, type: 'delivery', address: job.deliveryLocation, timeWindowFrom: job.deliveryTime },
       ];
+}
+
+function stopDestination(stop: JobStop) {
+  const address = textValue(stop.address);
+  const postcode = textValue(stop.postcode);
+  if (address && postcode && !address.replace(/\s+/g, '').toUpperCase().includes(postcode.replace(/\s+/g, '').toUpperCase())) return `${address}, ${postcode}`;
+  return address || postcode;
+}
+
+function stopIsComplete(stop: JobStop) {
+  const status = String(stop.status ?? '').trim().toLowerCase();
+  return ['complete', 'completed', 'collected', 'delivered', 'done'].some((value) => status.includes(value));
+}
+
+function nextRouteStop(stops: JobStop[]) {
+  return stops.find((stop) => !stopIsComplete(stop)) ?? stops[stops.length - 1] ?? null;
+}
+
+function fullDrivingRouteUrl(stops: JobStop[], currentPosition: { latitude: number; longitude: number } | null) {
+  const destinations = stops.map(stopDestination).filter(Boolean);
+  if (destinations.length === 0) return '';
+  const origin = currentPosition
+    ? `${currentPosition.latitude},${currentPosition.longitude}`
+    : destinations[0];
+  const destination = destinations[destinations.length - 1];
+  const waypoints = currentPosition ? destinations.slice(0, -1) : destinations.slice(1, -1);
+  const params = new URLSearchParams({ api: '1', origin, destination, travelmode: 'driving' });
+  if (waypoints.length > 0) params.set('waypoints', waypoints.join('|'));
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function navigationUrl(stop: JobStop) {
+  const destination = stopDestination(stop);
+  const params = new URLSearchParams({ api: '1', destination, travelmode: 'driving', dir_action: 'navigate' });
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+}
+
+function WorkRoute({ job }: { job: JobDetail }) {
+  const stops = operationalStops(job);
+  const nextStop = nextRouteStop(stops);
+  const [currentPosition, setCurrentPosition] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [locationState, setLocationState] = useState<'loading' | 'ready' | 'unavailable'>('loading');
+
+  useEffect(() => {
+    let cancelled = false;
+    setLocationState('loading');
+    void getCurrentDriverPosition()
+      .then((point) => {
+        if (cancelled) return;
+        setCurrentPosition({ latitude: point.latitude, longitude: point.longitude });
+        setLocationState('ready');
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setCurrentPosition(null);
+        setLocationState('unavailable');
+      });
+    return () => { cancelled = true; };
+  }, [job.id]);
+
+  const routeUrl = fullDrivingRouteUrl(stops, currentPosition);
+  const nextNavigationUrl = nextStop ? navigationUrl(nextStop) : '';
 
   return <View style={styles.stack}>
     <View style={styles.section}>
-      <Text style={styles.sectionKicker}>EXECUTION ROUTE</Text>
+      <Text style={styles.sectionKicker}>FULL DRIVING ROUTE</Text>
       <Text style={styles.sectionTitle}>{stops.length} stop{stops.length === 1 ? '' : 's'} in server sequence</Text>
-      {job.distanceMiles ? <Text style={styles.referenceText}>{job.distanceMiles} mi{job.etaMinutes ? ` · approx. ${job.etaMinutes} min` : ''}</Text> : null}
+      <InfoLine label="Start point" value={locationState === 'ready' ? 'Current device location' : locationState === 'loading' ? 'Locating device...' : 'Current location unavailable'} />
+      {job.distanceMiles ? <InfoLine label="Load distance" value={`${job.distanceMiles} mi`} /> : null}
+      {job.etaMinutes ? <InfoLine label="Estimated load driving time" value={`Approx. ${job.etaMinutes} min`} /> : null}
+      <Banner text="Opening this route does not change the work-order status. Driving distance to collection and live ETA are calculated by the navigation provider when current location is available." />
     </View>
+
+    <View style={styles.routeMapShell}>
+      <View style={styles.routeMapHeader}><Text style={styles.sectionKicker}>ROUTE MAP</Text><Text style={styles.referenceText}>{currentPosition ? 'Current location ? all stops' : 'All booked stops'}</Text></View>
+      {routeUrl ? <WebView source={{ uri: routeUrl }} style={styles.routeMap} nestedScrollEnabled setSupportMultipleWindows={false} javaScriptEnabled domStorageEnabled /> : <EmptyState title="Map unavailable" body="The ordered stop list remains available below." />}
+      <Text style={styles.routeMapHint}>Stop numbers below follow the exact server sequence. If the map cannot load, navigation to each stop remains available.</Text>
+    </View>
+
+    {nextStop ? <View style={styles.section}>
+      <Text style={styles.sectionKicker}>NEXT ACTIVE STOP</Text>
+      <Text style={styles.sectionTitle}>{stopDestination(nextStop)}</Text>
+      {nextStop.timeWindowFrom ? <Text style={styles.referenceText}>{formatDate(nextStop.timeWindowFrom)}{nextStop.timeWindowTo ? ` ? ${formatDate(nextStop.timeWindowTo)}` : ''}</Text> : null}
+      <TouchableOpacity style={styles.primaryButton} onPress={() => void Linking.openURL(nextNavigationUrl)}><Text style={styles.primaryButtonText}>Start navigation</Text></TouchableOpacity>
+      {routeUrl ? <TouchableOpacity style={styles.secondaryAction} onPress={() => void Linking.openURL(routeUrl)}><Text style={styles.secondaryActionText}>Open full route in Maps</Text></TouchableOpacity> : null}
+    </View> : null}
+
     {stops.map((stop, index) => {
       const normalizedType = String(stop.type ?? '').toLowerCase();
       const type = normalizedType === 'collection'
@@ -1698,21 +1780,21 @@ function WorkRoute({ job }: { job: JobDetail }) {
         : normalizedType === 'delivery'
           ? (index === stops.length - 1 ? 'DELIVERY' : 'EXTRA DELIVERY')
           : `STOP ${index + 1}`;
-      const routeUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(stop.address)}`;
+      const routeStopUrl = navigationUrl(stop);
       return <View key={stop.id ?? `${stop.sequence}-${index}`} style={styles.routeStopCard}>
         <View style={styles.routeStopHead}>
           <View style={styles.stopNumber}><Text style={styles.stopNumberText}>{stop.sequence || index + 1}</Text></View>
           <View style={styles.flexOne}><Text style={styles.stopTypeTitle}>{type}</Text>{stop.company ? <Text style={styles.stopCompany}>{stop.company}</Text> : null}</View>
-          {stop.status ? <StatusTag label={String(stop.status).toUpperCase()} tone={String(stop.status).toLowerCase().includes('complete') ? 'green' : 'blue'} /> : null}
+          {stop.status ? <StatusTag label={String(stop.status).toUpperCase()} tone={stopIsComplete(stop) ? 'green' : 'blue'} /> : null}
         </View>
-        <Text style={styles.stopAddress}>{stop.address}</Text>
-        <Text style={styles.stopTime}>{formatDate(stop.timeWindowFrom)}{stop.timeWindowTo ? ` → ${formatDate(stop.timeWindowTo)}` : ''}</Text>
+        <Text style={styles.stopAddress}>{stopDestination(stop)}</Text>
+        <Text style={styles.stopTime}>{formatDate(stop.timeWindowFrom)}{stop.timeWindowTo ? ` ? ${formatDate(stop.timeWindowTo)}` : ''}</Text>
         {stop.contactPerson ? <InfoLine label="Contact" value={stop.contactPerson} /> : null}
         {stop.telephone ? <InfoLine label="Phone" value={stop.telephone} /> : null}
         {stop.notes ? <View style={styles.stopInstruction}><Text style={styles.fieldLabel}>SITE INSTRUCTIONS</Text><Text style={styles.stopNote}>{stop.notes}</Text></View> : null}
         <View style={styles.twoActions}>
           <TouchableOpacity style={[styles.secondaryAction, !stop.telephone && styles.disabledButton]} disabled={!stop.telephone} onPress={() => stop.telephone ? void Linking.openURL(`tel:${stop.telephone}`) : undefined}><Text style={styles.secondaryActionText}>Call site</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.primaryCompact} onPress={() => void Linking.openURL(routeUrl)}><Text style={styles.primaryCompactText}>Navigate</Text></TouchableOpacity>
+          <TouchableOpacity style={styles.primaryCompact} onPress={() => void Linking.openURL(routeStopUrl)}><Text style={styles.primaryCompactText}>Navigate</Text></TouchableOpacity>
         </View>
       </View>;
     })}
@@ -2285,6 +2367,10 @@ const styles = StyleSheet.create({
   bulletText: { color: colors.text, fontSize: 13, lineHeight: 20, fontWeight: '600' },
   instructionBlock: { gap: 5, paddingTop: 5 },
 
+  routeMapShell: { borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: '#FFFFFF', overflow: 'hidden' },
+  routeMapHeader: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 10, gap: 3 },
+  routeMap: { height: 330, backgroundColor: '#EEF3F8' },
+  routeMapHint: { color: colors.muted, fontSize: 10, lineHeight: 15, fontWeight: '700', paddingHorizontal: 14, paddingVertical: 12 },
   routeStopCard: { backgroundColor: '#FFFFFF', borderRadius: 17, padding: 15, borderColor: colors.borderSubtle, borderWidth: 1, gap: 11 },
   routeStopHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
   stopNumber: { width: 34, height: 34, borderRadius: 9, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center' },
