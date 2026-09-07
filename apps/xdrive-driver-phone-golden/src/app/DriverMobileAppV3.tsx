@@ -25,10 +25,12 @@ import {
   fetchDriverResources,
   formatMoney,
   mapResourceJob,
+  updateDestinationPreferences,
   updateDriverAvailability,
   updateJobQuote,
   withdrawJobQuote,
   type DriverProfileResource,
+  type ReturnIqMeta,
 } from '../api/resources';
 import { fetchLiveLoads, submitLiveLoadQuote, type LiveLoad } from '../api/liveLoads';
 import { clearSessionToken, saveSessionToken } from '../auth/sessionStore';
@@ -66,7 +68,7 @@ type PrimaryTab = 'overview' | 'loads' | 'offers' | 'history' | 'account';
 type LoadFeed = 'available' | 'starred' | 'dismissed';
 type OfferFeed = 'active' | 'won' | 'archived';
 type JobDetailTab = 'overview' | 'route' | 'progress';
-type UtilityPage = 'profile' | 'vehicle' | 'documents' | 'earnings' | 'availability' | 'offline' | 'support';
+type UtilityPage = 'profile' | 'vehicle' | 'documents' | 'earnings' | 'availability' | 'offline' | 'search' | 'alerts' | 'journeys' | 'support';
 
 type AppRoute =
   | { kind: 'primary'; tab: PrimaryTab }
@@ -263,6 +265,7 @@ export default function DriverMobileAppV3() {
   const [jobDetail, setJobDetail] = useState<JobDetail | null>(null);
   const [jobDetailBusy, setJobDetailBusy] = useState(false);
   const [preferences, setPreferences] = useState<MarketplacePreferences>(defaultPreferences);
+  const [returnIq, setReturnIq] = useState<ReturnIqMeta>({ active: false });
   const [queue, setQueue] = useState<QueuedAction[]>([]);
   const [offerAmount, setOfferAmount] = useState('');
   const [offerMessage, setOfferMessage] = useState('');
@@ -303,6 +306,7 @@ export default function DriverMobileAppV3() {
         radiusMiles: preferences.destinationRadiusMiles,
       });
       setLiveLoads(result.jobs);
+      setReturnIq(result.returnIq ?? { active: false });
     } catch (error) {
       const text = cleanError(error, 'Load Board could not be refreshed.');
       setLoadError(text);
@@ -529,6 +533,7 @@ export default function DriverMobileAppV3() {
     setToken(null);
     setResources(null);
     setLiveLoads([]);
+    setReturnIq({ active: false });
     setActiveJobs([]);
     setUpcomingJobs([]);
     setCompletedJobs([]);
@@ -624,6 +629,24 @@ export default function DriverMobileAppV3() {
       ...current,
       hiddenJobIds: current.hiddenJobIds.filter((id) => id !== jobId),
     }));
+  }
+
+  async function updateJourneyPreferences(enabled: boolean, radiusMiles: 10 | 20 | 30) {
+    setActionBusy(true);
+    try {
+      await updateDestinationPreferences(enabled, radiusMiles);
+      const next = { ...preferences, destinationPriorityEnabled: enabled, destinationRadiusMiles: radiusMiles };
+      setPreferences(next);
+      await saveMarketplacePreferences(userEmail, next);
+      const result = await fetchLiveLoads({ destinationMode: enabled, radiusMiles });
+      setLiveLoads(result.jobs);
+      setReturnIq(result.returnIq ?? { active: false });
+      setMessage(enabled ? `Return IQ enabled within ${radiusMiles} miles.` : 'Return IQ paused.');
+    } catch (error) {
+      setMessage(cleanError(error, 'Journey preferences could not be updated.'));
+    } finally {
+      setActionBusy(false);
+    }
   }
 
   async function submitOffer(load: LiveLoad) {
@@ -893,10 +916,13 @@ export default function DriverMobileAppV3() {
               currentJobs={currentJobs}
               activeOffers={(resources?.quotes ?? []).filter((quote) => offerBucket(quote) === 'active').length}
               loading={resourcesBusy || jobsBusy}
+              alertsCount={resources?.alerts?.length ?? 0}
               onLoads={() => navigatePrimary('loads')}
               onHistory={() => navigatePrimary('history')}
               onOffers={() => navigatePrimary('offers')}
               onAvailability={() => setRoute({ kind: 'utility', page: 'availability' })}
+              onSearch={() => setRoute({ kind: 'utility', page: 'search' })}
+              onAlerts={() => setRoute({ kind: 'utility', page: 'alerts' })}
               onOpenJob={openJob}
             />
           ) : null}
@@ -956,6 +982,7 @@ export default function DriverMobileAppV3() {
               resources={resources}
               queueCount={queue.length}
               onOpen={(page) => setRoute({ kind: 'utility', page })}
+              onLoads={() => navigatePrimary('loads')}
               onSignOut={() => void signOut()}
             />
           ) : null}
@@ -1023,6 +1050,13 @@ export default function DriverMobileAppV3() {
               resources={resources}
               queue={queue}
               busy={actionBusy}
+              loads={liveLoads}
+              jobs={fullHistory}
+              preferences={preferences}
+              returnIq={returnIq}
+              onOpenLoad={(load) => setRoute({ kind: 'load', load })}
+              onOpenJob={openJob}
+              onJourneyPreferences={updateJourneyPreferences}
               onAvailability={async (status) => {
                 setActionBusy(true);
                 try {
@@ -1173,16 +1207,19 @@ function OverviewHeader({ resources, trackingState }: {
   );
 }
 
-function OverviewBody({ resources, liveCount, currentJobs, activeOffers, loading, onLoads, onHistory, onOffers, onAvailability, onOpenJob }: {
+function OverviewBody({ resources, liveCount, currentJobs, activeOffers, alertsCount, loading, onLoads, onHistory, onOffers, onAvailability, onSearch, onAlerts, onOpenJob }: {
   resources: DriverProfileResource | null;
   liveCount: number;
   currentJobs: DriverJob[];
   activeOffers: number;
+  alertsCount: number;
   loading: boolean;
   onLoads: () => void;
   onHistory: () => void;
   onOffers: () => void;
   onAvailability: () => void;
+  onSearch: () => void;
+  onAlerts: () => void;
   onOpenJob: (id: string) => void;
 }) {
   const activeJob = currentJobs[0];
@@ -1224,6 +1261,15 @@ function OverviewBody({ resources, liveCount, currentJobs, activeOffers, loading
     <TouchableOpacity style={styles.shiftControl} onPress={onAvailability}>
       <View><Text style={styles.shiftControlLabel}>DRIVER AVAILABILITY</Text><Text style={styles.shiftControlTitle}>Change work state</Text></View><Text style={styles.shiftControlArrow}>→</Text>
     </TouchableOpacity>
+
+    <View style={styles.commandLedger}>
+      <TouchableOpacity style={styles.ledgerCell} onPress={onSearch}>
+        <Text style={styles.ledgerLabel}>OPS SEARCH</Text><Text style={styles.ledgerValue}>⌕</Text><Text style={styles.ledgerHint}>Loads and work orders</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.ledgerCell} onPress={onAlerts}>
+        <Text style={styles.ledgerLabel}>ALERTS</Text><Text style={styles.ledgerValue}>{alertsCount}</Text><Text style={styles.ledgerHint}>Operational event feed</Text>
+      </TouchableOpacity>
+    </View>
 
     {loading ? <LoadingCard text="Updating XDrive operational data..." /> : null}
     {resources?.company?.name ? <Text style={styles.accountHint}>Operating account · {String(resources.company.name)}</Text> : null}
@@ -1687,10 +1733,11 @@ function WorkStepAction({ job, busy, podOpen, onPress }: { job: JobDetail; busy:
   return <View style={styles.fixedAction}><TouchableOpacity style={[styles.fixedActionButton, busy && styles.disabledButton]} disabled={busy} onPress={onPress}><Text style={styles.fixedActionText}>{busy ? 'Updating...' : label}</Text></TouchableOpacity></View>;
 }
 
-function AccountBody({ resources, queueCount, onOpen, onSignOut }: {
+function AccountBody({ resources, queueCount, onOpen, onLoads, onSignOut }: {
   resources: DriverProfileResource | null;
   queueCount: number;
   onOpen: (page: UtilityPage) => void;
+  onLoads: () => void;
   onSignOut: () => void;
 }) {
   return <View style={styles.stack}>
@@ -1706,6 +1753,10 @@ function AccountBody({ resources, queueCount, onOpen, onSignOut }: {
     </AccountSection>
 
     <AccountSection title="OPERATIONS">
+      <AccountRow title="Operations search" subtitle="Search live loads and work records" onPress={() => onOpen('search')} />
+      <AccountRow title="Alerts" subtitle={`${resources?.alerts?.length ?? 0} operational events`} onPress={() => onOpen('alerts')} />
+      <AccountRow title="Journeys / Return IQ" subtitle="Destination-priority work matching" onPress={() => onOpen('journeys')} />
+      <AccountRow title="Nearby work" subtitle="Location-aware Live Load Board" onPress={onLoads} />
       <AccountRow title="Work state" subtitle={String(resources?.driver?.availability_status ?? 'available')} onPress={() => onOpen('availability')} />
       <AccountRow title="Earnings" subtitle={`${resources?.invoices?.length ?? 0} invoices`} onPress={() => onOpen('earnings')} />
       <AccountRow title="Sync queue" subtitle={`${queueCount} pending`} onPress={() => onOpen('offline')} />
@@ -1716,14 +1767,24 @@ function AccountBody({ resources, queueCount, onOpen, onSignOut }: {
   </View>;
 }
 
-function UtilityBody({ page, resources, queue, busy, onAvailability, onFlush }: {
+function UtilityBody({ page, resources, queue, busy, loads, jobs, preferences, returnIq, onOpenLoad, onOpenJob, onJourneyPreferences, onAvailability, onFlush }: {
   page: UtilityPage;
   resources: DriverProfileResource | null;
   queue: QueuedAction[];
   busy: boolean;
+  loads: LiveLoad[];
+  jobs: DriverJob[];
+  preferences: MarketplacePreferences;
+  returnIq: ReturnIqMeta;
+  onOpenLoad: (load: LiveLoad) => void;
+  onOpenJob: (id: string) => void;
+  onJourneyPreferences: (enabled: boolean, radiusMiles: 10 | 20 | 30) => Promise<void>;
   onAvailability: (status: 'available' | 'busy' | 'offline') => Promise<void>;
   onFlush: () => void;
 }) {
+  if (page === 'search') return <OperationsSearch loads={loads} jobs={jobs} onOpenLoad={onOpenLoad} onOpenJob={onOpenJob} />;
+  if (page === 'alerts') return <AlertsFeed alerts={resources?.alerts ?? []} />;
+  if (page === 'journeys') return <JourneysPanel preferences={preferences} returnIq={returnIq} busy={busy} onChange={onJourneyPreferences} />;
   if (page === 'profile') return <View style={styles.section}><Text style={styles.sectionTitle}>Driver profile</Text><InfoLine label="Name" value={resources?.name || 'Not supplied'} /><InfoLine label="Email" value={resources?.email || 'Not supplied'} /><InfoLine label="Phone" value={resources?.phone || 'Not supplied'} /><InfoLine label="Company" value={resources?.company?.name || 'Not supplied'} /></View>;
   if (page === 'vehicle') return <View style={styles.section}><Text style={styles.sectionTitle}>Assigned vehicle</Text><InfoLine label="Registration" value={resources?.vehicle?.reg_plate || 'Not supplied'} /><InfoLine label="Type" value={resources?.vehicle?.type || resources?.vehicle?.vehicle_type || 'Not supplied'} /><InfoLine label="Make / model" value={[resources?.vehicle?.make, resources?.vehicle?.model].filter(Boolean).join(' ') || 'Not supplied'} /><InfoLine label="Payload" value={resources?.vehicle?.payload_kg ? `${resources.vehicle.payload_kg} kg` : 'Not supplied'} /></View>;
   if (page === 'documents') return <View style={styles.section}><Text style={styles.sectionTitle}>Driver documents</Text>{(resources?.documents ?? []).length === 0 ? <EmptyState title="No documents" body="Driver and vehicle records will appear here." /> : (resources?.documents ?? []).map((doc, index) => <View key={String(doc.id ?? index)} style={styles.documentRow}><Text style={styles.documentBadge}>FILE</Text><View style={styles.flexOne}><Text style={styles.documentText}>{String(doc.doc_type ?? 'Document')}</Text><Text style={styles.referenceText}>{String(doc.status ?? '')}{doc.expiry_date ? ` · expires ${formatDate(doc.expiry_date)}` : ''}</Text></View></View>)}</View>;
@@ -1731,6 +1792,74 @@ function UtilityBody({ page, resources, queue, busy, onAvailability, onFlush }: 
   if (page === 'availability') return <View style={styles.section}><Text style={styles.sectionTitle}>Work state</Text><Text style={styles.longText}>Choose how XDrive should treat your availability for suitable work and operational alerts.</Text>{(['available', 'busy', 'offline'] as const).map((status) => <TouchableOpacity key={status} style={[styles.secondaryAction, busy && styles.disabledButton]} disabled={busy} onPress={() => void onAvailability(status)}><Text style={styles.secondaryActionText}>{status === 'available' ? 'Ready for work' : status === 'busy' ? 'Busy / unavailable for new work' : 'Off duty'}</Text></TouchableOpacity>)}</View>;
   if (page === 'offline') return <View style={styles.section}><Text style={styles.sectionTitle}>Sync queue</Text>{queue.length === 0 ? <EmptyState title="Everything is synced" body="No driver actions are waiting for server confirmation." /> : queue.map((item) => <View key={item.id} style={styles.queueRow}><Text style={styles.documentText}>{item.endpoint}</Text><Text style={styles.referenceText}>{item.jobId} · {item.status}</Text>{item.lastError ? <Text style={styles.errorText}>{item.lastError}</Text> : null}</View>)}<TouchableOpacity style={styles.primaryButton} onPress={onFlush}><Text style={styles.primaryButtonText}>Retry pending sync</Text></TouchableOpacity></View>;
   return <View style={styles.section}><Text style={styles.sectionTitle}>XDrive support</Text><Text style={styles.longText}>For urgent operational issues, use the verified XDrive support channel. Preview does not invent an unverified messaging endpoint.</Text><TouchableOpacity style={styles.secondaryAction} onPress={() => void Linking.openURL('mailto:xdrivelogisticsltd@gmail.com')}><Text style={styles.secondaryActionText}>Email XDrive support</Text></TouchableOpacity></View>;
+}
+
+function OperationsSearch({ loads, jobs, onOpenLoad, onOpenJob }: {
+  loads: LiveLoad[];
+  jobs: DriverJob[];
+  onOpenLoad: (load: LiveLoad) => void;
+  onOpenJob: (id: string) => void;
+}) {
+  const [query, setQuery] = useState('');
+  const term = query.trim().toLowerCase();
+  const loadMatches = term ? loads.filter((load) => [load.reference, load.pickupLocation, load.deliveryLocation, load.postingCompanyName, load.vehicleRequirement, load.cargoType].some((value) => String(value ?? '').toLowerCase().includes(term))).slice(0, 20) : [];
+  const jobMatches = term ? jobs.filter((job) => [job.reference, job.pickupLocation, job.deliveryLocation, job.postingCompanyName, job.vehicleRequirement, job.cargoType].some((value) => String(value ?? '').toLowerCase().includes(term))).slice(0, 20) : [];
+  return <View style={styles.stack}>
+    <View style={styles.section}>
+      <Text style={styles.sectionKicker}>XDRIVE SEARCH</Text>
+      <Text style={styles.sectionTitle}>Find operational work</Text>
+      <Text style={styles.longText}>Search live marketplace loads and your own work records by reference, route, company, vehicle or freight.</Text>
+      <TextInput style={styles.bigInput} placeholder="Reference, town, company, vehicle..." placeholderTextColor="#98A2B3" value={query} onChangeText={setQuery} autoCapitalize="none" />
+    </View>
+    {!term ? <EmptyState title="Search XDrive operations" body="Enter a reference, location, company, vehicle or freight term." /> : null}
+    {term && loadMatches.length === 0 && jobMatches.length === 0 ? <EmptyState title="No matching work" body="No current load or work record matches this search." /> : null}
+    {loadMatches.length > 0 ? <View style={styles.stack}><Text style={styles.sectionKicker}>LIVE LOADS · {loadMatches.length}</Text>{loadMatches.map((load) => <TouchableOpacity key={`search-load-${load.id}`} style={styles.historyCard} onPress={() => onOpenLoad(load)} activeOpacity={0.9}><View style={styles.historyTop}><View style={styles.flexOne}><Text style={styles.referenceStrong}>{load.reference}</Text><Text style={styles.referenceText}>{load.postingCompanyName || 'XDrive marketplace'}</Text></View><StatusTag label="LIVE" tone="blue" /></View><RouteBand pickup={load.pickupLocation} pickupTime={load.pickupTime} delivery={load.deliveryLocation} deliveryTime={load.deliveryTime} /></TouchableOpacity>)}</View> : null}
+    {jobMatches.length > 0 ? <View style={styles.stack}><Text style={styles.sectionKicker}>WORK RECORDS · {jobMatches.length}</Text>{jobMatches.map((job) => <HistoryCard key={`search-job-${job.id}`} job={job} onPress={() => onOpenJob(job.id)} />)}</View> : null}
+  </View>;
+}
+
+function AlertsFeed({ alerts }: { alerts: DriverProfileResource['alerts'] }) {
+  if (alerts.length === 0) return <EmptyState title="No operational alerts" body="Marketplace, job and system events will appear here when available." />;
+  return <View style={styles.stack}>
+    <View style={styles.historyIntro}><Text style={styles.historyCount}>{alerts.length}</Text><View><Text style={styles.historyIntroTitle}>Operational events</Text><Text style={styles.historyIntroBody}>One XDrive feed for marketplace, job and system activity.</Text></View></View>
+    {alerts.map((alert, index) => {
+      const payload = objectValue(alert.payload);
+      const title = textValue(payload.title) || textValue(payload.job_reference) || String(alert.event_type ?? 'Operational alert').replace(/_/g, ' ');
+      const route = [textValue(payload.pickup_area), textValue(payload.delivery_area)].filter(Boolean).join(' → ');
+      const body = textValue(payload.message) || textValue(payload.body) || route || textValue(payload.vehicle) || textValue(alert.entity_type);
+      return <View key={String(alert.id ?? index)} style={styles.historyCard}><View style={styles.historyTop}><View style={styles.flexOne}><Text style={styles.referenceStrong}>{title}</Text><Text style={styles.referenceText}>{String(alert.event_type ?? 'event').replace(/_/g, ' ').toUpperCase()}</Text></View><StatusTag label="ALERT" tone="blue" /></View>{body ? <Text style={styles.longText}>{body}</Text> : null}<Text style={styles.historyDate}>{formatDate(alert.created_at)}</Text></View>;
+    })}
+  </View>;
+}
+
+function JourneysPanel({ preferences, returnIq, busy, onChange }: {
+  preferences: MarketplacePreferences;
+  returnIq: ReturnIqMeta;
+  busy: boolean;
+  onChange: (enabled: boolean, radiusMiles: 10 | 20 | 30) => Promise<void>;
+}) {
+  const enabled = preferences.destinationPriorityEnabled;
+  const radius = preferences.destinationRadiusMiles;
+  return <View style={styles.stack}>
+    <View style={styles.section}>
+      <Text style={styles.sectionKicker}>RETURN IQ</Text>
+      <Text style={styles.sectionTitle}>Journey matching</Text>
+      <Text style={styles.longText}>Prioritise suitable loads around the destination of your current work, helping reduce empty return mileage without exposing private route details.</Text>
+      <InfoLine label="Status" value={enabled ? 'Enabled' : 'Paused'} />
+      <InfoLine label="Current match engine" value={returnIq.active ? 'Active' : 'Standby'} />
+      {returnIq.currentJobReference ? <InfoLine label="Current work" value={returnIq.currentJobReference} /> : null}
+      {returnIq.destinationArea ? <InfoLine label="Destination area" value={returnIq.destinationArea} /> : null}
+      {returnIq.availableAfter ? <InfoLine label="Available after" value={formatDate(returnIq.availableAfter)} /> : null}
+      <InfoLine label="Search radius" value={`${radius} miles`} />
+      {returnIq.reason ? <Text style={styles.longText}>{returnIq.reason}</Text> : null}
+    </View>
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Return-work radius</Text>
+      <View style={styles.twoActions}>{([10, 20, 30] as const).map((value) => <TouchableOpacity key={value} style={[styles.secondaryAction, value === radius && styles.primaryCompact, busy && styles.disabledButton]} disabled={busy} onPress={() => void onChange(true, value)}><Text style={value === radius ? styles.primaryCompactText : styles.secondaryActionText}>{value} mi</Text></TouchableOpacity>)}</View>
+      <TouchableOpacity style={[enabled ? styles.secondaryAction : styles.primaryButton, busy && styles.disabledButton]} disabled={busy} onPress={() => void onChange(!enabled, radius)}><Text style={enabled ? styles.secondaryActionText : styles.primaryButtonText}>{enabled ? 'Pause Return IQ' : 'Enable Return IQ'}</Text></TouchableOpacity>
+    </View>
+    <Banner text="Nearby driver identities and live positions are not exposed here. XDrive uses authorised work-matching data only." />
+  </View>;
 }
 
 function ScreenTitle({ title, kicker }: { title: string; kicker: string }) {
@@ -1805,19 +1934,16 @@ function initials(value: string) {
 }
 
 function utilityTitle(page: UtilityPage) {
-  return page === 'profile'
-    ? 'Driver Profile'
-    : page === 'vehicle'
-      ? 'Vehicle'
-      : page === 'documents'
-        ? 'Documents'
-        : page === 'earnings'
-          ? 'Earnings'
-          : page === 'availability'
-            ? 'Work State'
-            : page === 'offline'
-              ? 'Sync Queue'
-              : 'Support';
+  if (page === 'profile') return 'Driver Profile';
+  if (page === 'vehicle') return 'Vehicle';
+  if (page === 'documents') return 'Documents';
+  if (page === 'earnings') return 'Earnings';
+  if (page === 'availability') return 'Work State';
+  if (page === 'offline') return 'Sync Queue';
+  if (page === 'search') return 'Operations Search';
+  if (page === 'alerts') return 'Alerts';
+  if (page === 'journeys') return 'Journeys / Return IQ';
+  return 'Support';
 }
 
 async function openExternalRoute(job: DriverJob) {
