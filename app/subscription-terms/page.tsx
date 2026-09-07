@@ -5,6 +5,7 @@ import { COMPANY_CONFIG } from '../config/company';
 export const metadata: Metadata = {
   title: 'Membership & Subscription Terms | XDrive Logistics',
   description: 'Terms for XDrive early access, free periods, paid membership, renewal and cancellation.',
+  alternates: { canonical: '/subscription-terms' },
 };
 
 const LAST_UPDATED = '1 September 2026';

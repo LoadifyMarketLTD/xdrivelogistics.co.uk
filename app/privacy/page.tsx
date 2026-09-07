@@ -5,6 +5,7 @@ import { COMPANY_CONFIG } from '../config/company';
 export const metadata: Metadata = {
   title: 'Privacy Policy | XDrive Logistics',
   description: 'How XDrive Logistics collects, uses, shares and protects personal data under UK data-protection law.',
+  alternates: { canonical: '/privacy' },
 };
 
 const LAST_UPDATED = '1 September 2026';

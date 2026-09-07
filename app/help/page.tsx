@@ -1,6 +1,9 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight } from 'lucide-react';
+
+export const metadata: Metadata = { alternates: { canonical: '/help' } };
 
 const faqs = [
   { q: 'What is XDrive?', a: 'XDrive is a courier and freight exchange platform that connects customers and brokers posting transport work with owner drivers and carriers who can quote for that work. Awarded jobs continue into dispatch, live status, POD and finance-ready records.' },
