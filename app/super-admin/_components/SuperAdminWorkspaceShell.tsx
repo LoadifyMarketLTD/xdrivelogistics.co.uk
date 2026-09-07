@@ -29,6 +29,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'disputes', label: 'Disputes', href: '/super-admin/operations/disputes' },
     ] },
     { id: 'secure-operations', label: 'Secure Operations', items: [
+      { id: 'secure-loads', label: 'Secure Loads', href: '/super-admin/operations/secure-loads' },
       { id: 'pod-queue', label: 'POD Queue', href: '/super-admin/operations/pods' },
       { id: 'fleet-positions', label: 'Tracking & Fleet Positions', href: '/super-admin/operations/fleet-positions' },
     ] },
