@@ -1,6 +1,6 @@
-import { Ionicons } from '@expo/vector-icons';
+import { UiIcon as Ionicons } from './UiIcon';
 import { StyleSheet, Text, View } from 'react-native';
-import { colors } from '../theme/tokens';
+import { colors, spacing } from '../theme/tokens';
 
 export function RouteBlock({ pickup, delivery }: { pickup: string; delivery: string }) {
   return (
@@ -25,7 +25,7 @@ export function RouteBlock({ pickup, delivery }: { pickup: string; delivery: str
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexDirection: 'row', gap: 12 },
+  wrap: { flexDirection: 'row', gap: 10, paddingHorizontal: spacing.md },
   iconColumn: { width: 38, alignItems: 'center' },
   iconWell: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.iconWell, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 15, height: 15, borderRadius: 8, backgroundColor: colors.black },

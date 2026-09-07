@@ -10,6 +10,7 @@ function text(value: unknown, fallback = '') {
 
 function status(value: unknown): CanonicalJobStatus {
   const raw = text(value, 'awarded').toLowerCase();
+  if (['available', 'posted', 'open'].includes(raw)) return 'available';
   if (['awarded', 'allocated', 'accepted', 'assigned'].includes(raw)) return 'awarded';
   if (['on_my_way', 'on_my_way_to_pickup', 'on_my_way_pickup'].includes(raw)) return 'on_my_way_pickup';
   if (['on_site_pickup', 'arrived_pickup'].includes(raw)) return 'arrived_pickup';
@@ -22,6 +23,8 @@ function status(value: unknown): CanonicalJobStatus {
 
 function mapJob(row: RawJob): DriverJob {
   const id = text(row.id);
+  const rawPrice = text(row.price ?? row.publicPrice, '');
+  const price = ['price tbc', 'tbc', 'not published', 'not available', 'n/a'].includes(rawPrice.toLowerCase()) ? '' : rawPrice;
   return {
     id,
     reference: text(row.reference ?? row.publicReference, id ? `XDL-${id.slice(0, 8).toUpperCase()}` : 'XDL'),
@@ -32,7 +35,7 @@ function mapJob(row: RawJob): DriverJob {
     deliveryTime: text(row.deliveryTime ?? row.delivery_datetime ?? row.deliveryFrom, 'Delivery time'),
     cargoType: text(row.cargoType ?? row.cargo_type ?? row.freightType, 'Freight'),
     vehicleRequirement: text(row.vehicleRequirement ?? row.vehicle_type ?? row.vehicleType, 'Vehicle'),
-    price: text(row.price ?? row.publicPrice, ''),
+    price,
     podRequired: row.podRequired !== false,
     contactAllowed: row.contactAllowed === true,
     contactName: text(row.contactName ?? row.delivery_contact_name, '') || undefined,
@@ -59,6 +62,7 @@ export async function fetchAvailableJobs() {
     const publicPrice = row.publicPrice as Record<string, unknown> | undefined;
     return mapJob({
       ...row,
+      status: 'available',
       pickupLocation: pickup?.addressSummary,
       deliveryLocation: delivery?.addressSummary,
       pickupTime: pickup?.collectionFrom,

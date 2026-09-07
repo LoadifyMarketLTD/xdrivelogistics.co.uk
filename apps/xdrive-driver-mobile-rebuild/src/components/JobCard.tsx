@@ -3,6 +3,7 @@ import type { DriverJob } from '../types/driver';
 import { ActionButton } from './ActionButton';
 import { RouteBlock } from './RouteBlock';
 import { colors, radius, shadow, spacing } from '../theme/tokens';
+import { formatDeliveryDate } from '../utils/format';
 
 export function JobCard({
   job,
@@ -19,7 +20,7 @@ export function JobCard({
     <View style={styles.card}>
       <View style={styles.header}>
         <Text style={styles.heading}>Delivery Information</Text>
-        <Text style={styles.date}>{job.pickupTime}</Text>
+        <Text style={styles.date} numberOfLines={1}>{formatDeliveryDate(job.pickupTime)}</Text>
       </View>
       <RouteBlock pickup={job.pickupLocation} delivery={job.deliveryLocation} />
       <View style={styles.infoBand}>
@@ -38,11 +39,11 @@ export function JobCard({
 }
 
 const styles = StyleSheet.create({
-  card: { backgroundColor: colors.surface, borderRadius: radius.medium, overflow: 'hidden', paddingTop: spacing.md, gap: spacing.md, ...shadow },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: spacing.md },
-  heading: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
-  date: { flexShrink: 1, marginLeft: 10, fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.muted, textAlign: 'right' },
-  infoBand: { backgroundColor: colors.info, paddingHorizontal: spacing.md, paddingVertical: 13, gap: 10 },
+  card: { backgroundColor: colors.surface, borderRadius: radius.medium, overflow: 'hidden', paddingTop: spacing.md, gap: spacing.sm, ...shadow },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingHorizontal: spacing.md, gap: 10 },
+  heading: { flex: 1, fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
+  date: { width: 100, fontFamily: 'Inter_400Regular', fontSize: 11, color: colors.muted, textAlign: 'right' },
+  infoBand: { backgroundColor: colors.info, paddingHorizontal: spacing.md, paddingVertical: 11, gap: 8 },
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', gap: 16 },
   muted: { fontFamily: 'Inter_400Regular', color: '#626262', fontSize: 13 },
   value: { flex: 1, fontFamily: 'Inter_700Bold', color: colors.text, fontSize: 13, textAlign: 'right' },

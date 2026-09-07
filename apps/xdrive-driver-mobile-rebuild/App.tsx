@@ -4,13 +4,15 @@ import { Inter_400Regular, Inter_600SemiBold, Inter_700Bold, useFonts } from '@e
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './src/auth/supabase';
 import { revokeNativeDeviceSession } from './src/auth/deviceSession';
-import { fetchAvailableJobs, fetchJobs, fetchResources, postJobStatus } from './src/api/driver';
+import { fetchAvailableJobs, fetchJobs, fetchResources, postJobStatus, submitQuote } from './src/api/driver';
 import type { DriverJob, DriverResources } from './src/types/driver';
 import { BottomNav, type MainTab } from './src/components/BottomNav';
 import { HomeScreen } from './src/screens/HomeScreen';
-import { DeliveriesScreen } from './src/screens/DeliveriesScreen';
-import { WalletScreen } from './src/screens/WalletScreen';
-import { ProfileScreen } from './src/screens/ProfileScreen';
+import { LoadsScreen } from './src/screens/LoadsScreen';
+import { HistoryScreen } from './src/screens/HistoryScreen';
+import { QuotesScreen } from './src/screens/QuotesScreen';
+import { MoreScreen } from './src/screens/MoreScreen';
+import { LoadDetailScreen } from './src/screens/LoadDetailScreen';
 import { JobDetailScreen } from './src/screens/JobDetailScreen';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { colors } from './src/theme/tokens';
@@ -79,6 +81,22 @@ export default function App() {
     }
   }, [session, refresh]);
 
+  async function quoteLoad(amount: number) {
+    if (!selectedJob) return;
+    setActionBusy(true);
+    setError('');
+    try {
+      await submitQuote(selectedJob.id, amount);
+      await refresh();
+      setSelectedJob(undefined);
+      setTab('quotes');
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : 'Quote could not be submitted.');
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
   async function advanceJob(endpoint: string) {
     if (!selectedJob) return;
     setActionBusy(true);
@@ -108,16 +126,20 @@ export default function App() {
   if (!session) return <LoginScreen />;
 
   let screen = null;
-  if (selectedJob) {
+  if (selectedJob?.status === 'available') {
+    screen = <LoadDetailScreen job={selectedJob} busy={actionBusy} onBack={() => setSelectedJob(undefined)} onQuote={quoteLoad} />;
+  } else if (selectedJob) {
     screen = <JobDetailScreen job={selectedJob} busy={actionBusy} onBack={() => setSelectedJob(undefined)} onAdvance={advanceJob} />;
   } else if (tab === 'home') {
-    screen = <HomeScreen jobs={available} activeJob={active[0]} loading={loading} onRefresh={refresh} onOpen={setSelectedJob} />;
-  } else if (tab === 'deliveries') {
-    screen = <DeliveriesScreen available={available} active={active} history={history} onOpen={setSelectedJob} />;
-  } else if (tab === 'wallet') {
-    screen = <WalletScreen resources={resources} />;
+    screen = <HomeScreen jobs={available} activeJob={active[0]} recentJob={history[0]} resources={resources} loading={loading} onRefresh={refresh} onOpen={setSelectedJob} onGoLoads={() => setTab('loads')} onGoQuotes={() => setTab('quotes')} onGoHistory={() => setTab('history')} onGoMore={() => setTab('more')} />;
+  } else if (tab === 'loads') {
+    screen = <LoadsScreen jobs={available} loading={loading} onRefresh={refresh} onOpen={setSelectedJob} />;
+  } else if (tab === 'quotes') {
+    screen = <QuotesScreen resources={resources} jobs={[...available, ...active, ...history]} />;
+  } else if (tab === 'history') {
+    screen = <HistoryScreen jobs={history} onOpen={setSelectedJob} />;
   } else {
-    screen = <ProfileScreen resources={resources} onSignOut={signOut} />;
+    screen = <MoreScreen resources={resources} onSignOut={signOut} />;
   }
 
   return (

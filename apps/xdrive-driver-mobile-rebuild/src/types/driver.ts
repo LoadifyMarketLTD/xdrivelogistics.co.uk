@@ -1,4 +1,5 @@
 export type CanonicalJobStatus =
+  | 'available'
   | 'awarded'
   | 'on_my_way_pickup'
   | 'arrived_pickup'
