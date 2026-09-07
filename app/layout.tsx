@@ -42,9 +42,6 @@ export const metadata: Metadata = {
   creator: COMPANY_CONFIG.legalName,
   publisher: COMPANY_CONFIG.legalName,
   metadataBase: canonicalSiteUrl,
-  alternates: {
-    canonical: canonicalSiteOrigin,
-  },
   manifest: '/manifest.webmanifest',
   icons: {
     icon: '/favicon.ico',
