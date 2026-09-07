@@ -289,14 +289,27 @@ export async function GET(request: NextRequest) {
             : ['draft', 'pending'].includes(status) ? 'draft' : 'awaiting_payment';
       return { ...row, buyer_name: nameById.get(String(row.buyer_company_id ?? '')) ?? 'External / unknown buyer', supplier_name: nameById.get(String(row.supplier_company_id ?? '')) ?? 'External / legacy supplier', paid_amount: paidAmount, outstanding_amount: outstandingAmount, lifecycle };
     });
-    const summary = normalizedRows.reduce((acc, row) => {
-      acc.gross += Number(row.amount) || 0; acc.net += Number(row.net_amount) || 0; acc.vat += Number(row.vat_amount) || 0;
-      acc.paid += Number(row.paid_amount) || 0; acc.outstanding += Number(row.outstanding_amount) || 0;
-      if (row.lifecycle === 'overdue') { acc.overdueCount += 1; acc.overdueValue += Number(row.outstanding_amount) || 0; }
+    const currencyBreakdown = Array.from(normalizedRows.reduce((map, row) => {
+      const currency = String(row.currency ?? '').trim().toUpperCase() || 'UNSPECIFIED';
+      const current = map.get(currency) ?? { currency, invoices: 0, gross: 0, net: 0, vat: 0, paid: 0, outstanding: 0, overdueCount: 0, overdueValue: 0, partialPayments: 0 };
+      current.invoices += 1;
+      current.gross += Number(row.amount) || 0; current.net += Number(row.net_amount) || 0; current.vat += Number(row.vat_amount) || 0;
+      current.paid += Number(row.paid_amount) || 0; current.outstanding += Number(row.outstanding_amount) || 0;
+      if (row.lifecycle === 'overdue') { current.overdueCount += 1; current.overdueValue += Number(row.outstanding_amount) || 0; }
+      if ((Number(row.paid_amount) || 0) > 0 && (Number(row.outstanding_amount) || 0) > 0) current.partialPayments += 1;
+      map.set(currency, current); return map;
+    }, new Map<string, { currency: string; invoices: number; gross: number; net: number; vat: number; paid: number; outstanding: number; overdueCount: number; overdueValue: number; partialPayments: number }>()).values());
+    const globalCounts = normalizedRows.reduce((acc, row) => {
+      if (row.lifecycle === 'overdue') acc.overdueCount += 1;
       if ((Number(row.paid_amount) || 0) > 0 && (Number(row.outstanding_amount) || 0) > 0) acc.partialPayments += 1;
       return acc;
-    }, { invoices: normalizedRows.length, gross: 0, net: 0, vat: 0, paid: 0, outstanding: 0, overdueCount: 0, overdueValue: 0, partialPayments: 0 });
-    return respond(200, { section, rows: normalizedRows, summary, note: 'Platform trade control shows buyer/supplier invoice flow and recorded settlement evidence. It does not mutate payments.' });
+    }, { invoices: normalizedRows.length, overdueCount: 0, partialPayments: 0 });
+    const singleCurrency = currencyBreakdown.length === 1 && currencyBreakdown[0].currency !== 'UNSPECIFIED' ? currencyBreakdown[0] : null;
+    const summary = { ...globalCounts, monetaryTotalsAvailable: Boolean(singleCurrency), currency: singleCurrency?.currency ?? null,
+      gross: singleCurrency?.gross ?? null, net: singleCurrency?.net ?? null, vat: singleCurrency?.vat ?? null,
+      paid: singleCurrency?.paid ?? null, outstanding: singleCurrency?.outstanding ?? null, overdueValue: singleCurrency?.overdueValue ?? null };
+    return respond(200, { section, rows: normalizedRows, summary, currencyBreakdown,
+      note: singleCurrency ? 'Platform trade control shows verified invoice and settlement evidence.' : 'Multiple or unspecified currencies are present. Monetary totals are separated by currency and no combined total is inferred.' });
   }
 
   if (section === 'fees') {
@@ -324,5 +337,5 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return respond(400, { error: 'Invalid section. Use invoices, payments, revenue, or fees.' });
+  return respond(400, { error: 'Invalid section. Use invoices, payments, revenue, control, or fees.' });
 }
