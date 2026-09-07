@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject, type ReactNode } from 'react';
 import {
   Alert,
-  ImageBackground,
   Linking,
   RefreshControl,
   SafeAreaView,
@@ -1133,18 +1132,17 @@ function LoginScreen({ onSignIn, busy, message }: {
   const [show, setShow] = useState(false);
   return (
     <SafeAreaView style={styles.loginSafe}>
-      <StatusBar barStyle="light-content" backgroundColor="#0B2F6B" />
+      <StatusBar barStyle="dark-content" backgroundColor="#F7F8FA" />
       <ScrollView contentContainerStyle={styles.loginPage} keyboardShouldPersistTaps="handled">
-        <ImageBackground source={require('../../assets/login-hero-v2.png')} style={styles.loginHero} imageStyle={styles.loginHeroImage}>
-          <View style={styles.loginShade} />
+        <View style={styles.loginHero}>
           <View style={styles.brandPill}><Text style={styles.brandX}>X</Text><Text style={styles.brandDrive}>DRIVE</Text><View style={styles.brandDivider} /><Text style={styles.brandMeta}>DRIVER</Text></View>
           <View style={styles.loginCopy}>
-            <Text style={styles.loginEyebrow}>BUILT FOR THE ROAD</Text>
-            <Text style={styles.loginHeroTitle}>Move with confidence.</Text>
-            <Text style={styles.loginHeroBody}>Live work, clear proof and every operational step in one XDrive workspace.</Text>
-            <View style={styles.networkPill}><View style={styles.networkDot} /><Text style={styles.networkText}>XDrive verified driver access</Text></View>
+            <Text style={styles.loginEyebrow}>DRIVER OPERATIONS</Text>
+            <Text style={styles.loginHeroTitle}>Your work, route and proof in one place.</Text>
+            <Text style={styles.loginHeroBody}>A clean operational workspace for live loads, work orders, navigation and delivery evidence.</Text>
+            <View style={styles.networkPill}><View style={styles.networkDot} /><Text style={styles.networkText}>Secure XDrive access</Text></View>
           </View>
-        </ImageBackground>
+        </View>
         <View style={styles.loginCard}>
           <Text style={styles.loginTitle}>Welcome back</Text>
           <Text style={styles.loginSubtitle}>Sign in to your XDrive driver account</Text>
@@ -1227,7 +1225,7 @@ function OverviewBody({ resources, liveCount, currentJobs, activeOffers, alertsC
   return <View style={styles.stack}>
     <View style={styles.dispatchPanel}>
       <View style={styles.dispatchHeader}>
-        <View><Text style={styles.sectionKicker}>DISPATCH NOW</Text><Text style={styles.dispatchTitle}>Operational desk</Text></View>
+        <View><Text style={styles.sectionKicker}>TODAY</Text><Text style={styles.dispatchTitle}>Driver overview</Text></View>
         <Text style={styles.dispatchCount}>{currentJobs.length}</Text>
       </View>
       {activeJob ? (
@@ -1246,7 +1244,7 @@ function OverviewBody({ resources, liveCount, currentJobs, activeOffers, alertsC
 
     <TouchableOpacity style={styles.marketAccessCard} onPress={onLoads} activeOpacity={0.9}>
       <View style={styles.marketAccessIcon}><Text style={styles.marketAccessIconText}>↗</Text></View>
-      <View style={styles.flexOne}><Text style={styles.marketAccessKicker}>MARKET ACCESS</Text><Text style={styles.marketAccessTitle}>Open Live Load Board</Text><Text style={styles.marketAccessBody}>Eligible work, route summary and commercial offer controls.</Text></View>
+      <View style={styles.flexOne}><Text style={styles.marketAccessKicker}>AVAILABLE WORK</Text><Text style={styles.marketAccessTitle}>Live Load Board</Text><Text style={styles.marketAccessBody}>Eligible work, route summary and commercial offer controls.</Text></View>
       <View style={styles.marketAccessCount}><Text style={styles.marketAccessCountValue}>{liveCount}</Text><Text style={styles.marketAccessCountLabel}>LIVE</Text></View>
     </TouchableOpacity>
 
@@ -1260,7 +1258,7 @@ function OverviewBody({ resources, liveCount, currentJobs, activeOffers, alertsC
     </View>
 
     <TouchableOpacity style={styles.shiftControl} onPress={onAvailability}>
-      <View><Text style={styles.shiftControlLabel}>DRIVER AVAILABILITY</Text><Text style={styles.shiftControlTitle}>Change work state</Text></View><Text style={styles.shiftControlArrow}>→</Text>
+      <View><Text style={styles.shiftControlLabel}>AVAILABILITY</Text><Text style={styles.shiftControlTitle}>Change driver status</Text></View><Text style={styles.shiftControlArrow}>→</Text>
     </TouchableOpacity>
 
     <View style={styles.commandLedger}>
@@ -1606,24 +1604,25 @@ function WorkOverview({ job, onCall, onOpenRoute }: { job: JobDetail; onCall: ()
   ].filter((entry) => entry[1]);
 
   return <View style={styles.stack}>
-    <View style={styles.section}>
-      <Text style={styles.sectionKicker}>FULL WORK ORDER</Text>
-      <Text style={styles.companyName}>{job.postingCompanyName || 'XDrive customer'}</Text>
-      {job.postingCompanyMemberCode ? <Text style={styles.referenceText}>Member {job.postingCompanyMemberCode}</Text> : null}
-      <Text style={styles.referenceStrong}>{job.reference}</Text>
-      {job.customerName ? <InfoLine label="End customer" value={job.customerName} /> : null}
+    <View style={styles.workHero}>
+      <View style={styles.workHeroTop}>
+        <View style={styles.flexOne}><Text style={styles.workHeroKicker}>WORK ORDER</Text><Text style={styles.workHeroCompany}>{job.postingCompanyName || 'XDrive customer'}</Text></View>
+        <StatusTag label={progressLabels[job.status].toUpperCase()} tone={job.status === 'delivered' ? 'green' : job.status === 'cancelled' ? 'muted' : 'blue'} />
+      </View>
+      <View style={styles.workHeroMeta}><Text style={styles.workHeroRef}>{job.reference}</Text>{job.postingCompanyMemberCode ? <Text style={styles.workHeroMember}>Member {job.postingCompanyMemberCode}</Text> : null}</View>
+      {job.customerName ? <Text style={styles.workHeroCustomer}>For {job.customerName}</Text> : null}
       <CompactRoute job={job} />
-      <TouchableOpacity style={styles.primaryCompact} onPress={onOpenRoute}><Text style={styles.primaryCompactText}>Open full driving route</Text></TouchableOpacity>
-      <View style={styles.twoActions}>
-        <TouchableOpacity style={styles.secondaryAction} onPress={onCall}><Text style={styles.secondaryActionText}>Call job contact</Text></TouchableOpacity>
-        <TouchableOpacity style={styles.secondaryAction} onPress={() => Alert.alert('XDrive Messages', 'Secure job messaging will appear here only after its production contract is enabled.')}><Text style={styles.secondaryActionText}>Messages</Text></TouchableOpacity>
+      <TouchableOpacity style={styles.workRouteButton} onPress={onOpenRoute}><Text style={styles.workRouteButtonText}>Open full driving route</Text><Text style={styles.workRouteButtonArrow}>→</Text></TouchableOpacity>
+      <View style={styles.workQuickActions}>
+        <TouchableOpacity style={styles.workQuickAction} onPress={onCall}><Text style={styles.workQuickActionText}>Call job contact</Text></TouchableOpacity>
+        <TouchableOpacity style={styles.workQuickAction} onPress={() => Alert.alert('XDrive Messages', 'Secure job messaging will appear here only after its production contract is enabled.')}><Text style={styles.workQuickActionText}>Messages</Text></TouchableOpacity>
       </View>
     </View>
 
     <View style={styles.section}>
-      <Text style={styles.sectionTitle}>Commercial & references</Text>
-      <InfoLine label="Agreed rate" value={agreedRate || 'Not supplied'} />
-      <InfoLine label="Payment terms" value={paymentTerms} />
+      <Text style={styles.sectionKicker}>COMMERCIAL</Text><Text style={styles.sectionTitle}>Rate & payment</Text>
+      <View style={styles.workCommercialGrid}><View style={styles.workCommercialCell}><Text style={styles.workCommercialLabel}>AGREED RATE</Text><Text style={styles.workCommercialValue}>{agreedRate || 'Not supplied'}</Text></View><View style={styles.workCommercialCell}><Text style={styles.workCommercialLabel}>PAYMENT TERMS</Text><Text style={styles.workCommercialValueSmall}>{paymentTerms}</Text></View></View>
+      <Text style={styles.workReferencesTitle}>References</Text>
       {commercial.bookedAt ? <InfoLine label="Awarded" value={formatDate(textValue(commercial.bookedAt))} /> : null}
       {job.customerReference ? <InfoLine label="Customer ref" value={job.customerReference} /> : null}
       {job.purchaseOrderNumber ? <InfoLine label="PO number" value={job.purchaseOrderNumber} /> : null}
@@ -2162,14 +2161,14 @@ function BottomDock({ active, loadCount, onChange }: { active: PrimaryTab; loadC
 
 function RouteBand({ pickup, pickupTime, delivery, deliveryTime }: { pickup: string; pickupTime: string; delivery: string; deliveryTime: string }) {
   return <View style={styles.routeBand}>
-    <View style={styles.routeBlock}><Text style={styles.routeKind}>COLLECT</Text><Text style={styles.routePlace} numberOfLines={2}>{pickup}</Text><Text style={styles.routeWhen}>{formatDate(pickupTime)}</Text></View>
-    <View style={styles.routeArrow}><Text style={styles.routeArrowText}>→</Text></View>
-    <View style={styles.routeBlock}><Text style={styles.routeKind}>DELIVER</Text><Text style={styles.routePlace} numberOfLines={2}>{delivery}</Text><Text style={styles.routeWhen}>{formatDate(deliveryTime)}</Text></View>
+    <View style={styles.routeBlock}><View style={styles.routeDot} /><View style={styles.flexOne}><Text style={styles.routeKind}>COLLECTION</Text><Text style={styles.routePlace} numberOfLines={2}>{pickup}</Text><Text style={styles.routeWhen}>{formatDate(pickupTime)}</Text></View></View>
+    <View style={styles.routeConnector} />
+    <View style={styles.routeBlock}><View style={styles.routePin} /><View style={styles.flexOne}><Text style={styles.routeKind}>DELIVERY</Text><Text style={styles.routePlace} numberOfLines={2}>{delivery}</Text><Text style={styles.routeWhen}>{formatDate(deliveryTime)}</Text></View></View>
   </View>;
 }
 
 function CompactRoute({ job }: { job: DriverJob }) {
-  return <View style={styles.compactRoute}><View style={styles.compactLeg}><Text style={styles.compactKind}>COLLECT</Text><Text style={styles.compactPlace} numberOfLines={1}>{job.pickupLocation}</Text></View><Text style={styles.compactArrow}>→</Text><View style={styles.compactLeg}><Text style={styles.compactKind}>DELIVER</Text><Text style={styles.compactPlace} numberOfLines={1}>{job.deliveryLocation}</Text></View></View>;
+  return <View style={styles.compactRoute}><View style={styles.compactLeg}><View style={styles.compactDot} /><View style={styles.flexOne}><Text style={styles.compactKind}>COLLECTION</Text><Text style={styles.compactPlace} numberOfLines={1}>{job.pickupLocation}</Text></View></View><View style={styles.compactLine} /><View style={styles.compactLeg}><View style={styles.compactPin} /><View style={styles.flexOne}><Text style={styles.compactKind}>DELIVERY</Text><Text style={styles.compactPlace} numberOfLines={1}>{job.deliveryLocation}</Text></View></View></View>;
 }
 
 function Fact({ label, value, align = 'left' }: { label: string; value: string; align?: 'left' | 'right' }) {
@@ -2230,171 +2229,199 @@ async function openExternalRoute(job: DriverJob) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.secondary },
-  shell: { flex: 1, backgroundColor: colors.bg },
-  bodyViewport: { flex: 1, backgroundColor: colors.bg },
-  bodyContent: { padding: spacing.md, paddingBottom: 28, gap: spacing.md },
+  safe: { flex: 1, backgroundColor: '#F7F8FA' },
+  shell: { flex: 1, backgroundColor: '#F7F8FA' },
+  bodyViewport: { flex: 1, backgroundColor: '#F7F8FA' },
+  bodyContent: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 28, gap: 12 },
   bodyWithAction: { paddingBottom: 120 },
-  topChrome: { backgroundColor: colors.secondary, paddingHorizontal: spacing.md, paddingTop: 12, paddingBottom: 14, gap: 12 },
-  stack: { gap: spacing.md },
+  topChrome: { backgroundColor: '#FFFFFF', paddingHorizontal: 16, paddingTop: 10, paddingBottom: 10, gap: 10, borderBottomWidth: 1, borderBottomColor: '#E7E9ED' },
+  stack: { gap: 12 },
   flexOne: { flex: 1, minWidth: 0 },
 
-  screenTitleRow: { minHeight: 56, justifyContent: 'center' },
-  screenKicker: { color: '#9FB8DE', fontSize: 10, fontWeight: '900', letterSpacing: 1.6 },
-  screenTitle: { color: '#FFFFFF', fontSize: 28, fontWeight: '900', marginTop: 2 },
-  backTitleRow: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  backButton: { width: 46, height: 46, justifyContent: 'center' },
-  backText: { color: '#FFFFFF', fontSize: 24, fontWeight: '700' },
-  backTitle: { color: '#FFFFFF', fontSize: 20, fontWeight: '900' },
-  backSpacer: { width: 46 },
-  tabs: { flexDirection: 'row', gap: 8 },
-  tab: { flex: 1, minHeight: 42, borderRadius: 12, borderWidth: 1, borderColor: '#355A91', alignItems: 'center', justifyContent: 'center' },
-  tabActive: { backgroundColor: '#FFFFFF', borderColor: '#FFFFFF' },
-  tabText: { color: '#BFD1EF', fontSize: 13, fontWeight: '800' },
-  tabTextActive: { color: colors.secondary, fontWeight: '900' },
+  screenTitleRow: { minHeight: 52, justifyContent: 'center' },
+  screenKicker: { color: '#8A9099', fontSize: 9, fontWeight: '800', letterSpacing: 1.2 },
+  screenTitle: { color: '#131722', fontSize: 24, fontWeight: '800', marginTop: 2 },
+  backTitleRow: { minHeight: 48, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  backButton: { width: 42, height: 42, borderRadius: 21, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center' },
+  backText: { color: '#111827', fontSize: 22, fontWeight: '700' },
+  backTitle: { color: '#111827', fontSize: 18, fontWeight: '800' },
+  backSpacer: { width: 42 },
+  tabs: { flexDirection: 'row', gap: 4, backgroundColor: '#F1F3F5', borderRadius: 12, padding: 4 },
+  tab: { flex: 1, minHeight: 38, borderRadius: 9, alignItems: 'center', justifyContent: 'center' },
+  tabActive: { backgroundColor: '#FFFFFF', shadowColor: '#101828', shadowOpacity: 0.06, shadowRadius: 4, elevation: 1 },
+  tabText: { color: '#7B818A', fontSize: 12, fontWeight: '700' },
+  tabTextActive: { color: '#0E3FA9', fontWeight: '800' },
 
-  overviewHeader: { backgroundColor: colors.secondary, paddingHorizontal: 20, paddingTop: 16, paddingBottom: 16, gap: 15, borderBottomWidth: 3, borderBottomColor: colors.warning },
+  overviewHeader: { backgroundColor: '#FFFFFF', paddingHorizontal: 18, paddingTop: 14, paddingBottom: 14, gap: 12, borderBottomWidth: 1, borderBottomColor: '#E7E9ED' },
   commandBrandRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   commandBrandLockup: { flexDirection: 'row', alignItems: 'baseline', gap: 6 },
-  commandBrand: { color: '#FFFFFF', fontSize: 22, fontWeight: '900', letterSpacing: 0.8 },
-  commandSlash: { color: colors.warning, fontSize: 21, fontWeight: '900' },
-  commandMode: { color: '#AFC3E3', fontSize: 9, fontWeight: '900', letterSpacing: 1.6 },
-  commandPulse: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#102A52', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
-  commandPulseDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.warning },
-  commandPulseText: { color: '#DCE8FA', fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+  commandBrand: { color: '#0A234F', fontSize: 20, fontWeight: '900', letterSpacing: 0.5 },
+  commandSlash: { color: '#F5A300', fontSize: 19, fontWeight: '900' },
+  commandMode: { color: '#8A9099', fontSize: 8, fontWeight: '800', letterSpacing: 1.4 },
+  commandPulse: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#F1F4F8', borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
+  commandPulseDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#1D57D8' },
+  commandPulseText: { color: '#536070', fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
   commandIdentityRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  commandEyebrow: { color: '#87A5D0', fontSize: 8, fontWeight: '900', letterSpacing: 1.3, marginBottom: 3 },
-  driverName: { color: '#FFFFFF', fontSize: 26, fontWeight: '900' },
-  driverVehicle: { color: '#BCD0EE', fontSize: 13, fontWeight: '700', marginTop: 2 },
-  commandMonogram: { width: 52, height: 52, borderRadius: 14, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  commandMonogramText: { color: colors.secondary, fontSize: 15, fontWeight: '900' },
-  commandStatusStrip: { flexDirection: 'row', alignItems: 'center', borderTopColor: '#31517E', borderTopWidth: 1, paddingTop: 12 },
+  commandEyebrow: { color: '#8A9099', fontSize: 8, fontWeight: '800', letterSpacing: 1.2, marginBottom: 3 },
+  driverName: { color: '#131722', fontSize: 24, fontWeight: '800' },
+  driverVehicle: { color: '#6B7280', fontSize: 12, fontWeight: '700', marginTop: 2 },
+  commandMonogram: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#EAF1FF', alignItems: 'center', justifyContent: 'center' },
+  commandMonogramText: { color: '#0E3FA9', fontSize: 14, fontWeight: '900' },
+  commandStatusStrip: { flexDirection: 'row', alignItems: 'center', borderTopColor: '#EEF0F3', borderTopWidth: 1, paddingTop: 10 },
   commandStatusItem: { flex: 1 },
-  commandStatusRule: { width: 1, height: 30, backgroundColor: '#31517E', marginHorizontal: 14 },
-  commandStatusLabel: { color: '#7F9BC4', fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
-  commandStatusValue: { color: '#FFFFFF', fontSize: 13, fontWeight: '900', marginTop: 4 },
-  commandStatusValueLive: { color: '#8FE7B0', fontSize: 13, fontWeight: '900', marginTop: 4 },
+  commandStatusRule: { width: 1, height: 28, backgroundColor: '#E7E9ED', marginHorizontal: 14 },
+  commandStatusLabel: { color: '#9AA0A8', fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  commandStatusValue: { color: '#1F2937', fontSize: 12, fontWeight: '800', marginTop: 3 },
+  commandStatusValueLive: { color: '#15803D', fontSize: 12, fontWeight: '800', marginTop: 3 },
 
-  dispatchPanel: { backgroundColor: '#FFFFFF', borderRadius: 18, borderColor: colors.borderSubtle, borderWidth: 1, padding: 16, gap: 12 },
+  dispatchPanel: { backgroundColor: '#FFFFFF', borderRadius: 14, borderColor: '#E7E9ED', borderWidth: 1, padding: 14, gap: 12 },
   dispatchHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  dispatchTitle: { color: colors.text, fontSize: 21, fontWeight: '900', marginTop: 3 },
-  dispatchCount: { minWidth: 42, height: 42, borderRadius: 12, backgroundColor: '#EEF4FF', color: colors.primary, fontSize: 20, fontWeight: '900', textAlign: 'center', textAlignVertical: 'center' },
-  activeRunCard: { borderRadius: 15, backgroundColor: '#0B2F6B', padding: 14, gap: 11 },
+  dispatchTitle: { color: '#161A22', fontSize: 18, fontWeight: '800', marginTop: 2 },
+  dispatchCount: { minWidth: 38, height: 38, borderRadius: 19, backgroundColor: '#EFF4FF', color: '#0E3FA9', fontSize: 18, fontWeight: '800', textAlign: 'center', textAlignVertical: 'center' },
+  activeRunCard: { borderRadius: 12, backgroundColor: '#F8FAFC', borderColor: '#E5E7EB', borderWidth: 1, padding: 13, gap: 10 },
   activeRunTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  activeRunLabel: { color: '#9FB8DE', fontSize: 8, fontWeight: '900', letterSpacing: 1.1, marginBottom: 3 },
-  activeRunReference: { color: '#FFFFFF', fontSize: 17, fontWeight: '900' },
-  activeRunFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopColor: '#31517E', borderTopWidth: 1, paddingTop: 9 },
-  activeRunHint: { color: '#C6D7F0', fontSize: 10, lineHeight: 15, fontWeight: '700', flex: 1, paddingRight: 10 },
-  activeRunArrow: { color: colors.warning, fontSize: 21, fontWeight: '900' },
-  dispatchEmpty: { backgroundColor: '#F8FAFC', borderRadius: 13, padding: 14, borderLeftWidth: 4, borderLeftColor: colors.warning },
-  dispatchEmptyTitle: { color: colors.text, fontSize: 14, fontWeight: '900' },
-  dispatchEmptyBody: { color: colors.muted, fontSize: 11, lineHeight: 17, marginTop: 4 },
+  activeRunLabel: { color: '#7B818A', fontSize: 8, fontWeight: '800', letterSpacing: 1, marginBottom: 3 },
+  activeRunReference: { color: '#111827', fontSize: 16, fontWeight: '800' },
+  activeRunFooter: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderTopColor: '#E7E9ED', borderTopWidth: 1, paddingTop: 9 },
+  activeRunHint: { color: '#6B7280', fontSize: 10, lineHeight: 15, fontWeight: '600', flex: 1, paddingRight: 10 },
+  activeRunArrow: { color: '#0E3FA9', fontSize: 20, fontWeight: '900' },
+  dispatchEmpty: { backgroundColor: '#F8FAFC', borderRadius: 12, padding: 13, borderColor: '#E7E9ED', borderWidth: 1 },
+  dispatchEmptyTitle: { color: '#111827', fontSize: 14, fontWeight: '800' },
+  dispatchEmptyBody: { color: '#6B7280', fontSize: 11, lineHeight: 17, marginTop: 4 },
 
-  marketAccessCard: { minHeight: 102, backgroundColor: '#0E3FA9', borderRadius: 18, padding: 15, flexDirection: 'row', alignItems: 'center', gap: 12 },
-  marketAccessIcon: { width: 44, height: 44, borderRadius: 12, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  marketAccessIconText: { color: '#0E3FA9', fontSize: 24, fontWeight: '900' },
-  marketAccessKicker: { color: '#BFD4FF', fontSize: 8, fontWeight: '900', letterSpacing: 1.2 },
-  marketAccessTitle: { color: '#FFFFFF', fontSize: 18, fontWeight: '900', marginTop: 3 },
-  marketAccessBody: { color: '#E5EEFF', fontSize: 10, lineHeight: 15, fontWeight: '600', marginTop: 3 },
-  marketAccessCount: { minWidth: 52, minHeight: 58, borderRadius: 13, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
-  marketAccessCountValue: { color: colors.secondary, fontSize: 22, fontWeight: '900' },
-  marketAccessCountLabel: { color: colors.primary, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
+  marketAccessCard: { minHeight: 88, backgroundColor: '#0E3FA9', borderRadius: 14, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 11 },
+  marketAccessIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.16)', alignItems: 'center', justifyContent: 'center' },
+  marketAccessIconText: { color: '#FFFFFF', fontSize: 20, fontWeight: '800' },
+  marketAccessKicker: { color: '#C8D8FF', fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  marketAccessTitle: { color: '#FFFFFF', fontSize: 17, fontWeight: '800', marginTop: 2 },
+  marketAccessBody: { color: '#EAF1FF', fontSize: 10, lineHeight: 15, fontWeight: '600', marginTop: 2 },
+  marketAccessCount: { minWidth: 48, minHeight: 52, borderRadius: 12, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 7 },
+  marketAccessCountValue: { color: '#0A234F', fontSize: 20, fontWeight: '800' },
+  marketAccessCountLabel: { color: '#0E3FA9', fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
 
   commandLedger: { flexDirection: 'row', gap: 10 },
-  ledgerCell: { flex: 1, minHeight: 112, backgroundColor: '#FFFFFF', borderRadius: 16, borderColor: colors.borderSubtle, borderWidth: 1, padding: 14, justifyContent: 'space-between' },
-  ledgerLabel: { color: colors.muted, fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
-  ledgerValue: { color: colors.secondary, fontSize: 30, fontWeight: '900' },
-  ledgerHint: { color: colors.muted, fontSize: 10, lineHeight: 15, fontWeight: '600' },
+  ledgerCell: { flex: 1, minHeight: 98, backgroundColor: '#FFFFFF', borderRadius: 14, borderColor: '#E7E9ED', borderWidth: 1, padding: 13, justifyContent: 'space-between' },
+  ledgerLabel: { color: '#8A9099', fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  ledgerValue: { color: '#0A234F', fontSize: 27, fontWeight: '800' },
+  ledgerHint: { color: '#6B7280', fontSize: 10, lineHeight: 14, fontWeight: '600' },
 
-  shiftControl: { minHeight: 66, backgroundColor: '#FFF7E6', borderRadius: 16, borderColor: '#F9D690', borderWidth: 1, paddingHorizontal: 15, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  shiftControlLabel: { color: '#8A5A00', fontSize: 8, fontWeight: '900', letterSpacing: 1.1 },
-  shiftControlTitle: { color: colors.text, fontSize: 14, fontWeight: '900', marginTop: 2 },
-  shiftControlArrow: { color: '#B26A00', fontSize: 22, fontWeight: '900' },
+  shiftControl: { minHeight: 62, backgroundColor: '#FFFFFF', borderRadius: 14, borderColor: '#E7E9ED', borderWidth: 1, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  shiftControlLabel: { color: '#8A9099', fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  shiftControlTitle: { color: '#111827', fontSize: 14, fontWeight: '800', marginTop: 2 },
+  shiftControlArrow: { color: '#0E3FA9', fontSize: 20, fontWeight: '900' },
   accountHint: { color: colors.muted, fontSize: 11, textAlign: 'center' },
 
-  section: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, borderColor: colors.borderSubtle, borderWidth: 1, gap: 12 },
-  sectionKicker: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1.3 },
-  sectionTitle: { color: colors.text, fontSize: 20, fontWeight: '900' },
-  companyName: { color: colors.text, fontSize: 17, lineHeight: 22, fontWeight: '900' },
-  referenceText: { color: colors.muted, fontSize: 12, lineHeight: 17, fontWeight: '600', marginTop: 2 },
-  referenceStrong: { color: colors.secondary, fontSize: 16, fontWeight: '900' },
-  longText: { color: colors.text, fontSize: 14, lineHeight: 21, fontWeight: '600' },
 
-  loadCard: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 16, borderColor: colors.borderSubtle, borderWidth: 1, gap: 13, shadowColor: '#101828', shadowOpacity: 0.06, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 2 },
-  loadHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  routeBand: { flexDirection: 'row', alignItems: 'stretch', gap: 8, marginTop: 13 },
-  routeBlock: { flex: 1, backgroundColor: '#F5F8FC', borderRadius: 14, padding: 12, minHeight: 112 },
-  routeKind: { color: colors.primary, fontSize: 9, fontWeight: '900', letterSpacing: 1.2 },
-  routePlace: { color: colors.text, fontSize: 14, lineHeight: 19, fontWeight: '900', marginTop: 6 },
-  routeWhen: { color: colors.muted, fontSize: 10, lineHeight: 15, fontWeight: '600', marginTop: 7 },
+  workHero: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, borderColor: '#ECEEF2', borderWidth: 1, gap: 11, shadowColor: '#111827', shadowOpacity: 0.10, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 4 },
+  workHeroTop: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  workHeroKicker: { color: '#8A9099', fontSize: 8, fontWeight: '800', letterSpacing: 1.1 },
+  workHeroCompany: { color: '#111827', fontSize: 20, lineHeight: 25, fontWeight: '800', marginTop: 3 },
+  workHeroMeta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 },
+  workHeroRef: { color: '#0A234F', fontSize: 15, fontWeight: '800' },
+  workHeroMember: { color: '#7A8089', fontSize: 10, fontWeight: '600' },
+  workHeroCustomer: { color: '#59616C', fontSize: 11, fontWeight: '600' },
+  workRouteButton: { minHeight: 50, backgroundColor: '#0E3FA9', borderRadius: 999, paddingHorizontal: 17, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  workRouteButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '800' },
+  workRouteButtonArrow: { color: '#FFFFFF', fontSize: 19, fontWeight: '800' },
+  workQuickActions: { flexDirection: 'row', gap: 8 },
+  workQuickAction: { flex: 1, minHeight: 44, borderRadius: 10, borderColor: '#DDE1E6', borderWidth: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFFFFF' },
+  workQuickActionText: { color: '#344054', fontSize: 11, fontWeight: '800' },
+  workCommercialGrid: { flexDirection: 'row', gap: 8 },
+  workCommercialCell: { flex: 1, minHeight: 82, backgroundColor: '#E8F1FF', borderRadius: 12, padding: 11, justifyContent: 'space-between' },
+  workCommercialLabel: { color: '#8A9099', fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
+  workCommercialValue: { color: '#0A234F', fontSize: 22, fontWeight: '800' },
+  workCommercialValueSmall: { color: '#111827', fontSize: 14, lineHeight: 18, fontWeight: '800' },
+  workReferencesTitle: { color: '#5B6470', fontSize: 10, fontWeight: '800', marginTop: 3 },
+  section: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, borderColor: '#ECEEF2', borderWidth: 1, gap: 10, shadowColor: '#111827', shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  sectionKicker: { color: '#8A9099', fontSize: 8, fontWeight: '800', letterSpacing: 1.1 },
+  sectionTitle: { color: '#141821', fontSize: 18, fontWeight: '800' },
+  companyName: { color: '#141821', fontSize: 16, lineHeight: 21, fontWeight: '800' },
+  referenceText: { color: '#7A8089', fontSize: 11, lineHeight: 16, fontWeight: '600', marginTop: 2 },
+  referenceStrong: { color: '#0A234F', fontSize: 15, fontWeight: '800' },
+  longText: { color: '#303640', fontSize: 13, lineHeight: 20, fontWeight: '500' },
+
+  loadCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, borderColor: '#ECEEF2', borderWidth: 1, gap: 11, shadowColor: '#111827', shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  loadHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 9 },
+  routeBand: { gap: 0, marginTop: 10, backgroundColor: 'transparent' },
+  routeBlock: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, minHeight: 54, backgroundColor: '#FFFFFF', borderColor: '#D9DDE3', borderWidth: 1, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 10 },
+  routeKind: { color: '#0E3FA9', fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  routePlace: { color: '#151922', fontSize: 14, lineHeight: 18, fontWeight: '800', marginTop: 3 },
+  routeWhen: { color: '#7A8089', fontSize: 10, lineHeight: 14, fontWeight: '600', marginTop: 4 },
   routeArrow: { width: 28, alignItems: 'center', justifyContent: 'center' },
   routeArrowText: { color: colors.warning, fontSize: 24, fontWeight: '900' },
-  loadFacts: { flexDirection: 'row', gap: 12, marginTop: 13 },
+
+  routeDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#0E3FA9', marginTop: 3 },
+  routePin: { width: 12, height: 12, borderRadius: 3, backgroundColor: '#F5A300', marginTop: 3 },
+  routeConnector: { width: 1, height: 12, backgroundColor: '#AEB7C4', marginLeft: 18 },
+  compactDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#0E3FA9', marginTop: 3 },
+  compactPin: { width: 10, height: 10, borderRadius: 3, backgroundColor: '#F5A300', marginTop: 3 },
+  compactLine: { width: 1, height: 10, backgroundColor: '#AEB7C4', marginLeft: 16 },
+  loadFacts: { flexDirection: 'row', gap: 12, marginTop: 10, marginHorizontal: -14, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: '#E8F1FF' },
   fact: { flex: 1 },
   factRight: { alignItems: 'flex-end' },
-  factLabel: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1 },
-  factValue: { color: colors.text, fontSize: 13, lineHeight: 18, fontWeight: '800', marginTop: 3 },
-  returnIq: { color: colors.secondary, backgroundColor: '#EDF4FF', borderRadius: 10, padding: 9, fontSize: 11, lineHeight: 16, fontWeight: '800', marginTop: 12 },
-  inlineWarning: { color: '#7A4A00', backgroundColor: '#FFF5DB', borderRadius: 10, padding: 9, fontSize: 11, lineHeight: 16, fontWeight: '700', marginTop: 10 },
+  factLabel: { color: '#8A9099', fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
+  factValue: { color: '#1F2937', fontSize: 12, lineHeight: 17, fontWeight: '700', marginTop: 3 },
+  returnIq: { color: '#0A234F', backgroundColor: '#EEF4FF', borderRadius: 9, padding: 9, fontSize: 10, lineHeight: 15, fontWeight: '700', marginTop: 9 },
+  inlineWarning: { color: '#6B5400', backgroundColor: '#FFF6BF', borderRadius: 10, padding: 10, fontSize: 10, lineHeight: 15, fontWeight: '700', marginTop: 8 },
   actionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
-  textAction: { minHeight: 42, paddingHorizontal: 12, borderRadius: 11, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center' },
-  textActionText: { color: '#475467', fontSize: 12, fontWeight: '800' },
-  offerButton: { marginLeft: 'auto', minHeight: 44, minWidth: 118, paddingHorizontal: 17, borderRadius: 13, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
-  offerButtonText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
-  offerCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, borderColor: colors.borderSubtle, borderWidth: 1, gap: 12 },
-  ratePanel: { backgroundColor: '#F5F8FC', borderRadius: 13, padding: 12 },
-  rateValue: { color: colors.secondary, fontSize: 24, fontWeight: '900', marginTop: 3 },
+  textAction: { minHeight: 40, paddingHorizontal: 12, borderRadius: 10, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center' },
+  textActionText: { color: '#4B5563', fontSize: 11, fontWeight: '700' },
+  offerButton: { marginLeft: 'auto', minHeight: 42, minWidth: 112, paddingHorizontal: 16, borderRadius: 999, backgroundColor: '#0E3FA9', alignItems: 'center', justifyContent: 'center' },
+  offerButtonText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
+  offerCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, borderColor: '#ECEEF2', borderWidth: 1, gap: 10, shadowColor: '#111827', shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  ratePanel: { backgroundColor: '#E8F1FF', borderRadius: 12, padding: 12 },
+  rateValue: { color: '#0A234F', fontSize: 22, fontWeight: '800', marginTop: 2 },
 
-  compactRoute: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F8FAFC', borderRadius: 13, padding: 11 },
-  compactLeg: { flex: 1, minWidth: 0 },
-  compactKind: { color: colors.primary, fontSize: 8, fontWeight: '900', letterSpacing: 1 },
-  compactPlace: { color: colors.text, fontSize: 13, fontWeight: '800', marginTop: 3 },
+  compactRoute: { gap: 0, backgroundColor: 'transparent' },
+  compactLeg: { flexDirection: 'row', alignItems: 'flex-start', gap: 9, minWidth: 0, backgroundColor: '#FFFFFF', borderColor: '#D9DDE3', borderWidth: 1, borderRadius: 16, paddingHorizontal: 11, paddingVertical: 9 },
+  compactKind: { color: '#0E3FA9', fontSize: 8, fontWeight: '800', letterSpacing: 0.8 },
+  compactPlace: { color: '#1F2937', fontSize: 12, fontWeight: '700', marginTop: 2 },
   compactArrow: { color: colors.warning, fontSize: 19, fontWeight: '900' },
 
-  historyIntro: { backgroundColor: '#FFFFFF', borderRadius: 18, borderColor: colors.borderSubtle, borderWidth: 1, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 14 },
-  historyCount: { color: colors.primary, fontSize: 36, fontWeight: '900' },
-  historyIntroTitle: { color: colors.text, fontSize: 16, fontWeight: '900' },
-  historyIntroBody: { color: colors.muted, fontSize: 11, lineHeight: 16, marginTop: 2, maxWidth: 250 },
-  historyCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 15, borderColor: colors.borderSubtle, borderWidth: 1, gap: 11 },
+  historyIntro: { backgroundColor: '#FFFFFF', borderRadius: 14, borderColor: '#E7E9ED', borderWidth: 1, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  historyCount: { color: '#0E3FA9', fontSize: 30, fontWeight: '800' },
+  historyIntroTitle: { color: '#161A22', fontSize: 15, fontWeight: '800' },
+  historyIntroBody: { color: '#7A8089', fontSize: 10, lineHeight: 15, marginTop: 2, maxWidth: 250 },
+  historyCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, borderColor: '#ECEEF2', borderWidth: 1, gap: 10, shadowColor: '#111827', shadowOpacity: 0.07, shadowRadius: 9, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   historyTop: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
   historyBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  historyDate: { color: colors.muted, fontSize: 11, fontWeight: '600' },
-  historyRate: { color: colors.secondary, fontSize: 15, fontWeight: '900' },
+  historyDate: { color: '#8A9099', fontSize: 10, fontWeight: '600' },
+  historyRate: { color: '#0A234F', fontSize: 14, fontWeight: '800' },
 
-  statusTag: { borderRadius: 999, paddingHorizontal: 9, paddingVertical: 6 },
-  statusTagBlue: { backgroundColor: '#E7F0FF' },
-  statusTagGreen: { backgroundColor: '#DCFCE7' },
-  statusTagMuted: { backgroundColor: '#EAECF0' },
-  statusTagText: { color: '#344054', fontSize: 8, fontWeight: '900', letterSpacing: 0.6 },
+  statusTag: { borderRadius: 999, paddingHorizontal: 8, paddingVertical: 5 },
+  statusTagBlue: { backgroundColor: '#EAF1FF' },
+  statusTagGreen: { backgroundColor: '#E8F7ED' },
+  statusTagMuted: { backgroundColor: '#F0F1F3' },
+  statusTagText: { color: '#44505F', fontSize: 8, fontWeight: '800', letterSpacing: 0.4 },
 
-  progressBoard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, borderColor: colors.borderSubtle, borderWidth: 1, gap: 12 },
-  progressHeading: { color: colors.text, fontSize: 22, fontWeight: '900' },
-  progressList: { gap: 8 },
-  progressRow: { minHeight: 52, flexDirection: 'row', alignItems: 'center', gap: 11, padding: 9, borderRadius: 12, backgroundColor: '#F8FAFC' },
-  progressRowCurrent: { backgroundColor: '#FFF4D8', borderColor: '#FFD878', borderWidth: 1 },
-  progressState: { width: 48, minHeight: 30, borderRadius: 8, backgroundColor: '#E4E7EC', alignItems: 'center', justifyContent: 'center' },
-  progressStateDone: { backgroundColor: '#D1FADF' },
-  progressStateCurrent: { backgroundColor: colors.warning },
-  progressStateText: { color: '#344054', fontSize: 8, fontWeight: '900' },
-  progressText: { color: '#667085', fontSize: 14, fontWeight: '800' },
-  progressTextCurrent: { color: colors.text, fontWeight: '900' },
+  progressBoard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, borderColor: '#ECEEF2', borderWidth: 1, gap: 10, shadowColor: '#111827', shadowOpacity: 0.08, shadowRadius: 10, shadowOffset: { width: 0, height: 4 }, elevation: 3 },
+  progressHeading: { color: '#141821', fontSize: 20, fontWeight: '800' },
+  progressList: { gap: 0, paddingTop: 4 },
+  progressRow: { minHeight: 58, flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 9, borderBottomColor: '#EEF0F3', borderBottomWidth: 1 },
+  progressRowCurrent: { backgroundColor: '#FFF6BF', borderRadius: 10, borderBottomWidth: 0, paddingHorizontal: 9 },
+  progressState: { width: 34, minHeight: 34, borderRadius: 17, backgroundColor: '#EEF0F3', alignItems: 'center', justifyContent: 'center' },
+  progressStateDone: { backgroundColor: '#E6F6EB' },
+  progressStateCurrent: { backgroundColor: '#0E3FA9' },
+  progressStateText: { color: '#44505F', fontSize: 8, fontWeight: '800' },
+  progressText: { color: '#606873', fontSize: 13, fontWeight: '700' },
+  progressTextCurrent: { color: '#111827', fontWeight: '800' },
   progressTimestamp: { color: colors.muted, fontSize: 10, fontWeight: '700', marginTop: 3 },
   progressNote: { color: colors.secondary, fontSize: 10, lineHeight: 15, marginTop: 3 },
 
   bulletText: { color: colors.text, fontSize: 13, lineHeight: 20, fontWeight: '600' },
-  instructionBlock: { gap: 5, paddingTop: 5 },
+  instructionBlock: { gap: 5, padding: 10, backgroundColor: '#FFF9D6', borderRadius: 10 },
 
-  routeMapShell: { borderRadius: 16, borderWidth: 1, borderColor: colors.border, backgroundColor: '#FFFFFF', overflow: 'hidden' },
-  routeMapHeader: { paddingHorizontal: 14, paddingTop: 14, paddingBottom: 10, gap: 3 },
-  routeMap: { height: 330, backgroundColor: '#EEF3F8' },
-  routeMapHint: { color: colors.muted, fontSize: 10, lineHeight: 15, fontWeight: '700', paddingHorizontal: 14, paddingVertical: 12 },
-  routeStopCard: { backgroundColor: '#FFFFFF', borderRadius: 17, padding: 15, borderColor: colors.borderSubtle, borderWidth: 1, gap: 11 },
+  routeMapShell: { borderRadius: 14, borderWidth: 1, borderColor: '#E7E9ED', backgroundColor: '#FFFFFF', overflow: 'hidden' },
+  routeMapHeader: { paddingHorizontal: 14, paddingTop: 12, paddingBottom: 9, gap: 2 },
+  routeMap: { height: 360, backgroundColor: '#EEF2F5' },
+  routeMapHint: { color: '#7A8089', fontSize: 9, lineHeight: 14, fontWeight: '600', paddingHorizontal: 14, paddingVertical: 10 },
+  routeStopCard: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, borderColor: '#ECEEF2', borderWidth: 1, gap: 10, shadowColor: '#111827', shadowOpacity: 0.07, shadowRadius: 9, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
   routeStopHead: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  stopNumber: { width: 34, height: 34, borderRadius: 9, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center' },
-  stopNumberText: { color: colors.secondary, fontSize: 13, fontWeight: '900' },
-  stopTypeTitle: { color: colors.secondary, fontSize: 10, fontWeight: '900', letterSpacing: 1.1 },
-  stopCompany: { color: colors.text, fontSize: 15, lineHeight: 20, fontWeight: '900', marginTop: 2 },
-  stopInstruction: { backgroundColor: '#EDF4FF', borderRadius: 10, padding: 10, gap: 5 },
+  stopNumber: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#EAF1FF', alignItems: 'center', justifyContent: 'center' },
+  stopNumberText: { color: '#0E3FA9', fontSize: 12, fontWeight: '800' },
+  stopTypeTitle: { color: '#0E3FA9', fontSize: 9, fontWeight: '800', letterSpacing: 0.9 },
+  stopCompany: { color: '#161A22', fontSize: 14, lineHeight: 19, fontWeight: '800', marginTop: 2 },
+  stopInstruction: { backgroundColor: '#FFF6BF', borderRadius: 10, padding: 10, gap: 4 },
 
   stopBlock: { backgroundColor: '#FFFFFF', borderRadius: 17, padding: 15, borderColor: colors.borderSubtle, borderWidth: 1, flexDirection: 'row', gap: 12 },
   stopLabel: { width: 72, minHeight: 34, alignSelf: 'flex-start', borderRadius: 8, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 6 },
@@ -2404,111 +2431,111 @@ const styles = StyleSheet.create({
   stopMeta: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 5 },
   stopNote: { color: colors.secondary, backgroundColor: '#EDF4FF', borderRadius: 9, padding: 8, fontSize: 11, lineHeight: 16, marginTop: 7 },
 
-  infoLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, borderTopColor: colors.borderSubtle, borderTopWidth: 1, paddingTop: 10 },
-  infoLabel: { color: colors.muted, fontSize: 12, fontWeight: '700' },
-  infoValue: { color: colors.text, fontSize: 12, fontWeight: '900', flex: 1, textAlign: 'right' },
-  fieldLabel: { color: colors.secondary, fontSize: 10, fontWeight: '900', letterSpacing: 1.1, marginTop: 3 },
-  bigInput: { minHeight: 54, borderColor: colors.border, borderWidth: 1, borderRadius: 14, backgroundColor: '#FFFFFF', color: colors.text, paddingHorizontal: 14, fontSize: 16, fontWeight: '600' },
+  infoLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 14, borderTopColor: '#EEF0F3', borderTopWidth: 1, paddingTop: 9 },
+  infoLabel: { color: '#7A8089', fontSize: 11, fontWeight: '600' },
+  infoValue: { color: '#202630', fontSize: 11, fontWeight: '800', flex: 1, textAlign: 'right' },
+  fieldLabel: { color: '#667085', fontSize: 9, fontWeight: '800', letterSpacing: 0.9, marginTop: 2 },
+  bigInput: { minHeight: 52, borderColor: '#DDE1E6', borderWidth: 1, borderRadius: 11, backgroundColor: '#FFFFFF', color: '#141821', paddingHorizontal: 13, fontSize: 15, fontWeight: '600' },
   filterLabel: { color: colors.secondary, fontSize: 9, fontWeight: '900', letterSpacing: 1.1, marginTop: 2 },
   filterWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  filterChip: { minHeight: 38, maxWidth: '100%', borderRadius: 11, borderWidth: 1, borderColor: colors.border, backgroundColor: '#FFFFFF', paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
-  filterChipActive: { borderColor: colors.primary, backgroundColor: '#EAF2FF' },
-  filterChipText: { color: colors.muted, fontSize: 11, fontWeight: '800', maxWidth: 170 },
-  filterChipTextActive: { color: colors.primary, fontWeight: '900' },
+  filterChip: { minHeight: 36, maxWidth: '100%', borderRadius: 999, borderWidth: 1, borderColor: '#E0E4E9', backgroundColor: '#FFFFFF', paddingHorizontal: 12, alignItems: 'center', justifyContent: 'center' },
+  filterChipActive: { borderColor: '#0E3FA9', backgroundColor: '#EAF1FF' },
+  filterChipText: { color: '#68707B', fontSize: 10, fontWeight: '700', maxWidth: 170 },
+  filterChipTextActive: { color: '#0E3FA9', fontWeight: '800' },
   clearFilters: { alignSelf: 'flex-start', paddingVertical: 5 },
   clearFiltersText: { color: colors.primary, fontSize: 12, fontWeight: '900' },
   nearbyMeta: { color: colors.muted, fontSize: 11, lineHeight: 16, fontWeight: '700' },
   textarea: { minHeight: 100, paddingTop: 14, textAlignVertical: 'top' },
-  primaryButton: { minHeight: 56, backgroundColor: colors.primary, borderRadius: 16, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
-  primaryButtonText: { color: '#FFFFFF', fontSize: 15, fontWeight: '900' },
-  primaryCompact: { minHeight: 46, flexGrow: 1, paddingHorizontal: 15, backgroundColor: colors.primary, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
-  primaryCompactText: { color: '#FFFFFF', fontSize: 13, fontWeight: '900' },
+  primaryButton: { minHeight: 52, backgroundColor: '#0E3FA9', borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 17 },
+  primaryButtonText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
+  primaryCompact: { minHeight: 44, flexGrow: 1, paddingHorizontal: 14, backgroundColor: '#0E3FA9', borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  primaryCompactText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
   twoActions: { flexDirection: 'row', gap: 10 },
-  secondaryAction: { flex: 1, minHeight: 48, borderColor: colors.primary, borderWidth: 1.3, borderRadius: 13, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: '#FFFFFF' },
-  secondaryActionText: { color: colors.primary, fontSize: 12, fontWeight: '900', textAlign: 'center' },
+  secondaryAction: { flex: 1, minHeight: 46, borderColor: '#0E3FA9', borderWidth: 1, borderRadius: 999, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12, backgroundColor: '#FFFFFF' },
+  secondaryActionText: { color: '#344054', fontSize: 11, fontWeight: '800', textAlign: 'center' },
   disabledButton: { opacity: 0.45 },
 
-  signatureBox: { height: 210, borderColor: colors.border, borderWidth: 1, borderRadius: 14, overflow: 'hidden', backgroundColor: '#FFFFFF' },
+  signatureBox: { height: 210, borderColor: '#DDE1E6', borderWidth: 1, borderRadius: 12, overflow: 'hidden', backgroundColor: '#FFFFFF' },
   savedState: { color: colors.success, fontSize: 11, fontWeight: '800' },
   evidenceHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   evidenceCount: { color: colors.secondary, fontSize: 11, fontWeight: '900' },
-  evidenceRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, backgroundColor: '#F8FAFC' },
+  evidenceRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 9, borderColor: '#E7E9ED', borderWidth: 1, borderRadius: 10, paddingHorizontal: 10, backgroundColor: '#FAFBFC' },
   evidenceIndex: { width: 28, height: 28, borderRadius: 8, backgroundColor: '#EAF2FF', alignItems: 'center', justifyContent: 'center' },
   evidenceIndexText: { color: colors.secondary, fontSize: 10, fontWeight: '900' },
   evidenceText: { color: colors.text, fontSize: 11, fontWeight: '700', flex: 1 },
   removeEvidence: { color: colors.danger, fontSize: 10, fontWeight: '900' },
-  fixedAction: { position: 'absolute', left: 0, right: 0, bottom: 78, paddingHorizontal: 16, paddingVertical: 10, backgroundColor: '#0A234F' },
-  fixedActionButton: { minHeight: 58, backgroundColor: colors.warning, borderRadius: 15, alignItems: 'center', justifyContent: 'center' },
-  fixedActionText: { color: '#17202F', fontSize: 15, fontWeight: '900' },
+  fixedAction: { position: 'absolute', left: 0, right: 0, bottom: 76, paddingHorizontal: 14, paddingVertical: 9, backgroundColor: 'rgba(255,255,255,0.96)', borderTopColor: '#E7E9ED', borderTopWidth: 1 },
+  fixedActionButton: { minHeight: 54, backgroundColor: '#0E3FA9', borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  fixedActionText: { color: '#FFFFFF', fontSize: 14, fontWeight: '800' },
 
-  accountIdentity: { backgroundColor: colors.secondary, borderRadius: 18, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 13 },
-  accountAvatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center' },
-  accountAvatarText: { color: colors.secondary, fontSize: 15, fontWeight: '900' },
-  accountName: { color: '#FFFFFF', fontSize: 19, fontWeight: '900' },
-  accountEmail: { color: '#BFD1EF', fontSize: 11, marginTop: 3 },
+  accountIdentity: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 12, borderColor: '#ECEEF2', borderWidth: 1, shadowColor: '#111827', shadowOpacity: 0.07, shadowRadius: 9, shadowOffset: { width: 0, height: 3 }, elevation: 2 },
+  accountAvatar: { width: 52, height: 52, borderRadius: 26, backgroundColor: '#EAF1FF', alignItems: 'center', justifyContent: 'center' },
+  accountAvatarText: { color: '#0E3FA9', fontSize: 14, fontWeight: '900' },
+  accountName: { color: '#111827', fontSize: 18, fontWeight: '800' },
+  accountEmail: { color: '#7A8089', fontSize: 11, marginTop: 2 },
   accountSection: { gap: 7 },
-  accountSectionTitle: { color: colors.muted, fontSize: 9, fontWeight: '900', letterSpacing: 1.2, marginLeft: 4 },
-  accountRows: { backgroundColor: '#FFFFFF', borderRadius: 16, borderColor: colors.borderSubtle, borderWidth: 1, overflow: 'hidden' },
-  accountRow: { minHeight: 66, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 15, borderBottomColor: colors.borderSubtle, borderBottomWidth: 1 },
-  accountRowTitle: { color: colors.text, fontSize: 14, fontWeight: '900' },
-  accountRowSubtitle: { color: colors.muted, fontSize: 11, marginTop: 2 },
-  accountChevron: { color: colors.primary, fontSize: 18, fontWeight: '900' },
+  accountSectionTitle: { color: '#8A9099', fontSize: 8, fontWeight: '800', letterSpacing: 1, marginLeft: 4 },
+  accountRows: { backgroundColor: '#FFFFFF', borderRadius: 18, borderColor: '#ECEEF2', borderWidth: 1, overflow: 'hidden' },
+  accountRow: { minHeight: 62, flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 14, borderBottomColor: '#EEF0F3', borderBottomWidth: 1 },
+  accountRowTitle: { color: '#1C222B', fontSize: 13, fontWeight: '800' },
+  accountRowSubtitle: { color: '#7A8089', fontSize: 10, marginTop: 2 },
+  accountChevron: { color: '#0E3FA9', fontSize: 17, fontWeight: '800' },
   signOutButton: { minHeight: 50, borderRadius: 14, borderWidth: 1, borderColor: '#FCA5A5', backgroundColor: '#FFF5F5', alignItems: 'center', justifyContent: 'center' },
   signOutText: { color: colors.danger, fontSize: 13, fontWeight: '900' },
 
-  documentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: 11, padding: 10, backgroundColor: '#F8FAFC' },
+  documentRow: { flexDirection: 'row', alignItems: 'center', gap: 10, borderColor: '#E7E9ED', borderWidth: 1, borderRadius: 10, padding: 10, backgroundColor: '#FAFBFC' },
   documentBadge: { width: 40, color: colors.primary, fontSize: 9, fontWeight: '900' },
   documentText: { color: colors.text, fontSize: 13, fontWeight: '800' },
   summaryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  summaryCard: { flexGrow: 1, flexBasis: 96, minHeight: 96, borderRadius: 13, backgroundColor: '#F5F8FC', borderColor: colors.borderSubtle, borderWidth: 1, padding: 11, justifyContent: 'space-between' },
+  summaryCard: { flexGrow: 1, flexBasis: 96, minHeight: 92, borderRadius: 12, backgroundColor: '#F8FAFC', borderColor: '#E7E9ED', borderWidth: 1, padding: 11, justifyContent: 'space-between' },
   summaryLabel: { color: colors.muted, fontSize: 8, fontWeight: '900', letterSpacing: 0.8 },
-  summaryValue: { color: colors.secondary, fontSize: 25, fontWeight: '900' },
+  summaryValue: { color: '#0A234F', fontSize: 23, fontWeight: '800' },
   summaryMeta: { color: colors.muted, fontSize: 9, lineHeight: 13, fontWeight: '700' },
   invoiceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 14, borderBottomColor: colors.borderSubtle, borderBottomWidth: 1, paddingVertical: 10 },
   queueRow: { borderColor: colors.borderSubtle, borderWidth: 1, borderRadius: 11, padding: 10 },
   errorText: { color: colors.danger, fontSize: 11, marginTop: 4 },
 
-  banner: { minHeight: 46, backgroundColor: '#EAF2FF', borderColor: '#B9D3FF', borderWidth: 1, borderRadius: 13, paddingHorizontal: 12, paddingVertical: 10, flexDirection: 'row', gap: 9, alignItems: 'center' },
-  bannerText: { color: colors.secondary, fontSize: 12, lineHeight: 18, fontWeight: '700', flex: 1 },
+  banner: { minHeight: 44, backgroundColor: '#FFF6BF', borderColor: '#F2E39A', borderWidth: 1, borderRadius: 10, paddingHorizontal: 11, paddingVertical: 9, flexDirection: 'row', gap: 9, alignItems: 'center' },
+  bannerText: { color: '#30445F', fontSize: 11, lineHeight: 17, fontWeight: '600', flex: 1 },
   bannerClose: { color: colors.secondary, fontSize: 21, fontWeight: '700' },
-  emptyState: { minHeight: 230, backgroundColor: '#FFFFFF', borderRadius: 18, borderColor: colors.borderSubtle, borderWidth: 1, alignItems: 'center', justifyContent: 'center', padding: 26 },
-  emptyMonogram: { color: colors.primary, backgroundColor: '#EEF4FF', width: 70, height: 70, borderRadius: 18, textAlign: 'center', textAlignVertical: 'center', fontSize: 22, fontWeight: '900' },
-  emptyTitle: { color: colors.text, fontSize: 19, fontWeight: '900', marginTop: 15, textAlign: 'center' },
+  emptyState: { minHeight: 210, backgroundColor: '#FFFFFF', borderRadius: 14, borderColor: '#E7E9ED', borderWidth: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
+  emptyMonogram: { color: '#0E3FA9', backgroundColor: '#EEF4FF', width: 64, height: 64, borderRadius: 32, textAlign: 'center', textAlignVertical: 'center', fontSize: 20, fontWeight: '800' },
+  emptyTitle: { color: '#161A22', fontSize: 17, fontWeight: '800', marginTop: 13, textAlign: 'center' },
   emptyBody: { color: colors.muted, fontSize: 13, lineHeight: 19, textAlign: 'center', marginTop: 6 },
-  loadingCard: { minHeight: 86, borderRadius: 16, backgroundColor: '#FFFFFF', borderColor: colors.borderSubtle, borderWidth: 1, alignItems: 'center', justifyContent: 'center', padding: 16 },
+  loadingCard: { minHeight: 82, borderRadius: 14, backgroundColor: '#FFFFFF', borderColor: '#E7E9ED', borderWidth: 1, alignItems: 'center', justifyContent: 'center', padding: 14 },
   loadingText: { color: colors.muted, fontSize: 13, fontWeight: '700' },
 
-  bottomDock: { minHeight: 78, flexDirection: 'row', backgroundColor: '#FFFFFF', borderTopColor: colors.borderSubtle, borderTopWidth: 1, paddingTop: 7, paddingBottom: 7 },
-  dockItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 4 },
-  dockGlyph: { minWidth: 34, height: 29, borderRadius: 9, backgroundColor: '#F2F4F7', alignItems: 'center', justifyContent: 'center' },
-  dockGlyphActive: { backgroundColor: '#E7F0FF' },
-  dockGlyphText: { color: '#667085', fontSize: 11, fontWeight: '900' },
-  dockGlyphTextActive: { color: colors.primary },
-  dockLabel: { color: '#667085', fontSize: 10, fontWeight: '700' },
-  dockLabelActive: { color: colors.primary, fontWeight: '900' },
+  bottomDock: { minHeight: 80, flexDirection: 'row', backgroundColor: '#FFFFFF', borderTopColor: '#ECEEF2', borderTopWidth: 1, paddingTop: 8, paddingBottom: 7, borderTopLeftRadius: 28, borderTopRightRadius: 28, shadowColor: '#111827', shadowOpacity: 0.10, shadowRadius: 12, shadowOffset: { width: 0, height: -4 }, elevation: 8 },
+  dockItem: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  dockGlyph: { minWidth: 34, height: 28, borderRadius: 14, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center' },
+  dockGlyphActive: { backgroundColor: '#EAF1FF' },
+  dockGlyphText: { color: '#8A9099', fontSize: 11, fontWeight: '800' },
+  dockGlyphTextActive: { color: '#0E3FA9' },
+  dockLabel: { color: '#8A9099', fontSize: 9, fontWeight: '600' },
+  dockLabelActive: { color: '#0E3FA9', fontWeight: '800' },
   dockBadge: { position: 'absolute', right: -7, top: -6, minWidth: 19, height: 19, borderRadius: 10, backgroundColor: colors.warning, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 4 },
   dockBadgeText: { color: '#17202F', fontSize: 9, fontWeight: '900' },
 
-  loginSafe: { flex: 1, backgroundColor: '#0B2F6B' },
-  loginPage: { flexGrow: 1, backgroundColor: '#F4F6F8', paddingBottom: 20 },
-  loginHero: { minHeight: 390, paddingHorizontal: 22, paddingTop: 24, paddingBottom: 35, justifyContent: 'space-between' },
+  loginSafe: { flex: 1, backgroundColor: '#F7F8FA' },
+  loginPage: { flexGrow: 1, backgroundColor: '#F7F8FA', paddingHorizontal: 18, paddingTop: 28, paddingBottom: 24, justifyContent: 'center' },
+  loginHero: { minHeight: 250, paddingHorizontal: 4, paddingTop: 8, paddingBottom: 22, justifyContent: 'space-between' },
   loginHeroImage: { borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
   loginShade: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(5,26,55,0.35)', borderBottomLeftRadius: 28, borderBottomRightRadius: 28 },
-  brandPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFFFFF', borderRadius: 18, paddingHorizontal: 16, paddingVertical: 11 },
-  brandX: { color: colors.warning, fontSize: 23, fontWeight: '900' },
-  brandDrive: { color: '#0E3FA9', fontSize: 23, fontWeight: '900' },
-  brandDivider: { width: 1, height: 27, backgroundColor: '#CBD5E1', marginHorizontal: 5 },
-  brandMeta: { color: '#0B2F6B', fontSize: 14, fontWeight: '900', letterSpacing: 2 },
-  loginCopy: { gap: 9 },
-  loginEyebrow: { color: '#FFBF24', fontSize: 13, fontWeight: '900', letterSpacing: 3 },
-  loginHeroTitle: { color: '#FFFFFF', fontSize: 38, lineHeight: 42, fontWeight: '900', maxWidth: 300 },
-  loginHeroBody: { color: '#FFFFFF', fontSize: 18, lineHeight: 25, fontWeight: '700', maxWidth: 330 },
-  networkPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#0E3FA9', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 9 },
-  networkDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFBF24' },
-  networkText: { color: '#FFFFFF', fontSize: 12, fontWeight: '800' },
-  loginCard: { marginHorizontal: 18, marginTop: 16, backgroundColor: '#FFFFFF', borderRadius: 26, padding: 22, gap: 12, borderColor: colors.borderSubtle, borderWidth: 1 },
-  loginTitle: { color: colors.secondary, fontSize: 28, fontWeight: '900', textAlign: 'center' },
-  loginSubtitle: { color: colors.muted, fontSize: 14, fontWeight: '700', textAlign: 'center', marginBottom: 4 },
+  brandPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#FFFFFF', borderRadius: 999, borderColor: '#E7E9ED', borderWidth: 1, paddingHorizontal: 14, paddingVertical: 9 },
+  brandX: { color: '#F5A300', fontSize: 21, fontWeight: '900' },
+  brandDrive: { color: '#0E3FA9', fontSize: 21, fontWeight: '900' },
+  brandDivider: { width: 1, height: 24, backgroundColor: '#DDE1E6', marginHorizontal: 4 },
+  brandMeta: { color: '#0A234F', fontSize: 12, fontWeight: '800', letterSpacing: 1.5 },
+  loginCopy: { gap: 8 },
+  loginEyebrow: { color: '#0E3FA9', fontSize: 10, fontWeight: '800', letterSpacing: 2 },
+  loginHeroTitle: { color: '#111827', fontSize: 32, lineHeight: 37, fontWeight: '800', maxWidth: 335 },
+  loginHeroBody: { color: '#69717C', fontSize: 15, lineHeight: 22, fontWeight: '600', maxWidth: 340 },
+  networkPill: { alignSelf: 'flex-start', flexDirection: 'row', alignItems: 'center', gap: 7, backgroundColor: '#EEF4FF', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 8 },
+  networkDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#0E3FA9' },
+  networkText: { color: '#0A234F', fontSize: 11, fontWeight: '700' },
+  loginCard: { backgroundColor: '#FFFFFF', borderRadius: 16, padding: 18, gap: 11, borderColor: '#E7E9ED', borderWidth: 1 },
+  loginTitle: { color: '#111827', fontSize: 24, fontWeight: '800', textAlign: 'left' },
+  loginSubtitle: { color: '#7A8089', fontSize: 13, fontWeight: '600', textAlign: 'left', marginBottom: 4 },
   loginInput: { minHeight: 56, borderColor: colors.border, borderWidth: 1, borderRadius: 15, paddingHorizontal: 14, color: colors.text, fontSize: 16, fontWeight: '600' },
   passwordRow: { minHeight: 56, borderColor: colors.border, borderWidth: 1, borderRadius: 15, flexDirection: 'row', alignItems: 'center' },
   passwordInput: { flex: 1, minHeight: 54, paddingHorizontal: 14, color: colors.text, fontSize: 16, fontWeight: '600' },
