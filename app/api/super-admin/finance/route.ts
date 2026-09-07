@@ -200,6 +200,51 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  // ── Platform trade control ───────────────────────────────────────────────────
+  if (section === 'control') {
+    const { data, error } = await supabaseAdmin
+      .from('invoices')
+      .select('id, invoice_number, company_id, buyer_company_id, supplier_company_id, job_id, status, payment_status, amount, net_amount, vat_amount, currency, due_date, invoice_date, created_at')
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    if (error) return respond(500, { error: error.message });
+    const rows = data ?? [];
+    const invoiceIds = rows.map((row) => String(row.id));
+    const paymentsResult = invoiceIds.length
+      ? await supabaseAdmin.from('invoice_payment_history').select('invoice_id, amount').in('invoice_id', invoiceIds).limit(2000)
+      : { data: [], error: null };
+    if (paymentsResult.error) return respond(500, { error: paymentsResult.error.message });
+    const paidByInvoice = new Map<string, number>();
+    for (const payment of paymentsResult.data ?? []) {
+      const invoiceId = String(payment.invoice_id ?? '');
+      if (!invoiceId) continue;
+      paidByInvoice.set(invoiceId, (paidByInvoice.get(invoiceId) ?? 0) + (Number(payment.amount) || 0));
+    }
+    const partyIds = Array.from(new Set(rows.flatMap((row) => [row.buyer_company_id, row.supplier_company_id]).filter((value): value is string => typeof value === 'string' && Boolean(value))));
+    const nameById = await companyNameMap(partyIds);
+    const normalizedRows = rows.map((row) => {
+      const gross = Number(row.amount) || 0;
+      const paidAmount = paidByInvoice.get(String(row.id)) ?? 0;
+      const outstandingAmount = Math.max(0, gross - paidAmount);
+      const dueMs = row.due_date ? new Date(String(row.due_date)).getTime() : Number.NaN;
+      const status = String(row.status ?? '').toLowerCase();
+      const paymentStatus = toCanonicalPaymentStatus(row.payment_status as string | null | undefined);
+      const lifecycle = ['cancelled', 'void', 'voided'].includes(status) ? 'archive'
+        : paymentStatus === 'paid' || (gross > 0 && paidAmount >= gross - 0.005) ? 'paid'
+          : Number.isFinite(dueMs) && dueMs < Date.now() ? 'overdue'
+            : ['draft', 'pending'].includes(status) ? 'draft' : 'awaiting_payment';
+      return { ...row, buyer_name: nameById.get(String(row.buyer_company_id ?? '')) ?? 'External / unknown buyer', supplier_name: nameById.get(String(row.supplier_company_id ?? '')) ?? 'External / legacy supplier', paid_amount: paidAmount, outstanding_amount: outstandingAmount, lifecycle };
+    });
+    const summary = normalizedRows.reduce((acc, row) => {
+      acc.gross += Number(row.amount) || 0; acc.net += Number(row.net_amount) || 0; acc.vat += Number(row.vat_amount) || 0;
+      acc.paid += Number(row.paid_amount) || 0; acc.outstanding += Number(row.outstanding_amount) || 0;
+      if (row.lifecycle === 'overdue') { acc.overdueCount += 1; acc.overdueValue += Number(row.outstanding_amount) || 0; }
+      if ((Number(row.paid_amount) || 0) > 0 && (Number(row.outstanding_amount) || 0) > 0) acc.partialPayments += 1;
+      return acc;
+    }, { invoices: normalizedRows.length, gross: 0, net: 0, vat: 0, paid: 0, outstanding: 0, overdueCount: 0, overdueValue: 0, partialPayments: 0 });
+    return respond(200, { section, rows: normalizedRows, summary, note: 'Platform trade control shows buyer/supplier invoice flow and recorded settlement evidence. It does not mutate payments.' });
+  }
+
   // ── Invoice Financial Breakdown ──────────────────────────────────────────────
   if (section === 'fees') {
     const { data, error } = await supabaseAdmin
@@ -234,5 +279,5 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  return respond(400, { error: 'Invalid section. Use invoices, payments, revenue, or fees.' });
+  return respond(400, { error: 'Invalid section. Use invoices, payments, revenue, fees, or control.' });
 }

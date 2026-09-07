@@ -6,6 +6,9 @@ import { supabase } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from './MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
 
+type DeliveryReliability = { score: number | null; evidenceCount: number; completedJobs: number };
+type PaymentReliability = { score: number | null; evidenceCount: number; onTimePaid: number; latePaid: number; overdueOpen: number };
+
 type DirectoryCompany = {
   companyId: string;
   name: string;
@@ -19,6 +22,8 @@ type DirectoryCompany = {
   vehicleTypes: string[];
   specialistServices: string[];
   maxPallets: number | null;
+  deliveryReliability: DeliveryReliability;
+  paymentReliability: PaymentReliability;
 };
 
 type DirectoryDriver = {
@@ -37,13 +42,16 @@ type DirectoryDriver = {
   hasTailLift: boolean;
   palletsCapacity: number | null;
   specialistServices: string[];
+  deliveryReliability: DeliveryReliability;
+  paymentReliability: PaymentReliability;
 };
 
 type DirectoryTruncation = {
   companies?: boolean;
   drivers?: boolean;
   vehicleEnrichment?: boolean;
-  limits?: { companies?: number; drivers?: number; vehicles?: number };
+  reputation?: boolean;
+  limits?: { companies?: number; drivers?: number; vehicles?: number; reputationJobs?: number; reputationInvoices?: number };
 };
 
 type DirectoryResponse = {
@@ -52,6 +60,7 @@ type DirectoryResponse = {
   partial?: boolean;
   truncation?: DirectoryTruncation;
   privacy?: string;
+  reputation?: string;
   error?: string;
 };
 
@@ -77,11 +86,14 @@ export function MemberDirectoryPage({
   const [country, setCountry] = useState('');
   const [specialistService, setSpecialistService] = useState('');
   const [tailLiftOnly, setTailLiftOnly] = useState(false);
+  const [deliveryMin, setDeliveryMin] = useState('');
+  const [paymentMin, setPaymentMin] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [partial, setPartial] = useState(false);
   const [truncation, setTruncation] = useState<DirectoryTruncation>({});
   const [privacy, setPrivacy] = useState('');
+  const [reputationNote, setReputationNote] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,6 +110,7 @@ export function MemberDirectoryPage({
       setPartial(payload.partial === true);
       setTruncation(payload.truncation ?? {});
       setPrivacy(payload.privacy ?? '');
+      setReputationNote(payload.reputation ?? '');
     } catch (reason) {
       setCompanies([]);
       setDrivers([]);
@@ -144,6 +157,8 @@ export function MemberDirectoryPage({
     const vehicleNeedle = normalise(vehicle);
     const countryNeedle = normalise(country);
     const serviceNeedle = normalise(specialistService);
+    const deliveryThreshold = Number(deliveryMin || 0);
+    const paymentThreshold = Number(paymentMin || 0);
     return companies.filter((company) => {
       const memberText = normalise(`${company.name} ${company.memberId ?? ''}`);
       const locationText = normalise(`${company.city ?? ''} ${company.postcode ?? ''} ${company.country ?? ''}`);
@@ -155,9 +170,11 @@ export function MemberDirectoryPage({
         && (!countryNeedle || normalise(company.country) === countryNeedle)
         && (!vehicleNeedle || vehicleText.includes(vehicleNeedle))
         && (!serviceNeedle || serviceText.includes(serviceNeedle))
-        && (!tailLiftOnly || serviceText.includes('tail lift'));
+        && (!tailLiftOnly || serviceText.includes('tail lift'))
+        && (!deliveryThreshold || (company.deliveryReliability.score != null && company.deliveryReliability.score >= deliveryThreshold))
+        && (!paymentThreshold || (company.paymentReliability.score != null && company.paymentReliability.score >= paymentThreshold));
     });
-  }, [companies, country, location, member, memberType, specialistService, tailLiftOnly, vehicle]);
+  }, [companies, country, deliveryMin, location, member, memberType, paymentMin, specialistService, tailLiftOnly, vehicle]);
 
   const visibleDrivers = useMemo(() => {
     const memberNeedle = normalise(member);
@@ -166,6 +183,8 @@ export function MemberDirectoryPage({
     const availabilityNeedle = normalise(availability);
     const countryNeedle = normalise(country);
     const serviceNeedle = normalise(specialistService);
+    const deliveryThreshold = Number(deliveryMin || 0);
+    const paymentThreshold = Number(paymentMin || 0);
     return drivers.filter((driver) => {
       const memberText = normalise(`${driver.displayName} ${driver.companyName} ${driver.memberId ?? ''}`);
       const locationText = normalise(`${driver.city ?? ''} ${driver.postcode ?? ''} ${driver.country ?? ''}`);
@@ -176,9 +195,11 @@ export function MemberDirectoryPage({
         && (!vehicleNeedle || normalise(driver.vehicleType).includes(vehicleNeedle))
         && (!availabilityNeedle || normalise(driver.availability) === availabilityNeedle)
         && (!serviceNeedle || serviceText.includes(serviceNeedle))
-        && (!tailLiftOnly || driver.hasTailLift === true);
+        && (!tailLiftOnly || driver.hasTailLift === true)
+        && (!deliveryThreshold || (driver.deliveryReliability.score != null && driver.deliveryReliability.score >= deliveryThreshold))
+        && (!paymentThreshold || (driver.paymentReliability.score != null && driver.paymentReliability.score >= paymentThreshold));
     });
-  }, [availability, country, drivers, location, member, specialistService, tailLiftOnly, vehicle]);
+  }, [availability, country, deliveryMin, drivers, location, member, paymentMin, specialistService, tailLiftOnly, vehicle]);
 
   const clear = () => {
     setMember('');
@@ -189,9 +210,11 @@ export function MemberDirectoryPage({
     setCountry('');
     setSpecialistService('');
     setTailLiftOnly(false);
+    setDeliveryMin('');
+    setPaymentMin('');
   };
 
-  const capped = Boolean(truncation.companies || truncation.drivers || truncation.vehicleEnrichment);
+  const capped = Boolean(truncation.companies || truncation.drivers || truncation.vehicleEnrichment || truncation.reputation);
   const capMessage = capped
     ? `Directory results may be incomplete because the current endpoint is capped at ${truncation.limits?.companies ?? 500} companies and ${truncation.limits?.drivers ?? 500} drivers${truncation.vehicleEnrichment ? `, with vehicle enrichment capped at ${truncation.limits?.vehicles ?? 1000} records` : ''}. Do not treat the visible list as the complete XDrive network.`
     : 'Part of the Directory enrichment is temporarily unavailable. Verified member records are still shown.';
@@ -216,8 +239,11 @@ export function MemberDirectoryPage({
             <label>VEHICLE TYPE<input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="LWB, Luton, Artic…" /></label>
             <label>SPECIALIST SERVICE<select value={specialistService} onChange={(event) => setSpecialistService(event.target.value)}><option value="">Any service</option>{specialistServices.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} /> TAIL LIFT CAPABILITY</label>
+            <label>DELIVERY RELIABILITY<select value={deliveryMin} onChange={(event) => setDeliveryMin(event.target.value)}><option value="">Any verified score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></label>
+            <label>PAYMENT RELIABILITY<select value={paymentMin} onChange={(event) => setPaymentMin(event.target.value)}><option value="">Any verified score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></label>
             {tab === 'drivers' ? <label>AVAILABILITY<select value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label> : null}
             <ActionButton tone="secondary" onClick={clear}>Clear</ActionButton>
+            {reputationNote && <span style={{ color: '#475569', fontSize: 10, lineHeight: '13px' }}>{reputationNote}</span>}
             {privacy && <span style={{ color: '#64748b', fontSize: 10, lineHeight: '13px' }}>{privacy}</span>}
           </div>
         </aside>
@@ -239,6 +265,7 @@ export function MemberDirectoryPage({
                     <div className="workspace-operational-cell"><div className="driver-cell-label">MEMBER</div><strong><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></strong><div className="driver-cell-secondary">{company.memberId ? `Company no. ${company.memberId}` : 'Company number not supplied'}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE / CAPABILITY</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Fleet capability not supplied'}{company.specialistServices?.length ? ` · ${company.specialistServices.join(', ')}` : ''}{company.maxPallets != null ? ` · up to ${company.maxPallets} pallets` : ''}</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">DELIVERY / PAYMENT RELIABILITY</div><strong>Delivery {company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">{company.deliveryReliability.evidenceCount} timed delivery record(s) · Payment {company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`} from {company.paymentReliability.evidenceCount} due/settlement record(s){company.paymentReliability.overdueOpen ? ` · ${company.paymentReliability.overdueOpen} overdue open` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}</div></div>
                   </div>
                 </article>
@@ -253,6 +280,7 @@ export function MemberDirectoryPage({
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DRIVER / MEMBER</div><strong>{driver.displayName}</strong><div className="driver-cell-secondary">{driver.companyId ? <MemberIdentityLink companyId={driver.companyId}>{driver.companyName}</MemberIdentityLink> : driver.companyName}{driver.memberId ? ` · Company no. ${driver.memberId}` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[driver.city, driver.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">Broad member/company location only</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">VEHICLE / CAPABILITY</div><strong>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}</strong><div className="driver-cell-secondary">{driver.hasTailLift ? 'Tail lift · ' : ''}{driver.palletsCapacity != null ? `${driver.palletsCapacity} pallets · ` : ''}{driver.specialistServices?.length ? driver.specialistServices.join(', ') : 'No specialist service declared'} · no live coordinates exposed</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">COMPANY RELIABILITY</div><strong>Delivery {driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">Payment {driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`} · evidence is company-level and truth-derived</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY / ACTION</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} />{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) ? <div style={{ marginTop: 6 }}><ActionButton tone="success" onClick={() => openDirectBooking(driver.companyId as string)}>Book Direct</ActionButton></div> : null}</div>
                   </div>
                 </article>
