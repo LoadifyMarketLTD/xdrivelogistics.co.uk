@@ -51,7 +51,7 @@ export function HomeScreen({ jobs, activeJob, recentJob, resources, loading, onR
         <View style={styles.driverCopy}><Text style={styles.driverName}>{driverName}</Text><Text style={styles.driverEmail}>{resources?.email || ''}</Text></View>
       </View>
       <View style={styles.driverFacts}>
-        <Fact label="Vehicle" value={`${vehicleType} Ã‚Â· ${registration}`} />
+        <Fact label="Vehicle" value={`${vehicleType} | ${registration}`} />
         <Fact label="Tracking" value={tracking} />
         <Fact label="Work" value={activeJob ? 'Active job' : 'No active job'} />
       </View>
