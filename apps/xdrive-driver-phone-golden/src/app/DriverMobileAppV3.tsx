@@ -1412,11 +1412,15 @@ function PostedLoadContext({ load, showRouteAction = true }: { load: LiveLoad; s
       {dimensions ? <InfoLine label="Dimensions" value={dimensions} /> : null}
     </View>
 
-    {(load.notesSummary || load.specialRequirements || load.accessRestrictions) ? <View style={styles.section}>
+    <View style={styles.section}>
       <Text style={styles.sectionTitle}>Job instructions</Text>
-      {load.notesSummary ? <View style={styles.instructionBlock}><Text style={styles.fieldLabel}>LOAD DESCRIPTION</Text><Text style={styles.longText}>{load.notesSummary}</Text></View> : null}
-      {load.specialRequirements ? <View style={styles.instructionBlock}><Text style={styles.fieldLabel}>SPECIAL REQUIREMENTS</Text><Text style={styles.longText}>{load.specialRequirements}</Text></View> : null}
-      {load.accessRestrictions ? <View style={styles.instructionBlock}><Text style={styles.fieldLabel}>ACCESS / SITE RESTRICTIONS</Text><Text style={styles.longText}>{load.accessRestrictions}</Text></View> : null}
+      {load.notesSummary ? <Text style={styles.longText}>{load.notesSummary}</Text> : null}
+    </View>
+
+    {(load.specialRequirements || load.accessRestrictions) ? <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Requirements</Text>
+      {load.specialRequirements ? <InfoLine label="Special requirements" value={load.specialRequirements} /> : null}
+      {load.accessRestrictions ? <InfoLine label="Access restrictions" value={load.accessRestrictions} /> : null}
     </View> : null}
 
     <View style={styles.section}>

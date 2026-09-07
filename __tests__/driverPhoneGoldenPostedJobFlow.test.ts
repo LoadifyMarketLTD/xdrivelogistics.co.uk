@@ -35,6 +35,17 @@ describe('phone GOLDEN posted-job decision flow contract', () => {
     expect(appSource).toContain('Preview public route');
   });
 
+  it('keeps empty operational notes out of Job instructions', () => {
+    expect(apiSource).toContain('function publicJobInstructions');
+    expect(apiSource).toContain('notesSummary: publicJobInstructions(row.load_details)');
+    expect(appSource).toContain('<Text style={styles.sectionTitle}>Job instructions</Text>');
+    expect(appSource).toContain('{load.notesSummary ? <Text style={styles.longText}>{load.notesSummary}</Text> : null}');
+    expect(appSource).toContain('<Text style={styles.sectionTitle}>Requirements</Text>');
+  });
+  it('never converts missing numeric marketplace data into zero', () => {
+    expect(apiSource).toContain('if (value === null || value === undefined) return null;');
+    expect(apiSource).toContain("if (typeof value === 'string' && value.trim() === '') return null;");
+  });
   it('preserves pre-award privacy while keeping company decision context', () => {
     expect(appSource).toContain('Company & commercial');
     expect(appSource).toContain('Payment terms');

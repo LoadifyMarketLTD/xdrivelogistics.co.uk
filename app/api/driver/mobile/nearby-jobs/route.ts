@@ -111,6 +111,8 @@ const nearbySelect = [
 ].join(',');
 
 function numberOrNull(value: unknown) {
+  if (value === null || value === undefined) return null;
+  if (typeof value === 'string' && value.trim() === '') return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
 }
@@ -120,6 +122,17 @@ function companyInfo(companies: NearbyJobRow['companies']) {
   return companies ?? null;
 }
 
+function publicJobInstructions(loadDetails: unknown) {
+  const raw = String(loadDetails ?? '').trim();
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { notes?: unknown };
+    const notes = String(parsed?.notes ?? '').trim();
+    return notes || null;
+  } catch {
+    return null;
+  }
+}
 function publicOutcode(postcode: unknown) {
   const compact = String(postcode ?? '').trim().toUpperCase().replace(/\s+/g, '');
   if (!compact) return null;
@@ -259,7 +272,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}, d
     weightKg: numberOrNull(row.weight_kg),
     dimensionsCm: { length: numberOrNull(row.length_cm), width: numberOrNull(row.width_cm), height: numberOrNull(row.height_cm) },
     freightType: row.requested_cargo_label || row.cargo_type || null,
-    notesSummary: row.load_details || null,
+    notesSummary: publicJobInstructions(row.load_details),
     specialRequirements: row.special_requirements || null,
     accessRestrictions: row.access_restrictions || null,
     paymentTerms: row.payment_terms || null,
