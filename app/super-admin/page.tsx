@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import ProtectedRoute from '../components/ProtectedRoute';
+import { ConnectedExchangePanel } from '../components/workspace/ConnectedExchangePanel';
 import { supabase } from '../../lib/supabaseClient';
 
 type Severity = 'critical' | 'warning' | 'caution' | 'ok' | 'unknown';
@@ -169,6 +170,8 @@ function CommandCentre() {
     {commandError && <div role="alert" data-testid="command-centre-unavailable" style={{ marginBottom: '24px', border: `1px solid ${X.red}`, borderRadius: '8px', background: X.white, padding: '24px', color: X.red, fontSize: '14px', boxShadow: ENTERPRISE_SHADOW }}><strong>Command Centre data unavailable.</strong> {commandError}</div>}
     {statsError && <div role="alert" data-testid="platform-summary-unavailable" style={{ marginBottom: '24px', border: `1px solid ${X.border}`, borderRadius: '8px', background: X.white, padding: '24px', color: X.text, fontSize: '14px', boxShadow: ENTERPRISE_SHADOW }}><strong>Platform summary unavailable.</strong> {statsError}</div>}
     {commandPartial ? <div data-testid="partial-data-warning" style={{ marginBottom: '24px', border: `1px solid ${X.border}`, borderRadius: '8px', background: X.white, padding: '24px', color: X.text, fontSize: '14px', boxShadow: ENTERPRISE_SHADOW }}>Some platform services are temporarily excluded from totals. Available data remains usable; unavailable sources are not treated as zero.</div> : null}
+
+    <ConnectedExchangePanel role="super-admin" title="Connected Exchange intelligence" variant="super-admin" />
 
     <section data-contract-surface="command-centre-kpis" style={{ marginBottom: '24px' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: '24px', marginBottom: '24px' }}><div><h2 style={{ margin: 0, color: X.blue, fontFamily: 'Inter, Arial, sans-serif', fontSize: '20px', fontWeight: 700 }}>Platform summary</h2><p style={{ margin: '24px 0 0', color: X.text, fontSize: '14px' }}>Primary operational KPIs only.</p></div><Link href="/super-admin/analytics" style={{ color: X.blue, fontSize: '16px', fontWeight: 500, textDecoration: 'none' }}>Full analytics →</Link></div>

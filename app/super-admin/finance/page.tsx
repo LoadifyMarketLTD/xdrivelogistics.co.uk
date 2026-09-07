@@ -185,8 +185,9 @@ export default function FinanceOverviewPage() {
               </article>
             </section>
 
-            <section aria-label="Finance workspaces" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '24px' }}>
+            <section aria-label="Finance workspaces" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(0, 1fr))', gap: '24px' }}>
               {[
+                ['/super-admin/finance/control', 'Trade Control'],
                 ['/super-admin/finance/invoices', 'Invoices'],
                 ['/super-admin/finance/payments', 'Payments'],
                 ['/super-admin/finance/revenue', 'Revenue'],

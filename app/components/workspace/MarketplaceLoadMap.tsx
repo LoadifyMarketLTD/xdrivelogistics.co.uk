@@ -11,6 +11,7 @@ export type MarketplaceLoadMapItem = {
   pickupLabel: string;
   pickupPostcode?: string | null;
   deliveryLabel: string;
+  deliveryPostcode?: string | null;
   vehicleLabel: string;
   posterName: string;
   pickupAt: string | null;
@@ -20,7 +21,7 @@ export type MarketplaceLoadMapItem = {
 };
 
 type Coordinates = { lat: number; lng: number };
-type LocatedLoad = MarketplaceLoadMapItem & { coordinates: Coordinates };
+type LocatedLoad = MarketplaceLoadMapItem & { coordinates: Coordinates; deliveryCoordinates: Coordinates | null };
 type RadarCluster = { key: string; coordinates: Coordinates; loads: LocatedLoad[] };
 
 const normalizeOutcode = (value: string | null | undefined) => String(value ?? '').trim().toUpperCase().replace(/\s+/g, '').match(/^[A-Z]{1,2}\d[A-Z\d]?/)?.[0] ?? '';
@@ -49,6 +50,9 @@ const when = (value: string | null) => value
   : 'Not set';
 
 const publicOutcodeFor = (load: MarketplaceLoadMapItem) => normalizeOutcode(load.pickupPostcode) || normalizeOutcode(load.pickupLabel);
+const publicDeliveryOutcodeFor = (load: MarketplaceLoadMapItem) => normalizeOutcode(load.deliveryPostcode) || normalizeOutcode(load.deliveryLabel);
+const midpoint = (from: Coordinates, to: Coordinates): Coordinates => ({ lat: (from.lat + to.lat) / 2, lng: (from.lng + to.lng) / 2 });
+const routeBearing = (from: Coordinates, to: Coordinates) => Math.atan2(to.lng - from.lng, to.lat - from.lat) * (180 / Math.PI);
 
 export default function MarketplaceLoadMap({
   loads,
@@ -67,7 +71,7 @@ export default function MarketplaceLoadMap({
   const [selectedClusterKey, setSelectedClusterKey] = useState<string | null>(null);
 
   const outcodes = useMemo(
-    () => [...new Set(loads.map(publicOutcodeFor).filter(Boolean))],
+    () => [...new Set(loads.flatMap((load) => [publicOutcodeFor(load), publicDeliveryOutcodeFor(load)]).filter(Boolean))],
     [loads],
   );
 
@@ -80,7 +84,7 @@ export default function MarketplaceLoadMap({
       setLocating(true);
       const resolved: Record<string, Coordinates> = {};
       let failures = 0;
-      await Promise.all(unresolved.slice(0, 80).map(async (outcode) => {
+      await Promise.all(unresolved.slice(0, 120).map(async (outcode) => {
         try {
           const response = await fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(outcode)}`);
           if (!response.ok) { failures += 1; return; }
@@ -106,7 +110,8 @@ export default function MarketplaceLoadMap({
 
   const locatedLoads = useMemo<LocatedLoad[]>(() => loads.flatMap((load) => {
     const coordinates = coordinateByOutcode[publicOutcodeFor(load)];
-    return coordinates ? [{ ...load, coordinates }] : [];
+    const deliveryCoordinates = coordinateByOutcode[publicDeliveryOutcodeFor(load)] ?? null;
+    return coordinates ? [{ ...load, coordinates, deliveryCoordinates }] : [];
   }), [coordinateByOutcode, loads]);
 
   const clusters = useMemo<RadarCluster[]>(() => {
@@ -148,6 +153,31 @@ export default function MarketplaceLoadMap({
         maxZoom: 19,
       }).addTo(map);
 
+      for (const load of locatedLoads) {
+        if (!load.deliveryCoordinates) continue;
+        const from = load.coordinates;
+        const to = load.deliveryCoordinates;
+        const route = L.polyline([[from.lat, from.lng], [to.lat, to.lng]], {
+          color: '#64748b',
+          weight: 2,
+          opacity: 0.55,
+          dashArray: '6 5',
+          interactive: true,
+        }).addTo(map);
+        route.bindTooltip(`${load.pickupLabel} → ${load.deliveryLabel}`);
+        const centre = midpoint(from, to);
+        const bearing = routeBearing(from, to);
+        L.marker([centre.lat, centre.lng], {
+          interactive: false,
+          icon: L.divIcon({
+            className: 'marketplace-radar-direction-icon',
+            html: `<span style="transform:rotate(${bearing.toFixed(1)}deg)">➤</span>`,
+            iconSize: [18, 18],
+            iconAnchor: [9, 9],
+          }),
+        }).addTo(map);
+      }
+
       for (const cluster of clusters) {
         const tone = markerTone(cluster.loads);
         const radius = cluster.loads.length === 1 ? 8 : Math.min(19, 9 + Math.log2(cluster.loads.length + 1) * 3);
@@ -164,8 +194,12 @@ export default function MarketplaceLoadMap({
         marker.on('click', () => setSelectedClusterKey(cluster.key));
       }
 
-      if (clusters.length > 1) {
-        map.fitBounds(L.latLngBounds(clusters.map((cluster) => [cluster.coordinates.lat, cluster.coordinates.lng])), {
+      const boundsCoordinates = locatedLoads.flatMap((load) => [
+        [load.coordinates.lat, load.coordinates.lng] as [number, number],
+        ...(load.deliveryCoordinates ? [[load.deliveryCoordinates.lat, load.deliveryCoordinates.lng] as [number, number]] : []),
+      ]);
+      if (boundsCoordinates.length > 1) {
+        map.fitBounds(L.latLngBounds(boundsCoordinates), {
           padding: [28, 28],
           maxZoom: 11,
         });
@@ -178,7 +212,7 @@ export default function MarketplaceLoadMap({
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [clusters]);
+  }, [clusters, locatedLoads]);
 
   if (locating && clusters.length === 0) {
     return <div className="marketplace-radar-empty" role="status">Locating public pickup areas for Freight Radar…</div>;
@@ -194,6 +228,7 @@ export default function MarketplaceLoadMap({
         <span><i data-tone="fresh" /> Posted within ~10 minutes</span>
         <span><i data-tone="older" /> Older load</span>
         <span>Cluster = multiple loads in one public pickup area</span>
+        <span>Dashed arrow = pickup → delivery direction using public outcodes</span>
       </div>
       {providerWarning && <div className="marketplace-radar-warning" role="status">{providerWarning}</div>}
       <div ref={containerRef} className="marketplace-radar-map" aria-label="Interactive Freight Radar Map" />
@@ -222,7 +257,7 @@ export default function MarketplaceLoadMap({
         </section>
       )}
 
-      <div className="marketplace-radar-privacy">Pre-award radar uses public postcode/outcode centroids only. Exact collection coordinates and private execution details remain protected until authorised award/allocation.</div>
+      <div className="marketplace-radar-privacy">Pre-award radar routes use public pickup and delivery postcode/outcode centroids only. Exact collection/delivery coordinates and private execution details remain protected until authorised award/allocation.</div>
     </div>
   );
 }

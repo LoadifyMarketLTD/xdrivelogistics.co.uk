@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import {
   ActionButton,
@@ -21,11 +22,15 @@ type MessageRow = {
   recipientUserId: string | null;
 };
 
+type ThreadContext = { kind: 'quote' | 'job'; conversationId: string; bidId: string | null; jobId: string; loadRef: string; routeLabel: string; status: string | null; jobStatus: string | null };
 type MessageThread = {
   key: string;
   conversationId: string | null;
   counterpartUserId: string | null;
   counterpartName: string;
+  counterpartCompanyId: string | null;
+  counterpartCompanyName: string | null;
+  context: ThreadContext | null;
   canReply: boolean;
   latestAt: string | null;
   latestBody: string;
@@ -36,6 +41,7 @@ type MessagesResponse = {
   threads?: MessageThread[];
   readStateAvailable?: boolean;
   arbitraryRecipientCreationAvailable?: boolean;
+  contextPartial?: boolean;
   error?: string;
 };
 
@@ -55,6 +61,14 @@ export default function ParticipantMessagesPage({
   title?: string;
   description: string;
 }) {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const targetConversation = searchParams.get('conversation');
+  const targetBidId = searchParams.get('bidId');
+  const targetJobId = searchParams.get('jobId');
+  const targetCompanyId = searchParams.get('companyId');
+  const hasContextTarget = Boolean(targetConversation || targetBidId || targetJobId || targetCompanyId);
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +76,8 @@ export default function ParticipantMessagesPage({
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [contextPartial, setContextPartial] = useState(false);
+  const [contextTargetMissing, setContextTargetMissing] = useState(false);
 
   const loadMessages = useCallback(async (preferredKey?: string | null) => {
     if (!isSupabaseConfigured) {
@@ -86,10 +102,23 @@ export default function ParticipantMessagesPage({
       if (!response.ok) throw new Error(payload.error || 'Messages could not be loaded.');
 
       const nextThreads = payload.threads ?? [];
+      const contextualMatch = targetConversation
+        ? nextThreads.find((thread) => thread.conversationId === targetConversation) ?? null
+        : targetBidId
+          ? nextThreads.find((thread) => thread.context?.bidId === targetBidId) ?? null
+          : targetJobId
+            ? nextThreads.find((thread) => thread.context?.jobId === targetJobId) ?? null
+            : targetCompanyId
+              ? nextThreads.find((thread) => thread.counterpartCompanyId === targetCompanyId) ?? null
+              : null;
       setThreads(nextThreads);
+      setContextPartial(payload.contextPartial === true);
+      setContextTargetMissing(Boolean(hasContextTarget && !contextualMatch));
       setSelectedKey((current) => {
-        const target = preferredKey ?? current;
-        if (target && nextThreads.some((thread) => thread.key === target)) return target;
+        if (preferredKey && nextThreads.some((thread) => thread.key === preferredKey)) return preferredKey;
+        if (contextualMatch) return contextualMatch.key;
+        if (hasContextTarget) return null;
+        if (current && nextThreads.some((thread) => thread.key === current)) return current;
         return nextThreads[0]?.key ?? null;
       });
     } catch (reason) {
@@ -99,7 +128,7 @@ export default function ParticipantMessagesPage({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hasContextTarget, targetBidId, targetCompanyId, targetConversation, targetJobId]);
 
   useEffect(() => { void loadMessages(); }, [loadMessages]);
 
@@ -138,6 +167,16 @@ export default function ParticipantMessagesPage({
     }
   };
 
+  const selectedJobHref = selected?.context?.jobId
+    ? pathname.startsWith('/customer')
+      ? `/customer/jobs/${selected.context.jobId}`
+      : pathname.startsWith('/admin')
+        ? `/admin/jobs/${selected.context.jobId}`
+        : pathname.startsWith('/broker')
+          ? `/broker/diary?jobId=${selected.context.jobId}`
+          : null
+    : null;
+
   return (
     <PageFrame>
       <PageHeader
@@ -149,6 +188,8 @@ export default function ParticipantMessagesPage({
 
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {sendError && <AlertBanner tone="danger">{sendError}</AlertBanner>}
+      {contextPartial && <AlertBanner tone="warning">Some message context could not be enriched. Participant-scoped message history remains available and no context is inferred.</AlertBanner>}
+      {contextTargetMissing && <AlertBanner tone="warning">No verified conversation exists for the requested job, quote or member context. XDrive will not create an arbitrary recipient thread without a proven transport relationship.</AlertBanner>}
 
       <div className="workspace-board-layout">
         <aside className="workspace-filter-rail" aria-label="Message conversations">
@@ -174,6 +215,7 @@ export default function ParticipantMessagesPage({
                   }}
                 >
                   <strong style={{ display: 'block', fontSize: 12, lineHeight: '16px', color: '#0f172a' }}>{thread.counterpartName}</strong>
+                  <span style={{ display: 'block', fontSize: 10, lineHeight: '14px', color: '#475569' }}>{thread.context ? `${thread.context.kind === 'quote' ? 'Quote' : 'Job'} · ${thread.context.loadRef}` : thread.counterpartCompanyName ?? 'Participant conversation'}</span>
                   <span style={{ display: 'block', marginTop: 2, fontSize: 10, lineHeight: '14px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {thread.latestBody || 'Message'} · {fmtDateTime(thread.latestAt)}
                   </span>
@@ -197,13 +239,23 @@ export default function ParticipantMessagesPage({
           ) : threads.length === 0 ? (
             <div className="workspace-panel"><EmptyState title="No messages yet" description="Verified participant conversations will appear here when real message records exist." /></div>
           ) : !selected ? (
-            <div className="workspace-panel"><EmptyState compact title="Choose a conversation" /></div>
+            <div className="workspace-panel"><EmptyState compact title={contextTargetMissing ? 'No contextual conversation found' : 'Choose a conversation'} description={contextTargetMissing ? 'Start or continue messaging from a verified quote or existing transport relationship; arbitrary recipient creation stays disabled.' : undefined} /></div>
           ) : (
             <section className="workspace-panel" aria-label={`Conversation with ${selected.counterpartName}`}>
               <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
-                <strong>{selected.counterpartName}</strong>
+                <strong>{selected.counterpartName}{selected.counterpartCompanyName ? ` · ${selected.counterpartCompanyName}` : ''}</strong>
                 <span>{selected.conversationId ? `Conversation ${selected.conversationId.slice(0, 8).toUpperCase()}` : 'Legacy message record'}</span>
               </div>
+              {selected.context && (
+                <div className="workspace-operational-row" data-state="context" style={{ marginTop: 8 }}>
+                  <div className="workspace-record-meta" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
+                    <span><strong>{selected.context.kind === 'quote' ? 'Quote context' : 'Job context'} · {selected.context.loadRef}</strong></span>
+                    <StatusBadge value={selected.context.jobStatus ?? selected.context.status ?? 'Context linked'} tone="blue" />
+                    {selectedJobHref ? <ActionButton tone="secondary" onClick={() => router.push(selectedJobHref)}>Open job</ActionButton> : null}
+                  </div>
+                  <div style={{ paddingTop: 6, fontSize: 12, color: '#475569' }}>{selected.context.routeLabel}</div>
+                </div>
+              )}
 
               <div style={{ display: 'grid', gap: 8, paddingTop: 8 }}>
                 {selected.messages.map((message) => (

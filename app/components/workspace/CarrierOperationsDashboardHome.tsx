@@ -23,6 +23,7 @@ import {
   workspaceTheme,
 } from './WorkspaceUI';
 import { DashboardHomeHeader } from './DashboardHomePrimitives';
+import { ConnectedExchangePanel } from './ConnectedExchangePanel';
 import styles from './WorkspaceUI.module.css';
 import {
   daysUntil,
@@ -295,6 +296,8 @@ export default function CarrierOperationsDashboardHome() {
       />
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
+
+      <ConnectedExchangePanel role="carrier" title="Connected carrier exchange" />
 
       <OperationalToolbar>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Operations</strong><span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>Allocation · execution · delivery photo evidence · exception recovery</span></div>

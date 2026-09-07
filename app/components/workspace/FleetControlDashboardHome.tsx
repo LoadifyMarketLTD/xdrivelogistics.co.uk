@@ -29,6 +29,7 @@ import {
   OperationalWorkspaceGrid,
 } from './OperationalConvergence';
 import { DashboardHomeHeader } from './DashboardHomePrimitives';
+import { ConnectedExchangePanel } from './ConnectedExchangePanel';
 import { daysUntil, metricValue, unavailable } from './AdminDashboardShared';
 import { fleetQueueStage } from '../../../lib/jobs/workspaceJobStage';
 
@@ -318,6 +319,8 @@ export default function FleetControlDashboardHome() {
       />
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
+
+      <ConnectedExchangePanel role="fleet" title="Connected fleet exchange" />
 
       <OperationalSignalStrip
         ariaLabel="Fleet operational signals"

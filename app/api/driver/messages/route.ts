@@ -1,57 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { counterpartIds, loadMessageContextMap, loadParticipantIdentityMap, type MessageRow } from '../../_lib/messageContext';
 import { isWebDriverContext, requireActiveWebDriver } from '../_lib/webDriverContext';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-
-type MessageRow = {
-  id: string;
-  company_id: string | null;
-  conversation_id: string | null;
-  sender_user_id: string | null;
-  recipient_user_id: string | null;
-  body: string;
-  created_at: string | null;
-};
-
-function counterpartIds(messages: MessageRow[], userId: string) {
-  const ids = new Set<string>();
-  for (const message of messages) {
-    if (message.sender_user_id === userId && message.recipient_user_id) ids.add(message.recipient_user_id);
-    if (message.recipient_user_id === userId && message.sender_user_id) ids.add(message.sender_user_id);
-  }
-  ids.delete(userId);
-  return [...ids];
-}
-
-async function participantNames(userIds: string[]) {
-  const names = new Map<string, string>();
-  if (!supabaseAdmin || userIds.length === 0) return names;
-
-  const [profilesResult, driversResult] = await Promise.all([
-    supabaseAdmin.from('profiles').select('user_id, full_name').in('user_id', userIds),
-    supabaseAdmin.from('drivers').select('user_id, display_name').in('user_id', userIds),
-  ]);
-
-  if (!profilesResult.error) {
-    for (const profile of profilesResult.data ?? []) {
-      const userId = typeof profile.user_id === 'string' ? profile.user_id : '';
-      const name = typeof profile.full_name === 'string' ? profile.full_name.trim() : '';
-      if (userId && name) names.set(userId, name);
-    }
-  }
-  if (!driversResult.error) {
-    for (const driver of driversResult.data ?? []) {
-      const userId = typeof driver.user_id === 'string' ? driver.user_id : '';
-      const name = typeof driver.display_name === 'string' ? driver.display_name.trim() : '';
-      if (userId && name && !names.has(userId)) names.set(userId, name);
-    }
-  }
-
-  return names;
-}
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -72,7 +26,9 @@ export async function GET(request: NextRequest) {
 
   const rows = (data ?? []) as MessageRow[];
   const allCounterpartIds = counterpartIds(rows, driver.userId);
-  const names = await participantNames(allCounterpartIds);
+  const identities = await loadParticipantIdentityMap(supabaseAdmin, allCounterpartIds);
+  const conversationIds = rows.map((row) => row.conversation_id).filter((value): value is string => Boolean(value));
+  const { contexts, partial: contextPartial } = await loadMessageContextMap(supabaseAdmin, conversationIds);
   const groups = new Map<string, MessageRow[]>();
 
   for (const row of rows) {
@@ -89,15 +45,20 @@ export async function GET(request: NextRequest) {
     const counterparts = counterpartIds(messages, driver.userId);
     const latest = messages[messages.length - 1];
     const singleCounterpart = counterparts.length === 1 ? counterparts[0] : null;
+    const identity = singleCounterpart ? identities.get(singleCounterpart) ?? null : null;
+    const context = latest?.conversation_id ? contexts.get(latest.conversation_id) ?? null : null;
     return {
       key,
       conversationId: latest?.conversation_id ?? null,
       counterpartUserId: singleCounterpart,
       counterpartName: singleCounterpart
-        ? names.get(singleCounterpart) ?? `Member #${singleCounterpart.slice(0, 8).toUpperCase()}`
+        ? identity?.name ?? identity?.companyName ?? `Member #${singleCounterpart.slice(0, 8).toUpperCase()}`
         : counterparts.length > 1
           ? 'Multiple participants'
           : 'Participant unavailable',
+      counterpartCompanyId: identity?.companyId ?? null,
+      counterpartCompanyName: identity?.companyName ?? null,
+      context,
       canReply: Boolean(latest?.conversation_id && singleCounterpart),
       latestAt: latest?.created_at ?? null,
       latestBody: latest?.body ?? '',
@@ -115,6 +76,7 @@ export async function GET(request: NextRequest) {
   return json(200, {
     threads,
     readStateAvailable: false,
+    contextPartial,
   });
 }
 

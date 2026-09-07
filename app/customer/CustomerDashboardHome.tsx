@@ -20,6 +20,7 @@ import {
   StatusBadge,
 } from '../components/workspace/WorkspaceUI';
 import { OperationalSignalStrip } from '../components/workspace/OperationalConvergence';
+import { ConnectedExchangePanel } from '../components/workspace/ConnectedExchangePanel';
 
 const money = (value: number, currency = 'GBP') =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
@@ -154,6 +155,8 @@ export default function CustomerDashboardHome() {
         {bidderIdentity.error ? <AlertBanner tone="warning">{bidderIdentity.error}</AlertBanner> : null}
         {invoiceDataset.availability !== 'available' ? <AlertBanner tone="warning">Invoice data unavailable. Financial totals are not shown as zero.</AlertBanner> : null}
         {invoiceDataset.availability === 'available' && (invoiceDataset.partialData || invoiceDataset.limitedData) ? <AlertBanner tone="warning">Invoice data is partial. Financial totals are marked Partial rather than presented as complete.</AlertBanner> : null}
+
+        <ConnectedExchangePanel role="customer" title="Connected transport exchange" />
 
         <div className="customer-exchange-dashboard">
           <aside className="customer-exchange-left">

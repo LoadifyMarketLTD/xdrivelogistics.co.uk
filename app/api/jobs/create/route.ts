@@ -27,6 +27,7 @@ const bodySchema = z.object({
   companyId: z.string().uuid(),
   mode: z.enum(['broker', 'customer']),
   publish: z.boolean(),
+  directInviteCompanyId: z.string().uuid().optional().nullable(),
   clientName: optionalText,
   clientEmail: z.string().trim().email().optional().nullable().or(z.literal('')),
   clientPhone: optionalText,
@@ -128,6 +129,34 @@ export async function POST(request: NextRequest) {
     });
   }
   if (!membership) return respond(403, { error: 'You cannot post loads for this company workspace.' });
+
+  let directInviteTarget: { id: string; name: string | null } | null = null;
+  if (input.directInviteCompanyId) {
+    if (!input.publish) {
+      return respond(400, { error: 'Direct Booking requires the load to be published to the selected carrier.' });
+    }
+    if (input.directInviteCompanyId === input.companyId) {
+      return respond(400, { error: 'A company cannot send a Direct Booking to itself.' });
+    }
+    const { data: target, error: targetError } = await supabaseAdmin
+      .from('companies')
+      .select('id, name, status')
+      .eq('id', input.directInviteCompanyId)
+      .maybeSingle();
+    if (targetError) {
+      return operationalError({
+        status: 503,
+        message: 'The selected Direct Booking carrier could not be verified. Please try again.',
+        context: `jobs.create.direct-target:${input.directInviteCompanyId}`,
+        cause: targetError,
+        retryable: true,
+      });
+    }
+    if (!target || String(target.status ?? '').trim().toLowerCase() !== 'active') {
+      return respond(409, { error: 'The selected Direct Booking carrier is no longer active.' });
+    }
+    directInviteTarget = { id: String(target.id), name: typeof target.name === 'string' ? target.name : null };
+  }
 
   let exchangeAutoExpireHours = 72;
   if (input.publish) {
@@ -233,6 +262,7 @@ export async function POST(request: NextRequest) {
   const now = new Date().toISOString();
   const requestedStatus = input.publish ? 'posted' : 'draft';
   const deferPublication = input.publish && input.additionalStops.length > 0;
+  const publishedVisibility = directInviteTarget ? 'direct' : 'exchange';
   const status = deferPublication ? 'draft' : requestedStatus;
   const executionInstructions = input.executionInstructions || input.notes || null;
   const loadDetails = JSON.stringify({
@@ -290,7 +320,8 @@ export async function POST(request: NextRequest) {
     collection_handball_required: input.handball,
     special_requirements: specialRequirements || null,
     load_details: loadDetails,
-    exchange_visibility: deferPublication ? 'private' : (input.publish ? 'exchange' : 'private'),
+    exchange_visibility: deferPublication ? 'private' : (input.publish ? publishedVisibility : 'private'),
+    direct_invite_company_id: directInviteTarget?.id ?? null,
     exchange_posted_at: deferPublication ? null : (input.publish ? now : null),
     exchange_expires_at: deferPublication
       ? null
@@ -415,7 +446,8 @@ export async function POST(request: NextRequest) {
         .update({
           status: 'posted',
           current_status: 'posted',
-          exchange_visibility: 'exchange',
+          exchange_visibility: publishedVisibility,
+          direct_invite_company_id: directInviteTarget?.id ?? null,
           exchange_posted_at: now,
           exchange_expires_at: new Date(Date.now() + exchangeAutoExpireHours * 60 * 60 * 1000).toISOString(),
           updated_at: new Date().toISOString(),
@@ -449,5 +481,6 @@ export async function POST(request: NextRequest) {
     job: createdJob,
     replayed: false,
     idempotencyProtected: idempotencyAvailable,
+    directBooking: directInviteTarget ? { companyId: directInviteTarget.id, companyName: directInviteTarget.name } : null,
   });
 }

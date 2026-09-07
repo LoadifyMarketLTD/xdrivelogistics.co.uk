@@ -192,6 +192,7 @@ export default function SearchLoadsPage() {
     pickupLabel: routeLabel(load.pickup_location, load.pickup_postcode, 'Collection area TBC'),
     pickupPostcode: load.pickup_postcode,
     deliveryLabel: routeLabel(load.delivery_location, load.delivery_postcode, 'Delivery area TBC'),
+    deliveryPostcode: load.delivery_postcode,
     vehicleLabel: vehicleLabel(load),
     posterName: load.posterName,
     pickupAt: load.pickup_datetime,
