@@ -3,7 +3,7 @@
 **Effective date:** 2026-09-07
 **Status:** CANONICAL
 **Supersedes:** MASTER CONTRACT FINAL v2 in full
-**Execution blueprint:** `docs/blueprints/SUPER_ADMIN_CARGOMAX_ENTERPRISE_TRANSFORMATION_BLUEPRINT_2026-09-07.md`
+**Execution blueprint:** `docs/blueprints/SUPER_ADMIN_CARGOMAX_SHIPNOW_ENTERPRISE_EXECUTION_BLUEPRINT_2026-09-07.md`
 
 > MASTER CONTRACT FINAL v2 is cancelled and is no longer an implementation target. Git history remains historical evidence only.
 
@@ -12,6 +12,8 @@
 Every Super Admin page, component, status, action, metric and data surface must comply with this v3 contract.
 
 The target is a professional logistics control system with Cargomax-level information architecture, density and operational clarity, implemented natively in XDrive. Cargomax is a benchmark only. Do not copy its source, branding, assets, text or pixel-for-pixel layout.
+
+ShipNow is the licensed Envato Elements design asset for the XDrive Logistics Super Admin End Product. It may inform reusable visual patterns and design-system discipline within the applicable licence terms, but XDrive branding, terminology, canonical data and application code remain authoritative. Do not commit licence codes or personal licence data to the application repository.
 
 The Super Admin must remain unmistakably XDrive and must preserve canonical backend truth, authorization, auditability and fail-closed behavior.
 

@@ -1,5 +1,5 @@
-/* XDrive Logistics — Super Admin enterprise visual contract v2.
- * Master layer is loaded after this file and is normative.
+/* XDrive Logistics — Super Admin enterprise visual contract v3.
+ * Shared compatibility tokens for domain page bodies. The enterprise shell owns its own scoped geometry.
  */
 
 .super-admin-light-root {
@@ -65,7 +65,7 @@
   border-radius: var(--enterprise-radius);
   box-shadow: var(--enterprise-shadow);
 }
-.super-admin-light-root svg { width: 24px; height: 24px; }
+.super-admin-light-root main svg { width: 24px; height: 24px; }
 
 @media (prefers-reduced-motion: reduce) {
   .super-admin-light-root *,
