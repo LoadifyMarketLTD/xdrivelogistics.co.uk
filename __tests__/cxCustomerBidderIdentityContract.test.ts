@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const route = fs.readFileSync(path.join(process.cwd(), 'app/api/workspace/bids/identities/route.ts'), 'utf8');
+const identityHelper = fs.readFileSync(path.join(process.cwd(), 'app/api/_lib/bidderDecisionIdentity.ts'), 'utf8');
 
 describe('CX-close customer bidder identity resolution', () => {
   it('uses the existing owner-scoped bids view instead of inferred job relationships', () => {
@@ -16,10 +17,11 @@ describe('CX-close customer bidder identity resolution', () => {
     expect(route).toContain(".eq('status', 'active')");
   });
 
-  it('resolves carrier company and person display names without exposing unrelated accounts', () => {
-    expect(route).toContain(".from('drivers')");
-    expect(route).toContain(".from('profiles')");
-    expect(route).toContain(".from('companies')");
-    expect(route).toContain("displayName: companyName || personName || 'Carrier profile incomplete'");
+  it('resolves carrier company and person display names through the canonical helper', () => {
+    expect(route).toContain('enrichBidderDecisionIdentities');
+    expect(identityHelper).toContain("admin.from('drivers')");
+    expect(identityHelper).toContain("admin.from('profiles')");
+    expect(identityHelper).toContain("admin.from('companies')");
+    expect(identityHelper).toContain("displayName: companyName ?? personName ?? 'Carrier profile incomplete'");
   });
 });

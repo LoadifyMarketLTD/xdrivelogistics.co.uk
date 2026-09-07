@@ -229,10 +229,19 @@ export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: She
       : undefined;
   const routeStops = sheet.route.stops ?? [];
   const hasPersistedRoute = routeStops.length >= 2;
+  const messagesHref = mode === 'customer'
+    ? `/customer/messages?jobId=${encodeURIComponent(jobId)}`
+    : mode === 'broker'
+      ? `/broker/messages?jobId=${encodeURIComponent(jobId)}`
+      : `/admin/messages?jobId=${encodeURIComponent(jobId)}`;
 
   return (
     <div className="workspace-record-details" style={{ padding: 0 }}>
       {sheet.partial && <AlertBanner tone="warning">Some booking details are unavailable. Verified values are shown and missing values are left unfilled.</AlertBanner>}
+      <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+        <span>Job-context communication stays participant-scoped and immutable.</span>
+        <ActionButton tone="secondary" onClick={() => { window.location.href = messagesHref; }}>Messages for this job</ActionButton>
+      </div>
       <div className="workspace-tab-strip" role="tablist" aria-label="Job sheet sections" style={{ display: 'flex', overflowX: 'auto', marginBottom: 6 }}>
         {TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}{item.id === 'documents' && sheet.documents.length ? ` ${sheet.documents.length}` : ''}</button>)}
       </div>
