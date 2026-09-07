@@ -36,10 +36,17 @@ type NearbyJobRow = {
   cargo_type: string | null;
   requested_cargo_label: string | null;
   pallets: number | null;
+  boxes: number | null;
+  bags: number | null;
+  items: number | null;
   weight_kg: number | string | null;
+  length_cm: number | string | null;
+  width_cm: number | string | null;
+  height_cm: number | string | null;
   budget_amount: number | string | null;
   currency: string | null;
   is_fixed_price: boolean | null;
+  payment_terms: string | null;
   load_details: string | null;
   special_requirements: string | null;
   access_restrictions: string | null;
@@ -83,10 +90,17 @@ const nearbySelect = [
   'cargo_type',
   'requested_cargo_label',
   'pallets',
+  'boxes',
+  'bags',
+  'items',
   'weight_kg',
+  'length_cm',
+  'width_cm',
+  'height_cm',
   'budget_amount',
   'currency',
   'is_fixed_price',
+  'payment_terms',
   'load_details',
   'special_requirements',
   'access_restrictions',
@@ -188,6 +202,30 @@ async function postcodeDistricts(postcodes: unknown[]) {
   return result;
 }
 
+type FeedbackSummary = { averageRating: number | null; totalReviews: number; lowRatingCount: number; windowDays: 90 };
+
+async function companyFeedback(companyIds: Array<string | null>) {
+  const result = new Map<string, FeedbackSummary>();
+  if (!supabaseAdmin) return result;
+  const unique = [...new Set(companyIds.filter((value): value is string => Boolean(value)))];
+  if (unique.length === 0) return result;
+  const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabaseAdmin.from('reviews').select('company_id,rating,created_at').in('company_id', unique).gte('created_at', since);
+  if (error) return result;
+  const grouped = new Map<string, number[]>();
+  for (const row of data ?? []) {
+    const companyId = String(row.company_id ?? '');
+    const rating = Number(row.rating);
+    if (!companyId || !Number.isFinite(rating)) continue;
+    grouped.set(companyId, [...(grouped.get(companyId) ?? []), rating]);
+  }
+  for (const [companyId, ratings] of grouped) {
+    const averageRating = ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length;
+    result.set(companyId, { averageRating: Math.round(averageRating * 10) / 10, totalReviews: ratings.length, lowRatingCount: ratings.filter((rating) => rating <= 2).length, windowDays: 90 });
+  }
+  return result;
+}
+
 function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}, districts: Map<string, string> = new Map()) {
   const priceVisible = row.is_fixed_price === true && row.budget_amount != null;
   const company = companyInfo(row.companies);
@@ -215,9 +253,16 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}, d
     vehicleType: row.requested_vehicle_label || row.requested_vehicle_type || row.vehicle_type || null,
     bodyType: row.vehicle_type || null,
     pallets: numberOrNull(row.pallets),
+    boxes: numberOrNull(row.boxes),
+    bags: numberOrNull(row.bags),
+    items: numberOrNull(row.items),
     weightKg: numberOrNull(row.weight_kg),
+    dimensionsCm: { length: numberOrNull(row.length_cm), width: numberOrNull(row.width_cm), height: numberOrNull(row.height_cm) },
     freightType: row.requested_cargo_label || row.cargo_type || null,
-    notesSummary: null,
+    notesSummary: row.load_details || null,
+    specialRequirements: row.special_requirements || null,
+    accessRestrictions: row.access_restrictions || null,
+    paymentTerms: row.payment_terms || null,
     distanceToPickupMiles: numberOrNull(row.distance_to_pickup_miles),
     journeyDistanceMiles: numberOrNull(row.job_distance_miles),
     estimatedJourneyMinutes: numberOrNull(row.job_distance_minutes),
@@ -320,8 +365,14 @@ export async function GET(request: NextRequest) {
 
   const rows = (data ?? []) as unknown as NearbyJobRow[];
   const districts = await postcodeDistricts(rows.flatMap((row) => [row.pickup_postcode, row.delivery_postcode]));
+  const feedbackByCompany = await companyFeedback(rows.map((row) => row.company_id));
+  const publicExtras = (row: NearbyJobRow) => ({
+    posterFeedback: row.company_id
+      ? feedbackByCompany.get(row.company_id) ?? { averageRating: null, totalReviews: 0, lowRatingCount: 0, windowDays: 90 }
+      : { averageRating: null, totalReviews: 0, lowRatingCount: 0, windowDays: 90 },
+  });
   if (!destinationMode) {
-    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, {}, districts)) });
+    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, publicExtras(row), districts)) });
   }
 
   const { data: currentJob, error: currentJobError } = await supabaseAdmin
@@ -334,10 +385,10 @@ export async function GET(request: NextRequest) {
     .maybeSingle();
   if (currentJobError) return respond(500, { error: currentJobError.message });
   if (!currentJob) {
-    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, {}, districts)), returnIq: { active: false, reason: 'No active delivery is assigned to this driver.' } });
+    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, publicExtras(row), districts)), returnIq: { active: false, reason: 'No active delivery is assigned to this driver.' } });
   }
   if (!['in_transit', 'delivered'].includes(String(currentJob.status))) {
-    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, {}, districts)), returnIq: { active: false, reason: 'Activates when the driver is on the way to delivery.' } });
+    return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, publicExtras(row), districts)), returnIq: { active: false, reason: 'Activates when the driver is on the way to delivery.' } });
   }
 
   const geocoded = await postcodeCoordinates([currentJob.delivery_postcode, ...rows.map((row) => row.pickup_postcode)]);
@@ -346,7 +397,7 @@ export async function GET(request: NextRequest) {
     ?? null;
   if (!destination) {
     return respond(200, {
-      jobs: rows.map((row) => mapNearbyJob(row, {}, districts)),
+      jobs: rows.map((row) => mapNearbyJob(row, publicExtras(row), districts)),
       returnIq: {
         active: false,
         currentJobReference: `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}`,
@@ -409,7 +460,7 @@ export async function GET(request: NextRequest) {
   });
 
   const prioritizedJobs = sortSmartDestinationCandidates(candidates)
-    .map((item) => mapNearbyJob(item.row, item.extras, districts));
+    .map((item) => mapNearbyJob(item.row, { ...publicExtras(item.row), ...item.extras }, districts));
 
   return respond(200, {
     jobs: prioritizedJobs,

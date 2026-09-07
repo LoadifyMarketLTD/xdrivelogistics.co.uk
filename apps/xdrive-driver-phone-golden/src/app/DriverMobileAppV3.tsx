@@ -1362,6 +1362,73 @@ function LoadCard({ load, starred, dismissed, onOpen, onOffer, onStar, onDismiss
   </View>;
 }
 
+function publicLoadRouteUrl(load: LiveLoad) {
+  const origin = encodeURIComponent(load.pickupLocation);
+  const destination = encodeURIComponent(load.deliveryLocation);
+  return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`;
+}
+
+function PostedLoadContext({ load, showRouteAction = true }: { load: LiveLoad; showRouteAction?: boolean }) {
+  const packageSummary = [
+    load.pallets ? `${load.pallets} pallet${load.pallets === 1 ? '' : 's'}` : '',
+    load.boxes ? `${load.boxes} box${load.boxes === 1 ? '' : 'es'}` : '',
+    load.bags ? `${load.bags} bag${load.bags === 1 ? '' : 's'}` : '',
+    load.items ? `${load.items} item${load.items === 1 ? '' : 's'}` : '',
+  ].filter(Boolean).join(' · ');
+  const dims = load.dimensionsCm;
+  const dimensions = dims?.length && dims?.width && dims?.height ? `${dims.length} × ${dims.width} × ${dims.height} cm` : '';
+  const feedback = load.posterFeedback;
+  const feedbackText = feedback && feedback.totalReviews > 0 && feedback.averageRating != null
+    ? `${feedback.averageRating.toFixed(1)} / 5 · ${feedback.totalReviews} verified review${feedback.totalReviews === 1 ? '' : 's'} · ${feedback.windowDays} days`
+    : 'No verified XDrive feedback yet';
+  const lowRated = feedback && feedback.lowRatingCount > 0
+    ? `${feedback.lowRatingCount} low-rated review${feedback.lowRatingCount === 1 ? '' : 's'} in this period`
+    : '';
+
+  return <>
+    <View style={styles.section}>
+      <Text style={styles.sectionKicker}>POSTED JOB</Text>
+      <Text style={styles.companyName}>{load.postingCompanyName || 'Verified XDrive member'}</Text>
+      <Text style={styles.referenceText}>{load.postingCompanyMemberCode ? `Member ${load.postingCompanyMemberCode} · ` : ''}{load.reference}</Text>
+      <RouteBand pickup={load.pickupLocation} pickupTime={load.pickupTime} delivery={load.deliveryLocation} deliveryTime={load.deliveryTime} />
+      {showRouteAction ? <TouchableOpacity style={styles.primaryCompact} onPress={() => void Linking.openURL(publicLoadRouteUrl(load))}><Text style={styles.primaryCompactText}>Preview public route</Text></TouchableOpacity> : null}
+    </View>
+
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Route & timing</Text>
+      {load.distanceToPickupMiles != null ? <InfoLine label="Distance to collection" value={`${load.distanceToPickupMiles.toFixed(1)} mi`} /> : null}
+      {load.journeyDistanceMiles != null ? <InfoLine label="Load distance" value={`${load.journeyDistanceMiles.toFixed(1)} mi${load.estimatedJourneyMinutes != null ? ` · approx. ${load.estimatedJourneyMinutes} min` : ''}`} /> : null}
+      {load.journeyDistanceMiles == null && load.estimatedJourneyMinutes != null ? <InfoLine label="Estimated journey" value={`Approx. ${load.estimatedJourneyMinutes} min`} /> : null}
+      <InfoLine label="Service" value={load.serviceMode || 'Same-day transport'} />
+      {load.directDeliveryRequired ? <InfoLine label="Delivery mode" value="Dedicated / direct delivery required" /> : null}
+    </View>
+
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Vehicle & load</Text>
+      <InfoLine label="Requested vehicle" value={load.vehicleRequirement} />
+      <InfoLine label="Freight" value={load.cargoType} />
+      {packageSummary ? <InfoLine label="Load units" value={packageSummary} /> : null}
+      {load.weightKg != null ? <InfoLine label="Weight" value={`${load.weightKg} kg`} /> : null}
+      {dimensions ? <InfoLine label="Dimensions" value={dimensions} /> : null}
+    </View>
+
+    {(load.notesSummary || load.specialRequirements || load.accessRestrictions) ? <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Job instructions</Text>
+      {load.notesSummary ? <View style={styles.instructionBlock}><Text style={styles.fieldLabel}>LOAD DESCRIPTION</Text><Text style={styles.longText}>{load.notesSummary}</Text></View> : null}
+      {load.specialRequirements ? <View style={styles.instructionBlock}><Text style={styles.fieldLabel}>SPECIAL REQUIREMENTS</Text><Text style={styles.longText}>{load.specialRequirements}</Text></View> : null}
+      {load.accessRestrictions ? <View style={styles.instructionBlock}><Text style={styles.fieldLabel}>ACCESS / SITE RESTRICTIONS</Text><Text style={styles.longText}>{load.accessRestrictions}</Text></View> : null}
+    </View> : null}
+
+    <View style={styles.section}>
+      <Text style={styles.sectionTitle}>Company & commercial</Text>
+      <InfoLine label="Payment terms" value={load.paymentTerms || 'Not supplied'} />
+      <InfoLine label="Member feedback" value={feedbackText} />
+      {lowRated ? <Text style={styles.inlineWarning}>{lowRated}</Text> : null}
+      {load.price ? <InfoLine label="Published rate" value={load.price} /> : null}
+    </View>
+  </>;
+}
+
 function LoadDetail({ load, starred, onStar, onOffer }: {
   load: LiveLoad;
   starred: boolean;
@@ -1369,15 +1436,7 @@ function LoadDetail({ load, starred, onStar, onOffer }: {
   onOffer: () => void;
 }) {
   return <View style={styles.stack}>
-    <View style={styles.section}>
-      <Text style={styles.sectionKicker}>LOAD OWNER</Text>
-      <Text style={styles.companyName}>{load.postingCompanyName || 'Verified XDrive member'}</Text>
-      <Text style={styles.referenceText}>{load.postingCompanyMemberCode || load.reference}</Text>
-      <RouteBand pickup={load.pickupLocation} pickupTime={load.pickupTime} delivery={load.deliveryLocation} deliveryTime={load.deliveryTime} />
-      <InfoLine label="Vehicle" value={load.vehicleRequirement} />
-      <InfoLine label="Freight" value={load.cargoType} />
-      {load.price ? <InfoLine label="Published rate" value={load.price} /> : null}
-    </View>
+    <PostedLoadContext load={load} />
     <Banner text="Street-level addresses and private contacts remain protected until allocation." />
     {load.canQuote === false && load.quoteWarning ? <Banner text={load.quoteWarning} /> : null}
     <View style={styles.twoActions}>
@@ -1399,12 +1458,8 @@ function OfferForm({ load, amount, note, busy, editing, onAmount, onNote, onSubm
 }) {
   const blocked = !editing && load.canQuote === false;
   return <View style={styles.stack}>
-    <View style={styles.section}>
-      <Text style={styles.sectionKicker}>ROUTE</Text>
-      <RouteBand pickup={load.pickupLocation} pickupTime={load.pickupTime} delivery={load.deliveryLocation} deliveryTime={load.deliveryTime} />
-      <InfoLine label="Vehicle" value={load.vehicleRequirement} />
-      <InfoLine label="Freight" value={load.cargoType} />
-    </View>
+    <PostedLoadContext load={load} showRouteAction={false} />
+
     {blocked ? <Banner text={load.quoteWarning || 'An active offer already exists for this load.'} /> : null}
     <View style={styles.section}>
       <Text style={styles.sectionTitle}>{editing ? 'Edit commercial offer' : 'Commercial offer'}</Text>

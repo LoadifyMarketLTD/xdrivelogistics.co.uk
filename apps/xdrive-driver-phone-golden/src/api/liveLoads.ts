@@ -8,6 +8,20 @@ type ApiLoad = {
   delivery: { addressSummary: string; deliveryFrom: string | null };
   vehicleType: string | null;
   freightType: string | null;
+  pallets?: number | null;
+  boxes?: number | null;
+  bags?: number | null;
+  items?: number | null;
+  weightKg?: number | null;
+  dimensionsCm?: { length?: number | null; width?: number | null; height?: number | null };
+  notesSummary?: string | null;
+  specialRequirements?: string | null;
+  accessRestrictions?: string | null;
+  paymentTerms?: string | null;
+  distanceToPickupMiles?: number | null;
+  journeyDistanceMiles?: number | null;
+  estimatedJourneyMinutes?: number | null;
+  posterFeedback?: { averageRating: number | null; totalReviews: number; lowRatingCount: number; windowDays: number };
   publicPrice: { visible: boolean; amount: number | null; currency: string | null };
   canQuote?: boolean;
   pickupCountryCode?: string | null;
@@ -40,6 +54,20 @@ export type LiveLoad = {
   deliveryTime: string;
   cargoType: string;
   vehicleRequirement: string;
+  pallets?: number;
+  boxes?: number;
+  bags?: number;
+  items?: number;
+  weightKg?: number;
+  dimensionsCm?: { length?: number; width?: number; height?: number };
+  notesSummary?: string;
+  specialRequirements?: string;
+  accessRestrictions?: string;
+  paymentTerms?: string;
+  distanceToPickupMiles?: number;
+  journeyDistanceMiles?: number;
+  estimatedJourneyMinutes?: number;
+  posterFeedback?: { averageRating: number | null; totalReviews: number; lowRatingCount: number; windowDays: number };
   price: string;
   postingCompanyName?: string;
   postingCompanyMemberCode?: string;
@@ -70,6 +98,20 @@ function mapLiveLoad(load: ApiLoad): LiveLoad {
     deliveryTime: load.delivery.deliveryFrom || 'Delivery time not set',
     cargoType: load.freightType || 'Freight not provided',
     vehicleRequirement: load.vehicleType || 'Vehicle required',
+    pallets: load.pallets ?? undefined,
+    boxes: load.boxes ?? undefined,
+    bags: load.bags ?? undefined,
+    items: load.items ?? undefined,
+    weightKg: load.weightKg ?? undefined,
+    dimensionsCm: load.dimensionsCm ? { length: load.dimensionsCm.length ?? undefined, width: load.dimensionsCm.width ?? undefined, height: load.dimensionsCm.height ?? undefined } : undefined,
+    notesSummary: load.notesSummary || undefined,
+    specialRequirements: load.specialRequirements || undefined,
+    accessRestrictions: load.accessRestrictions || undefined,
+    paymentTerms: load.paymentTerms || undefined,
+    distanceToPickupMiles: load.distanceToPickupMiles ?? undefined,
+    journeyDistanceMiles: load.journeyDistanceMiles ?? undefined,
+    estimatedJourneyMinutes: load.estimatedJourneyMinutes ?? undefined,
+    posterFeedback: load.posterFeedback,
     price: priceVisible ? money(load.publicPrice.amount, load.publicPrice.currency || 'GBP') : '',
     postingCompanyName: load.poster?.name || undefined,
     postingCompanyMemberCode: load.poster?.memberCode || undefined,
