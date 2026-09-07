@@ -140,6 +140,15 @@ export function MemberDirectoryPage({
     : pathname.startsWith('/customer')
       ? '/customer/post-load'
       : null;
+  const messagesRoute = pathname.startsWith('/broker')
+    ? '/broker/messages'
+    : pathname.startsWith('/customer')
+      ? '/customer/messages'
+      : pathname.startsWith('/driver')
+        ? '/driver/messages'
+        : pathname.startsWith('/admin')
+          ? '/admin/messages'
+          : null;
   const canBookCompany = (company: DirectoryCompany | null | undefined) => Boolean(
     directBookingRoute
     && company
@@ -148,6 +157,10 @@ export function MemberDirectoryPage({
   const openDirectBooking = (companyId: string) => {
     if (!directBookingRoute) return;
     router.push(`${directBookingRoute}?directCarrier=${encodeURIComponent(companyId)}`);
+  };
+  const openMemberMessages = (companyId: string) => {
+    if (!messagesRoute) return;
+    router.push(`${messagesRoute}?companyId=${encodeURIComponent(companyId)}`);
   };
 
   const visibleCompanies = useMemo(() => {
@@ -266,7 +279,7 @@ export function MemberDirectoryPage({
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE / CAPABILITY</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Fleet capability not supplied'}{company.specialistServices?.length ? ` · ${company.specialistServices.join(', ')}` : ''}{company.maxPallets != null ? ` · up to ${company.maxPallets} pallets` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DELIVERY / PAYMENT RELIABILITY</div><strong>Delivery {company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">{company.deliveryReliability.evidenceCount} timed delivery record(s) · Payment {company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`} from {company.paymentReliability.evidenceCount} due/settlement record(s){company.paymentReliability.overdueOpen ? ` · ${company.paymentReliability.overdueOpen} overdue open` : ''}</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId)}>Messages</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}</div></div>
                   </div>
                 </article>
               ))}
@@ -281,7 +294,7 @@ export function MemberDirectoryPage({
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[driver.city, driver.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">Broad member/company location only</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">VEHICLE / CAPABILITY</div><strong>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}</strong><div className="driver-cell-secondary">{driver.hasTailLift ? 'Tail lift · ' : ''}{driver.palletsCapacity != null ? `${driver.palletsCapacity} pallets · ` : ''}{driver.specialistServices?.length ? driver.specialistServices.join(', ') : 'No specialist service declared'} · no live coordinates exposed</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">COMPANY RELIABILITY</div><strong>Delivery {driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">Payment {driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`} · evidence is company-level and truth-derived</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY / ACTION</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} />{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) ? <div style={{ marginTop: 6 }}><ActionButton tone="success" onClick={() => openDirectBooking(driver.companyId as string)}>Book Direct</ActionButton></div> : null}</div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY / ACTION</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} />{driver.companyId && messagesRoute ? <div style={{ marginTop: 6 }}><ActionButton tone="secondary" onClick={() => openMemberMessages(driver.companyId as string)}>Messages</ActionButton></div> : null}{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) ? <div style={{ marginTop: 6 }}><ActionButton tone="success" onClick={() => openDirectBooking(driver.companyId as string)}>Book Direct</ActionButton></div> : null}</div>
                   </div>
                 </article>
               ))}

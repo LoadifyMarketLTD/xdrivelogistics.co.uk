@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
@@ -16,11 +17,15 @@ type MessageRow = {
   recipientUserId: string | null;
 };
 
+type ThreadContext = { kind: 'quote' | 'job'; conversationId: string; bidId: string | null; jobId: string; loadRef: string; routeLabel: string; status: string | null; jobStatus: string | null };
 type MessageThread = {
   key: string;
   conversationId: string | null;
   counterpartUserId: string | null;
   counterpartName: string;
+  counterpartCompanyId: string | null;
+  counterpartCompanyName: string | null;
+  context: ThreadContext | null;
   canReply: boolean;
   latestAt: string | null;
   latestBody: string;
@@ -30,6 +35,7 @@ type MessageThread = {
 type MessagesResponse = {
   threads?: MessageThread[];
   readStateAvailable?: boolean;
+  contextPartial?: boolean;
   error?: string;
 };
 
@@ -41,6 +47,13 @@ function fmtDateTime(value: string | null) {
 }
 
 export default function DriverMessagesPage() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetConversation = searchParams.get('conversation');
+  const targetBidId = searchParams.get('bidId');
+  const targetJobId = searchParams.get('jobId');
+  const targetCompanyId = searchParams.get('companyId');
+  const hasContextTarget = Boolean(targetConversation || targetBidId || targetJobId || targetCompanyId);
   const [threads, setThreads] = useState<MessageThread[]>([]);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -48,6 +61,8 @@ export default function DriverMessagesPage() {
   const [reply, setReply] = useState('');
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState('');
+  const [contextPartial, setContextPartial] = useState(false);
+  const [contextTargetMissing, setContextTargetMissing] = useState(false);
 
   const loadMessages = useCallback(async (preferredKey?: string | null) => {
     if (!isSupabaseConfigured) {
@@ -72,10 +87,23 @@ export default function DriverMessagesPage() {
       if (!response.ok) throw new Error(payload.error || 'Messages could not be loaded.');
 
       const nextThreads = payload.threads ?? [];
+      const contextualMatch = targetConversation
+        ? nextThreads.find((thread) => thread.conversationId === targetConversation) ?? null
+        : targetBidId
+          ? nextThreads.find((thread) => thread.context?.bidId === targetBidId) ?? null
+          : targetJobId
+            ? nextThreads.find((thread) => thread.context?.jobId === targetJobId) ?? null
+            : targetCompanyId
+              ? nextThreads.find((thread) => thread.counterpartCompanyId === targetCompanyId) ?? null
+              : null;
       setThreads(nextThreads);
+      setContextPartial(payload.contextPartial === true);
+      setContextTargetMissing(Boolean(hasContextTarget && !contextualMatch));
       setSelectedKey((current) => {
-        const target = preferredKey ?? current;
-        if (target && nextThreads.some((thread) => thread.key === target)) return target;
+        if (preferredKey && nextThreads.some((thread) => thread.key === preferredKey)) return preferredKey;
+        if (contextualMatch) return contextualMatch.key;
+        if (hasContextTarget) return null;
+        if (current && nextThreads.some((thread) => thread.key === current)) return current;
         return nextThreads[0]?.key ?? null;
       });
     } catch (reason) {
@@ -85,7 +113,7 @@ export default function DriverMessagesPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [hasContextTarget, targetBidId, targetCompanyId, targetConversation, targetJobId]);
 
   useEffect(() => { void loadMessages(); }, [loadMessages]);
 
@@ -124,6 +152,8 @@ export default function DriverMessagesPage() {
     }
   };
 
+  const selectedJobHref = selected?.context?.jobId ? `/driver/jobs/${selected.context.jobId}` : null;
+
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
@@ -132,6 +162,8 @@ export default function DriverMessagesPage() {
       >
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {sendError && <AlertBanner tone="danger">{sendError}</AlertBanner>}
+        {contextPartial && <AlertBanner tone="warning">Some message context could not be enriched. Participant message history remains available without inferred context.</AlertBanner>}
+        {contextTargetMissing && <AlertBanner tone="warning">No verified conversation exists for the requested job, quote or member context. XDrive will not create an arbitrary recipient thread.</AlertBanner>}
 
         <div className="driver-board-layout driver-messages-board">
           <aside className="driver-filter-rail" aria-label="Message conversations">
@@ -150,6 +182,7 @@ export default function DriverMessagesPage() {
                 >
                   <span>
                     <strong>{thread.counterpartName}</strong>
+                    <small>{thread.context ? `${thread.context.kind === 'quote' ? 'Quote' : 'Job'} · ${thread.context.loadRef}` : thread.counterpartCompanyName ?? 'Participant conversation'}</small>
                     <small>{thread.latestBody || 'Message'} · {fmtDateTime(thread.latestAt)}</small>
                   </span>
                   <span>{thread.messages.length}</span>
@@ -175,15 +208,25 @@ export default function DriverMessagesPage() {
                 <EmptyState compact title="No messages yet" description="Existing participant conversations will appear here when real message records exist." />
               </div>
             ) : !selected ? (
-              <div className="driver-load-row"><EmptyState compact title="Choose a conversation" /></div>
+              <div className="driver-load-row"><EmptyState compact title={contextTargetMissing ? 'No contextual conversation found' : 'Choose a conversation'} description={contextTargetMissing ? 'Continue from a verified quote or existing transport relationship; arbitrary recipient creation stays disabled.' : undefined} /></div>
             ) : (
               <section className="driver-row-details" aria-label={`Conversation with ${selected.counterpartName}`}>
                 <div className="driver-detail-tabs">
-                  <strong>{selected.counterpartName}</strong>
+                  <strong>{selected.counterpartName}{selected.counterpartCompanyName ? ` · ${selected.counterpartCompanyName}` : ''}</strong>
                   <span style={{ fontSize: '11px', color: '#64748b' }}>
                     {selected.conversationId ? `Conversation ${selected.conversationId.slice(0, 8).toUpperCase()}` : 'Legacy message record'}
                   </span>
                 </div>
+                {selected.context && (
+                  <div className="driver-load-row" data-state="context" style={{ marginTop: '8px' }}>
+                    <div className="driver-load-row__meta">
+                      <strong>{selected.context.kind === 'quote' ? 'Quote context' : 'Job context'} · {selected.context.loadRef}</strong>
+                      <StatusBadge value={selected.context.jobStatus ?? selected.context.status ?? 'Context linked'} tone="blue" />
+                      {selectedJobHref ? <ActionButton tone="secondary" onClick={() => router.push(selectedJobHref)}>Open job</ActionButton> : null}
+                    </div>
+                    <div style={{ paddingTop: '6px', fontSize: '12px', color: '#475569' }}>{selected.context.routeLabel}</div>
+                  </div>
+                )}
 
                 <div style={{ display: 'grid', gap: '8px', padding: '10px 0' }}>
                   {selected.messages.map((message) => (

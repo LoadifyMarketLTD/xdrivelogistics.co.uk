@@ -1,4 +1,3 @@
-import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 import {
@@ -82,25 +81,23 @@ export async function POST(request: NextRequest, { params }: Params) {
     return json(403, { error: 'An active owner, admin or dispatcher of the load-owning company is required to message a bidder.' });
   }
 
-  // Cross-company Messenger threads deliberately use company_id = NULL. This
-  // preserves the existing messages_insert_sender policy for both parties:
-  // each participant may reply as themselves without being falsely required to
-  // join the other participant's company. Access remains participant-scoped by
-  // sender_user_id / recipient_user_id.
-  const { data: priorRows, error: priorError } = await supabaseAdmin
-    .from('messages')
-    .select('conversation_id, sender_user_id, recipient_user_id, created_at')
-    .is('company_id', null)
-    .or(`and(sender_user_id.eq.${user.id},recipient_user_id.eq.${recipientUserId}),and(sender_user_id.eq.${recipientUserId},recipient_user_id.eq.${user.id})`)
-    .not('conversation_id', 'is', null)
-    .order('created_at', { ascending: false })
-    .limit(1);
+  // Quote-origin conversations are deterministically scoped to this quote.
+  // The bid UUID is itself the conversation UUID, so the thread can be linked
+  // back to the exact commercial context without a second context table.
+  const conversationId = String(bid.id);
 
-  if (priorError) return json(500, { error: 'Existing conversation could not be verified.' });
-  const priorConversationId = typeof priorRows?.[0]?.conversation_id === 'string'
-    ? priorRows[0].conversation_id
-    : null;
-  const conversationId = priorConversationId ?? randomUUID();
+  const { data: existingContextRows, error: existingContextError } = await supabaseAdmin
+    .from('messages')
+    .select('sender_user_id, recipient_user_id')
+    .eq('conversation_id', conversationId)
+    .limit(50);
+  if (existingContextError) return json(500, { error: 'Existing quote conversation could not be verified.' });
+  for (const row of existingContextRows ?? []) {
+    const participants = new Set([row.sender_user_id, row.recipient_user_id].filter(Boolean));
+    if (participants.size && (!participants.has(user.id) || !participants.has(recipientUserId))) {
+      return json(409, { error: 'Quote conversation context conflicts with its verified participants.' });
+    }
+  }
 
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('messages')

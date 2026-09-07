@@ -279,13 +279,14 @@ export default function CustomerQuotesCxPage() {
       },
       body: JSON.stringify({ body: messageBody.trim() }),
     });
-    const payload = await response.json().catch(() => ({})) as { error?: string };
+    const payload = await response.json().catch(() => ({})) as { error?: string; conversationId?: string };
     setMessageWorking(false);
     if (!response.ok) { setMessageError(payload.error ?? 'Message could not be sent.'); return; }
     setMessageCandidate(null);
     setMessageBody('');
     setMessage('Message sent to the verified quote participant.');
-    router.push('/customer/messages');
+    const conversation = payload.conversationId ? `&conversation=${encodeURIComponent(payload.conversationId)}` : '';
+    router.push(`/customer/messages?bidId=${encodeURIComponent(messageCandidate.bid.id)}&jobId=${encodeURIComponent(messageCandidate.job.id)}${conversation}`);
   };
 
   const counts = {
