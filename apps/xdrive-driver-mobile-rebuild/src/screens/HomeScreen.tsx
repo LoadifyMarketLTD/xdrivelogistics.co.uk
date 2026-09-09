@@ -6,6 +6,9 @@ import { Pressable, RefreshControl, SafeAreaView, ScrollView, Text, View } from 
 import type { DriverJob, DriverResources } from '../types/driver';
 
 const palette = { navy: '#0B2F6B', tile: '#20447B', accent: '#F5A300', paper: '#F1F3F6', ink: '#242737', muted: '#5F6878' };
+// React Native requires a static require for bundled image assets.
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const homeLogo = require('../../assets/xdrive-home-logo.png');
 function field(row: Record<string, unknown> | null | undefined, keys: string[], fallback: string) {
   for (const key of keys) if (row?.[key] !== null && row?.[key] !== undefined && String(row[key]).trim()) return String(row[key]);
   return fallback;
@@ -19,7 +22,7 @@ type Props = {
   loading: boolean; dataError?: string; onRefresh: () => Promise<void> | void; onOpen: (job: DriverJob) => void;
   onGoLoads: () => void; onGoQuotes: () => void; onGoHistory: () => void; onGoMore: () => void; onAvailabilitySaved: (value: string) => void;
 };
-export function HomeScreen({ jobs, activeJob, recentJob, resources, loading, dataError, onRefresh, onOpen, onGoLoads, onGoQuotes, onGoHistory, onGoMore, onAvailabilitySaved }: Props) {
+export function HomeScreen({ jobs, activeJob, recentJob, resources, loading, dataError, onRefresh, onOpen, onGoLoads, onGoQuotes, onGoHistory, onAvailabilitySaved }: Props) {
   const [panel, setPanel] = useState<'profile' | 'tools' | 'vehicle' | 'tracking' | 'status' | null>(null);
   const [panelParent, setPanelParent] = useState<'tools' | null>(null);
   const [availability, setAvailability] = useState('');
@@ -72,7 +75,7 @@ export function HomeScreen({ jobs, activeJob, recentJob, resources, loading, dat
         <Pressable accessibilityRole="button" accessibilityLabel="Open my profile" onPress={() => { setPanelParent(null); setPanel('profile'); }} style={({ pressed }) => [s.roundButton, s.profile, pressed && s.pressed]}>
           <Ionicons name="person" size={24} color={palette.navy} />
         </Pressable>
-        <View accessible accessibilityLabel="XDrive Logistics" style={s.brand}><Image source={require('../../assets/xdrive-home-logo.png')} style={s.brandLogo} resizeMode="contain" /></View>
+        <View accessible accessibilityLabel="XDrive Logistics" style={s.brand}><Image source={homeLogo} style={s.brandLogo} resizeMode="contain" /></View>
         <Pressable accessibilityRole="button" accessibilityLabel="Open driver tools" onPress={() => { setPanelParent(null); setPanel('tools'); }} style={({ pressed }) => [s.roundButton, s.tools, pressed && s.pressed]}>
           <Ionicons name="grid-outline" size={23} color="#FFFFFF" />
         </Pressable>

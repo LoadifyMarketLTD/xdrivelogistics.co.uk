@@ -1,7 +1,7 @@
 import { useAppTheme } from '../theme/ThemeProvider';
 import { useMemo, useState } from 'react';
 import { UiIcon as Ionicons } from '../components/UiIcon';
-import { StyleSheet, useColorScheme } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Pressable, ScrollView, Text, TextInput, View } from '../theme/primitives';
 import type { DriverJob, DriverQuoteReadiness } from '../types/driver';
 import { RouteBlock } from '../components/RouteBlock';
@@ -30,8 +30,8 @@ export function LoadDetailScreen({ job, busy, existingQuote, quoteReadiness, onB
   }, [night]);
   const [quote, setQuote] = useState('');
   const amount = Number(quote.replace(/[^0-9.]/g, ''));
-  const existingAmountRaw = existingQuote ? String(existingQuote.amount ?? existingQuote.bid_price_gbp ?? existingQuote.price ?? '—') : '';
-  const existingAmount = existingAmountRaw && existingAmountRaw !== '—' && !existingAmountRaw.startsWith('£') ? `£${Number(existingAmountRaw).toFixed(2)}` : existingAmountRaw;
+  const existingAmountRaw = existingQuote ? String(existingQuote.amount ?? existingQuote.bid_price_gbp ?? existingQuote.price ?? 'â€”') : '';
+  const existingAmount = existingAmountRaw && existingAmountRaw !== 'â€”' && !existingAmountRaw.startsWith('Â£') ? `Â£${Number(existingAmountRaw).toFixed(2)}` : existingAmountRaw;
   const existingStatusRaw = existingQuote ? String(existingQuote.status ?? existingQuote.quote_status ?? 'Submitted') : '';
   const existingStatus = ['accepted','won','awarded'].includes(existingStatusRaw.toLowerCase()) ? 'Accepted' : ['declined','rejected','unsuccessful','lost'].includes(existingStatusRaw.toLowerCase()) ? 'Unsuccessful' : ['withdrawn','cancelled'].includes(existingStatusRaw.toLowerCase()) ? 'Withdrawn' : 'Submitted';
   const quoteWindowOpen = isQuoteWindowOpen(job);
@@ -98,7 +98,7 @@ export function LoadDetailScreen({ job, busy, existingQuote, quoteReadiness, onB
 }
 
 function InfoRow({ label, value, adaptive }: { label: string; value: string; adaptive: { text: string; muted: string } }) {
-  return <View style={styles.infoRow}><Text style={[styles.infoLabel, { color: adaptive.muted }]}>{label}</Text><Text style={[styles.infoValue, { color: adaptive.text }]}>{value || '—'}</Text></View>;
+  return <View style={styles.infoRow}><Text style={[styles.infoLabel, { color: adaptive.muted }]}>{label}</Text><Text style={[styles.infoValue, { color: adaptive.text }]}>{value || 'â€”'}</Text></View>;
 }
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#F7F7F7' },

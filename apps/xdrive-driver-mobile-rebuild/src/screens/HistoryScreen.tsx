@@ -3,7 +3,7 @@ import { ScrollView, Text, View } from '../theme/primitives';
 import type { DriverJob } from '../types/driver';
 import { LoadCard } from '../components/LoadCard';
 import { BrandedHeader } from '../components/BrandedHeader';
-import { colors, radius, spacing } from '../theme/tokens';
+import { colors, radius } from '../theme/tokens';
 
 export function HistoryScreen({ jobs, onOpen }: {
   jobs: DriverJob[];

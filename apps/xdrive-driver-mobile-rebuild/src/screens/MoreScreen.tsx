@@ -1,10 +1,10 @@
 import { ThemeSelector } from '../theme/ThemeSelector';
 import { UiIcon as Ionicons } from '../components/UiIcon';
-import { Alert, StyleSheet } from 'react-native';
+import { StyleSheet } from 'react-native';
 import { Pressable, ScrollView, Text, View } from '../theme/primitives';
 import type { DriverResources } from '../types/driver';
 import { BrandedHeader } from '../components/BrandedHeader';
-import { colors, radius, spacing } from '../theme/tokens';
+import { colors, radius } from '../theme/tokens';
 
 function vehicleTypeLabel(value: string) {
   const acronyms = new Set(['lwb', 'swb', 'mwb', 'xlwb', 'hgv']);

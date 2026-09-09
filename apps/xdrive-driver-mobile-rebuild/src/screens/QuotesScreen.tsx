@@ -15,9 +15,9 @@ function pick(row: Record<string, unknown>, keys: string[], fallback = '-') {
 
 function quoteAmount(row: Record<string, unknown>) {
   const raw = pick(row, ['amount', 'bid_price_gbp', 'price'], '-');
-  if (raw === '-' || raw.startsWith('£')) return raw;
+  if (raw === '-' || raw.startsWith('Â£')) return raw;
   const numeric = Number(raw);
-  return Number.isFinite(numeric) ? `£${numeric.toFixed(2)}` : raw;
+  return Number.isFinite(numeric) ? `Â£${numeric.toFixed(2)}` : raw;
 }
 
 function quoteStatus(row: Record<string, unknown>) {
@@ -44,7 +44,7 @@ function statusPalette(status: string) {
 }
 
 export function QuotesScreen({ resources, jobs = [], onOpen }: { resources?: DriverResources; jobs?: DriverJob[]; onOpen: (job: DriverJob, quote: Record<string, unknown>) => void }) {
-  const quotes = resources?.quotes ?? [];
+  const quotes = useMemo(() => resources?.quotes ?? [], [resources?.quotes]);
   const jobsById = useMemo(() => new Map(jobs.map((job) => [job.id, job])), [jobs]);
   const [filter, setFilter] = useState<QuoteFilter>('All');
   const counts = useMemo(() => ({
