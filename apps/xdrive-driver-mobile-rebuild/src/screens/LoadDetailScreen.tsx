@@ -53,7 +53,7 @@ export function LoadDetailScreen({ job, busy, existingQuote, quoteReadiness, onB
             <Text style={[styles.heading, { color: adaptive.text }]}>Delivery Information</Text>
             <Text style={[styles.referenceLabel, { color: adaptive.muted }]}>LOAD REFERENCE</Text>
             <Text style={[styles.identity, { color: adaptive.text }]}>{job.reference}</Text>
-            {job.postingCompanyName ? <Text style={[styles.companyCode, { color: adaptive.muted }]}>{job.postingCompanyName}{job.postingCompanyMemberCode ? ` | Member ${job.postingCompanyMemberCode}` : ''}</Text> : null}
+            {job.postingCompanyName ? <Text style={[styles.companyCode, { color: adaptive.muted }]}>{job.postingCompanyName}{job.postingCompanyMemberCode ? ` | ${job.postingCompanyMemberCode}` : ''}</Text> : null}
           </View>
           {job.postedAt ? <Text style={[styles.date, { color: adaptive.muted }]}>Posted {formatDeliveryDate(job.postedAt)}</Text> : null}
         </View>

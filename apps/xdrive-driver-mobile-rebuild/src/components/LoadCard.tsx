@@ -14,7 +14,7 @@ export function LoadCard({ job, onOpen, tone = 'default' }: { job: DriverJob; on
     <View style={styles.topRow}>
       <View style={styles.refWrap}>
         <Text style={[styles.reference, xdrive && styles.xdriveReference]}>{job.postingCompanyName || 'Company withheld'}</Text>
-        <Text style={styles.memberLine}>{job.postingCompanyMemberCode ? `Member ${job.postingCompanyMemberCode} | ${job.reference}` : job.reference}</Text>
+        <Text style={styles.memberLine}>{job.postingCompanyMemberCode ? `${job.postingCompanyMemberCode} | ${job.reference}` : job.reference}</Text>
         {job.postedAt ? <Text style={[styles.time, xdrive && styles.xdriveMuted]}>Posted {formatDeliveryDate(job.postedAt)}</Text> : null}
       </View>
     </View>
