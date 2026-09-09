@@ -33,7 +33,7 @@ async function loadQuoteReadiness(driverId: string) {
   }
 }
 
-function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null) {
+function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null): AnyRow {
   const canonicalStatus = String(row.current_status ?? row.status ?? '').trim().toLowerCase();
   const privateDetailsRevealed = String(row.assigned_driver_id ?? '') === driverId
     && ['allocated', 'collected', 'in_transit', 'delivered'].includes(canonicalStatus);
@@ -126,7 +126,26 @@ export async function GET(request: NextRequest) {
       driver,
       company: companies.get(context.companyId) ?? null,
       vehicle,
-      quotes: bids.map((bid) => ({ ...bid, job: jobsById.get(String(bid.job_id)) ?? null })),
+      quotes: bids.map((bid) => {
+        const job = jobsById.get(String(bid.job_id)) ?? null;
+        if (!job) return { ...bid, job: null };
+        return {
+          ...bid,
+          job: {
+            ...job,
+            postingCompanyName: job.posting_company_name ?? null,
+            postingCompanyMemberCode: job.posting_company_member_code ?? null,
+            pickupLocation: job.pickup_location ?? null,
+            deliveryLocation: job.delivery_location ?? null,
+            pickupTime: job.pickup_datetime ?? null,
+            deliveryTime: job.delivery_datetime ?? null,
+            pickupTiming: job.pickup_time_slot ?? null,
+            deliveryTiming: job.delivery_time_slot ?? null,
+            vehicleRequirement: job.requested_vehicle_label ?? job.requested_vehicle_type ?? job.vehicle_type ?? null,
+            cargoType: job.requested_cargo_label ?? job.cargo_type ?? null,
+          },
+        };
+      }),
       documents: [...(documentsResult.data ?? []), ...(vehicleDocumentsResult.data ?? [])],
       invoices: invoicesResult.data ?? [],
       alerts: alertsResult.data ?? [],

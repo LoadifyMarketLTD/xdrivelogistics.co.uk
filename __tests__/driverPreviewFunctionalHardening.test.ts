@@ -61,6 +61,15 @@ describe('driver preview functional hardening', () => {
     }
   });
 
+  it('preserves canonical quote job context after marketplace expiry', () => {
+    expect(resources).toContain('postingCompanyName: job.posting_company_name ?? null');
+    expect(resources).toContain('postingCompanyMemberCode: job.posting_company_member_code ?? null');
+    expect(resources).toContain('pickupTiming: job.pickup_time_slot ?? null');
+    expect(resources).toContain('deliveryTiming: job.delivery_time_slot ?? null');
+    expect(resources).toContain('vehicleRequirement: job.requested_vehicle_label ?? job.requested_vehicle_type ?? job.vehicle_type ?? null');
+    expect(resources).toContain('cargoType: job.requested_cargo_label ?? job.cargo_type ?? null');
+  });
+
   it('uses canonical current status before revealing quote job private details', () => {
     expect(resources).toContain("row.current_status ?? row.status ?? ''");
     expect(resources).toContain("includes(canonicalStatus)");
