@@ -31,6 +31,8 @@ type BidEligibilityJob = {
   awarded_carrier_company_id: string | null;
   is_fixed_price: boolean | null;
   budget_amount: number | string | null;
+  requested_vehicle_type: string | null;
+  vehicle_type: string | null;
 };
 
 export type DriverBidEligibility = {
@@ -79,17 +81,17 @@ export async function resolveDriverBidEligibility(
   driver: DriverBidContext,
   jobId: string,
 ): Promise<{ eligibility: DriverBidEligibility; job: BidEligibilityJob | null }> {
-  const [operational, jobResult] = await Promise.all([
-    resolveDriverOperationalEligibility(supabaseAdmin, driver.driverId),
-    supabaseAdmin
-      .from('jobs')
-      .select('id,company_id,status,exchange_visibility,exchange_expires_at,pickup_datetime,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount')
-      .eq('id', jobId)
-      .maybeSingle(),
-  ]);
+  const jobResult = await supabaseAdmin
+    .from('jobs')
+    .select('id,company_id,status,exchange_visibility,exchange_expires_at,pickup_datetime,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount,requested_vehicle_type,vehicle_type')
+    .eq('id', jobId)
+    .maybeSingle();
   if (jobResult.error) throw new Error(jobResult.error.message);
 
   const job = (jobResult.data ?? null) as BidEligibilityJob | null;
+  const operational = await resolveDriverOperationalEligibility(supabaseAdmin, driver.driverId, {
+    requestedVehicleType: job?.requested_vehicle_type ?? job?.vehicle_type ?? null,
+  });
   const driverActive = operational.checks.accountActive;
   const companyActive = operational.checks.companyActive;
 

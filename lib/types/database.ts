@@ -176,6 +176,8 @@ export interface Vehicle {
   model: string | null;
   manufacture_year: number | null;
   payload_kg: number | null;
+  max_weight_kg?: number | null;
+  is_zero_emission?: boolean | null;
   pallets_capacity: number | null;
   has_tail_lift: boolean;
   has_straps: boolean;

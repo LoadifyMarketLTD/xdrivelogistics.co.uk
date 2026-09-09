@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
+import { VEHICLE_GROUPS } from '../../../lib/vehicleTypes';
+import { defaultMamForVehicleType, vehicleRequiresDriverCpc } from '../../../lib/driverCpc';
 
 type AccountType = 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'owner_driver';
 
@@ -18,7 +20,7 @@ type Application = {
 
 const brokerDocs = ['company_registration', 'public_liability', 'vat_registration'] as const;
 const fleetDocs = ['operator_licence', 'public_liability', 'goods_in_transit', 'vehicle_insurance', 'company_registration', 'vat_registration'] as const;
-const ownerDriverDocs = ['driving_licence', 'cpc', 'proof_of_address', 'insurance', 'right_to_work', 'visa_document'] as const;
+const ownerDriverBaseDocs = ['driving_licence', 'proof_of_address', 'insurance', 'right_to_work', 'visa_document'] as const;
 
 export default function OnboardingTokenPage() {
   const params = useParams<{ token: string }>();
@@ -33,14 +35,21 @@ export default function OnboardingTokenPage() {
   const [error, setError] = useState('');
 
   const accountType = application?.account_type;
+  const ownerDriverVehicleKnown = accountType === 'owner_driver' && Boolean(formData.vehicle_type || formData.max_weight_kg);
+  const ownerDriverRequiresCpc = ownerDriverVehicleKnown
+    && vehicleRequiresDriverCpc({
+      type: formData.vehicle_type,
+      maxWeightKg: formData.max_weight_kg,
+      zeroEmission: ['true', '1', 'yes'].includes((formData.is_zero_emission ?? '').trim().toLowerCase()),
+    });
 
   const requiredDocs = useMemo(() => {
     if (accountType === 'customer_shipper') return [];
     if (accountType === 'broker_shipper') return brokerDocs;
     if (accountType === 'fleet_courier') return fleetDocs;
-    if (accountType === 'owner_driver') return ownerDriverDocs;
+    if (accountType === 'owner_driver') return ownerDriverRequiresCpc ? [...ownerDriverBaseDocs, 'cpc'] : [...ownerDriverBaseDocs];
     return [];
-  }, [accountType]);
+  }, [accountType, ownerDriverRequiresCpc]);
 
   const toBoolean = (value: string | undefined) => {
     const normalized = (value ?? '').trim().toLowerCase();
@@ -62,6 +71,9 @@ export default function OnboardingTokenPage() {
         registration: formData.registration ?? formData.vehicle_registration ?? '',
         make: formData.make ?? formData.vehicle_make ?? '',
         model: formData.model ?? formData.vehicle_model ?? '',
+        vehicle_type: formData.vehicle_type ?? '',
+        max_weight_kg: formData.max_weight_kg ?? '',
+        is_zero_emission: toBoolean(formData.is_zero_emission),
         payload: formData.payload ?? formData.vehicle_payload ?? '',
         dimensions: formData.dimensions ?? formData.vehicle_dimensions ?? '',
         settled_status: toBoolean(formData.settled_status),
@@ -103,6 +115,7 @@ export default function OnboardingTokenPage() {
       const nextFormData: Record<string, string> = {};
       Object.entries(payload).forEach(([k, v]) => {
         if (typeof v === 'string') nextFormData[k] = v;
+        else if (typeof v === 'boolean' || typeof v === 'number') nextFormData[k] = String(v);
       });
       setFormData(nextFormData);
     } catch (e) {
@@ -300,6 +313,38 @@ export default function OnboardingTokenPage() {
       <Field label="Vehicle Registration" value={formData.registration ?? formData.vehicle_registration ?? ''} onChange={(v) => updateField('registration', v)} />
       <Field label="Vehicle Make" value={formData.make ?? formData.vehicle_make ?? ''} onChange={(v) => updateField('make', v)} />
       <Field label="Vehicle Model" value={formData.model ?? formData.vehicle_model ?? ''} onChange={(v) => updateField('model', v)} />
+      <label style={{ display: 'block', marginBottom: '0.75rem' }}>
+        <div style={{ marginBottom: '0.35rem', fontWeight: 500 }}>Vehicle Type</div>
+        <select
+          value={formData.vehicle_type ?? ''}
+          onChange={(e) => {
+            const type = e.target.value;
+            updateField('vehicle_type', type);
+            const inferredMam = defaultMamForVehicleType(type);
+            updateField('max_weight_kg', inferredMam ? String(inferredMam) : '');
+          }}
+          style={{ width: '100%', border: '1px solid #D1D5DB', borderRadius: 6, padding: '0.6rem 0.75rem', background: '#fff' }}
+        >
+          <option value="">Select vehicle type</option>
+          {VEHICLE_GROUPS.map(([group, options]) => (
+            <optgroup key={group} label={group}>
+              {options.map(([label, value]) => <option key={value} value={value}>{label}</option>)}
+            </optgroup>
+          ))}
+        </select>
+      </label>
+      <Field label="Maximum authorised mass (MAM) kg" value={formData.max_weight_kg ?? ''} onChange={(v) => updateField('max_weight_kg', v)} />
+      <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
+        <input type="checkbox" checked={toBoolean(formData.is_zero_emission)} onChange={(e) => updateField('is_zero_emission', String(e.target.checked))} />
+        Zero-emission electric / hydrogen vehicle
+      </label>
+      <div style={{ padding: '0.75rem', borderRadius: 8, marginBottom: '0.75rem', background: ownerDriverVehicleKnown ? (ownerDriverRequiresCpc ? '#fff7ed' : '#f0fdf4') : '#f8fafc', color: ownerDriverVehicleKnown ? (ownerDriverRequiresCpc ? '#9a3412' : '#166534') : '#475569' }}>
+        {!ownerDriverVehicleKnown
+          ? 'Select the vehicle type and MAM to determine whether Driver CPC is required.'
+          : ownerDriverRequiresCpc
+            ? 'Driver CPC is required for this vehicle and will be requested in onboarding.'
+            : 'Driver CPC is not required for this vehicle under the current MAM/licence-category rule.'}
+      </div>
       <Field label="Payload" value={formData.payload ?? formData.vehicle_payload ?? ''} onChange={(v) => updateField('payload', v)} />
       <Field label="Dimensions" value={formData.dimensions ?? formData.vehicle_dimensions ?? ''} onChange={(v) => updateField('dimensions', v)} />
       <Field label="Tail Lift" value={formData.tail_lift ?? ''} onChange={(v) => updateField('tail_lift', v)} />

@@ -66,6 +66,9 @@ const ownerDriverPayloadBaseSchema = z
     registration: z.string().trim().min(1),
     make: z.string().trim().min(1),
     model: z.string().trim().min(1),
+    vehicle_type: z.string().trim().min(1),
+    max_weight_kg: z.string().trim().refine((value) => Number.isFinite(Number(value)) && Number(value) > 0, 'MAM must be a positive number.'),
+    is_zero_emission: z.boolean(),
     payload: z.string().trim().min(1),
     dimensions: z.string().trim().min(1),
   })

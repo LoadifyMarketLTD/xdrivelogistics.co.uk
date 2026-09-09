@@ -7,12 +7,14 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Vehicle, VehicleType, Company } from '../../../lib/types/database';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
+import { VEHICLE_GROUPS } from '../../../lib/vehicleTypes';
+import { defaultMamForVehicleType, vehicleRequiresDriverCpc } from '../../../lib/driverCpc';
 
 import { useAdminCompanyContext } from '../_hooks/useAdminCompanyContext';
 
-const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
+const VEHICLE_TYPES: VehicleType[] = VEHICLE_GROUPS.flatMap(([, options]) => options.map(([, value]) => value));
 
-interface DriverOption { id: string; display_name: string; }
+interface DriverOption { id: string; display_name: string; user_id: string | null; }
 
 export default function VehiclesPage() {
   const { user } = useAuth();
@@ -23,8 +25,8 @@ export default function VehiclesPage() {
   const [showModal, setShowModal] = useState(false);
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
-  const [formData, setFormData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
-  const [editData, setEditData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
+  const [formData, setFormData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', max_weight_kg: '3500', is_zero_emission: false, has_tail_lift: false, assigned_driver_id: '' });
+  const [editData, setEditData] = useState({ type: 'van_large' as VehicleType, reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', max_weight_kg: '3500', is_zero_emission: false, has_tail_lift: false, assigned_driver_id: '' });
   const [error, setError] = useState('');
   const [editError, setEditError] = useState('');
   const [creating, setCreating] = useState(false);
@@ -37,14 +39,16 @@ export default function VehiclesPage() {
     setLoading(true);
     if (!isSupabaseConfigured) { setLoading(false); return; }
     if (!companyId) { setVehicles([]); setLoading(false); return; }
-    const selectColumns = 'id, company_id, type, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at';
-    const legacySelectColumns = 'id, company_id, vehicle_type, reg_plate, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id, created_at';
+    const selectColumns = 'id, company_id, type, reg_plate, make, model, manufacture_year, payload_kg, max_weight_kg, is_zero_emission, has_tail_lift, assigned_driver_id, created_at';
+    const legacySelectColumns = 'id, company_id, vehicle_type, reg_plate, make, model, manufacture_year, payload_kg, max_weight_kg, is_zero_emission, has_tail_lift, assigned_driver_id, created_at';
     const query = supabase
       .from('vehicles')
       .select(selectColumns)
       .eq('company_id', companyId)
       .order('created_at', { ascending: false });
-    let { data, error } = await query;
+    const initialResult = await query;
+    let data = initialResult.data as unknown as Vehicle[] | null;
+    let error = initialResult.error;
     if (error && isMissingColumnError(error, 'vehicles', 'type')) {
       const legacyResult = await supabase
         .from('vehicles')
@@ -61,7 +65,7 @@ export default function VehiclesPage() {
     if (error && isMissingColumnError(error, 'vehicles', 'manufacture_year')) {
       const fallbackResult = await supabase
         .from('vehicles')
-        .select('id, company_id, type, reg_plate, make, model, payload_kg, has_tail_lift, assigned_driver_id, created_at')
+        .select('id, company_id, type, reg_plate, make, model, payload_kg, max_weight_kg, is_zero_emission, has_tail_lift, assigned_driver_id, created_at')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false });
       data = fallbackResult.data as Vehicle[] | null;
@@ -82,7 +86,7 @@ export default function VehiclesPage() {
     if (!isSupabaseConfigured || !companyId) return;
     let query = supabase
       .from('drivers')
-      .select('id, display_name')
+      .select('id, display_name, user_id')
       .eq('company_id', companyId)
       .eq('status', 'active')
       .order('display_name');
@@ -91,7 +95,7 @@ export default function VehiclesPage() {
     if (error && isMissingColumnError(error, 'drivers', 'status')) {
       query = supabase
         .from('drivers')
-        .select('id, display_name')
+        .select('id, display_name, user_id')
         .eq('company_id', companyId)
         .order('display_name');
       ({ data, error } = await query);
@@ -131,15 +135,27 @@ export default function VehiclesPage() {
     if (!companyId) { setError('Company is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
     const payloadKg = formData.payload_kg ? Number.parseFloat(formData.payload_kg) : null;
+    const maxWeightKg = Number.parseFloat(formData.max_weight_kg);
     if (payloadKg !== null && (!Number.isFinite(payloadKg) || payloadKg < 0)) {
       setError('Payload must be a valid positive number.');
       return;
     }
+    if (!Number.isFinite(maxWeightKg) || maxWeightKg <= 0) {
+      setError('Maximum authorised mass (MAM) is required for vehicle compliance.');
+      return;
+    }
     setCreating(true);
     try {
-      const assignedDriverId = !isDriverWorkspace && drivers.some((driver) => driver.id === formData.assigned_driver_id)
-        ? formData.assigned_driver_id
-        : '';
+      const ownDriverId = isDriverWorkspace ? drivers.find((driver) => driver.user_id === user?.id)?.id ?? '' : '';
+      if (isDriverWorkspace && !ownDriverId) {
+        setError('Your active driver identity could not be resolved for this vehicle.');
+        return;
+      }
+      const assignedDriverId = isDriverWorkspace
+        ? ownDriverId
+        : drivers.some((driver) => driver.id === formData.assigned_driver_id)
+          ? formData.assigned_driver_id
+          : '';
       const insertPayload: Record<string, string | number | boolean | null> = {
         ...formData,
         company_id: companyId,
@@ -152,6 +168,8 @@ export default function VehiclesPage() {
         model: formData.model.trim() || null,
         manufacture_year: formData.manufacture_year ? parseInt(formData.manufacture_year, 10) : null,
         payload_kg: payloadKg,
+        max_weight_kg: maxWeightKg,
+        is_zero_emission: formData.is_zero_emission,
         assigned_driver_id: assignedDriverId || null,
       };
       logRuntimeProof({
@@ -179,7 +197,7 @@ export default function VehiclesPage() {
         return;
       }
       setShowModal(false);
-      setFormData({ type: 'van_large', reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', has_tail_lift: false, assigned_driver_id: '' });
+      setFormData({ type: 'van_large', reg_plate: '', make: '', model: '', manufacture_year: '', payload_kg: '', max_weight_kg: '3500', is_zero_emission: false, has_tail_lift: false, assigned_driver_id: '' });
       setError('');
       loadVehicles();
     } finally {
@@ -196,6 +214,8 @@ export default function VehiclesPage() {
       model: vehicle.model ?? '',
       manufacture_year: vehicle.manufacture_year != null ? String(vehicle.manufacture_year) : '',
       payload_kg: vehicle.payload_kg != null ? String(vehicle.payload_kg) : '',
+      max_weight_kg: vehicle.max_weight_kg != null ? String(vehicle.max_weight_kg) : String(defaultMamForVehicleType(vehicle.type) ?? ''),
+      is_zero_emission: vehicle.is_zero_emission ?? false,
       has_tail_lift: vehicle.has_tail_lift ?? false,
       assigned_driver_id: vehicle.assigned_driver_id ?? '',
     });
@@ -204,6 +224,11 @@ export default function VehiclesPage() {
 
   const handleUpdate = async () => {
     if (!editingVehicle || !companyId || !isSupabaseConfigured) return;
+    const maxWeightKg = Number.parseFloat(editData.max_weight_kg);
+    if (!Number.isFinite(maxWeightKg) || maxWeightKg <= 0) {
+      setEditError('Maximum authorised mass (MAM) is required for vehicle compliance.');
+      return;
+    }
     setSaving(true);
     const updatePayload: Record<string, string | number | boolean | null> = {
       type: editData.type,
@@ -215,8 +240,12 @@ export default function VehiclesPage() {
       model: editData.model.trim() || null,
       manufacture_year: editData.manufacture_year ? parseInt(editData.manufacture_year, 10) : null,
       payload_kg: editData.payload_kg ? parseFloat(editData.payload_kg) : null,
+      max_weight_kg: maxWeightKg,
+      is_zero_emission: editData.is_zero_emission,
       has_tail_lift: editData.has_tail_lift,
-      assigned_driver_id: isDriverWorkspace ? null : editData.assigned_driver_id || null,
+      assigned_driver_id: isDriverWorkspace
+        ? drivers.find((driver) => driver.user_id === user?.id)?.id ?? editingVehicle.assigned_driver_id ?? null
+        : editData.assigned_driver_id || null,
     };
     const { error } = await supabase
       .from('vehicles')
@@ -243,6 +272,8 @@ export default function VehiclesPage() {
     const parsed = new Date(value);
     return Number.isNaN(parsed.getTime()) ? '—' : parsed.toLocaleDateString();
   };
+  const createRequiresCpc = vehicleRequiresDriverCpc({ type: formData.type, maxWeightKg: formData.max_weight_kg, zeroEmission: formData.is_zero_emission });
+  const editRequiresCpc = vehicleRequiresDriverCpc({ type: editData.type, maxWeightKg: editData.max_weight_kg, zeroEmission: editData.is_zero_emission });
   const totalVehiclePages = Math.max(1, Math.ceil(vehicles.length / VEHICLES_PER_PAGE));
   const safeVehiclePage = Math.min(vehiclePage, totalVehiclePages - 1);
   const paginatedVehicles = vehicles.slice(
@@ -383,7 +414,7 @@ export default function VehiclesPage() {
                 </div>
                 <div>
                   <label style={labelStyle}>Vehicle Type *</label>
-                  <select style={inputStyle} value={formData.type} onChange={e => setFormData({...formData, type: e.target.value as VehicleType})}>
+                  <select style={inputStyle} value={formData.type} onChange={e => { const type = e.target.value as VehicleType; const inferredMam = defaultMamForVehicleType(type); setFormData({...formData, type, max_weight_kg: inferredMam ? String(inferredMam) : ''}); }}>
                     {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
                   </select>
                 </div>
@@ -394,6 +425,14 @@ export default function VehiclesPage() {
                   <div><label style={labelStyle}>Year</label><input style={inputStyle} type="number" min="1900" max="2100" value={formData.manufacture_year} onChange={e => setFormData({...formData, manufacture_year: e.target.value})} placeholder="2020" /></div>
                 </div>
                 <div><label style={labelStyle}>Payload (kg)</label><input style={inputStyle} type="number" value={formData.payload_kg} onChange={e => setFormData({...formData, payload_kg: e.target.value})} placeholder="1000" /></div>
+                <div><label style={labelStyle}>Maximum authorised mass (MAM) kg *</label><input style={inputStyle} type="number" min="1" value={formData.max_weight_kg} onChange={e => setFormData({...formData, max_weight_kg: e.target.value})} placeholder="3500" /></div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
+                  <input type="checkbox" checked={formData.is_zero_emission} onChange={e => setFormData({...formData, is_zero_emission: e.target.checked})} />
+                  Zero-emission electric / hydrogen vehicle
+                </label>
+                <div style={{ padding: '0.75rem', borderRadius: '8px', backgroundColor: createRequiresCpc ? '#fff7ed' : '#f0fdf4', color: createRequiresCpc ? '#9a3412' : '#166534', fontSize: '0.88rem' }}>
+                  {createRequiresCpc ? 'Driver CPC required when this vehicle is used for commercial transport.' : 'Driver CPC is not required for this vehicle under the current MAM/licence-category rule.'}
+                </div>
                 {!isDriverWorkspace && (
                   <div>
                     <label style={labelStyle}>Assign Driver</label>
@@ -428,7 +467,7 @@ export default function VehiclesPage() {
                 {editError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{editError}</div>}
                 <div>
                   <label style={labelStyle}>Vehicle Type *</label>
-                  <select style={inputStyle} value={editData.type} onChange={e => setEditData({...editData, type: e.target.value as VehicleType})}>
+                  <select style={inputStyle} value={editData.type} onChange={e => { const type = e.target.value as VehicleType; const inferredMam = defaultMamForVehicleType(type); setEditData({...editData, type, max_weight_kg: inferredMam ? String(inferredMam) : ''}); }}>
                     {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t.replace(/_/g, ' ')}</option>)}
                   </select>
                 </div>
@@ -439,6 +478,14 @@ export default function VehiclesPage() {
                   <div><label style={labelStyle}>Year</label><input style={inputStyle} type="number" min="1900" max="2100" value={editData.manufacture_year} onChange={e => setEditData({...editData, manufacture_year: e.target.value})} placeholder="2020" /></div>
                 </div>
                 <div><label style={labelStyle}>Payload (kg)</label><input style={inputStyle} type="number" value={editData.payload_kg} onChange={e => setEditData({...editData, payload_kg: e.target.value})} /></div>
+                <div><label style={labelStyle}>Maximum authorised mass (MAM) kg *</label><input style={inputStyle} type="number" min="1" value={editData.max_weight_kg} onChange={e => setEditData({...editData, max_weight_kg: e.target.value})} /></div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.95rem' }}>
+                  <input type="checkbox" checked={editData.is_zero_emission} onChange={e => setEditData({...editData, is_zero_emission: e.target.checked})} />
+                  Zero-emission electric / hydrogen vehicle
+                </label>
+                <div style={{ padding: '0.75rem', borderRadius: '8px', backgroundColor: editRequiresCpc ? '#fff7ed' : '#f0fdf4', color: editRequiresCpc ? '#9a3412' : '#166534', fontSize: '0.88rem' }}>
+                  {editRequiresCpc ? 'Driver CPC required when this vehicle is used for commercial transport.' : 'Driver CPC is not required for this vehicle under the current MAM/licence-category rule.'}
+                </div>
                 {!isDriverWorkspace && (
                   <div>
                     <label style={labelStyle}>Assign Driver</label>

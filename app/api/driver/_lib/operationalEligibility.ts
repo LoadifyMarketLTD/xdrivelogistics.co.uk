@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+import { selectBestCompatibleVehicle, vehicleRequiresDriverCpc } from '../../../../lib/driverCpc';
+
 type AdminClient = SupabaseClient;
 
 type DriverRow = {
@@ -19,7 +21,10 @@ type VehicleRow = {
   assigned_driver_id: string | null;
   status: string | null;
   type: string | null;
+  vehicle_type: string | null;
   reg_plate: string | null;
+  max_weight_kg: number | string | null;
+  is_zero_emission: boolean | null;
 };
 
 type VehicleDocumentRow = {
@@ -72,6 +77,7 @@ const dateIsCurrent = (value: string | null | undefined) => {
 export async function resolveDriverOperationalEligibility(
   supabaseAdmin: AdminClient,
   driverId: string,
+  options: { requestedVehicleType?: string | null; preferredVehicleId?: string | null } = {},
 ): Promise<DriverOperationalEligibility> {
   const blockers: string[] = [];
 
@@ -135,7 +141,7 @@ export async function resolveDriverOperationalEligibility(
     userId && companyId
       ? supabaseAdmin.from('company_memberships').select('company_id,user_id,status,role_in_company').eq('user_id', userId).eq('company_id', companyId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
-    supabaseAdmin.from('vehicles').select('id,company_id,assigned_driver_id,status,type,reg_plate').eq('assigned_driver_id', driver.id).eq('status', 'active').limit(3),
+    supabaseAdmin.from('vehicles').select('id,company_id,assigned_driver_id,status,type,vehicle_type,reg_plate,max_weight_kg,is_zero_emission').eq('assigned_driver_id', driver.id).eq('status', 'active').limit(100),
   ]);
 
   const firstError = identityResult.error ?? onboardingResult.error ?? companyResult.error ?? membershipResult.error ?? vehiclesResult.error;
@@ -210,12 +216,17 @@ export async function resolveDriverOperationalEligibility(
   const activeVehicles = ((vehiclesResult.data ?? []) as VehicleRow[])
     .filter((vehicle) => vehicle.assigned_driver_id === driver.id && normalise(vehicle.status) === 'active');
   const canonicalVehiclePresent = activeVehicles.length > 0;
-  const canonicalVehicleUnambiguous = activeVehicles.length === 1;
-  const canonicalVehicle = canonicalVehicleUnambiguous ? activeVehicles[0] : null;
+  const requestedVehicleType = options.requestedVehicleType?.trim() || null;
+  const preferredVehicleId = options.preferredVehicleId?.trim() || null;
+  const canonicalVehicle = preferredVehicleId
+    ? activeVehicles.find((vehicle) => vehicle.id === preferredVehicleId) ?? null
+    : selectBestCompatibleVehicle(activeVehicles, requestedVehicleType);
+  const canonicalVehicleUnambiguous = Boolean(canonicalVehicle);
   const vehicleActive = Boolean(canonicalVehicle);
 
   if (!canonicalVehiclePresent) blockers.push('canonical_vehicle_missing');
-  if (activeVehicles.length > 1) blockers.push('canonical_vehicle_ambiguous');
+  if (canonicalVehiclePresent && requestedVehicleType && !canonicalVehicle) blockers.push('compatible_vehicle_missing');
+  if (canonicalVehiclePresent && preferredVehicleId && !canonicalVehicle) blockers.push('preferred_vehicle_unavailable');
 
   let vehicleComplianceValid = false;
   if (canonicalVehicle) {
@@ -236,10 +247,47 @@ export async function resolveDriverOperationalEligibility(
     );
     const requiredVehicleDocs = ['mot', 'insurance'];
     const missingVehicleDocs = requiredVehicleDocs.filter((docType) => !validDocTypes.has(docType));
-    vehicleComplianceValid = missingVehicleDocs.length === 0;
     for (const docType of missingVehicleDocs) blockers.push(`vehicle_document_missing_or_invalid:${docType}`);
-  }
 
+    let driverCpcValid = true;
+    const requiresDriverCpc = vehicleRequiresDriverCpc({
+      type: canonicalVehicle.type ?? canonicalVehicle.vehicle_type,
+      maxWeightKg: canonicalVehicle.max_weight_kg,
+      zeroEmission: canonicalVehicle.is_zero_emission,
+    });
+    if (requiresDriverCpc) {
+      const [legacyDriverDocsResult, onboardingDriverDocsResult] = await Promise.all([
+        supabaseAdmin
+          .from('driver_documents')
+          .select('doc_type,status,expiry_date')
+          .eq('driver_id', driver.id),
+        onboarding?.id
+          ? supabaseAdmin
+              .from('driver_identity_documents')
+              .select('doc_type,verification_status,expiry_date')
+              .eq('onboarding_application_id', onboarding.id)
+          : Promise.resolve({ data: [], error: null }),
+      ]);
+      const cpcDocsError = legacyDriverDocsResult.error ?? onboardingDriverDocsResult.error;
+      if (cpcDocsError) throw new Error(cpcDocsError.message);
+      const legacyCpcValid = (legacyDriverDocsResult.data ?? []).some((document) => {
+        const docType = normaliseDocType(document.doc_type);
+        return ['cpc', 'cpccard'].includes(docType)
+          && normalise(document.status) === 'approved'
+          && (!document.expiry_date || dateIsCurrent(document.expiry_date));
+      });
+      const onboardingCpcValid = (onboardingDriverDocsResult.data ?? []).some((document) => {
+        const docType = normaliseDocType(document.doc_type);
+        return ['cpc', 'cpccard'].includes(docType)
+          && normalise(document.verification_status) === 'verified'
+          && (!document.expiry_date || dateIsCurrent(document.expiry_date));
+      });
+      driverCpcValid = legacyCpcValid || onboardingCpcValid;
+      if (!driverCpcValid) blockers.push('driver_document_missing_or_invalid:cpccard');
+    }
+
+    vehicleComplianceValid = missingVehicleDocs.length === 0 && driverCpcValid;
+  }
   return {
     eligible: blockers.length === 0,
     driverId: driver.id,

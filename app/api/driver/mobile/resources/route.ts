@@ -12,21 +12,13 @@ function publicArea(postcode: unknown) {
   return value ? `Approx. area · ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
 }
 
-async function loadQuoteReadiness(driverId: string, companyId: string) {
+async function loadQuoteReadiness(driverId: string) {
   try {
-    const [operational, complianceResult] = await Promise.all([
-      resolveDriverOperationalEligibility(supabaseAdmin!, driverId),
-      supabaseAdmin!.rpc('company_compliance_issues', { p_company_id: companyId, p_context: 'bid' }),
-    ]);
-    const complianceIssues = complianceResult.error
-      ? ['Compliance status could not be verified.']
-      : Array.isArray(complianceResult.data)
-        ? complianceResult.data.map((value) => String(value)).filter(Boolean)
-        : [];
+    const operational = await resolveDriverOperationalEligibility(supabaseAdmin!, driverId);
     return {
-      eligible: operational.eligible && complianceIssues.length === 0,
+      eligible: operational.eligible,
       blockers: operational.blockers,
-      issues: complianceIssues,
+      issues: [],
       checks: operational.checks,
       canonicalVehicleId: operational.canonicalVehicleId,
     };
@@ -78,7 +70,7 @@ export async function GET(request: NextRequest) {
     supabaseAdmin!.from('driver_documents').select('*').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin!.from('invoices').select('*').eq('created_by', context.userId).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin!.from('notification_events').select('id,event_type,entity_type,entity_id,payload,status,created_at').eq('recipient_user_id', context.userId).order('created_at', { ascending: false }).limit(100),
-    loadQuoteReadiness(context.driverId, context.companyId),
+    loadQuoteReadiness(context.driverId),
   ]);
 
   const firstError = driverResult.error ?? bidsResult.error ?? documentsResult.error ?? invoicesResult.error ?? alertsResult.error;

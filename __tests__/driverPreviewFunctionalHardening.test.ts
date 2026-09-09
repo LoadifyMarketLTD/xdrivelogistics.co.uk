@@ -21,9 +21,9 @@ describe('driver preview functional hardening', () => {
     expect(eligibility).toContain('exchangeExpired(job.exchange_expires_at) || exchangeExpired(job.pickup_datetime)');
   });
 
-  it('exposes authoritative quote readiness from operational and compliance guards', () => {
+  it('exposes vehicle-specific quote readiness without a company-wide CPC gate', () => {
     expect(resources).toContain('resolveDriverOperationalEligibility');
-    expect(resources).toContain('company_compliance_issues');
+    expect(resources).not.toContain('company_compliance_issues');
     expect(resources).toContain('quoteReadiness,');
   });
 

@@ -38,6 +38,7 @@ type QuoteVehicleSnapshot = {
   equipment: string[];
   palletsCapacity: number | null;
   payloadKg: number | null;
+  maxWeightKg: number | null;
 };
 
 const BID_SELECT = 'id, status, bidder_driver_id, bidder_user_id, amount, bid_price_gbp, base_amount, additional_extras_gbp, collect_within_minutes, message';
@@ -132,7 +133,7 @@ async function loadCanonicalVehicleSnapshot(
   if (!vehicleId) return { snapshot: null, error: 'A canonical active vehicle is required before quoting.' };
   const { data, error } = await supabaseAdmin
     .from('vehicles')
-    .select('id,company_id,assigned_driver_id,status,type,equipment,pallets_capacity,payload_kg')
+    .select('id,company_id,assigned_driver_id,status,type,equipment,pallets_capacity,payload_kg,max_weight_kg')
     .eq('id', vehicleId)
     .eq('assigned_driver_id', driver.driverId)
     .eq('status', 'active')
@@ -148,6 +149,7 @@ async function loadCanonicalVehicleSnapshot(
       equipment: Array.isArray(data.equipment) ? data.equipment.map(String).slice(0, 50) : [],
       palletsCapacity: Number.isFinite(Number(data.pallets_capacity)) ? Number(data.pallets_capacity) : null,
       payloadKg: Number.isFinite(Number(data.payload_kg)) ? Number(data.payload_kg) : null,
+      maxWeightKg: Number.isFinite(Number(data.max_weight_kg)) ? Number(data.max_weight_kg) : null,
     },
     error: null,
   };
@@ -278,7 +280,7 @@ export async function submitDriverQuote(
       quote_vehicle_type: vehicle.type,
       quote_vehicle_equipment: vehicle.equipment,
       quote_vehicle_max_pallets: vehicle.palletsCapacity,
-      quote_vehicle_max_weight_kg: vehicle.payloadKg,
+      quote_vehicle_max_weight_kg: vehicle.maxWeightKg,
     })
     .select('id')
     .single();
