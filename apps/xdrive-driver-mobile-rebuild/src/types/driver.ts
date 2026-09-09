@@ -29,6 +29,8 @@ export type DriverJob = {
   deliveryLocation: string;
   pickupTime: string;
   deliveryTime: string;
+  pickupTiming?: string;
+  deliveryTiming?: string;
   cargoType: string;
   vehicleRequirement: string;
   price: string;

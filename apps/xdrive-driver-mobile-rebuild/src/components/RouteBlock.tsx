@@ -3,7 +3,7 @@ import { StyleSheet } from 'react-native';
 import { Text, View } from '../theme/primitives';
 import { colors, spacing } from '../theme/tokens';
 
-export function RouteBlock({ pickup, delivery }: { pickup: string; delivery: string }) {
+export function RouteBlock({ pickup, delivery, pickupTiming, deliveryTiming }: { pickup: string; delivery: string; pickupTiming?: string; deliveryTiming?: string }) {
   return (
     <View style={styles.wrap}>
       <View style={styles.iconColumn}>
@@ -13,11 +13,11 @@ export function RouteBlock({ pickup, delivery }: { pickup: string; delivery: str
       </View>
       <View style={styles.addressColumn}>
         <View style={styles.addressPill}>
-          <Text style={styles.title}>Pickup <Text style={styles.green}>(Collection)</Text></Text>
+          <Text style={styles.title}>Pickup <Text style={styles.green}>({pickupTiming || 'Collection'})</Text></Text>
           <Text style={styles.sub} numberOfLines={2}>{pickup}</Text>
         </View>
         <View style={styles.addressPill}>
-          <Text style={styles.title}>Delivery <Text style={styles.green}>(Drop Off)</Text></Text>
+          <Text style={styles.title}>Delivery <Text style={styles.green}>({deliveryTiming || 'Drop Off'})</Text></Text>
           <Text style={styles.sub} numberOfLines={2}>{delivery}</Text>
         </View>
       </View>

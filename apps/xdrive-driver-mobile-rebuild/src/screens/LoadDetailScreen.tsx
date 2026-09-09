@@ -6,7 +6,7 @@ import { Pressable, ScrollView, Text, TextInput, View } from '../theme/primitive
 import type { DriverJob, DriverQuoteReadiness } from '../types/driver';
 import { RouteBlock } from '../components/RouteBlock';
 import { colors, radius, shadow, spacing } from '../theme/tokens';
-import { formatDeliveryDate } from '../utils/format';
+import { formatDeliveryDate, formatRouteTime } from '../utils/format';
 import { isQuoteWindowOpen, quoteReadinessMessage } from '../api/driver';
 
 export function LoadDetailScreen({ job, busy, existingQuote, quoteReadiness, onBack, onOpenDocuments, onQuote }: {
@@ -57,13 +57,11 @@ export function LoadDetailScreen({ job, busy, existingQuote, quoteReadiness, onB
           </View>
           {job.postedAt ? <Text style={[styles.date, { color: adaptive.muted }]}>Posted {formatDeliveryDate(job.postedAt)}</Text> : null}
         </View>
-        <View style={[styles.routePanel, { backgroundColor: adaptive.routePanel }]}><RouteBlock pickup={job.pickupLocation} delivery={job.deliveryLocation} /></View>
+        <View style={[styles.routePanel, { backgroundColor: adaptive.routePanel }]}><RouteBlock pickup={job.pickupLocation} delivery={job.deliveryLocation} pickupTiming={formatRouteTime(job.pickupTiming ?? job.pickupTime)} deliveryTiming={formatRouteTime(job.deliveryTiming ?? job.deliveryTime)} /></View>
         <View style={[styles.infoBand, { backgroundColor: adaptive.info }]}>
           {job.postingCompanyName ? <InfoRow adaptive={adaptive} label="Posted by" value={job.postingCompanyName} /> : null}
           <InfoRow adaptive={adaptive} label="Vehicle" value={job.vehicleRequirement} />
           <InfoRow adaptive={adaptive} label="Cargo" value={job.cargoType} />
-          <InfoRow adaptive={adaptive} label="Collection" value={formatDeliveryDate(job.pickupTime)} />
-          <InfoRow adaptive={adaptive} label="Delivery" value={formatDeliveryDate(job.deliveryTime)} />
           {job.distanceToPickupMiles != null ? <InfoRow adaptive={adaptive} label="Distance to pickup" value={`${job.distanceToPickupMiles.toFixed(1)} miles`} /> : null}
           {job.journeyDistanceMiles != null ? <InfoRow adaptive={adaptive} label="Journey distance" value={`${job.journeyDistanceMiles.toFixed(1)} miles`} /> : null}
           {job.estimatedJourneyMinutes != null ? <InfoRow adaptive={adaptive} label="Estimated journey" value={`${Math.round(job.estimatedJourneyMinutes)} min`} /> : null}
