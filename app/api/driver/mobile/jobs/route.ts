@@ -54,8 +54,28 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
 
+  const rows = (data ?? []) as unknown as MobileJobRow[];
+  const companyIds = Array.from(new Set(rows.map((row) => row.company_id).filter((id): id is string => Boolean(id))));
+  const companyById = new Map<string, { name: string | null; xd_id: string | null }>();
+  if (companyIds.length > 0) {
+    const { data: companies } = await supabaseAdmin
+      .from('companies')
+      .select('id,name,xd_id')
+      .in('id', companyIds);
+    for (const company of companies ?? []) {
+      companyById.set(String(company.id), { name: company.name ?? null, xd_id: company.xd_id ?? null });
+    }
+  }
+
   return respond(200, {
     scope,
-    jobs: ((data ?? []) as unknown as MobileJobRow[]).map(mapJob),
+    jobs: rows.map((row) => {
+      const company = row.company_id ? companyById.get(row.company_id) : undefined;
+      return {
+        ...mapJob(row),
+        postingCompanyName: company?.name ?? null,
+        postingCompanyMemberCode: company?.xd_id ?? null,
+      };
+    }),
   });
 }
