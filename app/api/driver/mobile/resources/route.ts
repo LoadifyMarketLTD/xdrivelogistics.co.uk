@@ -150,7 +150,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unsupported action.' }, { status: 400 });
   }
 
-  const docType = String(body.docType ?? '').trim().slice(0, 100);
+  const docType = String(body.docType ?? '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 100);
+  const allowedDocTypes = new Set(['drivinglicence', 'cpccard', 'insurance']);
+  if (!allowedDocTypes.has(docType)) {
+    return NextResponse.json({ error: 'Unsupported driver compliance document type.' }, { status: 400 });
+  }
   const fileName = String(body.fileName ?? 'document').replace(/[^a-zA-Z0-9._-]/g, '-').slice(0, 160);
   const mimeType = String(body.mimeType ?? 'application/octet-stream');
   const base64 = typeof body.base64 === 'string' ? body.base64 : '';

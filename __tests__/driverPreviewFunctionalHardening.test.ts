@@ -23,4 +23,12 @@ describe('driver preview functional hardening', () => {
     expect(resources).toContain('company_compliance_issues');
     expect(resources).toContain('quoteReadiness,');
   });
+
+  it('only accepts canonical compliance document uploads', () => {
+    expect(resources).toContain("new Set(['drivinglicence', 'cpccard', 'insurance'])");
+    expect(resources).toContain('Unsupported driver compliance document type.');
+    expect(resources).toContain("storage.from('driver-docs').upload");
+    expect(resources).toContain("status: 'pending'");
+  });
+
 });
