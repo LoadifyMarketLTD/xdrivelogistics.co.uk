@@ -54,6 +54,7 @@ async function resolveAuthToken(explicitToken?: string | null): Promise<string |
 
 function normalizeMobileStatus(value: unknown) {
   const status = String(value ?? '').trim().toLowerCase();
+  if (['cancelled', 'canceled'].includes(status)) return 'cancelled';
   if (['awarded', 'allocated', 'accepted', 'assigned'].includes(status)) return 'awarded';
   if (['on_my_way', 'on_my_way_to_pickup', 'on_my_way_pickup'].includes(status)) return 'on_my_way_pickup';
   if (['on_site_pickup', 'arrived_pickup'].includes(status)) return 'arrived_pickup';
@@ -67,7 +68,7 @@ function normalizeMobileStatus(value: unknown) {
 function normalizeMobileJob(value: unknown) {
   if (!value || typeof value !== 'object') return value;
   const job = value as Record<string, unknown>;
-  return { ...job, status: normalizeMobileStatus(job.status) };
+  return { ...job, status: normalizeMobileStatus(job.current_status ?? job.status) };
 }
 
 function normalizeKnownPayload(normalizedPath: string, payload: unknown) {

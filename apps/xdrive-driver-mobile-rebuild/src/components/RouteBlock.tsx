@@ -1,5 +1,6 @@
 import { UiIcon as Ionicons } from './UiIcon';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Text, View } from '../theme/primitives';
 import { colors, spacing } from '../theme/tokens';
 
 export function RouteBlock({ pickup, delivery }: { pickup: string; delivery: string }) {
@@ -32,7 +33,7 @@ const styles = StyleSheet.create({
   dash: { width: 1, height: 18, borderStyle: 'dashed', borderWidth: 1, borderColor: colors.black },
   addressColumn: { flex: 1, gap: 12 },
   addressPill: { borderWidth: 1, borderColor: colors.border, borderRadius: 24, paddingHorizontal: 15, paddingVertical: 8, minHeight: 54 },
-  title: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.text },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
   green: { color: colors.primary },
-  sub: { marginTop: 2, fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.muted },
+  sub: { marginTop: 3, fontFamily: 'Inter_700Bold', fontSize: 14, lineHeight: 19, color: '#334155' },
 });

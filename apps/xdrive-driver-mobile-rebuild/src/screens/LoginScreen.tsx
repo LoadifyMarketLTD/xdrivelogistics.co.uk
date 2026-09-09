@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ActivityIndicator, KeyboardAvoidingView, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
+import { ActivityIndicator, KeyboardAvoidingView, Pressable, Text, TextInput, View } from '../theme/primitives';
 import { supabase } from '../auth/supabase';
 import { colors, radius, shadow, spacing } from '../theme/tokens';
 
@@ -37,16 +38,16 @@ export function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.appBackground, justifyContent: 'center', padding: spacing.lg },
-  logo: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.primary, alignSelf: 'center', alignItems: 'center', justifyContent: 'center' },
-  logoText: { fontFamily: 'Inter_700Bold', fontSize: 22, color: colors.surface },
+  page: { flex: 1, backgroundColor: '#0B2F6B', justifyContent: 'center', padding: spacing.lg },
+  logo: { width: 64, height: 64, borderRadius: 32, backgroundColor: '#F5A300', alignSelf: 'center', alignItems: 'center', justifyContent: 'center' },
+  logoText: { fontFamily: 'Inter_700Bold', fontSize: 22, color: '#0B2F6B' },
   brand: { marginTop: 14, fontFamily: 'Inter_700Bold', fontSize: 24, color: colors.surface, textAlign: 'center' },
-  subtitle: { marginTop: 6, marginBottom: 22, fontFamily: 'Inter_400Regular', fontSize: 13, color: '#EFEFEF', textAlign: 'center' },
+  subtitle: { marginTop: 6, marginBottom: 22, fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#EFEFEF', textAlign: 'center' },
   card: { backgroundColor: colors.surface, borderRadius: radius.medium, padding: spacing.lg, gap: 10, ...shadow },
   label: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.text },
-  input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.small, paddingHorizontal: 12, fontFamily: 'Inter_400Regular', fontSize: 14, backgroundColor: colors.surface },
-  error: { color: colors.danger, fontFamily: 'Inter_400Regular', fontSize: 12 },
-  button: { marginTop: 8, minHeight: 50, borderRadius: radius.pill, backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center' },
+  input: { minHeight: 48, borderWidth: 1, borderColor: colors.border, borderRadius: radius.small, paddingHorizontal: 12, fontFamily: 'Inter_600SemiBold', fontSize: 14, backgroundColor: colors.surface },
+  error: { color: colors.danger, fontFamily: 'Inter_600SemiBold', fontSize: 12 },
+  button: { marginTop: 8, minHeight: 50, borderRadius: radius.pill, backgroundColor: '#16A34A', alignItems: 'center', justifyContent: 'center' },
   buttonText: { fontFamily: 'Inter_700Bold', color: colors.surface, fontSize: 14 },
   disabled: { opacity: 0.5 },
 });

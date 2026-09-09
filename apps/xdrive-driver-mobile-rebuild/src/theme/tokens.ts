@@ -1,8 +1,8 @@
 export const colors = {
-  appBackground: '#8B8B8B',
+  appBackground: '#F1F3F6',
   surface: '#FFFFFF',
-  text: '#111111',
-  muted: '#8A8A8A',
+  text: '#172033',
+  muted: '#475569',
   border: '#C9C9C9',
   primary: '#2DA15F',
   primaryDark: '#23834C',

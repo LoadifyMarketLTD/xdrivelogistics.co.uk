@@ -19,7 +19,7 @@ const config: ExpoConfig = {
     },
     permissions: ['CAMERA', 'POST_NOTIFICATIONS', 'ACCESS_NETWORK_STATE']
   },
-  plugins: ['expo-secure-store', 'expo-asset'],
+  plugins: ['expo-secure-store', 'expo-asset', 'expo-document-picker'],
   extra: {
     apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? 'https://deploy-preview-510--xdrivelogistics.netlify.app',
     supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL ?? 'https://jqxlauexhkonixtjvljw.supabase.co',

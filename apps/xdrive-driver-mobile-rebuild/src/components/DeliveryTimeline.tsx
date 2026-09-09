@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Text, View } from '../theme/primitives';
 import type { CanonicalJobStatus } from '../types/driver';
 import { colors } from '../theme/tokens';
 
@@ -13,7 +14,7 @@ const stages: Array<{ status: CanonicalJobStatus; label: string }> = [
 ];
 
 export function DeliveryTimeline({ status }: { status: CanonicalJobStatus }) {
-  if (status === 'available') return null;
+  if (status === 'available' || status === 'cancelled') return null;
   const activeIndex = Math.max(0, stages.findIndex((item) => item.status === status));
   return <View style={styles.wrap}>
     <Text style={styles.heading}>Delivery progress</Text>
@@ -33,6 +34,6 @@ const styles = StyleSheet.create({
   dotActive: { backgroundColor: colors.primary },
   line: { width: 2, flex: 1, minHeight: 22, marginVertical: 2, backgroundColor: '#E1E1E1' },
   lineActive: { backgroundColor: colors.primary },
-  label: { flex: 1, paddingBottom: 12, fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.muted },
+  label: { flex: 1, paddingBottom: 12, fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.muted },
   labelActive: { fontFamily: 'Inter_600SemiBold', color: colors.text },
 });
