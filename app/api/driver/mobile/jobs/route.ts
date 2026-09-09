@@ -2,6 +2,11 @@ import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond } from '../_lib';
 
+function publicArea(postcode: string | null) {
+  const value = String(postcode ?? '').trim().toUpperCase();
+  return value ? 'Approx. area \u00B7 ' + value.split(/\s+/)[0] : 'Area disclosed in job details';
+}
+
 const scopes: Record<string, string[]> = {
   active: [
     'awarded',
@@ -71,8 +76,24 @@ export async function GET(request: NextRequest) {
     scope,
     jobs: rows.map((row) => {
       const company = row.company_id ? companyById.get(row.company_id) : undefined;
+      const displayRow: MobileJobRow = completedHistory
+        ? {
+            ...row,
+            pickup_location: publicArea(row.pickup_postcode),
+            delivery_location: publicArea(row.delivery_postcode),
+            collection_contact_name: null,
+            collection_contact_phone: null,
+            delivery_contact_name: null,
+            delivery_contact_phone: null,
+            client_name: null,
+            client_phone: null,
+            load_details: null,
+            special_requirements: null,
+            access_restrictions: null,
+          }
+        : row;
       return {
-        ...mapJob(row),
+        ...mapJob(displayRow),
         postingCompanyName: company?.name ?? null,
         postingCompanyMemberCode: company?.xd_id ?? null,
       };

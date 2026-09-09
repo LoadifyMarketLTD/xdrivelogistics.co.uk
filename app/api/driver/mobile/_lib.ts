@@ -118,6 +118,8 @@ export type MobileJobRow = {
   awarded_carrier_company_id: string | null;
   pickup_location: string | null;
   delivery_location: string | null;
+  pickup_postcode: string | null;
+  delivery_postcode: string | null;
   pickup_datetime: string | null;
   delivery_datetime: string | null;
   vehicle_type: string | null;
@@ -221,6 +223,8 @@ export const jobSelect = [
   'awarded_carrier_company_id',
   'pickup_location',
   'delivery_location',
+  'pickup_postcode',
+  'delivery_postcode',
   'pickup_datetime',
   'delivery_datetime',
   'vehicle_type',
