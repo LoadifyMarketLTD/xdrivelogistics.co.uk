@@ -35,16 +35,17 @@ describe('driver preview functional hardening', () => {
     expect(resources).toContain("status: 'pending'");
   });
 
-  it('allows explicit RC aliases only through the staging preview device policy', () => {
+  it('allows the preview package only through the explicit staging device policy', () => {
     for (const source of [mobileLib, deviceGate, deviceSession]) {
-      expect(source).toContain('driver-rc\\d+');
-      expect(source).toContain("process.env.APP_ENV !== 'staging'");
+      expect(source).toContain('co.uk.xdrivelogistics.driver.preview');
+      expect(source).toContain('XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS');
+      expect(source).toContain('APP_ENV');
+      expect(source).toContain('staging');
+      expect(source).not.toContain('process.env.CONTEXT');
     }
-    expect(mobileLib).toContain("process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS !== 'true'");
-    expect(deviceSession).toContain("process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS === 'true'");
-    expect(mobileLib).toContain('process.env.CONTEXT');
-    expect(deviceGate).toContain('process.env.CONTEXT');
-    expect(deviceSession).toContain('process.env.CONTEXT');
+    expect(mobileLib).toContain("process.env.APP_ENV !== 'staging'");
+    expect(deviceGate).toContain("process.env.APP_ENV !== 'staging'");
+    expect(deviceSession).toContain("process.env.APP_ENV === 'staging'");
   });
   it('exposes XDrive public company IDs instead of Companies House numbers in driver mobile APIs', () => {
     for (const source of [nearby, resources, jobDetail]) {

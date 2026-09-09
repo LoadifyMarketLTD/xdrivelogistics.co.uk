@@ -10,7 +10,6 @@ import {
 
 const CANONICAL_ANDROID_PACKAGE = 'co.uk.xdrivelogistics.driver';
 const PREVIEW_ANDROID_PACKAGE = 'co.uk.xdrivelogistics.driver.preview';
-const HOSTED_PREVIEW_HOST_RE = /^(?:deploy-preview-\d+|driver-rc\d+)--xdrivelogistics\.netlify\.app$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function sessionIdAfterValidation(token: string): string | null {
@@ -29,32 +28,11 @@ function isLoopbackRequest(request: NextRequest) {
   return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '::1';
 }
 
-function normalizeHost(value: string | null | undefined) {
-  const raw = String(value ?? '').trim().toLowerCase();
-  if (!raw) return '';
-  try {
-    return new URL(raw.includes('://') ? raw : `https://${raw}`).hostname.toLowerCase();
-  } catch {
-    return raw.split(':')[0] ?? '';
-  }
-}
-
-function isHostedPreviewRequest(request: NextRequest) {
-  if (process.env.APP_ENV !== 'staging') return false;
-  if (String(process.env.CONTEXT ?? '').trim().toLowerCase() === 'deploy-preview') return true;
-  const hostnames = [
-    request.nextUrl.hostname,
-    request.headers.get('x-forwarded-host'),
-    request.headers.get('host'),
-    process.env.DEPLOY_PRIME_URL,
-  ].map(normalizeHost).filter(Boolean);
-  return hostnames.some((hostname) => HOSTED_PREVIEW_HOST_RE.test(hostname));
-}
-
 function allowPreviewWithoutRegistryWrite(request: NextRequest, appPackage: string) {
   if (appPackage !== PREVIEW_ANDROID_PACKAGE) return false;
   if (process.env.XDRIVE_LOCAL_PREVIEW_DEVICE_BYPASS === 'true' && isLoopbackRequest(request)) return true;
-  return process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS === 'true' && isHostedPreviewRequest(request);
+  return process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS === 'true'
+    && process.env.APP_ENV === 'staging';
 }
 
 async function authenticatedDriver(request: NextRequest) {
