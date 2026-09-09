@@ -306,6 +306,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}, d
       latitude: null,
       longitude: null,
       collectionFrom: row.pickup_datetime || row.pickup_time_slot || null,
+      timeSlot: row.pickup_time_slot || null,
       collectionTo: null,
     },
     delivery: {
@@ -314,6 +315,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}, d
       latitude: null,
       longitude: null,
       deliveryFrom: row.delivery_datetime || row.delivery_time_slot || null,
+      timeSlot: row.delivery_time_slot || null,
       deliveryTo: null,
     },
     vehicleType: row.requested_vehicle_label || row.requested_vehicle_type || row.vehicle_type || null,

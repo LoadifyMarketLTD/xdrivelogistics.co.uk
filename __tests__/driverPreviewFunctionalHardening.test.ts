@@ -49,6 +49,11 @@ describe('driver preview functional hardening', () => {
     expect(deviceGate).toContain('explicitBypass || previewContext || previewHost');
     expect(deviceSession).toContain('explicitBypass || previewContext || previewHost');
   });
+  it('preserves the poster-selected pickup and delivery time slots for mobile display', () => {
+    expect(nearby).toContain('timeSlot: row.pickup_time_slot || null');
+    expect(nearby).toContain('timeSlot: row.delivery_time_slot || null');
+  });
+
   it('exposes XDrive public company IDs instead of Companies House numbers in driver mobile APIs', () => {
     for (const source of [nearby, resources, jobDetail]) {
       expect(source).toContain('xd_id');
