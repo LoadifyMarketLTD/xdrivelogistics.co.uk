@@ -54,6 +54,7 @@ type NearbyJobRow = {
   job_distance_minutes: number | null;
   distance_to_pickup_miles: number | string | null;
   exchange_posted_at: string | null;
+  exchange_expires_at: string | null;
   companies?: { name?: string | null; company_number?: string | null } | Array<{ name?: string | null; company_number?: string | null }> | null;
 };
 
@@ -107,6 +108,7 @@ const nearbySelect = [
   'job_distance_miles',
   'job_distance_minutes',
   'exchange_posted_at',
+  'exchange_expires_at',
   'companies:companies!jobs_company_id_fkey(name,company_number)',
 ].join(',');
 
@@ -337,7 +339,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}, d
     },
     canQuote: true,
     canSave: true,
-    expiresAt: null,
+    expiresAt: row.exchange_expires_at,
     pickupCountryCode: row.pickup_country_code || 'GB',
     deliveryCountryCode: row.delivery_country_code || 'GB',
     serviceMode: row.service_mode || null,
@@ -396,6 +398,13 @@ function jobTime(value: unknown) {
   return Number.isNaN(date.getTime()) ? null : date.getTime();
 }
 
+function isMarketplaceJobCurrent(row: NearbyJobRow, nowMs = Date.now()) {
+  const pickupMs = jobTime(row.pickup_datetime || row.pickup_time_slot);
+  const expiryMs = jobTime(row.exchange_expires_at);
+  return (pickupMs === null || pickupMs > nowMs)
+    && (expiryMs === null || expiryMs > nowMs);
+}
+
 function isInternational(row: NearbyJobRow) {
   return String(row.delivery_country_code || 'GB').toUpperCase() !== 'GB';
 }
@@ -427,7 +436,7 @@ export async function GET(request: NextRequest) {
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
 
-  const rows = (data ?? []) as unknown as NearbyJobRow[];
+  const rows = ((data ?? []) as unknown as NearbyJobRow[]).filter((row) => isMarketplaceJobCurrent(row));
   const stopRows = await fetchPublicJobStops(rows.map((row) => row.id));
   const districts = await postcodeDistricts([
     ...rows.flatMap((row) => [row.pickup_postcode, row.delivery_postcode]),

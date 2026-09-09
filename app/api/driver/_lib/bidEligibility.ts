@@ -24,6 +24,7 @@ type BidEligibilityJob = {
   status: string | null;
   exchange_visibility: string | null;
   exchange_expires_at: string | null;
+  pickup_datetime: string | null;
   direct_invite_company_id: string | null;
   assigned_company_id: string | null;
   assigned_driver_id: string | null;
@@ -82,7 +83,7 @@ export async function resolveDriverBidEligibility(
     resolveDriverOperationalEligibility(supabaseAdmin, driver.driverId),
     supabaseAdmin
       .from('jobs')
-      .select('id,company_id,status,exchange_visibility,exchange_expires_at,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount')
+      .select('id,company_id,status,exchange_visibility,exchange_expires_at,pickup_datetime,direct_invite_company_id,assigned_company_id,assigned_driver_id,awarded_carrier_company_id,is_fixed_price,budget_amount')
       .eq('id', jobId)
       .maybeSingle(),
   ]);
@@ -99,7 +100,7 @@ export async function resolveDriverBidEligibility(
   const ownCompanyJob = !!job && Boolean(driver.companyId) && job.company_id === driver.companyId;
   const assigned = !!job && (Boolean(job.assigned_company_id) || Boolean(job.assigned_driver_id));
   const awarded = !!job && Boolean(job.awarded_carrier_company_id);
-  const expired = !!job && exchangeExpired(job.exchange_expires_at);
+  const expired = !!job && (exchangeExpired(job.exchange_expires_at) || exchangeExpired(job.pickup_datetime));
 
   let hasActiveBid = false;
   if (job) {

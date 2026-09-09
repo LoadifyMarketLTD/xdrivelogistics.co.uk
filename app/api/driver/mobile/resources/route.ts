@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { resolveDriverOperationalEligibility } from '../../_lib/operationalEligibility';
 import { isDriverContext, requireDriver } from '../_lib';
 
 type AnyRow = Record<string, unknown>;
@@ -9,6 +10,35 @@ type AnyRow = Record<string, unknown>;
 function publicArea(postcode: unknown) {
   const value = String(postcode ?? '').trim().toUpperCase();
   return value ? `Approx. area · ${value.split(/\s+/)[0]}` : 'Area disclosed after allocation';
+}
+
+async function loadQuoteReadiness(driverId: string, companyId: string) {
+  try {
+    const [operational, complianceResult] = await Promise.all([
+      resolveDriverOperationalEligibility(supabaseAdmin!, driverId),
+      supabaseAdmin!.rpc('company_compliance_issues', { p_company_id: companyId, p_context: 'bid' }),
+    ]);
+    const complianceIssues = complianceResult.error
+      ? ['Compliance status could not be verified.']
+      : Array.isArray(complianceResult.data)
+        ? complianceResult.data.map((value) => String(value)).filter(Boolean)
+        : [];
+    return {
+      eligible: operational.eligible && complianceIssues.length === 0,
+      blockers: operational.blockers,
+      issues: complianceIssues,
+      checks: operational.checks,
+      canonicalVehicleId: operational.canonicalVehicleId,
+    };
+  } catch {
+    return {
+      eligible: false,
+      blockers: ['quote_readiness_unavailable'],
+      issues: ['Quote readiness could not be verified.'],
+      checks: null,
+      canonicalVehicleId: null,
+    };
+  }
 }
 
 function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null) {
@@ -41,12 +71,13 @@ export async function GET(request: NextRequest) {
   const context = await requireDriver(request);
   if (!isDriverContext(context)) return context;
 
-  const [driverResult, bidsResult, documentsResult, invoicesResult, alertsResult] = await Promise.all([
+  const [driverResult, bidsResult, documentsResult, invoicesResult, alertsResult, quoteReadiness] = await Promise.all([
     supabaseAdmin!.from('drivers').select('*').eq('id', context.driverId).maybeSingle(),
     supabaseAdmin!.from('job_bids').select('*').or(`bidder_user_id.eq.${context.userId},bidder_driver_id.eq.${context.driverId}`).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin!.from('driver_documents').select('*').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin!.from('invoices').select('*').eq('created_by', context.userId).order('created_at', { ascending: false }).limit(100),
     supabaseAdmin!.from('notification_events').select('id,event_type,entity_type,entity_id,payload,status,created_at').eq('recipient_user_id', context.userId).order('created_at', { ascending: false }).limit(100),
+    loadQuoteReadiness(context.driverId, context.companyId),
   ]);
 
   const firstError = driverResult.error ?? bidsResult.error ?? documentsResult.error ?? invoicesResult.error ?? alertsResult.error;
@@ -106,6 +137,7 @@ export async function GET(request: NextRequest) {
       documents: [...(documentsResult.data ?? []), ...(vehicleDocumentsResult.data ?? [])],
       invoices: invoicesResult.data ?? [],
       alerts: alertsResult.data ?? [],
+      quoteReadiness,
     },
   });
 }
