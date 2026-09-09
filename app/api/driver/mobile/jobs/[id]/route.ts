@@ -245,7 +245,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ?? text(acceptedBid.created_at);
 
   const postingCompanyName = text(company.name) ?? text(job.booked_by_company_name) ?? 'Marketplace member';
-  const postingCompanyMemberCode = text(company.company_number);
+  const postingCompanyMemberCode = text(company.xd_id);
   const postingCompanyPhone = text(company.phone);
 
   const customerReference = text(job.customer_reference) ?? text(references?.customerReference);

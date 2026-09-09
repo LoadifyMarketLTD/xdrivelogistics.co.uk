@@ -55,7 +55,7 @@ type NearbyJobRow = {
   distance_to_pickup_miles: number | string | null;
   exchange_posted_at: string | null;
   exchange_expires_at: string | null;
-  companies?: { name?: string | null; company_number?: string | null } | Array<{ name?: string | null; company_number?: string | null }> | null;
+  companies?: { name?: string | null; xd_id?: string | null } | Array<{ name?: string | null; xd_id?: string | null }> | null;
 };
 
 const nearbySelect = [
@@ -109,7 +109,7 @@ const nearbySelect = [
   'job_distance_minutes',
   'exchange_posted_at',
   'exchange_expires_at',
-  'companies:companies!jobs_company_id_fkey(name,company_number)',
+  'companies:companies!jobs_company_id_fkey(name,xd_id)',
 ].join(',');
 
 function numberOrNull(value: unknown) {
@@ -298,7 +298,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}, d
   return {
     id: row.id,
     publicReference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
-    poster: { name: company?.name ?? null, memberCode: company?.company_number ?? null },
+    poster: { name: company?.name ?? null, memberCode: company?.xd_id ?? null },
     posterCompanyName: company?.name ?? null,
     pickup: {
       addressSummary: publicMarketplaceLocation(row.pickup_location, row.pickup_city, row.pickup_postcode, districts.get(postcodeKey(row.pickup_postcode)), 'Collection area'),

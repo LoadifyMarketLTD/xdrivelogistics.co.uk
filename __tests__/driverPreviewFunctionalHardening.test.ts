@@ -5,6 +5,7 @@ describe('driver preview functional hardening', () => {
   const nearby = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/nearby-jobs/route.ts'), 'utf8');
   const eligibility = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/_lib/bidEligibility.ts'), 'utf8');
   const resources = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/resources/route.ts'), 'utf8');
+  const jobDetail = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/jobs/[id]/route.ts'), 'utf8');
   const mobileLib = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/_lib.ts'), 'utf8');
   const deviceGate = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/_deviceSessionGate.ts'), 'utf8');
   const deviceSession = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/device-session/route.ts'), 'utf8');
@@ -45,6 +46,13 @@ describe('driver preview functional hardening', () => {
     expect(deviceGate).toContain('process.env.CONTEXT');
     expect(deviceSession).toContain('process.env.CONTEXT');
   });
+  it('exposes XDrive public company IDs instead of Companies House numbers in driver mobile APIs', () => {
+    for (const source of [nearby, resources, jobDetail]) {
+      expect(source).toContain('xd_id');
+      expect(source).not.toContain('company_number');
+    }
+  });
+
   it('uses canonical current status before revealing quote job private details', () => {
     expect(resources).toContain("row.current_status ?? row.status ?? ''");
     expect(resources).toContain("includes(canonicalStatus)");
