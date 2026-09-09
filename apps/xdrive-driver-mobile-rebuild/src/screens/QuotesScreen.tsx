@@ -4,6 +4,7 @@ import { Pressable, ScrollView, Text, View } from '../theme/primitives';
 import { UiIcon } from '../components/UiIcon';
 import type { DriverJob, DriverResources } from '../types/driver';
 import { radius, shadow } from '../theme/tokens';
+import { mapJob } from '../api/driver';
 
 function pick(row: Record<string, unknown>, keys: string[], fallback = '-') {
   for (const key of keys) {
@@ -84,7 +85,11 @@ export function QuotesScreen({ resources, jobs = [], onOpen }: { resources?: Dri
       const status = quoteStatus(quote);
       const palette = statusPalette(status);
       const jobId = pick(quote, ['job_id', 'load_id'], '');
-      const job = jobId ? jobsById.get(jobId) : undefined;
+      const embeddedJobRaw = quote.job && typeof quote.job === 'object' && !Array.isArray(quote.job)
+        ? quote.job as Record<string, unknown>
+        : undefined;
+      const embeddedJob = embeddedJobRaw ? mapJob(embeddedJobRaw) : undefined;
+      const job = (jobId ? jobsById.get(jobId) : undefined) ?? embeddedJob;
       const pickup = job?.pickupLocation || pick(quote, ['pickup_location', 'collection'], 'Collection not published');
       const delivery = job?.deliveryLocation || pick(quote, ['delivery_location', 'destination'], 'Delivery not published');
       const vehicle = job?.vehicleRequirement || pick(quote, ['vehicle_type', 'requested_vehicle_type'], 'Vehicle not published');

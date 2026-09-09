@@ -52,7 +52,7 @@ function status(value: unknown): CanonicalJobStatus {
   return 'awarded';
 }
 
-function mapJob(row: RawJob): DriverJob {
+export function mapJob(row: RawJob): DriverJob {
   const id = text(row.id);
   const rawPrice = text(row.price ?? row.publicPrice, '');
   const price = ['price tbc', 'tbc', 'not published', 'not available', 'n/a'].includes(rawPrice.toLowerCase()) ? '' : rawPrice;
