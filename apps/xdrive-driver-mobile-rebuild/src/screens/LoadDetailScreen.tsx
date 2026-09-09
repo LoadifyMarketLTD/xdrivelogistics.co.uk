@@ -30,8 +30,8 @@ export function LoadDetailScreen({ job, busy, existingQuote, quoteReadiness, onB
   }, [night]);
   const [quote, setQuote] = useState('');
   const amount = Number(quote.replace(/[^0-9.]/g, ''));
-  const existingAmountRaw = existingQuote ? String(existingQuote.amount ?? existingQuote.bid_price_gbp ?? existingQuote.price ?? 'â€”') : '';
-  const existingAmount = existingAmountRaw && existingAmountRaw !== 'â€”' && !existingAmountRaw.startsWith('Â£') ? `Â£${Number(existingAmountRaw).toFixed(2)}` : existingAmountRaw;
+  const existingAmountRaw = existingQuote ? String(existingQuote.amount ?? existingQuote.bid_price_gbp ?? existingQuote.price ?? '-') : '';
+  const existingAmount = existingAmountRaw && existingAmountRaw !== '-' && !existingAmountRaw.startsWith('\u00A3') ? (Number.isFinite(Number(existingAmountRaw)) ? `\u00A3${Number(existingAmountRaw).toFixed(2)}` : existingAmountRaw) : existingAmountRaw;
   const existingStatusRaw = existingQuote ? String(existingQuote.status ?? existingQuote.quote_status ?? 'Submitted') : '';
   const existingStatus = ['accepted','won','awarded'].includes(existingStatusRaw.toLowerCase()) ? 'Accepted' : ['declined','rejected','unsuccessful','lost'].includes(existingStatusRaw.toLowerCase()) ? 'Unsuccessful' : ['withdrawn','cancelled'].includes(existingStatusRaw.toLowerCase()) ? 'Withdrawn' : 'Submitted';
   const quoteWindowOpen = isQuoteWindowOpen(job);
@@ -98,7 +98,7 @@ export function LoadDetailScreen({ job, busy, existingQuote, quoteReadiness, onB
 }
 
 function InfoRow({ label, value, adaptive }: { label: string; value: string; adaptive: { text: string; muted: string } }) {
-  return <View style={styles.infoRow}><Text style={[styles.infoLabel, { color: adaptive.muted }]}>{label}</Text><Text style={[styles.infoValue, { color: adaptive.text }]}>{value || 'â€”'}</Text></View>;
+  return <View style={styles.infoRow}><Text style={[styles.infoLabel, { color: adaptive.muted }]}>{label}</Text><Text style={[styles.infoValue, { color: adaptive.text }]}>{value || '-'}</Text></View>;
 }
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#F7F7F7' },

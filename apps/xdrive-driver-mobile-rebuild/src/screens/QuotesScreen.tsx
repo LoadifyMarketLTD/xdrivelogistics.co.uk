@@ -15,9 +15,9 @@ function pick(row: Record<string, unknown>, keys: string[], fallback = '-') {
 
 function quoteAmount(row: Record<string, unknown>) {
   const raw = pick(row, ['amount', 'bid_price_gbp', 'price'], '-');
-  if (raw === '-' || raw.startsWith('Â£')) return raw;
+  if (raw === '-' || raw.startsWith('\u00A3')) return raw;
   const numeric = Number(raw);
-  return Number.isFinite(numeric) ? `Â£${numeric.toFixed(2)}` : raw;
+  return Number.isFinite(numeric) ? `\u00A3${numeric.toFixed(2)}` : raw;
 }
 
 function quoteStatus(row: Record<string, unknown>) {
