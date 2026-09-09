@@ -4,7 +4,7 @@ import type { DriverJob } from '../types/driver';
 import { ActionButton } from './ActionButton';
 import { RouteBlock } from './RouteBlock';
 import { colors, radius, shadow, spacing } from '../theme/tokens';
-import { formatDeliveryDate } from '../utils/format';
+import { formatDeliveryDate, formatRouteTime } from '../utils/format';
 
 export function JobCard({
   job,
@@ -20,21 +20,22 @@ export function JobCard({
   tone?: 'default' | 'xdrive';
 }) {
   const xdrive = tone === 'xdrive';
+  const companyIdentity = [job.postingCompanyName, job.postingCompanyMemberCode].filter(Boolean).join(' | ');
   return (
     <View style={[styles.card, xdrive && styles.xdriveCard]}>
       <View style={styles.header}>
         <Text style={[styles.heading, xdrive && styles.xdriveHeading]}>Delivery Information</Text>
         <Text style={[styles.date, xdrive && styles.xdriveMuted]} numberOfLines={1}>{formatDeliveryDate(job.pickupTime)}</Text>
       </View>
-      <RouteBlock pickup={job.pickupLocation} delivery={job.deliveryLocation} />
+      <RouteBlock pickup={job.pickupLocation} delivery={job.deliveryLocation} pickupTiming={formatRouteTime(job.pickupTiming ?? job.pickupTime)} deliveryTiming={formatRouteTime(job.deliveryTiming ?? job.deliveryTime)} />
       <View style={[styles.infoBand, xdrive && styles.xdriveInfoBand]}>
-        <View style={styles.infoRow}><Text style={styles.muted}>Job ID :</Text><Text style={styles.value}>{job.reference}</Text></View>
+        <View style={styles.infoRow}><Text style={styles.muted}>Company:</Text><Text style={styles.value}>{companyIdentity || 'XDrive marketplace'}</Text></View>
         <View style={styles.infoRow}><Text style={styles.muted}>Delivery fee:</Text><Text style={styles.value}>{job.price || 'Quote required'}</Text></View>
         <View style={styles.infoRow}><Text style={styles.muted}>Vehicle:</Text><Text style={styles.value}>{job.vehicleRequirement}</Text></View>
       </View>
       <Pressable onPress={onOpen} style={styles.noteRow}>
         <Text style={styles.noteText}>{job.pickupNote || 'Pickup note'}</Text>
-        <Text style={styles.chevron}>›</Text>
+        <Text style={styles.chevron}>{'\u203A'}</Text>
       </Pressable>
       {actionLabel && onAction ? <ActionButton label={actionLabel} onPress={onAction} /> : null}
       <ActionButton label="Open Details" onPress={onOpen} outline />

@@ -85,18 +85,18 @@ export function QuotesScreen({ resources, jobs = [], onOpen }: { resources?: Dri
       const palette = statusPalette(status);
       const jobId = pick(quote, ['job_id', 'load_id'], '');
       const job = jobId ? jobsById.get(jobId) : undefined;
-      const directReference = pick(quote, ['job_reference', 'load_reference'], '');
-      const reference = job?.reference || directReference || (jobId ? `XDL-${jobId.slice(0, 8).toUpperCase()}` : 'Load quote');
       const pickup = job?.pickupLocation || pick(quote, ['pickup_location', 'collection'], 'Collection not published');
       const delivery = job?.deliveryLocation || pick(quote, ['delivery_location', 'destination'], 'Delivery not published');
       const vehicle = job?.vehicleRequirement || pick(quote, ['vehicle_type', 'requested_vehicle_type'], 'Vehicle not published');
+      const companyName = job?.postingCompanyName || pick(quote, ['posting_company_name', 'company_name'], 'XDrive load');
+      const companyId = job?.postingCompanyMemberCode || pick(quote, ['posting_company_member_code', 'company_xd_id'], '');
 
-      return <Pressable key={String(quote.id ?? index)} accessibilityRole="button" accessibilityLabel={`Open details for ${reference}`} disabled={!job} onPress={() => job && onOpen(job, quote)} style={({ pressed }) => [styles.card, pressed && styles.cardPressed, !job && styles.cardDisabled]}>
+      return <Pressable key={String(quote.id ?? index)} accessibilityRole="button" accessibilityLabel={`Open quote from ${companyName}`} disabled={!job} onPress={() => job && onOpen(job, quote)} style={({ pressed }) => [styles.card, pressed && styles.cardPressed, !job && styles.cardDisabled]}>
         <View style={styles.cardAccent} />
         <View style={styles.cardHeader}>
           <View style={styles.referenceWrap}>
-            <Text style={styles.referenceLabel}>LOAD REFERENCE</Text>
-            <Text style={styles.reference}>{reference}</Text>
+            <Text style={styles.reference}>{companyName}</Text>
+            {companyId ? <Text style={styles.referenceLabel}>{companyId}</Text> : null}
           </View>
           <View style={[styles.statusBadge, { backgroundColor: palette.bg }]}>
             <View style={[styles.statusDot, { backgroundColor: palette.dot }]} />

@@ -64,6 +64,8 @@ export function HomeScreen({ jobs, activeJob, recentJob, resources, loading, dat
   const registration = resourcesLoading ? '' : field(resources?.vehicle, ['reg_plate', 'registration', 'registration_number'], '');
   const tracking = resourcesLoading ? 'Loading' : trackingState(resources);
   const recentJobSummaryTitle = !recentJob && loading ? 'Last closed' : recentJob?.status === 'cancelled' ? 'Last cancelled' : 'Last completed';
+  const activeCompanyIdentity = activeJob ? [activeJob.postingCompanyName, activeJob.postingCompanyMemberCode].filter(Boolean).join(' | ') : '';
+  const recentCompanyIdentity = recentJob ? [recentJob.postingCompanyName, recentJob.postingCompanyMemberCode].filter(Boolean).join(' | ') : '';
   const date = new Date().toLocaleDateString('en-GB', { weekday: 'long', month: 'long', day: 'numeric' });
   const status = resourcesLoading ? 'Loading...' : (AVAILABILITY.find(item => item.value === availability)?.label ?? 'Set availability');
   const statusColor = availability === 'available' ? '#7BD268' : availability === 'busy' ? '#FFD180' : availability === 'offline' ? '#F7B5AF' : '#D0DBEE';
@@ -109,11 +111,11 @@ export function HomeScreen({ jobs, activeJob, recentJob, resources, loading, dat
         <Text style={s.routeLabel}>COLLECTION</Text><Text style={s.routePlace}>{activeJob.pickupLocation}</Text>
         <View style={s.routeDivider} />
         <Text style={s.routeLabel}>DELIVERY</Text><Text style={s.routePlace}>{activeJob.deliveryLocation}</Text>
-        <Text style={s.reference}>{activeJob.reference}</Text>
+        {activeCompanyIdentity ? <Text style={s.reference}>{activeCompanyIdentity}</Text> : null}
       </View> : <View style={s.summary}>
         <Summary icon="search-outline" title="Available loads" value={loading && !jobs.length ? '...' : dataError && !jobs.length ? '?' : String(jobs.length)} onPress={onGoLoads} />
         <Summary icon="pricetag-outline" title="Your quotes" value={resources ? String(resources.quotes?.length ?? 0) : '?'} onPress={onGoQuotes} />
-        <Summary icon="checkmark-circle-outline" title={recentJobSummaryTitle} value={recentJob ? recentJob.reference : loading ? '...' : dataError ? '?' : 'None yet'} onPress={recentJob ? () => onOpen(recentJob) : onGoHistory} />
+        <Summary icon="checkmark-circle-outline" title={recentJobSummaryTitle} value={recentJob ? (recentCompanyIdentity || 'View details') : loading ? '...' : dataError ? '?' : 'None yet'} onPress={recentJob ? () => onOpen(recentJob) : onGoHistory} />
       </View>}
       {activeJob ? <Text style={s.helper}>Open your delivery to see the full details and next steps.</Text> : null}
       <Pressable accessibilityRole="button" accessibilityLabel={activeJob ? 'Continue Delivery' : 'Find Loads'} onPress={activeJob ? () => onOpen(activeJob) : onGoLoads} style={({ pressed }) => [s.primaryButton, pressed && s.pressed]}>

@@ -10,11 +10,11 @@ export function LoadCard({ job, onOpen, tone = 'default' }: { job: DriverJob; on
   const tags = [job.serviceMode ? job.serviceMode.replace(/_/g, ' ').toUpperCase() : '', job.directDeliveryRequired ? 'DIRECT DELIVERY' : ''].filter(Boolean);
   const distanceBits = [job.distanceToPickupMiles != null ? `${job.distanceToPickupMiles.toFixed(1)} mi to pickup` : '', job.journeyDistanceMiles != null ? `${job.journeyDistanceMiles.toFixed(1)} mi trip` : '', job.estimatedJourneyMinutes != null ? `${Math.round(job.estimatedJourneyMinutes)} min` : ''].filter(Boolean);
   const badgeText = job.status === 'available' ? (job.price || 'QUOTE') : job.status === 'cancelled' ? 'CANCELLED' : job.status === 'delivered' ? 'COMPLETED' : (job.price || 'VIEW');
-  return <Pressable accessibilityRole="button" accessibilityLabel={`Open load ${job.reference}`} onPress={onOpen} style={({ pressed }) => [styles.card, xdrive && styles.xdriveCard, pressed && styles.pressed]}>
+  return <Pressable accessibilityRole="button" accessibilityLabel={`Open load from ${job.postingCompanyName || 'company'}`} onPress={onOpen} style={({ pressed }) => [styles.card, xdrive && styles.xdriveCard, pressed && styles.pressed]}>
     <View style={styles.topRow}>
       <View style={styles.refWrap}>
         <Text style={[styles.reference, xdrive && styles.xdriveReference]}>{job.postingCompanyName || 'Company withheld'}</Text>
-        <Text style={styles.memberLine}>{job.postingCompanyMemberCode ? `${job.postingCompanyMemberCode} | ${job.reference}` : job.reference}</Text>
+        {job.postingCompanyMemberCode ? <Text style={styles.memberLine}>{job.postingCompanyMemberCode}</Text> : null}
         {job.postedAt ? <Text style={[styles.time, xdrive && styles.xdriveMuted]}>Posted {formatDeliveryDate(job.postedAt)}</Text> : null}
       </View>
     </View>

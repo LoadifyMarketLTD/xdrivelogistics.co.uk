@@ -8,7 +8,7 @@ import { ActionButton } from '../components/ActionButton';
 import { RouteBlock } from '../components/RouteBlock';
 import { DeliveryTimeline } from '../components/DeliveryTimeline';
 import { colors, radius, shadow, spacing } from '../theme/tokens';
-import { formatDeliveryDate } from '../utils/format';
+import { formatDeliveryDate, formatRouteTime } from '../utils/format';
 
 type DetailTab = 'summary' | 'stops' | 'status';
 
@@ -29,7 +29,7 @@ export function JobDetailScreen({ job, busy, onBack, onAdvance }: {
     <ScrollView contentContainerStyle={styles.content}>
       {tab === 'summary' ? <View style={styles.card}>
         <View style={styles.headerRow}><Text style={styles.sectionTitle}>Delivery Details</Text><Text style={styles.date}>{formatDeliveryDate(job.pickupTime)}</Text></View>
-        <RouteBlock pickup={job.pickupLocation} delivery={job.deliveryLocation} />
+        <RouteBlock pickup={job.pickupLocation} delivery={job.deliveryLocation} pickupTiming={formatRouteTime(job.pickupTiming ?? job.pickupTime)} deliveryTiming={formatRouteTime(job.deliveryTiming ?? job.deliveryTime)} />
         <View style={styles.infoBand}>
           <InfoRow label="Job ID" value={job.reference} />
           <InfoRow label="Vehicle" value={job.vehicleRequirement} />
@@ -52,14 +52,14 @@ export function JobDetailScreen({ job, busy, onBack, onAdvance }: {
       {tab === 'status' ? <View style={styles.card}>
         <View style={styles.statusHeader}><Text style={styles.blockTitle}>Delivery Status</Text><Text style={styles.currentStatus}>{statusLabel(job.status)}</Text></View>
         {job.status === 'cancelled' ? <View style={styles.terminalNotice}><Text style={styles.terminalTitle}>Delivery cancelled</Text><Text style={styles.terminalText}>No further driver action is available for this job.</Text></View> : <DeliveryTimeline status={job.status} />}
-        {next ? <View style={styles.actionWrap}><ActionButton disabled={busy} label={busy ? 'Updating…' : next.label} onPress={() => onAdvance(next.endpoint)} /></View> : null}
+        {next ? <View style={styles.actionWrap}><ActionButton disabled={busy} label={busy ? 'Updating\u2026' : next.label} onPress={() => onAdvance(next.endpoint)} /></View> : null}
       </View> : null}
     </ScrollView>
   </View>;
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {
-  return <View style={styles.infoRow}><Text style={styles.infoLabel}>{label}</Text><Text style={styles.infoValue}>{value || '—'}</Text></View>;
+  return <View style={styles.infoRow}><Text style={styles.infoLabel}>{label}</Text><Text style={styles.infoValue}>{value || '\u2014'}</Text></View>;
 }
 
 function NoteRow({ label, value }: { label: string; value?: string }) {
