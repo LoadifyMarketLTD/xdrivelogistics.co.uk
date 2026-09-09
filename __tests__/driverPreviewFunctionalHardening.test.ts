@@ -5,6 +5,9 @@ describe('driver preview functional hardening', () => {
   const nearby = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/nearby-jobs/route.ts'), 'utf8');
   const eligibility = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/_lib/bidEligibility.ts'), 'utf8');
   const resources = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/resources/route.ts'), 'utf8');
+  const mobileLib = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/_lib.ts'), 'utf8');
+  const deviceGate = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/_deviceSessionGate.ts'), 'utf8');
+  const deviceSession = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/mobile/device-session/route.ts'), 'utf8');
 
   it('does not advertise expired marketplace work', () => {
     expect(nearby).toContain("'exchange_expires_at'");
@@ -31,4 +34,12 @@ describe('driver preview functional hardening', () => {
     expect(resources).toContain("status: 'pending'");
   });
 
+  it('allows explicit RC aliases only through the staging preview device policy', () => {
+    for (const source of [mobileLib, deviceGate, deviceSession]) {
+      expect(source).toContain('driver-rc\\d+');
+      expect(source).toContain("process.env.APP_ENV !== 'staging'");
+    }
+    expect(mobileLib).toContain("process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS !== 'true'");
+    expect(deviceSession).toContain("process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS === 'true'");
+  });
 });

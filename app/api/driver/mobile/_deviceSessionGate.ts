@@ -4,7 +4,7 @@ import { supabaseAdmin } from '../../_lib/supabaseAdmin';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const PREVIEW_ANDROID_PACKAGE = 'co.uk.xdrivelogistics.driver.preview';
-const HOSTED_PREVIEW_HOST_RE = /^deploy-preview-\d+--xdrivelogistics\.netlify\.app$/;
+const HOSTED_PREVIEW_HOST_RE = /^(?:deploy-preview-\d+|driver-rc\d+)--xdrivelogistics\.netlify\.app$/;
 
 function sessionIdFromBearer(request: NextRequest): string | null {
   const authorization = request.headers.get('authorization') ?? '';
