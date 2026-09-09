@@ -41,6 +41,7 @@ function normalizeHost(value: string | null | undefined) {
 
 function isHostedPreviewRequest(request: NextRequest) {
   if (process.env.APP_ENV !== 'staging') return false;
+  if (String(process.env.CONTEXT ?? '').trim().toLowerCase() === 'deploy-preview') return true;
   const hostnames = [
     request.nextUrl.hostname,
     request.headers.get('x-forwarded-host'),

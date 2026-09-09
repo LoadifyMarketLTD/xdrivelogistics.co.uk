@@ -45,6 +45,7 @@ function normalizeHost(value: string | null | undefined) {
 function hostedPreviewDeviceBypass(request: NextRequest) {
   if (process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS !== 'true') return false;
   if (process.env.APP_ENV !== 'staging') return false;
+  if (String(process.env.CONTEXT ?? '').trim().toLowerCase() === 'deploy-preview') return request.headers.get('x-xdrive-app-package')?.trim() === PREVIEW_ANDROID_PACKAGE;
   const appPackage = request.headers.get('x-xdrive-app-package')?.trim() ?? '';
   if (appPackage !== PREVIEW_ANDROID_PACKAGE) return false;
   const hostnames = [

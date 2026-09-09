@@ -41,6 +41,9 @@ describe('driver preview functional hardening', () => {
     }
     expect(mobileLib).toContain("process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS !== 'true'");
     expect(deviceSession).toContain("process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS === 'true'");
+    expect(mobileLib).toContain('process.env.CONTEXT');
+    expect(deviceGate).toContain('process.env.CONTEXT');
+    expect(deviceSession).toContain('process.env.CONTEXT');
   });
   it('uses canonical current status before revealing quote job private details', () => {
     expect(resources).toContain("row.current_status ?? row.status ?? ''");
