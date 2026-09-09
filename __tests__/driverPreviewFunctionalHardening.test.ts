@@ -42,4 +42,9 @@ describe('driver preview functional hardening', () => {
     expect(mobileLib).toContain("process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS !== 'true'");
     expect(deviceSession).toContain("process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS === 'true'");
   });
+  it('uses canonical current status before revealing quote job private details', () => {
+    expect(resources).toContain("row.current_status ?? row.status ?? ''");
+    expect(resources).toContain("includes(canonicalStatus)");
+    expect(resources).toContain("can_update_lifecycle: privateDetailsRevealed");
+  });
 });

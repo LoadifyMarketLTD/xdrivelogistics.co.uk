@@ -42,8 +42,9 @@ async function loadQuoteReadiness(driverId: string, companyId: string) {
 }
 
 function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null) {
+  const canonicalStatus = String(row.current_status ?? row.status ?? '').trim().toLowerCase();
   const privateDetailsRevealed = String(row.assigned_driver_id ?? '') === driverId
-    && ['allocated', 'collected', 'in_transit', 'delivered'].includes(String(row.status ?? '').toLowerCase());
+    && ['allocated', 'collected', 'in_transit', 'delivered'].includes(canonicalStatus);
   const fixedPriceVisible = row.is_fixed_price === true && Number(row.budget_amount ?? 0) > 0;
   return {
     ...row,
@@ -63,7 +64,7 @@ function sanitizeQuoteJob(row: AnyRow, driverId: string, company?: AnyRow | null
     access_restrictions: privateDetailsRevealed ? row.access_restrictions : null,
     budget_amount: fixedPriceVisible ? row.budget_amount : null,
     private_details_revealed: privateDetailsRevealed,
-    can_update_lifecycle: privateDetailsRevealed && !['delivered', 'cancelled', 'canceled'].includes(String(row.status ?? '').toLowerCase()),
+    can_update_lifecycle: privateDetailsRevealed && !['delivered', 'cancelled', 'canceled'].includes(canonicalStatus),
   };
 }
 
