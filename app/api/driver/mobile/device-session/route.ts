@@ -10,6 +10,7 @@ import {
 
 const CANONICAL_ANDROID_PACKAGE = 'co.uk.xdrivelogistics.driver';
 const PREVIEW_ANDROID_PACKAGE = 'co.uk.xdrivelogistics.driver.preview';
+const HOSTED_PREVIEW_HOST_RE = /^(?:deploy-preview-\d+|driver-rc\d+)--xdrivelogistics\.netlify\.app$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function sessionIdAfterValidation(token: string): string | null {
@@ -31,8 +32,15 @@ function isLoopbackRequest(request: NextRequest) {
 function allowPreviewWithoutRegistryWrite(request: NextRequest, appPackage: string) {
   if (appPackage !== PREVIEW_ANDROID_PACKAGE) return false;
   if (process.env.XDRIVE_LOCAL_PREVIEW_DEVICE_BYPASS === 'true' && isLoopbackRequest(request)) return true;
-  return process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS === 'true'
-    && process.env.APP_ENV === 'staging';
+  if (String(process.env.APP_ENV ?? '').trim().toLowerCase() === 'production') return false;
+
+  const explicitBypass = String(process.env.XDRIVE_HOSTED_PREVIEW_DEVICE_BYPASS ?? '').trim().toLowerCase() === 'true';
+  const previewContext = String(process.env.CONTEXT ?? '').trim().toLowerCase() === 'deploy-preview';
+  const hostnames = [request.nextUrl.hostname, request.headers.get('x-forwarded-host'), request.headers.get('host'), process.env.DEPLOY_PRIME_URL]
+    .map((value) => String(value ?? '').trim().toLowerCase().replace(/^https?:\/\//, '').split('/')[0]?.split(':')[0] ?? '')
+    .filter(Boolean);
+  const previewHost = hostnames.some((hostname) => HOSTED_PREVIEW_HOST_RE.test(hostname));
+  return explicitBypass || previewContext || previewHost;
 }
 
 async function authenticatedDriver(request: NextRequest) {
