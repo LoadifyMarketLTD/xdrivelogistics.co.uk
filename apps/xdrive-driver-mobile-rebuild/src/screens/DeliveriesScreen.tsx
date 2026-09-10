@@ -1,6 +1,8 @@
-﻿import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useState } from 'react';
+import { StyleSheet } from 'react-native';
+import { Pressable, ScrollView, Text, View } from '../theme/primitives';
 import type { DriverJob } from '../types/driver';
+import { BrandedHeader } from '../components/BrandedHeader';
 import { JobCard } from '../components/JobCard';
 import { colors, radius, spacing } from '../theme/tokens';
 
@@ -21,7 +23,7 @@ export function DeliveriesScreen({
   const jobs = segment === 'available' ? available : segment === 'active' ? active : history;
   return (
     <View style={styles.page}>
-      <View style={styles.header}><Text style={styles.title}>Deliveries</Text></View>
+      <BrandedHeader title="Deliveries" subtitle="Available, active and completed work" />
       <View style={styles.segments}>
         {(['available', 'active', 'history'] as Segment[]).map((item) => (
           <Pressable key={item} onPress={() => setSegment(item)} style={[styles.segment, segment === item && styles.segmentActive]}>
@@ -41,16 +43,16 @@ export function DeliveriesScreen({
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.appBackground },
+  page: { flex: 1, backgroundColor: '#EEF2F6' },
   header: { paddingHorizontal: spacing.lg, paddingTop: spacing.lg, paddingBottom: 10 },
   title: { fontFamily: 'Inter_700Bold', fontSize: 24, color: colors.surface },
-  segments: { marginHorizontal: spacing.lg, flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.pill, padding: 4 },
+  segments: { marginHorizontal: spacing.lg, marginTop: 14, flexDirection: 'row', backgroundColor: colors.surface, borderRadius: radius.pill, padding: 4 },
   segment: { flex: 1, minHeight: 38, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
-  segmentActive: { backgroundColor: colors.primary },
+  segmentActive: { backgroundColor: '#EAF1FF' },
   segmentText: { fontFamily: 'Inter_600SemiBold', fontSize: 12, color: colors.muted },
-  segmentTextActive: { color: colors.surface },
+  segmentTextActive: { color: '#0B2F6B' },
   list: { padding: spacing.lg, gap: spacing.md, paddingBottom: 40 },
   empty: { backgroundColor: colors.surface, borderRadius: radius.medium, padding: spacing.lg, alignItems: 'center' },
   emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
-  emptyText: { marginTop: 6, fontFamily: 'Inter_400Regular', fontSize: 13, color: colors.muted },
+  emptyText: { marginTop: 6, fontFamily: 'Inter_600SemiBold', fontSize: 13, color: colors.muted },
 });

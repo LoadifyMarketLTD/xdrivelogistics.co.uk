@@ -14,7 +14,7 @@ export const statusFlow: Array<{
 ];
 
 export function getNextStep(current: CanonicalJobStatus) {
-  if (current === 'available') return undefined;
+  if (current === 'available' || current === 'delivered' || current === 'cancelled') return undefined;
   if (current === 'awarded') return statusFlow[0];
   const index = statusFlow.findIndex((step) => step.status === current);
   return index >= 0 ? statusFlow[index + 1] : undefined;
@@ -23,5 +23,14 @@ export function getNextStep(current: CanonicalJobStatus) {
 export function statusLabel(status: CanonicalJobStatus) {
   if (status === 'available') return 'Available';
   if (status === 'awarded') return 'Accepted';
-  return statusFlow.find((step) => step.status === status)?.label ?? status;
+  if (status === 'delivered') return 'Delivered';
+  if (status === 'cancelled') return 'Cancelled';
+  const labels: Partial<Record<CanonicalJobStatus, string>> = {
+    on_my_way_pickup: 'On my way to pickup',
+    arrived_pickup: 'At pickup',
+    loaded: 'Loaded',
+    on_my_way_delivery: 'On my way to delivery',
+    arrived_delivery: 'At delivery',
+  };
+  return labels[status] ?? status;
 }

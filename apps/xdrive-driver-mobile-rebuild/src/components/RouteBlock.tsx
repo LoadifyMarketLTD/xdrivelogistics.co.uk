@@ -1,8 +1,9 @@
 import { UiIcon as Ionicons } from './UiIcon';
-import { StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Text, View } from '../theme/primitives';
 import { colors, spacing } from '../theme/tokens';
 
-export function RouteBlock({ pickup, delivery }: { pickup: string; delivery: string }) {
+export function RouteBlock({ pickup, delivery, pickupTiming, deliveryTiming }: { pickup: string; delivery: string; pickupTiming?: string; deliveryTiming?: string }) {
   return (
     <View style={styles.wrap}>
       <View style={styles.iconColumn}>
@@ -12,11 +13,11 @@ export function RouteBlock({ pickup, delivery }: { pickup: string; delivery: str
       </View>
       <View style={styles.addressColumn}>
         <View style={styles.addressPill}>
-          <Text style={styles.title}>Pickup <Text style={styles.green}>(Collection)</Text></Text>
+          <Text style={styles.title}>Pickup <Text style={styles.green}>({pickupTiming || 'Collection'})</Text></Text>
           <Text style={styles.sub} numberOfLines={2}>{pickup}</Text>
         </View>
         <View style={styles.addressPill}>
-          <Text style={styles.title}>Delivery <Text style={styles.green}>(Drop Off)</Text></Text>
+          <Text style={styles.title}>Delivery <Text style={styles.green}>({deliveryTiming || 'Drop Off'})</Text></Text>
           <Text style={styles.sub} numberOfLines={2}>{delivery}</Text>
         </View>
       </View>
@@ -32,7 +33,7 @@ const styles = StyleSheet.create({
   dash: { width: 1, height: 18, borderStyle: 'dashed', borderWidth: 1, borderColor: colors.black },
   addressColumn: { flex: 1, gap: 12 },
   addressPill: { borderWidth: 1, borderColor: colors.border, borderRadius: 24, paddingHorizontal: 15, paddingVertical: 8, minHeight: 54 },
-  title: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.text },
+  title: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
   green: { color: colors.primary },
-  sub: { marginTop: 2, fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.muted },
+  sub: { marginTop: 3, fontFamily: 'Inter_700Bold', fontSize: 14, lineHeight: 19, color: '#334155' },
 });

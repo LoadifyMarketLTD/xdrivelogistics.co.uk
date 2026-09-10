@@ -1,4 +1,5 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Pressable, Text } from '../theme/primitives';
 import { colors } from '../theme/tokens';
 
 export function ActionButton({

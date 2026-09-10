@@ -1,6 +1,8 @@
 import { UiIcon as Ionicons } from '../components/UiIcon';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet } from 'react-native';
+import { Pressable, ScrollView, Text, View } from '../theme/primitives';
 import type { DriverResources } from '../types/driver';
+import { BrandedHeader } from '../components/BrandedHeader';
 import { colors, radius, spacing } from '../theme/tokens';
 
 function field(row: Record<string, unknown> | null | undefined, keys: string[], fallback = 'Not set') {
@@ -20,7 +22,7 @@ export function ProfileScreen({ resources, onSignOut }: { resources?: DriverReso
   const vehicleType = field(vehicle, ['vehicle_type', 'type'], 'Vehicle');
   return (
     <ScrollView style={styles.page} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Profile</Text>
+      <BrandedHeader title="Profile" subtitle="Driver and account information" />
       <View style={styles.profileCard}>
         <View style={styles.avatar}><Text style={styles.avatarText}>{initials}</Text></View>
         <View style={styles.profileCopy}><Text style={styles.name}>{name}</Text><Text style={styles.email}>{resources?.email || ''}</Text></View>
@@ -46,21 +48,21 @@ function MenuRow({ icon, label, value }: { icon: keyof typeof Ionicons.glyphMap;
   );
 }
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: colors.appBackground },
-  content: { padding: spacing.lg, paddingBottom: 40, gap: 12 },
+  page: { flex: 1, backgroundColor: '#EEF2F6' },
+  content: { paddingBottom: 40, gap: 12 },
   title: { fontFamily: 'Inter_700Bold', fontSize: 24, color: colors.surface, marginBottom: 4 },
-  profileCard: { backgroundColor: colors.surface, borderRadius: radius.medium, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  profileCard: { marginHorizontal: spacing.lg, backgroundColor: colors.surface, borderRadius: radius.medium, padding: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12 },
   avatar: { width: 54, height: 54, borderRadius: 27, backgroundColor: '#929292', alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontFamily: 'Inter_700Bold', fontSize: 17, color: colors.surface },
   profileCopy: { flex: 1 },
   name: { fontFamily: 'Inter_700Bold', fontSize: 17, color: colors.text },
-  email: { marginTop: 3, fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.muted },
-  sectionTitle: { marginTop: 7, fontFamily: 'Inter_700Bold', fontSize: 14, color: colors.surface },
-  menuRow: { minHeight: 74, backgroundColor: colors.surface, borderRadius: radius.medium, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12 },
+  email: { marginTop: 3, fontFamily: 'Inter_500Medium', fontSize: 12, color: colors.muted },
+  sectionTitle: { marginTop: 7, marginHorizontal: spacing.lg, fontFamily: 'Inter_700Bold', fontSize: 14, color: colors.surface },
+  menuRow: { marginHorizontal: spacing.lg, minHeight: 74, backgroundColor: colors.surface, borderRadius: radius.medium, paddingHorizontal: spacing.md, flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconWell: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.iconWell, alignItems: 'center', justifyContent: 'center' },
   menuCopy: { flex: 1 },
-  menuLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: colors.text },
-  menuValue: { marginTop: 3, fontFamily: 'Inter_400Regular', fontSize: 12, color: colors.muted },
-  signOut: { minHeight: 48, borderWidth: 1.2, borderColor: colors.primary, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, marginTop: 8 },
+  menuLabel: { fontFamily: 'Inter_700Bold', fontSize: 14, color: colors.text },
+  menuValue: { marginTop: 3, fontFamily: 'Inter_500Medium', fontSize: 12, color: colors.muted },
+  signOut: { marginHorizontal: spacing.lg, minHeight: 48, borderWidth: 1.2, borderColor: colors.primary, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface, marginTop: 8 },
   signOutText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: colors.primary },
 });

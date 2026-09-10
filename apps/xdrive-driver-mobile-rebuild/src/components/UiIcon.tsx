@@ -1,4 +1,5 @@
-import { Text, type StyleProp, type TextStyle } from 'react-native';
+import { type StyleProp, type TextStyle } from 'react-native';
+import { Text } from '../theme/primitives';
 
 export const glyphMap = {
   'call': 0xead9,
@@ -28,6 +29,8 @@ export function UiIcon({ name, size = 20, color = '#111111', style }: {
   style?: StyleProp<TextStyle>;
 }) {
   return <Text
+    accessible={false}
+    importantForAccessibility="no"
     selectable={false}
     style={[{
       fontFamily: 'ionicons',
