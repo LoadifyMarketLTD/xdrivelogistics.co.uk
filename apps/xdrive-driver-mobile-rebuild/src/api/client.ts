@@ -128,11 +128,11 @@ async function hydrateMobileResourcesQuotes(
   const root = payload as Record<string, unknown>;
   const resources = root.resources;
   if (!resources || typeof resources !== 'object') return payload;
+  const canonicalQuotes = (resources as Record<string, unknown>).quotes;
+  if (Array.isArray(canonicalQuotes) && canonicalQuotes.length > 0) return payload;
 
-  // The canonical resources endpoint intentionally focuses on profile/context and
-  // currently returns an empty quotes compatibility array. Quote history has its
-  // own device-bound API contract, so hydrate it independently instead of letting
-  // a peripheral resources response make the Quotes screen look empty.
+  // Legacy fallback only: hydrate from /bids when the canonical resources payload
+  // has no quote rows. Never replace richer quote/job context returned by /resources.
   try {
     const response = await fetch(`${getApiBaseUrl()}/api/driver/mobile/bids`, {
       method: 'GET',
