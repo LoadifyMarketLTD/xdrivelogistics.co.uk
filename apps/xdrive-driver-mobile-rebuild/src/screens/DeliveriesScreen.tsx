@@ -48,7 +48,10 @@ export function BookingsScreen({ active, history, onOpen }: {
   }, [active, history, range]);
 
   return <View style={styles.page}>
-    <View style={styles.header}><Text style={styles.title}>Bookings</Text></View>
+    <View style={styles.header}>
+      <Text style={styles.brand}><Text style={styles.brandX}>X</Text>Drive</Text>
+      <Text style={styles.title}>Bookings</Text>
+    </View>
     <View style={styles.segmentWrap}>
       {([
         ['current', 'Current'],
@@ -74,18 +77,23 @@ function BookingCard({ job, onOpen }: { job: DriverJob; onOpen: () => void }) {
   const completed = job.status === 'delivered';
   const distance = distanceLabel(job);
   const lastStopNumber = Math.max(2, job.stops?.length ?? 2);
+  const extraTags = [...new Set([
+    ...(job.serviceMode ? [job.serviceMode.replace(/[_-]+/g, ' ').toUpperCase()] : []),
+    ...(job.badges ?? []).map((badge) => String(badge).toUpperCase()),
+  ])].slice(0, 2);
+
   return <Pressable accessibilityRole="button" accessibilityLabel={`Open booking ${job.reference}`} onPress={onOpen} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
-    <Text style={styles.company} numberOfLines={1}>{job.postingCompanyName || 'XDrive Booking'}{job.postingCompanyMemberCode ? ` (${job.postingCompanyMemberCode})` : ''}</Text>
+    <Text style={styles.company} numberOfLines={2}>{job.postingCompanyName || 'XDrive Booking'}{job.postingCompanyMemberCode ? ` (${job.postingCompanyMemberCode})` : ''}</Text>
     {job.customerReference ? <Text style={styles.customerReference}>Cust. Ref. {job.customerReference}</Text> : null}
     <Text style={styles.reference}>Load ID {job.reference}</Text>
     <View style={styles.tags}>
       <View style={[styles.tag, completed ? styles.tagCompleted : styles.tagCurrent]}><Text style={styles.tagText}>{completed ? 'COMPLETED' : 'CURRENT'}</Text></View>
-      {job.serviceMode ? <View style={styles.tagSmart}><Text style={styles.tagText}>{job.serviceMode.replace(/[_-]+/g, ' ').toUpperCase()}</Text></View> : null}
+      {extraTags.map((tag) => <View key={tag} style={[styles.tag, /SMARTPAY/.test(tag) ? styles.tagSmart : styles.tagBlue]}><Text style={[styles.tagText, !/SMARTPAY/.test(tag) && styles.tagBlueText]}>{tag}</Text></View>)}
     </View>
     <View style={styles.routeCard}>
       <View style={styles.routeRail}>
         <View style={styles.numberSquare}><Text style={styles.numberText}>1</Text></View>
-        <View style={styles.routeDots}><Text style={styles.dots}>•••</Text></View>
+        <View style={styles.routeLine} />
         <View style={styles.pin}><Text style={styles.pinText}>{lastStopNumber}</Text></View>
       </View>
       <View style={styles.routeCopy}>
@@ -93,52 +101,55 @@ function BookingCard({ job, onOpen }: { job: DriverJob; onOpen: () => void }) {
         <View><Text style={styles.place} numberOfLines={1}>{job.deliveryLocation}</Text><Text style={styles.time}>{formatDeliveryDate(job.deliveryTime)}</Text></View>
       </View>
     </View>
-    {distance ? <View style={styles.distanceRow}><UiIcon name="navigate-outline" size={20} color="#242432" /><Text style={styles.distance}>{distance}</Text></View> : null}
-    {job.notesSummary || job.pickupNote || job.deliveryNote ? <View style={styles.notesRow}><UiIcon name="document-text-outline" size={18} color="#242432" /><Text style={styles.notes} numberOfLines={4}>{job.notesSummary || job.pickupNote || job.deliveryNote}</Text></View> : null}
+    {distance ? <View style={styles.distanceRow}><UiIcon name="navigate-outline" size={18} color="#242432" /><Text style={styles.distance}>{distance}</Text></View> : null}
+    {job.notesSummary || job.pickupNote || job.deliveryNote ? <View style={styles.notesRow}><UiIcon name="document-text-outline" size={17} color="#242432" /><Text style={styles.notes} numberOfLines={5}>{job.notesSummary || job.pickupNote || job.deliveryNote}</Text></View> : null}
     {completed && job.podCompleted ? <View style={styles.podButton}><Text style={styles.podText}>View POD</Text></View> : null}
   </Pressable>;
 }
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#F2F3F7' },
-  header: { minHeight: 78, backgroundColor: '#292837', alignItems: 'center', justifyContent: 'center', paddingTop: 12 },
-  title: { fontFamily: 'Inter_600SemiBold', fontSize: 20, color: '#FFFFFF' },
-  segmentWrap: { flexDirection: 'row', marginHorizontal: 16, marginTop: 14, marginBottom: 18, padding: 4, minHeight: 58, borderRadius: 30, backgroundColor: '#3A3949' },
-  segment: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' },
-  segmentActive: { backgroundColor: '#FFE66A' },
-  segmentText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#FFFFFF', textAlign: 'center' },
-  segmentTextActive: { fontFamily: 'Inter_700Bold', color: '#111111' },
+  header: { minHeight: 67, backgroundColor: '#292837', alignItems: 'center', justifyContent: 'center', paddingTop: 6 },
+  brand: { fontFamily: 'Inter_600SemiBold', fontSize: 20, color: '#FFFFFF' },
+  brandX: { fontFamily: 'Inter_700Bold', color: '#FFD200' },
+  title: { marginTop: 1, fontFamily: 'Inter_600SemiBold', fontSize: 12, color: '#FFFFFF' },
+  segmentWrap: { flexDirection: 'row', marginHorizontal: 12, marginTop: 10, marginBottom: 10, gap: 7 },
+  segment: { flex: 1, minHeight: 38, borderRadius: 20, backgroundColor: '#FFFFFF', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E5E6EA' },
+  segmentActive: { backgroundColor: '#292837', borderColor: '#292837' },
+  segmentText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#292837', textAlign: 'center' },
+  segmentTextActive: { fontFamily: 'Inter_700Bold', color: '#FFFFFF' },
   scroll: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingBottom: 28, gap: 14 },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, gap: 12, ...shadow },
+  content: { paddingHorizontal: 12, paddingBottom: 24, gap: 10 },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 12, gap: 8, ...shadow },
   pressed: { opacity: 0.78 },
-  company: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#454453' },
-  customerReference: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#5F5E6D' },
-  reference: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#777786' },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  tag: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
+  company: { fontFamily: 'Inter_700Bold', fontSize: 14, lineHeight: 18, color: '#454453' },
+  customerReference: { fontFamily: 'Inter_600SemiBold', fontSize: 10, color: '#5F5E6D' },
+  reference: { fontFamily: 'Inter_500Medium', fontSize: 11, color: '#777786' },
+  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  tag: { borderRadius: 5, paddingHorizontal: 7, paddingVertical: 4 },
   tagCompleted: { backgroundColor: '#65C653' },
   tagCurrent: { backgroundColor: '#4E97D7' },
-  tagSmart: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#49AF3F' },
-  tagText: { fontFamily: 'Inter_700Bold', fontSize: 11, letterSpacing: 0.7, color: '#FFFFFF' },
-  routeCard: { flexDirection: 'row', borderWidth: 1, borderColor: '#E1E2E7', borderRadius: 16, padding: 14, gap: 12 },
-  routeRail: { width: 34, alignItems: 'center', justifyContent: 'space-between' },
-  numberSquare: { width: 28, height: 28, borderRadius: 4, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center' },
-  numberText: { fontFamily: 'Inter_700Bold', fontSize: 13, color: '#FFFFFF' },
-  routeDots: { height: 35, justifyContent: 'center' },
-  dots: { transform: [{ rotate: '90deg' }], color: '#CDD2D9', letterSpacing: 1 },
-  pin: { width: 28, height: 32, borderRadius: 16, borderBottomLeftRadius: 5, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center' },
-  pinText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#FFFFFF' },
-  routeCopy: { flex: 1, justifyContent: 'space-between', gap: 18 },
-  place: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#454453' },
-  time: { marginTop: 4, fontFamily: 'Inter_500Medium', fontSize: 14, color: '#7E7D8B' },
-  distanceRow: { flexDirection: 'row', alignItems: 'center', gap: 9 },
-  distance: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: '#777786' },
-  notesRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingTop: 11, borderTopWidth: 1, borderTopColor: '#E2E3E8' },
-  notes: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 14, lineHeight: 20, color: '#6D6C7A' },
-  podButton: { minHeight: 50, borderRadius: 25, backgroundColor: '#FFD200', alignItems: 'center', justifyContent: 'center' },
-  podText: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#111111' },
-  empty: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 24, alignItems: 'center' },
-  emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#292837' },
-  emptyText: { marginTop: 6, fontFamily: 'Inter_500Medium', fontSize: 13, lineHeight: 19, color: '#737280', textAlign: 'center' },
+  tagSmart: { backgroundColor: '#49AF3F' },
+  tagBlue: { backgroundColor: '#E8F2FB' },
+  tagText: { fontFamily: 'Inter_700Bold', fontSize: 9, letterSpacing: .2, color: '#FFFFFF' },
+  tagBlueText: { color: '#2473B7' },
+  routeCard: { flexDirection: 'row', borderWidth: 1, borderColor: '#E1E2E7', borderRadius: 10, padding: 10, gap: 9 },
+  routeRail: { width: 27, alignItems: 'center', justifyContent: 'space-between' },
+  numberSquare: { width: 25, height: 25, borderRadius: 3, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  numberText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: '#FFFFFF' },
+  routeLine: { width: 1, flex: 1, minHeight: 20, backgroundColor: '#CDD2D9' },
+  pin: { width: 25, height: 28, borderRadius: 14, borderBottomLeftRadius: 4, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  pinText: { fontFamily: 'Inter_700Bold', fontSize: 10, color: '#FFFFFF' },
+  routeCopy: { flex: 1, justifyContent: 'space-between', gap: 12 },
+  place: { fontFamily: 'Inter_700Bold', fontSize: 14, color: '#454453' },
+  time: { marginTop: 2, fontFamily: 'Inter_500Medium', fontSize: 10, color: '#7E7D8B' },
+  distanceRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  distance: { fontFamily: 'Inter_500Medium', fontSize: 11, color: '#777786' },
+  notesRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: '#E2E3E8' },
+  notes: { flex: 1, fontFamily: 'Inter_500Medium', fontSize: 11, lineHeight: 16, color: '#6D6C7A' },
+  podButton: { minHeight: 42, borderRadius: 21, backgroundColor: '#FFD200', alignItems: 'center', justifyContent: 'center' },
+  podText: { fontFamily: 'Inter_700Bold', fontSize: 14, color: '#111111' },
+  empty: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 22, alignItems: 'center' },
+  emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 15, color: '#292837' },
+  emptyText: { marginTop: 6, fontFamily: 'Inter_500Medium', fontSize: 12, lineHeight: 18, color: '#737280', textAlign: 'center' },
 });
