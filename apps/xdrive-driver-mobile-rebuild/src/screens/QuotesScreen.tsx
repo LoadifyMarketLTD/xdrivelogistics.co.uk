@@ -54,7 +54,10 @@ export function QuotesScreen({ resources, jobs = [], onOpen }: {
   const filtered = useMemo(() => quotes.filter((quote) => quoteBucket(quote) === filter), [filter, quotes]);
 
   return <View style={styles.page}>
-    <View style={styles.header}><Text style={styles.title}>Quotes</Text></View>
+    <View style={styles.header}>
+      <Text style={styles.brand}><Text style={styles.brandX}>X</Text>Drive</Text>
+      <Text style={styles.title}>Quotes</Text>
+    </View>
     <View style={styles.segmented}>
       {(['Sent', 'Accepted', 'Closed'] as QuoteFilter[]).map((item) => {
         const active = filter === item;
@@ -83,14 +86,14 @@ export function QuotesScreen({ resources, jobs = [], onOpen }: {
 
         return <Pressable key={String(quote.id ?? index)} accessibilityRole="button" accessibilityLabel={`Open quote from ${companyName}`} disabled={!job} onPress={() => job && onOpen(job, quote)} style={({ pressed }) => [styles.card, pressed && styles.pressed, !job && styles.disabled]}>
           <View style={styles.cardHeader}>
-            <View style={styles.headerCopy}><Text style={styles.company} numberOfLines={1}>{companyName}{companyId ? ` (${companyId})` : ''}</Text><Text style={styles.loadId}>Load ID {job?.reference || jobId || '—'}</Text></View>
+            <View style={styles.headerCopy}><Text style={styles.company} numberOfLines={2}>{companyName}{companyId ? ` (${companyId})` : ''}</Text><Text style={styles.loadId}>Load ID {job?.reference || jobId || '—'}</Text></View>
             <View style={[styles.statusPill, accepted && styles.statusAccepted]}><Text style={[styles.statusText, accepted && styles.statusAcceptedText]}>{status}</Text></View>
           </View>
           <View style={styles.routeBox}>
-            <View style={styles.routeRail}><View style={styles.stopSquare}><Text style={styles.stopNumber}>1</Text></View><Text style={styles.routeDots}>•••</Text><View style={styles.stopPin}><Text style={styles.stopNumber}>2</Text></View></View>
+            <View style={styles.routeRail}><View style={styles.stopSquare}><Text style={styles.stopNumber}>1</Text></View><View style={styles.routeLine} /><View style={styles.stopPin}><Text style={styles.stopNumber}>2</Text></View></View>
             <View style={styles.routeCopy}><Text style={styles.place} numberOfLines={1}>{pickup}</Text><Text style={styles.place} numberOfLines={1}>{delivery}</Text></View>
           </View>
-          <View style={styles.footer}><View><Text style={styles.quoteLabel}>MY QUOTE (EXC. VAT)</Text><Text style={styles.amount}>{quoteAmount(quote)}</Text></View><UiIcon name="chevron-forward" size={22} color="#A9AAB2" /></View>
+          <View style={styles.footer}><View><Text style={styles.quoteLabel}>MY QUOTE (EXC. VAT)</Text><Text style={styles.amount}>{quoteAmount(quote)}</Text></View><UiIcon name="chevron-forward" size={20} color="#A9AAB2" /></View>
         </Pressable>;
       })}
     </ScrollView>
@@ -99,42 +102,44 @@ export function QuotesScreen({ resources, jobs = [], onOpen }: {
 
 const styles = StyleSheet.create({
   page: { flex: 1, backgroundColor: '#F2F3F7' },
-  header: { minHeight: 86, backgroundColor: '#292837', alignItems: 'center', justifyContent: 'center', paddingTop: 12 },
-  title: { fontFamily: 'Inter_600SemiBold', fontSize: 20, color: '#FFFFFF' },
-  segmented: { margin: 16, flexDirection: 'row', minHeight: 58, padding: 4, borderRadius: 30, backgroundColor: '#3A3949' },
-  segment: { flex: 1, borderRadius: 25, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  header: { minHeight: 67, backgroundColor: '#292837', alignItems: 'center', justifyContent: 'center', paddingTop: 6 },
+  brand: { fontFamily: 'Inter_600SemiBold', fontSize: 20, color: '#FFFFFF' },
+  brandX: { fontFamily: 'Inter_700Bold', color: '#FFD200' },
+  title: { marginTop: 1, fontFamily: 'Inter_600SemiBold', fontSize: 12, color: '#FFFFFF' },
+  segmented: { marginHorizontal: 12, marginTop: 10, marginBottom: 10, flexDirection: 'row', minHeight: 46, padding: 3, borderRadius: 23, backgroundColor: '#3A3949' },
+  segment: { flex: 1, borderRadius: 20, alignItems: 'center', justifyContent: 'center', gap: 1 },
   segmentActive: { backgroundColor: '#FFE66A' },
-  segmentText: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#FFFFFF' },
+  segmentText: { fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#FFFFFF' },
   segmentTextActive: { fontFamily: 'Inter_700Bold', color: '#111111' },
-  count: { minWidth: 20, height: 18, borderRadius: 9, paddingHorizontal: 5, backgroundColor: '#555463', alignItems: 'center', justifyContent: 'center' },
+  count: { minWidth: 18, height: 16, borderRadius: 8, paddingHorizontal: 4, backgroundColor: '#555463', alignItems: 'center', justifyContent: 'center' },
   countActive: { backgroundColor: '#292837' },
-  countText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: '#FFFFFF' },
+  countText: { fontFamily: 'Inter_700Bold', fontSize: 8, color: '#FFFFFF' },
   countTextActive: { color: '#FFE66A' },
   list: { flex: 1 },
-  content: { paddingHorizontal: 16, paddingBottom: 28, gap: 14 },
-  empty: { borderRadius: 18, backgroundColor: '#FFFFFF', padding: 24, alignItems: 'center' },
-  emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#292837' },
-  emptyText: { marginTop: 6, fontFamily: 'Inter_500Medium', fontSize: 13, lineHeight: 19, color: '#777684', textAlign: 'center' },
-  card: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, gap: 14, ...shadow },
+  content: { paddingHorizontal: 12, paddingBottom: 24, gap: 10 },
+  empty: { borderRadius: 14, backgroundColor: '#FFFFFF', padding: 22, alignItems: 'center' },
+  emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 15, color: '#292837' },
+  emptyText: { marginTop: 6, fontFamily: 'Inter_500Medium', fontSize: 12, lineHeight: 18, color: '#777684', textAlign: 'center' },
+  card: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 12, gap: 10, ...shadow },
   pressed: { opacity: .78 },
   disabled: { opacity: .72 },
-  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  cardHeader: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
   headerCopy: { flex: 1 },
-  company: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#4A4958' },
-  loadId: { marginTop: 4, fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#777684' },
-  statusPill: { borderRadius: 12, paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#ECEEF2' },
+  company: { fontFamily: 'Inter_700Bold', fontSize: 14, lineHeight: 18, color: '#4A4958' },
+  loadId: { marginTop: 3, fontFamily: 'Inter_500Medium', fontSize: 10, color: '#777684' },
+  statusPill: { borderRadius: 10, paddingHorizontal: 8, paddingVertical: 5, backgroundColor: '#ECEEF2' },
   statusAccepted: { backgroundColor: '#E8F6E5' },
-  statusText: { fontFamily: 'Inter_700Bold', fontSize: 11, color: '#62616F' },
+  statusText: { fontFamily: 'Inter_700Bold', fontSize: 9, color: '#62616F' },
   statusAcceptedText: { color: '#2E7E34' },
-  routeBox: { flexDirection: 'row', borderWidth: 1, borderColor: '#E1E2E7', borderRadius: 16, padding: 14, gap: 12 },
-  routeRail: { width: 34, alignItems: 'center', justifyContent: 'space-between' },
-  stopSquare: { width: 28, height: 28, borderRadius: 4, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center' },
-  stopPin: { width: 28, height: 32, borderRadius: 16, borderBottomLeftRadius: 5, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center' },
-  stopNumber: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#FFFFFF' },
-  routeDots: { transform: [{ rotate: '90deg' }], color: '#CDD2D9', letterSpacing: 1 },
-  routeCopy: { flex: 1, justifyContent: 'space-between', gap: 20 },
-  place: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#4A4958' },
-  footer: { minHeight: 58, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 2 },
-  quoteLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 11, letterSpacing: .8, color: '#777684' },
-  amount: { marginTop: 4, fontFamily: 'Inter_700Bold', fontSize: 22, color: '#292837' },
+  routeBox: { flexDirection: 'row', borderWidth: 1, borderColor: '#E1E2E7', borderRadius: 10, padding: 10, gap: 9 },
+  routeRail: { width: 27, alignItems: 'center', justifyContent: 'space-between' },
+  stopSquare: { width: 25, height: 25, borderRadius: 3, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  stopPin: { width: 25, height: 28, borderRadius: 14, borderBottomLeftRadius: 4, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center', zIndex: 2 },
+  stopNumber: { fontFamily: 'Inter_700Bold', fontSize: 10, color: '#FFFFFF' },
+  routeLine: { width: 1, flex: 1, minHeight: 18, backgroundColor: '#CDD2D9' },
+  routeCopy: { flex: 1, justifyContent: 'space-between', gap: 12 },
+  place: { fontFamily: 'Inter_700Bold', fontSize: 14, color: '#4A4958' },
+  footer: { minHeight: 50, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingTop: 1 },
+  quoteLabel: { fontFamily: 'Inter_600SemiBold', fontSize: 10, letterSpacing: .6, color: '#777684' },
+  amount: { marginTop: 3, fontFamily: 'Inter_700Bold', fontSize: 20, color: '#292837' },
 });
