@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#EEF1F5"/>
+  <text x="60" y="52" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#292837">XDrive Driver — APPROVED QUOTES / ALERTS VISUAL BASELINE</text>
+  <text x="60" y="82" font-family="Arial, sans-serif" font-size="15" fill="#555664">Repository-native visual anchor derived from the approved reference boards. Do not substitute a different mobile design system.</text>
+  <defs><style>
+    .phone{fill:#292837}.page{fill:#F2F3F7}.card{fill:#FFF}.tab{fill:#3A3949}.yellow{fill:#FFE66A}.blue{fill:#5199D6}.green{fill:#4CAD3F}.red{fill:#E9585B}.muted{fill:#777684}.ink{fill:#41414F}.tiny{font:11px Arial}.small{font:13px Arial}.body{font:15px Arial}.title{font:bold 17px Arial}.white{fill:#fff}.black{fill:#111}
+  </style></defs>
+
+  <!-- 1 Alerts Inbox -->
+  <g transform="translate(40,118)">
+    <rect class="phone" rx="26" width="340" height="610"/><rect class="page" x="14" y="58" rx="20" width="312" height="520"/>
+    <text x="170" y="38" text-anchor="middle" class="title white">XDrive • Alerts</text>
+    <rect x="28" y="76" width="262" height="48" rx="24" class="tab"/><rect x="32" y="80" width="84" height="40" rx="20" class="yellow"/><text x="74" y="105" text-anchor="middle" class="small black">Inbox</text><text x="166" y="105" text-anchor="middle" class="small white">Saved</text><text x="250" y="105" text-anchor="middle" class="small white">Deleted</text><circle cx="306" cy="100" r="22" class="tab"/><text x="306" y="105" text-anchor="middle" class="body white">⌖</text>
+    <rect class="card" x="28" y="140" width="284" height="340" rx="18"/><text x="44" y="170" class="title ink">Speedy Freight - Aberdeen</text><text x="44" y="190" class="small muted">09:19 | Small Van | Driver current location</text>
+    <rect x="44" y="205" width="48" height="26" rx="6" fill="#E8F6E5"/><rect x="98" y="205" width="62" height="26" rx="6" fill="#E8F2FB"/><rect x="166" y="205" width="72" height="26" rx="6" class="green"/><text x="68" y="223" text-anchor="middle" class="tiny" fill="#2D7B31">NEW</text><text x="129" y="223" text-anchor="middle" class="tiny" fill="#2473B7">HOTSHOT</text><text x="202" y="223" text-anchor="middle" class="tiny white">SMARTPAY</text>
+    <rect x="44" y="246" width="252" height="128" rx="15" fill="#FAFAFB" stroke="#E1E2E7"/><rect x="58" y="262" width="28" height="28" rx="4" class="blue"/><text x="72" y="281" text-anchor="middle" class="small white">1</text><text x="98" y="280" class="title ink">MANCHESTER, M90</text><text x="98" y="301" class="small muted">Before 10:30 BST | 05 Aug</text><circle cx="72" cy="334" r="15" class="blue"/><text x="72" y="339" text-anchor="middle" class="small white">2</text><text x="98" y="338" class="title ink">ABERDEEN, AB12</text><text x="98" y="359" class="small muted">ASAP</text>
+    <text x="44" y="402" class="small muted">Dimensions: 110 x 110 x 93 cm</text><text x="44" y="423" class="small muted">Weight: 250 kg</text><rect x="44" y="438" width="252" height="48" rx="24" class="yellow"/><text x="170" y="468" text-anchor="middle" class="title black">Quote</text>
+    <text x="170" y="558" text-anchor="middle" class="small ink">Home   Alerts   Quotes   Bookings   More</text>
+  </g>
+
+  <!-- 2 Quote detail -->
+  <g transform="translate(430,118)">
+    <rect class="phone" rx="26" width="340" height="610"/><text x="170" y="38" text-anchor="middle" class="title white">Load ID 86752577</text><rect class="page" x="14" y="58" rx="20" width="312" height="520"/>
+    <rect class="card" x="28" y="76" width="284" height="250" rx="18"/><text x="44" y="106" class="title ink">Speedy Freight - Aberdeen</text><text x="44" y="128" class="small muted">09:19 | Small Van</text><rect x="44" y="144" width="62" height="25" rx="6" fill="#E8F2FB"/><rect x="112" y="144" width="72" height="25" rx="6" class="green"/><text x="75" y="162" text-anchor="middle" class="tiny" fill="#2473B7">HOTSHOT</text><text x="148" y="162" text-anchor="middle" class="tiny white">SMARTPAY</text>
+    <rect x="44" y="184" width="252" height="88" rx="14" fill="#FAFAFB" stroke="#E1E2E7"/><text x="62" y="211" class="title ink">1  MANCHESTER, M90</text><text x="62" y="242" class="title ink">2  ABERDEEN, AB12</text><rect x="62" y="284" width="216" height="34" rx="17" class="blue"/><text x="170" y="306" text-anchor="middle" class="small white">View Route Map</text>
+    <rect class="card" x="28" y="342" width="284" height="170" rx="18"/><text x="48" y="374" class="small muted">VEHICLE</text><text x="154" y="374" class="body ink">Small Van</text><text x="48" y="404" class="small muted">DISTANCE</text><text x="154" y="404" class="body ink">351.5 miles</text><text x="48" y="434" class="small muted">NOTES</text><text x="154" y="434" class="small ink">Dimensions: 110 x 110 x 93 cm</text><text x="154" y="454" class="small ink">Weight: 250 kg</text><rect x="44" y="526" width="252" height="46" rx="23" class="yellow"/><text x="170" y="555" text-anchor="middle" class="title black">Quote</text>
+  </g>
+
+  <!-- 3 Customer/feedback context -->
+  <g transform="translate(820,118)">
+    <rect class="phone" rx="26" width="340" height="610"/><text x="170" y="38" text-anchor="middle" class="title white">Load ID 86752577</text><rect class="page" x="14" y="58" rx="20" width="312" height="520"/>
+    <rect class="card" x="28" y="76" width="284" height="160" rx="18"/><text x="44" y="107" class="title ink">Feedback</text><text x="44" y="126" class="small muted">Past 90 days</text><text x="64" y="158" class="small ink">Payment</text><text x="196" y="158" class="body ink">158   0   0</text><text x="64" y="184" class="small ink">Delivery</text><text x="196" y="184" class="body ink">0   0   0</text><rect x="48" y="196" width="244" height="32" rx="16" class="blue"/><text x="170" y="217" text-anchor="middle" class="small white">All Feedback</text>
+    <rect class="card" x="28" y="252" width="284" height="206" rx="18"/><text x="48" y="282" class="small muted">CUSTOMER</text><text x="48" y="305" class="title ink">Speedy Freight - Aberdeen</text><text x="48" y="340" class="small muted">TERMS</text><text x="48" y="363" class="body ink">30 Days (End Of Month)</text><text x="48" y="397" class="small muted">PHONE</text><text x="48" y="420" class="body ink">44 1224 443 638</text><rect x="48" y="430" width="244" height="38" rx="19" class="blue"/><text x="170" y="455" text-anchor="middle" class="small white">Message</text><rect x="44" y="500" width="252" height="48" rx="24" class="yellow"/><text x="170" y="530" text-anchor="middle" class="title black">Quote</text>
+  </g>
+
+  <text x="40" y="762" font-family="Arial" font-size="13" fill="#555664">Also mandatory: Submit Quote form with GBP / £0.00 / Additional extras / Total / Will collect within / Vehicle / Notes; completed Bookings list with View POD; swipe-left delete state with red delete action.</text>
+  <text x="40" y="784" font-family="Arial" font-size="13" fill="#555664">Canonical colours: navy #292837, yellow #FFE66A, blue #5199D6, green #4CAD3F/#65C653, page #F2F3F7. Bottom navigation remains Home / Alerts / Quotes / Bookings / More.</text>
+</svg>
