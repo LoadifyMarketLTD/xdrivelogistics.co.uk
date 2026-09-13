@@ -44,10 +44,10 @@ function tagList(job: DriverJob) {
   return tags.slice(0, 3);
 }
 
-export function LoadsScreen({ jobs, loading, accountKey, onRefresh, onOpen }: {
+export function LoadsScreen({ jobs, loading, accountKey = 'device', onRefresh, onOpen }: {
   jobs: DriverJob[];
   loading: boolean;
-  accountKey: string;
+  accountKey?: string;
   onRefresh: () => void;
   onOpen: (job: DriverJob) => void;
 }) {
