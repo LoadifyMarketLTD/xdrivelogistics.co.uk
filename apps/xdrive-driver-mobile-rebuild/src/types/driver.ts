@@ -9,6 +9,31 @@ export type CanonicalJobStatus =
   | 'delivered'
   | 'cancelled';
 
+export type DriverJobStop = {
+  id?: string;
+  sequence: number;
+  type?: string;
+  address: string;
+  company?: string;
+  contactPerson?: string;
+  telephone?: string;
+  timeWindowFrom?: string;
+  timeWindowTo?: string;
+  status?: string;
+  notes?: string;
+  arrivedAt?: string;
+  completedAt?: string;
+};
+
+export type DriverJobAttachment = {
+  id?: string | null;
+  type?: string | null;
+  fileName?: string | null;
+  createdAt?: string | null;
+  signedUrl?: string | null;
+  url?: string | null;
+};
+
 export type DriverJob = {
   id: string;
   reference: string;
@@ -40,8 +65,26 @@ export type DriverJob = {
   contactPhone?: string;
   pickupNote?: string;
   deliveryNote?: string;
+  client?: string;
+  distance?: string;
+  eta?: string;
+  weight?: string;
+  dimensions?: string;
+  palletCount?: number;
+  adr?: boolean;
+  tailLift?: boolean;
+  temperatureControlled?: boolean;
+  badges?: string[];
+  customerNotes?: string;
+  specialInstructions?: string;
+  customerReference?: string;
+  internalReference?: string;
+  stops?: DriverJobStop[];
+  attachments?: DriverJobAttachment[];
+  auditTrail?: Array<Record<string, unknown>>;
+  pod?: Record<string, unknown> | null;
+  podCompleted?: boolean;
 };
-
 
 export type DriverQuoteReadiness = {
   eligible: boolean;
