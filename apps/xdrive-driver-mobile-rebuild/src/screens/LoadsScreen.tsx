@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Animated, PanResponder, StyleSheet } from 'react-native';
+import { Animated, Linking, PanResponder, StyleSheet } from 'react-native';
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from '../theme/primitives';
 import { UiIcon } from '../components/UiIcon';
 import type { DriverJob } from '../types/driver';
@@ -91,6 +91,15 @@ export function LoadsScreen({ jobs, loading, accountKey = 'device', onRefresh, o
     return !hidden;
   }), [feed, jobs, preferences.hiddenJobIds, preferences.savedJobIds]);
 
+  function openMap() {
+    const first = visibleJobs[0] ?? jobs[0];
+    const target = first?.pickupLocation?.trim();
+    const url = target
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(target)}`
+      : 'https://www.google.com/maps';
+    void Linking.openURL(url);
+  }
+
   return <View style={styles.page}>
     <View style={styles.header}>
       <Text style={styles.brand}><Text style={styles.brandX}>X</Text>Drive</Text>
@@ -106,7 +115,7 @@ export function LoadsScreen({ jobs, loading, accountKey = 'device', onRefresh, o
           </Pressable>;
         })}
         <View style={styles.segmentDivider} />
-        <View style={styles.mapButton}><UiIcon name="location" size={21} color="#FFFFFF" /></View>
+        <Pressable accessibilityRole="button" accessibilityLabel="Open loads map" onPress={openMap} style={styles.mapButton}><UiIcon name="location" size={21} color="#FFFFFF" /></Pressable>
       </View>
     </View>
 
@@ -213,9 +222,9 @@ const styles = StyleSheet.create({
   emptyTitle: { fontFamily: 'Inter_700Bold', fontSize: 15, color: '#292837' },
   emptyText: { marginTop: 6, fontFamily: 'Inter_500Medium', fontSize: 12, lineHeight: 18, color: '#747381', textAlign: 'center' },
   swipeShell: { position: 'relative', borderRadius: 14, overflow: 'hidden' },
-  swipeActions: { ...StyleSheet.absoluteFillObject, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'stretch' },
-  saveAction: { width: swipeWidth, backgroundColor: '#E0A500', alignItems: 'center', justifyContent: 'center' },
-  deleteAction: { width: swipeWidth, backgroundColor: '#E4545C', alignItems: 'center', justifyContent: 'center' },
+  swipeActions: { ...StyleSheet.absoluteFillObject, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 12, backgroundColor: '#F2F3F7' },
+  saveAction: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#E0A500', alignItems: 'center', justifyContent: 'center' },
+  deleteAction: { width: 46, height: 46, borderRadius: 23, backgroundColor: '#E4545C', alignItems: 'center', justifyContent: 'center' },
   swipeCard: { backgroundColor: '#FFFFFF', borderRadius: 14, ...shadow },
   cardMain: { padding: 12, gap: 8 },
   pressed: { opacity: 0.78 },
