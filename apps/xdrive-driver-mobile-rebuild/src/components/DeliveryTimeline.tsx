@@ -49,16 +49,15 @@ function stageComplete(stage: StageStatus, status: CanonicalJobStatus, auditTrai
 
 export function DeliveryTimeline({ status, auditTrail }: { status: CanonicalJobStatus; auditTrail?: AuditRow[] }) {
   if (status === 'available' || status === 'cancelled') return null;
-  const visibleStages = stages.filter((stage) => stage.status !== 'invoice_generated' || stageComplete(stage.status, status, auditTrail));
 
   return <View style={styles.wrap}>
-    {visibleStages.slice().reverse().map((stage, index) => {
+    {stages.slice().reverse().map((stage, index) => {
       const complete = stageComplete(stage.status, status, auditTrail);
       const timestamp = auditTimestamp(auditTrail, stage.status);
       return <View key={stage.status} style={styles.row}>
         <View style={styles.markerColumn}>
           <View style={[styles.dot, complete && styles.dotActive]}>{complete ? <Text style={styles.check}>✓</Text> : null}</View>
-          {index < visibleStages.length - 1 ? <View style={[styles.line, complete && styles.lineActive]} /> : null}
+          {index < stages.length - 1 ? <View style={[styles.line, complete && styles.lineActive]} /> : null}
         </View>
         <View style={styles.copy}>
           <Text style={[styles.label, complete && styles.labelActive]}>{stage.label}</Text>
