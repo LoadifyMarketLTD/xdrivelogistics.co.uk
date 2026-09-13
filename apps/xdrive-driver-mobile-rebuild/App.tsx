@@ -51,6 +51,7 @@ function DriverApp() {
   const [actionBusy, setActionBusy] = useState(false);
   const [dataError, setDataError] = useState('');
   const [actionError, setActionError] = useState('');
+
   useEffect(() => {
     setActionError('');
   }, [resourcePage, selectedJob?.id, tab]);
@@ -202,6 +203,13 @@ function DriverApp() {
     await supabase.auth.signOut();
   }
 
+  function navigateMain(nextTab: MainTab) {
+    setSelectedJob(undefined);
+    setSelectedQuote(undefined);
+    setResourcePage(undefined);
+    setTab(nextTab);
+  }
+
   if ((!fontsLoaded && !fontError) || !authReady) {
     return <View style={styles.loading}><ActivityIndicator size="large" color={colors.primary} /></View>;
   }
@@ -228,13 +236,14 @@ function DriverApp() {
   }
 
   const homeBrand = !selectedJob && tab === 'home';
+  const detailBrand = Boolean(selectedJob);
   return (
-    <SafeAreaView style={[styles.safe, homeBrand && styles.homeSafe]}>
-      <StatusBar barStyle={homeBrand || isDark ? 'light-content' : 'dark-content'} backgroundColor={homeBrand ? palette.brand : palette.surface} />
+    <SafeAreaView style={[styles.safe, homeBrand && styles.homeSafe, detailBrand && styles.detailSafe]}>
+      <StatusBar barStyle={homeBrand || detailBrand || isDark ? 'light-content' : 'dark-content'} backgroundColor={homeBrand ? palette.brand : detailBrand ? '#292837' : palette.surface} />
       <View style={styles.app}>
         {actionError ? <View style={styles.errorBanner}><Text style={styles.errorText}>{actionError}</Text></View> : null}
         <View style={styles.screen}>{screen}</View>
-        {!selectedJob && !resourcePage ? <BottomNav active={tab} onChange={setTab} alertCount={available.length} /> : null}
+        {!resourcePage ? <BottomNav active={tab} onChange={navigateMain} alertCount={available.length} /> : null}
       </View>
     </SafeAreaView>
   );
@@ -243,6 +252,7 @@ function DriverApp() {
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.surface },
   homeSafe: { backgroundColor: '#0B2F6B' },
+  detailSafe: { backgroundColor: '#292837' },
   app: { flex: 1, backgroundColor: colors.appBackground },
   screen: { flex: 1 },
   loading: { flex: 1, backgroundColor: colors.appBackground, alignItems: 'center', justifyContent: 'center' },
