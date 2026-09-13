@@ -4,7 +4,7 @@ import type { CanonicalJobStatus } from '../types/driver';
 import { formatDeliveryDate } from '../utils/format';
 
 type AuditRow = Record<string, unknown>;
-type StageStatus = CanonicalJobStatus | 'pod_completed' | 'invoice_generated';
+type StageStatus = CanonicalJobStatus | 'invoice_generated';
 
 const stages: Array<{ status: StageStatus; label: string }> = [
   { status: 'awarded', label: 'Accepted' },
@@ -13,8 +13,7 @@ const stages: Array<{ status: StageStatus; label: string }> = [
   { status: 'loaded', label: 'Loaded' },
   { status: 'on_my_way_delivery', label: 'On My Way to Delivery' },
   { status: 'arrived_delivery', label: 'On Site (Delivery)' },
-  { status: 'delivered', label: 'Delivered' },
-  { status: 'pod_completed', label: 'Delivered (POD)' },
+  { status: 'delivered', label: 'Delivered (POD)' },
   { status: 'invoice_generated', label: 'Invoice' },
 ];
 
@@ -26,10 +25,8 @@ function canonicalAuditStatus(value: unknown): StageStatus | null {
   if (['loaded', 'collected'].includes(raw)) return 'loaded';
   if (['on_my_way_delivery', 'on_my_way_to_delivery', 'in_transit', 'on_route_delivery'].includes(raw)) return 'on_my_way_delivery';
   if (['arrived_delivery', 'on_site_delivery'].includes(raw)) return 'arrived_delivery';
-  if (raw === 'delivered') return 'delivered';
-  if (raw === 'pod_completed') return 'pod_completed';
+  if (['delivered', 'pod_completed', 'completed'].includes(raw)) return 'delivered';
   if (['invoice_generated', 'invoiced'].includes(raw)) return 'invoice_generated';
-  if (raw === 'completed') return 'delivered';
   return null;
 }
 
@@ -43,26 +40,25 @@ function auditTimestamp(auditTrail: AuditRow[] | undefined, status: StageStatus)
   return timestamp ? formatDeliveryDate(timestamp) : '';
 }
 
-function stageComplete(stage: StageStatus, status: CanonicalJobStatus, auditTrail?: AuditRow[], podCompleted = false) {
+function stageComplete(stage: StageStatus, status: CanonicalJobStatus, auditTrail?: AuditRow[]) {
   const hasAudit = Boolean(auditTimestamp(auditTrail, stage));
-  if (stage === 'pod_completed') return podCompleted || hasAudit;
   if (stage === 'invoice_generated') return hasAudit;
   const order: CanonicalJobStatus[] = ['awarded', 'on_my_way_pickup', 'arrived_pickup', 'loaded', 'on_my_way_delivery', 'arrived_delivery', 'delivered'];
   return hasAudit || order.indexOf(stage as CanonicalJobStatus) <= order.indexOf(status);
 }
 
-export function DeliveryTimeline({ status, auditTrail, podCompleted = false }: { status: CanonicalJobStatus; auditTrail?: AuditRow[]; podCompleted?: boolean }) {
+export function DeliveryTimeline({ status, auditTrail }: { status: CanonicalJobStatus; auditTrail?: AuditRow[] }) {
   if (status === 'available' || status === 'cancelled') return null;
-  const visibleStages = stages.filter((stage) => stage.status !== 'invoice_generated' || stageComplete(stage.status, status, auditTrail, podCompleted));
+  const visibleStages = stages.filter((stage) => stage.status !== 'invoice_generated' || stageComplete(stage.status, status, auditTrail));
 
   return <View style={styles.wrap}>
-    {visibleStages.slice().reverse().map((stage) => {
-      const complete = stageComplete(stage.status, status, auditTrail, podCompleted);
+    {visibleStages.slice().reverse().map((stage, index) => {
+      const complete = stageComplete(stage.status, status, auditTrail);
       const timestamp = auditTimestamp(auditTrail, stage.status);
       return <View key={stage.status} style={styles.row}>
         <View style={styles.markerColumn}>
           <View style={[styles.dot, complete && styles.dotActive]}>{complete ? <Text style={styles.check}>✓</Text> : null}</View>
-          <View style={[styles.line, complete && styles.lineActive]} />
+          {index < visibleStages.length - 1 ? <View style={[styles.line, complete && styles.lineActive]} /> : null}
         </View>
         <View style={styles.copy}>
           <Text style={[styles.label, complete && styles.labelActive]}>{stage.label}</Text>
