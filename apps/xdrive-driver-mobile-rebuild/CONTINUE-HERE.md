@@ -28,6 +28,20 @@ XDrive should display the corresponding functions in the same visual language as
 - lifecycle through `Delivered (POD)` and `Invoice`
 - operational progress CTA green
 
+## Current parity work completed in this chat
+- Alerts now uses the XDrive header, compact approved card scale, numbered blue route markers, yellow Quote CTA and real swipe-right Saved / swipe-left Deleted actions.
+- The Alerts map control is actionable and opens the first visible pickup in Maps instead of being decorative.
+- Quote Detail is separated from Submit Quote: detail first, then the yellow `Quote` CTA opens the form.
+- Quote Detail now includes route/map, vehicle, distance, notes, customer context and the approved Feedback card structure without inventing reputation counts.
+- Submit Quote now follows the approved `MY QUOTE (EXC. VAT)` hierarchy: GBP/amount, additional extras, Total, Will collect within, Vehicle, Notes, Submit Quote.
+- Marketplace weight and pallet count are preserved from the existing real mobile API response for presentation.
+- Bottom navigation remains visible on load/booking detail screens and navigating to another main tab correctly closes the detail.
+- Bookings now uses the XDrive/Bookings header and light `Current / Past 7 days / Past 14 days` pills with navy selected state.
+- Quotes list now uses the same XDrive header and compact card grammar.
+- Booking Detail keeps the approved `Summary / Stops / Status` structure, stop modal, POD paths and status audit timestamps.
+- The shared operational progress CTA is now the approved wide green rectangular action.
+- `UiIcon` now uses the complete installed Ionicons glyph set so the approved iconography does not create type errors.
+
 ## Validation rule
 DO NOT claim the app is finished just because code looks correct. Final PASS requires:
 - local TypeScript typecheck PASS
@@ -43,5 +57,5 @@ The user explicitly has no GitHub Actions credits and does not want Actions used
 ## PowerShell operating rules
 If Desktop Commander is unavailable, work through the user's PowerShell terminal. Give exactly ONE PowerShell block at a time and wait for the output. Never use `exit`. Never use destructive Git such as `git reset --hard` or `git clean`. Preserve unrelated local work. Do not assume the XDrive local path; the known `D:\LoadifyMarket-Release-v4` path is a different project.
 
-## First action in the next chat
-Verify current PR/branch state and inspect the three files above. Continue remaining parity differences only. After the UI work is stable, move immediately to local PowerShell build + Pixel screenshot validation. Do not branch into unrelated website/backend/Loadify work.
+## Next mandatory phase
+Do not claim visual parity yet. Move to the user's Windows laptop, run local TypeScript validation and the local APK build, install the preview APK on the physical Pixel, then compare the actual rendered screens screenshot-by-screenshot with the two approved boards. Fix any remaining spacing, clipping, status-state or device-specific differences found on the Pixel before calling this complete.
