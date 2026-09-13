@@ -6,7 +6,8 @@ import { Inter_400Regular, Inter_500Medium, Inter_600SemiBold, Inter_700Bold, us
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from './src/auth/supabase';
 import { revokeNativeDeviceSession } from './src/auth/deviceSession';
-import { fetchAvailableJobs, fetchJob, fetchJobs, fetchResources, isQuoteWindowOpen, postJobStatus, quoteReadinessMessage, submitQuote, updateDestinationPreferences, type ReturnIqMeta } from './src/api/driver';
+import { fetchAvailableJobs, fetchJob, fetchJobs, fetchResources, isQuoteWindowOpen, postJobStatus, quoteReadinessMessage, updateDestinationPreferences, type ReturnIqMeta } from './src/api/driver';
+import { submitStructuredQuote, type DriverQuoteInput } from './src/api/quote';
 import type { DriverJob, DriverResources } from './src/types/driver';
 import { BottomNav, type MainTab } from './src/components/BottomNav';
 import { HomeScreen } from './src/screens/HomeScreen';
@@ -150,7 +151,7 @@ function DriverApp() {
     }
   }
 
-  async function quoteLoad(amount: number) {
+  async function quoteLoad(input: DriverQuoteInput) {
     if (!selectedJob) return;
     if (!isQuoteWindowOpen(selectedJob)) {
       setActionError('This load is no longer open for quotation.');
@@ -168,7 +169,7 @@ function DriverApp() {
     setActionBusy(true);
     setActionError('');
     try {
-      await submitQuote(selectedJob.id, amount);
+      await submitStructuredQuote(selectedJob.id, input);
       await refresh();
       setSelectedJob(undefined);
       setTab('quotes');
@@ -217,7 +218,7 @@ function DriverApp() {
   } else if (tab === 'home') {
     screen = <HomeScreen jobs={available} activeJob={active[0]} recentJob={history[0]} resources={resources} loading={loading} dataError={dataError} onRefresh={refresh} onOpen={setSelectedJob} onGoLoads={() => setTab('alerts')} onGoQuotes={() => setTab('quotes')} onGoHistory={() => setTab('bookings')} onGoMore={() => setTab('more')} onAvailabilitySaved={(value) => setResources(current => current?.driver ? { ...current, driver: { ...current.driver, availability_status: value } } : current)} />;
   } else if (tab === 'alerts') {
-    screen = <LoadsScreen jobs={available} loading={loading} onRefresh={refresh} onOpen={(job) => { setSelectedQuote(undefined); setSelectedJob(job); }} />;
+    screen = <LoadsScreen jobs={available} loading={loading} accountKey={resources?.email ?? session.user.email ?? session.user.id} onRefresh={refresh} onOpen={(job) => { setSelectedQuote(undefined); setSelectedJob(job); }} />;
   } else if (tab === 'quotes') {
     screen = <QuotesScreen resources={resources} jobs={[...available, ...active, ...history]} onOpen={(job, quote) => { setSelectedQuote(quote); setSelectedJob(job); }} />;
   } else if (tab === 'bookings') {
