@@ -125,7 +125,11 @@ export function JobDetailScreen({ job, busy, onBack, onAdvance }: { job: DriverJ
     : next ? <ActionButton disabled={busy} label={busy ? 'Updating…' : next.label} onPress={() => onAdvance(next.endpoint)} /> : null;
 
   return <View style={styles.page}>
-    <View style={styles.topbar}><Pressable onPress={onBack} style={styles.back}><Ionicons name="chevron-back" size={25} color="#FFFFFF" /></Pressable><Text style={styles.topTitle}>Load ID {job.reference}</Text><View style={styles.back} /></View>
+    <View style={styles.topbar}>
+      <Pressable onPress={onBack} style={styles.back}><Ionicons name="chevron-back" size={25} color="#FFFFFF" /></Pressable>
+      <View style={styles.brandTitle}><Text style={styles.brandX}>X</Text><Text style={styles.brandDrive}>Drive</Text></View>
+      <View style={styles.back} />
+    </View>
     <View style={styles.tabs}>{(['summary', 'stops', 'status'] as DetailTab[]).map((item) => <Pressable key={item} onPress={() => setTab(item)} style={[styles.tab, tab === item && styles.tabActive]}><Text style={[styles.tabText, tab === item && styles.tabTextActive]}>{item.charAt(0).toUpperCase() + item.slice(1)}</Text></Pressable>)}</View>
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.cardHeader}><Text style={styles.company}>{job.postingCompanyName || job.client || 'XDrive Booking'}{job.postingCompanyMemberCode ? ` (${job.postingCompanyMemberCode})` : ''}</Text><Text style={styles.reference}>{job.customerReference ? `Cust. Ref. ${job.customerReference}` : `Load ID ${job.reference}`}</Text></View>
@@ -145,7 +149,7 @@ export function JobDetailScreen({ job, busy, onBack, onAdvance }: { job: DriverJ
       </View> : null}
 
       {tab === 'stops' ? <View style={styles.card}>{stops.map((stop, index) => <StopRow key={stop.id || `${stop.sequence}-${index}`} stop={stop} index={index} onOpen={() => setSelectedStop({ stop, index })} />)}{nextAction ? <View style={styles.actionWrap}>{nextAction}</View> : null}</View> : null}
-      {tab === 'status' ? <View style={styles.card}>{job.status === 'cancelled' ? <View style={styles.note}><Text style={styles.noteText}>Booking cancelled. No further driver action is available.</Text></View> : <DeliveryTimeline status={job.status} />}<View style={styles.current}><Text style={styles.label}>CURRENT STATUS</Text><Text style={styles.currentValue}>{statusLabel(job.status)}</Text></View>{nextAction ? <View style={styles.actionWrap}>{nextAction}</View> : null}</View> : null}
+      {tab === 'status' ? <View style={styles.card}>{job.status === 'cancelled' ? <View style={styles.note}><Text style={styles.noteText}>Booking cancelled. No further driver action is available.</Text></View> : <DeliveryTimeline status={job.status} auditTrail={job.auditTrail} />}<View style={styles.current}><Text style={styles.label}>CURRENT STATUS</Text><Text style={styles.currentValue}>{statusLabel(job.status)}</Text></View>{nextAction ? <View style={styles.actionWrap}>{nextAction}</View> : null}</View> : null}
     </ScrollView>
 
     <StopModal selected={selectedStop} onClose={() => setSelectedStop(null)} />
@@ -163,7 +167,7 @@ function StopRow({ stop, index, onOpen }: { stop: DriverJobStop; index: number; 
 
 function StopModal({ selected, onClose }: { selected: { stop: DriverJobStop; index: number } | null; onClose: () => void }) {
   const stop = selected?.stop; const index = selected?.index ?? 0;
-  return <Modal visible={Boolean(stop)} transparent animationType="fade" onRequestClose={onClose}><View style={styles.backdrop}><View style={styles.modal}>{stop ? <><View style={styles.modalHead}><View style={styles.modalMarker}><Text style={styles.markerText}>{index + 1}</Text></View><View style={{ flex: 1 }}><Text style={styles.modalTitle}>{stopTitle(stop, index)}</Text><Text style={styles.muted}>{stop.address}</Text></View></View><View style={styles.divider} /><Field label="Time" value={stopTime(stop)} /><Field label="Company" value={stop.company || 'Not supplied'} /><Field label="Address" value={stop.address} />{stop.contactPerson ? <Field label="Contact" value={stop.contactPerson} /> : null}{stop.telephone ? <Pressable onPress={() => void Linking.openURL(`tel:${stop.telephone}`)}><Field label="Telephone" value={stop.telephone} link /></Pressable> : null}{stop.notes ? <Field label="Notes" value={stop.notes} /> : null}<CloseButton onPress={onClose} /></> : null}</View></View></Modal>;
+  return <Modal visible={Boolean(stop)} transparent animationType="fade" onRequestClose={onClose}><View style={styles.backdrop}><View style={styles.modal}>{stop ? <><View style={styles.modalHead}><View style={styles.modalMarker}><Text style={styles.markerText}>{index + 1}</Text></View><View style={{ flex: 1 }}><Text style={styles.modalTitle}>{stop.address}</Text><Text style={styles.modalSubtitle}>{stopTitle(stop, index)}</Text></View></View><View style={styles.divider} /><Field label="Time" value={stopTime(stop)} /><Field label="Company" value={stop.company || 'Not supplied'} /><Field label="Address" value={stop.address} />{stop.contactPerson ? <Field label="Contact" value={stop.contactPerson} /> : null}{stop.telephone ? <Pressable onPress={() => void Linking.openURL(`tel:${stop.telephone}`)}><Field label="Telephone" value={stop.telephone} link /></Pressable> : null}{stop.notes ? <Field label="Notes" value={stop.notes} /> : null}<CloseButton onPress={onClose} /></> : null}</View></View></Modal>;
 }
 function Field({ label, value, link = false }: { label: string; value: string; link?: boolean }) { return <View style={styles.field}><Text style={styles.fieldLabel}>{label}</Text><Text style={[styles.fieldValue, link && styles.link]}>{value}</Text></View>; }
 function CloseButton({ onPress }: { onPress: () => void }) { return <Pressable onPress={onPress} style={styles.close}><Text style={styles.closeText}>Close</Text></Pressable>; }
@@ -188,12 +192,83 @@ function PodCaptureModal(props: { visible: boolean; job: DriverJob; evidence: Ev
 }
 
 const styles = StyleSheet.create({
-  page: { flex: 1, backgroundColor: '#292837' }, topbar: { minHeight: 74, paddingTop: 16, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' }, back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }, topTitle: { flex: 1, textAlign: 'center', fontFamily: 'Inter_600SemiBold', fontSize: 18, color: '#FFFFFF' }, tabs: { marginHorizontal: 16, marginBottom: 16, padding: 4, backgroundColor: '#3A3949', borderRadius: 30, flexDirection: 'row' }, tab: { flex: 1, minHeight: 50, borderRadius: 25, alignItems: 'center', justifyContent: 'center' }, tabActive: { backgroundColor: '#FFE66A' }, tabText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#FFFFFF' }, tabTextActive: { fontFamily: 'Inter_700Bold', color: '#111111' }, content: { paddingHorizontal: 16, paddingBottom: 32 },
-  cardHeader: { backgroundColor: '#E6E7EC', borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 16, gap: 4 }, company: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#474655' }, reference: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#777684' }, card: { backgroundColor: '#FFFFFF', borderBottomLeftRadius: 18, borderBottomRightRadius: 18, padding: 16, gap: 16, minHeight: 420, ...shadow },
-  route: { flexDirection: 'row', borderWidth: 1, borderColor: '#E1E2E7', borderRadius: 16, padding: 14, gap: 12 }, rail: { width: 34, alignItems: 'center', justifyContent: 'space-between' }, square: { width: 30, height: 30, borderRadius: 4, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center' }, pin: { width: 30, height: 34, borderRadius: 17, borderBottomLeftRadius: 5, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center' }, markerText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#FFFFFF' }, dots: { transform: [{ rotate: '90deg' }], color: '#CDD2D9' }, routeCopy: { flex: 1, justifyContent: 'space-between', gap: 20 }, place: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#474655' }, routeTime: { marginTop: 4, fontFamily: 'Inter_500Medium', fontSize: 14, color: '#7D7C8A' }, distanceRow: { flexDirection: 'row', gap: 8, alignItems: 'center' }, distance: { fontFamily: 'Inter_600SemiBold', fontSize: 15, color: '#777684' },
-  label: { fontFamily: 'Inter_600SemiBold', fontSize: 12, letterSpacing: .8, color: '#777684' }, details: { gap: 8 }, detailRow: { flexDirection: 'row', gap: 12 }, detailLabel: { width: 88, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#292837' }, detailValue: { flex: 1, fontFamily: 'Inter_700Bold', fontSize: 14, color: '#292837' }, note: { backgroundColor: '#F0F1F4', borderRadius: 14, padding: 14 }, noteText: { fontFamily: 'Inter_500Medium', fontSize: 15, lineHeight: 22, color: '#292837' }, attachments: { gap: 10, borderTopWidth: 1, borderTopColor: '#E0E1E6', paddingTop: 10 }, attachment: { minHeight: 52, borderWidth: 1, borderColor: '#4D99D7', borderRadius: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }, attachmentText: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#292837' }, muted: { fontFamily: 'Inter_500Medium', fontSize: 13, lineHeight: 18, color: '#777684' },
-  evidenceActions: { flexDirection: 'row', gap: 10 }, evidenceButton: { flex: 1, minHeight: 92, borderRadius: 14, backgroundColor: '#F6F6F8', borderWidth: 1, borderColor: '#D9DAE0', alignItems: 'center', justifyContent: 'center', padding: 10 }, evidenceTitle: { marginTop: 5, fontFamily: 'Inter_700Bold', fontSize: 14, color: '#292837' }, evidenceHint: { marginTop: 2, fontFamily: 'Inter_500Medium', fontSize: 11, color: '#777684' }, staged: { minHeight: 34, borderRadius: 10, backgroundColor: '#EFF8ED', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 10, gap: 8 }, greenDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#65C653' }, stagedText: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#3A6632' }, viewPod: { minHeight: 54, borderRadius: 27, backgroundColor: '#65C653', alignItems: 'center', justifyContent: 'center' }, viewPodText: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#FFFFFF' },
-  stopRow: { minHeight: 105, flexDirection: 'row', alignItems: 'flex-start', gap: 12, paddingVertical: 6 }, stopTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#292837' }, stopTime: { marginTop: 4, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#777684' }, stopBody: { marginTop: 6, fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#777684' }, stopNotes: { marginTop: 6, fontFamily: 'Inter_500Medium', fontSize: 13, lineHeight: 19, color: '#777684' }, current: { borderTopWidth: 1, borderTopColor: '#E1E2E7', paddingTop: 12, gap: 4 }, currentValue: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#292837' }, actionWrap: { paddingTop: 6 }, captureButton: { minHeight: 56, borderRadius: 28, backgroundColor: '#FFD200', alignItems: 'center', justifyContent: 'center' }, captureText: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#111111' },
-  backdrop: { flex: 1, backgroundColor: 'rgba(13,13,20,.65)', justifyContent: 'center', padding: 20 }, modal: { maxHeight: '88%', backgroundColor: '#FFFFFF', borderRadius: 20, padding: 18, ...shadow }, captureModal: { alignSelf: 'stretch' }, modalHead: { flexDirection: 'row', gap: 12, alignItems: 'center' }, modalMarker: { width: 42, height: 42, borderRadius: 8, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center' }, modalTitle: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#292837' }, podTitle: { fontFamily: 'Inter_700Bold', fontSize: 22, color: '#292837' }, divider: { height: 1, backgroundColor: '#E2E3E7', marginVertical: 14 }, field: { marginBottom: 12 }, fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 11, letterSpacing: .7, color: '#8A8996' }, fieldValue: { marginTop: 3, fontFamily: 'Inter_600SemiBold', fontSize: 14, lineHeight: 20, color: '#292837' }, link: { color: '#287FC3' }, close: { marginTop: 10, minHeight: 48, borderRadius: 24, backgroundColor: '#292837', alignItems: 'center', justifyContent: 'center' }, closeText: { fontFamily: 'Inter_700Bold', fontSize: 15, color: '#FFFFFF' },
-  input: { minHeight: 48, borderWidth: 1, borderColor: '#D0D1D6', borderRadius: 12, paddingHorizontal: 12, marginTop: 6, marginBottom: 14, fontFamily: 'Inter_500Medium', fontSize: 14, color: '#292837' }, notesInput: { minHeight: 90, paddingTop: 12, textAlignVertical: 'top' }, signatureButton: { minHeight: 68, borderWidth: 1, borderColor: '#D9DADE', borderRadius: 12, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 14 }, signatureReady: { backgroundColor: '#EFF8ED', borderColor: '#8DCA82' }, error: { marginBottom: 10, fontFamily: 'Inter_600SemiBold', fontSize: 12, lineHeight: 18, color: '#B42318' }, submitPod: { minHeight: 56, borderRadius: 28, backgroundColor: '#FFD200', alignItems: 'center', justifyContent: 'center' }, submitPodText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#111111' },
+  page: { flex: 1, backgroundColor: '#292837' },
+  topbar: { minHeight: 66, paddingTop: 12, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center' },
+  back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
+  brandTitle: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  brandX: { fontFamily: 'Inter_700Bold', fontSize: 20, color: '#FFD200' },
+  brandDrive: { fontFamily: 'Inter_700Bold', fontSize: 20, color: '#FFFFFF' },
+  tabs: { marginHorizontal: 16, marginBottom: 14, padding: 4, backgroundColor: '#3A3949', borderRadius: 30, flexDirection: 'row' },
+  tab: { flex: 1, minHeight: 48, borderRadius: 24, alignItems: 'center', justifyContent: 'center' },
+  tabActive: { backgroundColor: '#FFE66A' },
+  tabText: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#FFFFFF' },
+  tabTextActive: { fontFamily: 'Inter_700Bold', color: '#111111' },
+  content: { paddingHorizontal: 14, paddingBottom: 32 },
+  cardHeader: { backgroundColor: '#FFFFFF', borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 14, gap: 4, borderBottomWidth: 1, borderBottomColor: '#E7E8EC' },
+  company: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#474655' },
+  reference: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#777684' },
+  card: { backgroundColor: '#FFFFFF', borderBottomLeftRadius: 16, borderBottomRightRadius: 16, padding: 14, gap: 14, minHeight: 420, ...shadow },
+  route: { flexDirection: 'row', borderWidth: 1, borderColor: '#E1E2E7', borderRadius: 14, padding: 13, gap: 12 },
+  rail: { width: 34, alignItems: 'center', justifyContent: 'space-between' },
+  square: { width: 28, height: 28, borderRadius: 4, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center' },
+  pin: { width: 28, height: 32, borderRadius: 16, borderBottomLeftRadius: 5, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center' },
+  markerText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#FFFFFF' },
+  dots: { transform: [{ rotate: '90deg' }], color: '#CDD2D9' },
+  routeCopy: { flex: 1, justifyContent: 'space-between', gap: 18 },
+  place: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#474655' },
+  routeTime: { marginTop: 4, fontFamily: 'Inter_500Medium', fontSize: 13, color: '#7D7C8A' },
+  distanceRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  distance: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#777684' },
+  label: { fontFamily: 'Inter_600SemiBold', fontSize: 11, letterSpacing: .8, color: '#777684' },
+  details: { gap: 8 },
+  detailRow: { flexDirection: 'row', gap: 12 },
+  detailLabel: { width: 88, fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#292837' },
+  detailValue: { flex: 1, fontFamily: 'Inter_700Bold', fontSize: 13, color: '#292837' },
+  note: { backgroundColor: '#F0F1F4', borderRadius: 12, padding: 12 },
+  noteText: { fontFamily: 'Inter_500Medium', fontSize: 14, lineHeight: 20, color: '#292837' },
+  attachments: { gap: 8, borderTopWidth: 1, borderTopColor: '#E0E1E6', paddingTop: 10 },
+  attachment: { minHeight: 44, borderWidth: 1, borderColor: '#4D99D7', borderRadius: 8, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', gap: 9 },
+  attachmentText: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 12, color: '#292837' },
+  muted: { fontFamily: 'Inter_500Medium', fontSize: 12, lineHeight: 18, color: '#777684' },
+  evidenceActions: { flexDirection: 'row', gap: 8 },
+  evidenceButton: { flex: 1, minHeight: 58, borderRadius: 10, backgroundColor: '#F6F6F8', borderWidth: 1, borderColor: '#D9DAE0', alignItems: 'center', justifyContent: 'center', padding: 8 },
+  evidenceTitle: { marginTop: 3, fontFamily: 'Inter_700Bold', fontSize: 12, color: '#292837' },
+  evidenceHint: { marginTop: 1, fontFamily: 'Inter_500Medium', fontSize: 10, color: '#777684' },
+  staged: { minHeight: 32, borderRadius: 8, backgroundColor: '#EFF8ED', flexDirection: 'row', alignItems: 'center', paddingHorizontal: 9, gap: 8 },
+  greenDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#65C653' },
+  stagedText: { flex: 1, fontFamily: 'Inter_600SemiBold', fontSize: 11, color: '#3A6632' },
+  viewPod: { minHeight: 50, borderRadius: 10, backgroundColor: '#FFD200', alignItems: 'center', justifyContent: 'center' },
+  viewPodText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#111111' },
+  stopRow: { minHeight: 96, flexDirection: 'row', alignItems: 'flex-start', gap: 11, paddingVertical: 5 },
+  stopTitle: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#292837' },
+  stopTime: { marginTop: 3, fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#777684' },
+  stopBody: { marginTop: 5, fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#777684' },
+  stopNotes: { marginTop: 5, fontFamily: 'Inter_500Medium', fontSize: 12, lineHeight: 18, color: '#777684' },
+  current: { borderTopWidth: 1, borderTopColor: '#E1E2E7', paddingTop: 10, gap: 4 },
+  currentValue: { fontFamily: 'Inter_700Bold', fontSize: 15, color: '#292837' },
+  actionWrap: { paddingTop: 4 },
+  captureButton: { minHeight: 52, borderRadius: 26, backgroundColor: '#FFD200', alignItems: 'center', justifyContent: 'center' },
+  captureText: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#111111' },
+  backdrop: { flex: 1, backgroundColor: 'rgba(13,13,20,.72)', justifyContent: 'center', padding: 20 },
+  modal: { maxHeight: '88%', backgroundColor: '#FFFFFF', borderRadius: 14, padding: 18, overflow: 'hidden', ...shadow },
+  captureModal: { alignSelf: 'stretch' },
+  modalHead: { marginHorizontal: -18, marginTop: -18, marginBottom: 0, paddingHorizontal: 18, paddingVertical: 16, flexDirection: 'row', gap: 12, alignItems: 'center', backgroundColor: '#292837' },
+  modalMarker: { width: 34, height: 34, borderRadius: 5, backgroundColor: '#5199D6', alignItems: 'center', justifyContent: 'center' },
+  modalTitle: { fontFamily: 'Inter_700Bold', fontSize: 17, color: '#FFFFFF' },
+  modalSubtitle: { marginTop: 2, fontFamily: 'Inter_500Medium', fontSize: 11, color: '#D6D7DD' },
+  podTitle: { fontFamily: 'Inter_700Bold', fontSize: 21, color: '#292837' },
+  divider: { height: 1, backgroundColor: '#E2E3E7', marginVertical: 14 },
+  field: { marginBottom: 12 },
+  fieldLabel: { fontFamily: 'Inter_500Medium', fontSize: 11, letterSpacing: .7, color: '#8A8996' },
+  fieldValue: { marginTop: 3, fontFamily: 'Inter_600SemiBold', fontSize: 14, lineHeight: 20, color: '#292837' },
+  link: { color: '#287FC3' },
+  close: { marginTop: 10, minHeight: 48, borderRadius: 10, backgroundColor: '#FFD200', alignItems: 'center', justifyContent: 'center' },
+  closeText: { fontFamily: 'Inter_700Bold', fontSize: 15, color: '#111111' },
+  input: { minHeight: 48, borderWidth: 1, borderColor: '#D0D1D6', borderRadius: 10, paddingHorizontal: 12, marginTop: 6, marginBottom: 14, fontFamily: 'Inter_500Medium', fontSize: 14, color: '#292837' },
+  notesInput: { minHeight: 90, paddingTop: 12, textAlignVertical: 'top' },
+  signatureButton: { minHeight: 64, borderWidth: 1, borderColor: '#D9DADE', borderRadius: 10, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 14 },
+  signatureReady: { backgroundColor: '#EFF8ED', borderColor: '#8DCA82' },
+  error: { marginBottom: 10, fontFamily: 'Inter_600SemiBold', fontSize: 12, lineHeight: 18, color: '#B42318' },
+  submitPod: { minHeight: 52, borderRadius: 10, backgroundColor: '#FFD200', alignItems: 'center', justifyContent: 'center' },
+  submitPodText: { fontFamily: 'Inter_700Bold', fontSize: 15, color: '#111111' },
 });
