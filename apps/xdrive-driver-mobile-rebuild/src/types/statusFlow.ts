@@ -23,7 +23,7 @@ export function getNextStep(current: CanonicalJobStatus) {
 export function statusLabel(status: CanonicalJobStatus) {
   if (status === 'available') return 'Available';
   if (status === 'awarded') return 'Accepted';
-  if (status === 'delivered') return 'Delivered';
+  if (status === 'delivered') return 'Delivered (POD)';
   if (status === 'cancelled') return 'Cancelled';
   const labels: Partial<Record<CanonicalJobStatus, string>> = {
     on_my_way_pickup: 'On My Way to Collection',
