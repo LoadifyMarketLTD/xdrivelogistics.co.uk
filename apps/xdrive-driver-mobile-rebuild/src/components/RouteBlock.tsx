@@ -1,24 +1,27 @@
-import { UiIcon as Ionicons } from './UiIcon';
 import { StyleSheet } from 'react-native';
 import { Text, View } from '../theme/primitives';
-import { colors, spacing } from '../theme/tokens';
 
-export function RouteBlock({ pickup, delivery, pickupTiming, deliveryTiming }: { pickup: string; delivery: string; pickupTiming?: string; deliveryTiming?: string }) {
+export function RouteBlock({ pickup, delivery, pickupTiming, deliveryTiming }: {
+  pickup: string;
+  delivery: string;
+  pickupTiming?: string;
+  deliveryTiming?: string;
+}) {
   return (
     <View style={styles.wrap}>
-      <View style={styles.iconColumn}>
-        <View style={styles.iconWell}><View style={styles.dot} /></View>
-        <View style={styles.dash} />
-        <View style={styles.iconWell}><Ionicons name="location" size={20} color={colors.black} /></View>
+      <View style={styles.rail}>
+        <View style={styles.square}><Text style={styles.markerText}>1</Text></View>
+        <Text style={styles.dots}>•••</Text>
+        <View style={styles.pin}><Text style={styles.markerText}>2</Text></View>
       </View>
-      <View style={styles.addressColumn}>
-        <View style={styles.addressPill}>
-          <Text style={styles.title}>Pickup <Text style={styles.green}>({pickupTiming || 'Collection'})</Text></Text>
-          <Text style={styles.sub} numberOfLines={2}>{pickup}</Text>
+      <View style={styles.copy}>
+        <View>
+          <Text style={styles.place} numberOfLines={2}>{pickup}</Text>
+          <Text style={styles.time}>{pickupTiming || 'Collection'}</Text>
         </View>
-        <View style={styles.addressPill}>
-          <Text style={styles.title}>Delivery <Text style={styles.green}>({deliveryTiming || 'Drop Off'})</Text></Text>
-          <Text style={styles.sub} numberOfLines={2}>{delivery}</Text>
+        <View>
+          <Text style={styles.place} numberOfLines={2}>{delivery}</Text>
+          <Text style={styles.time}>{deliveryTiming || 'Delivery'}</Text>
         </View>
       </View>
     </View>
@@ -26,14 +29,34 @@ export function RouteBlock({ pickup, delivery, pickupTiming, deliveryTiming }: {
 }
 
 const styles = StyleSheet.create({
-  wrap: { flexDirection: 'row', gap: 10, paddingHorizontal: spacing.md },
-  iconColumn: { width: 38, alignItems: 'center' },
-  iconWell: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.iconWell, alignItems: 'center', justifyContent: 'center' },
-  dot: { width: 15, height: 15, borderRadius: 8, backgroundColor: colors.black },
-  dash: { width: 1, height: 18, borderStyle: 'dashed', borderWidth: 1, borderColor: colors.black },
-  addressColumn: { flex: 1, gap: 12 },
-  addressPill: { borderWidth: 1, borderColor: colors.border, borderRadius: 24, paddingHorizontal: 15, paddingVertical: 8, minHeight: 54 },
-  title: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.text },
-  green: { color: colors.primary },
-  sub: { marginTop: 3, fontFamily: 'Inter_700Bold', fontSize: 14, lineHeight: 19, color: '#334155' },
+  wrap: {
+    minHeight: 132,
+    flexDirection: 'row',
+    gap: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  rail: { width: 34, alignItems: 'center', justifyContent: 'space-between' },
+  square: {
+    width: 30,
+    height: 30,
+    borderRadius: 4,
+    backgroundColor: '#5199D6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pin: {
+    width: 30,
+    height: 34,
+    borderRadius: 17,
+    borderBottomLeftRadius: 5,
+    backgroundColor: '#5199D6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  markerText: { fontFamily: 'Inter_700Bold', fontSize: 12, color: '#FFFFFF' },
+  dots: { transform: [{ rotate: '90deg' }], color: '#CDD2D9', letterSpacing: 1 },
+  copy: { flex: 1, justifyContent: 'space-between', gap: 20 },
+  place: { fontFamily: 'Inter_700Bold', fontSize: 18, lineHeight: 22, color: '#474655' },
+  time: { marginTop: 4, fontFamily: 'Inter_500Medium', fontSize: 14, color: '#7D7C8A' },
 });
