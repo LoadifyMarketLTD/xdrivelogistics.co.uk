@@ -11,7 +11,7 @@ import type { DriverJob, DriverResources } from './src/types/driver';
 import { BottomNav, type MainTab } from './src/components/BottomNav';
 import { HomeScreen } from './src/screens/HomeScreen';
 import { LoadsScreen } from './src/screens/LoadsScreen';
-import { HistoryScreen } from './src/screens/HistoryScreen';
+import { BookingsScreen } from './src/screens/DeliveriesScreen';
 import { QuotesScreen } from './src/screens/QuotesScreen';
 import { MoreScreen } from './src/screens/MoreScreen';
 import { ResourcesScreen } from './src/screens/ResourcesScreen';
@@ -64,7 +64,6 @@ function DriverApp() {
     return () => subscription.remove();
   }, [resourcePage, selectedJob, tab]);
 
-
   useEffect(() => {
     let active = true;
     const authTimeout = setTimeout(() => {
@@ -85,6 +84,7 @@ function DriverApp() {
       data.subscription.unsubscribe();
     };
   }, []);
+
   const refresh = useCallback(async () => {
     if (!session) return;
     setLoading(true);
@@ -112,7 +112,6 @@ function DriverApp() {
     if (failed?.status === 'rejected') setDataError(failed.reason instanceof Error ? failed.reason.message : 'Some XDrive data could not be loaded.');
     setLoading(false);
   }, [session]);
-
 
   useEffect(() => {
     if (session) void refresh();
@@ -216,13 +215,13 @@ function DriverApp() {
   } else if (selectedJob) {
     screen = <JobDetailScreen job={selectedJob} busy={actionBusy} onBack={() => { setSelectedJob(undefined); setSelectedQuote(undefined); }} onAdvance={advanceJob} />;
   } else if (tab === 'home') {
-    screen = <HomeScreen jobs={available} activeJob={active[0]} recentJob={history[0]} resources={resources} loading={loading} dataError={dataError} onRefresh={refresh} onOpen={setSelectedJob} onGoLoads={() => setTab('loads')} onGoQuotes={() => setTab('quotes')} onGoHistory={() => setTab('history')} onGoMore={() => setTab('more')} onAvailabilitySaved={(value) => setResources(current => current?.driver ? { ...current, driver: { ...current.driver, availability_status: value } } : current)} />;
-  } else if (tab === 'loads') {
+    screen = <HomeScreen jobs={available} activeJob={active[0]} recentJob={history[0]} resources={resources} loading={loading} dataError={dataError} onRefresh={refresh} onOpen={setSelectedJob} onGoLoads={() => setTab('alerts')} onGoQuotes={() => setTab('quotes')} onGoHistory={() => setTab('bookings')} onGoMore={() => setTab('more')} onAvailabilitySaved={(value) => setResources(current => current?.driver ? { ...current, driver: { ...current.driver, availability_status: value } } : current)} />;
+  } else if (tab === 'alerts') {
     screen = <LoadsScreen jobs={available} loading={loading} onRefresh={refresh} onOpen={(job) => { setSelectedQuote(undefined); setSelectedJob(job); }} />;
   } else if (tab === 'quotes') {
     screen = <QuotesScreen resources={resources} jobs={[...available, ...active, ...history]} onOpen={(job, quote) => { setSelectedQuote(quote); setSelectedJob(job); }} />;
-  } else if (tab === 'history') {
-    screen = <HistoryScreen jobs={history} onOpen={(job) => { setSelectedQuote(undefined); setSelectedJob(job); }} />;
+  } else if (tab === 'bookings') {
+    screen = <BookingsScreen active={active} history={history} onOpen={(job) => { setSelectedQuote(undefined); setSelectedJob(job); }} />;
   } else {
     screen = <MoreScreen resources={resources} onSignOut={signOut} onOpenResource={setResourcePage} />;
   }
@@ -234,7 +233,7 @@ function DriverApp() {
       <View style={styles.app}>
         {actionError ? <View style={styles.errorBanner}><Text style={styles.errorText}>{actionError}</Text></View> : null}
         <View style={styles.screen}>{screen}</View>
-        {!selectedJob && !resourcePage ? <BottomNav active={tab} onChange={setTab} /> : null}
+        {!selectedJob && !resourcePage ? <BottomNav active={tab} onChange={setTab} alertCount={available.length} /> : null}
       </View>
     </SafeAreaView>
   );
