@@ -1,1 +1,1 @@
-export { JobDetailScreen } from './JobDetailScreenV3';
+export { JobDetailScreen } from './JobDetailScreenV2';
