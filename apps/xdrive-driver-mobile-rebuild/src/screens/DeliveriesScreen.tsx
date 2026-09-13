@@ -73,8 +73,10 @@ export function BookingsScreen({ active, history, onOpen }: {
 function BookingCard({ job, onOpen }: { job: DriverJob; onOpen: () => void }) {
   const completed = job.status === 'delivered';
   const distance = distanceLabel(job);
+  const lastStopNumber = Math.max(2, job.stops?.length ?? 2);
   return <Pressable accessibilityRole="button" accessibilityLabel={`Open booking ${job.reference}`} onPress={onOpen} style={({ pressed }) => [styles.card, pressed && styles.pressed]}>
     <Text style={styles.company} numberOfLines={1}>{job.postingCompanyName || 'XDrive Booking'}{job.postingCompanyMemberCode ? ` (${job.postingCompanyMemberCode})` : ''}</Text>
+    {job.customerReference ? <Text style={styles.customerReference}>Cust. Ref. {job.customerReference}</Text> : null}
     <Text style={styles.reference}>Load ID {job.reference}</Text>
     <View style={styles.tags}>
       <View style={[styles.tag, completed ? styles.tagCompleted : styles.tagCurrent]}><Text style={styles.tagText}>{completed ? 'COMPLETED' : 'CURRENT'}</Text></View>
@@ -84,7 +86,7 @@ function BookingCard({ job, onOpen }: { job: DriverJob; onOpen: () => void }) {
       <View style={styles.routeRail}>
         <View style={styles.numberSquare}><Text style={styles.numberText}>1</Text></View>
         <View style={styles.routeDots}><Text style={styles.dots}>•••</Text></View>
-        <View style={styles.pin}><Text style={styles.pinText}>2</Text></View>
+        <View style={styles.pin}><Text style={styles.pinText}>{lastStopNumber}</Text></View>
       </View>
       <View style={styles.routeCopy}>
         <View><Text style={styles.place} numberOfLines={1}>{job.pickupLocation}</Text><Text style={styles.time}>{formatDeliveryDate(job.pickupTime)}</Text></View>
@@ -93,7 +95,7 @@ function BookingCard({ job, onOpen }: { job: DriverJob; onOpen: () => void }) {
     </View>
     {distance ? <View style={styles.distanceRow}><UiIcon name="navigate-outline" size={20} color="#242432" /><Text style={styles.distance}>{distance}</Text></View> : null}
     {job.notesSummary || job.pickupNote || job.deliveryNote ? <View style={styles.notesRow}><UiIcon name="document-text-outline" size={18} color="#242432" /><Text style={styles.notes} numberOfLines={4}>{job.notesSummary || job.pickupNote || job.deliveryNote}</Text></View> : null}
-    {completed && job.podRequired ? <View style={styles.podButton}><Text style={styles.podText}>View POD</Text></View> : null}
+    {completed && job.podCompleted ? <View style={styles.podButton}><Text style={styles.podText}>View POD</Text></View> : null}
   </Pressable>;
 }
 
@@ -111,6 +113,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#FFFFFF', borderRadius: 18, padding: 16, gap: 12, ...shadow },
   pressed: { opacity: 0.78 },
   company: { fontFamily: 'Inter_700Bold', fontSize: 18, color: '#454453' },
+  customerReference: { fontFamily: 'Inter_600SemiBold', fontSize: 13, color: '#5F5E6D' },
   reference: { fontFamily: 'Inter_600SemiBold', fontSize: 14, color: '#777786' },
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tag: { borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6 },
