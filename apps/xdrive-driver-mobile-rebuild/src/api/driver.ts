@@ -242,8 +242,10 @@ export async function fetchAvailableJobs(options: { destinationMode?: boolean; r
     const publicPrice = row.publicPrice as Record<string, unknown> | undefined;
     const poster = row.poster as Record<string, unknown> | undefined;
     const freight = text(row.freightType, '');
-    const pallets = row.pallets != null ? `${Number(row.pallets)} pallet${Number(row.pallets) === 1 ? '' : 's'}` : '';
-    const weight = row.weightKg != null ? `${Number(row.weightKg)} kg` : '';
+    const palletCount = row.pallets != null && Number.isFinite(Number(row.pallets)) ? Number(row.pallets) : undefined;
+    const pallets = palletCount != null ? `${palletCount} pallet${palletCount === 1 ? '' : 's'}` : '';
+    const weightKg = row.weightKg != null && Number.isFinite(Number(row.weightKg)) ? Number(row.weightKg) : undefined;
+    const weight = weightKg != null ? `${weightKg} kg` : '';
     return mapJob({
       ...row,
       status: 'available',
@@ -264,8 +266,10 @@ export async function fetchAvailableJobs(options: { destinationMode?: boolean; r
       vehicleRequirement: row.vehicleType,
       postingCompanyName: poster?.name,
       postingCompanyMemberCode: poster?.memberCode,
+      weight,
+      palletCount,
       price: publicPrice?.visible === true && publicPrice.amount != null
-        ? `\u00A3${Number(publicPrice.amount).toFixed(2)}`
+        ? `£${Number(publicPrice.amount).toFixed(2)}`
         : '',
     });
   });
