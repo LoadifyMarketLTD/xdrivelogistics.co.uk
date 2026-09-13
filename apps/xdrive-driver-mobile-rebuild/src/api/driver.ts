@@ -1,4 +1,6 @@
-import { apiRequest } from './client';
+import * as FileSystem from 'expo-file-system';
+import { apiRequest, getApiBaseUrl } from './client';
+import { ensureNativeDeviceSession, getInstallationHeaders } from '../auth/deviceSession';
 import { supabase } from '../auth/supabase';
 import type { CanonicalJobStatus, DriverJob, DriverJobAttachment, DriverJobStop, DriverQuoteReadiness, DriverResources } from '../types/driver';
 
@@ -14,6 +16,7 @@ export type ReturnIqMeta = {
 };
 
 type AvailableJobsResult = { jobs: DriverJob[]; returnIq: ReturnIqMeta };
+export type JobEvidenceCategory = 'photos' | 'documents';
 
 export function quoteReadinessMessage(readiness?: DriverQuoteReadiness) {
   if (!readiness || readiness.eligible) return '';
@@ -91,6 +94,73 @@ function mapAttachments(value: unknown): DriverJobAttachment[] | undefined {
     } satisfies DriverJobAttachment;
   }).filter((item): item is DriverJobAttachment => Boolean(item));
   return attachments.length ? attachments : undefined;
+}
+
+function evidenceContentType(fileName: string, mimeType: string | null | undefined, category: JobEvidenceCategory) {
+  const normalized = String(mimeType ?? '').trim().toLowerCase();
+  if (normalized === 'application/pdf' && category === 'documents') return normalized;
+  if (normalized === 'image/png') return normalized;
+  if (normalized === 'image/jpeg' || normalized === 'image/jpg') return 'image/jpeg';
+  const lower = fileName.toLowerCase();
+  if (category === 'documents' && lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.png')) return 'image/png';
+  return 'image/jpeg';
+}
+
+function safeEvidenceName(fileName: string, category: JobEvidenceCategory) {
+  const fallback = category === 'documents' ? 'document.pdf' : 'image.jpg';
+  const raw = fileName.trim() || fallback;
+  const sanitized = raw.replace(/[^A-Za-z0-9._-]/g, '_').slice(-140) || fallback;
+  return `${category}-${Date.now()}-${sanitized}`.slice(0, 180);
+}
+
+export async function uploadJobEvidence(input: {
+  jobId: string;
+  uri: string;
+  fileName: string;
+  mimeType?: string | null;
+  category: JobEvidenceCategory;
+}) {
+  const info = await FileSystem.getInfoAsync(input.uri, { size: true });
+  if (!info.exists) throw new Error('The selected evidence file is no longer available on this device.');
+  if (typeof info.size === 'number' && info.size > 10 * 1024 * 1024) throw new Error('Evidence files must be 10 MB or smaller.');
+
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token?.trim();
+  if (!token) throw new Error('Driver session not found.');
+  await ensureNativeDeviceSession(token);
+  const installationHeaders = await getInstallationHeaders();
+  const contentType = evidenceContentType(input.fileName, input.mimeType, input.category);
+  if (input.category === 'photos' && contentType === 'application/pdf') throw new Error('Image evidence must be a JPEG or PNG image.');
+  const objectName = safeEvidenceName(input.fileName, input.category);
+
+  const response = await FileSystem.uploadAsync(
+    `${getApiBaseUrl()}/api/driver/mobile/jobs/${input.jobId}/evidence`,
+    input.uri,
+    {
+      httpMethod: 'POST',
+      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      headers: {
+        Accept: 'application/json',
+        Authorization: `Bearer ${token}`,
+        'Content-Type': contentType,
+        'x-xdrive-evidence-kind': 'delivery',
+        'x-xdrive-evidence-category': input.category,
+        'x-xdrive-evidence-name': objectName,
+        ...installationHeaders,
+      },
+    },
+  );
+
+  let payload: Record<string, unknown> = {};
+  try { payload = JSON.parse(response.body || '{}') as Record<string, unknown>; }
+  catch { payload = {}; }
+  if (response.status < 200 || response.status >= 300) {
+    throw new Error(typeof payload.error === 'string' ? payload.error : `Evidence upload failed with HTTP ${response.status}.`);
+  }
+  const storagePath = typeof payload.storagePath === 'string' ? payload.storagePath.trim() : '';
+  if (!storagePath) throw new Error('Evidence upload succeeded without a storage path.');
+  return { storagePath, fileName: input.fileName, category: input.category };
 }
 
 export function mapJob(row: RawJob): DriverJob {
