@@ -1,6 +1,6 @@
 import { apiRequest } from './client';
 import { supabase } from '../auth/supabase';
-import type { CanonicalJobStatus, DriverJob, DriverQuoteReadiness, DriverResources } from '../types/driver';
+import type { CanonicalJobStatus, DriverJob, DriverJobAttachment, DriverJobStop, DriverQuoteReadiness, DriverResources } from '../types/driver';
 
 type RawJob = Record<string, unknown>;
 
@@ -52,6 +52,47 @@ function status(value: unknown): CanonicalJobStatus {
   return 'awarded';
 }
 
+function mapStops(value: unknown): DriverJobStop[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const stops = value.map((item, index) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const row = item as Record<string, unknown>;
+    return {
+      id: text(row.id, '') || undefined,
+      sequence: Number.isFinite(Number(row.sequence)) ? Number(row.sequence) : index,
+      type: text(row.type ?? row.stop_type, '') || undefined,
+      address: text(row.address ?? row.addressSummary ?? row.postcode, `Stop ${index + 1}`),
+      company: text(row.company ?? row.company_name, '') || undefined,
+      contactPerson: text(row.contactPerson ?? row.contact_name, '') || undefined,
+      telephone: text(row.telephone ?? row.contact_phone, '') || undefined,
+      timeWindowFrom: text(row.timeWindowFrom ?? row.window_start, '') || undefined,
+      timeWindowTo: text(row.timeWindowTo ?? row.window_end, '') || undefined,
+      status: text(row.status, '') || undefined,
+      notes: text(row.notes ?? row.instructions, '') || undefined,
+      arrivedAt: text(row.arrivedAt ?? row.arrived_at, '') || undefined,
+      completedAt: text(row.completedAt ?? row.completed_at, '') || undefined,
+    } satisfies DriverJobStop;
+  }).filter((item): item is DriverJobStop => Boolean(item));
+  return stops.length ? stops.sort((a, b) => a.sequence - b.sequence) : undefined;
+}
+
+function mapAttachments(value: unknown): DriverJobAttachment[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const attachments = value.map((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return null;
+    const row = item as Record<string, unknown>;
+    return {
+      id: text(row.id, '') || undefined,
+      type: text(row.type ?? row.document_type, '') || undefined,
+      fileName: text(row.fileName ?? row.file_name ?? row.name, '') || undefined,
+      createdAt: text(row.createdAt ?? row.created_at, '') || undefined,
+      signedUrl: text(row.signedUrl ?? row.signed_url, '') || undefined,
+      url: text(row.url, '') || undefined,
+    } satisfies DriverJobAttachment;
+  }).filter((item): item is DriverJobAttachment => Boolean(item));
+  return attachments.length ? attachments : undefined;
+}
+
 export function mapJob(row: RawJob): DriverJob {
   const id = text(row.id);
   const rawPrice = text(row.price ?? row.publicPrice, '');
@@ -87,8 +128,28 @@ export function mapJob(row: RawJob): DriverJob {
     contactPhone: text(row.contactPhone ?? row.delivery_contact_phone, '') || undefined,
     pickupNote: text(row.pickupNote ?? row.pickup_note ?? row.special_requirements, '') || undefined,
     deliveryNote: text(row.deliveryNote ?? row.delivery_note ?? row.access_restrictions, '') || undefined,
+    client: text(row.client, '') || undefined,
+    distance: text(row.distance, '') || undefined,
+    eta: text(row.eta, '') || undefined,
+    weight: text(row.weight, '') || undefined,
+    dimensions: text(row.dimensions, '') || undefined,
+    palletCount: row.palletCount != null && Number.isFinite(Number(row.palletCount)) ? Number(row.palletCount) : undefined,
+    adr: row.adr === true,
+    tailLift: row.tailLift === true,
+    temperatureControlled: row.temperatureControlled === true,
+    badges: Array.isArray(row.badges) ? row.badges.map(String) : undefined,
+    customerNotes: text(row.customerNotes, '') || undefined,
+    specialInstructions: text(row.specialInstructions, '') || undefined,
+    customerReference: text(row.customerReference, '') || undefined,
+    internalReference: text(row.internalReference, '') || undefined,
+    stops: mapStops(row.stops),
+    attachments: mapAttachments(row.attachments),
+    auditTrail: Array.isArray(row.auditTrail) ? row.auditTrail.filter((item): item is Record<string, unknown> => Boolean(item) && typeof item === 'object' && !Array.isArray(item)) : undefined,
+    pod: row.pod && typeof row.pod === 'object' && !Array.isArray(row.pod) ? row.pod as Record<string, unknown> : null,
+    podCompleted: row.podCompleted === true,
   };
 }
+
 export async function fetchResources() {
   const payload = await apiRequest<{ resources: DriverResources }>('/api/driver/mobile/resources');
   return payload.resources;
