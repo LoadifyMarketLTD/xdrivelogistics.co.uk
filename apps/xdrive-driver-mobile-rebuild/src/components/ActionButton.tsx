@@ -26,11 +26,11 @@ export function ActionButton({
 }
 
 const styles = StyleSheet.create({
-  base: { minHeight: 52, borderRadius: 28, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
-  solid: { backgroundColor: '#65C653' },
-  outline: { borderWidth: 1.2, borderColor: '#65C653', backgroundColor: colors.surface },
-  text: { fontFamily: 'Inter_700Bold', fontSize: 16, color: colors.surface },
-  outlineText: { color: '#3C8C34' },
+  base: { minHeight: 50, borderRadius: 10, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 18 },
+  solid: { backgroundColor: '#36BE45' },
+  outline: { borderWidth: 1.2, borderColor: '#36BE45', backgroundColor: colors.surface },
+  text: { fontFamily: 'Inter_700Bold', fontSize: 15, color: colors.surface },
+  outlineText: { color: '#2F9639' },
   pressed: { opacity: 0.82 },
   disabled: { opacity: 0.45 },
 });
