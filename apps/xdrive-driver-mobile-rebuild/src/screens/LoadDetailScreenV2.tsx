@@ -112,39 +112,44 @@ export function LoadDetailScreen({ job, busy, existingQuote, quoteReadiness, onB
       setMessage={setMessage}
       valid={valid}
       onQuote={() => onQuote({ baseAmount: base, additionalExtrasGbp: extras, collectWithinMinutes: collectWithin, message })}
-    /> : <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.headerCard}>
-        <Text style={styles.company}>{job.postingCompanyName || 'XDrive Load'}{job.postingCompanyMemberCode ? ` (${job.postingCompanyMemberCode})` : ''}</Text>
-        {postedLine(job) ? <Text style={styles.posted}>{postedLine(job)}</Text> : null}
-        <View style={styles.tags}>
-          {job.serviceMode ? <Pill text={job.serviceMode.replace(/[_-]+/g, ' ').toUpperCase()} /> : null}
-          {job.directDeliveryRequired ? <Pill text="DIRECT" green /> : null}
-          {(job.badges ?? []).filter((badge) => /smartpay|hotshot/i.test(badge)).slice(0, 2).map((badge) => <Pill key={badge} text={badge.toUpperCase()} green={/smartpay/i.test(badge)} />)}
+    /> : <View style={styles.detailBody}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerCard}>
+          <Text style={styles.company}>{job.postingCompanyName || 'XDrive Load'}{job.postingCompanyMemberCode ? ` (${job.postingCompanyMemberCode})` : ''}</Text>
+          {postedLine(job) ? <Text style={styles.posted}>{postedLine(job)}</Text> : null}
+          <View style={styles.tags}>
+            {job.serviceMode ? <Pill text={job.serviceMode.replace(/[_-]+/g, ' ').toUpperCase()} /> : null}
+            {job.directDeliveryRequired ? <Pill text="DIRECT" green /> : null}
+            {(job.badges ?? []).filter((badge) => /smartpay|hotshot/i.test(badge)).slice(0, 2).map((badge) => <Pill key={badge} text={badge.toUpperCase()} green={/smartpay/i.test(badge)} />)}
+          </View>
+          <View style={styles.route}><RouteBlock pickup={job.pickupLocation} delivery={job.deliveryLocation} pickupTiming={formatRouteTime(job.pickupTiming ?? job.pickupTime)} deliveryTiming={formatRouteTime(job.deliveryTiming ?? job.deliveryTime)} /></View>
         </View>
-        <View style={styles.route}><RouteBlock pickup={job.pickupLocation} delivery={job.deliveryLocation} pickupTiming={formatRouteTime(job.pickupTiming ?? job.pickupTime)} deliveryTiming={formatRouteTime(job.deliveryTiming ?? job.deliveryTime)} /></View>
-      </View>
 
-      <View style={styles.card}>
-        <InfoIcon icon="car" label="VEHICLE" value={job.vehicleRequirement || 'Not supplied'} />
-        <InfoIcon icon="location" label="DISTANCE" value={distance || 'Not supplied'} />
-        <InfoIcon icon="create" label="NOTES" value={[job.dimensions ? `Dimensions: ${job.dimensions}` : '', job.weight ? `Weight: ${job.weight}` : '', job.notesSummary || job.pickupNote || job.deliveryNote || ''].filter(Boolean).join('\n') || 'No additional instructions published.'} multiline />
-      </View>
+        <View style={styles.card}>
+          <InfoIcon icon="car" label="VEHICLE" value={job.vehicleRequirement || 'Not supplied'} />
+          <InfoIcon icon="location" label="DISTANCE" value={distance || 'Not supplied'} />
+          <InfoIcon icon="create" label="NOTES" value={[job.dimensions ? `Dimensions: ${job.dimensions}` : '', job.weight ? `Weight: ${job.weight}` : '', job.notesSummary || job.pickupNote || job.deliveryNote || ''].filter(Boolean).join('\n') || 'No additional instructions published.'} multiline />
+        </View>
 
-      <FeedbackCard />
-      <CustomerCard job={job} />
+        <FeedbackCard />
+        <CustomerCard job={job} />
 
-      {existingQuote ? <View style={styles.card}>
-        <Text style={styles.heading}>MY QUOTE</Text>
-        <View style={styles.summary}><View><Text style={styles.label}>TOTAL</Text><Text style={styles.amount}>{existingAmount == null ? '—' : `£${Number(existingAmount).toFixed(2)}`}</Text></View><Pill text={quoteStatus(existingQuote)} green={quoteStatus(existingQuote) === 'Accepted'} /></View>
-        {existingBase != null ? <Info label="Base amount" value={`£${Number(existingBase).toFixed(2)}`} /> : null}
-        {existingExtras != null ? <Info label="Additional extras" value={`£${Number(existingExtras).toFixed(2)}`} /> : null}
-        {existingCollect != null ? <Info label="Collect within" value={`${existingCollect} minutes`} /> : null}
-        {existingMessage ? <View style={styles.notes}><Text style={styles.label}>NOTES</Text><Text style={styles.notesText}>{String(existingMessage)}</Text></View> : null}
-      </View> : blocked ? <View style={styles.blocked}>
-        <Text style={styles.blockedTitle}>Quote unavailable</Text><Text style={styles.blockedText}>{blockText}</Text>
-        {blockedByReadiness ? <Pressable onPress={onOpenDocuments} style={styles.darkButton}><Text style={styles.darkButtonText}>Open Documents</Text></Pressable> : null}
-      </View> : <Pressable accessibilityRole="button" accessibilityLabel="Quote this load" onPress={() => setQuoteForm(true)} style={styles.quoteButton}><Text style={styles.quoteButtonText}>Quote</Text></Pressable>}
-    </ScrollView>}
+        {existingQuote ? <View style={styles.card}>
+          <Text style={styles.heading}>MY QUOTE</Text>
+          <View style={styles.summary}><View><Text style={styles.label}>TOTAL</Text><Text style={styles.amount}>{existingAmount == null ? '—' : `£${Number(existingAmount).toFixed(2)}`}</Text></View><Pill text={quoteStatus(existingQuote)} green={quoteStatus(existingQuote) === 'Accepted'} /></View>
+          {existingBase != null ? <Info label="Base amount" value={`£${Number(existingBase).toFixed(2)}`} /> : null}
+          {existingExtras != null ? <Info label="Additional extras" value={`£${Number(existingExtras).toFixed(2)}`} /> : null}
+          {existingCollect != null ? <Info label="Collect within" value={`${existingCollect} minutes`} /> : null}
+          {existingMessage ? <View style={styles.notes}><Text style={styles.label}>NOTES</Text><Text style={styles.notesText}>{String(existingMessage)}</Text></View> : null}
+        </View> : blocked ? <View style={styles.blocked}>
+          <Text style={styles.blockedTitle}>Quote unavailable</Text><Text style={styles.blockedText}>{blockText}</Text>
+          {blockedByReadiness ? <Pressable onPress={onOpenDocuments} style={styles.darkButton}><Text style={styles.darkButtonText}>Open Documents</Text></Pressable> : null}
+        </View> : null}
+      </ScrollView>
+      {!existingQuote && !blocked ? <View style={styles.stickyCta}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Quote this load" onPress={() => setQuoteForm(true)} style={styles.quoteButton}><Text style={styles.quoteButtonText}>Quote</Text></Pressable>
+      </View> : null}
+    </View>}
   </View>;
 }
 
@@ -241,8 +246,10 @@ const styles = StyleSheet.create({
   topbar: { minHeight: 70, paddingTop: 12, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center' },
   back: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   topTitle: { flex: 1, textAlign: 'center', fontFamily: 'Inter_600SemiBold', fontSize: 18, color: '#FFFFFF' },
+  detailBody: { flex: 1, backgroundColor: '#F2F3F7' },
   scroll: { flex: 1, backgroundColor: '#F2F3F7' },
-  content: { padding: 12, paddingBottom: 24, gap: 10 },
+  content: { padding: 12, paddingBottom: 22, gap: 10 },
+  stickyCta: { backgroundColor: '#F2F3F7', paddingHorizontal: 12, paddingTop: 8, paddingBottom: 10, borderTopWidth: 1, borderTopColor: '#E2E3E7' },
   headerCard: { backgroundColor: '#FFFFFF', borderRadius: 14, padding: 12, gap: 8, ...shadow },
   company: { fontFamily: 'Inter_700Bold', fontSize: 16, color: '#41414F' },
   posted: { fontFamily: 'Inter_500Medium', fontSize: 12, color: '#777684' },
