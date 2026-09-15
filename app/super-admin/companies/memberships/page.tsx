@@ -30,7 +30,7 @@ export default function Page() {
     emptyMessage="No company memberships found."
     columns={[
       { key: 'company', label: 'Company', render: (row) => row.company_id ? <PlatformEntityLink entityType="company" entityId={row.company_id} compact>{row.company_name}</PlatformEntityLink> : '—' },
-      { key: 'user', label: 'User', render: (row) => row.user_id ? <div><PlatformEntityLink entityType="user" entityId={row.user_id} compact>{row.user_name !== '—' ? row.user_name : row.user_email}</PlatformEntityLink><div style={{fontSize:10,color:'#64748B',marginTop:3}}>{row.user_email}</div></div> : <div><strong>Invited account</strong><div style={{fontSize:10,color:'#64748B',marginTop:3}}>{row.user_email}</div></div> },
+      { key: 'user', label: 'User', render: (row) => row.user_id ? <div><PlatformEntityLink entityType="user" entityId={row.user_id} compact>{row.user_name !== '—' ? row.user_name : row.user_email}</PlatformEntityLink><div style={{fontSize:10,color:'#667085',marginTop:3}}>{row.user_email}</div></div> : <div><strong>Invited account</strong><div style={{fontSize:10,color:'#667085',marginTop:3}}>{row.user_email}</div></div> },
       { key: 'tenant_role', label: 'Tenant role', render: (row) => <strong>{row.role_in_company?.replaceAll('_',' ') ?? '—'}</strong> },
       { key: 'membership_status', label: 'Membership', render: (row) => <StatusChip value={row.status} /> },
       { key: 'profile_role', label: 'Profile role', render: (row) => row.profile_role?.replaceAll('_',' ') ?? '—' },

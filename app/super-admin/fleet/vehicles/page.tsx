@@ -52,7 +52,7 @@ export default function Page() {
     pageSize={50}
     emptyMessage="No vehicles found."
     columns={[
-      { key: 'vehicle', label: 'Vehicle', render: (row) => <div><strong>{row.registration_label}</strong><div style={{fontSize:14,color:'#4A4A4A',marginTop:4}}>{row.vehicle_label}</div></div> },
+      { key: 'vehicle', label: 'Vehicle', render: (row) => <div><strong>{row.registration_label}</strong><div style={{fontSize:14,color:'#1A1F2B',marginTop:4}}>{row.vehicle_label}</div></div> },
       { key: 'company', label: 'Company', render: (row) => row.company_id ? <PlatformEntityLink entityType="company" entityId={row.company_id} compact>{row.company_name}</PlatformEntityLink> : '—' },
       { key: 'driver', label: 'Driver', render: (row) => row.assigned_driver_id ? <PlatformEntityLink entityType="driver" entityId={row.assigned_driver_id} compact>{row.assigned_driver_name}</PlatformEntityLink> : '—' },
       { key: 'status', label: 'Status', render: (row) => <StatusChip value={vehicleStatus(row)} /> },

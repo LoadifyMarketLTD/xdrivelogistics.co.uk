@@ -35,7 +35,7 @@ const pill = (value: string) => {
   if (['rejected', 'suspended', 'inactive', 'confirmed_fraud'].includes(normalized)) {
     return { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5', color: '#991B1B' };
   }
-  return { backgroundColor: '#FEF3C7', borderColor: '#FCD34D', color: '#92400E' };
+  return { backgroundColor: '#FEF3C7', borderColor: '#FCD34D', color: '#9A6700' };
 };
 
 export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () => void }) {
@@ -117,11 +117,11 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
       : 'Reject onboarding';
 
   return (
-    <section style={{ marginBottom: 14, border: '1px solid #D9E1EA', borderRadius: 4, background: '#FFF', overflow: 'hidden' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: 12, borderBottom: '1px solid #D9E1EA', background: '#F4F6F8' }}>
+    <section style={{ marginBottom: 14, border: '1px solid #E5E7EB', borderRadius: 4, background: '#FFF', overflow: 'hidden' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: 12, borderBottom: '1px solid #E5E7EB', background: '#F4F6F8' }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#0B2F6B' }}>Onboarding approval queue</div>
-          <div style={{ marginTop: 2, fontSize: 11, color: '#64748B' }}>
+          <div style={{ marginTop: 2, fontSize: 11, color: '#667085' }}>
             Platform Owner review. Approval remains server-authoritative, explicitly company-bound and compliance-gated.
           </div>
         </div>
@@ -133,16 +133,16 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
       {error && <div role="alert" style={{ margin: '10px 12px 0', padding: '8px 10px', border: '1px solid #FCA5A5', borderRadius: 4, background: '#FEF2F2', color: '#991B1B', fontSize: 11 }}>{error}</div>}
 
       {loading ? (
-        <div style={{ padding: 14, fontSize: 12, color: '#64748B' }}>Loading onboarding review queue…</div>
+        <div style={{ padding: 14, fontSize: 12, color: '#667085' }}>Loading onboarding review queue…</div>
       ) : rows.length === 0 ? (
-        <div style={{ padding: 14, fontSize: 12, color: '#64748B' }}>No onboarding applications are awaiting Platform review.</div>
+        <div style={{ padding: 14, fontSize: 12, color: '#667085' }}>No onboarding applications are awaiting Platform review.</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ color: '#0B2F6B', textAlign: 'left' }}>
                 {['Applicant', 'Company', 'Account type', 'Onboarding', 'Compliance / risk', 'Actions'].map((heading) => (
-                  <th key={heading} style={{ padding: '8px 10px', borderBottom: '1px solid #D9E1EA', fontSize: 10, textTransform: 'uppercase' }}>{heading}</th>
+                  <th key={heading} style={{ padding: '8px 10px', borderBottom: '1px solid #E5E7EB', fontSize: 10, textTransform: 'uppercase' }}>{heading}</th>
                 ))}
               </tr>
             </thead>
@@ -151,10 +151,10 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
                 const busy = busyId === row.id;
                 return (
                   <tr key={row.id} style={{ borderBottom: '1px solid #E5E7EB', verticalAlign: 'top' }}>
-                    <td style={{ padding: '9px 10px' }}><strong>{row.applicant_name}</strong><div style={{ color: '#64748B', marginTop: 2 }}>{row.email || '—'}</div></td>
+                    <td style={{ padding: '9px 10px' }}><strong>{row.applicant_name}</strong><div style={{ color: '#667085', marginTop: 2 }}>{row.email || '—'}</div></td>
                     <td style={{ padding: '9px 10px' }}><strong>{row.company_name}</strong><div style={{ marginTop: 3 }}><span style={{ ...pill(row.company_status ?? 'unknown'), display: 'inline-block', borderWidth: 1, borderStyle: 'solid', borderRadius: 999, padding: '2px 7px', fontWeight: 800 }}>{row.company_status ? label(row.company_status) : 'not linked'}</span></div></td>
                     <td style={{ padding: '9px 10px', textTransform: 'capitalize' }}>{label(row.account_type)}</td>
-                    <td style={{ padding: '9px 10px' }}><span style={{ ...pill(row.status), display: 'inline-block', borderWidth: 1, borderStyle: 'solid', borderRadius: 999, padding: '2px 7px', fontWeight: 800 }}>{label(row.status)}</span><div style={{ color: '#64748B', marginTop: 4 }}>{label(row.current_step || '—')}</div></td>
+                    <td style={{ padding: '9px 10px' }}><span style={{ ...pill(row.status), display: 'inline-block', borderWidth: 1, borderStyle: 'solid', borderRadius: 999, padding: '2px 7px', fontWeight: 800 }}>{label(row.status)}</span><div style={{ color: '#667085', marginTop: 4 }}>{label(row.current_step || '—')}</div></td>
                     <td style={{ padding: '9px 10px' }}>
                       <span style={{ ...pill(row.ready_for_approval ? 'ready' : 'pending'), display: 'inline-block', borderWidth: 1, borderStyle: 'solid', borderRadius: 999, padding: '2px 7px', fontWeight: 800 }}>{row.ready_for_approval ? 'Ready for approval' : 'Blocked'}</span>
                       <div style={{ marginTop: 4, maxWidth: 300, color: row.ready_for_approval ? '#166534' : '#991B1B' }}>

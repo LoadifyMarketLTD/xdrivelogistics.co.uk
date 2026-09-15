@@ -12,7 +12,7 @@ import styles from '../actionCentre.module.css';
 
 const ENTITY_TYPES = new Set<PlatformEntityType>(['job','company','user','driver','vehicle','invoice','pod','ticket','dispute','notification','health_check','case']);
 const entityType = (value:string):PlatformEntityType => ENTITY_TYPES.has(value as PlatformEntityType) ? value as PlatformEntityType : 'case';
-const statusColor:Record<PlatformCaseStatus,string> = {open:'#DC2626',acknowledged:'#B45309',investigating:'#1D57D8',waiting:'#B45309',resolved:'#15803D',closed:'#64748B'};
+const statusColor:Record<PlatformCaseStatus,string> = {open:'#D92D20',acknowledged:'#9A6700',investigating:'#1D57D8',waiting:'#9A6700',resolved:'#168553',closed:'#667085'};
 const when = (value:string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'}); };
 
 type CaseRecord = {
