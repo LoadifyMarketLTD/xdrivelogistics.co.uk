@@ -17,7 +17,6 @@ import {
   EmptyState,
   StatusBadge,
 } from '../components/workspace/WorkspaceUI';
-import { ConnectedExchangePanel } from '../components/workspace/ConnectedExchangePanel';
 
 type DriverNextAction =
   | { kind: 'transition'; label: string; description: string; resultLabel: string }
@@ -538,7 +537,7 @@ export default function DriverDashboard() {
     : 'Not available';
 
   return (
-    <div className="driver-reference-dashboard">
+    <div className="driver-reference-dashboard driver-dashboard-v4">
       <DriverWorkspaceShell
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
         driverName="Driver Dashboard"
@@ -550,7 +549,14 @@ export default function DriverDashboard() {
         {transitionError && <AlertBanner tone="danger">{transitionError}</AlertBanner>}
         {transitionMessage && <AlertBanner tone="success">{transitionMessage}</AlertBanner>}
 
-        <ConnectedExchangePanel role="driver" title="Connected driver exchange" />
+        <div className="driver-dashboard-command-strip" aria-label="Driver operational snapshot">
+          <button type="button" onClick={() => router.push('/driver/availability')}><span>Availability</span><strong>{availabilityValue}</strong></button>
+          <button type="button" onClick={() => currentJob ? router.push(`/driver/jobs/${currentJob.id}`) : router.push('/driver/jobs')}><span>Current job</span><strong>{currentStatus ? humanize(currentStatus) : 'None'}</strong></button>
+          <button type="button" onClick={() => router.push('/driver/jobs')}><span>Jobs today</span><strong>{todaysJobs.length}</strong></button>
+          <button type="button" onClick={() => router.push('/driver/jobs')}><span>Upcoming</span><strong>{upcomingJobs.length}</strong></button>
+          <button type="button" onClick={() => router.push('/driver/vehicles')}><span>Vehicle</span><strong>{assignedVehicle ? vehicleLabel(assignedVehicle.type) : 'Not assigned'}</strong></button>
+          <button type="button" className="driver-dashboard-command-strip__primary" onClick={() => router.push('/driver/loads')}><span>Exchange</span><strong>Find loads â†’</strong></button>
+        </div>
 
         <div className="driver-dashboard-layout">
           <aside className="driver-dashboard-left" aria-label="Driver operational controls">
