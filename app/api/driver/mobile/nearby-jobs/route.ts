@@ -73,7 +73,7 @@ const nearbySelect = [
   'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label', 'cargo_type', 'requested_cargo_label',
   'pallets', 'weight_kg', 'budget_amount', 'currency', 'is_fixed_price', 'load_details', 'special_requirements', 'access_restrictions',
   'job_distance_miles', 'job_distance_minutes', 'distance_to_pickup_miles', 'exchange_posted_at', 'exchange_expires_at',
-  'companies(name,company_number,company_type,created_at)',
+  'companies!jobs_company_id_fkey(name,company_number,company_type,created_at)',
 ].join(',');
 
 function companyInfo(companies: NearbyJobRow['companies']) {
