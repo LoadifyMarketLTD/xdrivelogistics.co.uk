@@ -49,7 +49,7 @@ type NearbyJobRow = {
   access_restrictions: string | null;
   job_distance_miles: number | string | null;
   job_distance_minutes: number | null;
-  distance_to_pickup_miles: number | string | null;
+  distance_to_pickup_miles?: number | string | null;
   exchange_posted_at: string | null;
   exchange_expires_at: string | null;
   companies?: {
@@ -73,7 +73,7 @@ const nearbySelect = [
   'pickup_country_code', 'delivery_country_code', 'service_mode', 'direct_delivery_required',
   'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label', 'cargo_type', 'requested_cargo_label',
   'pallets', 'weight_kg', 'budget_amount', 'currency', 'is_fixed_price', 'load_details', 'special_requirements', 'access_restrictions',
-  'job_distance_miles', 'job_distance_minutes', 'distance_to_pickup_miles', 'exchange_posted_at', 'exchange_expires_at',
+  'job_distance_miles', 'job_distance_minutes', 'exchange_posted_at', 'exchange_expires_at',
   'companies!jobs_company_id_fkey(name,company_number,company_type,created_at)',
 ].join(',');
 
