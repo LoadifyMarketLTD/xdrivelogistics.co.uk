@@ -65,6 +65,7 @@ type NearbyJobRow = {
   }> | null;
 };
 
+// Explicit company FK keeps PostgREST embedding deterministic for mobile loads.
 const nearbySelect = [
   'id', 'company_id', 'status', 'exchange_visibility', 'awarded_carrier_company_id', 'assigned_company_id', 'assigned_driver_id', 'direct_invite_company_id',
   'pickup_location', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot',
