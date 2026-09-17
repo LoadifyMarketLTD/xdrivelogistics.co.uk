@@ -121,6 +121,7 @@ export type MobileJobRow = {
   requested_cargo_label: string | null;
   agreed_rate: number | string | null;
   agreed_rate_gbp: number | string | null;
+  payment_terms: string | null;
   collection_contact_name: string | null;
   collection_contact_phone: string | null;
   delivery_contact_name: string | null;
@@ -262,6 +263,7 @@ export const jobSelect = [
   'requested_cargo_label',
   'agreed_rate',
   'agreed_rate_gbp',
+  'payment_terms',
   'collection_contact_name',
   'collection_contact_phone',
   'delivery_contact_name',
@@ -335,6 +337,7 @@ export function mapJob(row: MobileJobRow) {
     price: toMoney(agreedRateAmount),
     agreedRateAmount,
     budgetAmount: agreedRateAmount,
+    paymentTerms: row.payment_terms || '',
     distanceMiles: Number.isFinite(distance) && distance > 0 ? distance : null,
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
     podRequired: row.pod_required !== false,
