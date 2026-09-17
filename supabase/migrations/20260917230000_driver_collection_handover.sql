@@ -1,4 +1,4 @@
-﻿-- Structured collection handover for Driver app and multi-stop execution.
+-- Structured collection handover for Driver app and multi-stop execution.
 BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
