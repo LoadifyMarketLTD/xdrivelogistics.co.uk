@@ -424,3 +424,128 @@
     width: 100%;
   }
 }
+
+
+/* Driver Dashboard v4 preview â€” denser operational composition inspired by mature freight exchanges,
+ * while retaining XDrive branding, components and role-safe behaviour. */
+.driver-dashboard-v4 .xdrive-page-header {
+  min-height: 42px !important;
+  padding-block: 4px !important;
+  margin-bottom: 6px !important;
+}
+.driver-dashboard-v4 .xdrive-page-header h1 {
+  font-size: 18px !important;
+  line-height: 22px !important;
+}
+.driver-dashboard-v4 .xdrive-page-header p { display: none !important; }
+.driver-dashboard-v4 .driver-dashboard-command-strip {
+  display: grid;
+  grid-template-columns: 1.05fr 1.25fr .72fr .72fr 1.2fr 1fr;
+  gap: 1px;
+  margin: 0 0 6px;
+  border: 1px solid var(--ws-border, #cfd7e3);
+  border-radius: var(--ws-radius, 4px);
+  overflow: hidden;
+  background: var(--ws-border, #cfd7e3);
+}
+.driver-dashboard-v4 .driver-dashboard-command-strip button {
+  min-width: 0;
+  min-height: 48px;
+  display: grid;
+  align-content: center;
+  gap: 2px;
+  padding: 6px 9px;
+  border: 0;
+  background: #fff;
+  color: var(--ws-text, #172033);
+  text-align: left;
+  cursor: pointer;
+}
+.driver-dashboard-v4 .driver-dashboard-command-strip button:hover { background: #f7f9fc; }
+.driver-dashboard-v4 .driver-dashboard-command-strip span {
+  color: var(--ws-muted, #64748b);
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.driver-dashboard-v4 .driver-dashboard-command-strip strong {
+  overflow: hidden;
+  color: var(--ws-navy, #0b2f6b);
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.driver-dashboard-v4 .driver-dashboard-command-strip__primary {
+  background: var(--ws-navy, #0b2f6b) !important;
+}
+.driver-dashboard-v4 .driver-dashboard-command-strip__primary span { color: #c9d9f6; }
+.driver-dashboard-v4 .driver-dashboard-command-strip__primary strong { color: #fff; }
+.driver-dashboard-v4 .driver-dashboard-layout {
+  grid-template-columns: 276px minmax(0, 1fr) !important;
+  grid-template-areas: "context execution" !important;
+  gap: 6px !important;
+}
+.driver-dashboard-v4 .driver-dashboard-left,
+.driver-dashboard-v4 .driver-dashboard-main { gap: 6px !important; }
+.driver-dashboard-v4 .driver-dashboard-left {
+  top: calc(var(--ws-header-h, 50px) + 6px) !important;
+}
+.driver-dashboard-v4 .driver-dashboard-section__header {
+  min-height: 32px !important;
+  padding: 5px 8px !important;
+}
+.driver-dashboard-v4 .driver-dashboard-section__body {
+  gap: 6px !important;
+  padding: 7px !important;
+}
+.driver-dashboard-v4 .driver-dashboard-facts > div {
+  min-height: 31px !important;
+  padding: 5px 7px !important;
+}
+.driver-dashboard-v4 .driver-dashboard-status-primary {
+  min-height: 34px !important;
+  padding-bottom: 5px !important;
+}
+.driver-dashboard-v4 .driver-dashboard-quick-row {
+  min-height: 38px !important;
+  padding: 6px 7px !important;
+}
+.driver-dashboard-v4 .driver-dashboard-main > .driver-dashboard-section:nth-child(1) { order: 1; }
+.driver-dashboard-v4 .driver-dashboard-main > .driver-dashboard-section:nth-child(2) { order: 3; }
+.driver-dashboard-v4 .driver-dashboard-operational-grid { order: 2; gap: 6px !important; }
+.driver-dashboard-v4 .driver-dashboard-compliance { order: 4; }
+.driver-dashboard-v4 .driver-dashboard-lower-grid { order: 5; gap: 6px !important; }
+.driver-dashboard-v4 .driver-load-row { border-radius: 3px !important; }
+.driver-dashboard-v4 .driver-load-row__top { padding: 6px 8px !important; }
+.driver-dashboard-v4 .driver-load-row__meta { min-height: 28px !important; padding: 3px 7px !important; }
+.driver-dashboard-v4 .driver-dashboard-next-action {
+  min-height: 38px !important;
+  padding: 5px 8px !important;
+}
+.driver-dashboard-v4 .driver-dashboard-alert-row,
+.driver-dashboard-v4 .driver-dashboard-feedback-row {
+  min-height: 38px !important;
+  padding: 6px 8px !important;
+}
+.driver-dashboard-v4 .driver-dashboard-table-wrap th { height: 32px !important; padding: 5px 7px !important; }
+.driver-dashboard-v4 .driver-dashboard-table-wrap td { min-height: 36px !important; padding: 6px 7px !important; }
+@media (max-width: 1100px) {
+  .driver-dashboard-v4 .driver-dashboard-command-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .driver-dashboard-v4 .driver-dashboard-layout { grid-template-columns: 1fr !important; grid-template-areas: none !important; }
+  .driver-dashboard-v4 .driver-dashboard-left { position: static; grid-area: auto; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .driver-dashboard-v4 .driver-dashboard-main { grid-area: auto; }
+}
+@media (max-width: 700px) {
+  .driver-dashboard-v4 .driver-dashboard-command-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .driver-dashboard-v4 .driver-dashboard-left { grid-template-columns: 1fr; }
+  .driver-dashboard-v4 .driver-dashboard-lower-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 430px) {
+  .driver-dashboard-v4 .driver-dashboard-command-strip { grid-template-columns: 1fr 1fr; }
+  .driver-dashboard-v4 .driver-dashboard-command-strip button { min-height: 44px; padding: 5px 7px; }
+  .driver-dashboard-v4 .driver-dashboard-command-strip strong { font-size: 11px; }
+}
