@@ -16,12 +16,9 @@ import {
 import { downloadInvoicePdf } from '../../../../lib/invoicePdf';
 import { resolveActiveCompanyId } from '../../../../lib/activeCompany';
 import type { Invoice } from '../../../../lib/types/database';
-import { saveInvoiceWithSchemaCompat } from '../../../../lib/supabaseSchemaCompat';
 import {
   CANONICAL_INVOICE_STATUSES,
-  toCanonicalInvoiceStatus,
   toCanonicalInvoiceStatusWithDueDate,
-  toLegacyInvoiceStatusForDb,
   type CanonicalInvoiceStatus,
 } from '../../../../lib/invoiceStatus';
 
@@ -42,48 +39,6 @@ type InvoicePaymentHistoryItem = {
   external_reference: string | null;
   note: string | null;
 };
-
-/** Map InvoiceData (UI shape) → Supabase invoice row (DB shape) */
-function invoiceDataToDb(inv: InvoiceData, companyId: string, jobId: string | null, userId?: string | null): Omit<Invoice, 'created_at' | 'updated_at'> {
-  const canonicalStatus = toCanonicalInvoiceStatus(inv.status);
-  return {
-    id: inv.id,
-    company_id: companyId,
-    created_by: userId ?? null,
-    invoice_number: inv.invoiceNumber,
-    job_ref: inv.jobRef,
-    job_id: jobId,
-    invoice_date: inv.date,
-    due_date: inv.dueDate,
-    status: toLegacyInvoiceStatusForDb(canonicalStatus),
-    client_name: inv.clientName,
-    client_address: inv.clientAddress || null,
-    client_email: inv.clientEmail || null,
-    pickup_location: inv.pickupLocation || null,
-    pickup_datetime: inv.pickupDateTime || null,
-    delivery_location: inv.deliveryLocation || null,
-    delivery_datetime: inv.deliveryDateTime || null,
-    delivery_recipient: inv.deliveryRecipient || null,
-    service_description: inv.serviceDescription || null,
-    amount: inv.amount,
-    net_amount: inv.netAmount,
-    vat_amount: inv.vatAmount,
-    vat_rate: inv.vatRate,
-    currency: 'GBP',
-    payment_terms: inv.paymentTerms,
-    invoice_origin: 'manual',
-    late_fee: inv.lateFee || null,
-    pod_photos: inv.podPhotos ?? null,
-    signature: inv.signature ?? null,
-    recipient_name: inv.recipientName ?? null,
-    submitted_at: null,
-    submitted_by: null,
-    approved_at: null,
-    approved_by: null,
-    disputed_at: null,
-    paid_at: null,
-  };
-}
 
 /** Map Supabase Invoice row → InvoiceData used by the UI */
 function dbToInvoiceData(row: Invoice): InvoiceData {
@@ -109,7 +64,7 @@ function dbToInvoiceData(row: Invoice): InvoiceData {
     vatAmount: Number(row.vat_amount),
     vatRate: row.vat_rate as 0 | 5 | 20,
     paymentTerms: (row.payment_terms as 'Pay now' | '14 days' | '30 days') ?? '14 days',
-    lateFee: row.late_fee ?? '',
+    lateFee: COMPANY_CONFIG.payment.lateFeeNote,
     podPhotos: row.pod_photos ?? undefined,
     signature: row.signature ?? undefined,
     recipientName: row.recipient_name ?? undefined,
@@ -377,45 +332,47 @@ export default function InvoiceDetailPage() {
   };
 
   const handleSave = async () => {
-    // Save to Supabase when available
-    if (isSupabaseConfigured && companyId) {
-      const row = invoiceDataToDb(formData, companyId, linkedJobId, user?.id);
-      const { id: _id, company_id: _companyId, created_by: _createdBy, ...updateFields } = row;
-      const { error } = await saveInvoiceWithSchemaCompat(supabase, {
-        isNew,
-        invoiceId,
-        companyId,
-        insertRow: {
-          ...row,
-          invoice_origin: 'manual',
-        } as Record<string, unknown>,
-        updateFields: {
-          ...updateFields,
-          updated_at: new Date().toISOString(),
-        } as Record<string, unknown>,
-      });
-      if (!error) {
-        setSaveMessage('Invoice saved successfully!');
-        if (!isNew) {
-          await loadInvoiceLedger(invoiceId, companyId);
-        }
-        setTimeout(() => setSaveMessage(''), 3000);
-        if (isNew) {
-          setTimeout(() => router.push(`/admin/invoices/${row.id}`), 1000);
-        }
-        return;
-      }
-      console.error('Supabase save error:', error.message);
-      setSaveMessage(`Error saving invoice: ${error.message}`);
+    if (!isSupabaseConfigured || !companyId) {
+      setSaveMessage('A live Supabase session and company profile are required to save invoices safely.');
       setTimeout(() => setSaveMessage(''), 4000);
       return;
     }
-    if (isSupabaseConfigured && hasSupabaseSession && !companyId) {
-      setSaveMessage('Company profile not loaded. Invoice cannot be saved safely.');
+    if (!isNew && formData.status !== 'Draft') {
+      setSaveMessage('Only draft invoices can be edited.');
       setTimeout(() => setSaveMessage(''), 4000);
       return;
     }
-    setSaveMessage('A live Supabase session is required to save invoices safely.');
+
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token ?? null;
+    if (!token) {
+      setSaveMessage('A live Supabase session is required to save invoices safely.');
+      return;
+    }
+
+    const response = await fetch(isNew ? '/api/admin/invoices' : `/api/admin/invoices/${encodeURIComponent(invoiceId)}`, {
+      method: isNew ? 'POST' : 'PATCH',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        companyId, invoiceNumber: formData.invoiceNumber, jobRef: formData.jobRef,
+        jobId: linkedJobId, invoiceDate: formData.date, clientName: formData.clientName,
+        clientAddress: formData.clientAddress || null, clientEmail: formData.clientEmail || null,
+        pickupLocation: formData.pickupLocation || null, pickupDateTime: formData.pickupDateTime || null,
+        deliveryLocation: formData.deliveryLocation || null, deliveryDateTime: formData.deliveryDateTime || null,
+        deliveryRecipient: formData.deliveryRecipient || null,
+        serviceDescription: formData.serviceDescription || null,
+        amount: formData.amount, vatRate: formData.vatRate, currency: 'GBP', paymentTerms: formData.paymentTerms,
+      }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as { invoice?: { id?: string }; error?: string };
+    if (!response.ok) {
+      setSaveMessage(`Error saving invoice: ${payload.error ?? 'Invoice could not be saved.'}`);
+      setTimeout(() => setSaveMessage(''), 4000);
+      return;
+    }
+    setSaveMessage('Invoice saved successfully!');
+    if (isNew && payload.invoice?.id) router.push(`/admin/invoices/${payload.invoice.id}`);
+    else await loadInvoice();
     setTimeout(() => setSaveMessage(''), 3000);
   };
 

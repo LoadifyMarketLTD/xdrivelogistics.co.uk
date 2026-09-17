@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { COMPANY_CONFIG } from '../../config/company';
 import { useAuth } from '../../components/AuthContext';
 import type { InvoiceData } from '../../components/InvoiceTemplate';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
@@ -70,7 +71,7 @@ function dbToInvoiceData(row: Record<string, unknown>, fallbackId: string): Invo
     vatAmount: Number(row.vat_amount ?? 0),
     vatRate: row.vat_rate === 5 || row.vat_rate === 20 ? row.vat_rate : 0,
     paymentTerms,
-    lateFee: typeof row.late_fee === 'string' ? row.late_fee : '',
+    lateFee: COMPANY_CONFIG.payment.lateFeeNote,
     podPhotos: Array.isArray(row.pod_photos) ? row.pod_photos as string[] : undefined,
     signature: typeof row.signature === 'string' ? row.signature : undefined,
     recipientName: typeof row.recipient_name === 'string' ? row.recipient_name : undefined,

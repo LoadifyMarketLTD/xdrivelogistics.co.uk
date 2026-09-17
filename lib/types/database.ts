@@ -390,7 +390,7 @@ export interface Invoice {
   currency: string;
   payment_terms: string;
   invoice_origin: string | null;
-  late_fee: string | null;
+  late_fee: number;
   pod_photos: string[] | null;
   signature: string | null;
   recipient_name: string | null;
