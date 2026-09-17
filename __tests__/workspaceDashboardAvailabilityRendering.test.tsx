@@ -273,7 +273,7 @@ describe('active workspace dashboard degraded-state rendering', () => {
     expect(html).toContain('Driver data unavailable');
     expect(html).toContain('Documents expiring');
     expect(html).toContain('Partial');
-    expect(html).toContain('Operational vehicle availability is not exposed by the verified Fleet dataset');
+    expect(html).toContain('Canonical eligibility is enforced server-side.');
     expect(html).not.toContain('Allocation board');
     expect(html).not.toContain('Live fleet execution');
     expect(html).not.toContain('Capacity matrix');

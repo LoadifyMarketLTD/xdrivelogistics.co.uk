@@ -213,6 +213,18 @@ export default function FleetControlDashboardHome() {
     (vehicle) => (vehicleDocumentsByVehicle.get(vehicle.id)?.length ?? 0) === 0,
   );
   const documentAttention = documents.filter((document) => documentAttentionState(document) !== null);
+  const documentDatasets = [data.datasets.driverDocuments, data.datasets.vehicleDocuments];
+  const documentDataUnavailable = documentDatasets.some((dataset) => dataset.availability !== 'available');
+  const documentDataPartial = !documentDataUnavailable && documentDatasets.some((dataset) => dataset.partialData || dataset.limitedData);
+  const documentsExpiring = documents.filter((document) => {
+    const days = daysUntil(document.expiry_date);
+    return days !== null && days <= 30;
+  });
+  const documentsExpiringValue: string | number = documentDataUnavailable
+    ? '—'
+    : documentDataPartial
+      ? 'Partial'
+      : documentsExpiring.length;
 
   const attentionItems = useMemo<FleetAttentionItem[]>(() => {
     const items: FleetAttentionItem[] = [];
@@ -364,6 +376,18 @@ export default function FleetControlDashboardHome() {
             detail: trackingDataUnavailable ? 'Tracking data unavailable' : 'Missing or stale positions',
             tone: trackingDataUnavailable ? 'blue' : trackingAttentionCount ? 'orange' : 'green',
             onClick: () => router.push('/admin/fleet/positions'),
+          },
+          {
+            key: 'documents-expiring',
+            label: 'Documents expiring',
+            value: documentsExpiringValue,
+            detail: documentDataUnavailable
+              ? 'Document feeds unavailable'
+              : documentDataPartial
+                ? 'Partial document feeds · expiry count not presented as complete'
+                : 'Expired or due within 30 days',
+            tone: documentDataUnavailable ? 'blue' : documentDataPartial ? 'orange' : documentsExpiring.length ? 'orange' : 'green',
+            onClick: () => router.push('/admin/fleet/compliance'),
           },
           {
             key: 'compliance-alerts',
