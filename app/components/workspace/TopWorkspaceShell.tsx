@@ -368,12 +368,14 @@ export default function TopWorkspaceShell({
 
     let cancelled = false;
     const fetchUnread = async () => {
-      const { count } = await supabase
-        .from('notifications')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .is('read_at', null);
-      if (!cancelled) setUnreadCount(count ?? 0);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) { if (!cancelled) setUnreadCount(0); return; }
+      const response = await fetch('/api/workspace/notifications?mode=count', {
+        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({})) as { unreadCount?: number };
+      if (!cancelled) setUnreadCount(response.ok ? Number(payload.unreadCount ?? 0) : 0);
     };
 
     void fetchUnread();

@@ -98,12 +98,13 @@ export default function WorkspaceNotificationInbox({
     }
     setLoading(true);
     setError('');
-    const { data, error: queryError } = await supabase
-      .from('notifications')
-      .select('id, title, body, type, read_at, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(150);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) { setError('Your session has expired. Please sign in again.'); setRows([]); setLoading(false); return; }
+    const response = await fetch('/api/workspace/notifications', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+    const payload = await response.json().catch(() => ({})) as { notifications?: NotificationRow[]; error?: string };
+    const queryError = response.ok ? null : new Error(payload.error ?? 'Notifications are temporarily unavailable.');
+    const data = payload.notifications ?? [];
     if (queryError) {
       setError('Notifications are temporarily unavailable.');
       setRows([]);
@@ -134,11 +135,10 @@ export default function WorkspaceNotificationInbox({
     setWorking(id);
     setError('');
     const readAt = new Date().toISOString();
-    const { error: updateError } = await supabase
-      .from('notifications')
-      .update({ read_at: readAt })
-      .eq('id', id)
-      .eq('user_id', user.id);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const response = token ? await fetch('/api/workspace/notifications', { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) }) : null;
+    const updateError = !response?.ok;
     if (updateError) setError('This notification could not be marked as read.');
     else setRows((current) => current.map((row) => row.id === id ? { ...row, read_at: readAt } : row));
     setWorking(null);
@@ -149,11 +149,10 @@ export default function WorkspaceNotificationInbox({
     setWorking('all');
     setError('');
     const readAt = new Date().toISOString();
-    const { error: updateError } = await supabase
-      .from('notifications')
-      .update({ read_at: readAt })
-      .eq('user_id', user.id)
-      .is('read_at', null);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const response = token ? await fetch('/api/workspace/notifications', { method: 'PATCH', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true }) }) : null;
+    const updateError = !response?.ok;
     if (updateError) setError('Unread notifications could not be marked as read.');
     else setRows((current) => current.map((row) => row.read_at ? row : { ...row, read_at: readAt }));
     setWorking(null);
@@ -163,11 +162,10 @@ export default function WorkspaceNotificationInbox({
     if (!user?.id) return;
     setWorking(id);
     setError('');
-    const { error: deleteError } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', id)
-      .eq('user_id', user.id);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    const response = token ? await fetch(`/api/workspace/notifications?id=${encodeURIComponent(id)}`, { method: 'DELETE', headers: { Authorization: `Bearer ${token}` } }) : null;
+    const deleteError = !response?.ok;
     if (deleteError) setError('This notification could not be removed.');
     else setRows((current) => current.filter((row) => row.id !== id));
     setWorking(null);
