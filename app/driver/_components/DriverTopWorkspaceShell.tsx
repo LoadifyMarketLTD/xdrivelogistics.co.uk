@@ -95,12 +95,26 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
 
     let cancelled = false;
     const fetchUnread = async () => {
-      const { count } = await supabase
-        .from('notifications')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id)
-        .is('read_at', null);
-      if (!cancelled) setUnreadCount(count ?? 0);
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        if (!cancelled) setUnreadCount(0);
+        return;
+      }
+      const response = await fetch('/api/driver/notifications', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
+      });
+      if (!response.ok) {
+        if (!cancelled) setUnreadCount(0);
+        return;
+      }
+      const payload = await response.json().catch(() => ({})) as {
+        notifications?: Array<{ read_at?: string | null }>;
+      };
+      if (!cancelled) {
+        setUnreadCount((payload.notifications ?? []).filter((notification) => !notification.read_at).length);
+      }
     };
 
     void fetchUnread();

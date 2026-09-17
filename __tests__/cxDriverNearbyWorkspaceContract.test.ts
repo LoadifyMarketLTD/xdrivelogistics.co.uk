@@ -7,9 +7,9 @@ describe("Driver Who's Nearby CX convergence contract", () => {
   const api = fs.readFileSync(path.join(process.cwd(), 'app/api/availability/nearby/route.ts'), 'utf8');
 
   it('exposes Nearby in the Driver workspace without introducing a second shell', () => {
-    expect(shell).toContain("{ id: 'nearby', label: 'Nearby', href: '/driver/nearby' }");
+    expect(shell).toContain(`{ id: 'nearby', label: "Who's Nearby?", href: '/driver/nearby' }`);
     expect(page).toContain('DriverWorkspaceShell');
-    expect(page).toContain("Who's Nearby");
+    expect(page).toContain("Who’s Nearby");
   });
 
   it('uses the existing authorised nearby API and only renders exchange-scoped results', () => {
