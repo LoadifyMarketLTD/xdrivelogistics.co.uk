@@ -32,6 +32,17 @@ function timestampOf(value: unknown) {
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
+const FINANCE_ALERT_ENTITY_TYPES = new Set(['invoice', 'payment', 'billing', 'subscription', 'membership']);
+const FINANCE_ALERT_EVENT_PREFIX = /^(invoice|payment|billing|subscription|membership|finance)_/;
+
+function isDriverOperationalAlert(row: AnyRow) {
+  const entityType = String(row.entity_type ?? '').trim().toLowerCase();
+  const eventType = String(row.event_type ?? '').trim().toLowerCase();
+  if (FINANCE_ALERT_ENTITY_TYPES.has(entityType)) return false;
+  if (FINANCE_ALERT_EVENT_PREFIX.test(eventType)) return false;
+  return true;
+}
+
 export async function GET(request: NextRequest) {
   // Identity, account approval, active status and native-device binding remain
   // fail-closed inside requireDriver. Everything below is presentation/context
@@ -136,10 +147,12 @@ export async function GET(request: NextRequest) {
 
   const operationalAlerts = operationalAlertsResult.error
     ? []
-    : (operationalAlertsResult.data ?? []).map((row) => ({
-      ...row,
-      payload: row.payload && typeof row.payload === 'object' ? row.payload : {},
-    }));
+    : (operationalAlertsResult.data ?? [])
+      .filter((row) => isDriverOperationalAlert(row as AnyRow))
+      .map((row) => ({
+        ...row,
+        payload: row.payload && typeof row.payload === 'object' ? row.payload : {},
+      }));
   const inboxNotifications = notificationsResult.error ? [] : notificationsResult.data ?? [];
   const inboxAlerts = inboxNotifications.map((row) => ({
     id: String(row.id),
