@@ -11,6 +11,7 @@ export const revalidate = 0;
 
 const schema = z.discriminatedUnion('action', [
   z.object({ action: z.literal('publish'), companyId: z.string().uuid() }),
+  z.object({ action: z.literal('unpublish'), companyId: z.string().uuid() }),
   z.object({
     action: z.literal('direct_invite'),
     companyId: z.string().uuid(),
@@ -105,6 +106,23 @@ export async function POST(
   }
   if (!['draft', 'posted'].includes(status)) {
     return respond(409, { error: `Jobs in ${status || 'this'} status cannot be published.` });
+  }
+
+  if (parsed.data.action === 'unpublish') {
+    if (job.exchange_visibility !== 'exchange') {
+      return respond(409, { error: 'Only Exchange-visible jobs can be unpublished.' });
+    }
+    const now = new Date().toISOString();
+    const nextHistory = historyWith(job.status_history, status || 'posted', admin.userId, 'Removed from the exchange marketplace.');
+    const hidden = await supabaseAdmin.from('jobs').update({
+      exchange_visibility: 'private', direct_invite_company_id: null,
+      exchange_posted_at: null, exchange_expires_at: null,
+      status_history: nextHistory, updated_at: now,
+    }).eq('id', id).eq('company_id', admin.companyId).eq('exchange_visibility', 'exchange')
+      .select('id, status, current_status, exchange_visibility').maybeSingle();
+    if (hidden.error) return respond(500, { error: 'The job could not be removed from Exchange.' });
+    if (!hidden.data) return respond(409, { error: 'The job changed while it was being unpublished.' });
+    return respond(200, { success: true, job: hidden.data });
   }
 
   const settings = await publicationSettings();

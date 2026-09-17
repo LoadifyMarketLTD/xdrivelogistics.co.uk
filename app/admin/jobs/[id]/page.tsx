@@ -74,8 +74,6 @@ const CARGO_TYPES = [
   'Other'
 ];
 
-const STATUS_OPTIONS = Object.values(JOB_STATUS);
-
 export default function JobDetailPage() {
   const router = useRouter();
   const params = useParams();
@@ -236,24 +234,26 @@ export default function JobDetailPage() {
   const handlePublishToExchange = async () => {
     if (!companyId || !jobId) return;
     const isPublished = exchangeVisibility === 'exchange';
-    const newVisibility = isPublished ? 'private' : 'exchange';
     setPublishingExchange(true);
     try {
-      const { error } = await supabase
-        .from('jobs')
-        .update({
-          exchange_visibility: newVisibility,
-          exchange_posted_at: newVisibility === 'exchange' ? new Date().toISOString() : null,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', jobId)
-        .eq('company_id', companyId);
-      if (error) {
-        setSaveMessage(`Failed to update exchange visibility: ${error.message}`);
-      } else {
-        setExchangeVisibility(newVisibility);
-        setSaveMessage(newVisibility === 'exchange' ? '✅ Load published to Exchange Marketplace!' : '✅ Load removed from Exchange Marketplace.');
+      const { accessToken, error: tokenError } = await getAccessToken();
+      if (tokenError || !accessToken) {
+        setSaveMessage(tokenError ?? 'Session expired. Please sign in again.');
+        return;
       }
+      const response = await fetch(`/api/admin/jobs/${encodeURIComponent(jobId)}/manage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ action: isPublished ? 'unpublish' : 'publish', companyId }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { job?: { exchange_visibility?: string }; error?: string };
+      if (!response.ok) {
+        setSaveMessage(payload.error ?? 'Exchange visibility could not be updated.');
+        return;
+      }
+      const visibility = payload.job?.exchange_visibility === 'exchange' ? 'exchange' : 'private';
+      setExchangeVisibility(visibility);
+      setSaveMessage(visibility === 'exchange' ? 'Load published to Exchange Marketplace.' : 'Load removed from Exchange Marketplace.');
     } catch (err) {
       setSaveMessage('Error updating exchange visibility.');
       console.error(err);
@@ -264,81 +264,95 @@ export default function JobDetailPage() {
   };
 
   const handleSave = async () => {
-    if (!formData) return;
+    if (!formData || !job) return;
+    if (!hasSupabaseSession || !companyId) {
+      setSaveMessage('A live company session is required to save job changes safely.');
+      setTimeout(() => setSaveMessage(''), 3000);
+      return;
+    }
 
     try {
-      if (hasSupabaseSession) {
-        if (!companyId) {
-          setSaveMessage('Company profile not loaded. Job cannot be updated safely.');
-          setTimeout(() => setSaveMessage(''), 3000);
-          return;
-        }
-
-        const updatedAt = new Date().toISOString();
-        let savedStatus = formData.status;
-        let savedAssignedDriverId = formData.assignedDriverId;
-
-        const { error } = await supabase.from('jobs').update({
-          client_name: formData.client.name,
-          client_email: formData.client.email || null,
-          client_phone: formData.client.phone || null,
-          special_requirements: buildLegacyJobSpecialRequirements({
-            clientPhone: formData.client.phone,
-            clientEmail: formData.client.email,
-            cargoNotes: formData.cargo.notes,
-          }),
-          pickup_location: formData.pickup.location,
-          pickup_datetime: formData.pickup.date && formData.pickup.time ? `${formData.pickup.date}T${formData.pickup.time}:00` : null,
-          delivery_location: formData.delivery.location,
-          delivery_datetime: formData.delivery.date && formData.delivery.time ? `${formData.delivery.date}T${formData.delivery.time}:00` : null,
-          cargo_type: formData.cargo.type.toLowerCase(),
-          items: formData.cargo.quantity,
-          job_distance_miles: formData.distanceMiles,
-          status: formData.status,
-          updated_at: updatedAt,
-        }).eq('id', jobId).eq('company_id', companyId);
-        if (error) {
-          console.error('Failed to save job:', error.message);
-          setSaveMessage('Error saving job. Please try again.');
-          setTimeout(() => setSaveMessage(''), 3000);
-          return;
-        }
-
-        if (job?.assignedDriverId !== formData.assignedDriverId) {
-          const { data: sessionData } = await supabase.auth.getSession();
-          const accessToken = sessionData.session?.access_token;
-          if (!accessToken) {
-            setSaveMessage('Session expired. Please sign in again.');
-            setTimeout(() => setSaveMessage(''), 3000);
-            return;
-          }
-
-          const assignmentResponse = await fetch(`/api/admin/jobs/${jobId}/assign-driver`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({ driverId: formData.assignedDriverId, expectedDriverId: job?.assignedDriverId ?? null }),
-          });
-          const assignmentPayload = await assignmentResponse.json().catch(() => ({}));
-          if (!assignmentResponse.ok) {
-            setSaveMessage(`Driver assignment failed: ${assignmentPayload.error ?? 'Unknown error'}`);
-            setTimeout(() => setSaveMessage(''), 4000);
-            return;
-          }
-          savedStatus = assignmentPayload.job?.status ?? savedStatus;
-          savedAssignedDriverId = assignmentPayload.job?.assigned_driver_id ?? savedAssignedDriverId;
-        }
-        const updatedJob = { ...formData, status: savedStatus, assignedDriverId: savedAssignedDriverId, updatedAt };
-        setJob(updatedJob);
-        setFormData(updatedJob);
-        setEditMode(false);
-        setSaveMessage('Job saved successfully!');
-        setTimeout(() => setSaveMessage(''), 3000);
+      const { accessToken, error: tokenError } = await getAccessToken();
+      if (tokenError || !accessToken) {
+        setSaveMessage(tokenError ?? 'Session expired. Please sign in again.');
         return;
       }
-      setSaveMessage('A live Supabase session is required to save job changes safely.');
+
+      const detailsChanged =
+        formData.client.name !== job.client.name ||
+        formData.client.email !== job.client.email ||
+        formData.client.phone !== job.client.phone ||
+        formData.pickup.location !== job.pickup.location ||
+        formData.pickup.date !== job.pickup.date ||
+        formData.pickup.time !== job.pickup.time ||
+        formData.delivery.location !== job.delivery.location ||
+        formData.delivery.date !== job.delivery.date ||
+        formData.delivery.time !== job.delivery.time ||
+        formData.cargo.type !== job.cargo.type ||
+        formData.cargo.quantity !== job.cargo.quantity ||
+        formData.cargo.notes !== job.cargo.notes ||
+        formData.distanceMiles !== job.distanceMiles;
+
+      let updatedAt = job.updatedAt;
+      let savedStatus = job.status;
+      let savedAssignedDriverId = formData.assignedDriverId;
+
+      if (detailsChanged) {
+        const response = await fetch(`/api/admin/jobs/${encodeURIComponent(jobId)}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({
+            companyId,
+            expectedUpdatedAt: job.updatedAt,
+            clientName: formData.client.name,
+            clientEmail: formData.client.email || null,
+            clientPhone: formData.client.phone || null,
+            specialRequirements: buildLegacyJobSpecialRequirements({
+              clientPhone: formData.client.phone,
+              clientEmail: formData.client.email,
+              cargoNotes: formData.cargo.notes,
+            }),
+            pickupLocation: formData.pickup.location,
+            pickupDateTime: formData.pickup.date && formData.pickup.time ? `${formData.pickup.date}T${formData.pickup.time}:00` : null,
+            deliveryLocation: formData.delivery.location,
+            deliveryDateTime: formData.delivery.date && formData.delivery.time ? `${formData.delivery.date}T${formData.delivery.time}:00` : null,
+            cargoType: formData.cargo.type,
+            items: formData.cargo.quantity,
+            distanceMiles: formData.distanceMiles,
+          }),
+        });
+        const payload = (await response.json().catch(() => ({}))) as { job?: { updated_at?: string }; error?: string };
+        if (!response.ok) {
+          setSaveMessage(payload.error ?? 'Job details could not be saved.');
+          setTimeout(() => setSaveMessage(''), 4000);
+          return;
+        }
+        updatedAt = payload.job?.updated_at ?? updatedAt;
+      }
+
+      if (job.assignedDriverId !== formData.assignedDriverId) {
+        const assignmentResponse = await fetch(`/api/admin/jobs/${encodeURIComponent(jobId)}/assign-driver`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+          body: JSON.stringify({ driverId: formData.assignedDriverId, expectedDriverId: job.assignedDriverId ?? null }),
+        });
+        const assignmentPayload = await assignmentResponse.json().catch(() => ({}));
+        if (!assignmentResponse.ok) {
+          await loadJob();
+          setSaveMessage(`Driver assignment failed: ${assignmentPayload.error ?? 'Unknown error'}`);
+          setTimeout(() => setSaveMessage(''), 4000);
+          return;
+        }
+        savedStatus = assignmentPayload.job?.status ?? savedStatus;
+        savedAssignedDriverId = assignmentPayload.job?.assigned_driver_id ?? savedAssignedDriverId;
+        updatedAt = assignmentPayload.job?.updated_at ?? new Date().toISOString();
+      }
+
+      const updatedJob = { ...formData, status: savedStatus, assignedDriverId: savedAssignedDriverId, updatedAt };
+      setJob(updatedJob);
+      setFormData(updatedJob);
+      setEditMode(false);
+      setSaveMessage('Job saved successfully!');
       setTimeout(() => setSaveMessage(''), 3000);
     } catch (error) {
       console.error('Error saving job:', error);
@@ -751,26 +765,12 @@ export default function JobDetailPage() {
                 </p>
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', alignItems: 'flex-end' }}>
-                {editMode ? (
-                  <div>
-                    <label style={labelStyle}>Status</label>
-                    <select
-                      value={formData.status}
-                      onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                      style={inputStyle}
-                    >
-                      {STATUS_OPTIONS.map((status) => (
-                        <option key={status} value={status}>
-                          {JOB_STATUS_LABEL[status] ?? status}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                ) : (
+                <div style={{ display: 'grid', gap: '0.25rem', justifyItems: 'end' }}>
                   <div style={getStatusBadgeStyle(formData.status)}>
                     {JOB_STATUS_LABEL[formData.status] ?? formData.status}
                   </div>
-                )}
+                  {editMode && <span style={{ fontSize: '0.72rem', color: '#6b7280' }}>Status changes use operational lifecycle actions.</span>}
+                </div>
               </div>
             </div>
 
