@@ -45,7 +45,7 @@ export default function Page() {
           key: 'vat_amount', label: 'VAT', render: (row) => (
             <span style={{ fontSize: '0.8rem' }}>
               {formatMoney(row.vat_amount, row.currency)}
-              {row.vat_rate > 0 && <span style={{ color: '#94a3b8', fontSize: '0.7rem' }}> ({row.vat_rate}%)</span>}
+              {row.vat_rate > 0 && <span style={{ color: '#667085', fontSize: '0.7rem' }}> ({row.vat_rate}%)</span>}
             </span>
           ),
         },

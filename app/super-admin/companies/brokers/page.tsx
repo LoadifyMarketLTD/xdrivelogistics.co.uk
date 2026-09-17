@@ -28,7 +28,7 @@ export default function Page() {
     pageSize={50}
     emptyMessage="No broker companies found."
     columns={[
-      { key: 'broker', label: 'Broker', render: (row) => <div><PlatformEntityLink entityType="company" entityId={row.id} compact>{row.name}</PlatformEntityLink><div style={{fontSize:10,color:'#64748B',marginTop:3}}>{row.company_number ?? 'No company number'} · {row.email ?? 'No email'}</div></div> },
+      { key: 'broker', label: 'Broker', render: (row) => <div><PlatformEntityLink entityType="company" entityId={row.id} compact>{row.name}</PlatformEntityLink><div style={{fontSize:10,color:'#667085',marginTop:3}}>{row.company_number ?? 'No company number'} · {row.email ?? 'No email'}</div></div> },
       { key: 'status', label: 'Status', render: (row) => <StatusChip value={row.status} /> },
       { key: 'members', label: 'Members', render: (row) => <span>{row.memberships_active} active / {row.memberships_total} total</span> },
       { key: 'jobs', label: 'Jobs', render: (row) => <span>{row.jobs_open} open · {row.jobs_delivered} delivered · {row.jobs_total} total</span> },

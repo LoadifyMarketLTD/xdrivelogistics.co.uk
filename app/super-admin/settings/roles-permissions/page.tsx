@@ -23,7 +23,7 @@ export default function Page() {
   }, [query]);
 
   const columns: SuperAdminDataColumn<CanonicalRole>[] = [
-    { key: 'role', label: 'Role', render: (role) => <div><strong>{role.label}</strong><div style={{ color: '#64748B', marginTop: 3, fontSize: 11 }}>{role.description}</div></div> },
+    { key: 'role', label: 'Role', render: (role) => <div><strong>{role.label}</strong><div style={{ color: '#667085', marginTop: 3, fontSize: 11 }}>{role.description}</div></div> },
     { key: 'scope', label: 'Scope', render: (role) => scopeLabel(role) },
     { key: 'access', label: 'Access level', render: (role) => <SuperAdminStatusBadge label={role.accessLevel.replaceAll('_', ' ')} tone={toneFor(role)} /> },
     { key: 'app', label: 'Application role', render: (role) => <code>{role.appRole}</code> },
@@ -39,7 +39,7 @@ export default function Page() {
       />
       <SuperAdminNotice tone="info">Profile role and tenant membership authority remain separate. This page documents authorization; it does not mutate user authority.</SuperAdminNotice>
       <SuperAdminFilterBar>
-        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search roles, workspace or app role…" aria-label="Search roles" style={{ minHeight: 36, minWidth: 280, flex: 1, border: '1px solid #D9E1EA', borderRadius: 8, padding: '0 10px' }} />
+        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Search roles, workspace or app role…" aria-label="Search roles" style={{ minHeight: 36, minWidth: 280, flex: 1, border: '1px solid #E5E7EB', borderRadius: 8, padding: '0 10px' }} />
       </SuperAdminFilterBar>
       <SuperAdminSectionCard title="Canonical roles" description={`${roles.length} role definition(s) in this view.`} flush>
         {roles.length ? <SuperAdminDataGrid columns={columns} rows={roles} rowKey={(role) => role.workspaceRole} minWidth={900} /> : <SuperAdminEmptyState title="No roles match your search." />}
@@ -51,16 +51,16 @@ export default function Page() {
       </SuperAdminSectionCard>
 
       {selectedRole ? <div role="dialog" aria-modal="true" aria-label={`Inspect ${selectedRole.label}`} style={{ position: 'fixed', inset: 0, zIndex: 200, background: 'rgba(7,27,60,.28)', display: 'flex', justifyContent: 'flex-end' }} onClick={() => setSelectedRole(null)}>
-        <aside style={{ width: 'min(560px,94vw)', height: '100%', overflowY: 'auto', background: '#FFFFFF', borderLeft: '1px solid #D9E1EA', boxShadow: '-16px 0 44px rgba(7,27,60,.18)' }} onClick={(event) => event.stopPropagation()}>
-          <div style={{ position: 'sticky', top: 0, zIndex: 1, background: '#FFFFFF', borderBottom: '1px solid #D9E1EA', padding: 16, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-            <div><strong style={{ color: '#0B2F6B', fontSize: 18 }}>{selectedRole.label}</strong><div style={{ color: '#64748B', fontSize: 12, marginTop: 4 }}>{scopeLabel(selectedRole)} scope · {selectedRole.accessLevel}</div></div>
+        <aside style={{ width: 'min(560px,94vw)', height: '100%', overflowY: 'auto', background: '#FFFFFF', borderLeft: '1px solid #E5E7EB', boxShadow: '-16px 0 44px rgba(7,27,60,.18)' }} onClick={(event) => event.stopPropagation()}>
+          <div style={{ position: 'sticky', top: 0, zIndex: 1, background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: 16, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+            <div><strong style={{ color: '#0B2F6B', fontSize: 18 }}>{selectedRole.label}</strong><div style={{ color: '#667085', fontSize: 12, marginTop: 4 }}>{scopeLabel(selectedRole)} scope · {selectedRole.accessLevel}</div></div>
             <button type="button" className="sa-button" aria-label="Close role inspection" onClick={() => setSelectedRole(null)}>Close</button>
           </div>
           <div style={{ padding: 16 }}>
-            <p style={{ color: '#334155', lineHeight: 1.55, marginTop: 0 }}>{selectedRole.description}</p>
+            <p style={{ color: '#344054', lineHeight: 1.55, marginTop: 0 }}>{selectedRole.description}</p>
             <div style={{ display: 'grid', gap: 10 }}>
               {selectedRole.capabilityGroups.map((group) => <SuperAdminSectionCard key={group.label} title={group.label}>
-                <div style={{ display: 'grid', gap: 6 }}>{group.capabilities.map((capability) => <code key={capability} style={{ color: '#334155', fontSize: 12 }}>{capability}</code>)}</div>
+                <div style={{ display: 'grid', gap: 6 }}>{group.capabilities.map((capability) => <code key={capability} style={{ color: '#344054', fontSize: 12 }}>{capability}</code>)}</div>
               </SuperAdminSectionCard>)}
             </div>
             <SuperAdminSectionCard title="Technical identity" description="Read-only canonical identifiers and primary route access.">
