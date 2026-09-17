@@ -2,22 +2,33 @@ import { spawnSync } from 'node:child_process';
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
-function run(command, args) {
+function run(label, failureCode, command, args) {
+  console.log(`NETLIFY_RELEASE_GATE_STAGE=${label}`);
   const result = spawnSync(command, args, {
     cwd: process.cwd(),
     env: { ...process.env, CI: process.env.CI ?? 'true' },
     stdio: 'inherit',
     shell: false,
   });
-  if (result.error) process.exit(1);
-  if (result.status !== 0) process.exit(result.status ?? 1);
+
+  if (result.error) {
+    console.error(`NETLIFY_RELEASE_GATE_FAILED=${label}:spawn_error=${result.error.message}`);
+    process.exit(failureCode);
+  }
+
+  if (result.status !== 0) {
+    console.error(`NETLIFY_RELEASE_GATE_FAILED=${label}:child_status=${result.status ?? 'unknown'}`);
+    process.exit(failureCode);
+  }
+
+  console.log(`NETLIFY_RELEASE_GATE_STAGE_PASS=${label}`);
 }
 
 const isLegalGatePreview =
   process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '499';
 const isGoLiveHardeningPreview =
   process.env.CONTEXT === 'deploy-preview' &&
-  ['500', '501'].includes(process.env.REVIEW_ID ?? '');
+  ['500', '501', '502'].includes(process.env.REVIEW_ID ?? '');
 const isSuperAdminHomePreview =
   process.env.CONTEXT === 'deploy-preview' && process.env.REVIEW_ID === '504';
 const isSuperAdminControlPlanePreview =
@@ -58,6 +69,7 @@ const goLiveHardeningLintTargets = [
   '__tests__/commandCentreMetrics.test.ts',
   '__tests__/goLiveHardeningMigrationContract.test.ts',
   '__tests__/goLiveTenantReviewerHardening.test.ts',
+  '__tests__/postgisRelocationBridge.test.ts',
   'app/api/super-admin/command-centre/route.ts',
 ];
 
@@ -65,6 +77,7 @@ const goLiveHardeningUnitTests = [
   '__tests__/commandCentreMetrics.test.ts',
   '__tests__/goLiveHardeningMigrationContract.test.ts',
   '__tests__/goLiveTenantReviewerHardening.test.ts',
+  '__tests__/postgisRelocationBridge.test.ts',
 ];
 
 const superAdminHomeLintTargets = [
@@ -168,36 +181,38 @@ const superAdminControlPlaneUnitTests = [
 ];
 
 console.log('NETLIFY_RELEASE_GATE=START');
-run(process.execPath, ['.github/scripts/validate-supabase-migration-files.mjs']);
+run('migration-validation', 21, process.execPath, ['.github/scripts/validate-supabase-migration-files.mjs']);
 
 if (isLegalGatePreview) {
-  console.log('NETLIFY_RELEASE_GATE=PR499_LEGAL_LINT');
-  run(npmCommand, ['exec', '--', 'eslint', ...legalLintTargets]);
-  console.log('NETLIFY_RELEASE_GATE=PR499_LEGAL_TESTS');
-  run(npmCommand, ['run', 'test:unit', '--', ...legalUnitTests]);
+  run('pr499-legal-lint', 22, npmCommand, ['exec', '--', 'eslint', ...legalLintTargets]);
+  run('pr499-legal-tests', 23, npmCommand, ['run', 'test:unit', '--', ...legalUnitTests]);
 }
 
 if (isGoLiveHardeningPreview) {
-  console.log('NETLIFY_RELEASE_GATE=PR500_501_GO_LIVE_HARDENING_LINT');
-  run(npmCommand, ['exec', '--', 'eslint', ...goLiveHardeningLintTargets]);
-  console.log('NETLIFY_RELEASE_GATE=PR500_501_GO_LIVE_HARDENING_TESTS');
-  run(npmCommand, ['run', 'test:unit', '--', ...goLiveHardeningUnitTests]);
+  run('pr500-501-502-hardening-lint', 24, npmCommand, [
+    'exec',
+    '--',
+    'eslint',
+    ...goLiveHardeningLintTargets,
+  ]);
+  run('pr500-501-502-hardening-tests', 25, npmCommand, [
+    'run',
+    'test:unit',
+    '--',
+    ...goLiveHardeningUnitTests,
+  ]);
 }
 
 if (isSuperAdminHomePreview) {
-  console.log('NETLIFY_RELEASE_GATE=PR504_SUPER_ADMIN_HOME_LINT');
-  run(npmCommand, ['exec', '--', 'eslint', ...superAdminHomeLintTargets]);
-  console.log('NETLIFY_RELEASE_GATE=PR504_SUPER_ADMIN_HOME_TESTS');
-  run(npmCommand, ['run', 'test:unit', '--', ...superAdminHomeUnitTests]);
+  run('pr504-super-admin-home-lint', 28, npmCommand, ['exec', '--', 'eslint', ...superAdminHomeLintTargets]);
+  run('pr504-super-admin-home-tests', 29, npmCommand, ['run', 'test:unit', '--', ...superAdminHomeUnitTests]);
 }
 
 if (isSuperAdminControlPlanePreview) {
-  console.log('NETLIFY_RELEASE_GATE=PR505_506_509_SUPER_ADMIN_CONTROL_PLANE_LINT');
-  run(npmCommand, ['exec', '--', 'eslint', ...superAdminControlPlaneLintTargets]);
-  console.log('NETLIFY_RELEASE_GATE=PR505_506_509_SUPER_ADMIN_CONTROL_PLANE_TESTS');
-  run(npmCommand, ['run', 'test:unit', '--', ...superAdminControlPlaneUnitTests]);
+  run('pr505-506-509-super-admin-control-plane-lint', 30, npmCommand, ['exec', '--', 'eslint', ...superAdminControlPlaneLintTargets]);
+  run('pr505-506-509-super-admin-control-plane-tests', 31, npmCommand, ['run', 'test:unit', '--', ...superAdminControlPlaneUnitTests]);
 }
 
-run(npmCommand, ['run', 'typecheck']);
-run(npmCommand, ['run', 'build']);
+run('typecheck', 26, npmCommand, ['run', 'typecheck']);
+run('production-build', 27, npmCommand, ['run', 'build']);
 console.log('NETLIFY_RELEASE_GATE=PASS');
