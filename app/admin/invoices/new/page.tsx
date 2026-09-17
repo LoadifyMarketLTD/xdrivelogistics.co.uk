@@ -10,7 +10,6 @@ import { COMPANY_CONFIG } from '../../../config/company';
 import { isSupabaseConfigured, supabase } from '../../../../lib/supabaseClient';
 import { resolveActiveCompanyId } from '../../../../lib/activeCompany';
 import type { Invoice } from '../../../../lib/types/database';
-import { toLegacyInvoiceStatusForDb } from '../../../../lib/invoiceStatus';
 
 type JobPrefill = {
   id: string;
@@ -275,51 +274,47 @@ export default function NewInvoicePage() {
 
     try {
       setSaving(true);
-      const newId = crypto.randomUUID ? crypto.randomUUID() : `invoice_${Date.now()}`;
-      const row: Omit<Invoice, 'created_at' | 'updated_at'> = {
-        id: newId,
-        company_id: companyId,
-        created_by: user?.id ?? null,
-        invoice_number: invoiceNumber,
-        job_ref: jobRef.trim(),
-        job_id: jobId || null,
-        invoice_date: invoiceDate,
-        due_date: dueDate,
-        status: toLegacyInvoiceStatusForDb('Draft'),
-        client_name: clientName.trim(),
-        client_address: null,
-        client_email: clientEmail.trim() || null,
-        pickup_location: pickupLocation.trim() || null,
-        pickup_datetime: pickupDateTime.trim() || null,
-        delivery_location: deliveryLocation.trim() || null,
-        delivery_datetime: deliveryDateTime.trim() || null,
-        delivery_recipient: null,
-        service_description: serviceDescription.trim() || null,
-        amount,
-        net_amount: netAmount,
-        vat_amount: vatAmount,
-        vat_rate: vatRate,
-        currency: currency || 'GBP',
-        payment_terms: paymentTerms,
-        invoice_origin: 'manual',
-        late_fee: COMPANY_CONFIG.payment.lateFeeNote,
-        pod_photos: null,
-        signature: null,
-        recipient_name: null,
-        submitted_at: null,
-        submitted_by: null,
-        approved_at: null,
-        approved_by: null,
-        disputed_at: null,
-        paid_at: null,
-      };
-
-      const { error } = await supabase.from('invoices').insert([row]);
-      if (error) {
-        setSaveError(`Failed to create invoice: ${error.message}`);
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (sessionError || !accessToken) {
+        setSaveError('Your session expired. Please sign in again.');
         return;
       }
-      router.push(`/admin/invoices/${newId}`);
+
+      const response = await fetch('/api/admin/invoices', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({
+          companyId,
+          invoiceNumber,
+          jobRef: jobRef.trim(),
+          jobId: jobId || null,
+          invoiceDate,
+          clientName: clientName.trim(),
+          clientEmail: clientEmail.trim() || null,
+          pickupLocation: pickupLocation.trim() || null,
+          pickupDateTime: pickupDateTime.trim() || null,
+          deliveryLocation: deliveryLocation.trim() || null,
+          deliveryDateTime: deliveryDateTime.trim() || null,
+          serviceDescription: serviceDescription.trim() || null,
+          amount,
+          vatRate,
+          currency: currency || 'GBP',
+          paymentTerms,
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        invoice?: { id?: string };
+      };
+      if (!response.ok || !payload.invoice?.id) {
+        setSaveError(payload.error || 'Failed to create invoice.');
+        return;
+      }
+      router.push(`/admin/invoices/${payload.invoice.id}`);
     } finally {
       setSaving(false);
     }
