@@ -13,6 +13,10 @@ import '../components/workspace/workspace-measured-cx-baseline.css';
 import './driver-dashboard-reference.css';
 import './driver-dashboard-cx-close.css';
 
+// Protected workspace documents receive a per-request CSP nonce from middleware.
+// Force dynamic rendering so hard reloads and deep links receive matching nonces.
+export const dynamic = 'force-dynamic';
+
 export const viewport: Viewport = { width: 'device-width', initialScale: 1, themeColor: '#0B2F6B' };
 export const metadata: Metadata = {
   title: 'Driver Workspace | XDrive Logistics',
