@@ -6,6 +6,10 @@ import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
 import './broker-dashboard-convergence.css';
 
+// Protected workspace documents receive a per-request CSP nonce from middleware.
+// Force dynamic rendering so hard reloads and deep links receive matching nonces.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Broker Workspace | XDrive Logistics',
   description: 'Customer load management, carrier sourcing, awards, POD and broker finance.',
