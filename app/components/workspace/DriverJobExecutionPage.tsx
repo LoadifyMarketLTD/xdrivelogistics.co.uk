@@ -12,12 +12,13 @@ import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader
 import WorkspaceJobReplay from './WorkspaceJobReplay';
 
 const statusLabel: Record<string, string> = {
-  awarded: 'Accepted', allocated: 'Accepted', on_my_way: 'On my way to pickup',
+  awarded: 'Awarded', allocated: 'Allocated', accepted: 'Accepted', on_my_way: 'On my way to pickup',
   on_site_pickup: 'On site (pickup)', loaded: 'Loaded', in_transit: 'On my way to delivery',
   on_site_delivery: 'On site (delivery)', delivered: 'Delivered', completed: 'Completed', cancelled: 'Cancelled',
 };
 
 const nextActionLabel: Record<string, string> = {
+  accepted: 'Accept Job',
   on_my_way: 'On my Way to Pickup',
   on_site_pickup: 'On Site (Pickup)',
   loaded: 'Confirm Loaded',

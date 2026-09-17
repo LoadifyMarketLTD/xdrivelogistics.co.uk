@@ -43,8 +43,9 @@ export function canonicalWorkspaceJobStatus(value: unknown) {
   const status = String(value ?? '').trim().toLowerCase();
   switch (status) {
     case 'assigned':
-    case 'accepted':
       return 'allocated';
+    case 'accepted':
+      return 'accepted';
     case 'on_my_way_to_pickup':
       return 'on_my_way';
     case 'arrived_pickup':

@@ -310,7 +310,6 @@ export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'
   if (current === 'on_site_pickup') return 'arrived_pickup';
   if (current === 'on_site_delivery') return 'arrived_delivery';
   if (current === 'in_transit') return 'on_my_way_delivery';
-  if (current === 'allocated') return 'awarded';
   return current;
 }
 

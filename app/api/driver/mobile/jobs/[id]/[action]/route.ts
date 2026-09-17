@@ -15,6 +15,7 @@ import {
 } from '../../../_lib';
 
 const actionToCanonicalStatus: Record<string, string> = {
+  accept: 'accepted',
   'on-my-way-pickup': 'on_my_way',
   'arrived-pickup': 'on_site_pickup',
   loaded: 'loaded',

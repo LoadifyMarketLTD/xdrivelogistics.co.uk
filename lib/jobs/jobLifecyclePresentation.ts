@@ -42,8 +42,8 @@ export function matchesDriverJobView(value: unknown, view: DriverJobView): boole
 // UI surfaces may use this to avoid maintaining their own transition sequence;
 // the RPC remains authoritative and revalidates the transition and evidence gates.
 const DRIVER_EXECUTION_NEXT_STATUS: Readonly<Record<string, string>> = {
-  awarded: 'on_my_way',
-  allocated: 'on_my_way',
+  allocated: 'accepted',
+  accepted: 'on_my_way',
   on_my_way: 'on_site_pickup',
   on_site_pickup: 'loaded',
   loaded: 'in_transit',

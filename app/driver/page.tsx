@@ -86,13 +86,13 @@ const DOCUMENT_ATTENTION_STATUSES = new Set(['pending', 'rejected', 'expired']);
 // Presentation-only action copy. Lifecycle normalization and next-step resolution
 // are shared; mutations remain authoritative in driver_update_job_status_atomic.
 const NEXT_DRIVER_ACTIONS: Record<string, DriverNextAction> = {
-  awarded: {
-    kind: 'transition',
-    label: 'On my way to pickup',
-    description: 'Confirm departure for the collection point.',
-    resultLabel: 'On my way to pickup',
-  },
   allocated: {
+    kind: 'transition',
+    label: 'Accept job',
+    description: 'Accept the allocated job before starting the collection journey.',
+    resultLabel: 'Accepted',
+  },
+  accepted: {
     kind: 'transition',
     label: 'On my way to pickup',
     description: 'Confirm departure for the collection point.',
