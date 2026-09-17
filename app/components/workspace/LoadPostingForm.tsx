@@ -10,8 +10,8 @@ import PostcodeAddressField from './PostcodeAddressField';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
 const CARGO = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
-const HALF_HOUR_SLOTS = Array.from({ length: 48 }, (_, index) => {
-  const totalMinutes = index * 30;
+const QUARTER_HOUR_SLOTS = Array.from({ length: 96 }, (_, index) => {
+  const totalMinutes = index * 15;
   const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
   const minutes = (totalMinutes % 60).toString().padStart(2, '0');
   return `${hours}:${minutes}`;
@@ -39,21 +39,21 @@ const normalizePostcode = (value: string) => {
 const isFullUkPostcode = (value: string) => /^(GIR 0AA|(?:[A-Z]{1,2}\d[A-Z\d]?|[A-Z]{1,2}\d{1,2}) \d[A-Z]{2})$/i.test(normalizePostcode(value));
 const xdriveReference = (jobId: string) => `XDL-${jobId.slice(0, 8).toUpperCase()}`;
 const localDateKey = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
-const halfHourSlotMinutes = (value: string) => {
-  const match = /^(\d{2}):(00|30)$/.exec(value);
+const quarterHourSlotMinutes = (value: string) => {
+  const match = /^(\d{2}):(00|15|30|45)$/.exec(value);
   if (!match) return null;
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
   return hours <= 23 ? hours * 60 + minutes : null;
 };
-const availableHalfHourSlots = (date: string, now: Date | null) => {
-  if (!date || !now) return HALF_HOUR_SLOTS;
+const availableQuarterHourSlots = (date: string, now: Date | null) => {
+  if (!date || !now) return QUARTER_HOUR_SLOTS;
   const today = localDateKey(now);
   if (date < today) return [];
-  if (date > today) return HALF_HOUR_SLOTS;
+  if (date > today) return QUARTER_HOUR_SLOTS;
   const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-  return HALF_HOUR_SLOTS.filter((slot) => {
-    const minutes = halfHourSlotMinutes(slot);
+  return QUARTER_HOUR_SLOTS.filter((slot) => {
+    const minutes = quarterHourSlotMinutes(slot);
     return minutes != null && minutes * 60 > currentSeconds;
   });
 };
@@ -118,12 +118,12 @@ const validateStop = ({
 
   let timeError: string | undefined;
   if (timeIsRequired && !time) timeError = 'Required';
-  else if (time) {
-    const minutes = halfHourSlotMinutes(time);
-    if (minutes == null) timeError = 'Use a 30-minute time slot';
+  else if (time && time !== 'ASAP') {
+    const minutes = quarterHourSlotMinutes(time);
+    if (minutes == null) timeError = 'Use a 15-minute time slot or ASAP';
     else if (date && now && date === today) {
       const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-      if (minutes * 60 <= currentSeconds) timeError = 'Choose a future 30-minute slot';
+      if (minutes * 60 <= currentSeconds) timeError = 'Choose a future 15-minute slot or ASAP';
     }
   }
 
@@ -250,7 +250,10 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
     [next[index], next[target]] = [next[target], next[index]];
     return next;
   });
-  const dateTime = (date: string, time: string) => date && time ? `${date}T${time}:00` : null;
+  const dateTime = (date: string, time: string) => {
+    if (!date || !time) return null;
+    return time === 'ASAP' ? `${date}T00:00:00` : `${date}T${time}:00`;
+  };
   const todayKey = clockNow ? localDateKey(clockNow) : '';
   const minimumRouteDate = form.pickupDate && (!todayKey || form.pickupDate > todayKey) ? form.pickupDate : todayKey;
 
@@ -481,7 +484,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
             onDate={(value) => setForm((current) => ({
               ...current,
               pickupDate: value,
-              pickupTime: availableHalfHourSlots(value, clockNow).includes(current.pickupTime) ? current.pickupTime : '',
+              pickupTime: current.pickupTime === 'ASAP' || availableQuarterHourSlots(value, clockNow).includes(current.pickupTime) ? current.pickupTime : '',
             }))}
             onTime={(value) => set('pickupTime', value)}
             onPostcode={(value) => set('pickupPostcode', value.toUpperCase())}
@@ -505,7 +508,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
             onDate={(value) => setForm((current) => ({
               ...current,
               deliveryDate: value,
-              deliveryTime: availableHalfHourSlots(value, clockNow).includes(current.deliveryTime) ? current.deliveryTime : '',
+              deliveryTime: current.deliveryTime === 'ASAP' || availableQuarterHourSlots(value, clockNow).includes(current.deliveryTime) ? current.deliveryTime : '',
             }))}
             onTime={(value) => set('deliveryTime', value)}
             onPostcode={(value) => set('deliveryPostcode', value.toUpperCase())}
@@ -562,7 +565,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
                       phone={stop.phone}
                       onDate={(value) => updateAdditionalStop(stop.id, {
                         date: value,
-                        time: availableHalfHourSlots(value, clockNow).includes(stop.time) ? stop.time : '',
+                        time: stop.time === 'ASAP' || availableQuarterHourSlots(value, clockNow).includes(stop.time) ? stop.time : '',
                       })}
                       onTime={(value) => updateAdditionalStop(stop.id, { time: value })}
                       onPostcode={(value) => updateAdditionalStop(stop.id, { postcode: value.toUpperCase() })}
@@ -708,8 +711,8 @@ function StopFields({
   now: Date | null;
   errors?: StopFieldErrors;
 }) {
-  const timeOptions = availableHalfHourSlots(date, now);
-  const selectedTimeUnavailable = Boolean(time && !timeOptions.includes(time));
+  const timeOptions = availableQuarterHourSlots(date, now);
+  const selectedTimeUnavailable = Boolean(time && time !== 'ASAP' && !timeOptions.includes(time));
   const noSlotsLeftToday = Boolean(date && now && date === localDateKey(now) && timeOptions.length === 0);
 
   return (
@@ -732,15 +735,16 @@ function StopFields({
             style={{ ...fieldStyle, ...(errors?.time ? invalidFieldStyle : {}) }}
             aria-invalid={errors?.time ? 'true' : undefined}
             value={time}
-            disabled={!date || noSlotsLeftToday}
+            disabled={!date}
             onChange={(event) => onTime(event.target.value)}
           >
-            <option value="">{!date ? 'Select date first' : noSlotsLeftToday ? 'No slots left today' : 'Select time'}</option>
+            <option value="">{!date ? 'Select date first' : 'Select time'}</option>
+            <option value="ASAP">ASAP</option>
             {selectedTimeUnavailable ? <option value={time} disabled>{time} — no longer available</option> : null}
             {timeOptions.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
           </select>
           {errors?.time ? <span style={validationMessageStyle}>{errors.time}</span> : null}
-          {!errors?.time && noSlotsLeftToday ? <span style={{ color: '#64748b', fontSize: '10px', lineHeight: '13px', fontWeight: 500 }}>No future times remain today — choose tomorrow.</span> : null}
+          {!errors?.time && noSlotsLeftToday ? <span style={{ color: '#64748b', fontSize: '10px', lineHeight: '13px', fontWeight: 500 }}>No scheduled slots remain today — use ASAP or choose tomorrow.</span> : null}
         </label>
       </div>
       <label style={labelStyle}>Postcode *

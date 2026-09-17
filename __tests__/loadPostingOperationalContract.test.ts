@@ -66,18 +66,18 @@ describe('load posting operational contract', () => {
     expect(form).toContain('setShowValidation(true)');
     expect(form).toContain('Complete the fields highlighted in red.');
     expect(form).toContain("aria-invalid={errors?.postcode ? 'true' : undefined}");
-    expect(form).toContain("aria-invalid={errors?.address ? 'true' : undefined}");
+    expect(form).toContain('error={errors?.address}');
     expect(form).toContain("document.querySelector<HTMLElement>('[aria-invalid=\"true\"]')");
     expect(form).toContain("'#dc2626'");
   });
 
-  it('uses only future half-hour booking slots instead of arbitrary native time input', () => {
-    expect(form).toContain('const HALF_HOUR_SLOTS = Array.from({ length: 48 }');
-    expect(form).toContain("/^(\\d{2}):(00|30)$/");
+  it('uses future quarter-hour booking slots with ASAP instead of arbitrary native time input', () => {
+    expect(form).toContain('const QUARTER_HOUR_SLOTS = Array.from({ length: 96 }');
+    expect(form).toContain("/^(\\d{2}):(00|15|30|45)$/");
     expect(form).toContain('minutes * 60 > currentSeconds');
-    expect(form).toContain('Choose a future 30-minute slot');
-    expect(form).toContain('No future times remain today — choose tomorrow.');
-    expect(form).not.toContain('30-minute slots only.');
+    expect(form).toContain('Choose a future 15-minute slot or ASAP');
+    expect(form).toContain('<option value="ASAP">ASAP</option>');
+    expect(form).toContain('No scheduled slots remain today — use ASAP or choose tomorrow.');
     expect(form).toContain('min={minDate}');
     expect(form).not.toContain('type="time"');
   });
