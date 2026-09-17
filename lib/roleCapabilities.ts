@@ -271,6 +271,8 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer/diary', workspace: 'shipper', anyOf: ['jobs.view'] },
   { prefix: '/customer/network', workspace: 'shipper', anyOf: ['quotes.receive'] },
   { prefix: '/customer/disputes', workspace: 'shipper', anyOf: ['jobs.view'] },
+  { prefix: '/customer/messages', workspace: 'shipper' },
+  { prefix: '/customer/event-log', workspace: 'shipper', anyOf: ['jobs.view'] },
   { prefix: '/customer/account', workspace: 'shipper', anyOf: ['settings.manage'] },
   { prefix: '/customer/awards', workspace: 'shipper', anyOf: ['quotes.award'] },
   { prefix: '/customer/deliveries', workspace: 'shipper', anyOf: ['jobs.track'] },
