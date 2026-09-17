@@ -95,4 +95,19 @@ describe('dashboard server-authority remediation contract', () => {
     expect(manage).toContain("direct_invite_company_id: directInviteCompanyId");
   });
 
+
+
+  it('protects verified company identity and edits company details through server authority', () => {
+    const companies = readRepoFile('app/admin/companies/page.tsx');
+    const api = readRepoFile('app/api/admin/companies/[id]/route.ts');
+
+    expect(companies).toContain('/api/admin/companies/${encodeURIComponent(editingCompany.id)}');
+    expect(companies).not.toMatch(/\.from\(['\"]profiles['\"]\)[\s\S]{0,140}\.update\(/);
+    expect(companies).not.toMatch(/\.from\(['\"]companies['\"]\)[\s\S]{0,140}\.update\(/);
+    expect(companies).toContain('readOnly aria-readonly="true"');
+    expect(api).toContain('requireCompanyAdmin');
+    expect(api).not.toContain('company_number: parsed.data');
+    expect(api).toContain('immutable: true');
+  });
+
 });

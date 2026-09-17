@@ -23,7 +23,6 @@ export default function CompaniesPage() {
   });
   const [error, setError] = useState('');
   const [editError, setEditError] = useState('');
-  const [switchError, setSwitchError] = useState('');
   const [saving, setSaving] = useState(false);
   const [registering, setRegistering] = useState(false);
   const COMPANIES_PER_PAGE = 12;
@@ -105,20 +104,6 @@ export default function CompaniesPage() {
     }
   };
 
-  const handleSwitchCompany = async (nextCompanyId: string) => {
-    if (!isSupabaseConfigured || !user?.id) return;
-    setSwitchError('');
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({ company_id: nextCompanyId })
-      .eq('user_id', user.id);
-    if (updateError) {
-      setSwitchError(updateError.message);
-      return;
-    }
-    setCompanyId(nextCompanyId);
-    loadCompanies();
-  };
 
   const openEditModal = (company: Company) => {
     setEditingCompany(company);
@@ -141,7 +126,6 @@ export default function CompaniesPage() {
     setSaving(true);
     const updatePayload: Record<string, string | null> = {
       name: editData.name.trim(),
-      company_number: editData.company_number.trim() || null,
       vat_number: editData.vat_number.trim() || null,
       email: editData.email.trim() || null,
       phone: editData.phone.trim() || null,
@@ -149,16 +133,22 @@ export default function CompaniesPage() {
       city: editData.city.trim() || null,
       postcode: editData.postcode.trim() || null,
     };
-    let error: { message?: string | null } | null = null;
-    const updateRes = await supabase
-      .from('companies')
-      .update(updatePayload)
-      .eq('id', editingCompany.id);
-    if (updateRes.error) { error = updateRes.error; }
+    const { accessToken, error: tokenError } = await getAccessToken();
+    if (tokenError || !accessToken) {
+      setSaving(false);
+      setEditError(tokenError ?? 'Session expired. Please sign in again.');
+      return;
+    }
+    const response = await fetch(`/api/admin/companies/${encodeURIComponent(editingCompany.id)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify(updatePayload),
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
     setSaving(false);
-    if (error) { setEditError(error.message ?? 'Failed to update company.'); return; }
+    if (!response.ok) { setEditError(payload.error ?? 'Failed to update company.'); return; }
     setEditingCompany(null);
-    loadCompanies();
+    await loadCompanies();
   };
 
   const inputStyle = {
@@ -181,22 +171,6 @@ export default function CompaniesPage() {
             <div>
               <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Companies</h1>
               <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>Manage companies and memberships</p>
-              {companies.length > 1 && (
-                <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-                  <label htmlFor="active-company" style={{ fontSize: '0.85rem', color: '#374151', fontWeight: '600' }}>Active company</label>
-                  <select
-                    id="active-company"
-                    value={companyId ?? ''}
-                    onChange={(e) => handleSwitchCompany(e.target.value)}
-                    style={{ padding: '0.5rem 0.75rem', border: '1px solid #d1d5db', borderRadius: '6px', fontSize: '0.85rem' }}
-                  >
-                    {companies.map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
-                    ))}
-                  </select>
-                </div>
-              )}
-              {switchError && <p style={{ color: '#dc2626', margin: '0.5rem 0 0 0', fontSize: '0.85rem' }}>{switchError}</p>}
             </div>
             {!companyId && (
               <button onClick={() => { setError(''); setShowModal(true); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: 'pointer' }}>
@@ -311,7 +285,7 @@ export default function CompaniesPage() {
                 {editError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{editError}</div>}
                 <div><label style={labelStyle}>Company Name *</label><input style={inputStyle} value={editData.name} onChange={e => setEditData({...editData, name: e.target.value})} /></div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-                  <div><label style={labelStyle}>Company Number</label><input style={inputStyle} value={editData.company_number} onChange={e => setEditData({...editData, company_number: e.target.value})} /></div>
+                  <div><label style={labelStyle}>Companies House Number</label><input style={{ ...inputStyle, backgroundColor: '#f3f4f6', color: '#6b7280' }} value={editData.company_number} readOnly aria-readonly="true" title="Verified company identity cannot be edited here." /></div>
                   <div><label style={labelStyle}>VAT Number</label><input style={inputStyle} value={editData.vat_number} onChange={e => setEditData({...editData, vat_number: e.target.value})} /></div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
