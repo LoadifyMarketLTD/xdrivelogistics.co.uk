@@ -28,16 +28,37 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (loadError) return respond(500, { error: loadError.message });
   if (!job) return respond(404, { error: 'Job not found.' });
 
-  const evidence = [
+  const persistedEvidence = [
     ...safeArray(job.pod_photos).filter((value): value is string => typeof value === 'string'),
     ...safeArray(job.delivery_photos).filter((value): value is string => typeof value === 'string'),
   ].filter(Boolean);
-  const evidencePath = evidence.at(-1);
+  const stagedEvidencePath = typeof body.evidencePath === 'string' ? body.evidencePath.trim() : '';
+  const evidencePath = stagedEvidencePath || persistedEvidence.at(-1) || '';
   if (!evidencePath) return respond(409, { error: 'Upload POD evidence first.' });
 
-  const expectedPrefix = `${driver.companyId}/${id}/`;
-  if (!evidencePath.startsWith(expectedPrefix)) {
+  const expectedPrefix = `${driver.companyId}/${id}/photos/`;
+  if (
+    !evidencePath.startsWith(expectedPrefix)
+    || evidencePath.includes('://')
+    || evidencePath.includes('..')
+    || evidencePath.includes('\\')
+    || evidencePath.startsWith('/')
+  ) {
     return respond(409, { error: 'POD evidence does not belong to this driver assignment.' });
+  }
+
+  if (stagedEvidencePath) {
+    const segments = evidencePath.split('/');
+    const fileName = segments.pop();
+    const folder = segments.join('/');
+    if (!fileName || !folder) return respond(409, { error: 'POD evidence path is invalid.' });
+    const { data: objects, error: storageError } = await supabaseAdmin.storage
+      .from('pod-photos')
+      .list(folder, { limit: 100, search: fileName });
+    if (storageError) return respond(503, { error: 'POD evidence could not be verified. Please retry.' });
+    if (!(objects ?? []).some((entry) => entry.name === fileName)) {
+      return respond(409, { error: 'Uploaded POD evidence could not be found.' });
+    }
   }
 
   const now = new Date().toISOString();
