@@ -87,7 +87,7 @@ describe('dashboard server-authority remediation contract', () => {
     const manage = readRepoFile('app/api/admin/jobs/[id]/manage/route.ts');
 
     expect(jobs).toContain('/manage`');
-    expect(jobs).not.toMatch(/\.from\(['\"]jobs['\"]\)[\s\S]{0,160}\.update\(/);
+    expect(jobs).not.toMatch(/\.from\(['"]jobs['"]\)[\s\S]{0,160}\.update\(/);
     expect(manage).toContain('requireCompanyAdmin');
     expect(manage).toContain("cancel_unassigned_exchange_job_atomic");
     expect(manage).toContain("request_awarded_job_cancellation_atomic");
@@ -102,8 +102,8 @@ describe('dashboard server-authority remediation contract', () => {
     const api = readRepoFile('app/api/admin/companies/[id]/route.ts');
 
     expect(companies).toContain('/api/admin/companies/${encodeURIComponent(editingCompany.id)}');
-    expect(companies).not.toMatch(/\.from\(['\"]profiles['\"]\)[\s\S]{0,140}\.update\(/);
-    expect(companies).not.toMatch(/\.from\(['\"]companies['\"]\)[\s\S]{0,140}\.update\(/);
+    expect(companies).not.toMatch(/\.from\(['"]profiles['"]\)[\s\S]{0,140}\.update\(/);
+    expect(companies).not.toMatch(/\.from\(['"]companies['"]\)[\s\S]{0,140}\.update\(/);
     expect(companies).toContain('readOnly aria-readonly="true"');
     expect(api).toContain('requireCompanyAdmin');
     expect(api).not.toContain('company_number: parsed.data');
