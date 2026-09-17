@@ -145,7 +145,6 @@ export default function SettingsPage() {
 
     const companyUpdatePayload: Record<string, string | null> = {
       name: companyForm.name,
-      company_number: companyForm.companyNumber || null,
       email: companyForm.email || null,
       phone: companyForm.phone || null,
       address_line1: companyForm.street || null,
@@ -284,7 +283,7 @@ export default function SettingsPage() {
                   <div className="settings-form-grid">
                     <label><span>Trading Name</span><input value={companyForm.name} onChange={(e) => setCompanyForm({ ...companyForm, name: e.target.value })} /></label>
                     <label><span>Legal Name</span><input value={companyForm.legalName} onChange={(e) => setCompanyForm({ ...companyForm, legalName: e.target.value })} /></label>
-                    <label><span>Company Number</span><input value={companyForm.companyNumber} onChange={(e) => setCompanyForm({ ...companyForm, companyNumber: e.target.value })} /></label>
+                    <label><span>Company Number</span><input value={companyForm.companyNumber} readOnly aria-readonly="true" title="Verified company identity. Change through the company verification workflow." /></label>
                     <label><span>Email Address</span><input type="email" value={companyForm.email} onChange={(e) => setCompanyForm({ ...companyForm, email: e.target.value })} /></label>
                     <label><span>Phone Number</span><input type="tel" value={companyForm.phone} onChange={(e) => setCompanyForm({ ...companyForm, phone: e.target.value })} /></label>
                     <label className="settings-field-wide"><span>Street Address</span><input value={companyForm.street} onChange={(e) => setCompanyForm({ ...companyForm, street: e.target.value })} /></label>
