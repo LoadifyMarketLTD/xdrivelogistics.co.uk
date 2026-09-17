@@ -12,6 +12,13 @@ function cleanString(value: unknown, max = 5000) {
   return typeof value === 'string' ? value.trim().slice(0, max) : '';
 }
 
+function validIsoDate(value: string) {
+  if (!value) return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}
+
 function hasExpectedDocumentMagicBytes(bytes: Buffer, mimeType: string) {
   if (mimeType === 'application/pdf') return bytes.subarray(0, 5).toString('ascii') === '%PDF-';
   if (mimeType === 'image/jpeg') return bytes.length >= 3 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff;
@@ -71,7 +78,7 @@ export async function GET(request: NextRequest) {
     context.companyId
       ? supabaseAdmin!
         .from('companies')
-        .select('id,name,company_number,company_type,status')
+        .select('id,name,xd_id,company_number,company_type,status')
         .eq('id', context.companyId)
         .maybeSingle()
       : Promise.resolve({ data: null, error: null }),
@@ -91,9 +98,9 @@ export async function GET(request: NextRequest) {
     : operationalAlertsQuery.eq('recipient_user_id', context.userId);
 
   const [driverDocsResult, vehicleDocsResult, notificationsResult, operationalAlertsResult, journeyResult, preferencesResult] = await Promise.all([
-    supabaseAdmin!.from('driver_documents').select('id,doc_type,status,expiry_date,created_at').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
+    supabaseAdmin!.from('driver_documents').select('id,doc_type,status,issued_date,expiry_date,rejection_reason,risk_status,verified_at,created_at').eq('driver_id', context.driverId).order('created_at', { ascending: false }).limit(100),
     vehicleId
-      ? supabaseAdmin!.from('vehicle_documents').select('id,doc_type,status,expiry_date,created_at').eq('vehicle_id', vehicleId).order('created_at', { ascending: false }).limit(100)
+      ? supabaseAdmin!.from('vehicle_documents').select('id,doc_type,status,issued_date,expiry_date,rejection_reason,risk_status,verified_at,created_at').eq('vehicle_id', vehicleId).order('created_at', { ascending: false }).limit(100)
       : Promise.resolve({ data: [], error: null }),
     // The user-scoped inbox is retained because post-award Driver Instructions
     // are deliberately appended here when a Driver is already assigned.
@@ -295,9 +302,13 @@ export async function POST(request: NextRequest) {
     const docType = cleanString(body.docType, 100);
     const fileName = cleanString(body.fileName, 160).replace(/[^a-zA-Z0-9._-]/g, '-') || 'document';
     const mimeType = cleanString(body.mimeType, 100) || 'application/octet-stream';
+    const issuedDate = cleanString(body.issuedDate, 10);
+    const expiryDate = cleanString(body.expiryDate, 10);
     const base64 = typeof body.base64 === 'string' ? body.base64 : '';
     const isVehicleDocument = body.isVehicleDocument === true;
     if (!docType || !base64) return NextResponse.json({ error: 'Document type and file are required.' }, { status: 400 });
+    if (!validIsoDate(issuedDate) || !validIsoDate(expiryDate)) return NextResponse.json({ error: 'Issue and expiry dates must be valid dates.' }, { status: 400 });
+    if (issuedDate && expiryDate && expiryDate < issuedDate) return NextResponse.json({ error: 'Expiry date cannot be before the issue date.' }, { status: 400 });
     if (!['application/pdf', 'image/jpeg', 'image/png', 'image/webp'].includes(mimeType)) return NextResponse.json({ error: 'Use a PDF, JPG, PNG or WEBP document.' }, { status: 400 });
     if (base64.length > MAX_DOCUMENT_BASE64_CHARS) return NextResponse.json({ error: 'Document must be 10 MB or smaller.' }, { status: 413 });
     const bytes = Buffer.from(base64, 'base64');
@@ -318,8 +329,8 @@ export async function POST(request: NextRequest) {
     if (storageError) return NextResponse.json({ error: storageError.message }, { status: 500 });
 
     const insertResult = isVehicleDocument
-      ? await supabaseAdmin!.from('vehicle_documents').insert({ vehicle_id: vehicleResult.data!.id, doc_type: docType, file_path: path, status: 'pending', uploaded_by: context.userId })
-      : await supabaseAdmin!.from('driver_documents').insert({ driver_id: context.driverId, doc_type: docType, file_path: path, status: 'pending' });
+      ? await supabaseAdmin!.from('vehicle_documents').insert({ vehicle_id: vehicleResult.data!.id, doc_type: docType, file_path: path, status: 'pending', uploaded_by: context.userId, issued_date: issuedDate || null, expiry_date: expiryDate || null })
+      : await supabaseAdmin!.from('driver_documents').insert({ driver_id: context.driverId, doc_type: docType, file_path: path, status: 'pending', issued_date: issuedDate || null, expiry_date: expiryDate || null });
     if (insertResult.error) {
       await supabaseAdmin!.storage.from('driver-docs').remove([path]);
       return NextResponse.json({ error: insertResult.error.message }, { status: 500 });
