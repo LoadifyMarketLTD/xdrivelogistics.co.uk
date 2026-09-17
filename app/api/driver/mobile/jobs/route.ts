@@ -56,6 +56,7 @@ type JobStopRow = {
   status: string | null;
   arrived_at: string | null;
   completed_at: string | null;
+  handover: unknown;
 };
 
 function mapStop(stop: JobStopRow) {
@@ -73,6 +74,7 @@ function mapStop(stop: JobStopRow) {
     notes: stop.instructions ?? undefined,
     arrivedAt: stop.arrived_at ?? undefined,
     completedAt: stop.completed_at ?? undefined,
+    handover: stop.handover && typeof stop.handover === 'object' ? stop.handover : null,
   };
 }
 
@@ -82,7 +84,7 @@ async function loadStops(jobIds: string[]) {
 
   const { data, error } = await supabaseAdmin
     .from('job_stops')
-    .select('id, job_id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at')
+    .select('id, job_id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at, handover')
     .in('job_id', jobIds)
     .order('sequence', { ascending: true });
 

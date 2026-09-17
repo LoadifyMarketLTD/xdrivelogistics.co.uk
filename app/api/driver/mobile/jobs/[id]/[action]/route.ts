@@ -101,6 +101,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (loadError) return respond(500, { error: loadError.message });
   if (!existing) return respond(404, { error: 'Job not found.' });
 
+  const existingJob = existing as unknown as MobileJobRow;
+  if (action === 'loaded' && (!existingJob.collection_handover || typeof existingJob.collection_handover !== 'object')) {
+    return respond(409, { error: 'Complete the collection handover before marking the job loaded.' });
+  }
+
   if (action === 'delivered') {
     const stopGate = await requireMultiDropFinalizationReady(id);
     if (stopGate) return stopGate;

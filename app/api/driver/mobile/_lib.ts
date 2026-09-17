@@ -133,6 +133,12 @@ export type MobileJobRow = {
   access_restrictions: string | null;
   pod_required: boolean | null;
   pod_generated: boolean | null;
+  no_of_items: number | null;
+  packaging: string | null;
+  weight_kg: number | string | null;
+  collection_notes: string | null;
+  pickup_photos: unknown;
+  collection_handover: unknown;
   collection_photo_url: string | null;
   delivery_photos: string[] | null;
   pod_photos: string[] | null;
@@ -275,6 +281,12 @@ export const jobSelect = [
   'access_restrictions',
   'pod_required',
   'pod_generated',
+  'no_of_items',
+  'packaging',
+  'weight_kg',
+  'collection_notes',
+  'pickup_photos',
+  'collection_handover',
   'collection_photo_url',
   'delivery_photos',
   'pod_photos',
@@ -341,6 +353,12 @@ export function mapJob(row: MobileJobRow) {
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
     podRequired: row.pod_required !== false,
     podGenerated: hasPod(row),
+    itemCount: row.no_of_items ?? null,
+    packaging: row.packaging || '',
+    weightKg: Number(row.weight_kg ?? 0) || null,
+    collectionNotes: row.collection_notes || '',
+    pickupPhotos: safeArray(row.pickup_photos).filter((value): value is string => typeof value === 'string'),
+    collectionHandover: row.collection_handover && typeof row.collection_handover === 'object' ? row.collection_handover : null,
     deliveryPhotos: safeArray(row.delivery_photos).filter((value): value is string => typeof value === 'string'),
     podPhotos: safeArray(row.pod_photos).filter((value): value is string => typeof value === 'string'),
     collectionPhotoUrl: row.collection_photo_url,

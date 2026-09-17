@@ -11,10 +11,39 @@ type StopRow = {
   status: 'pending' | 'arrived' | 'completed' | 'skipped';
   arrived_at: string | null;
   completed_at: string | null;
+  handover: unknown;
 };
 
 const allowedNext = new Set(['arrived', 'completed']);
 const terminalStopStatuses = new Set(['completed', 'skipped']);
+
+function optionalNumber(value: unknown, min: number, max: number) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) && parsed >= min && parsed <= max ? parsed : NaN;
+}
+
+function pathList(value: unknown, max = 10) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter((item): item is string => typeof item === 'string')
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, max);
+}
+
+async function verifyStopEvidence(paths: string[], prefix: string) {
+  for (const path of paths) {
+    if (!path.startsWith(prefix)) return false;
+    const splitAt = path.lastIndexOf('/');
+    if (splitAt <= 0 || splitAt === path.length - 1) return false;
+    const folder = path.slice(0, splitAt);
+    const fileName = path.slice(splitAt + 1);
+    const { data, error } = await supabaseAdmin!.storage.from('pod-photos').list(folder, { limit: 100, search: fileName });
+    if (error || !(data ?? []).some((entry) => entry.name === fileName)) return false;
+  }
+  return true;
+}
 
 function mapStop(stop: StopRow) {
   return {
@@ -25,6 +54,7 @@ function mapStop(stop: StopRow) {
     status: stop.status,
     arrivedAt: stop.arrived_at ?? undefined,
     completedAt: stop.completed_at ?? undefined,
+    handover: stop.handover && typeof stop.handover === 'object' ? stop.handover : null,
   };
 }
 
@@ -46,9 +76,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!isDriverContext(driver)) return driver;
 
   const { id: jobId } = await params;
-  let body: { stop_id?: unknown; status?: unknown };
+  let body: { stop_id?: unknown; status?: unknown; handover?: unknown };
   try {
-    body = await request.json() as { stop_id?: unknown; status?: unknown };
+    body = await request.json() as { stop_id?: unknown; status?: unknown; handover?: unknown };
   } catch {
     return respond(400, { error: 'Invalid JSON body.' });
   }
@@ -69,7 +99,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: stopData, error: stopError } = await supabaseAdmin
     .from('job_stops')
-    .select('id, sequence, stop_type, address, postcode, status, arrived_at, completed_at')
+    .select('id, sequence, stop_type, address, postcode, status, arrived_at, completed_at, handover')
     .eq('job_id', jobId)
     .order('sequence', { ascending: true });
   if (stopError) {
@@ -103,10 +133,53 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return respond(409, { error: 'Mark this stop arrived before completing it.' });
   }
 
+  let handover: Record<string, unknown> | null = null;
+  if (nextStatus === 'completed' && body.handover !== undefined) {
+    if (!body.handover || typeof body.handover !== 'object' || Array.isArray(body.handover)) {
+      return respond(400, { error: 'Stop handover must be an object.' });
+    }
+    const raw = body.handover as Record<string, unknown>;
+    const itemCount = optionalNumber(raw.itemCount, 0, 100000);
+    const weightKg = optionalNumber(raw.weightKg, 0, 100000);
+    const etaMinutes = optionalNumber(raw.etaMinutes, 0, 1440);
+    if ([itemCount, weightKg, etaMinutes].some((value) => Number.isNaN(value))) {
+      return respond(400, { error: 'Stop handover numbers are invalid.' });
+    }
+    const packaging = typeof raw.packaging === 'string' ? raw.packaging.trim().slice(0, 120) : '';
+    const notes = typeof raw.notes === 'string' ? raw.notes.trim().slice(0, 2000) : '';
+    const photoPaths = pathList(raw.photoPaths);
+    const documentPaths = pathList(raw.documentPaths);
+    if (target.stop_type === 'collection' && photoPaths.length === 0) {
+      return respond(400, { error: 'At least one collection photo is required for this stop.' });
+    }
+    if (photoPaths.length > 0 || documentPaths.length > 0) {
+      if (!driver.companyId) return respond(403, { error: 'Driver company is required for stop evidence.' });
+      const base = `${driver.companyId}/${jobId}/stops/${stopId}/`;
+      if (!(await verifyStopEvidence(photoPaths, `${base}photos/`))) {
+        return respond(400, { error: 'Stop photo evidence could not be verified.' });
+      }
+      if (!(await verifyStopEvidence(documentPaths, `${base}documents/`))) {
+        return respond(400, { error: 'Stop document evidence could not be verified.' });
+      }
+    }
+    handover = {
+      version: 1,
+      capturedAt: new Date().toISOString(),
+      itemCount: itemCount === null ? null : Math.round(itemCount),
+      packaging: packaging || null,
+      weightKg,
+      etaMinutes,
+      notes: notes || null,
+      photoPaths,
+      documentPaths,
+    };
+  }
+
   const now = new Date().toISOString();
-  const update = nextStatus === 'arrived'
+  const update: Record<string, unknown> = nextStatus === 'arrived'
     ? { status: 'arrived', arrived_at: now, updated_at: now }
     : { status: 'completed', completed_at: now, updated_at: now };
+  if (handover) update.handover = handover;
   const expectedStatus = nextStatus === 'arrived' ? 'pending' : 'arrived';
 
   const { data: updated, error: updateError } = await supabaseAdmin
@@ -115,14 +188,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     .eq('id', stopId)
     .eq('job_id', jobId)
     .eq('status', expectedStatus)
-    .select('id, sequence, stop_type, address, postcode, status, arrived_at, completed_at')
+    .select('id, sequence, stop_type, address, postcode, status, arrived_at, completed_at, handover')
     .maybeSingle();
   if (updateError) return respond(500, { error: 'Stop status could not be updated.' });
 
   if (!updated) {
     const { data: refreshed, error: refreshError } = await supabaseAdmin
       .from('job_stops')
-      .select('id, sequence, stop_type, address, postcode, status, arrived_at, completed_at')
+      .select('id, sequence, stop_type, address, postcode, status, arrived_at, completed_at, handover')
       .eq('id', stopId)
       .eq('job_id', jobId)
       .maybeSingle();
