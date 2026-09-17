@@ -7,6 +7,10 @@ import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
 import './customer-dashboard.css';
 
+// Protected workspace documents receive a per-request CSP nonce from middleware.
+// Force dynamic rendering so hard reloads and deep links receive matching nonces.
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Customer Workspace | XDrive Logistics',
   description: 'Post, award and track customer transport.',
