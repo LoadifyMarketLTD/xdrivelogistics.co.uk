@@ -207,7 +207,7 @@ export default function DocumentsPage() {
     }
   };
 
-  const openDocument = async (document: AdminDocumentRow, download: boolean) => {
+  const openDocument = async (docRow: AdminDocumentRow, download: boolean) => {
     if (!companyId) return;
     setError('');
     const { accessToken, error: tokenError } = await getAccessToken();
@@ -218,8 +218,8 @@ export default function DocumentsPage() {
 
     const params = new URLSearchParams({
       companyId,
-      kind: document.kind,
-      id: document.id,
+      kind: docRow.kind,
+      id: docRow.id,
       ...(download ? { download: '1' } : {}),
     });
     const response = await fetch(`/api/admin/documents/signed-url?${params.toString()}`, {
@@ -237,11 +237,11 @@ export default function DocumentsPage() {
       return;
     }
 
-    const link = document.createElement('a');
+    const link = window.document.createElement('a');
     link.href = payload.url;
-    link.download = payload.fileName ?? `document-${document.id}`;
+    link.download = payload.fileName ?? `document-${docRow.id}`;
     link.rel = 'noopener noreferrer';
-    document.body.appendChild(link);
+    window.document.body.appendChild(link);
     link.click();
     link.remove();
   };
@@ -385,7 +385,7 @@ export default function DocumentsPage() {
             </div>
           )}
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid '#e5e7eb', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
             {loading ? (
               <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
             ) : visibleDocs.length === 0 ? (
