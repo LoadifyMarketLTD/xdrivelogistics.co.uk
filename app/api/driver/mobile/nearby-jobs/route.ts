@@ -248,7 +248,34 @@ export async function GET(request: NextRequest) {
   const commercialBidExtras = driver.canCommercialBid
     ? {}
     : { canQuote: false, quoteWarning: 'Your account type does not permit commercial bidding.' };
-  if (!destinationMode) return respond(200, { jobs: rows.map((row) => mapNearbyJob(row, commercialBidExtras)) });
+
+  const { data: latestDriverLocation } = await supabaseAdmin
+    .from('driver_locations')
+    .select('lat,lng,recorded_at')
+    .eq('driver_id', driver.driverId)
+    .order('recorded_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const driverPosition = validCoordinates(latestDriverLocation?.lat, latestDriverLocation?.lng);
+  const pickupCoordinateFallbacks = driverPosition
+    ? await postcodeCoordinates(rows
+      .filter((row) => !validCoordinates(row.pickup_lat, row.pickup_lng))
+      .map((row) => row.pickup_postcode))
+    : new Map<string, Coordinates>();
+  const distanceToPickupByJob = new Map<string, number | null>();
+  for (const row of rows) {
+    const pickup = validCoordinates(row.pickup_lat, row.pickup_lng)
+      ?? pickupCoordinateFallbacks.get(postcodeKey(row.pickup_postcode))
+      ?? null;
+    const miles = driverPosition && pickup ? distanceMiles(driverPosition, pickup) : null;
+    distanceToPickupByJob.set(row.id, miles === null ? null : Number(miles.toFixed(1)));
+  }
+  const baseJob = (row: NearbyJobRow, extras: Record<string, unknown> = {}) => mapNearbyJob(row, {
+    ...commercialBidExtras,
+    distanceToPickupMiles: distanceToPickupByJob.get(row.id) ?? null,
+    ...extras,
+  });
+  if (!destinationMode) return respond(200, { jobs: rows.map((row) => baseJob(row)) });
 
   const { data: currentJob, error: currentJobError } = await supabaseAdmin
     .from('jobs')
@@ -261,13 +288,13 @@ export async function GET(request: NextRequest) {
   if (currentJobError) return respond(500, { error: currentJobError.message });
   if (!currentJob) {
     return respond(200, {
-      jobs: rows.map((row) => mapNearbyJob(row, commercialBidExtras)),
+      jobs: rows.map((row) => baseJob(row)),
       returnIq: { active: false, reason: 'No active delivery is assigned to this driver.' },
     });
   }
   if (!['in_transit', 'on_my_way_to_delivery', 'on_site_delivery', 'delivered'].includes(String(currentJob.status))) {
     return respond(200, {
-      jobs: rows.map((row) => mapNearbyJob(row, commercialBidExtras)),
+      jobs: rows.map((row) => baseJob(row)),
       returnIq: { active: false, reason: 'Activates when the driver is on the way to delivery.' },
     });
   }
@@ -278,7 +305,7 @@ export async function GET(request: NextRequest) {
     ?? null;
   if (!destination) {
     return respond(200, {
-      jobs: rows.map((row) => mapNearbyJob(row, commercialBidExtras)),
+      jobs: rows.map((row) => baseJob(row)),
       returnIq: {
         active: false,
         currentJobReference: `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}`,
@@ -358,7 +385,7 @@ export async function GET(request: NextRequest) {
   });
 
   const prioritizedJobs = sortSmartDestinationCandidates(candidates)
-    .map((item) => mapNearbyJob(item.row, item.extras));
+    .map((item) => baseJob(item.row, item.extras));
   return respond(200, {
     jobs: prioritizedJobs,
     returnIq: {

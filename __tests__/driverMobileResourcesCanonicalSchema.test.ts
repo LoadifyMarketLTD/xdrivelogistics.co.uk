@@ -15,7 +15,7 @@ describe('driver mobile resources canonical schema contract', () => {
   });
 
   it('reads canonical vehicle identity columns only', () => {
-    expect(source).toContain(".select('id,type,make,model,reg_plate')");
+    expect(source).toContain(".select('id,type,make,model,reg_plate,status,company_id,assigned_driver_id')");
     expect(source).not.toContain('vehicle_type,make,model,registration');
     expect(source).not.toContain('vehicle.registration');
     expect(source).not.toContain('vehicle.reg ||');

@@ -90,6 +90,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     .from('messages')
     .select('sender_user_id, recipient_user_id')
     .eq('conversation_id', conversationId)
+    .is('company_id', null)
     .limit(50);
   if (existingContextError) return json(500, { error: 'Existing quote conversation could not be verified.' });
   for (const row of existingContextRows ?? []) {
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     }
   }
 
+  // Access remains participant-scoped: quote threads are cross-company and never inherit either tenant's company scope.
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('messages')
     .insert({
