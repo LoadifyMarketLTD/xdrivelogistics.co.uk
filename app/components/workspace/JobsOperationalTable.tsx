@@ -92,6 +92,7 @@ export interface JobsOperationalTableProps {
   newJobDisabled?: boolean;
   companyError?: string | null;
   dbError?: string | null;
+  flowMessage?: string | null;
   hasSupabaseSession?: boolean;
   onRetryCompany?: () => void;
   onDismissDbError?: () => void;
@@ -157,6 +158,7 @@ export function JobsOperationalTable({
   newJobDisabled = false,
   companyError,
   dbError,
+  flowMessage,
   hasSupabaseSession,
   onRetryCompany,
   onDismissDbError,
@@ -223,6 +225,11 @@ export function JobsOperationalTable({
         <div className={`${styles.jobsAlertBanner} ${styles.jobsAlertBannerWarning}`} role="alert">
           <span>{companyError}</span>
           {onRetryCompany && <button type="button" className={styles.jobsAlertBannerBtn} onClick={onRetryCompany}>Retry</button>}
+        </div>
+      )}
+      {flowMessage && (
+        <div className={`${styles.jobsAlertBanner} ${styles.jobsAlertBannerInfo}`} role="status">
+          <span>{flowMessage}</span>
         </div>
       )}
       {dbError && (

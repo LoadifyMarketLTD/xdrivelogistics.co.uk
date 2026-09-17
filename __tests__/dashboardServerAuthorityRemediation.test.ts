@@ -1,4 +1,4 @@
-﻿import { readFileSync } from 'fs';
+import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 
 const readRepoFile = (relativePath: string) =>
@@ -80,5 +80,19 @@ describe('dashboard server-authority remediation contract', () => {
     expect(dashboard).toContain("broker_pod_review_status");
     expect(workspaceData).toContain('pod_generated, has_delivery_evidence, broker_pod_review_status');
   });
-});
 
+
+  it('moves Admin job publish, direct booking and cancellation behind server authority', () => {
+    const jobs = readRepoFile('app/admin/jobs/page.tsx');
+    const manage = readRepoFile('app/api/admin/jobs/[id]/manage/route.ts');
+
+    expect(jobs).toContain('/manage`');
+    expect(jobs).not.toMatch(/\.from\(['\"]jobs['\"]\)[\s\S]{0,160}\.update\(/);
+    expect(manage).toContain('requireCompanyAdmin');
+    expect(manage).toContain("cancel_unassigned_exchange_job_atomic");
+    expect(manage).toContain("request_awarded_job_cancellation_atomic");
+    expect(manage).toContain("exchange_visibility: visibility");
+    expect(manage).toContain("direct_invite_company_id: directInviteCompanyId");
+  });
+
+});

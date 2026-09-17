@@ -113,6 +113,7 @@ function JobsPageInner() {
  const [companyLoading, setCompanyLoading] = useState(false);
  const [companyError, setCompanyError] = useState<string | null>(null);
  const [dbError, setDbError] = useState<string | null>(null);
+ const [flowMessage, setFlowMessage] = useState<string | null>(null);
  const [modalError, setModalError] = useState<string | null>(null);
  const [isSubmitting, setIsSubmitting] = useState(false);
  const [jobs, setJobs] = useState<Job[]>([]);
@@ -374,27 +375,36 @@ function JobsPageInner() {
  };
 
  const sendDirectInvite = async () => {
- if (!directInviteJob || !directInviteCarrierId || !isSupabaseConfigured) return;
+ if (!directInviteJob || !directInviteCarrierId || !companyId) return;
  setDirectInviteSending(true);
  setDirectInviteError('');
- const { error } = await supabase
- .from('jobs')
- .update({
- exchange_visibility: 'direct',
- direct_invite_company_id: directInviteCarrierId,
- exchange_posted_at: new Date().toISOString(),
- awarded_carrier_company_id: null,
- })
- .eq('id', directInviteJob.id)
- .eq('company_id', companyId ?? '');
- if (error) {
- setDirectInviteError(`Failed to send invitation: ${error.message}`);
+ setFlowMessage(null);
+ const { accessToken, error: tokenError } = await getAccessToken();
+ if (tokenError || !accessToken) {
+  setDirectInviteError(tokenError ?? 'Your session has expired.');
+  setDirectInviteSending(false);
+  return;
+ }
+ const response = await fetch(`/api/admin/jobs/${encodeURIComponent(directInviteJob.id)}/manage`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+  body: JSON.stringify({
+   action: 'direct_invite',
+   companyId,
+   carrierCompanyId: directInviteCarrierId,
+  }),
+ });
+ const payload = (await response.json().catch(() => ({}))) as { error?: string };
+ if (!response.ok) {
+  setDirectInviteError(payload.error ?? 'Failed to send Direct Booking.');
  } else {
- setDirectInviteJob(null);
- void loadJobs();
+  setDirectInviteJob(null);
+  setFlowMessage('Direct Booking sent to the selected carrier.');
+  void loadJobs();
  }
  setDirectInviteSending(false);
  };
+
 
  /**
   * Transition a job to a new status.
@@ -408,36 +418,28 @@ function JobsPageInner() {
   *     as a defense-in-depth server-side guard.
   */
  const handleStatusChange = async (id: string, newStatus: string) => {
- if (!isSupabaseConfigured || !companyId) return;
+ if (!companyId) return;
  setDbError(null);
+ setFlowMessage(null);
+ const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({ id: j.id, status: j.status, companyId: j.companyId }));
+ const validation = validateJobTransition({ jobs: transitionRecords, id, newStatus, activeCompanyId: companyId });
+ if (!validation.ok) { setDbError(validation.message); return; }
 
- const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({
-  id: j.id,
-  status: j.status,
-  companyId: j.companyId,
- }));
- const validation = validateJobTransition({
-  jobs: transitionRecords,
-  id,
-  newStatus,
-  activeCompanyId: companyId,
+ const { accessToken, error: tokenError } = await getAccessToken();
+ if (tokenError || !accessToken) { setDbError(tokenError ?? 'Your session has expired.'); return; }
+ const action = newStatus === JOB_STATUS.POSTED ? 'publish' : newStatus === JOB_STATUS.CANCELLED ? 'cancel' : null;
+ if (!action) { setDbError(`Status ${newStatus} must be changed through the canonical execution workflow.`); return; }
+ const response = await fetch(`/api/admin/jobs/${encodeURIComponent(id)}/manage`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+  body: JSON.stringify({ action, companyId }),
  });
- if (!validation.ok) {
-  setDbError(validation.message);
-  return;
- }
-
- const { error } = await supabase
-  .from('jobs')
-  .update({ status: newStatus, updated_at: new Date().toISOString() })
-  .eq('id', id)
-  .eq('company_id', companyId);
- if (error) {
-  setDbError(`Failed to update job status: ${error.message}`);
- } else {
-  void loadJobs();
- }
+ const payload = (await response.json().catch(() => ({}))) as { error?: string; cancellationRequested?: boolean };
+ if (!response.ok) { setDbError(payload.error ?? 'The job status could not be changed.'); return; }
+ setFlowMessage(payload.cancellationRequested ? 'Cancellation request sent to the other party.' : action === 'cancel' ? 'Job cancelled.' : 'Job published to the exchange.');
+ await loadJobs();
  };
+
 
  /**
   * Post an eligible draft job to the marketplace.
@@ -451,41 +453,25 @@ function JobsPageInner() {
   * Preserves exchange_posted_at and updated_at on success.
   */
  const handlePostJob = async (id: string) => {
- if (!isSupabaseConfigured || !companyId) return;
+ if (!companyId) return;
  setDbError(null);
-
- const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({
-  id: j.id,
-  status: j.status,
-  companyId: j.companyId,
- }));
- const validation = validateJobTransition({
-  jobs: transitionRecords,
-  id,
-  newStatus: JOB_STATUS.POSTED,
-  activeCompanyId: companyId,
+ setFlowMessage(null);
+ const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({ id: j.id, status: j.status, companyId: j.companyId }));
+ const validation = validateJobTransition({ jobs: transitionRecords, id, newStatus: JOB_STATUS.POSTED, activeCompanyId: companyId });
+ if (!validation.ok) { setDbError(validation.message); return; }
+ const { accessToken, error: tokenError } = await getAccessToken();
+ if (tokenError || !accessToken) { setDbError(tokenError ?? 'Your session has expired.'); return; }
+ const response = await fetch(`/api/admin/jobs/${encodeURIComponent(id)}/manage`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+  body: JSON.stringify({ action: 'publish', companyId }),
  });
- if (!validation.ok) {
-  setDbError(validation.message);
-  return;
- }
-
- const { error } = await supabase
-  .from('jobs')
-  .update({
-   status: JOB_STATUS.POSTED,
-   exchange_posted_at: new Date().toISOString(),
-   updated_at: new Date().toISOString(),
-  })
-  .eq('id', id)
-  .eq('company_id', companyId)
-  .eq('status', JOB_STATUS.RECEIVED);
- if (error) {
-  setDbError(`Failed to post job: ${error.message}`);
- } else {
-  void loadJobs();
- }
+ const payload = (await response.json().catch(() => ({}))) as { error?: string };
+ if (!response.ok) { setDbError(payload.error ?? 'Failed to publish job.'); return; }
+ setFlowMessage('Job published to the exchange.');
+ await loadJobs();
  };
+
 
  const validateForm = () => {
  const errors: Record<string, string> = {};
@@ -828,6 +814,7 @@ function JobsPageInner() {
   newJobDisabled={newJobDisabled}
   companyError={companyError}
   dbError={dbError}
+  flowMessage={flowMessage}
   hasSupabaseSession={hasSupabaseSession}
   onRetryCompany={user?.id ? () => loadCompanyId(user.id) : undefined}
   onDismissDbError={() => setDbError(null)}
