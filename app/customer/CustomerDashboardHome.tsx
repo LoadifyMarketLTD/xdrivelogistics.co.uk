@@ -77,6 +77,13 @@ export default function CustomerDashboardHome() {
       && new Date(job.delivery_datetime as string).getTime() < now
     );
     const deliveryPhotoJobs = data.jobs.filter((job) => (job.delivery_photos?.length ?? 0) > 0);
+    const documentAlertJobs = data.jobs.filter((job) => {
+      const stage = classifyWorkspaceJobStage(job);
+      const podMissing = job.pod_required === true && job.pod_generated !== true;
+      const deliveryEvidenceMissing = stage === 'completed' && job.has_delivery_evidence === false;
+      const podRejected = String(job.broker_pod_review_status ?? '').trim().toLowerCase() === 'rejected';
+      return podMissing || deliveryEvidenceMissing || podRejected;
+    });
     const customerInvoices = data.invoices.filter((invoice) =>
       isCustomerVisibleWorkspaceInvoice(invoice, data.companyId),
     );
@@ -103,6 +110,7 @@ export default function CustomerDashboardHome() {
       activeDeliveries,
       delayed,
       deliveryPhotoJobs,
+      documentAlertJobs,
       customerInvoices,
       unpaidInvoices,
       dueSoonInvoices,
@@ -166,7 +174,7 @@ export default function CustomerDashboardHome() {
                 <button className="customer-attention-row" data-tone="orange" type="button" onClick={() => router.push('/customer/quotes')}><span className="customer-attention-row__copy"><strong>Quotes awaiting decision</strong><span>Compare carrier price and member profile</span></span><span className="customer-attention-row__count">{awaitingAwardMetric}</span></button>
                 <button className="customer-attention-row" data-tone="red" type="button" onClick={() => router.push('/customer/tracking')}><span className="customer-attention-row__copy"><strong>Delivery exceptions</strong><span>Past recorded delivery time</span></span><span className="customer-attention-row__count">{metricState(jobsDataset, metrics.delayed.length)}</span></button>
                 <button className="customer-attention-row" data-tone="green" type="button" onClick={() => router.push('/customer/bookings')}><span className="customer-attention-row__copy"><strong>Delivery photo evidence</strong><span>Photos available for review; open the booking for full POD state</span></span><span className="customer-attention-row__count">{metricState(jobsDataset, metrics.deliveryPhotoJobs.length)}</span></button>
-                <button className="customer-attention-row" type="button" onClick={() => router.push('/customer/bookings')}><span className="customer-attention-row__copy"><strong>Document alerts</strong><span>Open Bookings for job documents and POD evidence</span></span><span className="customer-attention-row__count">—</span></button>
+                <button className="customer-attention-row" data-tone={metrics.documentAlertJobs.length ? 'orange' : undefined} type="button" onClick={() => router.push('/customer/bookings')}><span className="customer-attention-row__copy"><strong>Document alerts</strong><span>Missing or rejected POD / delivery evidence</span></span><span className="customer-attention-row__count">{metricState(jobsDataset, metrics.documentAlertJobs.length)}</span></button>
                 <button className="customer-attention-row" type="button" onClick={() => router.push('/customer/invoices')}><span className="customer-attention-row__copy"><strong>Invoices due soon</strong><span>Due within the next 7 days</span></span><span className="customer-attention-row__count">{invoiceCount(metrics.dueSoonInvoices.length)}</span></button>
               </div></div>
             </section>

@@ -7,6 +7,7 @@ import { JOB_STATUS, JOB_STATUS_LABEL } from '../../../config/company';
 import { supabase } from '../../../../lib/supabaseClient';
 import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../../lib/jobClientFields';
 import { useAuth } from '../../../components/AuthContext';
+import { getAccessToken } from '../../_lib/getAccessToken';
 import { getLoadDetailSections, type LoadDetailSection } from '../../../../lib/loadPostingDetails';
 
 interface Job {
@@ -348,29 +349,35 @@ export default function JobDetailPage() {
 
   const handleDelete = async () => {
     try {
-      if (hasSupabaseSession) {
-        if (!companyId) {
-          setSaveMessage('Company profile not loaded. Job cannot be deleted safely.');
-          setTimeout(() => setSaveMessage(''), 3000);
-          return;
-        }
-
-        const { error } = await supabase
-          .from('jobs')
-          .delete()
-          .eq('id', jobId)
-          .eq('company_id', companyId);
-        if (error) {
-          console.error('Failed to delete job:', error.message);
-          setSaveMessage('Error deleting job. Please try again.');
-          setTimeout(() => setSaveMessage(''), 3000);
-          return;
-        }
-        router.push('/admin/jobs');
+      if (!hasSupabaseSession) {
+        setSaveMessage('A live Supabase session is required to delete jobs safely.');
+        setTimeout(() => setSaveMessage(''), 3000);
         return;
       }
-      setSaveMessage('A live Supabase session is required to delete jobs safely.');
-      setTimeout(() => setSaveMessage(''), 3000);
+      if (!companyId) {
+        setSaveMessage('Company profile not loaded. Job cannot be deleted safely.');
+        setTimeout(() => setSaveMessage(''), 3000);
+        return;
+      }
+
+      const { accessToken, error: accessTokenError } = await getAccessToken();
+      if (accessTokenError || !accessToken) {
+        setSaveMessage(accessTokenError ?? 'Session expired. Please sign in again.');
+        setTimeout(() => setSaveMessage(''), 3000);
+        return;
+      }
+
+      const response = await fetch(`/api/workspace/jobs/${encodeURIComponent(jobId)}/owner`, {
+        method: 'DELETE',
+        headers: { Authorization: 'Bearer ' + accessToken },
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        setSaveMessage(payload.error ?? 'This job cannot be deleted.');
+        setTimeout(() => setSaveMessage(''), 5000);
+        return;
+      }
+      router.push('/admin/jobs');
     } catch (error) {
       console.error('Error deleting job:', error);
       setSaveMessage('Error deleting job. Please try again.');

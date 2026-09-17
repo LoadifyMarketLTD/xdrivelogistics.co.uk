@@ -28,6 +28,10 @@ export type WorkspaceJob = {
   awarded_carrier_company_id?: string | null;
   budget_amount?: number | null;
   delivery_photos?: string[] | null;
+  pod_required?: boolean | null;
+  pod_generated?: boolean | null;
+  has_delivery_evidence?: boolean | null;
+  broker_pod_review_status?: string | null;
   booking_reference?: string | null;
   customer_reference?: string | null;
   created_at: string;
@@ -254,7 +258,7 @@ const CARRIER_DASHBOARD_JOB_SELECT =
   'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name';
 
 const EXECUTION_JOB_SELECT =
-  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, booking_reference, customer_reference, created_at, updated_at, client_name';
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, booking_reference, customer_reference, created_at, updated_at, client_name';
 
 const LEGACY_EXECUTION_JOB_SELECT = EXECUTION_JOB_SELECT
   .split(',')

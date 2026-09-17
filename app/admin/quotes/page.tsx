@@ -7,6 +7,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import type { Quote, VehicleType, CargoType, Company } from '../../../lib/types/database';
 import { VEHICLE_GROUPS, VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { useAuth } from '../../components/AuthContext';
+import { getAccessToken } from '../_lib/getAccessToken';
 import {
   ActionButton,
   AlertBanner,
@@ -50,6 +51,8 @@ export default function QuotesPage() {
   const QUOTES_PER_PAGE = 12;
   const [quotePage, setQuotePage] = useState(0);
   const [flowMessage, setFlowMessage] = useState('');
+  const [flowError, setFlowError] = useState('');
+  const [savingQuote, setSavingQuote] = useState(false);
 
   const loadCompanyId = async (userId: string) => {
     const { data: bootstrappedId } = await supabase.rpc('bootstrap_company_membership');
@@ -74,13 +77,28 @@ export default function QuotesPage() {
 
   const loadQuotes = async () => {
     setLoading(true);
+    setFlowError('');
     if (!isSupabaseConfigured || !companyId) { setLoading(false); return; }
-    const { data, error: queryError } = await supabase
-      .from('quotes')
-      .select('id, company_id, customer_name, customer_email, customer_phone, pickup_location, delivery_location, vehicle_type, cargo_type, amount, currency, status, created_at')
-      .eq('company_id', companyId)
-      .order('created_at', { ascending: false });
-    if (!queryError && data) setQuotes(data as Quote[]);
+
+    const { accessToken, error: accessTokenError } = await getAccessToken();
+    if (accessTokenError || !accessToken) {
+      setFlowError(accessTokenError ?? 'Session expired. Please sign in again.');
+      setLoading(false);
+      return;
+    }
+
+    const response = await fetch(`/api/admin/quotes?companyId=${encodeURIComponent(companyId)}`, {
+      headers: { Authorization: 'Bearer ' + accessToken },
+      cache: 'no-store',
+    });
+    const payload = (await response.json().catch(() => ({}))) as { quotes?: Quote[]; error?: string };
+    if (!response.ok) {
+      setQuotes([]);
+      setFlowError(payload.error ?? 'Quotes could not be loaded.');
+      setLoading(false);
+      return;
+    }
+    setQuotes(payload.quotes ?? []);
     setLoading(false);
   };
 
@@ -114,29 +132,72 @@ export default function QuotesPage() {
     if (!companyId) { setError('Company profile is required'); return; }
     if (!formData.customer_name.trim()) { setError('Customer name is required'); return; }
     if (!isSupabaseConfigured) { setError('Supabase is not configured'); return; }
-    const { error: createError } = await supabase.from('quotes').insert([{
-      ...formData,
-      company_id: companyId,
-      amount: formData.amount ? parseFloat(formData.amount) : null,
-    }]);
-    if (createError) { setError(createError.message); return; }
-    setShowModal(false);
-    setFormData({ company_id: '', customer_name: '', customer_email: '', customer_phone: '', pickup_location: '', delivery_location: '', vehicle_type: 'van_large', cargo_type: 'packages', amount: '', currency: 'GBP' });
+
+    const amount = formData.amount.trim() ? Number.parseFloat(formData.amount) : null;
+    if (amount !== null && (!Number.isFinite(amount) || amount < 0)) {
+      setError('Amount must be a valid positive value.');
+      return;
+    }
+
+    setSavingQuote(true);
     setError('');
-    void loadQuotes();
+    try {
+      const { accessToken, error: accessTokenError } = await getAccessToken();
+      if (accessTokenError || !accessToken) {
+        setError(accessTokenError ?? 'Session expired. Please sign in again.');
+        return;
+      }
+      const response = await fetch('/api/admin/quotes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
+        body: JSON.stringify({
+          companyId,
+          customerName: formData.customer_name,
+          customerEmail: formData.customer_email || null,
+          customerPhone: formData.customer_phone || null,
+          pickupLocation: formData.pickup_location || null,
+          deliveryLocation: formData.delivery_location || null,
+          vehicleType: formData.vehicle_type,
+          cargoType: formData.cargo_type,
+          amount,
+          currency: formData.currency,
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string };
+      if (!response.ok) {
+        setError(payload.error ?? 'Quote could not be created.');
+        return;
+      }
+      setShowModal(false);
+      setFormData({ company_id: companyId, customer_name: '', customer_email: '', customer_phone: '', pickup_location: '', delivery_location: '', vehicle_type: 'van_large', cargo_type: 'packages', amount: '', currency: 'GBP' });
+      setFlowMessage('Quote created successfully.');
+      setFlowError('');
+      void loadQuotes();
+    } finally {
+      setSavingQuote(false);
+    }
   };
 
-  const handleUpdateStatus = async (quoteId: string, status: string) => {
+  const handleUpdateStatus = async (quoteId: string, status: 'draft' | 'sent' | 'accepted' | 'declined' | 'withdrawn') => {
     if (!isSupabaseConfigured || !companyId) return;
-    const { error: updateError } = await supabase
-      .from('quotes')
-      .update({ status })
-      .eq('id', quoteId)
-      .eq('company_id', companyId);
-    if (!updateError) {
-      setFlowMessage(`Quote moved to ${status}.`);
-      void loadQuotes();
+    setFlowError('');
+    const { accessToken, error: accessTokenError } = await getAccessToken();
+    if (accessTokenError || !accessToken) {
+      setFlowError(accessTokenError ?? 'Session expired. Please sign in again.');
+      return;
     }
+    const response = await fetch(`/api/admin/quotes/${encodeURIComponent(quoteId)}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
+      body: JSON.stringify({ companyId, status }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      setFlowError(payload.error ?? 'Quote status could not be updated.');
+      return;
+    }
+    setFlowMessage(`Quote moved to ${status}.`);
+    void loadQuotes();
   };
 
   const handleWithdrawQuote = async (quoteId: string) => {
@@ -151,36 +212,26 @@ export default function QuotesPage() {
     if (!companyId || !isSupabaseConfigured || !hasSupabaseSession) return;
     setConvertingId(quote.id);
     setFlowMessage('');
+    setFlowError('');
     try {
-      const { data: jobData, error: jobError } = await supabase
-        .from('jobs')
-        .insert([{
-          company_id: companyId,
-          created_by: user?.id ?? null,
-          status: 'posted',
-          client_name: quote.customer_name,
-          client_email: quote.customer_email ?? null,
-          client_phone: quote.customer_phone ?? null,
-          load_details: quote.customer_name,
-          pickup_location: quote.pickup_location ?? null,
-          delivery_location: quote.delivery_location ?? null,
-          vehicle_type: quote.vehicle_type ?? null,
-          cargo_type: quote.cargo_type ?? null,
-        }])
-        .select('id')
-        .single();
-      if (jobError) {
-        console.error('Failed to create job from quote:', jobError.message);
+      const { accessToken, error: accessTokenError } = await getAccessToken();
+      if (accessTokenError || !accessToken) {
+        setFlowError(accessTokenError ?? 'Session expired. Please sign in again.');
         return;
       }
-      await supabase
-        .from('quotes')
-        .update({ status: 'converted' })
-        .eq('id', quote.id)
-        .eq('company_id', companyId);
-      void loadQuotes();
+      const response = await fetch(`/api/admin/quotes/${encodeURIComponent(quote.id)}/convert`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
+        body: JSON.stringify({ companyId }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; jobId?: string };
+      if (!response.ok || !payload.jobId) {
+        setFlowError(payload.error ?? 'Quote could not be converted to a job.');
+        return;
+      }
+      await loadQuotes();
       setFlowMessage('Quote converted to job successfully.');
-      if (jobData?.id) router.push(`/admin/jobs/${jobData.id}`);
+      router.push(`/admin/jobs/${payload.jobId}`);
     } finally {
       setConvertingId(null);
     }
@@ -224,6 +275,7 @@ export default function QuotesPage() {
 
         {!isSupabaseConfigured && <AlertBanner tone="warning">Supabase is not configured for this workspace.</AlertBanner>}
         {flowMessage && <AlertBanner tone="success">{flowMessage}</AlertBanner>}
+        {flowError && <AlertBanner tone="danger">{flowError}</AlertBanner>}
 
         <div className="workspace-board-layout">
           <aside className="workspace-filter-rail" aria-label="Quote filters">
@@ -334,7 +386,7 @@ export default function QuotesPage() {
               </div>
               <div style={{ minHeight: 44, padding: '6px 12px', borderTop: '1px solid #e2e7ed', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
                 <ActionButton tone="secondary" onClick={() => { setShowModal(false); setError(''); }}>Cancel</ActionButton>
-                <ActionButton tone="success" onClick={() => void handleCreate()}>Create Quote</ActionButton>
+                <ActionButton tone="success" disabled={savingQuote} onClick={() => void handleCreate()}>{savingQuote ? 'Creating?' : 'Create Quote'}</ActionButton>
               </div>
             </div>
           </div>

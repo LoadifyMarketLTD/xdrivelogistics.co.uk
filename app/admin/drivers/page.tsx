@@ -279,14 +279,27 @@ export default function DriversPage() {
   const handleRemoveDriver = async (driver: Driver) => {
     if (!companyId || !isSupabaseConfigured) return;
     const confirmed = window.confirm(
-      `Remove driver "${driver.display_name}"?\n\nThis will permanently delete the driver record. This action cannot be undone.`
+      `Remove driver "${driver.display_name}"?
+
+This permanently removes only an inactive Driver with no protected operational dependencies.`
     );
     if (!confirmed) return;
-    await supabase
-      .from('drivers')
-      .delete()
-      .eq('id', driver.id)
-      .eq('company_id', companyId);
+
+    const { accessToken, error: accessTokenError } = await getAccessToken();
+    if (accessTokenError || !accessToken) {
+      window.alert(accessTokenError ?? 'Session expired. Please sign in again.');
+      return;
+    }
+
+    const response = await fetch(`/api/admin/drivers/${encodeURIComponent(driver.id)}?companyId=${encodeURIComponent(companyId)}`, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + accessToken },
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      window.alert(payload.error ?? 'Driver could not be removed.');
+      return;
+    }
     await loadDrivers(companyId);
   };
 

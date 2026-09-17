@@ -9,6 +9,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
+import { getAccessToken } from '../_lib/getAccessToken';
 import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
 import { JobsOperationalTable, jobToRow } from '../../components/workspace/JobsOperationalTable';
 import {
@@ -654,7 +655,7 @@ function JobsPageInner() {
  return;
  }
  if (documentFiles.length > 0 && insertedJob?.id) {
- const documentRows = [];
+ const documentRows: Array<{ storagePath: string; fileName: string; fileSizeBytes: number; mimeType: string | null }> = [];
  for (const file of documentFiles) {
  const storagePath = `${resolvedCompanyId}/${insertedJob.id}/${Date.now()}-${cleanFileName(file.name)}`;
  const { error: uploadError } = await supabase.storage.from('load-documents').upload(storagePath, file, {
@@ -663,26 +664,39 @@ function JobsPageInner() {
  contentType: file.type || undefined,
  });
  if (uploadError) {
+ if (documentRows.length > 0) {
+ await supabase.storage.from('load-documents').remove(documentRows.map((document) => document.storagePath));
+ }
  setModalError(`Job was created, but document upload failed for ${file.name}: ${uploadError.message}`);
  setIsSubmitting(false);
  await loadJobs();
  return;
  }
  documentRows.push({
- job_id: insertedJob.id,
- company_id: resolvedCompanyId,
- uploaded_by: user?.id ?? null,
- uploaded_by_role: 'admin',
- doc_type: 'admin_load_attachment',
- file_path: storagePath,
- file_name: file.name,
- file_size_bytes: file.size,
- mime_type: file.type || null,
+ storagePath,
+ fileName: file.name,
+ fileSizeBytes: file.size,
+ mimeType: file.type || null,
  });
  }
- const { error: documentsError } = await supabase.from('job_documents').insert(documentRows);
- if (documentsError) {
- setModalError(`Job was created, but document records could not be saved: ${documentsError.message}`);
+
+ const { accessToken, error: accessTokenError } = await getAccessToken();
+ if (accessTokenError || !accessToken) {
+ await supabase.storage.from('load-documents').remove(documentRows.map((document) => document.storagePath));
+ setModalError(accessTokenError ?? 'Session expired before document metadata could be saved.');
+ setIsSubmitting(false);
+ await loadJobs();
+ return;
+ }
+
+ const documentResponse = await fetch(`/api/admin/jobs/${encodeURIComponent(insertedJob.id)}/documents`, {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
+ body: JSON.stringify({ companyId: resolvedCompanyId, documents: documentRows }),
+ });
+ const documentPayload = (await documentResponse.json().catch(() => ({}))) as { error?: string };
+ if (!documentResponse.ok) {
+ setModalError(`Job was created, but document records could not be saved: ${documentPayload.error ?? 'Unknown document service error.'}`);
  setIsSubmitting(false);
  await loadJobs();
  return;
