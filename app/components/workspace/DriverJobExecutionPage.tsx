@@ -124,6 +124,9 @@ const money = (amount: number | null | undefined, currency = 'GBP') => amount ==
 const mapsUrl = (address: string, postcode?: string | null) =>
   `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(postcode ? `${address}, ${postcode}` : address)}`;
 
+const wazeUrl = (address: string, postcode?: string | null) =>
+  `https://www.waze.com/ul?q=${encodeURIComponent(postcode ? `${address}, ${postcode}` : address)}&navigate=yes`;
+
 const routeMapUrl = (job: DbJob) => {
   const params = new URLSearchParams({ api: '1' });
   if (job.pickup_postcode || job.pickup_location) params.set('origin', job.pickup_postcode || job.pickup_location || '');
@@ -295,6 +298,17 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const currentStatus = canonicalExecutionStatus(job.current_status ?? job.status);
   const nextStatus = nextDriverExecutionStatus(currentStatus);
   const nextLabel = nextStatus ? nextActionLabel[nextStatus] ?? statusLabel[nextStatus] ?? nextStatus : null;
+  const navigationStage = currentStatus === 'on_my_way' ? 'pickup' : currentStatus === 'in_transit' ? 'delivery' : null;
+  const navigationAddress = navigationStage === 'pickup'
+    ? (sheet?.pickup.address ?? job.pickup_location ?? '')
+    : navigationStage === 'delivery'
+      ? (sheet?.delivery.address ?? job.delivery_location ?? '')
+      : '';
+  const navigationPostcode = navigationStage === 'pickup'
+    ? (sheet?.pickup.postcode ?? job.pickup_postcode)
+    : navigationStage === 'delivery'
+      ? (sheet?.delivery.postcode ?? job.delivery_postcode)
+      : null;
   const loadSections = getLoadDetailSections(job);
   const history = Array.isArray(job.status_history) ? job.status_history : [];
   const timelineRows = sheet?.timeline.length
@@ -408,6 +422,10 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 8 }}>
           {nextStatus && nextLabel && <ActionButton tone="success" disabled={working} onClick={() => void moveStatus(nextStatus)}>{working ? 'Saving…' : nextLabel}</ActionButton>}
+          {navigationStage && navigationAddress && <>
+            <a href={mapsUrl(navigationAddress, navigationPostcode)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Google Maps ? {navigationStage === 'pickup' ? 'Pickup' : 'Delivery'}</a>
+            <a href={wazeUrl(navigationAddress, navigationPostcode)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Waze ? {navigationStage === 'pickup' ? 'Pickup' : 'Delivery'}</a>
+          </>}
           <a href={routeMapUrl(job)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Route / Track</a>
           {sheet?.memberPhone && <a href={`tel:${sheet.memberPhone.replace(/\s+/g, '')}`} style={linkButtonStyle}>Call Member</a>}
           {sheet?.invoices[0]?.id && <ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View invoice (£)</ActionButton>}
