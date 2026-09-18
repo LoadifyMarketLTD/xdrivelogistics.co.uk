@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const root = process.cwd();
 const form = fs.readFileSync(path.join(root, 'app/components/workspace/LoadPostingForm.tsx'), 'utf8');
 const createApi = fs.readFileSync(path.join(root, 'app/api/jobs/create/route.ts'), 'utf8');
+const addressField = fs.readFileSync(path.join(root, 'app/components/workspace/PostcodeAddressField.tsx'), 'utf8');
 const publishComplianceRepair = fs.readFileSync(
   path.join(root, 'supabase/migrations/20260829221052_repair_job_publish_compliance_and_idempotency.sql'),
   'utf8',
@@ -66,7 +67,7 @@ describe('load posting operational contract', () => {
     expect(form).toContain('setShowValidation(true)');
     expect(form).toContain('Complete the fields highlighted in red.');
     expect(form).toContain("aria-invalid={errors?.postcode ? 'true' : undefined}");
-    expect(form).toContain("aria-invalid={errors?.address ? 'true' : undefined}");
+    expect(addressField).toContain("aria-invalid={error ? 'true' : undefined}");
     expect(form).toContain("document.querySelector<HTMLElement>('[aria-invalid=\"true\"]')");
     expect(form).toContain("'#dc2626'");
   });

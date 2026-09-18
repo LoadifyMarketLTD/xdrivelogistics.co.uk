@@ -12,7 +12,8 @@ describe('CX operational gaps closed in the XDrive workspace language', () => {
   it('distinguishes not-started work from execution that started but stopped tracking', () => {
     expect(freightVision).toContain("type TrackingState = 'on_time' | 'behind_eta' | 'late' | 'not_tracking' | 'not_started'");
     expect(freightVision).toContain("not_started: 'Not started'");
-    expect(freightVision).toContain('<KpiCard label="Not started"');
+    expect(freightVision).toContain('OperationalSignalStrip');
+    expect(freightVision).toContain("label: 'Not started'");
     expect(freightVision).toContain('<option value="not_started">Not started</option>');
     expect(freightVision).toContain("if (!pickupStarted)");
     expect(freightVision).toContain("return 'not_started'");
@@ -38,11 +39,13 @@ describe('CX operational gaps closed in the XDrive workspace language', () => {
   });
 
   it('enriches Return Journeys with existing notes/location data while retaining schema compatibility', () => {
-    expect(returnJourneys).toContain('notes?: string | null');
-    expect(returnJourneys).toContain('Latest position');
+    expect(returnJourneys).toContain('notes: string | null');
+    expect(returnJourneys).toContain("'Position fresh'");
+    expect(returnJourneys).toContain("'Position stale'");
+    expect(returnJourneys).toContain('locationState.label');
     expect(returnJourneys).toContain('Call driver');
-    expect(returnJourneys).toContain('isMissingColumnError');
-    expect(returnJourneys).toContain("'return_journeys', 'notes'");
+    expect(returnJourneys).toContain('selectWithMissingColumnFallback');
+    expect(returnJourneys).toContain("missingColumns.has('notes')");
   });
 
   it('does not introduce super-admin coupling in the new operational surfaces', () => {

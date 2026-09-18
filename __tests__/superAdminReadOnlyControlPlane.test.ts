@@ -35,19 +35,20 @@ describe('Super Admin read-only control-plane promotion', () => {
     expect(inspector).toContain('Platform Case Centre schema is not applied in this environment.');
   });
 
-  test('workspace exposes Global Search without enabling Action Centre', () => {
+  test('workspace exposes Global Search and the governed Action Centre', () => {
     const workspace = read('app/super-admin/_components/SuperAdminWorkspaceShell.tsx');
     const shell = read('app/super-admin/_components/SuperAdminCardNavigationShell.tsx');
     expect(workspace).toContain("label: 'Global Search'");
     expect(workspace).toContain("href: '/super-admin/search'");
-    expect(shell).toContain('actionCentreAvailable');
-    expect(shell).toContain('disabled={!actionCentreAvailable}');
+    expect(workspace).toContain("label: 'Action Centre'");
+    expect(workspace).toContain("href: '/super-admin/action-centre'");
+    expect(shell).toContain("if (pathname.startsWith('/super-admin/cases')) return 'support';");
   });
 
   test('read-only inspect and copy links retain the approved light control styling', () => {
     const hardening = read('app/super-admin/super-admin-light-hardening.css');
     expect(hardening).toContain('.super-admin-light-root .sa-button');
-    expect(hardening).toContain('border: 1px solid #D9E1EA');
+    expect(hardening).toContain('border: 1px solid #E0E3E7');
     expect(hardening).toContain('color: #1D57D8');
   });
 });

@@ -3,6 +3,7 @@ import path from 'node:path';
 
 const shell = fs.readFileSync(path.join(process.cwd(), 'app/driver/_components/DriverTopWorkspaceShell.tsx'), 'utf8');
 const css = fs.readFileSync(path.join(process.cwd(), 'app/driver/driver-top-shell-more.css'), 'utf8');
+const notificationsApi = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/notifications/route.ts'), 'utf8');
 
 describe('CX-close Driver top navigation', () => {
   it('keeps the CX-style primary modules visible and moves secondary tools under More', () => {
@@ -24,10 +25,10 @@ describe('CX-close Driver top navigation', () => {
   });
 
   it('counts unread recipient inbox rows rather than notification delivery failures', () => {
-    expect(shell).toContain(".from('notifications')");
-    expect(shell).toContain(".eq('user_id', user.id)");
-    expect(shell).toContain(".is('read_at', null)");
-    expect(shell).not.toContain(".from('notification_events')");
+    expect(shell).toContain("fetch('/api/driver/notifications'");
+    expect(shell).not.toContain(".from('notifications')");
+    expect(notificationsApi).toContain(".eq('user_id', driver.userId)");
+    expect(notificationsApi).not.toContain(".from('notification_events')");
   });
 
   it('keeps the More menu dense and consistent with the workspace shell', () => {

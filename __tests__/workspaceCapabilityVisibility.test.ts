@@ -28,6 +28,8 @@ describe('visible workspace navigation', () => {
       '/customer/tracking',
       '/customer/diary',
       '/customer/network',
+      '/customer/disputes',
+      '/settings/billing',
       '/customer/account',
     ]);
   });

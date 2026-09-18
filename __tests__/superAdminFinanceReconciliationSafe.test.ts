@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 
 const readRepoFile = (relativePath: string) =>
-  readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf-8');
+  readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf-8').replace(/\r\n/g, '\n');
 
 const MIGRATION = 'supabase/migrations/20260902085000_platform_finance_reconciliation.sql';
 const ROUTE = 'app/api/super-admin/finance/invoices/[invoiceId]/reconcile/route.ts';
@@ -85,6 +85,7 @@ describe('Platform Owner finance reconciliation', () => {
     expect(page).toContain('Verify against payment ledger');
     expect(list).toContain('/super-admin/finance/invoices/${encodeURIComponent(row.id)}');
     expect(list).toContain('Reconcile →');
-    expect(list).toContain('/api/super-admin/finance?section=invoices&limit=250');
+    expect(list).toContain('endpoint="/api/super-admin/finance?section=invoices"');
+    expect(list).toContain('pageSize={100}');
   });
 });

@@ -58,7 +58,7 @@ describe('PR #357 approved visual baseline', () => {
 
   it('keeps the Customer transport-control dashboard structure', () => {
     expect(customerDashboard).toContain('title="Transport Control"');
-    expect(customerDashboard).toContain('customer-dash-metrics');
+    expect(customerDashboard).toContain('OperationalSignalStrip');
     expect(customerDashboard).toContain('customer-exchange-dashboard');
     expect(customerDashboard).toContain('Open transport requests');
     expect(customerDashboard).toContain('Recent quote activity');
@@ -70,6 +70,7 @@ describe('PR #357 approved visual baseline', () => {
     expect(carrierDashboard).toContain('carrierControlSignals');
 
     expect(brokerDashboard).toContain('title="Broker Dashboard"');
-    expect(brokerDashboard).toContain('Operational action queue');
+    expect(brokerDashboard).toContain('OperationalAttentionRail');
+    expect(brokerDashboard).toContain('title="Action Centre"');
   });
 });

@@ -36,12 +36,13 @@ describe('Super Admin document request backend foundation', () => {
   });
 
   it('does not trust a client-supplied document list and inherits Preview write fail-closed authority', () => {
-    const route = readRepoFile('app/api/super-admin/onboarding/[applicationId]/request-documents/route.ts');
+    const route = readRepoFile('app/api/super-admin/onboarding/[id]/request-documents/route.ts');
     const verifier = readRepoFile('app/api/super-admin/_lib/verifyPlatformOwner.ts');
     expect(route).toContain('reason: z.string()');
     expect(route).toContain('reminder: z.boolean()');
     expect(route).not.toContain('requestedDocuments:');
-    expect(route).toContain("supabaseAdmin.rpc('get_missing_onboarding_documents'");
+    expect(route).toContain('supabaseAdmin.rpc(');
+    expect(route).toContain("'get_missing_onboarding_documents'");
     expect(route).toContain("supabaseAdmin.rpc('owner_request_onboarding_documents'");
     expect(route).toContain('Deploy Preview is read-only');
     expect(verifier).toContain("const READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])");
