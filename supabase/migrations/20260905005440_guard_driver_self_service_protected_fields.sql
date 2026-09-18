@@ -1,13 +1,3 @@
--- Go-live hardening: prevent a driver from using the broad legacy self-update
--- policy to grant themselves operational/commercial privileges.
---
--- Driver self-service currently writes safe preference fields directly on
--- public.drivers (availability and destination matching). Keep that flow working,
--- but fail closed if the same authenticated driver attempts to change identity,
--- tenant binding, access/suspension, credential-control or commercial-approval
--- fields. Service-role/server mutations have auth.uid() = NULL and are not
--- constrained by this client-side backstop.
-
 BEGIN;
 
 SET LOCAL lock_timeout = '10s';
@@ -22,13 +12,10 @@ AS $$
 DECLARE
   v_actor uuid := auth.uid();
 BEGIN
-  -- Internal/server mutations are governed by their own trusted route/RPC.
   IF v_actor IS NULL THEN
     RETURN NEW;
   END IF;
 
-  -- Only police the driver's own legacy direct-update path. Other callers still
-  -- have to satisfy the table RLS policies before this trigger can be reached.
   IF OLD.user_id = v_actor THEN
     IF NEW.user_id IS DISTINCT FROM OLD.user_id
        OR NEW.company_id IS DISTINCT FROM OLD.company_id
@@ -58,4 +45,4 @@ CREATE TRIGGER trg_guard_driver_self_service_protected_fields
 REVOKE ALL ON FUNCTION public.guard_driver_self_service_protected_fields() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.guard_driver_self_service_protected_fields() TO service_role;
 
-COMMIT;
+COMMIT;;

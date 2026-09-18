@@ -1,8 +1,3 @@
--- Go-live hardening: replace hosted legacy reviewer policies that treated a
--- generic profile role `admin` as a global reviewer. Platform Owner keeps global
--- review visibility; company owner/admin visibility is limited to its own active
--- company. Existing self-service/owner-of-application policies remain intact.
-
 BEGIN;
 
 SET LOCAL lock_timeout = '10s';
@@ -91,4 +86,4 @@ USING (
   )
 );
 
-COMMIT;
+COMMIT;;

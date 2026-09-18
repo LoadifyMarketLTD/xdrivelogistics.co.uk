@@ -5,9 +5,9 @@ const readRepoFile = (relativePath: string) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf-8');
 
 const BROKER_RPC_MIGRATION =
-  'supabase/migrations/20260904233000_restrict_hosted_legacy_broker_governance_rpcs.sql';
+  'supabase/migrations/20260905005205_restrict_hosted_legacy_broker_governance_rpcs.sql';
 const REVIEWER_RLS_MIGRATION =
-  'supabase/migrations/20260904233500_harden_onboarding_reviewer_rls_scope.sql';
+  'supabase/migrations/20260905005414_harden_onboarding_reviewer_rls_scope.sql';
 
 describe('PR follow-up tenant reviewer and legacy broker hardening', () => {
   it('keeps hosted legacy broker approval RPCs service-only when they exist', () => {

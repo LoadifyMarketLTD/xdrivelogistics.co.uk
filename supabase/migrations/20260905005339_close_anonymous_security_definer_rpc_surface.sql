@@ -1,13 +1,3 @@
--- Go-live hardening: close clean-replay anonymous RPC exposure on selected
--- SECURITY DEFINER functions while preserving only the execution roles required
--- by each canonical contract.
---
--- Production already has the sensitive service-only functions locked down, while
--- a clean Supabase preview replay exposed several of them to anon/authenticated.
--- Every function is treated as optional here so the migration is safe across the
--- current hosted schema and clean repository replay; missing legacy/branch-only
--- functions are not recreated.
-
 BEGIN;
 
 SET LOCAL lock_timeout = '10s';
@@ -17,8 +7,6 @@ DO $$
 DECLARE
   v_signature text;
 BEGIN
-  -- Service-only helpers. Their source/runtime contract is internal composition
-  -- or server/service-role execution; no browser RPC caller needs EXECUTE.
   FOREACH v_signature IN ARRAY ARRAY[
     'public.promote_to_platform_owner(text)',
     'public.driver_operational_eligibility(uuid)',
@@ -41,9 +29,6 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- Authenticated/RLS helpers whose arguments are bound to the current caller or
-  -- whose canonical client flow intentionally invokes them. Anonymous execution
-  -- is not required; authenticated/service_role execution is reasserted.
   FOREACH v_signature IN ARRAY ARRAY[
     'public.auth_company_id()',
     'public.bootstrap_owner_driver_workspace()',
@@ -71,8 +56,6 @@ BEGIN
     END IF;
   END LOOP;
 
-  -- Trigger-only functions are invoked by PostgreSQL triggers, never as browser
-  -- RPCs. Keep service_role available for controlled diagnostics only.
   FOREACH v_signature IN ARRAY ARRAY[
     'public.enforce_onboarding_approval_compliance()',
     'public.fn_apply_invoice_payment()',
@@ -110,7 +93,6 @@ BEGIN
 END;
 $$;
 
--- Close search_path warnings on legacy RLS helpers without changing their bodies.
 DO $$
 DECLARE
   v_signature text;
@@ -174,4 +156,4 @@ BEGIN
 END;
 $$;
 
-COMMIT;
+COMMIT;;

@@ -1,4 +1,3 @@
--- Structured collection handover for Driver app and multi-stop execution.
 BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
@@ -24,4 +23,4 @@ ALTER TABLE public.job_stops
 COMMENT ON COLUMN public.jobs.collection_handover IS 'Server-authoritative structured collection handover snapshot captured by the assigned driver.';
 COMMENT ON COLUMN public.job_stops.handover IS 'Server-authoritative structured handover snapshot for a multi-stop execution stop.';
 NOTIFY pgrst, 'reload schema';
-COMMIT;
+COMMIT;;
