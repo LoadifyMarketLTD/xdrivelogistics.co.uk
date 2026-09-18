@@ -338,6 +338,19 @@ export async function GET(request: NextRequest) {
   const rows = activeRows
     .filter((row) => matchesPublicSearch(row, search, posterMemberId(row)))
     .slice(0, limit);
+
+  const preferenceByJob = new Map<string, string>();
+  if (rows.length > 0) {
+    const { data: preferenceRows, error: preferenceError } = await supabaseAdmin
+      .from('driver_job_search_preferences')
+      .select('job_id,state')
+      .eq('driver_id', driver.driverId)
+      .in('job_id', rows.map((row) => row.id));
+    if (preferenceError) return respond(500, { error: preferenceError.message });
+    for (const preference of preferenceRows ?? []) {
+      if (preference.job_id && preference.state) preferenceByJob.set(String(preference.job_id), String(preference.state));
+    }
+  }
   const commercialBidExtras = driver.canCommercialBid
     ? {}
     : { canQuote: false, quoteWarning: 'Your account type does not permit commercial bidding.' };
@@ -396,6 +409,7 @@ export async function GET(request: NextRequest) {
     const routed = routedPickupMetrics.get(row.id);
     return mapNearbyJob(row, posterMemberId(row), {
       ...commercialBidExtras,
+      preferenceState: preferenceByJob.get(row.id) ?? null,
       distanceToPickupMiles: routed?.distanceMiles ?? straightLineDistanceByJob.get(row.id) ?? null,
       pickupEtaMinutes: routed?.durationMinutes ?? null,
       distanceOrigin,
