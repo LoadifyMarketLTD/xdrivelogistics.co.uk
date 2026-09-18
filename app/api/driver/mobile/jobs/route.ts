@@ -20,6 +20,26 @@ function validIsoDate(value: string | null) {
   return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
 }
 
+type OwnerCompanyRow = {
+  id: string;
+  name: string | null;
+  xd_id: string | null;
+};
+
+async function loadOwnerCompanies(companyIds: string[]) {
+  const companiesById = new Map<string, OwnerCompanyRow>();
+  if (!supabaseAdmin || companyIds.length === 0) return { companiesById, partial: false };
+
+  const { data, error } = await supabaseAdmin
+    .from('companies')
+    .select('id, name, xd_id')
+    .in('id', companyIds);
+
+  if (error) return { companiesById, partial: true };
+  for (const row of (data ?? []) as OwnerCompanyRow[]) companiesById.set(row.id, row);
+  return { companiesById, partial: false };
+}
+
 type JobStopRow = {
   id: string;
   job_id: string;
@@ -36,6 +56,7 @@ type JobStopRow = {
   status: string | null;
   arrived_at: string | null;
   completed_at: string | null;
+  handover: unknown;
 };
 
 function mapStop(stop: JobStopRow) {
@@ -53,6 +74,7 @@ function mapStop(stop: JobStopRow) {
     notes: stop.instructions ?? undefined,
     arrivedAt: stop.arrived_at ?? undefined,
     completedAt: stop.completed_at ?? undefined,
+    handover: stop.handover && typeof stop.handover === 'object' ? stop.handover : null,
   };
 }
 
@@ -62,7 +84,7 @@ async function loadStops(jobIds: string[]) {
 
   const { data, error } = await supabaseAdmin
     .from('job_stops')
-    .select('id, job_id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at')
+    .select('id, job_id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at, handover')
     .in('job_id', jobIds)
     .order('sequence', { ascending: true });
 
@@ -120,9 +142,11 @@ export async function GET(request: NextRequest) {
   if (error) return respond(500, { error: error.message });
 
   const rows = (data ?? []) as unknown as MobileJobWithPresentation[];
-  const [commercial, stopData] = await Promise.all([
+  const ownerCompanyIds = [...new Set(rows.map((row) => row.company_id).filter((id): id is string => Boolean(id)))];
+  const [commercial, stopData, ownerCompanies] = await Promise.all([
     loadDriverAgreedRates(supabaseAdmin, rows),
     loadStops(rows.map((row) => row.id)),
+    loadOwnerCompanies(ownerCompanyIds),
   ]);
   const nextCursor = completedHistory && rows.length === limit
     ? rows[rows.length - 1]?.updated_at ?? null
@@ -151,9 +175,12 @@ export async function GET(request: NextRequest) {
       const agreedRate = commercial.rates.get(row.id) ?? null;
       const operational = buildJobOperationalPresentation(row);
       const persistentStops = stopData.stopsByJob.get(row.id) ?? [];
+      const ownerCompany = row.company_id ? ownerCompanies.companiesById.get(row.company_id) ?? null : null;
       return {
         ...mapJob(row),
         ...operational,
+        companyName: ownerCompany?.name ?? undefined,
+        companyXdId: ownerCompany?.xd_id ?? undefined,
         stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,
         attachments: attachments.get(row.id) ?? [],
         pod: pods.get(row.id) ?? null,
@@ -164,6 +191,7 @@ export async function GET(request: NextRequest) {
     }),
     commercialRatePartial: commercial.partial,
     multiDropPartial: stopData.partial,
+    companyPresentationPartial: ownerCompanies.partial,
     podPresentationPartial,
     attachmentPresentationPartial,
   });

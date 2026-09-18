@@ -5,6 +5,8 @@ type AuditSourceRow = {
 
 type CanonicalMobileStatus =
   | 'awarded'
+  | 'allocated'
+  | 'accepted'
   | 'on_my_way_pickup'
   | 'arrived_pickup'
   | 'loaded'
@@ -28,7 +30,9 @@ function validTimestamp(value: unknown) {
 
 function mobileAuditStatus(value: unknown): CanonicalMobileStatus | null {
   const status = text(value)?.toLowerCase() ?? '';
-  if (['awarded', 'allocated', 'assigned', 'accepted'].includes(status)) return 'awarded';
+  if (status === 'awarded') return 'awarded';
+  if (status === 'allocated' || status === 'assigned') return 'allocated';
+  if (status === 'accepted') return 'accepted';
   if (status === 'on_my_way' || status === 'on_my_way_pickup') return 'on_my_way_pickup';
   if (status === 'on_site_pickup' || status === 'arrived_pickup') return 'arrived_pickup';
   if (status === 'loaded' || status === 'collected') return 'loaded';

@@ -121,6 +121,7 @@ export type MobileJobRow = {
   requested_cargo_label: string | null;
   agreed_rate: number | string | null;
   agreed_rate_gbp: number | string | null;
+  payment_terms: string | null;
   collection_contact_name: string | null;
   collection_contact_phone: string | null;
   delivery_contact_name: string | null;
@@ -132,6 +133,12 @@ export type MobileJobRow = {
   access_restrictions: string | null;
   pod_required: boolean | null;
   pod_generated: boolean | null;
+  no_of_items: number | null;
+  packaging: string | null;
+  weight_kg: number | string | null;
+  collection_notes: string | null;
+  pickup_photos: unknown;
+  collection_handover: unknown;
   collection_photo_url: string | null;
   delivery_photos: string[] | null;
   pod_photos: string[] | null;
@@ -262,6 +269,7 @@ export const jobSelect = [
   'requested_cargo_label',
   'agreed_rate',
   'agreed_rate_gbp',
+  'payment_terms',
   'collection_contact_name',
   'collection_contact_phone',
   'delivery_contact_name',
@@ -273,6 +281,12 @@ export const jobSelect = [
   'access_restrictions',
   'pod_required',
   'pod_generated',
+  'no_of_items',
+  'packaging',
+  'weight_kg',
+  'collection_notes',
+  'pickup_photos',
+  'collection_handover',
   'collection_photo_url',
   'delivery_photos',
   'pod_photos',
@@ -308,7 +322,6 @@ export function mobileStatus(job: Pick<MobileJobRow, 'status' | 'current_status'
   if (current === 'on_site_pickup') return 'arrived_pickup';
   if (current === 'on_site_delivery') return 'arrived_delivery';
   if (current === 'in_transit') return 'on_my_way_delivery';
-  if (current === 'allocated') return 'awarded';
   return current;
 }
 
@@ -335,10 +348,17 @@ export function mapJob(row: MobileJobRow) {
     price: toMoney(agreedRateAmount),
     agreedRateAmount,
     budgetAmount: agreedRateAmount,
+    paymentTerms: row.payment_terms || '',
     distanceMiles: Number.isFinite(distance) && distance > 0 ? distance : null,
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
     podRequired: row.pod_required !== false,
     podGenerated: hasPod(row),
+    itemCount: row.no_of_items ?? null,
+    packaging: row.packaging || '',
+    weightKg: Number(row.weight_kg ?? 0) || null,
+    collectionNotes: row.collection_notes || '',
+    pickupPhotos: safeArray(row.pickup_photos).filter((value): value is string => typeof value === 'string'),
+    collectionHandover: row.collection_handover && typeof row.collection_handover === 'object' ? row.collection_handover : null,
     deliveryPhotos: safeArray(row.delivery_photos).filter((value): value is string => typeof value === 'string'),
     podPhotos: safeArray(row.pod_photos).filter((value): value is string => typeof value === 'string'),
     collectionPhotoUrl: row.collection_photo_url,

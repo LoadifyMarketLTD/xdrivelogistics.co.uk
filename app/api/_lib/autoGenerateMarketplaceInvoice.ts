@@ -69,7 +69,7 @@ export async function autoGenerateMarketplaceInvoice({
   const [{ data: job, error: jobError }, { data: buyer, error: buyerError }] = await Promise.all([
     supabase
       .from('jobs')
-      .select('id, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, customer_reference, currency, client_name, client_email')
+      .select('id, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, customer_reference, currency, client_name, client_email, pod_required, pod_generated, pod_generated_at, delivery_photos, pod_photos, client_signature_name')
       .eq('id', jobId)
       .maybeSingle(),
     supabase
@@ -129,7 +129,12 @@ export async function autoGenerateMarketplaceInvoice({
   if (!invoiceNumber) {
     throw new Error('Canonical invoice number generation returned no value.');
   }
-  const jobReference = cleanText(job.customer_reference) || `JOB-${job.id.slice(0, 8).toUpperCase()}`;
+  const jobReference = `XDL-${job.id.slice(0, 8).toUpperCase()}`;
+  const podPhotos = Array.from(new Set([
+    ...(Array.isArray(job.delivery_photos) ? job.delivery_photos : []),
+    ...(Array.isArray(job.pod_photos) ? job.pod_photos : []),
+  ].filter((value): value is string => typeof value === 'string' && value.trim().length > 0)));
+  const recipientName = cleanText(job.client_signature_name);
 
   const { data: inserted, error: insertError } = await supabase
     .from('invoices')
@@ -163,6 +168,12 @@ export async function autoGenerateMarketplaceInvoice({
       buyer_company_id: agreement.buyer_company_id,
       supplier_company_id: agreement.supplier_company_id,
       invoice_generation_idempotency_key: idempotencyKey,
+      pod_required: job.pod_required,
+      pod_generated: job.pod_generated === true,
+      pod_generated_at: cleanText(job.pod_generated_at),
+      pod_photos: podPhotos.length > 0 ? podPhotos : null,
+      recipient_name: recipientName,
+      delivery_recipient: recipientName,
     })
     .select('id')
     .single();
