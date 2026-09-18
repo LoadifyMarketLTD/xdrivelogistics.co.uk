@@ -1,9 +1,3 @@
--- Go-live hardening: the existing POD "operator" upload policy only checks that
--- the caller's company can see the job. Because policies are permissive, that lets
--- any authenticated company member with the same auth_company_id() upload a POD
--- object for that job. Require an actual company operator for this operator path.
--- Assigned drivers keep their separate, exact-assignment upload policy.
-
 BEGIN;
 
 SET LOCAL lock_timeout = '10s';
@@ -50,4 +44,4 @@ BEGIN
 END;
 $$;
 
-COMMIT;
+COMMIT;;

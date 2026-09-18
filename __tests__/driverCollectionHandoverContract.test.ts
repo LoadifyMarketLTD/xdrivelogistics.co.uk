@@ -2,7 +2,7 @@ import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), 'utf8');
-const migration = read('../supabase/migrations/20260917230000_driver_collection_handover.sql');
+const migration = read('../supabase/migrations/20260917221950_driver_collection_handover.sql');
 const handoverRoute = read('../app/api/driver/mobile/jobs/[id]/handover/route.ts');
 const evidenceRoute = read('../app/api/driver/mobile/jobs/[id]/evidence/route.ts');
 const actionRoute = read('../app/api/driver/mobile/jobs/[id]/[action]/route.ts');

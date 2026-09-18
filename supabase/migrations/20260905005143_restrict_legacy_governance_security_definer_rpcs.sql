@@ -1,14 +1,3 @@
--- Go-live hardening: retire authenticated access to hosted legacy governance RPCs.
---
--- These function names do not have active call-sites in the current repository.
--- Historical hosted databases may still retain SECURITY DEFINER versions, which
--- must not remain directly executable by PUBLIC / anon / authenticated roles.
---
--- This migration is intentionally non-destructive: it does not drop or rewrite
--- any function body and is a no-op on clean replays where the legacy functions
--- do not exist. service_role execution is preserved for controlled server-side
--- compatibility while hosted drift is reconciled.
-
 BEGIN;
 
 SET LOCAL lock_timeout = '10s';
@@ -54,4 +43,4 @@ BEGIN
 END;
 $$;
 
-COMMIT;
+COMMIT;;

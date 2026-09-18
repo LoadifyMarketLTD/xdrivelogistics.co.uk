@@ -5,19 +5,19 @@ const readRepoFile = (relativePath: string) =>
   readFileSync(new URL(`../${relativePath}`, import.meta.url), 'utf-8');
 
 const OWNER_AUDIT_INDEX_MIGRATION =
-  'supabase/migrations/20260904214000_add_owner_audit_log_target_company_index.sql';
+  'supabase/migrations/20260904213946_add_owner_audit_log_target_company_index.sql';
 const LEGACY_RPC_RESTRICTION_MIGRATION =
-  'supabase/migrations/20260904222500_restrict_legacy_governance_security_definer_rpcs.sql';
+  'supabase/migrations/20260905005143_restrict_legacy_governance_security_definer_rpcs.sql';
 const BROAD_RLS_DRIFT_MIGRATION =
-  'supabase/migrations/20260904223500_remove_hosted_broad_invoice_company_rls_drift.sql';
+  'supabase/migrations/20260905005259_remove_hosted_broad_invoice_company_rls_drift.sql';
 const DRIVER_SELF_SERVICE_GUARD_MIGRATION =
-  'supabase/migrations/20260904225000_guard_driver_self_service_protected_fields.sql';
+  'supabase/migrations/20260905005440_guard_driver_self_service_protected_fields.sql';
 const POD_STORAGE_OPERATOR_GUARD_MIGRATION =
-  'supabase/migrations/20260904230000_harden_pod_storage_operator_insert.sql';
+  'supabase/migrations/20260905005503_harden_pod_storage_operator_insert.sql';
 const ANON_SECURITY_DEFINER_MIGRATION =
-  'supabase/migrations/20260904231500_close_anonymous_security_definer_rpc_surface.sql';
+  'supabase/migrations/20260905005339_close_anonymous_security_definer_rpc_surface.sql';
 const SERVICE_ONLY_RECONCILIATION_MIGRATION =
-  'supabase/migrations/20260904232000_reconcile_service_only_security_definer_privileges.sql';
+  'supabase/migrations/20260905005352_reconcile_service_only_security_definer_privileges.sql';
 
 const LEGACY_GOVERNANCE_FUNCTIONS = [
   'approve_company',

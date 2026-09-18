@@ -223,7 +223,6 @@ begin
 end;
 $function$;
 
-
 CREATE OR REPLACE FUNCTION public.fn_jobs_mvp_guardrails()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -344,8 +343,6 @@ EXECUTE FUNCTION public.fn_jobs_mvp_guardrails();
 COMMENT ON FUNCTION public.fn_jobs_mvp_guardrails() IS
   'PR357-compatible DB backstop preserving the current live XDrive execution transitions, POD evidence contract and publish/execution compliance boundaries.';
 
-
-
 CREATE OR REPLACE FUNCTION public.fn_sync_legacy_job_status_into_current_status()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -363,9 +360,6 @@ BEGIN
 
   v_status := lower(btrim(COALESCE(NEW.status::text, '')));
 
-  -- Normalize only aliases already recognized by the approved Driver/workspace
-  -- lifecycle. Unknown values and Finance-only aliases are never projected into
-  -- current_status by this compatibility trigger.
   v_execution_status := CASE v_status
     WHEN 'assigned' THEN 'allocated'
     WHEN 'accepted' THEN 'accepted'
@@ -410,7 +404,6 @@ BEFORE UPDATE OF status, current_status ON public.jobs
 FOR EACH ROW
 EXECUTE FUNCTION public.fn_sync_legacy_job_status_into_current_status();
 
-
 COMMENT ON FUNCTION public.driver_update_job_status_atomic(uuid,uuid,text,text,text,jsonb,text,text) IS 'Driver execution lifecycle with explicit allocated -> accepted -> on_my_way acceptance stage.';
 NOTIFY pgrst, 'reload schema';
-COMMIT;
+COMMIT;;

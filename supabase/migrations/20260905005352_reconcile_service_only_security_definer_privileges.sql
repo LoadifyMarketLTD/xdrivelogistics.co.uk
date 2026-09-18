@@ -1,7 +1,3 @@
--- Corrective convergence for preview/hosted environments that may already have
--- replayed an earlier privilege grant. Keep these sensitive SECURITY DEFINER
--- helpers service-only. Missing branch/legacy functions remain untouched.
-
 BEGIN;
 
 SET LOCAL lock_timeout = '10s';
@@ -43,4 +39,4 @@ BEGIN
 END;
 $$;
 
-COMMIT;
+COMMIT;;

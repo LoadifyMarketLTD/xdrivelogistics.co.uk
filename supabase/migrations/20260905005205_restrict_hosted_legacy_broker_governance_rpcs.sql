@@ -1,7 +1,3 @@
--- Go-live hardening: hosted production still contains legacy broker approval RPCs
--- that are not part of the repository migration/runtime contract and have no
--- repository callers. Keep them available only to trusted server/service flows.
-
 BEGIN;
 
 SET LOCAL lock_timeout = '10s';
@@ -38,4 +34,4 @@ BEGIN
 END;
 $$;
 
-COMMIT;
+COMMIT;;

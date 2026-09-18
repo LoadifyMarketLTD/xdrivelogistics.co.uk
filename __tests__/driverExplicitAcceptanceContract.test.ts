@@ -5,7 +5,7 @@ import { nextDriverExecutionStatus } from '../lib/jobs/jobLifecyclePresentation'
 const mobileLib = readFileSync(new URL('../app/api/driver/mobile/_lib.ts', import.meta.url), 'utf8');
 const actionRoute = readFileSync(new URL('../app/api/driver/mobile/jobs/[id]/[action]/route.ts', import.meta.url), 'utf8');
 const executionPage = readFileSync(new URL('../app/components/workspace/DriverJobExecutionPage.tsx', import.meta.url), 'utf8');
-const migration = readFileSync(new URL('../supabase/migrations/20260917221000_driver_explicit_acceptance.sql', import.meta.url), 'utf8');
+const migration = readFileSync(new URL('../supabase/migrations/20260917214605_driver_explicit_acceptance.sql', import.meta.url), 'utf8');
 
 describe('driver explicit acceptance contract', () => {
   it('requires allocated -> accepted -> on_my_way', () => {
