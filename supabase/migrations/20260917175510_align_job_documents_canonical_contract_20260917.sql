@@ -1,4 +1,4 @@
-﻿BEGIN;
+BEGIN;
 
 -- Canonical job attachment fields used by current web/mobile readers.
 -- Preserve the legacy file_url/file_type aliases for backward compatibility.
