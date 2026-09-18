@@ -24,4 +24,10 @@ describe('CX-benchmark nearby jobs contract', () => {
     expect(source).toContain('exchangePostActive(row)');
     expect(source).toContain('expiresAt: row.exchange_expires_at');
   });
+
+  it('returns the persisted Saved/Dismissed preference state for every visible job', () => {
+    expect(source).toContain(".from('driver_job_search_preferences')");
+    expect(source).toContain(".select('job_id,state')");
+    expect(source).toContain('preferenceState: preferenceByJob.get(row.id) ?? null');
+  });
 });
