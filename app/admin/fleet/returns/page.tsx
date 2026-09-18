@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 import { selectWithMissingColumnFallback } from '../../../../lib/supabaseSchemaCompat';
-import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
+import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
@@ -120,7 +120,7 @@ export default function CompanyReturnJourneysPage() {
   );
 
   const latestLocationByDriver = useMemo(() => {
-    const map = new Map<string, (typeof workspace.locations)[number]>();
+    const map = new Map<string, WorkspaceLocation>();
     for (const location of workspace.locations) {
       const current = map.get(location.driver_id);
       const currentAt = current?.recorded_at ?? current?.updated_at ?? '';

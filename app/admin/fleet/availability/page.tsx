@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { classifyWorkspaceJobStage } from '../../../../lib/jobs/workspaceJobStage';
-import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
+import { useCompanyWorkspaceData, type WorkspaceJob, type WorkspaceLocation, type WorkspaceVehicle } from '../../../components/workspace/useCompanyWorkspaceData';
 import { useFleetAvailabilityPresence } from '../../../components/workspace/useFleetAvailabilityPresence';
 import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
 
@@ -25,7 +25,7 @@ export default function FleetAvailabilityPage() {
   const presence = useFleetAvailabilityPresence(data.companyId);
 
   const vehiclesByDriver = useMemo(() => {
-    const map = new Map<string, (typeof data.vehicles)>();
+    const map = new Map<string, WorkspaceVehicle[]>();
     for (const vehicle of data.vehicles) {
       if (!vehicle.assigned_driver_id) continue;
       const rows = map.get(vehicle.assigned_driver_id) ?? [];
@@ -36,7 +36,7 @@ export default function FleetAvailabilityPage() {
   }, [data.vehicles]);
 
   const latestLocationByDriver = useMemo(() => {
-    const map = new Map<string, (typeof data.locations)[number]>();
+    const map = new Map<string, WorkspaceLocation>();
     for (const location of data.locations) {
       const current = map.get(location.driver_id);
       const currentAt = current?.recorded_at ?? current?.updated_at ?? '';
@@ -63,7 +63,7 @@ export default function FleetAvailabilityPage() {
   }, [data.locations, presence.points]);
 
   const workByDriver = useMemo(() => {
-    const map = new Map<string, { job: (typeof data.jobs)[number]; stage: FleetDriverWorkStage }>();
+    const map = new Map<string, { job: WorkspaceJob; stage: FleetDriverWorkStage }>();
     for (const job of data.jobs) {
       if (!job.assigned_driver_id || job.awarded_carrier_company_id !== data.companyId) continue;
       const stage = classifyWorkspaceJobStage(job);

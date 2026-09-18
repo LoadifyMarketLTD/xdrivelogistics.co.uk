@@ -320,7 +320,6 @@ export function CustomerDeliveriesOperationalPage() {
       if (tab === 'photo_evidence' && (job.delivery_photos?.length ?? 0) === 0) return false;
       return !needle || `${job.id} XDL-${job.id.slice(0, 8)} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(needle);
     });
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reference, tab, trackingJobs]);
   const count = (target: typeof tab) => trackingJobs.filter((job) => target === 'all' || target === 'upcoming' ? (target === 'all' || ['awarded', 'allocated'].includes(classifyWorkspaceJobStage(job))) : target === 'live' ? classifyWorkspaceJobStage(job) === 'in_progress' : target === 'delayed' ? isDelayed(job) : target === 'delivered' ? classifyWorkspaceJobStage(job) === 'completed' : (job.delivery_photos?.length ?? 0) > 0).length;
 

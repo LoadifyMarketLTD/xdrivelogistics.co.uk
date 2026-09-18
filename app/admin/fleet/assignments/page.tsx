@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabaseClient';
 import { fleetQueueStage } from '../../../../lib/jobs/workspaceJobStage';
-import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
+import { useCompanyWorkspaceData, type WorkspaceBid, type WorkspaceLocation } from '../../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
@@ -69,7 +69,7 @@ export default function FleetAssignmentsPage() {
   const driverById = useMemo(() => new Map(data.drivers.map((driver) => [driver.id, driver])), [data.drivers]);
 
   const latestLocationByDriver = useMemo(() => {
-    const map = new Map<string, (typeof data.locations)[number]>();
+    const map = new Map<string, WorkspaceLocation>();
     for (const location of data.locations) {
       const current = map.get(location.driver_id);
       const currentTime = current?.recorded_at ?? current?.updated_at ?? '';
@@ -80,7 +80,7 @@ export default function FleetAssignmentsPage() {
   }, [data.locations]);
 
   const acceptedBidByJob = useMemo(() => {
-    const map = new Map<string, (typeof data.bids)[number]>();
+    const map = new Map<string, WorkspaceBid>();
     for (const bid of data.bids) {
       if (bid.company_id !== data.companyId || normalise(bid.status) !== 'accepted') continue;
       if (!map.has(bid.job_id)) map.set(bid.job_id, bid);
