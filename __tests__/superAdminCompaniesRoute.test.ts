@@ -100,7 +100,7 @@ describe('GET /api/super-admin/companies governance history fallback', () => {
         return {
           select: () => ({
             eq: () => ({
-              maybeSingle: async () => ({ data: { role: 'owner' }, error: null }),
+              maybeSingle: async () => ({ data: { role: 'owner', status: 'active' }, error: null }),
             }),
           }),
         };

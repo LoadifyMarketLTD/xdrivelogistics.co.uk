@@ -30,8 +30,10 @@ describe('Super Admin onboarding review gate', () => {
   it('exposes only a Platform Owner review queue and derives approval readiness conservatively', () => {
     const route = readRepoFile('app/api/super-admin/onboarding/route.ts');
 
-    expect(route).toContain("profile?.role !== 'owner'");
-    expect(route).toContain(".in('status', ['submitted', 'under_review', 'request_changes'])");
+    expect(route).toContain('verifyPlatformOwner(request)');
+    expect(route).toContain('Forbidden: active Platform Owner required.');
+    expect(route).toContain('ACTIVE_APPLICATION_STATUSES');
+    expect(route).toContain("['submitted', 'under_review', 'request_changes']");
     expect(route).toContain('COMPANY_BOUND_ACCOUNT_TYPES');
     expect(route).toContain('APPROVABLE_COMPANY_STATUSES');
     expect(route).toContain("'get_missing_onboarding_documents'");

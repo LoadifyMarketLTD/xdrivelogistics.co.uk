@@ -15,8 +15,11 @@ describe('Driver compliance upload contract', () => {
     expect(uploadRoute).toContain('requireWebDriver(request)');
     expect(uploadRoute).toContain(".from('driver_documents')");
     expect(uploadRoute).toContain('.insert({');
-    expect(uploadRoute).toContain(".from('driver-docs')\n    .download(storagePath)");
-    expect(documentsPage).toContain("supabase.storage\n      .from('driver-docs')\n      .upload(storagePath, file");
+    expect(uploadRoute).toContain(".from('driver-docs')");
+    expect(uploadRoute).toContain('.download(storagePath)');
+    expect(documentsPage).toContain('supabase.storage');
+    expect(documentsPage).toContain(".from('driver-docs')");
+    expect(documentsPage).toContain('.upload(storagePath, file');
     expect(documentsPage).toContain("fetch('/api/driver/documents'");
     expect(documentsPage).not.toMatch(/supabase\.from\('driver_documents'\)\.insert/);
   });

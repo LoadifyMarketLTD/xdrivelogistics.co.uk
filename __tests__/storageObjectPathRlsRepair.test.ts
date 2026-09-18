@@ -51,8 +51,11 @@ describe('Storage object-path RLS repair', () => {
     expect(pathRepair).toContain('d.app_access = true');
   });
 
-  it('matches the current mobile POD company/job/category path contract', () => {
-    expect(mobileEvidenceRoute).toContain('`${driver.companyId}/${id}/${category}/${objectName}`');
+  it('matches the current mobile POD company/job/deeper-evidence path contract', () => {
+    expect(mobileEvidenceRoute).toContain("const folder = stopId");
+    expect(mobileEvidenceRoute).toContain("`stops/${stopId}/${category}`");
+    expect(mobileEvidenceRoute).toContain("`collection-${category}`");
+    expect(mobileEvidenceRoute).toContain('`${driver.companyId}/${id}/${folder}/${objectName}`');
     expect(pathRepair).toContain("pod-photos/{carrier_company_id}/{job_id}/{category}/{filename}");
   });
 

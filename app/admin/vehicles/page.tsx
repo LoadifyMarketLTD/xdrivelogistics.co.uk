@@ -9,6 +9,7 @@ import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 import { useAdminCompanyContext } from '../_hooks/useAdminCompanyContext';
+import { getAccessToken } from '../_lib/getAccessToken';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
@@ -247,9 +248,23 @@ export default function VehiclesPage() {
 
   const handleDelete = async (vehicleId: string) => {
     if (!companyId || !isSupabaseConfigured) return;
-    await supabase.from('vehicles').delete().eq('id', vehicleId).eq('company_id', companyId);
+    const { accessToken, error: accessTokenError } = await getAccessToken();
+    if (accessTokenError || !accessToken) {
+      window.alert(accessTokenError ?? 'Session expired. Please sign in again.');
+      return;
+    }
+
+    const response = await fetch(`/api/admin/vehicles/${encodeURIComponent(vehicleId)}?companyId=${encodeURIComponent(companyId)}`, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + accessToken },
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      window.alert(payload.error ?? 'Vehicle could not be deleted.');
+      return;
+    }
     setShowDeleteConfirm(null);
-    loadVehicles();
+    await loadVehicles();
   };
 
   const handleAdvertisingChange = async (vehicleId: string, nextState: AdvertisingState) => {

@@ -74,18 +74,24 @@ export default function DriverNotificationRegister({
     }
     setLoading(true);
     setError('');
-    const { data, error: queryError } = await supabase
-      .from('notifications')
-      .select('id, title, body, type, read_at, created_at')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(100);
-
-    if (queryError) {
-      setError('Notifications are temporarily unavailable.');
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (sessionError || !token) {
+      setError('Your session has expired. Please sign in again.');
+      setMessages([]);
+      setLoading(false);
+      return;
+    }
+    const response = await fetch('/api/driver/notifications', {
+      headers: { Authorization: 'Bearer ' + token },
+      cache: 'no-store',
+    });
+    const payload = (await response.json().catch(() => ({}))) as { notifications?: NotificationRow[]; error?: string };
+    if (!response.ok) {
+      setError(payload.error ?? 'Notifications are temporarily unavailable.');
       setMessages([]);
     } else {
-      setMessages((data ?? []) as NotificationRow[]);
+      setMessages(payload.notifications ?? []);
     }
     setLoading(false);
   }, [user?.id]);
@@ -110,14 +116,23 @@ export default function DriverNotificationRegister({
     if (!user?.id) return;
     setWorkingId(notificationId);
     setError('');
-    const readAt = new Date().toISOString();
-    const { error: updateError } = await supabase
-      .from('notifications')
-      .update({ read_at: readAt })
-      .eq('id', notificationId)
-      .eq('user_id', user.id);
-    if (updateError) setError('This notification could not be marked as read.');
-    else setMessages((current) => current.map((message) => message.id === notificationId ? { ...message, read_at: readAt } : message));
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setError('Your session has expired. Please sign in again.');
+      setWorkingId(null);
+      return;
+    }
+    const response = await fetch(`/api/driver/notifications/${encodeURIComponent(notificationId)}/read`, {
+      method: 'PATCH',
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string; readAt?: string };
+    if (!response.ok) setError(payload.error ?? 'This notification could not be marked as read.');
+    else {
+      const readAt = payload.readAt ?? new Date().toISOString();
+      setMessages((current) => current.map((message) => message.id === notificationId ? { ...message, read_at: readAt } : message));
+    }
     setWorkingId(null);
   };
 
@@ -125,12 +140,19 @@ export default function DriverNotificationRegister({
     if (!user?.id) return;
     setWorkingId(notificationId);
     setError('');
-    const { error: deleteError } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', notificationId)
-      .eq('user_id', user.id);
-    if (deleteError) setError('This notification could not be removed.');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setError('Your session has expired. Please sign in again.');
+      setWorkingId(null);
+      return;
+    }
+    const response = await fetch(`/api/driver/notifications/${encodeURIComponent(notificationId)}`, {
+      method: 'DELETE',
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) setError(payload.error ?? 'This notification could not be removed.');
     else setMessages((current) => current.filter((message) => message.id !== notificationId));
     setWorkingId(null);
   };
@@ -139,14 +161,23 @@ export default function DriverNotificationRegister({
     if (!user?.id || counts.unread === 0) return;
     setWorkingId('all');
     setError('');
-    const readAt = new Date().toISOString();
-    const { error: updateError } = await supabase
-      .from('notifications')
-      .update({ read_at: readAt })
-      .eq('user_id', user.id)
-      .is('read_at', null);
-    if (updateError) setError('Unread notifications could not be marked as read.');
-    else setMessages((current) => current.map((message) => message.read_at ? message : { ...message, read_at: readAt }));
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setError('Your session has expired. Please sign in again.');
+      setWorkingId(null);
+      return;
+    }
+    const response = await fetch('/api/driver/notifications/read-all', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string; readAt?: string };
+    if (!response.ok) setError(payload.error ?? 'Unread notifications could not be marked as read.');
+    else {
+      const readAt = payload.readAt ?? new Date().toISOString();
+      setMessages((current) => current.map((message) => message.read_at ? message : { ...message, read_at: readAt }));
+    }
     setWorkingId(null);
   };
 

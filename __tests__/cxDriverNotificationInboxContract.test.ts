@@ -2,38 +2,40 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const register = fs.readFileSync(path.join(process.cwd(), 'app/driver/_components/DriverNotificationRegister.tsx'), 'utf8');
-const migration = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/20260826094600_notification_inbox_bridge_reconciliation.sql'), 'utf8');
+const listRoute = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/notifications/route.ts'), 'utf8');
+const itemRoute = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/notifications/[id]/route.ts'), 'utf8');
+const readRoute = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/notifications/[id]/read/route.ts'), 'utf8');
+const readAllRoute = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/notifications/read-all/route.ts'), 'utf8');
 
 describe('CX-close Driver notification inbox', () => {
-  it('reads the recipient-scoped notifications inbox rather than delivery queue state', () => {
-    expect(register).toContain(".from('notifications')");
-    expect(register).toContain(".eq('user_id', user.id)");
-    expect(register).toContain('read_at');
-    expect(register).not.toContain(".from('notification_events')");
+  it('reads recipient-scoped notifications through the authorised Driver API', () => {
+    expect(register).toContain("fetch('/api/driver/notifications'");
+    expect(register).not.toContain(".from('notifications')");
+    expect(listRoute).toContain(".from('notifications')");
+    expect(listRoute).toContain(".eq('user_id', driver.userId)");
+    expect(listRoute).toContain('requireWebDriver');
   });
 
-  it('supports unread, mark-read, mark-all-read and remove operations', () => {
-    expect(register).toContain("type TabId = 'all' | 'unread' | 'operational'");
-    expect(register).toContain(".update({ read_at: readAt })");
-    expect(register).toContain(".is('read_at', null)");
-    expect(register).toContain('.delete()');
+  it('supports unread, load alerts, operational, mark-read, mark-all-read and remove operations', () => {
+    expect(register).toContain("type TabId = 'all' | 'unread' | 'load_alerts' | 'operational'");
     expect(register).toContain('Mark all read');
+    expect(readRoute).toContain(".eq('user_id', driver.userId)");
+    expect(readAllRoute).toContain(".eq('user_id', driver.userId)");
+    expect(itemRoute).toContain(".eq('user_id', driver.userId)");
   });
-
-  it('relies on the existing recipient-scoped inbox contract and does not alter DB policy here', () => {
-    expect(migration).toContain('Production already has working recipient-scoped SELECT/UPDATE/DELETE policies');
-    expect(register).not.toContain('service_role');
-  });
-
-  it('keeps known operational event categories visible without fabricating Load Alerts', () => {
+  it('keeps known operational and load-alert categories visible', () => {
+    expect(register).toContain("'load_alert'");
     expect(register).toContain("'job_assigned'");
     expect(register).toContain("'bid_accepted'");
     expect(register).toContain("'pod_uploaded'");
     expect(register).toContain("'tracking_eta_alert'");
-    expect(register).not.toContain("'load_alert'");
   });
 
-  it('does not introduce Super Admin coupling', () => {
+  it('keeps notification mutation server-side and does not introduce Super Admin coupling', () => {
+    expect(register).not.toContain('service_role');
     expect(register).not.toContain('/super-admin');
+    expect(readRoute).toContain('requireWebDriver');
+    expect(readAllRoute).toContain('requireWebDriver');
+    expect(itemRoute).toContain('requireWebDriver');
   });
 });

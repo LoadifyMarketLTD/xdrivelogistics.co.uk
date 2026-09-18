@@ -8,8 +8,10 @@ describe('CX-benchmark nearby jobs contract', () => {
   );
 
   it('returns route intelligence fields that the driver app renders', () => {
-    expect(source).toContain("'job_distance_miles', 'job_distance_minutes', 'distance_to_pickup_miles'");
-    expect(source).toContain('distanceToPickupMiles: marketplaceNumber(row.distance_to_pickup_miles)');
+    expect(source).toContain("'job_distance_miles', 'job_distance_minutes'");
+    expect(source).toContain(".from('driver_locations')");
+    expect(source).toContain(".select('lat,lng,recorded_at')");
+    expect(source).toContain('distanceToPickupMiles: distanceToPickupByJob.get(row.id) ?? null');
     expect(source).toContain('estimatedJourneyMinutes: marketplaceNumber(row.job_distance_minutes)');
   });
 

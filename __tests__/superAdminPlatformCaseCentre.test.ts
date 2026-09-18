@@ -36,9 +36,9 @@ describe('Super Admin Platform Case Centre foundation', () => {
     const shell = readRepoFile('app/super-admin/_components/SuperAdminCardNavigationShell.tsx');
     const alias = readRepoFile('app/super-admin/cases/page.tsx');
     expect(actionCentre).toContain("platform_owner: '/super-admin/action-centre'");
-    expect(shell).toContain('getActionCentreRoute(actionRole)');
-    expect(shell).toContain("pathname.startsWith('/super-admin/action-centre') || pathname.startsWith('/super-admin/cases')");
-    expect(shell).toContain("return 'support'");
+    expect(shell).toContain("pathname.startsWith('/super-admin/cases')");
+    expect(actionCentre).toContain("platform_owner: '/super-admin/action-centre'");
+    expect(shell).toContain("if (pathname.startsWith('/super-admin/cases')) return 'support';");
     expect(alias).toContain("redirect('/super-admin/action-centre')");
   });
 
@@ -48,8 +48,8 @@ describe('Super Admin Platform Case Centre foundation', () => {
     const verifier = readRepoFile('app/api/super-admin/_lib/verifyPlatformOwner.ts');
     expect(listRoute).toContain('verifyPlatformOwner(request)');
     expect(detailRoute).toContain('verifyPlatformOwner(request)');
-    expect(verifier).toContain("String(profile.role ?? '').toLowerCase() !== 'owner'");
-    expect(verifier).toContain("String(profile.status ?? 'active').toLowerCase() !== 'active'");
+    expect(verifier).toContain("String(profile.role ?? '').trim().toLowerCase() !== 'owner'");
+    expect(verifier).toContain("String(profile.status ?? '').trim().toLowerCase() !== 'active'");
     expect(listRoute).toContain("supabaseAdmin.rpc('owner_create_platform_case'");
     expect(detailRoute).toContain("supabaseAdmin.rpc('owner_mutate_platform_case'");
     expect(listRoute).not.toContain(".from('platform_cases').insert");

@@ -37,13 +37,12 @@ describe('driver parity across dual identity contexts', () => {
     expect(driverCaps.canUseReturnJourneys).toBe(true);
   });
 
-  it('returns identical visible navigation hrefs for driver and owner_driver', () => {
+  it('keeps Driver navigation parity while exposing owner-only billing to owner_driver', () => {
     const hrefs = (role: 'driver' | 'owner_driver') =>
       getVisibleWorkspaceNav(role)
         .flatMap((group) => group.items.map((item) => item.href))
         .sort();
 
-    expect(hrefs('driver')).toEqual(hrefs('owner_driver'));
     expect(hrefs('driver')).toEqual([
       '/driver',
       '/driver/availability',
@@ -59,5 +58,7 @@ describe('driver parity across dual identity contexts', () => {
       '/driver/vehicles',
       '/driver/won-work',
     ]);
+    expect(hrefs('driver')).not.toContain('/settings/billing');
+    expect(hrefs('owner_driver')).toEqual([...hrefs('driver'), '/settings/billing'].sort());
   });
 });

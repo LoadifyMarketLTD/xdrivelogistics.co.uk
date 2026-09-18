@@ -294,8 +294,23 @@ export default function MyQuotesPage() {
 
   const handleWithdrawBid = async (bidId: string) => {
     if (!isSupabaseConfigured || !userId) return;
-    const { error: withdrawError } = await supabase.from('job_bids').update({ status: 'withdrawn' }).eq('id', bidId).eq('bidder_user_id', userId);
-    if (!withdrawError) void fetchBids(); else setError('The quote could not be withdrawn. Please try again.');
+    setError('');
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (sessionError || !token) {
+      setError('Your session has expired. Please sign in again.');
+      return;
+    }
+    const response = await fetch(`/api/driver/bids/${encodeURIComponent(bidId)}/withdraw`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token },
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      setError(payload.error ?? 'The quote could not be withdrawn. Please try again.');
+      return;
+    }
+    void fetchBids();
   };
 
   const filteredBids = useMemo(() => bids.filter((bid) => {

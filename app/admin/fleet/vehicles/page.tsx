@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
+import { useCompanyWorkspaceData, type WorkspaceDocument } from '../../../components/workspace/useCompanyWorkspaceData';
 import { useFleetAvailabilityPresence } from '../../../components/workspace/useFleetAvailabilityPresence';
 import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
 
@@ -18,7 +18,7 @@ export default function FleetVehiclesPage() {
   const driverById = useMemo(() => new Map(data.drivers.map((driver) => [driver.id, driver])), [data.drivers]);
 
   const documentsByVehicle = useMemo(() => {
-    const map = new Map<string, (typeof data.vehicleDocuments)>();
+    const map = new Map<string, WorkspaceDocument[]>();
     for (const document of data.vehicleDocuments) {
       if (!document.vehicle_id) continue;
       const rows = map.get(document.vehicle_id) ?? [];
@@ -31,7 +31,7 @@ export default function FleetVehiclesPage() {
   const documentOfType = (vehicleId: string, needle: string) =>
     (documentsByVehicle.get(vehicleId) ?? []).find((document) => normalise(document.doc_type).includes(needle));
 
-  const documentSignal = (documents: (typeof data.vehicleDocuments)) => {
+  const documentSignal = (documents: WorkspaceDocument[]) => {
     if (!documents.length) return { label: 'documents missing', tone: 'red' as const };
     if (documents.some((document) => {
       const days = daysUntil(document.expiry_date);
@@ -66,7 +66,7 @@ export default function FleetVehiclesPage() {
             const mot = documentOfType(vehicle.id, 'mot');
             const insurance = documentOfType(vehicle.id, 'insurance');
             const signal = documentSignal(documents);
-            const docValue = (document: (typeof data.vehicleDocuments)[number] | undefined) => {
+            const docValue = (document: WorkspaceDocument | undefined) => {
               if (!document) return 'Not recorded';
               const days = daysUntil(document.expiry_date);
               return `${document.status ?? 'status unavailable'}${document.expiry_date ? ` · ${document.expiry_date}${days !== null ? ` (${days}d)` : ''}` : ''}`;

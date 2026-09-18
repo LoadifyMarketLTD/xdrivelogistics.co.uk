@@ -18,7 +18,7 @@ function hasPageHeader(filePath: string): boolean {
 
 function hasCompactKpiStrip(filePath: string): boolean {
   const source = read(filePath);
-  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics|driver-dashboard-status/.test(source);
+  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|customer-dash-metrics|driver-dashboard-status/.test(source);
 }
 
 function hasActionCentreRoute(filePath: string): boolean {
@@ -32,7 +32,7 @@ function rowFor(filePath: string) {
   return {
     pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b/.test(source),
     operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b|driver-tab-strip/.test(source),
-    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|customer-dash-metrics|driver-dashboard-status/.test(source),
+    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|customer-dash-metrics|driver-dashboard-status/.test(source),
     operationalTable: /\bOperationalTable\b|\bDataTable\b|customer-dash-table|driver-load-list|driver-load-row/.test(source),
     quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b|customer-action-grid/.test(source),
     financialSummaryPanel: /\bFinancialSummaryPanel\b|customer-dash-summary/.test(source),

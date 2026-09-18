@@ -68,7 +68,7 @@ beforeEach(() => {
         select: () => ({
           eq: () => ({
             maybeSingle: () =>
-              Promise.resolve({ data: { role: mocks.profileRole }, error: null }),
+              Promise.resolve({ data: { role: mocks.profileRole, status: 'active' }, error: null }),
           }),
         }),
       };
@@ -181,7 +181,7 @@ describe('PATCH section=feature-flags', () => {
           select: () => ({
             eq: () => ({
               maybeSingle: () =>
-                Promise.resolve({ data: { role: 'owner' }, error: null }),
+                Promise.resolve({ data: { role: 'owner', status: 'active' }, error: null }),
             }),
           }),
         };
@@ -247,7 +247,7 @@ describe('PATCH section=feature-flags', () => {
           select: () => ({
             eq: () => ({
               maybeSingle: () =>
-                Promise.resolve({ data: { role: 'owner' }, error: null }),
+                Promise.resolve({ data: { role: 'owner', status: 'active' }, error: null }),
             }),
           }),
         };

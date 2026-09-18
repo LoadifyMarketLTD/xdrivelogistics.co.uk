@@ -36,6 +36,7 @@ export default function Page() {
       description="Cross-company invoice ledger with canonical status, currency and audit drill-down. Global monetary summaries remain on Finance Overview so mixed currencies are never silently combined."
       endpoint="/api/super-admin/finance?section=invoices"
       summaryField="summary"
+      pageSize={100}
       emptyMessage="No invoices found."
       columns={[
         { key: 'invoice_number', label: 'Invoice #', render: (row) => <span style={{ fontWeight: 700, fontSize: '0.8rem' }}>{row.invoice_number}</span> },

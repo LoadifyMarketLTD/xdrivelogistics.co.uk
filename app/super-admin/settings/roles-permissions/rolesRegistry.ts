@@ -143,7 +143,7 @@ const CAPABILITY_GROUPS: Array<{
   includes: readonly WorkspaceCapability[];
 }> = [
   { label: 'Platform', includes: ['platform.manage'] },
-  { label: 'Company management', includes: ['company.manage', 'company.members.manage', 'settings.manage'] },
+  { label: 'Company management', includes: ['company.manage', 'company.members.manage', 'billing.manage', 'settings.manage'] },
   { label: 'Commercial', includes: ['loads.create', 'loads.publish', 'loads.view.own', 'loads.view.marketplace', 'quotes.submit', 'quotes.receive', 'quotes.compare', 'quotes.award'] },
   { label: 'Jobs & operations', includes: ['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.execute', 'jobs.track', 'jobs.review_pod', 'incidents.manage'] },
   { label: 'Fleet', includes: ['drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage'] },

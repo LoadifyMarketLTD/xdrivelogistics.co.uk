@@ -30,6 +30,18 @@ import { isDriverContext, requireDriver } from '../app/api/driver/mobile/_lib';
 const SESSION_ID = '11111111-1111-4111-8111-111111111111';
 const INSTALLATION_ID = '22222222-2222-4222-8222-222222222222';
 
+
+type DeviceSelectChain = {
+  eq: () => DeviceSelectChain;
+  is: () => DeviceSelectChain;
+  limit: () => DeviceSelectChain;
+  maybeSingle: () => Promise<typeof mocks.deviceBindingResult>;
+};
+
+type DeviceUpdateChain = {
+  eq: () => DeviceUpdateChain;
+};
+
 function jwtWithSessionId(sessionId: string) {
   return `header.${Buffer.from(JSON.stringify({ session_id: sessionId })).toString('base64url')}.signature`;
 }
@@ -79,12 +91,12 @@ beforeEach(() => {
       return { select: () => ({ eq: () => ({ maybeSingle: async () => mocks.companyResult }) }) };
     }
     if (table === 'driver_mobile_device_sessions') {
-      const selectChain: any = {};
+      const selectChain = {} as DeviceSelectChain;
       selectChain.eq = () => selectChain;
       selectChain.is = () => selectChain;
       selectChain.limit = () => selectChain;
       selectChain.maybeSingle = async () => mocks.deviceBindingResult;
-      const updateChain: any = {};
+      const updateChain = {} as DeviceUpdateChain;
       updateChain.eq = () => updateChain;
       return { select: () => selectChain, update: () => updateChain };
     }

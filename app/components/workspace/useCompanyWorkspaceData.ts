@@ -28,6 +28,10 @@ export type WorkspaceJob = {
   awarded_carrier_company_id?: string | null;
   budget_amount?: number | null;
   delivery_photos?: string[] | null;
+  pod_required?: boolean | null;
+  pod_generated?: boolean | null;
+  has_delivery_evidence?: boolean | null;
+  broker_pod_review_status?: string | null;
   booking_reference?: string | null;
   customer_reference?: string | null;
   created_at: string;
@@ -254,7 +258,7 @@ const CARRIER_DASHBOARD_JOB_SELECT =
   'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name';
 
 const EXECUTION_JOB_SELECT =
-  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, booking_reference, customer_reference, created_at, updated_at, client_name';
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, booking_reference, customer_reference, created_at, updated_at, client_name';
 
 const LEGACY_EXECUTION_JOB_SELECT = EXECUTION_JOB_SELECT
   .split(',')
@@ -548,12 +552,15 @@ const buildWorkspaceError = (
 export function useCompanyWorkspaceData(): WorkspaceDataState {
   const pathname = usePathname() ?? '/';
   const { user } = useAuth();
+  const userId = user?.id ?? null;
+  const driverId = user?.driverId ?? null;
+  const userCompanyId = user?.companyId ?? null;
   const workspaceRole = user?.workspaceRole ?? resolveWorkspaceRole(user);
   const plan = useMemo(
     () => resolveWorkspaceDataQueryPlan({ pathname, workspaceRole }),
     [pathname, workspaceRole],
   );
-  const [companyId, setCompanyId] = useState<string | null>(user?.companyId ?? null);
+  const [companyId, setCompanyId] = useState<string | null>(userCompanyId);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [partialData, setPartialData] = useState(false);
@@ -563,16 +570,16 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
   useEffect(() => {
     let cancelled = false;
     const resolve = async () => {
-      if (!user?.id) return;
+      if (!userId) return;
       const resolved = await resolveActiveCompanyId({
-        userId: user.id,
-        fallbackCompanyId: user.companyId ?? null,
+        userId,
+        fallbackCompanyId: userCompanyId,
       });
       if (!cancelled) setCompanyId(resolved ?? null);
     };
     void resolve();
     return () => { cancelled = true; };
-  }, [user?.id, user?.companyId]);
+  }, [userId, userCompanyId]);
 
   const refresh = useCallback(async () => {
     const nextDatasets = createDatasetMap(plan.datasets);
@@ -635,7 +642,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setError('');
 
     if (requested.has('jobs')) {
-      if (driverSurface && !user?.driverId) {
+      if (driverSurface && !driverId) {
         dependencyUnavailable<WorkspaceJob>('jobs', 'driver context unavailable; assigned job query was not run.');
       } else {
         const runJobsQuery = (selectClause: string) => {
@@ -643,7 +650,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             .from('jobs')
             .select(selectClause);
           const scopedQuery = driverSurface
-            ? query.eq('assigned_driver_id', user!.driverId!)
+            ? query.eq('assigned_driver_id', driverId!)
             : query.or(
               plan.surface === 'customer' || plan.surface === 'broker'
                 ? `company_id.eq.${companyId}`
@@ -702,14 +709,14 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
           break;
         }
         case 'driver': {
-          if (!user?.id) {
+          if (!userId) {
             dependencyUnavailable<WorkspaceBid>('bids', 'user context unavailable; bid query was not run.');
             break;
           }
           const ownBidsRes = await supabase
             .from('job_bids')
             .select('id, job_id, company_id, status, amount, bid_price_gbp, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
-            .eq('bidder_user_id', user.id)
+            .eq('bidder_user_id', userId)
             .order('created_at', { ascending: false })
             .limit(500);
           const ownBidsError = getFirstError(ownBidsRes as QueryResult<WorkspaceBid>);
@@ -810,7 +817,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
           break;
         }
         case 'driver': {
-          if (!user?.driverId) {
+          if (!driverId) {
             dependencyUnavailable<WorkspaceInvoice>('invoices', 'driver context unavailable; driver invoice query was not run.');
             break;
           }
@@ -886,13 +893,13 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
 
     if (requested.has('driverDocuments')) {
       if (plan.surface === 'driver') {
-        if (!user?.driverId) {
+        if (!driverId) {
           dependencyUnavailable<WorkspaceDocument>('driverDocuments', 'driver context unavailable; driver document query was not run.');
         } else {
           const driverDocsRes = await supabase
             .from('driver_documents')
             .select('id, driver_id, doc_type, status, expiry_date')
-            .eq('driver_id', user.driverId)
+            .eq('driver_id', driverId)
             .order('expiry_date', { ascending: true })
             .limit(1000);
           const driverDocsError = getFirstError(driverDocsRes as QueryResult<WorkspaceDocument>);
@@ -961,7 +968,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setPartialData(Object.values(nextDatasets).some((dataset) => dataset.partialData));
     setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
     setLoading(false);
-  }, [companyId, plan, user?.driverId, user?.id]);
+  }, [companyId, plan, driverId, userId]);
 
   useEffect(() => {
     setDatasets(createDatasetMap(plan.datasets));

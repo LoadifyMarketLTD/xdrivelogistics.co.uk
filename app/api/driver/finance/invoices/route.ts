@@ -201,14 +201,11 @@ export async function POST(request: NextRequest) {
     delivery_recipient,
     service_description,
     amount,
-    net_amount,
-    vat_amount,
     vat_rate,
     currency,
     payment_terms,
     invoice_date,
     due_date,
-    late_fee,
   } = body;
 
   if (!client_name || typeof client_name !== 'string' || !client_name.trim()) {
@@ -243,10 +240,43 @@ export async function POST(request: NextRequest) {
         return date.toISOString().split('T')[0];
       })();
 
-  const numericAmount = Number(amount) || 0;
-  const numericNet = typeof net_amount === 'number' ? net_amount : numericAmount;
-  const numericVat = typeof vat_amount === 'number' ? vat_amount : 0;
-  const numericVatRate = vat_rate === 5 || vat_rate === 20 ? vat_rate : 0;
+  if (typeof job_id === 'string' && job_id.trim()) {
+    const { data: job, error: jobError } = await supabaseAdmin
+      .from('jobs')
+      .select('id, company_id, assigned_company_id, awarded_carrier_company_id')
+      .eq('id', job_id.trim())
+      .maybeSingle();
+    if (jobError) return respond(500, { error: 'The related job could not be verified.' });
+    if (!job) return respond(404, { error: 'Related job not found.' });
+    const allowedCompanyIds = new Set([
+      job.company_id,
+      job.assigned_company_id,
+      job.awarded_carrier_company_id,
+    ].filter(Boolean).map(String));
+    if (!allowedCompanyIds.has(driver.companyId)) {
+      return respond(403, { error: 'Your company is not a party to the related job.' });
+    }
+  }
+
+  const { data: company, error: companyError } = await supabaseAdmin
+    .from('companies')
+    .select('status, vat_number')
+    .eq('id', driver.companyId)
+    .maybeSingle();
+  if (companyError) return respond(500, { error: 'Invoice issuer could not be loaded.' });
+  if (!company || String(company.status ?? '').toLowerCase() !== 'active') {
+    return respond(403, { error: 'An active company is required to create invoices.' });
+  }
+
+  const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
+  const numericAmount = roundMoney(Number(amount) || 0);
+  const requestedVatRate = vat_rate === 5 || vat_rate === 20 ? vat_rate : 0;
+  const vatRegistered = Boolean(String(company.vat_number ?? '').trim());
+  const numericVatRate = vatRegistered ? requestedVatRate : 0;
+  const numericNet = numericVatRate > 0
+    ? roundMoney(numericAmount / (1 + numericVatRate / 100))
+    : numericAmount;
+  const numericVat = roundMoney(numericAmount - numericNet);
 
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from('invoices')
@@ -276,7 +306,7 @@ export async function POST(request: NextRequest) {
       payment_terms: typeof payment_terms === 'string' ? payment_terms : '14 days',
       payment_status: 'unpaid',
       invoice_origin: 'manual',
-      late_fee: typeof late_fee === 'string' ? late_fee : null,
+      late_fee: 0,
     })
     .select('id, invoice_number, status')
     .single();

@@ -50,10 +50,9 @@ describe('CX-close carrier and fleet top navigation', () => {
     expect(shell).toContain("hasWorkspaceCapability(role, 'vehicles.manage')");
   });
 
-  it('counts recipient inbox unread rows, not delivery queue failures', () => {
-    expect(shell).toContain(".from('notifications')");
-    expect(shell).toContain(".eq('user_id', user.id)");
-    expect(shell).toContain(".is('read_at', null)");
+  it('counts recipient inbox unread rows through the server-authoritative notification boundary', () => {
+    expect(shell).toContain("/api/workspace/notifications?mode=count");
+    expect(shell).not.toContain(".from('notifications')");
     expect(shell).not.toContain(".from('notification_events')");
   });
 

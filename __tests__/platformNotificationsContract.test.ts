@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   getBearerToken: vi.fn(),
   getUser: vi.fn(),
   from: vi.fn(),
+  rpc: vi.fn(),
   profileRole: 'owner',
   notificationListResponses: [] as Array<{ data: unknown[] | null; error: { message: string; code?: string | null } | null }>,
   notificationLookupResponse: { data: { id: 'evt-1', status: 'failed' }, error: null as { message: string; code?: string | null } | null },
@@ -31,6 +32,7 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => ({
   },
   supabaseAdmin: {
     from: mocks.from,
+    rpc: mocks.rpc,
   },
 }));
 
@@ -57,6 +59,7 @@ beforeEach(() => {
   mocks.getBearerToken.mockReset();
   mocks.getUser.mockReset();
   mocks.from.mockReset();
+  mocks.rpc.mockReset();
   mocks.profileRole = 'owner';
   mocks.notificationListResponses = [];
   mocks.notificationLookupResponse = { data: { id: 'evt-1', status: 'failed' }, error: null };
@@ -65,6 +68,7 @@ beforeEach(() => {
   mocks.notificationUpdatePayloads = [];
   mocks.notificationEqCalls = [];
 
+  mocks.rpc.mockResolvedValue({ data: { notification_id: 'evt-1', status: 'pending' }, error: null });
   mocks.getBearerToken.mockReturnValue('owner-token');
   mocks.getUser.mockResolvedValue({
     data: { user: { id: 'owner-1', email: 'owner@example.com' } },
@@ -76,7 +80,7 @@ beforeEach(() => {
       return {
         select: () => ({
           eq: () => ({
-            maybeSingle: async () => ({ data: { role: mocks.profileRole }, error: null }),
+            maybeSingle: async () => ({ data: { role: mocks.profileRole, status: 'active' }, error: null }),
           }),
         }),
       };
@@ -99,7 +103,7 @@ beforeEach(() => {
           return {
             returns: () => ({
               order: () => ({
-                limit: async () => {
+                range: async () => {
                   const next = mocks.notificationListResponses.shift();
                   if (!next) {
                     throw new Error('Unexpected notification list query');
@@ -246,7 +250,7 @@ describe('platform notifications route flow', () => {
         next_attempt_at: null,
       }),
     ]);
-    expect(body.diagnosticNote).toContain('error detail unavailable');
+    expect(body.diagnosticNote).toContain('Notification durability details are unavailable');
   });
 
   it('surfaces unrelated notification query errors without falling back', async () => {
@@ -271,7 +275,6 @@ describe('platform notifications route flow', () => {
       error: 'Failed to load notification events.',
       diagnosticCode: 'NOTIFICATION_EVENTS_QUERY_FAILED',
       detail: 'permission denied for column last_error of relation notification_events',
-      sourceCode: '42501',
     });
   });
 
@@ -299,22 +302,12 @@ describe('platform notifications route flow', () => {
     expect(body).toEqual({
       section: 'notifications',
       error: 'Failed to load notification events.',
-      diagnosticCode: 'NOTIFICATION_EVENTS_FALLBACK_QUERY_FAILED',
+      diagnosticCode: 'NOTIFICATION_EVENTS_QUERY_FAILED',
       detail: 'database unavailable',
-      sourceCode: '08006',
     });
   });
 
-  it('retries PATCH with the baseline update when durability columns are unavailable', async () => {
-    mocks.notificationUpdateResponses = [
-      {
-        error: {
-          message: "Could not find the 'last_error' column of 'notification_events' in the schema cache",
-          code: 'PGRST204',
-        },
-      },
-      { error: null },
-    ];
+  it('retries notifications only through the owner-governed retry RPC', async () => {
     const { PATCH } = await import('../app/api/super-admin/platform/route');
 
     const response = await PATCH(
@@ -322,22 +315,22 @@ describe('platform notifications route flow', () => {
         section: 'notifications',
         action: 'retry',
         notificationId: 'evt-1',
+        reason: 'Retry after reviewing the failed delivery.',
       }),
     );
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ success: true, notificationId: 'evt-1', status: 'pending' });
-    expect(mocks.notificationUpdatePayloads).toHaveLength(2);
-    expect(mocks.notificationUpdatePayloads[0]).toMatchObject({
-      status: 'pending',
-      processed_at: null,
-      last_error: null,
+    expect(mocks.rpc).toHaveBeenCalledWith('owner_retry_notification_event', {
+      p_actor_user_id: 'owner-1',
+      p_notification_id: 'evt-1',
+      p_reason: 'Retry after reviewing the failed delivery.',
     });
-    expect(mocks.notificationUpdatePayloads[0]?.next_attempt_at).toEqual(expect.any(String));
-    expect(mocks.notificationUpdatePayloads[1]).toEqual({
-      status: 'pending',
-      processed_at: null,
+    expect(body).toEqual({
+      success: true,
+      notificationId: 'evt-1',
+      retry: { notification_id: 'evt-1', status: 'pending' },
     });
+    expect(mocks.notificationUpdatePayloads).toHaveLength(0);
   });
 });

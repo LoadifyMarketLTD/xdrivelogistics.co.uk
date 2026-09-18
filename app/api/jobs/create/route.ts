@@ -25,7 +25,9 @@ const additionalStopSchema = z.object({
 const bodySchema = z.object({
   idempotencyKey: z.string().uuid(),
   companyId: z.string().uuid(),
-  mode: z.enum(['broker', 'customer']),
+  mode: z.enum(['broker', 'customer', 'admin']),
+  jobStatus: z.enum(['draft', 'posted']).optional(),
+  visibility: z.enum(['private', 'exchange']).optional(),
   publish: z.boolean(),
   directInviteCompanyId: z.string().uuid().optional().nullable(),
   clientName: optionalText,
@@ -48,6 +50,7 @@ const bodySchema = z.object({
   cargoLabel: z.string().trim().min(1).max(100),
   weightKg: optionalNumber,
   pallets: z.number().int().nonnegative().optional().nullable(),
+  itemCount: z.number().int().nonnegative().optional().nullable(),
   lengthCm: optionalNumber,
   widthCm: optionalNumber,
   heightCm: optionalNumber,
@@ -63,6 +66,16 @@ const bodySchema = z.object({
   adr: z.boolean(),
   temperatureControlled: z.boolean(),
   fragile: z.boolean(),
+  deliveryTailLift: z.boolean().optional().default(false),
+  deliveryForklift: z.boolean().optional().default(false),
+  deliveryHandball: z.boolean().optional().default(false),
+  palletType: optionalText,
+  palletStackable: z.boolean().optional().nullable(),
+  documentChecklist: z.array(z.string().trim().max(120)).max(30).optional().default([]),
+  collectionAccessRestrictions: z.array(z.string().trim().max(300)).max(20).optional().default([]),
+  deliveryAccessRestrictions: z.array(z.string().trim().max(300)).max(20).optional().default([]),
+  specialRequirementsList: z.array(z.string().trim().max(300)).max(30).optional().default([]),
+  isFixedPrice: z.boolean().optional().default(false),
   publicQuoteNotes: optionalText,
   executionInstructions: optionalText,
   // Legacy input remains accepted so older clients do not break. Legacy notes
@@ -250,6 +263,7 @@ export async function POST(request: NextRequest) {
   }
 
   const specialRequirements = [
+    ...input.specialRequirementsList,
     input.tailLift && 'Tail lift required',
     input.forklift && 'Forklift available at collection',
     input.handball && 'Handball required',
@@ -260,14 +274,20 @@ export async function POST(request: NextRequest) {
   ].filter(Boolean).join(', ');
 
   const now = new Date().toISOString();
-  const requestedStatus = input.publish ? 'posted' : 'draft';
-  const deferPublication = input.publish && input.additionalStops.length > 0;
-  const publishedVisibility = directInviteTarget ? 'direct' : 'exchange';
+  const requestedStatus = input.mode === 'admin' && input.jobStatus
+    ? input.jobStatus
+    : (input.publish ? 'posted' : 'draft');
+  const requestedVisibility = directInviteTarget
+    ? 'direct'
+    : (input.mode === 'admin' ? (input.visibility ?? (input.publish ? 'exchange' : 'private')) : (input.publish ? 'exchange' : 'private'));
+  const wantsExchangePublication = requestedStatus === 'posted' && requestedVisibility !== 'private';
+  const deferPublication = wantsExchangePublication && input.additionalStops.length > 0;
+  const publishedVisibility = requestedStatus === 'draft' ? 'private' : requestedVisibility;
   const status = deferPublication ? 'draft' : requestedStatus;
   const executionInstructions = input.executionInstructions || input.notes || null;
   const loadDetails = JSON.stringify({
     schema: 'xdrive_load_details_v2',
-    source: input.mode === 'broker' ? 'broker_workspace_v3' : 'customer_workspace_v3',
+    source: input.mode === 'broker' ? 'broker_workspace_v3' : input.mode === 'admin' ? 'admin_workspace_v3' : 'customer_workspace_v3',
     targetCarrierCost: input.targetCarrierCost ?? null,
     dimensionsCm: {
       length: input.lengthCm ?? null,
@@ -310,6 +330,9 @@ export async function POST(request: NextRequest) {
     requested_cargo_label: input.cargoLabel,
     weight_kg: input.weightKg ?? null,
     pallets: input.pallets ?? null,
+    items: input.itemCount ?? input.pallets ?? null,
+    pallet_type: input.palletType || null,
+    pallet_stackable: input.palletStackable ?? null,
     length_cm: input.lengthCm ?? null,
     width_cm: input.widthCm ?? null,
     height_cm: input.heightCm ?? null,
@@ -318,14 +341,23 @@ export async function POST(request: NextRequest) {
     collection_tail_lift_required: input.tailLift,
     collection_forklift_available: input.forklift,
     collection_handball_required: input.handball,
+    delivery_tail_lift_required: input.deliveryTailLift,
+    delivery_forklift_available: input.deliveryForklift,
+    delivery_handball_required: input.deliveryHandball,
+    document_checklist: input.documentChecklist,
+    access_restrictions: [
+      ...input.collectionAccessRestrictions.map((value) => `Collection: ${value}`),
+      ...input.deliveryAccessRestrictions.map((value) => `Delivery: ${value}`),
+    ].join(', ') || null,
+    is_fixed_price: input.isFixedPrice,
     special_requirements: specialRequirements || null,
     load_details: loadDetails,
-    exchange_visibility: deferPublication ? 'private' : (input.publish ? publishedVisibility : 'private'),
+    exchange_visibility: deferPublication ? 'private' : publishedVisibility,
     direct_invite_company_id: directInviteTarget?.id ?? null,
-    exchange_posted_at: deferPublication ? null : (input.publish ? now : null),
+    exchange_posted_at: deferPublication ? null : (wantsExchangePublication ? now : null),
     exchange_expires_at: deferPublication
       ? null
-      : (input.publish
+      : (wantsExchangePublication
         ? new Date(Date.now() + exchangeAutoExpireHours * 60 * 60 * 1000).toISOString()
         : null),
     updated_at: now,

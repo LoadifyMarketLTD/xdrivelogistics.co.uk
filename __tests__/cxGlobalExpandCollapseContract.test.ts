@@ -18,15 +18,15 @@ describe('CX global Expand all / Collapse all operational contract', () => {
   it('keeps the shared control on the measured 24px / radius 4 contract', () => {
     const css = read('app/components/workspace/OperationalExpandAllControl.module.css');
     expect(shared).toContain("expanded ? 'Collapse all' : 'Expand all'");
-    expect(css).toContain('height: 24px');
-    expect(css).toContain('border-radius: 4px');
-    expect(css).toContain('font-size: 11px');
+    expect(css).toContain('height: var(--ws-micro-action-h, 24px);');
+    expect(css).toContain('border-radius: var(--ws-radius, 4px);');
+    expect(css).toContain('font-size: var(--ws-font-meta, 11px);');
   });
 
   it('keeps Driver Jobs globally expandable for the visible filtered records', () => {
     expect(driverJobs).toContain('OperationalExpandAllControl');
     expect(driverJobs).toContain('allVisibleExpanded');
-    expect(driverJobs).toContain('filteredJobs.forEach');
+    expect(driverJobs).toContain('for (const job of filteredJobs)');
   });
 
   it('keeps Driver Loads, Advanced Search, Quotes and Diary globally expandable', () => {

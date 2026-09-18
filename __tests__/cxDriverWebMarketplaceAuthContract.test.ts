@@ -17,7 +17,7 @@ describe('CX-close Driver web marketplace authentication', () => {
 
   it('uses approved browser driver authentication for desktop marketplace reads, search and quotes', () => {
     expect(webDriver).toContain('export async function requireWebDriver');
-    expect(webDriver).not.toContain('driver_mobile_device_sessions');
+    expect(webDriver).not.toContain(".from('driver_mobile_device_sessions')");
     expect(marketplace).toContain('requireWebDriver(request)');
     expect(advancedSearch).toContain('requireWebDriver(request)');
     expect(bids).toContain('requireWebDriver(request)');

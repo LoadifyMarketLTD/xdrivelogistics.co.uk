@@ -15,7 +15,7 @@ describe('Compliance CX convergence contract', () => {
 
   it('puts verification and expiry work before coverage analytics', () => {
     expect(source).toContain('<OperationalWorkspaceGrid');
-    expect(source.indexOf('Priority verification & expiry queue')).toBeLessThan(source.indexOf('Compliance coverage'));
+    expect(source.indexOf('Priority verification & expiry queue')).toBeLessThan(source.indexOf('title="Compliance coverage"'));
     expect(source.indexOf('Priority verification & expiry queue')).toBeLessThan(source.indexOf('Incidents requiring follow-up'));
   });
 

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 const root = process.cwd();
 const form = fs.readFileSync(path.join(root, 'app/components/workspace/LoadPostingForm.tsx'), 'utf8');
-const field = fs.readFileSync(path.join(root, 'app/components/workspace/PostcodeAddressField.tsx'), 'utf8');
+const field = fs.readFileSync(path.join(root, 'app/components/workspace/PostcodeAddressField.tsx'), 'utf8').replace(/\r\n/g, '\n');
 const route = fs.readFileSync(path.join(root, 'app/api/location/postcode-addresses/route.ts'), 'utf8');
 
 describe('postcode address lookup contract', () => {

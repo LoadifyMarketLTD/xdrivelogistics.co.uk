@@ -9,6 +9,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getJobClientFields } from '../../../lib/jobClientFields';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { useAuth } from '../../components/AuthContext';
+import { getAccessToken } from '../_lib/getAccessToken';
 import { getLoadDetailSummary, type LoadDetailItem } from '../../../lib/loadPostingDetails';
 import { JobsOperationalTable, jobToRow } from '../../components/workspace/JobsOperationalTable';
 import {
@@ -112,6 +113,7 @@ function JobsPageInner() {
  const [companyLoading, setCompanyLoading] = useState(false);
  const [companyError, setCompanyError] = useState<string | null>(null);
  const [dbError, setDbError] = useState<string | null>(null);
+ const [flowMessage, setFlowMessage] = useState<string | null>(null);
  const [modalError, setModalError] = useState<string | null>(null);
  const [isSubmitting, setIsSubmitting] = useState(false);
  const [jobs, setJobs] = useState<Job[]>([]);
@@ -373,27 +375,36 @@ function JobsPageInner() {
  };
 
  const sendDirectInvite = async () => {
- if (!directInviteJob || !directInviteCarrierId || !isSupabaseConfigured) return;
+ if (!directInviteJob || !directInviteCarrierId || !companyId) return;
  setDirectInviteSending(true);
  setDirectInviteError('');
- const { error } = await supabase
- .from('jobs')
- .update({
- exchange_visibility: 'direct',
- direct_invite_company_id: directInviteCarrierId,
- exchange_posted_at: new Date().toISOString(),
- awarded_carrier_company_id: null,
- })
- .eq('id', directInviteJob.id)
- .eq('company_id', companyId ?? '');
- if (error) {
- setDirectInviteError(`Failed to send invitation: ${error.message}`);
+ setFlowMessage(null);
+ const { accessToken, error: tokenError } = await getAccessToken();
+ if (tokenError || !accessToken) {
+  setDirectInviteError(tokenError ?? 'Your session has expired.');
+  setDirectInviteSending(false);
+  return;
+ }
+ const response = await fetch(`/api/admin/jobs/${encodeURIComponent(directInviteJob.id)}/manage`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+  body: JSON.stringify({
+   action: 'direct_invite',
+   companyId,
+   carrierCompanyId: directInviteCarrierId,
+  }),
+ });
+ const payload = (await response.json().catch(() => ({}))) as { error?: string };
+ if (!response.ok) {
+  setDirectInviteError(payload.error ?? 'Failed to send Direct Booking.');
  } else {
- setDirectInviteJob(null);
- void loadJobs();
+  setDirectInviteJob(null);
+  setFlowMessage('Direct Booking sent to the selected carrier.');
+  void loadJobs();
  }
  setDirectInviteSending(false);
  };
+
 
  /**
   * Transition a job to a new status.
@@ -407,36 +418,28 @@ function JobsPageInner() {
   *     as a defense-in-depth server-side guard.
   */
  const handleStatusChange = async (id: string, newStatus: string) => {
- if (!isSupabaseConfigured || !companyId) return;
+ if (!companyId) return;
  setDbError(null);
+ setFlowMessage(null);
+ const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({ id: j.id, status: j.status, companyId: j.companyId }));
+ const validation = validateJobTransition({ jobs: transitionRecords, id, newStatus, activeCompanyId: companyId });
+ if (!validation.ok) { setDbError(validation.message); return; }
 
- const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({
-  id: j.id,
-  status: j.status,
-  companyId: j.companyId,
- }));
- const validation = validateJobTransition({
-  jobs: transitionRecords,
-  id,
-  newStatus,
-  activeCompanyId: companyId,
+ const { accessToken, error: tokenError } = await getAccessToken();
+ if (tokenError || !accessToken) { setDbError(tokenError ?? 'Your session has expired.'); return; }
+ const action = newStatus === JOB_STATUS.POSTED ? 'publish' : newStatus === JOB_STATUS.CANCELLED ? 'cancel' : null;
+ if (!action) { setDbError(`Status ${newStatus} must be changed through the canonical execution workflow.`); return; }
+ const response = await fetch(`/api/admin/jobs/${encodeURIComponent(id)}/manage`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+  body: JSON.stringify({ action, companyId }),
  });
- if (!validation.ok) {
-  setDbError(validation.message);
-  return;
- }
-
- const { error } = await supabase
-  .from('jobs')
-  .update({ status: newStatus, updated_at: new Date().toISOString() })
-  .eq('id', id)
-  .eq('company_id', companyId);
- if (error) {
-  setDbError(`Failed to update job status: ${error.message}`);
- } else {
-  void loadJobs();
- }
+ const payload = (await response.json().catch(() => ({}))) as { error?: string; cancellationRequested?: boolean };
+ if (!response.ok) { setDbError(payload.error ?? 'The job status could not be changed.'); return; }
+ setFlowMessage(payload.cancellationRequested ? 'Cancellation request sent to the other party.' : action === 'cancel' ? 'Job cancelled.' : 'Job published to the exchange.');
+ await loadJobs();
  };
+
 
  /**
   * Post an eligible draft job to the marketplace.
@@ -450,41 +453,25 @@ function JobsPageInner() {
   * Preserves exchange_posted_at and updated_at on success.
   */
  const handlePostJob = async (id: string) => {
- if (!isSupabaseConfigured || !companyId) return;
+ if (!companyId) return;
  setDbError(null);
-
- const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({
-  id: j.id,
-  status: j.status,
-  companyId: j.companyId,
- }));
- const validation = validateJobTransition({
-  jobs: transitionRecords,
-  id,
-  newStatus: JOB_STATUS.POSTED,
-  activeCompanyId: companyId,
+ setFlowMessage(null);
+ const transitionRecords: JobTransitionRecord[] = jobs.map((j) => ({ id: j.id, status: j.status, companyId: j.companyId }));
+ const validation = validateJobTransition({ jobs: transitionRecords, id, newStatus: JOB_STATUS.POSTED, activeCompanyId: companyId });
+ if (!validation.ok) { setDbError(validation.message); return; }
+ const { accessToken, error: tokenError } = await getAccessToken();
+ if (tokenError || !accessToken) { setDbError(tokenError ?? 'Your session has expired.'); return; }
+ const response = await fetch(`/api/admin/jobs/${encodeURIComponent(id)}/manage`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+  body: JSON.stringify({ action: 'publish', companyId }),
  });
- if (!validation.ok) {
-  setDbError(validation.message);
-  return;
- }
-
- const { error } = await supabase
-  .from('jobs')
-  .update({
-   status: JOB_STATUS.POSTED,
-   exchange_posted_at: new Date().toISOString(),
-   updated_at: new Date().toISOString(),
-  })
-  .eq('id', id)
-  .eq('company_id', companyId)
-  .eq('status', JOB_STATUS.RECEIVED);
- if (error) {
-  setDbError(`Failed to post job: ${error.message}`);
- } else {
-  void loadJobs();
- }
+ const payload = (await response.json().catch(() => ({}))) as { error?: string };
+ if (!response.ok) { setDbError(payload.error ?? 'Failed to publish job.'); return; }
+ setFlowMessage('Job published to the exchange.');
+ await loadJobs();
  };
+
 
  const validateForm = () => {
  const errors: Record<string, string> = {};
@@ -540,121 +527,87 @@ function JobsPageInner() {
  setIsSubmitting(false);
  return;
  }
- const pickupLocation = `${formData.pickupAddress.trim()}, ${formData.pickupPostcode.trim().toUpperCase()}`;
- const deliveryLocation = `${formData.deliveryAddress.trim()}, ${formData.deliveryPostcode.trim().toUpperCase()}`;
- const loadDetails = JSON.stringify({
- createdFrom: 'admin_jobs',
- references: {
- customerReference: formData.customerReference.trim() || null,
- purchaseOrderNumber: formData.purchaseOrderNumber.trim() || null,
- bookingReference: formData.bookingReference.trim() || null,
- },
- collection: {
- date: formData.pickupDate || null,
- timeSlot: formData.pickupTime,
- postcode: formData.pickupPostcode.trim().toUpperCase(),
- address: formData.pickupAddress.trim(),
- contactName: formData.collectionContactName.trim(),
- contactPhone: formData.collectionContactPhone.trim(),
- forkliftAvailable: formData.collectionForkliftAvailable,
- tailLiftRequired: formData.collectionTailLiftRequired,
- handballRequired: formData.collectionHandballRequired,
- },
- delivery: {
- date: formData.deliveryDate || null,
- timeSlot: formData.deliveryTime,
- postcode: formData.deliveryPostcode.trim().toUpperCase(),
- address: formData.deliveryAddress.trim(),
- contactName: formData.deliveryContactName.trim(),
- contactPhone: formData.deliveryContactPhone.trim(),
- forkliftAvailable: formData.deliveryForkliftAvailable,
- tailLiftRequired: formData.deliveryTailLiftRequired,
- handballRequired: formData.deliveryHandballRequired,
- },
- vehicle: vehicleLabelFor(formData.vehicleType),
- cargo: cargoLabelFor(formData.cargoType),
- dimensionsCm: {
- length: formData.lengthCm || null,
- width: formData.widthCm || null,
- height: formData.heightCm || null,
- },
- cargoValueGbp: formData.cargoValueGbp || null,
- palletDetails: formData.cargoType === 'pallets'
- ? { count: formData.cargoQuantity || null, type: formData.palletType, stackable: formData.palletStackable === 'yes' }
- : null,
- documentChecklist: formData.documentChecklist,
- notes: formData.cargoNotes.trim() || null,
- }, null, 2);
-
- const { data: insertedJob, error: insertError } = await supabase.from('jobs').insert([{
- company_id: resolvedCompanyId,
- created_by: user?.id ?? null,
- client_name: formData.clientName.trim(),
- client_email: formData.clientEmail.trim() || null,
- client_phone: formData.clientPhone.trim() || null,
- pickup_location: pickupLocation,
- pickup_postcode: formData.pickupPostcode.trim().toUpperCase(),
- pickup_datetime: buildDateTime(formData.pickupDate, formData.pickupTime),
- pickup_time_slot: formData.pickupTime,
- delivery_location: deliveryLocation,
- delivery_postcode: formData.deliveryPostcode.trim().toUpperCase(),
- delivery_datetime: buildDateTime(formData.deliveryDate, formData.deliveryTime),
- delivery_time_slot: formData.deliveryTime,
- vehicle_type: formData.vehicleType,
- cargo_type: formData.cargoType,
- items: parseInt(formData.cargoQuantity),
- pallets: formData.cargoType === 'pallets' ? parseInt(formData.cargoQuantity) : null,
- weight_kg: toNumberOrNull(formData.totalWeightKg),
- length_cm: toNumberOrNull(formData.lengthCm),
- width_cm: toNumberOrNull(formData.widthCm),
- height_cm: toNumberOrNull(formData.heightCm),
- collection_contact_name: formData.collectionContactName.trim(),
- collection_contact_phone: formData.collectionContactPhone.trim(),
- delivery_contact_name: formData.deliveryContactName.trim(),
- delivery_contact_phone: formData.deliveryContactPhone.trim(),
- customer_reference: formData.customerReference.trim() || null,
- purchase_order_number: formData.purchaseOrderNumber.trim() || null,
- booking_reference: formData.bookingReference.trim() || null,
- requested_vehicle_label: vehicleLabelFor(formData.vehicleType),
- requested_cargo_label: cargoLabelFor(formData.cargoType),
- cargo_value_gbp: toNumberOrNull(formData.cargoValueGbp),
- pallet_type: formData.cargoType === 'pallets' ? formData.palletType : null,
- pallet_stackable: formData.cargoType === 'pallets' ? formData.palletStackable === 'yes' : null,
- collection_forklift_available: formData.collectionForkliftAvailable,
- collection_tail_lift_required: formData.collectionTailLiftRequired,
- collection_handball_required: formData.collectionHandballRequired,
- delivery_forklift_available: formData.deliveryForkliftAvailable,
- delivery_tail_lift_required: formData.deliveryTailLiftRequired,
- delivery_handball_required: formData.deliveryHandballRequired,
- document_checklist: formData.documentChecklist,
- load_details: loadDetails,
- special_requirements: [...formData.specialRequirements, formData.cargoNotes.trim()].filter(Boolean).join(', ') || null,
- access_restrictions: [
- ...formData.collectionAccessRestrictions.map((item) => `Collection: ${item}`),
- ...formData.deliveryAccessRestrictions.map((item) => `Delivery: ${item}`),
- ].join(', ') || null,
- exchange_visibility: formData.exchangeVisibility,
- exchange_posted_at: formData.exchangeVisibility === 'exchange' ? new Date().toISOString() : null,
- budget_amount: toNumberOrNull(formData.budgetAmount),
- is_fixed_price: formData.isFixedPrice,
- currency: 'GBP',
- status,
- }]).select('id').single();
- if (insertError) {
- console.error('Failed to create job:', insertError.message);
- const hint = insertError.message.includes('row-level security') || insertError.message.includes('policy')
- ? ' RLS blocked: verify your company membership is active and migration 012 has been applied in Supabase'
- : insertError.message.includes('schema cache') || insertError.message.includes('column')
- ? ' schema out of date: re-run 011_complete_schema_v2.sql in the Supabase SQL Editor to add missing columns'
- : insertError.message.includes('get_or_create_company')
- ? ' RPC missing: run 011_complete_schema_v2.sql in the Supabase SQL Editor'
- : '';
- setModalError(`${insertError.message}${hint}`);
+ const { accessToken: createAccessToken, error: createTokenError } = await getAccessToken();
+ if (createTokenError || !createAccessToken) {
+ setModalError(createTokenError ?? 'Session expired before the job could be created.');
  setIsSubmitting(false);
  return;
  }
- if (documentFiles.length > 0 && insertedJob?.id) {
- const documentRows = [];
+
+ const quantity = Number.parseInt(formData.cargoQuantity, 10);
+ const publishToExchange = status !== 'draft' && formData.exchangeVisibility === 'exchange';
+ const createResponse = await fetch('/api/jobs/create', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${createAccessToken}` },
+ body: JSON.stringify({
+ idempotencyKey: crypto.randomUUID(),
+ companyId: resolvedCompanyId,
+ mode: 'admin',
+ jobStatus: status === 'draft' ? 'draft' : 'posted',
+ visibility: formData.exchangeVisibility === 'exchange' ? 'exchange' : 'private',
+ publish: publishToExchange,
+ directInviteCompanyId: null,
+ clientName: formData.clientName.trim(),
+ clientEmail: formData.clientEmail.trim() || null,
+ clientPhone: formData.clientPhone.trim() || null,
+ pickupDateTime: buildDateTime(formData.pickupDate, formData.pickupTime) || '',
+ pickupTimeSlot: formData.pickupTime,
+ pickupAddress: formData.pickupAddress.trim(),
+ pickupPostcode: formData.pickupPostcode.trim().toUpperCase(),
+ collectionContact: formData.collectionContactName.trim() || null,
+ collectionPhone: formData.collectionContactPhone.trim() || null,
+ deliveryDateTime: buildDateTime(formData.deliveryDate, formData.deliveryTime),
+ deliveryTimeSlot: formData.deliveryTime,
+ deliveryAddress: formData.deliveryAddress.trim(),
+ deliveryPostcode: formData.deliveryPostcode.trim().toUpperCase(),
+ deliveryContact: formData.deliveryContactName.trim() || null,
+ deliveryPhone: formData.deliveryContactPhone.trim() || null,
+ additionalStops: [],
+ vehicleLabel: vehicleLabelFor(formData.vehicleType),
+ cargoLabel: cargoLabelFor(formData.cargoType),
+ weightKg: toNumberOrNull(formData.totalWeightKg),
+ pallets: formData.cargoType === 'pallets' ? quantity : null,
+ itemCount: Number.isFinite(quantity) ? quantity : null,
+ lengthCm: toNumberOrNull(formData.lengthCm),
+ widthCm: toNumberOrNull(formData.widthCm),
+ heightCm: toNumberOrNull(formData.heightCm),
+ cargoValueGbp: toNumberOrNull(formData.cargoValueGbp),
+ customerReference: formData.customerReference.trim() || null,
+ purchaseOrder: formData.purchaseOrderNumber.trim() || null,
+ bookingReference: formData.bookingReference.trim() || null,
+ customerPrice: toNumberOrNull(formData.budgetAmount),
+ targetCarrierCost: null,
+ tailLift: formData.collectionTailLiftRequired,
+ forklift: formData.collectionForkliftAvailable,
+ handball: formData.collectionHandballRequired,
+ adr: false,
+ temperatureControlled: false,
+ fragile: false,
+ deliveryTailLift: formData.deliveryTailLiftRequired,
+ deliveryForklift: formData.deliveryForkliftAvailable,
+ deliveryHandball: formData.deliveryHandballRequired,
+ palletType: formData.cargoType === 'pallets' ? formData.palletType : null,
+ palletStackable: formData.cargoType === 'pallets' ? formData.palletStackable === 'yes' : null,
+ documentChecklist: formData.documentChecklist,
+ collectionAccessRestrictions: formData.collectionAccessRestrictions,
+ deliveryAccessRestrictions: formData.deliveryAccessRestrictions,
+ specialRequirementsList: formData.specialRequirements,
+ isFixedPrice: formData.isFixedPrice,
+ publicQuoteNotes: null,
+ executionInstructions: formData.cargoNotes.trim() || null,
+ notes: formData.cargoNotes.trim() || null,
+ }),
+ });
+ const createPayload = (await createResponse.json().catch(() => ({}))) as { job?: { id?: string }; error?: string };
+ if (!createResponse.ok || !createPayload.job?.id) {
+ setModalError(createPayload.error ?? 'Job could not be created.');
+ setIsSubmitting(false);
+ return;
+ }
+ const insertedJob = createPayload.job;
+
+ if (documentFiles.length > 0 && insertedJob.id) {
+ const documentRows: Array<{ storagePath: string; fileName: string; fileSizeBytes: number; mimeType: string | null }> = [];
  for (const file of documentFiles) {
  const storagePath = `${resolvedCompanyId}/${insertedJob.id}/${Date.now()}-${cleanFileName(file.name)}`;
  const { error: uploadError } = await supabase.storage.from('load-documents').upload(storagePath, file, {
@@ -663,26 +616,39 @@ function JobsPageInner() {
  contentType: file.type || undefined,
  });
  if (uploadError) {
+ if (documentRows.length > 0) {
+ await supabase.storage.from('load-documents').remove(documentRows.map((document) => document.storagePath));
+ }
  setModalError(`Job was created, but document upload failed for ${file.name}: ${uploadError.message}`);
  setIsSubmitting(false);
  await loadJobs();
  return;
  }
  documentRows.push({
- job_id: insertedJob.id,
- company_id: resolvedCompanyId,
- uploaded_by: user?.id ?? null,
- uploaded_by_role: 'admin',
- doc_type: 'admin_load_attachment',
- file_path: storagePath,
- file_name: file.name,
- file_size_bytes: file.size,
- mime_type: file.type || null,
+ storagePath,
+ fileName: file.name,
+ fileSizeBytes: file.size,
+ mimeType: file.type || null,
  });
  }
- const { error: documentsError } = await supabase.from('job_documents').insert(documentRows);
- if (documentsError) {
- setModalError(`Job was created, but document records could not be saved: ${documentsError.message}`);
+
+ const { accessToken, error: accessTokenError } = await getAccessToken();
+ if (accessTokenError || !accessToken) {
+ await supabase.storage.from('load-documents').remove(documentRows.map((document) => document.storagePath));
+ setModalError(accessTokenError ?? 'Session expired before document metadata could be saved.');
+ setIsSubmitting(false);
+ await loadJobs();
+ return;
+ }
+
+ const documentResponse = await fetch(`/api/admin/jobs/${encodeURIComponent(insertedJob.id)}/documents`, {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + accessToken },
+ body: JSON.stringify({ companyId: resolvedCompanyId, documents: documentRows }),
+ });
+ const documentPayload = (await documentResponse.json().catch(() => ({}))) as { error?: string };
+ if (!documentResponse.ok) {
+ setModalError(`Job was created, but document records could not be saved: ${documentPayload.error ?? 'Unknown document service error.'}`);
  setIsSubmitting(false);
  await loadJobs();
  return;
@@ -814,6 +780,7 @@ function JobsPageInner() {
   newJobDisabled={newJobDisabled}
   companyError={companyError}
   dbError={dbError}
+  flowMessage={flowMessage}
   hasSupabaseSession={hasSupabaseSession}
   onRetryCompany={user?.id ? () => loadCompanyId(user.id) : undefined}
   onDismissDbError={() => setDbError(null)}

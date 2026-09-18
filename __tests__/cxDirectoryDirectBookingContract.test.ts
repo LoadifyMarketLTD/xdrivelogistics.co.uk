@@ -49,7 +49,9 @@ describe('CX-informed Directory and Direct Booking contract', () => {
     expect(createJobApi).toContain('directInviteCompanyId: z.string().uuid().optional().nullable()');
     expect(createJobApi).toContain("A company cannot send a Direct Booking to itself.");
     expect(createJobApi).toContain("The selected Direct Booking carrier is no longer active.");
-    expect(createJobApi).toContain("const publishedVisibility = directInviteTarget ? 'direct' : 'exchange';");
+    expect(createJobApi).toContain('const requestedVisibility = directInviteTarget');
+    expect(createJobApi).toContain("? 'direct'");
+    expect(createJobApi).toContain("const publishedVisibility = requestedStatus === 'draft' ? 'private' : requestedVisibility;");
     expect(createJobApi).toContain('direct_invite_company_id: directInviteTarget?.id ?? null');
     expect(createJobApi).toContain('exchange_visibility: publishedVisibility');
   });
