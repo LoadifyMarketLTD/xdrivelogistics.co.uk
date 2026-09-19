@@ -7,6 +7,7 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
 import PostcodeAddressField from './PostcodeAddressField';
+import { londonLocalDateTimeToIso } from '../../../lib/londonDateTime';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
 const CARGO = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
@@ -250,7 +251,10 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
     [next[index], next[target]] = [next[target], next[index]];
     return next;
   });
-  const dateTime = (date: string, time: string) => date && time ? `${date}T${time}:00` : null;
+  const dateTime = (date: string, time: string) => {
+    if (!date || !time) return null;
+    return londonLocalDateTimeToIso(date, time);
+  };
   const todayKey = clockNow ? localDateKey(clockNow) : '';
   const minimumRouteDate = form.pickupDate && (!todayKey || form.pickupDate > todayKey) ? form.pickupDate : todayKey;
 
