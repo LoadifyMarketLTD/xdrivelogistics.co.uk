@@ -19,6 +19,12 @@ describe('CX-benchmark nearby jobs contract', () => {
     expect(source).toContain('Math.min(300, Math.max(10, Math.round(requestedRadius)))');
   });
 
+  it('resolves UK outcodes and suppresses impossible domestic pickup distances', () => {
+    expect(source).toContain("https://api.postcodes.io/outcodes/");
+    expect(source).toContain("rawMiles !== null && gbPickup && rawMiles > 700 ? null : rawMiles");
+    expect(source).toContain("distanceToPickupMiles: null");
+  });
+
   it('does not return expired exchange loads and exposes expiry to the client', () => {
     expect(source).toContain('exchange_expires_at: string | null');
     expect(source).toContain('exchangePostActive(row)');

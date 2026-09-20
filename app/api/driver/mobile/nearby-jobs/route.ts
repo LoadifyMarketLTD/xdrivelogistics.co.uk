@@ -189,6 +189,7 @@ async function postcodeCoordinates(postcodes: unknown[]) {
   const unique = [...new Set(postcodes.map(postcodeKey).filter(Boolean))];
   const result = new Map<string, Coordinates>();
   if (unique.length === 0) return result;
+
   try {
     const response = await fetch('https://api.postcodes.io/postcodes', {
       method: 'POST',
@@ -196,17 +197,40 @@ async function postcodeCoordinates(postcodes: unknown[]) {
       body: JSON.stringify({ postcodes: unique }),
       signal: AbortSignal.timeout(5_000),
     });
-    if (!response.ok) return result;
-    const payload = await response.json() as {
-      result?: Array<{ query?: string; result?: { latitude?: number; longitude?: number } | null }>;
-    };
-    for (const item of payload.result ?? []) {
-      const coordinates = validCoordinates(item.result?.latitude, item.result?.longitude);
-      if (coordinates) result.set(postcodeKey(item.query), coordinates);
+    if (response.ok) {
+      const payload = await response.json() as {
+        result?: Array<{ query?: string; result?: { latitude?: number; longitude?: number } | null }>;
+      };
+      for (const item of payload.result ?? []) {
+        const coordinates = validCoordinates(item.result?.latitude, item.result?.longitude);
+        if (coordinates) result.set(postcodeKey(item.query), coordinates);
+      }
     }
   } catch {
-    // Postcode enrichment is best-effort; private coordinates are used only server-side for ranking.
+    // Continue to outcode fallback below.
   }
+
+  // Marketplace jobs can intentionally expose only a UK outcode (for example BB2).
+  // postcodes.io /postcodes cannot resolve an outcode, so use its centroid instead.
+  const unresolved = unique.filter((value) => !result.has(value));
+  await Promise.all(unresolved.map(async (value) => {
+    const outcode = value.match(/^[A-Z]{1,2}\d[A-Z\d]?/)?.[0] ?? '';
+    if (!outcode) return;
+    try {
+      const response = await fetch('https://api.postcodes.io/outcodes/' + encodeURIComponent(outcode), {
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (!response.ok) return;
+      const payload = await response.json() as {
+        result?: { latitude?: number; longitude?: number } | null;
+      };
+      const coordinates = validCoordinates(payload.result?.latitude, payload.result?.longitude);
+      if (coordinates) result.set(value, coordinates);
+    } catch {
+      // Best-effort only. Unknown distance is safer than an invented distance.
+    }
+  }));
+
   return result;
 }
 
