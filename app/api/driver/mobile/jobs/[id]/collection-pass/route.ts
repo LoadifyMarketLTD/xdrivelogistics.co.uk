@@ -21,13 +21,44 @@ function normalizeStatus(value: unknown) {
   return String(value ?? '').trim().toLowerCase();
 }
 
+type AssignedJob = {
+  id: string;
+  status: string | null;
+  current_status: string | null;
+  assigned_driver_id: string | null;
+  accepted_bid_id: string | null;
+  collection_pass_required: boolean | null;
+  pickup_datetime: string | null;
+  collection_window_end: string | null;
+};
+
 async function loadAssignedJob(id: string, driverId: string) {
   return supabaseAdmin!
     .from('jobs')
-    .select('id,status,current_status,assigned_driver_id,assigned_vehicle_id,collection_pass_required,pickup_datetime,collection_window_end')
+    .select('id,status,current_status,assigned_driver_id,accepted_bid_id,collection_pass_required,pickup_datetime,collection_window_end')
     .eq('id', id)
     .eq('assigned_driver_id', driverId)
     .maybeSingle();
+}
+
+async function resolveVehicleId(job: AssignedJob, driverId: string) {
+  if (job.accepted_bid_id) {
+    const { data: acceptedBid } = await supabaseAdmin!
+      .from('job_bids')
+      .select('quote_vehicle_id')
+      .eq('id', job.accepted_bid_id)
+      .maybeSingle();
+    if (acceptedBid?.quote_vehicle_id) return String(acceptedBid.quote_vehicle_id);
+  }
+
+  const { data: vehicle } = await supabaseAdmin!
+    .from('vehicles')
+    .select('id')
+    .eq('assigned_driver_id', driverId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return vehicle?.id ? String(vehicle.id) : null;
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -38,9 +69,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!isDriverContext(driver)) return driver;
   const { id } = await params;
 
-  const { data: job, error: jobError } = await loadAssignedJob(id, driver.driverId);
+  const { data: jobData, error: jobError } = await loadAssignedJob(id, driver.driverId);
   if (jobError) return respond(500, { error: jobError.message });
-  if (!job) return respond(404, { error: 'Job not found.' });
+  if (!jobData) return respond(404, { error: 'Job not found.' });
+  const job = jobData as AssignedJob;
 
   const { data: pass, error: passError } = await supabaseAdmin
     .from('driver_collection_passes')
@@ -61,6 +93,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .eq('status', 'active');
   }
 
+  const vehicleId = pass?.vehicle_id ? String(pass.vehicle_id) : await resolveVehicleId(job, driver.driverId);
+
   return respond(200, {
     ok: true,
     required: job.collection_pass_required === true,
@@ -69,7 +103,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     expiresAt: pass?.expires_at ?? null,
     activatedAt: pass?.activated_at ?? null,
     verifiedAt: pass?.verified_at ?? null,
-    vehicleId: pass?.vehicle_id ?? job.assigned_vehicle_id ?? null,
+    vehicleId,
     lockedUntil: pass?.locked_until ?? null,
   });
 }
@@ -85,9 +119,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const action = String(body.action ?? 'activate').trim().toLowerCase();
   if (!['activate', 'rotate', 'revoke'].includes(action)) return respond(400, { error: 'Unsupported collection pass action.' });
 
-  const { data: job, error: jobError } = await loadAssignedJob(id, driver.driverId);
+  const { data: jobData, error: jobError } = await loadAssignedJob(id, driver.driverId);
   if (jobError) return respond(500, { error: jobError.message });
-  if (!job) return respond(404, { error: 'Job not found.' });
+  if (!jobData) return respond(404, { error: 'Job not found.' });
+  const job = jobData as AssignedJob;
 
   const jobStatus = normalizeStatus(job.current_status || job.status);
   if (terminalStatuses.has(jobStatus)) return respond(409, { error: 'Collection Pass is unavailable after the job has finished.' });
@@ -106,13 +141,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     return respond(200, { ok: true, status: 'revoked' });
   }
 
+  const vehicleId = await resolveVehicleId(job, driver.driverId);
   const code = String(randomInt(100000, 1000000));
   const now = new Date();
   const expiresAt = new Date(now.getTime() + 8 * 60 * 60 * 1000).toISOString();
   const record = {
     job_id: id,
     driver_id: driver.driverId,
-    vehicle_id: job.assigned_vehicle_id ?? null,
+    vehicle_id: vehicleId,
     token_hash: passHash(id, code),
     code_last4: code.slice(-4),
     status: 'active',
@@ -140,6 +176,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     code,
     codeLast4: code.slice(-4),
     expiresAt,
-    vehicleId: job.assigned_vehicle_id ?? null,
+    vehicleId,
   });
 }
