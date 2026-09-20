@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
   if (context.companyId) {
     const invoiceResult = await supabaseAdmin!
       .from('invoices')
-      .select('id,invoice_number,status,payment_status,total,amount,currency,client_name,due_date')
+      .select('id,invoice_number,job_id,job_ref,status,payment_status,total,amount,currency,client_name,due_date,payment_terms,created_at')
       .eq('company_id', context.companyId)
       .eq('created_by', context.userId)
       .order('created_at', { ascending: false })
