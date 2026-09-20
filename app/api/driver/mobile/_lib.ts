@@ -370,6 +370,9 @@ export function mapJob(row: MobileJobRow) {
     collectionPhotoUrl: row.collection_photo_url,
     deliverySignatureData: row.delivery_signature_data,
     clientSignatureName: row.client_signature_name || '',
+    statusHistory: safeArray(row.status_history).filter(
+      (value): value is Record<string, unknown> => Boolean(value) && typeof value === 'object',
+    ),
     contactAllowed: Boolean(contactPhone),
     contactName,
     contactPhone,
