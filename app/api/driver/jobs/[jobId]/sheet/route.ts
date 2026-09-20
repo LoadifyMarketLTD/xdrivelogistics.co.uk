@@ -80,6 +80,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const job = rawJob as Record<string, unknown>;
   const originCompanyId = text(job.company_id);
+  const postedByUserId = text(job.created_by);
   const vehicleId = text(job.vehicle_id);
 
   const acceptedBidPromise = driver.companyId
@@ -91,8 +92,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // than being bypassed through this service-role enrichment endpoint.
   const invoicePromise = Promise.resolve({ data: [], error: null });
 
-  const [companyResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult] = await Promise.all([
+  const [companyResult, posterProfileResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult] = await Promise.all([
     originCompanyId ? supabaseAdmin.from('companies').select('*').eq('id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
+    postedByUserId ? supabaseAdmin.from('profiles').select('xd_id').eq('user_id', postedByUserId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     acceptedBidPromise,
     supabaseAdmin.from('job_commercial_agreements').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('job_tracking_events').select('*').eq('job_id', jobId).order('created_at', { ascending: true }).limit(250),
@@ -105,6 +107,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   ]);
 
   const company = (companyResult.data ?? {}) as Record<string, unknown>;
+  const posterProfile = (posterProfileResult.data ?? {}) as Record<string, unknown>;
   const acceptedBid = (bidResult.data ?? {}) as Record<string, unknown>;
   const agreement = (agreementResult.data ?? {}) as Record<string, unknown>;
   const vehicle = (vehicleResult.data ?? {}) as Record<string, unknown>;
@@ -177,7 +180,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       bookedAt: acceptedAt,
       postingCompanyId: originCompanyId,
       bookedBy: text(company.name) || 'Marketplace member',
-      memberCode: text(company.company_number),
+      memberCode: text(posterProfile.xd_id) ?? text(company.xd_id),
       memberPhone: text(company.phone),
       executingCompanyId: text(agreement.supplier_company_id) ?? text(job.awarded_carrier_company_id) ?? driver.companyId,
       driverId: driver.driverId,
@@ -259,6 +262,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       invoices,
       partial: Boolean(
         companyResult.error
+        || posterProfileResult.error
         || bidResult.error
         || agreementResult.error
         || trackingResult.error

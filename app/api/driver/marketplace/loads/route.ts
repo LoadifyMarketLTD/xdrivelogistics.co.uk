@@ -31,7 +31,7 @@ type JobRow = Record<string, unknown> & {
 type CompanyRow = {
   id: string;
   name: string | null;
-  company_number: string | null;
+  xd_id: string | null;
   phone: string | null;
   company_type: string | null;
   created_at: string | null;
@@ -40,6 +40,7 @@ type CompanyRow = {
 type ProfileRow = {
   user_id: string;
   full_name: string | null;
+  xd_id: string | null;
 };
 
 type BidRow = {
@@ -74,7 +75,9 @@ function publicLoad(
   const companyId = marketplaceText(job.company_id) ?? '';
   const company = companyById.get(companyId) ?? null;
   const createdBy = marketplaceText(job.created_by);
-  const postedBy = createdBy ? profileByUserId.get(createdBy)?.full_name ?? null : null;
+  const posterProfile = createdBy ? profileByUserId.get(createdBy) ?? null : null;
+  const postedBy = posterProfile?.full_name ?? null;
+  const memberId = posterProfile?.xd_id ?? company?.xd_id ?? null;
   const bid = bidByJobId.get(String(job.id)) ?? null;
 
   return {
@@ -125,7 +128,7 @@ function publicLoad(
     member: {
       companyId,
       name: company?.name ?? 'Marketplace member',
-      memberId: company?.company_number ?? null,
+      memberId,
       phone: company?.phone ?? null,
       memberType: company?.company_type ?? null,
       memberSince: company?.created_at ?? null,
@@ -209,10 +212,10 @@ export async function GET(request: NextRequest) {
 
   const [companiesResult, profilesResult, bidsResult] = await Promise.all([
     companyIds.length
-      ? supabaseAdmin.from('companies').select('id, name, company_number, phone, company_type, created_at').in('id', companyIds)
+      ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type, created_at').in('id', companyIds)
       : Promise.resolve({ data: [], error: null }),
     createdByIds.length
-      ? supabaseAdmin.from('profiles').select('user_id, full_name').in('user_id', createdByIds)
+      ? supabaseAdmin.from('profiles').select('user_id, full_name, xd_id').in('user_id', createdByIds)
       : Promise.resolve({ data: [], error: null }),
     bidQuery
       ? driver.companyId

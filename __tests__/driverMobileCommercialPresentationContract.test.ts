@@ -11,7 +11,9 @@ describe('driver mobile commercial presentation', () => {
     expect(route).toContain(".from('companies')");
     expect(route).toContain(".select('id, name, xd_id')");
     expect(route).toContain('companyName: ownerCompany?.name ?? undefined');
-    expect(route).toContain('companyXdId: ownerCompany?.xd_id ?? undefined');
+    expect(route).toContain('companyXdId: posterMemberId ?? ownerCompany?.xd_id ?? undefined');
+    expect(route).toContain(".from('profiles')");
+    expect(route).toContain(".select('user_id,xd_id')");
     expect(lib).toContain("'payment_terms'");
     expect(lib).toContain("paymentTerms: row.payment_terms || ''");
   });

@@ -12,6 +12,7 @@ import { isDriverContext, requireDriver, respond } from '../_lib';
 type NearbyJobRow = {
   id: string;
   company_id: string | null;
+  created_by: string | null;
   status: string | null;
   exchange_visibility: string | null;
   awarded_carrier_company_id: string | null;
@@ -54,12 +55,12 @@ type NearbyJobRow = {
   exchange_expires_at: string | null;
   companies?: {
     name?: string | null;
-    company_number?: string | null;
+    xd_id?: string | null;
     company_type?: string | null;
     created_at?: string | null;
   } | Array<{
     name?: string | null;
-    company_number?: string | null;
+    xd_id?: string | null;
     company_type?: string | null;
     created_at?: string | null;
   }> | null;
@@ -67,14 +68,14 @@ type NearbyJobRow = {
 
 // Explicit company FK keeps PostgREST embedding deterministic for mobile loads.
 const nearbySelect = [
-  'id', 'company_id', 'status', 'exchange_visibility', 'awarded_carrier_company_id', 'assigned_company_id', 'assigned_driver_id', 'direct_invite_company_id',
+  'id', 'company_id', 'created_by', 'status', 'exchange_visibility', 'awarded_carrier_company_id', 'assigned_company_id', 'assigned_driver_id', 'direct_invite_company_id',
   'pickup_location', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot',
   'delivery_location', 'delivery_postcode', 'delivery_lat', 'delivery_lng', 'delivery_datetime', 'delivery_time_slot',
   'pickup_country_code', 'delivery_country_code', 'service_mode', 'direct_delivery_required',
   'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label', 'cargo_type', 'requested_cargo_label',
   'pallets', 'weight_kg', 'budget_amount', 'currency', 'is_fixed_price', 'load_details', 'special_requirements', 'access_restrictions',
   'job_distance_miles', 'job_distance_minutes', 'exchange_posted_at', 'exchange_expires_at',
-  'companies!jobs_company_id_fkey(name,company_number,company_type,created_at)',
+  'companies!jobs_company_id_fkey(name,xd_id,company_type,created_at)',
 ].join(',');
 
 function companyInfo(companies: NearbyJobRow['companies']) {
@@ -87,7 +88,7 @@ function publicArea(postcode: unknown) {
   return outcode ? `Approx. area · ${outcode}` : 'Area disclosed after allocation';
 }
 
-function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
+function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: Record<string, unknown> = {}) {
   const proposedPrice = proposedPriceAmount(row.budget_amount);
   const hasProposedPrice = proposedPrice !== null;
   const company = companyInfo(row.companies);
@@ -96,7 +97,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
     publicReference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
     poster: {
       name: company?.name ?? null,
-      memberCode: company?.company_number ?? null,
+      memberCode: posterMemberId ?? company?.xd_id ?? null,
       memberType: company?.company_type ?? null,
       memberSince: company?.created_at ?? null,
     },
@@ -144,7 +145,7 @@ function mapNearbyJob(row: NearbyJobRow, extras: Record<string, unknown> = {}) {
   };
 }
 
-function matchesPublicSearch(row: NearbyJobRow, search: string) {
+function matchesPublicSearch(row: NearbyJobRow, search: string, posterMemberId: string | null) {
   if (!search) return true;
   const company = companyInfo(row.companies);
   const publicText = [
@@ -156,7 +157,8 @@ function matchesPublicSearch(row: NearbyJobRow, search: string) {
     row.cargo_type,
     row.requested_cargo_label,
     company?.name,
-    company?.company_number,
+    posterMemberId,
+    company?.xd_id,
     row.id,
   ].filter(Boolean).join(' ').toLowerCase();
   return publicText.includes(search);
@@ -242,8 +244,23 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });
-  const rows = ((data ?? []) as unknown as NearbyJobRow[])
-    .filter((row) => exchangePostActive(row) && matchesPublicSearch(row, search))
+  const activeRows = ((data ?? []) as unknown as NearbyJobRow[])
+    .filter((row) => exchangePostActive(row));
+  const posterUserIds = [...new Set(activeRows.map((row) => String(row.created_by ?? '')).filter(Boolean))];
+  const posterProfilesResult = posterUserIds.length
+    ? await supabaseAdmin.from('profiles').select('user_id,xd_id').in('user_id', posterUserIds)
+    : { data: [], error: null };
+  if (posterProfilesResult.error) return respond(500, { error: 'Marketplace member identity could not be loaded.' });
+  const posterMemberIdByUser = new Map(
+    (posterProfilesResult.data ?? []).map((profile) => [String(profile.user_id), String(profile.xd_id ?? '')]),
+  );
+  const posterMemberId = (row: NearbyJobRow) => {
+    const userXdId = posterMemberIdByUser.get(String(row.created_by ?? '')) || null;
+    const company = companyInfo(row.companies);
+    return userXdId || company?.xd_id || null;
+  };
+  const rows = activeRows
+    .filter((row) => matchesPublicSearch(row, search, posterMemberId(row)))
     .slice(0, limit);
   const commercialBidExtras = driver.canCommercialBid
     ? {}
@@ -270,7 +287,7 @@ export async function GET(request: NextRequest) {
     const miles = driverPosition && pickup ? distanceMiles(driverPosition, pickup) : null;
     distanceToPickupByJob.set(row.id, miles === null ? null : Number(miles.toFixed(1)));
   }
-  const baseJob = (row: NearbyJobRow, extras: Record<string, unknown> = {}) => mapNearbyJob(row, {
+  const baseJob = (row: NearbyJobRow, extras: Record<string, unknown> = {}) => mapNearbyJob(row, posterMemberId(row), {
     ...commercialBidExtras,
     distanceToPickupMiles: distanceToPickupByJob.get(row.id) ?? null,
     ...extras,

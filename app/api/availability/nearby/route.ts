@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
     companyIds.length
       ? supabaseAdmin
           .from('companies')
-          .select('id, name, company_number, company_type, status')
+          .select('id, name, xd_id, company_type, status')
           .in('id', companyIds)
           .limit(500)
       : Promise.resolve({ data: [], error: null }),
@@ -146,7 +146,7 @@ export async function GET(request: NextRequest) {
     return [{
       company_id: companyId,
       member_name: company.name ?? null,
-      member_code: company.company_number ?? null,
+      member_code: company.xd_id ?? null,
       member_type: company.company_type ?? null,
       scope: 'exchange',
       lat: Number(row.exchange_lat),

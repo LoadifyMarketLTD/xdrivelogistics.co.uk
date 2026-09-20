@@ -101,6 +101,7 @@ export type DriverContext = {
 
 export type MobileJobRow = {
   id: string;
+  created_by: string | null;
   status: string | null;
   current_status: string | null;
   assigned_driver_id: string | null;
@@ -251,6 +252,7 @@ export function isDriverContext(value: DriverContext | NextResponse): value is D
 
 export const jobSelect = [
   'id',
+  'created_by',
   'status',
   'current_status',
   'assigned_driver_id',

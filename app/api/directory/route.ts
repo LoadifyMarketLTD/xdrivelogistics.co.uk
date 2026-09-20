@@ -96,13 +96,13 @@ export async function GET(request: NextRequest) {
   const [companiesResult, driversResult, vehiclesResult, reputationJobsResult, reputationInvoicesResult] = await Promise.all([
     supabaseAdmin
       .from('companies')
-      .select('id, name, company_number, phone, company_type, status, created_at, city, postcode, country')
+      .select('id, name, xd_id, phone, company_type, status, created_at, city, postcode, country')
       .eq('status', 'active')
       .order('name', { ascending: true })
       .limit(COMPANY_LIMIT),
     supabaseAdmin
       .from('drivers')
-      .select('id, company_id, display_name, status, availability_status')
+      .select('id, company_id, user_id, display_name, status, availability_status')
       .eq('status', 'active')
       .order('display_name', { ascending: true })
       .limit(DRIVER_LIMIT),
@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
   const companies = (companiesResult.data ?? []).map((company) => ({
     companyId: company.id,
     name: company.name,
-    memberId: company.company_number ?? null,
+    memberId: company.xd_id ?? null,
     businessPhone: company.phone ?? null,
     memberType: memberType(company.company_type),
     memberSince: company.created_at ?? null,
@@ -151,6 +151,15 @@ export async function GET(request: NextRequest) {
     paymentReliability: { score: null as number | null, evidenceCount: 0, onTimePaid: 0, latePaid: 0, overdueOpen: 0 },
   }));
   const companyById = new Map(companies.map((company) => [company.companyId, company]));
+  const directoryUserIds = [...new Set((driversResult.data ?? []).map((driver) => String(driver.user_id ?? '')).filter(Boolean))];
+  const directoryProfilesResult = directoryUserIds.length
+    ? await supabaseAdmin.from('profiles').select('user_id,xd_id').in('user_id', directoryUserIds)
+    : { data: [], error: null };
+  const memberIdByUserId = new Map(
+    directoryProfilesResult.error
+      ? []
+      : (directoryProfilesResult.data ?? []).map((profile) => [String(profile.user_id), String(profile.xd_id ?? '')]),
+  );
   const vehicleByDriver = new Map<string, { id: string; type: string | null; hasTailLift: boolean; palletsCapacity: number | null; specialistServices: string[] }>();
   const companyVehicleTypes = new Map<string, Set<string>>();
   const companyServices = new Map<string, Set<string>>();
@@ -228,7 +237,7 @@ export async function GET(request: NextRequest) {
         displayName: text(driver.display_name) ?? 'Driver',
         companyId: driver.company_id ?? null,
         companyName: company?.name ?? 'Independent driver',
-        memberId: company?.memberId ?? null,
+        memberId: memberIdByUserId.get(String(driver.user_id ?? '')) || company?.memberId || null,
         memberType: company?.memberType ?? 'Owner Driver',
         businessPhone: company?.businessPhone ?? null,
         city: company?.city ?? null,
@@ -257,6 +266,7 @@ export async function GET(request: NextRequest) {
     drivers,
     partial: Boolean(
       driversResult.error
+      || directoryProfilesResult.error
       || vehiclesResult.error
       || companiesMayBeTruncated
       || driversMayBeTruncated

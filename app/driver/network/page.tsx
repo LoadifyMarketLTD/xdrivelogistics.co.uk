@@ -9,7 +9,7 @@ import { AlertBanner, EmptyState, StatusBadge } from '../../components/workspace
 type CompanyRow = {
   id: string;
   name: string | null;
-  company_number: string | null;
+  xd_id: string | null;
   status: string | null;
   city?: string | null;
   postcode?: string | null;
@@ -47,7 +47,7 @@ export default function DriverNetworkPage() {
     const [companyResult, driverResult] = await Promise.all([
       supabase
         .from('companies')
-        .select('id, name, company_number, status, city, postcode')
+        .select('id, name, xd_id, status, city, postcode')
         .eq('status', 'active')
         .order('name', { ascending: true })
         .limit(250),
@@ -86,7 +86,7 @@ export default function DriverNetworkPage() {
     const q = normalize(query);
     const loc = normalize(location);
     return companies.filter((company) => {
-      const memberText = normalize(`${company.name ?? ''} ${company.company_number ?? ''}`);
+      const memberText = normalize(`${company.name ?? ''} ${company.xd_id ?? ''}`);
       const locationText = normalize(`${company.city ?? ''} ${company.postcode ?? ''}`);
       return (!q || memberText.includes(q)) && (!loc || locationText.includes(loc));
     });
@@ -139,13 +139,13 @@ export default function DriverNetworkPage() {
             <button type="button" data-active={activeTab === 'drivers' ? 'true' : 'false'} onClick={() => setActiveTab('drivers')}>Drivers <span>{filteredDrivers.length}</span></button>
           </div>
 
-          <div className="driver-directory-toolbar"><strong>{activeTab === 'companies' ? 'AUTHORISED COMPANIES' : 'AUTHORISED DRIVERS'}</strong><span>{loading ? 'Loading…' : `${activeTab === 'companies' ? filteredCompanies.length : filteredDrivers.length} accessible record(s)`}</span></div>
+          <div className="driver-directory-toolbar"><strong>{activeTab === 'companies' ? 'AUTHORISED COMPANIES' : 'AUTHORISED DRIVERS'}</strong><span>{loading ? 'Loadingâ€¦' : `${activeTab === 'companies' ? filteredCompanies.length : filteredDrivers.length} accessible record(s)`}</span></div>
 
           {activeTab === 'companies' ? (
             <div className="driver-directory-list">
               {filteredCompanies.map((company) => (
                 <article key={company.id} className="driver-directory-row">
-                  <div className="driver-directory-row__identity"><strong><MemberIdentityLink companyId={company.id}>{company.name ?? 'Unnamed company'}</MemberIdentityLink></strong><span>{company.company_number ? `Member ID ${company.company_number}` : 'Member ID not supplied'}</span></div>
+                  <div className="driver-directory-row__identity"><strong><MemberIdentityLink companyId={company.id}>{company.name ?? 'Unnamed company'}</MemberIdentityLink></strong><span>{company.xd_id ? `Member ID ${company.xd_id}` : 'Member ID not supplied'}</span></div>
                   <div><span className="driver-directory-label">Location</span><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong></div>
                   <div><span className="driver-directory-label">Member type</span><strong>Company</strong></div>
                   <div className="driver-directory-row__status"><StatusBadge value={company.status ?? 'active'} /></div>

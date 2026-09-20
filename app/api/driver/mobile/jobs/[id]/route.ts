@@ -98,16 +98,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const row = data as unknown as DriverDetailRow;
   let ownerCompany: { name: string | null; xd_id: string | null } | null = null;
+  let posterMemberId: string | null = null;
   let companyPresentationPartial = false;
-  if (row.company_id) {
-    const { data: companyRow, error: companyError } = await supabaseAdmin
-      .from('companies')
-      .select('name,xd_id')
-      .eq('id', row.company_id)
-      .maybeSingle();
-    if (companyError) companyPresentationPartial = true;
-    else ownerCompany = companyRow as { name: string | null; xd_id: string | null } | null;
-  }
+  const [companyIdentityResult, posterIdentityResult] = await Promise.all([
+    row.company_id
+      ? supabaseAdmin.from('companies').select('name,xd_id').eq('id', row.company_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    row.created_by
+      ? supabaseAdmin.from('profiles').select('xd_id').eq('user_id', row.created_by).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  if (companyIdentityResult.error) companyPresentationPartial = true;
+  else ownerCompany = companyIdentityResult.data as { name: string | null; xd_id: string | null } | null;
+  if (posterIdentityResult.error) companyPresentationPartial = true;
+  else posterMemberId = String(posterIdentityResult.data?.xd_id ?? '') || null;
   const [commercial, stopsResult, instructionsResult] = await Promise.all([
     loadDriverAgreedRates(supabaseAdmin, [row]),
     supabaseAdmin
@@ -158,7 +162,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ...mapJob(row),
       ...operational,
       companyName: ownerCompany?.name ?? undefined,
-      companyXdId: ownerCompany?.xd_id ?? undefined,
+      companyXdId: posterMemberId ?? ownerCompany?.xd_id ?? undefined,
       // Persisted multi-drop remains authoritative. Legacy two-point stops from
       // the operational helper are used only for historical jobs with no job_stops.
       stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,
