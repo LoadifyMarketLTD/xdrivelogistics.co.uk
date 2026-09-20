@@ -1,4 +1,6 @@
 import { spawnSync } from 'node:child_process';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const npmCommand = process.platform === 'win32' ? 'npm.cmd' : 'npm';
 
@@ -11,6 +13,32 @@ function run(command, args) {
   });
   if (result.error) process.exit(1);
   if (result.status !== 0) process.exit(result.status ?? 1);
+}
+
+function collectFiles(directory) {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
+    const fullPath = join(directory, entry.name);
+    return entry.isDirectory() ? collectFiles(fullPath) : [fullPath];
+  });
+}
+
+function assertNextStaticAssets() {
+  const chunksDir = join('.next', 'static', 'chunks');
+  const chunkFiles = collectFiles(chunksDir).filter((file) => file.endsWith('.js'));
+  if (chunkFiles.length === 0) {
+    throw new Error('NETLIFY_STATIC_ASSET_VALIDATION failed: no Next.js chunks were produced.');
+  }
+
+  const manifests = ['.next/build-manifest.json', '.next/app-build-manifest.json'];
+  for (const manifestPath of manifests) {
+    if (!existsSync(manifestPath)) {
+      throw new Error(`NETLIFY_STATIC_ASSET_VALIDATION failed: missing ${manifestPath}.`);
+    }
+    JSON.parse(readFileSync(manifestPath, 'utf8'));
+  }
+
+  console.log(`NETLIFY_STATIC_ASSET_VALIDATION=PASS chunks=${chunkFiles.length}`);
 }
 
 const isLegalGatePreview =
@@ -200,4 +228,5 @@ if (isSuperAdminControlPlanePreview) {
 
 run(npmCommand, ['run', 'typecheck']);
 run(npmCommand, ['run', 'build']);
+assertNextStaticAssets();
 console.log('NETLIFY_RELEASE_GATE=PASS');
