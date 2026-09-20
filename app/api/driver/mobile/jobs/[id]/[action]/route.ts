@@ -111,6 +111,19 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (stopGate) return stopGate;
   }
 
+  if (action === 'loaded' && (existing as unknown as MobileJobRow).collection_pass_required === true) {
+    const { data: collectionPass, error: collectionPassError } = await supabaseAdmin
+      .from('driver_collection_passes')
+      .select('status,verified_at,expires_at')
+      .eq('job_id', id)
+      .eq('driver_id', driver.driverId)
+      .maybeSingle();
+    if (collectionPassError) return respond(500, { error: collectionPassError.message });
+    if (!collectionPass || collectionPass.status !== 'verified' || !collectionPass.verified_at) {
+      return respond(409, { error: 'Collection Pass must be verified by the posting company before this job can be marked Loaded.' });
+    }
+  }
+
   const token = getBearerToken(request);
   if (!token) return respond(401, { error: 'Missing bearer token.' });
   const scoped = userScopedSupabase(token);
@@ -205,6 +218,10 @@ const storageObjectExists = async (path: string) => {
   return (data ?? []).some((entry) => entry.name === fileName);
 };
 
+function nowDateUtc() {
+  return new Date().toISOString().slice(0, 10);
+}
+
 async function savePod(
   request: NextRequest,
   jobId: string,
@@ -235,8 +252,23 @@ async function savePod(
   const rawPhotoUris = safeArray(body.photoUris);
   const rawDamagePhotoUris = safeArray(body.damagePhotoUris);
   const rawDocumentUris = safeArray(body.documentUris);
+  const deliveryStatus = typeof body.deliveryStatus === 'string' ? body.deliveryStatus.trim() : 'Completed Delivery';
+  const allowedDeliveryStatuses = new Set(['Completed Delivery', 'Partial Delivery', 'Failed Delivery', 'Refused', 'Left Safe']);
+  const leftAt = typeof body.leftAt === 'string' ? body.leftAt.trim().slice(0, 500) : '';
+  const deliveredOnRaw = typeof body.deliveredOn === 'string' ? body.deliveredOn.trim() : '';
+  const deliveredOn = /^\d{4}-\d{2}-\d{2}$/.test(deliveredOnRaw) ? deliveredOnRaw : nowDateUtc();
+  const itemCountRaw = body.itemCount == null || body.itemCount === '' ? null : Number(body.itemCount);
+  const itemCount = itemCountRaw === null ? null : Math.round(itemCountRaw);
+  const hardCopyAcknowledged = body.hardCopyAcknowledged === true;
 
   if (!recipientName) return respond(400, { error: 'Recipient name is required for POD.' });
+  if (!allowedDeliveryStatuses.has(deliveryStatus)) return respond(400, { error: 'Unsupported delivery status.' });
+  if (itemCount !== null && (!Number.isFinite(itemCount) || itemCount < 0 || itemCount > 100000)) {
+    return respond(400, { error: 'Enter a valid delivered item count.' });
+  }
+  if (String(job.hard_copy_pod ?? '').trim() && !hardCopyAcknowledged) {
+    return respond(409, { error: 'Confirm the hard-copy POD requirement before completing delivery.' });
+  }
   if (recipientName.length > 200) return respond(400, { error: 'Recipient name is too long.' });
   if (rawPhotoUris.length + rawDamagePhotoUris.length > 10 || rawDocumentUris.length > 10) {
     return respond(400, { error: 'A maximum of 10 delivery/damage photos and 10 documents is allowed.' });
@@ -317,7 +349,39 @@ async function savePod(
     .single();
 
   if (updateError) return respond(500, { error: updateError.message });
+
+  const podNotes = [
+    typeof body.notes === 'string' ? body.notes.trim().slice(0, 5000) : '',
+    String(job.hard_copy_pod ?? '').trim() && hardCopyAcknowledged ? 'Hard-copy POD requirement acknowledged by assigned driver.' : '',
+  ].filter(Boolean).join(' | ') || null;
+  const podPayload = {
+    delivered_on: deliveredOn,
+    received_by: recipientName,
+    left_at: leftAt || null,
+    no_of_items: itemCount,
+    delivery_status: deliveryStatus,
+    delivery_notes: podNotes,
+    photo_urls: Array.from(new Set([...existingPhotos, ...photoPaths])),
+    created_by: userId,
+    updated_at: now,
+  };
+  const { data: existingPod, error: existingPodError } = await supabaseAdmin!
+    .from('proof_of_delivery')
+    .select('id')
+    .eq('job_id', jobId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existingPodError) return respond(500, { error: existingPodError.message });
+  const podWrite = existingPod
+    ? await supabaseAdmin!.from('proof_of_delivery').update(podPayload).eq('id', existingPod.id)
+    : await supabaseAdmin!.from('proof_of_delivery').insert({ job_id: jobId, ...podPayload });
+  if (podWrite.error) return respond(500, { error: podWrite.error.message });
+
   await insertTrackingEvent(jobId, userId, 'note', 'Persistent POD evidence uploaded');
+  if (String(job.hard_copy_pod ?? '').trim() && hardCopyAcknowledged) {
+    await insertTrackingEvent(jobId, userId, 'note', 'Hard-copy POD requirement acknowledged by assigned driver.');
+  }
 
   return respond(200, { ok: true, job: mapJob(updated as unknown as MobileJobRow) });
 }

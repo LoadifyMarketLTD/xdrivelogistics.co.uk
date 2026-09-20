@@ -132,6 +132,8 @@ export type MobileJobRow = {
   special_requirements: string | null;
   access_restrictions: string | null;
   pod_required: boolean | null;
+  hard_copy_pod: string | null;
+  collection_pass_required: boolean | null;
   pod_generated: boolean | null;
   no_of_items: number | null;
   packaging: string | null;
@@ -280,6 +282,8 @@ export const jobSelect = [
   'special_requirements',
   'access_restrictions',
   'pod_required',
+  'hard_copy_pod',
+  'collection_pass_required',
   'pod_generated',
   'no_of_items',
   'packaging',
@@ -352,6 +356,8 @@ export function mapJob(row: MobileJobRow) {
     distanceMiles: Number.isFinite(distance) && distance > 0 ? distance : null,
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
     podRequired: row.pod_required !== false,
+    hardCopyPod: row.hard_copy_pod || '',
+    collectionPassRequired: row.collection_pass_required === true,
     podGenerated: hasPod(row),
     itemCount: row.no_of_items ?? null,
     packaging: row.packaging || '',

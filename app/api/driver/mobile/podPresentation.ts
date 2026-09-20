@@ -18,6 +18,17 @@ type PodPresentationRow = {
   status_history?: unknown;
 };
 
+type ProofOfDeliveryRow = {
+  job_id: string;
+  delivered_on: string | null;
+  received_by: string | null;
+  left_at: string | null;
+  no_of_items: number | null;
+  delivery_status: string | null;
+  delivery_notes: string | null;
+  created_at: string | null;
+};
+
 type SignedUrlRow = {
   path?: unknown;
   signedUrl?: unknown;
@@ -130,10 +141,23 @@ export async function buildSignedPodPresentations(rows: PodPresentationRow[], co
     }
   }
 
+  const proofByJob = new Map<string, ProofOfDeliveryRow>();
+  if (supabaseAdmin && rows.length > 0) {
+    const { data: proofRows } = await supabaseAdmin
+      .from('proof_of_delivery')
+      .select('job_id, delivered_on, received_by, left_at, no_of_items, delivery_status, delivery_notes, created_at')
+      .in('job_id', rows.map((row) => row.id))
+      .order('created_at', { ascending: false });
+    for (const proofRow of (proofRows ?? []) as ProofOfDeliveryRow[]) {
+      if (!proofByJob.has(proofRow.job_id)) proofByJob.set(proofRow.job_id, proofRow);
+    }
+  }
+
   const presentations = new Map<string, Record<string, unknown> | null>();
   for (const row of rows) {
     const evidence = evidenceByJob.get(row.id) ?? { delivery: [], damage: [], documents: [] };
     const signatureData = storedSignatureText(row.delivery_signature_data);
+    const proof = proofByJob.get(row.id);
     const hasEvidence = Boolean(row.pod_generated)
       || Boolean(signatureData)
       || evidence.delivery.length > 0
@@ -148,7 +172,7 @@ export async function buildSignedPodPresentations(rows: PodPresentationRow[], co
     const timestamp = podTimestamp(row);
     const notes = parsePodNotes(row.driver_notes);
     presentations.set(row.id, {
-      receiverName: row.client_signature_name?.trim() || 'Recipient',
+      receiverName: proof?.received_by?.trim() || row.client_signature_name?.trim() || 'Recipient',
       receiverCompany: notes.receiverCompany,
       signatureData,
       date: timestamp ? timestamp.toLocaleDateString('en-GB') : 'Not available',
@@ -162,6 +186,11 @@ export async function buildSignedPodPresentations(rows: PodPresentationRow[], co
       receiverNotes: notes.receiverNotes,
       driverNotes: notes.driverNotes,
       comments: notes.comments,
+      deliveredOn: proof?.delivered_on ?? undefined,
+      leftAt: proof?.left_at ?? undefined,
+      deliveryStatus: proof?.delivery_status ?? undefined,
+      noOfItems: proof?.no_of_items ?? undefined,
+      deliveryNotes: proof?.delivery_notes ?? undefined,
       completedBy: 'Assigned driver',
       completedByRole: 'driver',
       auditHistory: buildJobAuditTrail(row),
