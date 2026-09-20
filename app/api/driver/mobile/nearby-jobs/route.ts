@@ -124,7 +124,7 @@ function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: 
     weightKg: marketplaceNumber(row.weight_kg),
     freightType: row.requested_cargo_label || row.cargo_type || null,
     notesSummary: publicQuoteNotes(row.load_details),
-    distanceToPickupMiles: marketplaceNumber(row.distance_to_pickup_miles),
+    distanceToPickupMiles: null,
     journeyDistanceMiles: marketplaceNumber(row.job_distance_miles),
     estimatedJourneyMinutes: marketplaceNumber(row.job_distance_minutes),
     publicPrice: {
@@ -303,7 +303,9 @@ export async function GET(request: NextRequest) {
     const pickup = validCoordinates(row.pickup_lat, row.pickup_lng)
       ?? pickupCoordinateFallbacks.get(postcodeKey(row.pickup_postcode))
       ?? null;
-    const miles = driverPosition && pickup ? distanceMiles(driverPosition, pickup) : null;
+    const rawMiles = driverPosition && pickup ? distanceMiles(driverPosition, pickup) : null;
+    const gbPickup = String(row.pickup_country_code || 'GB').toUpperCase() === 'GB';
+    const miles = rawMiles !== null && gbPickup && rawMiles > 700 ? null : rawMiles;
     distanceToPickupByJob.set(row.id, miles === null ? null : Number(miles.toFixed(1)));
   }
   const baseJob = (row: NearbyJobRow, extras: Record<string, unknown> = {}) => mapNearbyJob(row, posterMemberId(row), {
