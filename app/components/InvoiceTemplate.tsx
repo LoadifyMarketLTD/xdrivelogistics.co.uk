@@ -1,13 +1,8 @@
 'use client';
 
 import React from 'react';
-import { COMPANY_CONFIG } from '../config/company';
 import { toCanonicalInvoiceStatus } from '../../lib/invoiceStatus';
-import {
-  DEFAULT_COMPANY_SETTINGS,
-  hasConfiguredBankDetails,
-  type CompanySettingsValues,
-} from '../../lib/companySettings';
+import { DEFAULT_COMPANY_SETTINGS, type CompanySettingsValues } from '../../lib/companySettings';
 
 export interface InvoiceData {
   id: string;
@@ -34,6 +29,29 @@ export interface InvoiceData {
   podPhotos?: string[];
   signature?: string;
   recipientName?: string;
+  loadId?: string;
+  customerRef?: string;
+  vehicleType?: string;
+  vehicleRegistration?: string;
+  orderedAt?: string;
+  deliveredAt?: string;
+  leftAt?: string;
+  noOfItems?: number;
+  deliveryNotes?: string;
+  cargoSummary?: string;
+  issuerName?: string;
+  issuerAddress?: string;
+  issuerCompanyNumber?: string;
+  issuerVatNumber?: string;
+  issuerXdId?: string;
+  issuerEmail?: string;
+  issuerPhone?: string;
+  customerCompanyNumber?: string;
+  customerVatNumber?: string;
+  customerXdId?: string;
+  bankAccountName?: string;
+  bankSortCode?: string;
+  bankAccountNumber?: string;
 }
 
 interface InvoiceTemplateProps {
@@ -42,399 +60,160 @@ interface InvoiceTemplateProps {
   companySettings?: CompanySettingsValues;
 }
 
+const fmtDate = (value?: string, withTime = false) => {
+  if (!value) return 'Not supplied';
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return value;
+  return withTime
+    ? d.toLocaleString('en-GB', { timeZone: 'Europe/London', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+    : d.toLocaleDateString('en-GB', { timeZone: 'Europe/London', day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+const money = (value: number) => `£${Number(value || 0).toFixed(2)}`;
+
 export default function InvoiceTemplate({
   invoice,
-  showPreview: _showPreview = false,
   companySettings = DEFAULT_COMPANY_SETTINGS,
 }: InvoiceTemplateProps) {
-  // Calculate payment due date based on payment terms
-  const calculateDueDate = (invoiceDate: string, terms: string): Date => {
-    const date = new Date(invoiceDate);
-    if (terms === 'Pay now') {
-      return date;
-    } else if (terms === '14 days') {
-      date.setDate(date.getDate() + 14);
-    } else if (terms === '30 days') {
-      date.setDate(date.getDate() + 30);
-    }
-    return date;
-  };
+  const issuerName = invoice.issuerName || companySettings.legalName || companySettings.companyName;
+  const issuerAddress = invoice.issuerAddress || [companySettings.street, companySettings.city, companySettings.postcode].filter(Boolean).join(', ');
+  const bankName = invoice.bankAccountName || companySettings.bankAccountName;
+  const bankSort = invoice.bankSortCode || companySettings.bankSortCode;
+  const bankAccount = invoice.bankAccountNumber || companySettings.bankAccountNumber;
+  const status = toCanonicalInvoiceStatus(invoice.status);
+  const smallMeta = (items: Array<string | undefined>) => items.filter(Boolean).join(' · ');
 
-  const paymentDueDate = calculateDueDate(invoice.date, invoice.paymentTerms);
-  const statusLabel = toCanonicalInvoiceStatus(invoice.status);
-  const bankTransferConfigured = hasConfiguredBankDetails(companySettings);
-  
-  const containerStyle: React.CSSProperties = {
-    backgroundColor: 'white',
-    maxWidth: '800px',
-    margin: '0 auto',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    backgroundColor: '#0A2239',
-    color: 'white',
-    padding: '2rem',
-    marginBottom: '2rem',
-  };
-
-  const sectionStyle: React.CSSProperties = {
-    padding: '0 2rem',
-    marginBottom: '1.5rem',
-  };
-
-  const labelStyle: React.CSSProperties = {
-    fontSize: '0.85rem',
-    color: '#6b7280',
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-    marginBottom: '0.25rem',
-  };
-
-  const valueStyle: React.CSSProperties = {
-    fontSize: '1rem',
-    color: '#1f2937',
-    marginBottom: '1rem',
-  };
-
-  const tableStyle: React.CSSProperties = {
-    width: '100%',
-    borderCollapse: 'collapse',
-    marginTop: '1rem',
-  };
-
-  const thStyle: React.CSSProperties = {
-    backgroundColor: '#f3f4f6',
-    padding: '0.75rem',
-    textAlign: 'left',
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#374151',
-    borderBottom: '2px solid #e5e7eb',
-  };
-
-  const tdStyle: React.CSSProperties = {
-    padding: '0.75rem',
-    borderBottom: '1px solid #e5e7eb',
-    color: '#1f2937',
-  };
-
-  const printStyles = `
-    @media print {
-      body * {
-        visibility: hidden;
-      }
-      .invoice-print-area, .invoice-print-area * {
-        visibility: visible;
-      }
-      .invoice-print-area {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-      }
-      button, .no-print {
-        display: none !important;
-      }
-      .pod-photo {
-        max-width: 200px;
-        page-break-inside: avoid;
-      }
-      .pod-section {
-        page-break-inside: avoid;
-      }
-    }
-  `;
+  const section: React.CSSProperties = { border: '1px solid #e4e7ec', borderRadius: 12, padding: 14, background: '#fff' };
+  const kicker: React.CSSProperties = { fontSize: 11, fontWeight: 800, textTransform: 'uppercase', letterSpacing: '.7px', color: '#0B2F6B', marginBottom: 8 };
+  const muted: React.CSSProperties = { color: '#667085', fontSize: 12, lineHeight: 1.45 };
+  const label: React.CSSProperties = { color: '#667085', fontSize: 10, fontWeight: 800, textTransform: 'uppercase' };
 
   return (
-    <>
-      <style>{printStyles}</style>
-      <div className="invoice-print-area" style={containerStyle}>
-        {/* Header with Blue Band */}
-        <div style={headerStyle}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', margin: '0 0 0.5rem 0' }}>
-                {companySettings.companyName}
-              </h1>
-              <p style={{ margin: 0, opacity: 0.9, fontSize: '0.95rem' }}>
-                {COMPANY_CONFIG.tagline}
-              </p>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ fontSize: '1.5rem', fontWeight: '600', marginBottom: '0.25rem' }}>
-                INVOICE
-              </div>
-              <div style={{ opacity: 0.9 }}>
-                {invoice.invoiceNumber}
-              </div>
-            </div>
-          </div>
+    <div className="invoice-print-area" style={{ background: '#fff', maxWidth: 860, margin: '0 auto', color: '#1A1F2B', fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif', border: '1px solid #e4e7ec', borderRadius: 16, overflow: 'hidden' }}>
+      <style>{`@media print{.invoice-print-area{max-width:none!important;border:0!important;border-radius:0!important}.invoice-no-break{break-inside:avoid}}`}</style>
+
+      <header style={{ background: '#0B2F6B', color: '#fff', padding: '24px 28px', borderBottom: '5px solid #F5A300', display: 'flex', justifyContent: 'space-between', gap: 20 }}>
+        <div>
+          <div style={{ fontSize: 27, fontWeight: 900 }}>XDRIVE <span style={{ color: '#F5A300', fontSize: 16 }}>LOGISTICS</span></div>
+          <div style={{ opacity: .88, marginTop: 3 }}>Transport Invoice</div>
+        </div>
+        <div style={{ textAlign: 'right' }}>
+          <div style={{ fontSize: 22, fontWeight: 900 }}>INVOICE</div>
+          <div style={{ fontWeight: 800 }}>{invoice.invoiceNumber}</div>
+          <div style={{ fontSize: 11, opacity: .85 }}>{status.toUpperCase()}</div>
+        </div>
+      </header>
+
+      <div style={{ padding: 18, display: 'grid', gap: 14 }}>
+        <div className="invoice-no-break" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+          <section style={{ ...section, background: '#f8fafc' }}>
+            <div style={kicker}>Issued By</div>
+            <strong>{issuerName}</strong>
+            <div style={{ ...muted, marginTop: 6 }}>{issuerAddress || 'Address not supplied'}</div>
+            <div style={{ ...muted, fontSize: 10, marginTop: 8 }}>{smallMeta([
+              invoice.issuerXdId ? `XDrive ID ${invoice.issuerXdId}` : undefined,
+              invoice.issuerCompanyNumber ? `Company No. ${invoice.issuerCompanyNumber}` : undefined,
+              invoice.issuerVatNumber ? `VAT ${invoice.issuerVatNumber}` : undefined,
+            ])}</div>
+          </section>
+          <section style={{ ...section, background: '#f8fafc' }}>
+            <div style={kicker}>Bill To</div>
+            <strong>{invoice.clientName || 'Not supplied'}</strong>
+            <div style={{ ...muted, marginTop: 6 }}>{invoice.clientAddress || 'Address not supplied'}</div>
+            <div style={{ ...muted, fontSize: 10, marginTop: 8 }}>{smallMeta([
+              invoice.customerXdId ? `XDrive ID ${invoice.customerXdId}` : undefined,
+              invoice.customerCompanyNumber ? `Company No. ${invoice.customerCompanyNumber}` : undefined,
+              invoice.customerVatNumber ? `VAT ${invoice.customerVatNumber}` : undefined,
+            ])}</div>
+          </section>
         </div>
 
-        {/* Invoice Details */}
-        <div style={sectionStyle}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1.5rem' }}>
-            <div>
-              <div style={labelStyle}>Invoice Date</div>
-              <div style={valueStyle}>{new Date(invoice.date).toLocaleDateString('en-GB')}</div>
-            </div>
-            <div>
-              <div style={labelStyle}>Due Date</div>
-              <div style={valueStyle}>{new Date(invoice.dueDate).toLocaleDateString('en-GB')}</div>
-            </div>
-            <div>
-              <div style={labelStyle}>Job Reference</div>
-              <div style={valueStyle}>{invoice.jobRef}</div>
-            </div>
-            <div>
-              <div style={labelStyle}>Status</div>
-              <div style={{
-                ...valueStyle,
-                display: 'inline-block',
-                padding: '0.25rem 0.75rem',
-                borderRadius: '9999px',
-                fontSize: '0.875rem',
-                fontWeight: '600',
-                backgroundColor: 
-                  statusLabel === 'Paid' ? '#d1fae5' :
-                  statusLabel === 'Sent' ? '#e0e7ff' :
-                  statusLabel === 'Disputed' ? '#fce7f3' :
-                  statusLabel === 'Draft' ? '#fef3c7' :
-                  statusLabel === 'Cancelled' ? '#e2e8f0' : '#fee2e2',
-                color:
-                  statusLabel === 'Paid' ? '#065f46' :
-                  statusLabel === 'Sent' ? '#3730a3' :
-                  statusLabel === 'Disputed' ? '#9d174d' :
-                  statusLabel === 'Draft' ? '#92400e' :
-                  statusLabel === 'Cancelled' ? '#475569' : '#991b1b',
-              }}>
-                {statusLabel}
+        <section className="invoice-no-break" style={{ ...section, padding: 0, overflow: 'hidden' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)' }}>
+            {[
+              ['Invoice Date', fmtDate(invoice.date)],
+              ['Due Date', fmtDate(invoice.dueDate)],
+              ['Job Ref', invoice.jobRef || '—'],
+              ['Load ID', invoice.loadId || '—'],
+              ['Customer Ref', invoice.customerRef || '—'],
+            ].map(([k, v], index) => (
+              <div key={k} style={{ padding: 12, borderRight: index < 4 ? '1px solid #e4e7ec' : undefined }}>
+                <div style={label}>{k}</div>
+                <strong style={{ display: 'block', marginTop: 4, fontSize: 12, overflowWrap: 'anywhere' }}>{v}</strong>
               </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="invoice-no-break" style={section}>
+          <div style={kicker}>Job & Delivery Record</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+            <div style={{ border: '1px solid #e4e7ec', borderRadius: 10, padding: 12 }}>
+              <div style={label}>Collection</div>
+              <strong style={{ display: 'block', marginTop: 4 }}>{invoice.pickupLocation || 'Not supplied'}</strong>
+              <div style={{ ...muted, marginTop: 5 }}>{fmtDate(invoice.pickupDateTime, true)}</div>
+            </div>
+            <div style={{ border: '1px solid #e4e7ec', borderRadius: 10, padding: 12 }}>
+              <div style={label}>Delivery</div>
+              <strong style={{ display: 'block', marginTop: 4 }}>{invoice.deliveryLocation || 'Not supplied'}</strong>
+              <div style={{ ...muted, marginTop: 5 }}>{fmtDate(invoice.deliveryDateTime, true)}</div>
             </div>
           </div>
-        </div>
-
-        {/* Client Details */}
-        <div style={sectionStyle}>
-          <div style={{ ...labelStyle, marginBottom: '0.5rem' }}>Bill To</div>
-          <div style={{ ...valueStyle, marginBottom: '0.25rem', fontWeight: '600' }}>
-            {invoice.clientName}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 10 }}>
+            <div><span style={label}>Vehicle</span><strong style={{ display: 'block', marginTop: 3 }}>{[invoice.vehicleType, invoice.vehicleRegistration].filter(Boolean).join(' · ') || 'Not supplied'}</strong></div>
+            <div><span style={label}>Cargo</span><strong style={{ display: 'block', marginTop: 3 }}>{invoice.cargoSummary || (invoice.noOfItems ? `${invoice.noOfItems} item(s)` : 'Not supplied')}</strong></div>
           </div>
-          <div style={{ ...valueStyle, marginBottom: '0.25rem', whiteSpace: 'pre-line' }}>
-            {invoice.clientAddress}
+        </section>
+
+        <section className="invoice-no-break" style={{ ...section, background: '#f8fafc' }}>
+          <div style={kicker}>Proof of Delivery</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 8 }}>
+            {[
+              ['Delivered', fmtDate(invoice.deliveredAt || invoice.deliveryDateTime, true)],
+              ['Received By', invoice.deliveryRecipient || invoice.recipientName || 'Not supplied'],
+              ['Left At', invoice.leftAt || 'Not recorded'],
+              ['Items', invoice.noOfItems != null ? String(invoice.noOfItems) : 'Not recorded'],
+            ].map(([k,v]) => <div key={k} style={{ background: '#fff', border: '1px solid #e4e7ec', borderRadius: 9, padding: 10 }}><div style={label}>{k}</div><strong style={{ display: 'block', marginTop: 4, fontSize: 12 }}>{v}</strong></div>)}
           </div>
-          <div style={valueStyle}>
-            {invoice.clientEmail}
+          <div style={{ marginTop: 10 }}><span style={label}>Delivery Notes</span><div style={{ marginTop: 4, fontWeight: 600 }}>{invoice.deliveryNotes || 'No delivery notes recorded.'}</div></div>
+          <div style={{ marginTop: 8, textAlign: 'right', color: '#0B2F6B', fontSize: 11, fontWeight: 800 }}>{invoice.signature ? 'Recipient signature captured in XDrive' : 'POD status recorded in XDrive'}</div>
+        </section>
+
+        <section className="invoice-no-break" style={section}>
+          <div style={kicker}>Charges</div>
+          <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 110px 110px 120px', background: '#0B2F6B', color: '#fff', borderRadius: '9px 9px 0 0', padding: '10px 8px', fontSize: 11, fontWeight: 800 }}>
+            <span>Qty</span><span>Description</span><span>Net</span><span>VAT</span><span>Total</span>
           </div>
-        </div>
-
-        {/* Service Details */}
-        <div style={sectionStyle}>
-          <div style={{ ...labelStyle, fontSize: '1rem', marginBottom: '1rem' }}>Service Details</div>
-          
-          <div style={{ marginBottom: '1.5rem' }}>
-            <div style={labelStyle}>Pickup</div>
-            <div style={valueStyle}>
-              <div>{invoice.pickupLocation}</div>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                {new Date(invoice.pickupDateTime).toLocaleString('en-GB')}
-              </div>
-            </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 110px 110px 120px', border: '1px solid #e4e7ec', borderTop: 0, borderRadius: '0 0 9px 9px', padding: '12px 8px', fontSize: 12, fontWeight: 700 }}>
+            <span>1</span><span>{invoice.serviceDescription || 'Transport service'}</span><span>{money(invoice.netAmount)}</span><span>{money(invoice.vatAmount)} ({invoice.vatRate}%)</span><span>{money(invoice.amount)}</span>
           </div>
+        </section>
 
-          <div style={{ marginBottom: '1.5rem' }}>
-            <div style={labelStyle}>Delivery</div>
-            <div style={valueStyle}>
-              <div>{invoice.deliveryLocation}</div>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                {new Date(invoice.deliveryDateTime).toLocaleString('en-GB')}
-              </div>
-              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
-                Recipient: {invoice.deliveryRecipient}
-              </div>
-            </div>
-          </div>
-
-          <div>
-            <div style={labelStyle}>Description</div>
-            <div style={valueStyle}>{invoice.serviceDescription}</div>
-          </div>
-        </div>
-
-        {/* Amount Table */}
-        <div style={sectionStyle}>
-          <table style={tableStyle}>
-            <thead>
-              <tr>
-                <th style={thStyle}>Description</th>
-                <th style={{ ...thStyle, textAlign: 'right' }}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td style={tdStyle}>Courier Service</td>
-                <td style={{ ...tdStyle, textAlign: 'right' }}>£{invoice.amount.toFixed(2)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        {/* VAT Breakdown */}
-        <div style={{ ...sectionStyle, backgroundColor: '#f9fafb', padding: '1.5rem', borderRadius: '8px', marginTop: '1rem' }}>
-          <div style={{ ...labelStyle, fontSize: '1rem', marginBottom: '1rem', color: '#0A2239' }}>VAT Breakdown</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.95rem', color: '#374151' }}>Net Amount</span>
-              <span style={{ fontSize: '0.95rem', fontWeight: '600', color: '#1f2937' }}>
-                £{invoice.netAmount.toFixed(2)}
-              </span>
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '0.95rem', color: '#374151' }}>VAT ({invoice.vatRate}%)</span>
-              <span style={{ fontSize: '0.95rem', fontWeight: '600', color: '#1f2937' }}>
-                £{invoice.vatAmount.toFixed(2)}
-              </span>
-            </div>
-            <div style={{ borderTop: '2px solid #e5e7eb', paddingTop: '0.75rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <span style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0A2239' }}>Total Amount</span>
-              <span style={{ fontSize: '1.25rem', fontWeight: '700', color: '#1F7A3D' }}>
-                £{invoice.amount.toFixed(2)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Payment Terms & Due Date */}
-        <div style={{ ...sectionStyle, backgroundColor: '#fef3c7', padding: '1.5rem', borderRadius: '8px', marginTop: '1.5rem', border: '2px solid #f59e0b' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
-            <div>
-              <div style={{ ...labelStyle, color: '#92400e', marginBottom: '0.5rem' }}>Payment Terms</div>
-              <div style={{ fontSize: '1rem', fontWeight: '600', color: '#92400e' }}>
-                {invoice.paymentTerms}
-              </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-              <div style={{ ...labelStyle, color: '#92400e', marginBottom: '0.5rem' }}>Payment Due Date</div>
-              <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#92400e' }}>
-                {paymentDueDate.toLocaleDateString('en-GB')}
-              </div>
-            </div>
-          </div>
-          <div style={{ fontSize: '0.875rem', color: '#92400e', marginTop: '1rem', fontWeight: '500' }}>
-            {invoice.lateFee || COMPANY_CONFIG.payment.lateFeeAmount}
-          </div>
-        </div>
-
-        {/* Payment Details */}
-        <div style={{ ...sectionStyle, borderTop: '2px solid #0A2239', paddingTop: '1.5rem', marginTop: '2rem' }}>
-          <div style={{ ...labelStyle, fontSize: '1.1rem', marginBottom: '1rem', color: '#0A2239' }}>Payment Methods</div>
-          
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '2rem' }}>
-            <div style={{ backgroundColor: '#f3f4f6', padding: '1.25rem', borderRadius: '8px' }}>
-              <div style={{ ...labelStyle, fontSize: '0.95rem', color: '#0A2239', marginBottom: '0.75rem' }}>Bank Transfer</div>
-              {bankTransferConfigured ? (
-                <div style={{ fontSize: '0.95rem', color: '#1f2937', lineHeight: '1.8', fontWeight: '500' }}>
-                  <div style={{ marginBottom: '0.5rem' }}><strong>{companySettings.bankAccountName}</strong></div>
-                  <div>Sort Code: <strong>{companySettings.bankSortCode}</strong></div>
-                  <div>Account: <strong>{companySettings.bankAccountNumber}</strong></div>
-                </div>
-              ) : (
-                <div style={{ fontSize: '0.95rem', color: '#6b7280', fontWeight: '500' }}>
-                  Bank transfer details available on request.
-                </div>
-              )}
-            </div>
-            <div style={{ backgroundColor: '#f3f4f6', padding: '1.25rem', borderRadius: '8px' }}>
-              <div style={{ ...labelStyle, fontSize: '0.95rem', color: '#0A2239', marginBottom: '0.75rem' }}>PayPal</div>
-              <div style={{ fontSize: '0.95rem', color: '#1f2937', fontWeight: '500' }}>
-                {companySettings.paypalEmail || 'PayPal details available on request.'}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Proof of Delivery Section */}
-        {(invoice.podPhotos || invoice.signature || invoice.recipientName) && (
-          <div className="pod-section" style={{ ...sectionStyle, borderTop: '2px solid #0A2239', paddingTop: '1.5rem', marginTop: '2rem' }}>
-            <div style={{ ...labelStyle, fontSize: '1.1rem', marginBottom: '1rem', color: '#0A2239' }}>Proof of Delivery</div>
-            
-            {invoice.recipientName && (
-              <div style={{ marginBottom: '1rem' }}>
-                <div style={{ ...labelStyle, fontSize: '0.9rem' }}>Received By</div>
-                <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
-                  {invoice.recipientName}
-                </div>
-              </div>
-            )}
-
-            {invoice.deliveryDateTime && (
-              <div style={{ marginBottom: '1rem' }}>
-                <div style={{ ...labelStyle, fontSize: '0.9rem' }}>Delivered At</div>
-                <div style={{ fontSize: '1rem', fontWeight: '600', color: '#1f2937' }}>
-                  {new Date(invoice.deliveryDateTime).toLocaleString('en-GB')}
-                </div>
-              </div>
-            )}
-
-            {invoice.signature && (
-              <div style={{ marginBottom: '1.5rem' }}>
-                <div style={{ ...labelStyle, fontSize: '0.9rem', marginBottom: '0.5rem' }}>Signature</div>
-                <img 
-                  src={invoice.signature} 
-                  alt="Recipient signature" 
-                  style={{ 
-                    maxWidth: '300px', 
-                    maxHeight: '150px', 
-                    border: '1px solid #e5e7eb', 
-                    borderRadius: '4px',
-                    backgroundColor: 'white'
-                  }} 
-                />
-              </div>
-            )}
-
-            {invoice.podPhotos && invoice.podPhotos.length > 0 && (
-              <div>
-                <div style={{ ...labelStyle, fontSize: '0.9rem', marginBottom: '0.75rem' }}>Delivery Photos</div>
-                <div style={{ 
-                  display: 'grid', 
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', 
-                  gap: '1rem' 
-                }}>
-                  {invoice.podPhotos.map((photo, index) => (
-                    <img 
-                      key={index}
-                      src={photo} 
-                      alt={`Delivery photo ${index + 1}`}
-                      className="pod-photo"
-                      style={{ 
-                        width: '100%',
-                        maxWidth: '200px',
-                        height: 'auto',
-                        border: '1px solid #e5e7eb',
-                        borderRadius: '4px',
-                        objectFit: 'cover'
-                      }} 
-                    />
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Footer */}
-        <div style={{ ...sectionStyle, textAlign: 'center', paddingTop: '2rem', paddingBottom: '2rem', borderTop: '1px solid #e5e7eb', marginTop: '2rem' }}>
-          <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: 0 }}>
-            Thank you for your business!
-          </p>
-          <p style={{ fontSize: '0.875rem', color: '#6b7280', margin: '0.5rem 0 0 0' }}>
-            For any queries, please contact us at {companySettings.email || COMPANY_CONFIG.email}
-          </p>
+        <div className="invoice-no-break" style={{ display: 'grid', gridTemplateColumns: '1.4fr 1fr', gap: 12 }}>
+          <section style={{ ...section, background: '#f8fafc' }}>
+            <div style={kicker}>Payment</div>
+            <strong>Please ensure payment is received by {fmtDate(invoice.dueDate)}.</strong>
+            <div style={{ ...muted, marginTop: 6 }}>Payment terms: {invoice.paymentTerms}</div>
+            <div style={{ ...muted, marginTop: 8 }}>{bankName && bankSort && bankAccount ? `Account: ${bankName} · Sort code: ${bankSort} · Account no: ${bankAccount}` : 'Bank details are available from the invoice issuer.'}</div>
+            <div style={{ ...muted, fontSize: 10, marginTop: 8 }}>{invoice.lateFee}</div>
+          </section>
+          <section style={section}>
+            {[['Subtotal', money(invoice.netAmount)], ['VAT', money(invoice.vatAmount)]].map(([k,v]) => <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}><span>{k}</span><strong>{v}</strong></div>)}
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #d0d5dd', paddingTop: 10, color: '#0B2F6B', fontSize: 17, fontWeight: 900 }}><span>TOTAL</span><span>{money(invoice.amount)}</span></div>
+          </section>
         </div>
       </div>
-    </>
+
+      <footer style={{ borderTop: '1px solid #e4e7ec', padding: '12px 18px 16px', textAlign: 'center', color: '#667085', fontSize: 10 }}>
+        {smallMeta([
+          issuerName,
+          invoice.issuerCompanyNumber ? `Company No. ${invoice.issuerCompanyNumber}` : undefined,
+          invoice.issuerVatNumber ? `VAT ${invoice.issuerVatNumber}` : undefined,
+          invoice.issuerXdId ? `XDrive ID ${invoice.issuerXdId}` : undefined,
+          invoice.issuerEmail || companySettings.email,
+          invoice.issuerPhone || companySettings.phone,
+        ])}
+      </footer>
+    </div>
   );
 }

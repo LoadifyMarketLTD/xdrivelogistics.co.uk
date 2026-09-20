@@ -68,6 +68,29 @@ function dbToInvoiceData(row: Invoice): InvoiceData {
     podPhotos: row.pod_photos ?? undefined,
     signature: row.signature ?? undefined,
     recipientName: row.recipient_name ?? undefined,
+    loadId: row.load_id ?? undefined,
+    customerRef: row.customer_ref ?? undefined,
+    vehicleType: row.vehicle_type ?? undefined,
+    vehicleRegistration: row.vehicle_registration ?? undefined,
+    orderedAt: row.ordered_at ?? undefined,
+    deliveredAt: row.delivered_at ?? undefined,
+    leftAt: row.left_at ?? undefined,
+    noOfItems: row.no_of_items ?? undefined,
+    deliveryNotes: row.delivery_notes ?? undefined,
+    cargoSummary: row.cargo_summary ?? undefined,
+    issuerName: row.issuer_name_snapshot ?? undefined,
+    issuerAddress: row.issuer_address_snapshot ?? undefined,
+    issuerCompanyNumber: row.issuer_company_number_snapshot ?? undefined,
+    issuerVatNumber: row.issuer_vat_number_snapshot ?? undefined,
+    issuerXdId: row.issuer_xd_id_snapshot ?? undefined,
+    issuerEmail: row.issuer_email_snapshot ?? undefined,
+    issuerPhone: row.issuer_phone_snapshot ?? undefined,
+    customerCompanyNumber: row.customer_company_number_snapshot ?? undefined,
+    customerVatNumber: row.customer_vat_number_snapshot ?? undefined,
+    customerXdId: row.customer_xd_id_snapshot ?? undefined,
+    bankAccountName: row.bank_account_name_snapshot ?? undefined,
+    bankSortCode: row.bank_sort_code_snapshot ?? undefined,
+    bankAccountNumber: row.bank_account_number_snapshot ?? undefined,
   };
 }
 
@@ -312,7 +335,7 @@ export default function InvoiceDetailPage() {
       }
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, company_id, created_by, invoice_number, job_ref, job_id, invoice_date, due_date, status, payment_status, client_name, client_address, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, amount, net_amount, vat_amount, vat_rate, currency, payment_terms, late_fee, pod_photos, signature, recipient_name, created_at, updated_at')
+        .select('id, company_id, created_by, invoice_number, job_ref, job_id, invoice_date, due_date, status, payment_status, client_name, client_address, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, amount, net_amount, vat_amount, vat_rate, currency, payment_terms, late_fee, pod_photos, signature, recipient_name, load_id, customer_ref, vehicle_type, vehicle_registration, ordered_at, delivered_at, left_at, no_of_items, delivery_notes, cargo_summary, issuer_name_snapshot, issuer_address_snapshot, issuer_company_number_snapshot, issuer_vat_number_snapshot, issuer_xd_id_snapshot, issuer_email_snapshot, issuer_phone_snapshot, customer_company_number_snapshot, customer_vat_number_snapshot, customer_xd_id_snapshot, bank_account_name_snapshot, bank_sort_code_snapshot, bank_account_number_snapshot, created_at, updated_at')
         .eq('id', invoiceId)
         .eq('company_id', companyId)
         .single();
