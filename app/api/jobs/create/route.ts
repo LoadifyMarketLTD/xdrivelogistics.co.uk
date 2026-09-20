@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { labelToCargoType, labelToVehicleType } from '../../../../lib/vehicleTypes';
+import { londonLocalDateTimeToIso } from '../../../../lib/londonDateTime';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -87,6 +88,17 @@ const bodySchema = z.object({
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
+const normalizeLondonDateTime = (value: string | null | undefined): string | null => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+
+  const local = /^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})(?::\d{2}(?:\.\d{1,3})?)?$/.exec(raw);
+  if (local) return londonLocalDateTimeToIso(local[1], local[2]);
+
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+};
+
 const isMissingIdempotencyColumn = (error: { code?: string | null; message?: string | null } | null | undefined) => {
   if (!error) return false;
   const code = String(error.code ?? '');
@@ -124,6 +136,21 @@ export async function POST(request: NextRequest) {
     });
   }
   const input = parsed.data;
+  const pickupDateTime = normalizeLondonDateTime(input.pickupDateTime);
+  const deliveryDateTime = normalizeLondonDateTime(input.deliveryDateTime);
+  if (!pickupDateTime) {
+    return respond(400, { error: 'Collection date/time is invalid for Europe/London.' });
+  }
+  if (input.deliveryDateTime && !deliveryDateTime) {
+    return respond(400, { error: 'Delivery date/time is invalid for Europe/London.' });
+  }
+  const additionalStops = input.additionalStops.map((stop) => ({
+    ...stop,
+    dateTime: stop.dateTime ? normalizeLondonDateTime(stop.dateTime) : null,
+  }));
+  if (additionalStops.some((stop, index) => input.additionalStops[index]?.dateTime && !stop.dateTime)) {
+    return respond(400, { error: 'One or more additional-stop date/times are invalid for Europe/London.' });
+  }
   if (input.serviceMode === 'coload_permitted' && input.pickupTimeSlot.trim().toUpperCase() === 'ASAP') {
     return respond(400, { error: 'Backload / co-load jobs require a timed or flexible collection window, not ASAP.' });
   }
@@ -299,7 +326,7 @@ export async function POST(request: NextRequest) {
       height: input.heightCm ?? null,
     },
     publicQuoteNotes: input.publicQuoteNotes || null,
-    additionalStopCount: input.additionalStops.length,
+    additionalStopCount: additionalStops.length,
     // `notes` is retained as the backwards-compatible execution-private key.
     notes: executionInstructions,
     executionInstructions,
@@ -312,11 +339,11 @@ export async function POST(request: NextRequest) {
     current_status: status,
     pickup_location: `${input.pickupAddress}, ${input.pickupPostcode.toUpperCase()}`,
     pickup_postcode: input.pickupPostcode.toUpperCase(),
-    pickup_datetime: input.pickupDateTime,
+    pickup_datetime: pickupDateTime,
     pickup_time_slot: input.pickupTimeSlot,
     delivery_location: `${input.deliveryAddress}, ${input.deliveryPostcode.toUpperCase()}`,
     delivery_postcode: input.deliveryPostcode.toUpperCase(),
-    delivery_datetime: input.deliveryDateTime || null,
+    delivery_datetime: deliveryDateTime,
     delivery_time_slot: input.deliveryTimeSlot,
     collection_contact_name: input.collectionContact || null,
     collection_contact_phone: input.collectionPhone || null,
@@ -420,7 +447,7 @@ export async function POST(request: NextRequest) {
   }
 
   let createdJob = insertResult.data;
-  if (input.additionalStops.length > 0) {
+  if (additionalStops.length > 0) {
     const stopRows = [
       {
         job_id: createdJob.id,
@@ -430,10 +457,10 @@ export async function POST(request: NextRequest) {
         postcode: input.pickupPostcode.toUpperCase(),
         contact_name: input.collectionContact || null,
         contact_phone: input.collectionPhone || null,
-        window_start: input.pickupDateTime,
+        window_start: pickupDateTime,
         instructions: null,
       },
-      ...input.additionalStops.map((stop, index) => ({
+      ...additionalStops.map((stop, index) => ({
         job_id: createdJob.id,
         sequence: index + 2,
         stop_type: stop.type,
@@ -452,7 +479,7 @@ export async function POST(request: NextRequest) {
         postcode: input.deliveryPostcode.toUpperCase(),
         contact_name: input.deliveryContact || null,
         contact_phone: input.deliveryPhone || null,
-        window_start: input.deliveryDateTime || null,
+        window_start: deliveryDateTime,
         instructions: null,
       },
     ];

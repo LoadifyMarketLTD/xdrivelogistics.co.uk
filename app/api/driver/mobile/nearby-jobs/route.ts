@@ -170,9 +170,13 @@ function exchangePostActive(row: NearbyJobRow, nowMs = Date.now()) {
 
 type Coordinates = { lat: number; lng: number };
 function validCoordinates(lat: unknown, lng: unknown): Coordinates | null {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return null;
+  if (String(lat).trim() === '' || String(lng).trim() === '') return null;
   const parsedLat = Number(lat);
   const parsedLng = Number(lng);
-  return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
+  if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) return null;
+  if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) return null;
+  return { lat: parsedLat, lng: parsedLng };
 }
 function postcodeKey(value: unknown) {
   return String(value ?? '').replace(/\s+/g, '').toUpperCase();

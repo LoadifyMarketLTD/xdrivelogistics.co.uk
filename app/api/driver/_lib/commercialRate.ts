@@ -37,10 +37,11 @@ export function resolveDriverAgreedRate(
 export async function loadDriverAgreedRates(
   client: SupabaseClient,
   jobs: DriverCommercialJobSeed[],
-): Promise<{ rates: Map<string, number | null>; partial: boolean }> {
+): Promise<{ rates: Map<string, number | null>; paymentTerms: Map<string, string | null>; partial: boolean }> {
   const jobIds = [...new Set(jobs.map((job) => job.id).filter(Boolean))];
   const rates = new Map<string, number | null>();
-  if (jobIds.length === 0) return { rates, partial: false };
+  const paymentTerms = new Map<string, string | null>();
+  if (jobIds.length === 0) return { rates, paymentTerms, partial: false };
 
   const [agreementsResult, bidsResult] = await Promise.all([
     client
@@ -75,11 +76,17 @@ export async function loadDriverAgreedRates(
   }
 
   for (const job of jobs) {
-    rates.set(job.id, resolveDriverAgreedRate(job, agreements.get(job.id), acceptedBids.get(job.id)));
+    const agreement = agreements.get(job.id);
+    rates.set(job.id, resolveDriverAgreedRate(job, agreement, acceptedBids.get(job.id)));
+    const terms = typeof agreement?.payment_terms === 'string' && agreement.payment_terms.trim()
+      ? agreement.payment_terms.trim()
+      : null;
+    paymentTerms.set(job.id, terms);
   }
 
   return {
     rates,
+    paymentTerms,
     partial: Boolean(agreementsResult.error || bidsResult.error),
   };
 }

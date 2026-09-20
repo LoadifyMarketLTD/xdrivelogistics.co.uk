@@ -130,7 +130,7 @@ export async function GET(request: NextRequest) {
   if (context.companyId) {
     const invoiceResult = await supabaseAdmin!
       .from('invoices')
-      .select('id,invoice_number,status,payment_status,total,amount,currency,client_name,due_date')
+      .select('id,invoice_number,status,payment_status,total,amount,currency,client_name,due_date,job_id,job_ref,payment_terms,created_at,invoice_date,commercial_agreement_id')
       .eq('company_id', context.companyId)
       .eq('created_by', context.userId)
       .order('created_at', { ascending: false })
@@ -175,7 +175,10 @@ export async function GET(request: NextRequest) {
     status: row.read_at ? 'sent' : 'pending',
     created_at: String(row.created_at ?? new Date(0).toISOString()),
   }));
-  const alerts = [...operationalAlerts, ...inboxAlerts]
+  const alerts = inboxAlerts
+    .sort((left, right) => timestampOf(right.created_at) - timestampOf(left.created_at))
+    .slice(0, 100);
+  const operationalEventLog = operationalAlerts
     .sort((left, right) => timestampOf(right.created_at) - timestampOf(left.created_at))
     .slice(0, 100);
 
@@ -201,6 +204,7 @@ export async function GET(request: NextRequest) {
       documents,
       invoices,
       alerts,
+      operational_event_log: operationalEventLog,
       partial: partialResources,
 
       // Compatibility shape retained for older consumers.

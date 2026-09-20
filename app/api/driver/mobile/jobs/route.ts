@@ -187,6 +187,7 @@ export async function GET(request: NextRequest) {
         price: toMoney(agreedRate),
         agreedRateAmount: agreedRate,
         budgetAmount: agreedRate,
+        paymentTerms: commercial.paymentTerms.get(row.id) ?? mapJob(row).paymentTerms,
       };
     }),
     commercialRatePartial: commercial.partial,

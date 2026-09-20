@@ -7,7 +7,7 @@ function run(command, args) {
     cwd: process.cwd(),
     env: { ...process.env, CI: process.env.CI ?? 'true' },
     stdio: 'inherit',
-    shell: false,
+    shell: process.platform === 'win32' && command === npmCommand,
   });
   if (result.error) process.exit(1);
   if (result.status !== 0) process.exit(result.status ?? 1);

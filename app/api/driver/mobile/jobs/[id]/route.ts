@@ -97,7 +97,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!data) return respond(404, { error: 'Job not found.' });
 
   const row = data as unknown as DriverDetailRow;
-  const [commercial, stopsResult, instructionsResult] = await Promise.all([
+  const [commercial, stopsResult, instructionsResult, companyResult] = await Promise.all([
     loadDriverAgreedRates(supabaseAdmin, [row]),
     supabaseAdmin
       .from('job_stops')
@@ -111,6 +111,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .eq('event_type', 'driver_instruction_added')
       .order('event_time', { ascending: true })
       .limit(200),
+    row.company_id
+      ? supabaseAdmin.from('companies').select('id,name,xd_id').eq('id', row.company_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
   let podPresentationPartial = false;
@@ -142,10 +145,15 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ? operational.specialInstructions
     : mapDriverInstructions((instructionsResult.data ?? []) as unknown as DriverInstructionRow[]) ?? operational.specialInstructions;
 
+  const mappedJob = mapJob(row);
+  const ownerCompany = companyResult.error ? null : companyResult.data as { name?: string | null; xd_id?: string | null } | null;
+
   return respond(200, {
     job: {
-      ...mapJob(row),
+      ...mappedJob,
       ...operational,
+      companyName: ownerCompany?.name ?? undefined,
+      companyXdId: ownerCompany?.xd_id ?? undefined,
       // Persisted multi-drop remains authoritative. Legacy two-point stops from
       // the operational helper are used only for historical jobs with no job_stops.
       stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,
@@ -156,10 +164,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       price: toMoney(agreedRate),
       agreedRateAmount: agreedRate,
       budgetAmount: agreedRate,
+      paymentTerms: commercial.paymentTerms.get(row.id) ?? mappedJob.paymentTerms,
     },
     commercialRatePartial: commercial.partial,
     multiDropPartial,
     driverInstructionsPartial,
+    companyPresentationPartial: Boolean(companyResult.error),
     podPresentationPartial,
     attachmentPresentationPartial,
   });
