@@ -97,6 +97,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!data) return respond(404, { error: 'Job not found.' });
 
   const row = data as unknown as DriverDetailRow;
+  let ownerCompany: { name: string | null; xd_id: string | null } | null = null;
+  let companyPresentationPartial = false;
+  if (row.company_id) {
+    const { data: companyRow, error: companyError } = await supabaseAdmin
+      .from('companies')
+      .select('name,xd_id')
+      .eq('id', row.company_id)
+      .maybeSingle();
+    if (companyError) companyPresentationPartial = true;
+    else ownerCompany = companyRow as { name: string | null; xd_id: string | null } | null;
+  }
   const [commercial, stopsResult, instructionsResult] = await Promise.all([
     loadDriverAgreedRates(supabaseAdmin, [row]),
     supabaseAdmin
@@ -146,6 +157,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     job: {
       ...mapJob(row),
       ...operational,
+      companyName: ownerCompany?.name ?? undefined,
+      companyXdId: ownerCompany?.xd_id ?? undefined,
       // Persisted multi-drop remains authoritative. Legacy two-point stops from
       // the operational helper are used only for historical jobs with no job_stops.
       stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,
@@ -162,5 +175,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     driverInstructionsPartial,
     podPresentationPartial,
     attachmentPresentationPartial,
+    companyPresentationPartial,
   });
 }
