@@ -94,9 +94,14 @@ const RADIUS_VALUES = new Set([10, 20, 30, 50, 100, 200, 300]);
 const PAGE_SIZES = new Set([10, 25, 50]);
 
 function validCoordinates(lat: unknown, lng: unknown): Coordinates | null {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return null;
+  if (typeof lat === 'string' && lat.trim() === '') return null;
+  if (typeof lng === 'string' && lng.trim() === '') return null;
   const parsedLat = Number(lat);
   const parsedLng = Number(lng);
-  return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
+  if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) return null;
+  if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) return null;
+  return { lat: parsedLat, lng: parsedLng };
 }
 
 function postcodeKey(value: unknown) {

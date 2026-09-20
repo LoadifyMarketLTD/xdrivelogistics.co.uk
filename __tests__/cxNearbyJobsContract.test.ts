@@ -24,4 +24,13 @@ describe('CX-benchmark nearby jobs contract', () => {
     expect(source).toContain('exchangePostActive(row)');
     expect(source).toContain('expiresAt: row.exchange_expires_at');
   });
+  it('never converts missing coordinates to 0,0 and falls back to home location when GPS is stale', () => {
+    expect(source).toContain("if (lat === null || lat === undefined || lng === null || lng === undefined) return null;");
+    expect(source).toContain("if (typeof lat === 'string' && lat.trim() === '') return null;");
+    expect(source).toContain("if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) return null;");
+    expect(source).toContain("Date.now() - locationRecordedAt <= 120 * 60_000");
+    expect(source).toContain(".from('companies').select('postcode')");
+    expect(source).toContain("distanceOrigin = currentLocationFresh ? 'current_location' : homePosition ? 'home_location' : null");
+  });
+
 });

@@ -172,9 +172,14 @@ function exchangePostActive(row: NearbyJobRow, nowMs = Date.now()) {
 
 type Coordinates = { lat: number; lng: number };
 function validCoordinates(lat: unknown, lng: unknown): Coordinates | null {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return null;
+  if (typeof lat === 'string' && lat.trim() === '') return null;
+  if (typeof lng === 'string' && lng.trim() === '') return null;
   const parsedLat = Number(lat);
   const parsedLng = Number(lng);
-  return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
+  if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) return null;
+  if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) return null;
+  return { lat: parsedLat, lng: parsedLng };
 }
 function postcodeKey(value: unknown) {
   return String(value ?? '').replace(/\s+/g, '').toUpperCase();
@@ -266,19 +271,33 @@ export async function GET(request: NextRequest) {
     ? {}
     : { canQuote: false, quoteWarning: 'Your account type does not permit commercial bidding.' };
 
-  const { data: latestDriverLocation } = await supabaseAdmin
-    .from('driver_locations')
-    .select('lat,lng,recorded_at')
-    .eq('driver_id', driver.driverId)
-    .order('recorded_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  const driverPosition = validCoordinates(latestDriverLocation?.lat, latestDriverLocation?.lng);
-  const pickupCoordinateFallbacks = driverPosition
-    ? await postcodeCoordinates(rows
-      .filter((row) => !validCoordinates(row.pickup_lat, row.pickup_lng))
-      .map((row) => row.pickup_postcode))
-    : new Map<string, Coordinates>();
+  const [{ data: latestDriverLocation }, { data: homeCompany }] = await Promise.all([
+    supabaseAdmin
+      .from('driver_locations')
+      .select('lat,lng,recorded_at')
+      .eq('driver_id', driver.driverId)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    driver.companyId
+      ? supabaseAdmin.from('companies').select('postcode').eq('id', driver.companyId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  const latestDriverPosition = validCoordinates(latestDriverLocation?.lat, latestDriverLocation?.lng);
+  const locationRecordedAt = latestDriverLocation?.recorded_at ? new Date(latestDriverLocation.recorded_at).getTime() : Number.NaN;
+  const currentLocationFresh = latestDriverPosition !== null
+    && Number.isFinite(locationRecordedAt)
+    && Date.now() - locationRecordedAt <= 120 * 60_000;
+
+  const postcodeInputs = [
+    ...rows.filter((row) => !validCoordinates(row.pickup_lat, row.pickup_lng)).map((row) => row.pickup_postcode),
+    currentLocationFresh ? null : homeCompany?.postcode,
+  ];
+  const postcodeFallbacks = await postcodeCoordinates(postcodeInputs);
+  const homePosition = currentLocationFresh ? null : (postcodeFallbacks.get(postcodeKey(homeCompany?.postcode)) ?? null);
+  const driverPosition = currentLocationFresh ? latestDriverPosition : homePosition;
+  const distanceOrigin = currentLocationFresh ? 'current_location' : homePosition ? 'home_location' : null;
+  const pickupCoordinateFallbacks = postcodeFallbacks;
   const distanceToPickupByJob = new Map<string, number | null>();
   for (const row of rows) {
     const pickup = validCoordinates(row.pickup_lat, row.pickup_lng)
@@ -290,6 +309,7 @@ export async function GET(request: NextRequest) {
   const baseJob = (row: NearbyJobRow, extras: Record<string, unknown> = {}) => mapNearbyJob(row, posterMemberId(row), {
     ...commercialBidExtras,
     distanceToPickupMiles: distanceToPickupByJob.get(row.id) ?? null,
+    distanceOrigin,
     ...extras,
   });
   if (!destinationMode) return respond(200, { jobs: rows.map((row) => baseJob(row)) });
