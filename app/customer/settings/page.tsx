@@ -1,7 +1,7 @@
 'use client';
 
-import CustomerCompanySettingsPage from '../../components/workspace/CustomerCompanySettingsPage';
+import RoleSettingsWorkspace from '../../components/workspace/RoleSettingsWorkspace';
 
 export default function Page() {
-  return <CustomerCompanySettingsPage />;
+  return <RoleSettingsWorkspace role="customer" />;
 }

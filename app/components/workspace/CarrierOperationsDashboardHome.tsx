@@ -291,7 +291,7 @@ export default function CarrierOperationsDashboardHome() {
         title="Carrier Control Desk"
         badge="Live operations"
         description="Awarded carrier work, allocation, live delivery, delivery photo evidence and exceptions in one operational desk."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Open Diary</ActionButton>}
+        actions={<><ActionButton tone="warning" onClick={() => router.push('/admin/post-load')}>Post Load</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Open Diary</ActionButton></>}
       />
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}

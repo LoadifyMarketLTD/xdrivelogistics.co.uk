@@ -204,6 +204,7 @@ export type RouteRequirement = {
 const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   // carrier_fleet (/admin)
   { prefix: '/admin/action-centre', workspace: 'carrier_fleet' },
+  { prefix: '/admin/post-load', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'] },
   { prefix: '/admin/fleet/assignments', workspace: 'carrier_fleet', anyOf: ['jobs.allocate'] },
   { prefix: '/admin/fleet/active-jobs', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
   { prefix: '/admin/fleet/future-availability', workspace: 'carrier_fleet', anyOf: ['drivers.manage'] },
@@ -289,6 +290,8 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
 
   // owner_operator (/driver)
   { prefix: '/driver/action-centre', workspace: 'owner_operator' },
+  { prefix: '/driver/post-load', workspace: 'owner_operator', roles: ['owner_driver'] },
+  { prefix: '/driver/settings', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
   { prefix: '/driver/loads', workspace: 'owner_operator', anyOf: ['loads.view.marketplace'] },
   { prefix: '/driver/quotes', workspace: 'owner_operator', anyOf: ['quotes.submit'] },

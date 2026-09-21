@@ -146,7 +146,9 @@ const dimensionError = (value: string) => {
   return undefined;
 };
 
-export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' }) {
+type LoadPostingMode = 'broker' | 'customer' | 'admin' | 'owner';
+
+export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const { user } = useAuth();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -346,7 +348,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
         body: JSON.stringify({
           idempotencyKey: idempotencyKeyRef.current,
           companyId,
-          mode,
+          mode: mode === 'owner' ? 'admin' : mode,
           publish,
           directInviteCompanyId: publish ? directCarrier?.id ?? null : null,
           clientName: form.clientName || null,
@@ -434,7 +436,11 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
       );
       const destination = mode === 'broker'
         ? `/broker/loads?created=${payload.job.id}`
-        : `/customer/loads?created=${payload.job.id}`;
+        : mode === 'customer'
+          ? `/customer/loads?created=${payload.job.id}`
+          : mode === 'owner'
+            ? `/driver/loads?created=${payload.job.id}`
+            : `/admin/jobs?created=${payload.job.id}`;
       idempotencyKeyRef.current = null;
       window.setTimeout(() => router.push(destination), 650);
     } catch (reason) {
@@ -476,8 +482,8 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
         </Panel>
       )}
 
-      {mode === 'broker' && (
-        <Panel title="Customer" description="The customer whose transport request is being managed by the broker.">
+      {mode !== 'customer' && (
+        <Panel title="Customer" description={mode === 'broker' ? 'The customer whose transport request is being managed by the broker.' : 'Optional customer details for work being posted by this operating account.'}>
           <div style={gridStyle}>
             <label style={labelStyle}>Customer name<input style={fieldStyle} value={form.clientName} onChange={(event) => set('clientName', event.target.value)} /></label>
             <label style={labelStyle}>Customer email<input style={fieldStyle} type="email" value={form.clientEmail} onChange={(event) => set('clientEmail', event.target.value)} /></label>

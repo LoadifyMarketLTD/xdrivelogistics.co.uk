@@ -320,6 +320,7 @@ export default function FleetControlDashboardHome() {
         description="Won carrier work, driver allocation, active execution, fleet resources, live tracking and operational signals in one workspace."
         actions={
           <>
+            <ActionButton tone="warning" onClick={() => router.push('/admin/post-load')}>Post Load</ActionButton>
             <ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocate Jobs</ActionButton>
             <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Drivers</ActionButton>
             <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton>
