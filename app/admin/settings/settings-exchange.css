@@ -266,3 +266,145 @@
     grid-column: auto;
   }
 }
+
+
+.settings-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-overview-grid > section {
+  min-height: 100%;
+  border-color: #b8c7d8 !important;
+}
+
+.settings-member-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  padding: 2px 0 10px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.settings-member-card > div:last-child {
+  display: grid;
+  gap: 2px;
+}
+
+.settings-member-card strong {
+  color: #0b2f6b;
+  font-size: 15px;
+  line-height: 19px;
+}
+
+.settings-member-card span {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 14px;
+  text-transform: capitalize;
+}
+
+.settings-member-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: #0b2f6b;
+  color: #fff;
+  border: 2px solid #f5a300;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.settings-identity-list {
+  display: grid;
+  gap: 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.settings-identity-list > div {
+  min-height: 38px;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.settings-identity-list span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.settings-identity-list strong {
+  color: #172033;
+  font-size: 12px;
+  text-align: right;
+  text-transform: none;
+}
+
+.settings-actions--left {
+  justify-content: flex-start;
+}
+
+.settings-exchange-nav-group {
+  display: grid;
+  border-top: 1px solid var(--ws-border, #cfd7e3);
+  background: #fbfcfe;
+}
+
+.settings-exchange-nav-group > span {
+  padding: 8px 10px 5px;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.settings-exchange-nav-group button {
+  background: #fbfcfe;
+}
+
+.settings-exchange-nav-group button small {
+  color: #7b8a9a;
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 500;
+}
+
+.settings-exchange-main > section,
+.settings-overview-grid > section {
+  border-color: #b8c7d8 !important;
+}
+
+.settings-exchange-main > section > div:first-child,
+.settings-overview-grid > section > div:first-child {
+  min-height: 42px !important;
+  padding: 8px 10px !important;
+  background: #f3f8fd !important;
+}
+
+.settings-form-grid input,
+.settings-form-grid select {
+  height: 36px;
+  min-height: 36px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.settings-form-grid label > span {
+  color: #334155;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+@media (max-width: 1180px) {
+  .settings-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
