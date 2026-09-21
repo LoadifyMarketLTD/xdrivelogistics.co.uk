@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
-const panel = read('app/components/workspace/ConnectedExchangePanel.tsx');
 
 const dashboardFiles = [
   'app/broker/BrokerDashboardHome.tsx',
@@ -13,8 +13,8 @@ const dashboardFiles = [
   'app/super-admin/page.tsx',
 ] as const;
 
-describe('CX benchmark connected-workspace contract', () => {
-  it('keeps role dashboards free of the duplicated connected-exchange navigation panel', () => {
+describe('dashboard navigation de-duplication contract', () => {
+  it('keeps duplicated connected-exchange navigation panels off role dashboards', () => {
     for (const file of dashboardFiles) {
       const source = read(file);
       expect(source).not.toContain('ConnectedExchangePanel');
@@ -22,11 +22,7 @@ describe('CX benchmark connected-workspace contract', () => {
     }
   });
 
-  it('keeps the legacy shared panel source isolated and non-authoritative', () => {
-    for (const label of ['Directory', 'Loads', 'Quotes', 'Diary', 'Messages', 'Event Log', 'Finance']) {
-      expect(panel).toContain(`label: '${label}'`);
-    }
-    expect(panel).not.toContain('supabase');
-    expect(panel).not.toContain('fetch(');
+  it('removes the obsolete shared ConnectedExchangePanel source', () => {
+    expect(fs.existsSync(path.join(process.cwd(), 'app/components/workspace/ConnectedExchangePanel.tsx'))).toBe(false);
   });
 });
