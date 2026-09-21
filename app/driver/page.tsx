@@ -17,7 +17,6 @@ import {
   EmptyState,
   StatusBadge,
 } from '../components/workspace/WorkspaceUI';
-import { ConnectedExchangePanel } from '../components/workspace/ConnectedExchangePanel';
 
 type DriverNextAction =
   | { kind: 'transition'; label: string; description: string; resultLabel: string }
@@ -549,8 +548,6 @@ export default function DriverDashboard() {
         {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
         {transitionError && <AlertBanner tone="danger">{transitionError}</AlertBanner>}
         {transitionMessage && <AlertBanner tone="success">{transitionMessage}</AlertBanner>}
-
-        <ConnectedExchangePanel role="driver" title="Connected driver exchange" />
 
         <div className="driver-dashboard-layout">
           <aside className="driver-dashboard-left" aria-label="Driver operational controls">
