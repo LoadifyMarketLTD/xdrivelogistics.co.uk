@@ -7,6 +7,7 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
 import PostcodeAddressField from './PostcodeAddressField';
+import './load-posting-exchange.css';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
 const CARGO = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
@@ -164,9 +165,11 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
     clientName: '', clientEmail: '', clientPhone: '',
     pickupDate: '', pickupTime: '', pickupAddress: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
     deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
-    vehicle: 'LWB Van', cargo: 'Pallets', weight: '', pallets: '', length: '', width: '', height: '', cargoValue: '',
+    vehicle: 'LWB Van', cargo: 'Pallets', weight: '', pallets: '', itemCount: '', palletType: '', palletStackable: '', length: '', width: '', height: '', cargoValue: '',
     customerReference: '', purchaseOrder: '', bookingReference: '', customerPrice: '', targetCarrierCost: '',
-    tailLift: false, forklift: false, handball: false, adr: false, temperatureControlled: false, fragile: false,
+    tailLift: false, forklift: false, handball: false, deliveryTailLift: false, deliveryForklift: false, deliveryHandball: false,
+    adr: false, temperatureControlled: false, fragile: false, pumpTruck: false, twoPersonCrew: false, dedicatedVehicle: false, isFixedPrice: false,
+    collectionAccessRestrictions: '', deliveryAccessRestrictions: '', documentChecklist: '',
     publicQuoteNotes: '',
     executionInstructions: '',
   });
@@ -374,6 +377,9 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
           cargoLabel: form.cargo,
           weightKg: numberOrNull(form.weight),
           pallets: numberOrNull(form.pallets),
+          itemCount: numberOrNull(form.itemCount),
+          palletType: form.palletType || null,
+          palletStackable: form.palletStackable === 'yes' ? true : form.palletStackable === 'no' ? false : null,
           lengthCm: numberOrNull(form.length),
           widthCm: numberOrNull(form.width),
           heightCm: numberOrNull(form.height),
@@ -386,9 +392,21 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
           tailLift: form.tailLift,
           forklift: form.forklift,
           handball: form.handball,
+          deliveryTailLift: form.deliveryTailLift,
+          deliveryForklift: form.deliveryForklift,
+          deliveryHandball: form.deliveryHandball,
           adr: form.adr,
           temperatureControlled: form.temperatureControlled,
           fragile: form.fragile,
+          documentChecklist: form.documentChecklist.split(/\r?\n|,/).map((value) => value.trim()).filter(Boolean),
+          collectionAccessRestrictions: form.collectionAccessRestrictions.split(/\r?\n/).map((value) => value.trim()).filter(Boolean),
+          deliveryAccessRestrictions: form.deliveryAccessRestrictions.split(/\r?\n/).map((value) => value.trim()).filter(Boolean),
+          specialRequirementsList: [
+            form.pumpTruck && 'Pump truck required',
+            form.twoPersonCrew && 'Two-person crew required',
+            form.dedicatedVehicle && 'Dedicated vehicle / no co-loading',
+          ].filter((value): value is string => Boolean(value)),
+          isFixedPrice: form.isFixedPrice,
           publicQuoteNotes: form.publicQuoteNotes || null,
           executionInstructions: form.executionInstructions || null,
         }),
@@ -427,7 +445,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
   };
 
   return (
-    <div style={{ display: 'grid', gap: '12px' }}>
+    <div className="xdrive-post-load-form">
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
@@ -589,7 +607,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: '8px' }}>
           <label style={labelStyle}>Vehicle<select style={fieldStyle} value={form.vehicle} onChange={(event) => setVehicle(event.target.value)}>{VEHICLES.map((option) => <option key={option}>{option}</option>)}</select></label>
           <label style={labelStyle}>Cargo<select style={fieldStyle} value={form.cargo} onChange={(event) => set('cargo', event.target.value)}>{CARGO.map((option) => <option key={option}>{option}</option>)}</select></label>
-          {([['weight', 'Weight (kg)'], ['pallets', 'Pallets'], ['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)'], ['cargoValue', 'Cargo value (£)']] as const).map(([key, label]) => {
+          {([['weight', 'Weight (kg)'], ['pallets', 'Pallets'], ['itemCount', 'No. of items'], ['length', 'Length (cm)'], ['width', 'Width (cm)'], ['height', 'Height (cm)'], ['cargoValue', 'Cargo value (£)']] as const).map(([key, label]) => {
             const dimensionKey = key === 'length' || key === 'width' || key === 'height';
             const validationError = dimensionKey && showValidation ? dimensionErrors[key] : undefined;
             return (
@@ -609,11 +627,35 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
             );
           })}
         </div>
+        <div className="xdrive-postload-secondary-grid">
+          <label style={labelStyle}>Pallet type
+            <select style={fieldStyle} value={form.palletType} onChange={(event) => set('palletType', event.target.value)}>
+              <option value="">Not specified</option>
+              <option value="UK Standard">UK Standard</option>
+              <option value="Euro">Euro</option>
+              <option value="Oversized">Oversized</option>
+              <option value="Custom">Custom</option>
+            </select>
+          </label>
+          <label style={labelStyle}>Stackable
+            <select style={fieldStyle} value={form.palletStackable} onChange={(event) => set('palletStackable', event.target.value)}>
+              <option value="">Not specified</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </label>
+          <label style={labelStyle}>Pricing
+            <select style={fieldStyle} value={form.isFixedPrice ? 'fixed' : 'quotes'} onChange={(event) => set('isFixedPrice', event.target.value === 'fixed')}>
+              <option value="quotes">Accept quotes</option>
+              <option value="fixed">Fixed price</option>
+            </select>
+          </label>
+        </div>
         <div style={{ marginTop: '6px', fontSize: '11px', color: hasDimensionErrors && showValidation ? '#b91c1c' : '#64748b', fontWeight: hasDimensionErrors && showValidation ? 700 : 500 }}>
           {dimensionSummary}. Dimensions are entered and stored in centimetres (cm).
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '8px' }}>
-          {([['tailLift', 'Tail lift required'], ['forklift', 'Forklift available at collection'], ['handball', 'Handball required'], ['adr', 'ADR load'], ['temperatureControlled', 'Temperature controlled'], ['fragile', 'Fragile goods']] as const).map(([key, label]) => (
+          {([['tailLift', 'Tail lift required'], ['forklift', 'Forklift available at collection'], ['handball', 'Handball required'], ['deliveryTailLift', 'Tail lift required at delivery'], ['deliveryForklift', 'Forklift available at delivery'], ['deliveryHandball', 'Handball required at delivery'], ['pumpTruck', 'Pump truck required'], ['twoPersonCrew', 'Two-person crew'], ['dedicatedVehicle', 'Dedicated vehicle / no co-loading'], ['adr', 'ADR load'], ['temperatureControlled', 'Temperature controlled'], ['fragile', 'Fragile goods']] as const).map(([key, label]) => (
             <label key={key} style={{ display: 'flex', gap: '5px', alignItems: 'center', fontSize: '11px', fontWeight: 700 }}>
               <input type="checkbox" checked={form[key]} onChange={(event) => set(key, event.target.checked)} />{label}
             </label>
@@ -631,6 +673,20 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
         </div>
         <div style={{ marginTop: '6px', color: '#64748b', fontSize: '10px', lineHeight: '14px', fontWeight: 500 }}>
           Customer booking reference is optional and remains an external/customer reference. XDrive generates its own load reference automatically.
+        </div>
+      </Panel>
+
+      <Panel title="Documents, access & service requirements" description="Record the execution requirements that carriers need for safe planning. These values are persisted with the live job contract.">
+        <div className="xdrive-postload-requirements-grid">
+          <label style={labelStyle}>Collection access restrictions
+            <textarea style={textareaStyle} value={form.collectionAccessRestrictions} onChange={(event) => set('collectionAccessRestrictions', event.target.value)} placeholder="One requirement per line, e.g. loading bay 4, height restriction, timed gate access." />
+          </label>
+          <label style={labelStyle}>Delivery access restrictions
+            <textarea style={textareaStyle} value={form.deliveryAccessRestrictions} onChange={(event) => set('deliveryAccessRestrictions', event.target.value)} placeholder="One requirement per line, e.g. booking reference required, rear access only." />
+          </label>
+          <label style={labelStyle}>Document checklist
+            <textarea style={textareaStyle} value={form.documentChecklist} onChange={(event) => set('documentChecklist', event.target.value)} placeholder="CMR, delivery note, photo evidence, signed POD — separate entries with commas or new lines." />
+          </label>
         </div>
       </Panel>
 
@@ -659,7 +715,7 @@ export default function LoadPostingForm({ mode }: { mode: 'broker' | 'customer' 
         </div>
       </Panel>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px', flexWrap: 'wrap' }}>
+      <div className="xdrive-postload-actions">
         <ActionButton tone="secondary" disabled={saving} onClick={() => void save(false)}>{saving ? 'Saving…' : 'Save Draft'}</ActionButton>
         <ActionButton tone="warning" disabled={saving || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true)}>
           {saving ? 'Publishing…' : directCarrierId ? 'Send Direct Booking' : 'Publish Load'}

@@ -21,10 +21,11 @@ import {
 } from '../../components/workspace/WorkspaceUI';
 import './settings-exchange.css';
 
-type SettingsTab = 'company' | 'user' | 'notifications' | 'system' | 'help' | 'contact';
+type SettingsTab = 'overview' | 'company' | 'user' | 'notifications' | 'system' | 'help' | 'contact';
 
 const TABS: Array<{ id: SettingsTab; label: string; detail: string }> = [
-  { id: 'company', label: 'Member / Company Info', detail: 'Identity, contact, address and reference prefixes' },
+  { id: 'overview', label: 'Overview', detail: 'Member, support and workspace controls' },
+  { id: 'company', label: 'Company Profile', detail: 'Identity, contact, address and reference prefixes' },
   { id: 'user', label: 'User Profile', detail: 'Signed-in account and password' },
   { id: 'notifications', label: 'Notifications', detail: 'Supported email event preferences and inbox' },
   { id: 'system', label: 'Company Profile / Finance', detail: 'VAT, payment terms, currency and bank details' },
@@ -35,11 +36,20 @@ const TABS: Array<{ id: SettingsTab; label: string; detail: string }> = [
 export default function SettingsPage() {
   const router = useRouter();
   const { user, hasSupabaseSession } = useAuth();
-  const [activeTab, setActiveTab] = useState<SettingsTab>('company');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('overview');
   const [saved, setSaved] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [identity, setIdentity] = useState({
+    companyXdId: '',
+    companyStatus: '',
+    companyType: '',
+    memberXdId: '',
+    profileRole: '',
+    profileStatus: '',
+    profileName: '',
+  });
   const [saveError, setSaveError] = useState('');
 
   const [companyForm, setCompanyForm] = useState({
@@ -92,8 +102,30 @@ export default function SettingsPage() {
       }
 
       setCompanyId(resolvedCompanyId);
-      const settings = await loadCompanySettings(supabase, resolvedCompanyId);
+      const [settings, companyIdentity, profileIdentity] = await Promise.all([
+        loadCompanySettings(supabase, resolvedCompanyId),
+        supabase
+          .from('companies')
+          .select('xd_id, status, company_type')
+          .eq('id', resolvedCompanyId)
+          .maybeSingle(),
+        supabase
+          .from('profiles')
+          .select('xd_id, full_name, role, status')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+      ]);
       if (cancelled) return;
+
+      setIdentity({
+        companyXdId: typeof companyIdentity.data?.xd_id === 'string' ? companyIdentity.data.xd_id : '',
+        companyStatus: typeof companyIdentity.data?.status === 'string' ? companyIdentity.data.status : '',
+        companyType: typeof companyIdentity.data?.company_type === 'string' ? companyIdentity.data.company_type : '',
+        memberXdId: typeof profileIdentity.data?.xd_id === 'string' ? profileIdentity.data.xd_id : '',
+        profileRole: typeof profileIdentity.data?.role === 'string' ? profileIdentity.data.role : '',
+        profileStatus: typeof profileIdentity.data?.status === 'string' ? profileIdentity.data.status : '',
+        profileName: typeof profileIdentity.data?.full_name === 'string' ? profileIdentity.data.full_name : '',
+      });
 
       setCompanyForm({
         name: settings.companyName,
@@ -275,9 +307,58 @@ export default function SettingsPage() {
                   <span>{tab.detail}</span>
                 </button>
               ))}
+              <div className="settings-exchange-nav-group">
+                <span>Workspace</span>
+                <button type="button" onClick={() => router.push('/admin/drivers')}><strong>Drivers / Staff</strong><small>Driver access and records</small></button>
+                <button type="button" onClick={() => router.push('/admin/fleet/vehicles')}><strong>Vehicles / Assets</strong><small>Fleet resources and capability</small></button>
+                <button type="button" onClick={() => router.push('/admin/documents')}><strong>Documents</strong><small>Compliance and company records</small></button>
+                <button type="button" onClick={() => router.push('/admin/invoices')}><strong>Billing & Invoices</strong><small>Commercial records</small></button>
+                <button type="button" onClick={() => router.push('/admin/support')}><strong>Support</strong><small>Help and support requests</small></button>
+              </div>
             </aside>
 
             <main className="settings-exchange-main">
+              {activeTab === 'overview' && (
+                <div className="settings-overview-grid">
+                  <Panel title="Member info" description="Live account and company identity resolved from XDrive.">
+                    <div className="settings-member-card">
+                      <div className="settings-member-mark">XD</div>
+                      <div>
+                        <strong>{companyForm.name || 'Company account'}</strong>
+                        <span>{identity.profileStatus || identity.companyStatus || 'Status unavailable'}</span>
+                      </div>
+                    </div>
+                    <div className="settings-identity-list">
+                      <div><span>Member ID</span><strong>{identity.memberXdId || 'Not assigned'}</strong></div>
+                      <div><span>Company ID</span><strong>{identity.companyXdId || 'Not assigned'}</strong></div>
+                      <div><span>Account role</span><strong>{identity.profileRole?.replace(/_/g, ' ') || 'Not resolved'}</strong></div>
+                      <div><span>Company type</span><strong>{identity.companyType?.replace(/_/g, ' ') || 'Not resolved'}</strong></div>
+                    </div>
+                    <div className="settings-actions settings-actions--left">
+                      <ActionButton tone="secondary" onClick={() => setActiveTab('company')}>Company Profile</ActionButton>
+                      <ActionButton tone="secondary" onClick={() => setActiveTab('system')}>Finance & Billing</ActionButton>
+                    </div>
+                  </Panel>
+
+                  <Panel title="Help & support" description="Operational help without leaving the workspace.">
+                    <div className="settings-link-list">
+                      <button type="button" onClick={() => router.push('/admin/support')}><strong>Help Centre</strong><span>Support requests and platform assistance.</span></button>
+                      <button type="button" onClick={() => router.push('/admin/settings/legal-agreements')}><strong>Legal & Agreements</strong><span>Accepted terms and evidence history.</span></button>
+                      <button type="button" onClick={() => router.push('/admin/notifications')}><strong>Latest Updates</strong><span>Open the company notification inbox.</span></button>
+                    </div>
+                  </Panel>
+
+                  <Panel title={identity.profileName || user?.email || 'My account'} description="Profile and workspace administration.">
+                    <div className="settings-link-list">
+                      <button type="button" onClick={() => setActiveTab('user')}><strong>My Profile</strong><span>Password and signed-in account controls.</span></button>
+                      <button type="button" onClick={() => setActiveTab('company')}><strong>Company Profile</strong><span>Company identity and contact details.</span></button>
+                      <button type="button" onClick={() => router.push('/admin/documents')}><strong>Documents</strong><span>Company and operational records.</span></button>
+                      <button type="button" onClick={() => router.push('/admin/drivers-vehicles')}><strong>Users / Drivers</strong><span>Drivers, vehicles and resource readiness.</span></button>
+                    </div>
+                  </Panel>
+                </div>
+              )}
+
               {activeTab === 'company' && (
                 <Panel title="Member / Company Information" description="The company identity used across XDrive operational and commercial records.">
                   <div className="settings-form-grid">
