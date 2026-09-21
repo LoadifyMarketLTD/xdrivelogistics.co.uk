@@ -1,7 +1,7 @@
 'use client';
 
-import { BrokerCompanySettingsPage } from '../../components/workspace/Post233CompanyAdminPages';
+import RoleSettingsWorkspace from '../../components/workspace/RoleSettingsWorkspace';
 
 export default function Page() {
-  return <BrokerCompanySettingsPage />;
+  return <RoleSettingsWorkspace role="broker" />;
 }
