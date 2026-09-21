@@ -16,6 +16,7 @@ const DRIVER_PRIMARY_PAGE_TITLES: Readonly<Record<string, string>> = {
   '/driver/returns': 'Return Journeys',
   '/driver/account': 'Account',
   '/driver/load-alerts': 'Load Alerts',
+  '/driver/post-load': 'Post Load',
 };
 
 const DRIVER_ACCOUNT_PREFIXES = [
