@@ -543,7 +543,13 @@ export default function DriverDashboard() {
         driverName="Driver Dashboard"
         subtitle="Current execution, bookings, marketplace matching, feedback and compliance signals."
         availabilityLabel={driverProfile?.availability_status ? availabilityValue : undefined}
-        headerActions={<ActionButton tone="primary" onClick={() => void refreshDashboard()} disabled={data.loading || contextLoading}>Refresh</ActionButton>}
+        headerActions={
+          <>
+            {ownerDriver && <ActionButton tone="warning" onClick={() => router.push('/driver/post-load')}>Post Load</ActionButton>}
+            {ownerDriver && <ActionButton tone="secondary" onClick={() => router.push('/driver/settings')}>Settings</ActionButton>}
+            <ActionButton tone="primary" onClick={() => void refreshDashboard()} disabled={data.loading || contextLoading}>Refresh</ActionButton>
+          </>
+        }
       >
         {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
         {transitionError && <AlertBanner tone="danger">{transitionError}</AlertBanner>}
