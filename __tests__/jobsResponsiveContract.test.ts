@@ -311,11 +311,11 @@ describe('Jobs responsive — breakpoint values', () => {
     expect(CSS_SRC).toContain('max-width: 768px');
   });
 
-  it('renders status tabs as compact underline tabs rather than pill buttons', () => {
+  it('renders status tabs as readable distributed underline tabs rather than compact pills', () => {
     const tabRule = CSS_SRC.match(/\.jobsStatusTab\s*\{([^}]+)\}/)?.[1] ?? '';
     const activeRule = CSS_SRC.match(/\.jobsStatusTabActive\s*\{([^}]+)\}/)?.[1] ?? '';
-    expect(tabRule).toContain('border-bottom: 2px solid transparent');
-    expect(tabRule).toContain('border-radius: 0');
+    expect(tabRule).toContain('border-bottom: 3px solid transparent');
+    expect(tabRule).toContain('border-radius: 3px 3px 0 0');
     expect(activeRule).toContain('border-bottom-color: #1D57D8');
   });
 });

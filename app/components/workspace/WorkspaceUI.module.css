@@ -1645,32 +1645,48 @@
 }
 
 .jobsStatusTabs {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(8, minmax(84px, 1fr));
+  align-items: stretch;
+  gap: 8px;
+  min-height: 44px;
   margin-bottom: 8px;
-  border-bottom: 1px solid #D8DEE8;
-  padding-bottom: 1px;
+  padding: 4px 8px 0;
+  border: 1px solid #D8DEE8;
+  border-radius: 4px;
+  background: #ffffff;
 }
 
 .jobsStatusTab {
-  min-height: 26px;
-  padding: 0 0 6px;
+  min-height: 39px;
+  padding: 0 10px 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: none;
-  border-bottom: 2px solid transparent;
-  border-radius: 0;
+  border-bottom: 3px solid transparent;
+  border-radius: 3px 3px 0 0;
   background: transparent;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1;
+  color: #334155;
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.15;
+  letter-spacing: 0.005em;
+  white-space: nowrap;
   cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+}
+
+.jobsStatusTab:hover {
+  background: #F8FAFC;
+  color: #0B2F6B;
 }
 
 .jobsStatusTabActive {
   border-bottom-color: #1D57D8;
-  color: #1D57D8;
+  background: #F8FAFC;
+  color: #0B2F6B;
+  font-weight: 700;
 }
 
 /* Section 5: inputs/selects within toolbar 32px height */
@@ -1899,7 +1915,20 @@
     gap: 6px;
     padding: 6px 8px;
   }
-  .jobsStatusTabs { gap: 4px; }
+  .jobsStatusTabs {
+    display: flex;
+    gap: 6px;
+    min-height: 40px;
+    padding: 4px 6px 0;
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+  .jobsStatusTab {
+    min-height: 35px;
+    padding: 0 10px 6px;
+    font-size: 13px;
+    flex: 0 0 auto;
+  }
   .jobsToolbarSearch { width: 160px; }
   .jobsToolbarStatus { width: 120px; }
   .jobsToolbarDate { width: 120px; }
