@@ -38,6 +38,8 @@ type FullJob = {
   delivery_postcode: string | null;
   pickup_datetime: string | null;
   delivery_datetime: string | null;
+  job_distance_miles: number | null;
+  job_distance_minutes: number | null;
   vehicle_type: string | null;
   budget_amount: number | null;
   status: string;
@@ -59,6 +61,10 @@ type MarketplaceQuoteLoad = {
   requested_vehicle_label: string | null;
   budget_amount: number | null;
   currency: string;
+  distance_miles: number | null;
+  distance_minutes: number | null;
+  distance_to_pickup_miles: number | null;
+  pickup_eta_minutes: number | null;
   member: {
     companyId: string;
     name: string;
@@ -84,6 +90,10 @@ type QuoteView = {
   postedBy: string | null;
   customerReference: string | null;
   bookingReference: string | null;
+  distanceToPickupMiles: number | null;
+  pickupEtaMinutes: number | null;
+  jobDistanceMiles: number | null;
+  jobDistanceMinutes: number | null;
 };
 
 type FilterState = { pickupWithin: TimeWindow; deliveryWithin: TimeWindow; loadRef: string; bookedBy: string };
@@ -183,7 +193,7 @@ export default function MyQuotesPage() {
     const outgoing = ((outgoingRes.data ?? []) as Array<Omit<BidRow, 'direction'>>).map((bid) => ({ ...bid, direction: 'outgoing' as const }));
     const outgoingJobIds = [...new Set(outgoing.map((bid) => bid.job_id))];
 
-    const fullJobSelect = 'id, company_id, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, budget_amount, status, current_status, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)';
+    const fullJobSelect = 'id, company_id, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, job_distance_miles, job_distance_minutes, vehicle_type, budget_amount, status, current_status, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)';
 
     let ownJobs: FullJob[] = [];
     if (companyId) {
@@ -264,6 +274,7 @@ export default function MyQuotesPage() {
         pickupDatetime: job.pickup_datetime, deliveryDatetime: job.delivery_datetime, vehicle: job.vehicle_type, budget: job.budget_amount, currency: bid.currency || 'GBP',
         postingCompanyId: job.company_id, postingCompanyName: job.companies?.name ?? 'Your company', postingMemberId: null, postingPhone: null, postedBy: null,
         customerReference: job.customer_reference, bookingReference: job.booking_reference,
+        distanceToPickupMiles: null, pickupEtaMinutes: null, jobDistanceMiles: job.job_distance_miles, jobDistanceMinutes: job.job_distance_minutes,
       };
     }
 
@@ -273,6 +284,7 @@ export default function MyQuotesPage() {
       pickupDatetime: assigned.pickup_datetime, deliveryDatetime: assigned.delivery_datetime, vehicle: assigned.vehicle_type, budget: assigned.budget_amount, currency: bid.currency || 'GBP',
       postingCompanyId: assigned.company_id, postingCompanyName: assigned.companies?.name ?? 'Posting member', postingMemberId: null, postingPhone: null, postedBy: null,
       customerReference: assigned.customer_reference, bookingReference: assigned.booking_reference,
+      distanceToPickupMiles: null, pickupEtaMinutes: null, jobDistanceMiles: assigned.job_distance_miles, jobDistanceMinutes: assigned.job_distance_minutes,
     };
 
     const market = marketplaceByJob[bid.job_id];
@@ -283,12 +295,14 @@ export default function MyQuotesPage() {
       budget: market.budget_amount, currency: market.currency || bid.currency || 'GBP',
       postingCompanyId: market.member.companyId || market.company_id, postingCompanyName: market.member.name, postingMemberId: market.member.memberId,
       postingPhone: market.member.phone, postedBy: market.member.postedBy, customerReference: null, bookingReference: null,
+      distanceToPickupMiles: market.distance_to_pickup_miles, pickupEtaMinutes: market.pickup_eta_minutes, jobDistanceMiles: market.distance_miles, jobDistanceMinutes: market.distance_minutes,
     };
 
     return {
       access: 'protected', pickup: 'Route protected', delivery: 'Pending authorised allocation', pickupDatetime: null, deliveryDatetime: null,
       vehicle: null, budget: null, currency: bid.currency || 'GBP', postingCompanyId: null, postingCompanyName: 'Posting member', postingMemberId: null,
       postingPhone: null, postedBy: null, customerReference: null, bookingReference: null,
+      distanceToPickupMiles: null, pickupEtaMinutes: null, jobDistanceMiles: null, jobDistanceMinutes: null,
     };
   }, [assignedJobsById, marketplaceByJob, ownJobsById]);
 
@@ -382,6 +396,8 @@ export default function MyQuotesPage() {
                     </div>
                     <div className="driver-load-row__meta">
                       <span>Load #{bid.job_id.slice(0, 8).toUpperCase()}</span>
+                      <span><strong>To Collection:</strong> {view.distanceToPickupMiles != null ? `${view.distanceToPickupMiles.toFixed(1)} mi${view.pickupEtaMinutes != null ? ` · ${Math.round(view.pickupEtaMinutes)} min` : ''}` : 'Not available'}</span>
+                      <span><strong>Job Distance:</strong> {view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} mi${view.jobDistanceMinutes != null ? ` · ${Math.round(view.jobDistanceMinutes)} min` : ''}` : 'Not available'}</span>
                       {fullExecutionAccess && view.bookingReference && <span>Booking: {view.bookingReference}</span>}
                       {fullExecutionAccess && view.customerReference && <span>Customer ref: {view.customerReference}</span>}
                       <StatusBadge value={bid.status.charAt(0).toUpperCase() + bid.status.slice(1)} tone={quoteTone(bid.status)} />
@@ -393,6 +409,8 @@ export default function MyQuotesPage() {
                       <div className="driver-detail-item"><span>Load ID</span><strong>{bid.job_id}</strong></div>
                       <div className="driver-detail-item"><span>{bid.direction === 'incoming' ? 'Quoted by' : 'Booked by'}</span><strong>{counterpartCompanyId ? <MemberIdentityLink companyId={counterpartCompanyId}>{counterpartName}</MemberIdentityLink> : counterpartName}</strong></div>
                       <div className="driver-detail-item"><span>Vehicle</span><strong>{view.vehicle?.replace(/_/g, ' ') || (view.access === 'protected' ? 'Protected until allocation' : 'Not supplied')}</strong></div>
+                      <div className="driver-detail-item"><span>To Collection</span><strong>{view.distanceToPickupMiles != null ? `${view.distanceToPickupMiles.toFixed(1)} mi${view.pickupEtaMinutes != null ? ` · ${Math.round(view.pickupEtaMinutes)} min` : ''}` : 'Not available'}</strong></div>
+                      <div className="driver-detail-item"><span>Job Distance</span><strong>{view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} mi${view.jobDistanceMinutes != null ? ` · ${Math.round(view.jobDistanceMinutes)} min` : ''}` : 'Not available'}</strong></div>
                       <div className="driver-detail-item"><span>Proposed price</span><strong>{money(view.budget, view.currency)}</strong></div>
                       <div className="driver-detail-item"><span>Direction</span><strong>{bid.direction === 'incoming' ? 'Received' : 'Submitted'}</strong></div>
                       <div className="driver-detail-item"><span>Detail access</span><strong>{view.access === 'assigned' ? 'Assigned execution record' : view.access === 'own' ? 'Your company booking' : view.access === 'marketplace' ? 'Pre-award quote-safe' : 'Awaiting authorised allocation'}</strong></div>
