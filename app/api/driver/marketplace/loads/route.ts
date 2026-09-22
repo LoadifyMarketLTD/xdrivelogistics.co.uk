@@ -12,7 +12,7 @@ import {
 } from '../../_lib/marketplacePublic';
 import { isDriverContext, respond } from '../../mobile/_lib';
 import { requireWebDriver } from '../../_lib/webDriver';
-import { calculateJobRouteMetrics } from '../../../_lib/jobRouteMetrics';
+import { calculateDrivingRoute, calculateJobRouteMetrics } from '../../../_lib/jobRouteMetrics';
 
 const LIST_LIMIT = 150;
 
@@ -347,25 +347,11 @@ export async function GET(request: NextRequest) {
           pickup = null;
         }
       }
-      const token = process.env.MAPBOX_ACCESS_TOKEN?.trim();
-      if (pickup && token) {
-        try {
-          const coordinates = `${driverPosition.lng},${driverPosition.lat};${pickup.lng},${pickup.lat}`;
-          const url = new URL(`https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}`);
-          url.searchParams.set('overview', 'false');
-          url.searchParams.set('steps', 'false');
-          url.searchParams.set('access_token', token);
-          const response = await fetch(url, { signal: AbortSignal.timeout(5_000), cache: 'no-store' });
-          if (response.ok) {
-            const payload = await response.json() as { routes?: Array<{ distance?: number; duration?: number }> };
-            const route = payload.routes?.[0];
-            const metres = Number(route?.distance);
-            const seconds = Number(route?.duration);
-            if (Number.isFinite(metres) && metres > 0) distanceToPickupMiles = Math.round((metres / 1609.344) * 10) / 10;
-            if (Number.isFinite(seconds) && seconds > 0) pickupEtaMinutes = Math.max(1, Math.round(seconds / 60));
-          }
-        } catch {
-          // Leave live pickup metrics unavailable rather than fabricating them.
+      if (pickup) {
+        const route = await calculateDrivingRoute([driverPosition, pickup]);
+        if (route) {
+          distanceToPickupMiles = route.distanceMiles;
+          pickupEtaMinutes = route.durationMinutes;
         }
       }
     }
