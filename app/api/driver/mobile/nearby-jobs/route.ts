@@ -243,6 +243,53 @@ function distanceMiles(from: Coordinates, to: Coordinates) {
     + Math.cos(radians(from.lat)) * Math.cos(radians(to.lat)) * Math.sin(deltaLng / 2) ** 2;
   return earthMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
+
+type DriverPickupMetric = { distanceMiles: number; durationMinutes: number };
+
+async function drivingMetricsFromDriver(
+  origin: Coordinates,
+  targets: Array<{ id: string; coordinates: Coordinates }>,
+) {
+  const metrics = new Map<string, DriverPickupMetric>();
+  const token = process.env.MAPBOX_ACCESS_TOKEN?.trim();
+  if (!token || targets.length === 0) return metrics;
+
+  for (let offset = 0; offset < targets.length; offset += 24) {
+    const chunk = targets.slice(offset, offset + 24);
+    const coordinates = [origin, ...chunk.map((item) => item.coordinates)]
+      .map((item) => `${item.lng},${item.lat}`)
+      .join(';');
+    const url = new URL(`https://api.mapbox.com/directions-matrix/v1/mapbox/driving/${coordinates}`);
+    url.searchParams.set('sources', '0');
+    url.searchParams.set('destinations', chunk.map((_, index) => String(index + 1)).join(';'));
+    url.searchParams.set('annotations', 'distance,duration');
+    url.searchParams.set('access_token', token);
+
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(5_000), cache: 'no-store' });
+      if (!response.ok) continue;
+      const payload = await response.json() as {
+        distances?: Array<Array<number | null>>;
+        durations?: Array<Array<number | null>>;
+      };
+      const distances = payload.distances?.[0] ?? [];
+      const durations = payload.durations?.[0] ?? [];
+      chunk.forEach((item, index) => {
+        const metres = Number(distances[index]);
+        const seconds = Number(durations[index]);
+        if (!Number.isFinite(metres) || metres <= 0 || !Number.isFinite(seconds) || seconds <= 0) return;
+        metrics.set(item.id, {
+          distanceMiles: Math.round((metres / 1609.344) * 10) / 10,
+          durationMinutes: Math.max(1, Math.round(seconds / 60)),
+        });
+      });
+    } catch {
+      // Keep the existing straight-line fallback if routing is unavailable.
+    }
+  }
+
+  return metrics;
+}
 function jobTime(value: unknown) {
   const date = new Date(String(value ?? ''));
   return Number.isNaN(date.getTime()) ? null : date.getTime();
@@ -322,22 +369,40 @@ export async function GET(request: NextRequest) {
   const driverPosition = currentLocationFresh ? latestDriverPosition : homePosition;
   const distanceOrigin = currentLocationFresh ? 'current_location' : homePosition ? 'home_location' : null;
   const pickupCoordinateFallbacks = postcodeFallbacks;
-  const distanceToPickupByJob = new Map<string, number | null>();
+  const pickupCoordinatesByJob = new Map<string, Coordinates>();
+  const straightLineDistanceByJob = new Map<string, number | null>();
   for (const row of rows) {
     const pickup = validCoordinates(row.pickup_lat, row.pickup_lng)
       ?? pickupCoordinateFallbacks.get(postcodeKey(row.pickup_postcode))
       ?? null;
+    if (pickup) pickupCoordinatesByJob.set(row.id, pickup);
     const rawMiles = driverPosition && pickup ? distanceMiles(driverPosition, pickup) : null;
     const gbPickup = String(row.pickup_country_code || 'GB').toUpperCase() === 'GB';
     const miles = rawMiles !== null && gbPickup && rawMiles > 700 ? null : rawMiles;
-    distanceToPickupByJob.set(row.id, miles === null ? null : Number(miles.toFixed(1)));
+    straightLineDistanceByJob.set(row.id, miles === null ? null : Number(miles.toFixed(1)));
   }
-  const baseJob = (row: NearbyJobRow, extras: Record<string, unknown> = {}) => mapNearbyJob(row, posterMemberId(row), {
-    ...commercialBidExtras,
-    distanceToPickupMiles: distanceToPickupByJob.get(row.id) ?? null,
-    distanceOrigin,
-    ...extras,
-  });
+
+  const routedPickupMetrics = driverPosition
+    ? await drivingMetricsFromDriver(
+        driverPosition,
+        rows.flatMap((row) => {
+          const coordinates = pickupCoordinatesByJob.get(row.id);
+          return coordinates ? [{ id: row.id, coordinates }] : [];
+        }),
+      )
+    : new Map<string, DriverPickupMetric>();
+
+  const baseJob = (row: NearbyJobRow, extras: Record<string, unknown> = {}) => {
+    const routed = routedPickupMetrics.get(row.id);
+    return mapNearbyJob(row, posterMemberId(row), {
+      ...commercialBidExtras,
+      distanceToPickupMiles: routed?.distanceMiles ?? straightLineDistanceByJob.get(row.id) ?? null,
+      pickupEtaMinutes: routed?.durationMinutes ?? null,
+      distanceOrigin,
+      distanceMethod: routed ? 'road_route' : driverPosition ? 'straight_line_fallback' : null,
+      ...extras,
+    });
+  };
   if (!destinationMode) return respond(200, { jobs: rows.map((row) => baseJob(row)) });
 
   const { data: currentJob, error: currentJobError } = await supabaseAdmin
