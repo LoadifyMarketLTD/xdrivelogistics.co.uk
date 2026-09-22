@@ -178,27 +178,14 @@ async function routeWithOsrm(points: RouteCoordinates[]): Promise<ProviderRoute 
   }
 }
 
-export async function calculateJobRouteMetrics(postcodes: string[]): Promise<JobRouteMetrics | null> {
-  const ordered = postcodes.map(postcodeKey).filter(Boolean);
-  if (ordered.length < 2) return null;
+export async function calculateDrivingRoute(points: RouteCoordinates[]): Promise<(ProviderRoute & { source: JobRouteMetrics['source'] }) | null> {
+  if (points.length < 2) return null;
 
-  const geocoded = await geocodePostcodes(ordered);
-  const coordinates = ordered.map((postcode) => geocoded.get(postcode) ?? null);
-  if (coordinates.some((item) => item === null)) return null;
-
-  const points = coordinates as RouteCoordinates[];
   const mapboxToken = process.env.MAPBOX_ACCESS_TOKEN?.trim();
   if (mapboxToken) {
     const route = await routeWithMapbox(points, mapboxToken);
     if (route) {
-      return {
-        pickupLat: points[0].lat,
-        pickupLng: points[0].lng,
-        deliveryLat: points[points.length - 1].lat,
-        deliveryLng: points[points.length - 1].lng,
-        ...route,
-        source: 'mapbox_driving',
-      };
+      return { ...route, source: 'mapbox_driving' };
     }
   }
 
@@ -210,28 +197,37 @@ export async function calculateJobRouteMetrics(postcodes: string[]): Promise<Job
   if (googleToken) {
     const route = await routeWithGoogle(points, googleToken);
     if (route) {
-      return {
-        pickupLat: points[0].lat,
-        pickupLng: points[0].lng,
-        deliveryLat: points[points.length - 1].lat,
-        deliveryLng: points[points.length - 1].lng,
-        ...route,
-        source: 'google_directions',
-      };
+      return { ...route, source: 'google_directions' };
     }
   }
 
   const osrmRoute = await routeWithOsrm(points);
   if (osrmRoute) {
-    return {
-      pickupLat: points[0].lat,
-      pickupLng: points[0].lng,
-      deliveryLat: points[points.length - 1].lat,
-      deliveryLng: points[points.length - 1].lng,
-      ...osrmRoute,
-      source: 'osrm_driving',
-    };
+    return { ...osrmRoute, source: 'osrm_driving' };
   }
 
   return null;
+}
+
+export async function calculateJobRouteMetrics(postcodes: string[]): Promise<JobRouteMetrics | null> {
+  const ordered = postcodes.map(postcodeKey).filter(Boolean);
+  if (ordered.length < 2) return null;
+
+  const geocoded = await geocodePostcodes(ordered);
+  const coordinates = ordered.map((postcode) => geocoded.get(postcode) ?? null);
+  if (coordinates.some((item) => item === null)) return null;
+
+  const points = coordinates as RouteCoordinates[];
+  const route = await calculateDrivingRoute(points);
+  if (!route) return null;
+
+  return {
+    pickupLat: points[0].lat,
+    pickupLng: points[0].lng,
+    deliveryLat: points[points.length - 1].lat,
+    deliveryLng: points[points.length - 1].lng,
+    distanceMiles: route.distanceMiles,
+    durationMinutes: route.durationMinutes,
+    source: route.source,
+  };
 }
