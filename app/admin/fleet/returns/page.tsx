@@ -52,6 +52,14 @@ const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not supplied';
 
+const toLocalDateTime = (value: string | Date | null | undefined): string => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+};
+
 const positionAge = (value: string | null | undefined) => {
   if (!value) return { label: 'No position', stale: true };
   const timestamp = new Date(value).getTime();
