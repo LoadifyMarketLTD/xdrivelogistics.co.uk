@@ -22,6 +22,8 @@ import {
 type Tab = 'live' | 'future' | 'nearby';
 type FreshnessFilter = 'all' | 'live' | 'stale' | 'missing';
 
+const LIVE_AVAILABILITY_DEFAULTS_KEY = 'xdrive:carrier:live-availability:defaults';
+
 type NearbyAvailabilityPosition = {
   driver_id?: string | null;
   company_id: string | null;
@@ -83,6 +85,7 @@ export default function LiveAvailabilityPage() {
   const [nearbyPositions, setNearbyPositions] = useState<NearbyAvailabilityPosition[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(true);
   const [nearbyError, setNearbyError] = useState('');
+  const [filterNotice, setFilterNotice] = useState('');
 
   const loadNearby = useCallback(async () => {
     setNearbyLoading(true);
@@ -122,6 +125,44 @@ export default function LiveAvailabilityPage() {
 
   const refreshAll = async () => {
     await Promise.all([data.refresh(), intelligence.refresh(), loadNearby()]);
+  };
+
+  const clearFilters = () => {
+    setSearch('');
+    setAvailability('all');
+    setFreshness('all');
+    setNearbyVehicle('all');
+    setFilterNotice('');
+  };
+
+  const saveDefaults = () => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem(LIVE_AVAILABILITY_DEFAULTS_KEY, JSON.stringify({
+      tab,
+      availability,
+      freshness,
+      nearbyVehicle,
+    }));
+    setFilterNotice('Availability filter defaults saved on this device.');
+  };
+
+  const loadDefaults = () => {
+    if (typeof window === 'undefined') return;
+    try {
+      const raw = window.localStorage.getItem(LIVE_AVAILABILITY_DEFAULTS_KEY);
+      if (!raw) {
+        setFilterNotice('No saved availability defaults are available on this device.');
+        return;
+      }
+      const parsed = JSON.parse(raw) as Partial<{ tab: Tab; availability: string; freshness: FreshnessFilter; nearbyVehicle: string }>;
+      if (parsed.tab === 'live' || parsed.tab === 'future' || parsed.tab === 'nearby') setTab(parsed.tab);
+      if (typeof parsed.availability === 'string') setAvailability(parsed.availability);
+      if (parsed.freshness === 'all' || parsed.freshness === 'live' || parsed.freshness === 'stale' || parsed.freshness === 'missing') setFreshness(parsed.freshness);
+      if (typeof parsed.nearbyVehicle === 'string') setNearbyVehicle(parsed.nearbyVehicle);
+      setFilterNotice('Saved availability defaults loaded.');
+    } catch {
+      setFilterNotice('Saved availability defaults could not be read.');
+    }
   };
 
   const latestLocations = useMemo(() => {
@@ -245,6 +286,7 @@ export default function LiveAvailabilityPage() {
         <AlertBanner tone="warning">Some future-position, return-journey or advertising intelligence is temporarily unavailable. Live driver availability and tracking remain available.</AlertBanner>
       )}
       {nearbyError && <AlertBanner tone="warning">{nearbyError}</AlertBanner>}
+      {filterNotice && <AlertBanner tone="info">{filterNotice}</AlertBanner>}
 
       <div style={{ display: 'flex', border: '1px solid #dbe2ea', background: '#fff', marginBottom: 8, overflowX: 'auto' }} role="tablist" aria-label="Availability views">
         <button type="button" role="tab" aria-selected={tab === 'live'} style={tabStyle(tab === 'live')} onClick={() => setTab('live')}>Live Fleet</button>
@@ -260,6 +302,11 @@ export default function LiveAvailabilityPage() {
           {tab !== 'nearby' && <label style={labelStyle}>Availability<select style={inputStyle} value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="all">All states</option>{availabilityValues.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
           {tab === 'live' && <label style={labelStyle}>Tracking freshness<select style={inputStyle} value={freshness} onChange={(event) => setFreshness(event.target.value as FreshnessFilter)}><option value="all">All freshness</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>}
           {tab === 'nearby' && <label style={labelStyle}>Vehicle<select style={inputStyle} value={nearbyVehicle} onChange={(event) => setNearbyVehicle(event.target.value)}><option value="all">All vehicle types</option>{nearbyVehicleTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
+        </div>
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+          <ActionButton tone="secondary" onClick={saveDefaults}>Save Default</ActionButton>
+          <ActionButton tone="secondary" onClick={loadDefaults}>Load Default</ActionButton>
+          <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
         </div>
       </Panel>
 
