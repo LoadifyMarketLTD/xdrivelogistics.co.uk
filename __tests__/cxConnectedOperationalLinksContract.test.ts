@@ -3,6 +3,7 @@ import path from 'node:path';
 
 const live = fs.readFileSync(path.join(process.cwd(), 'app/admin/live-availability/page.tsx'), 'utf8');
 const vision = fs.readFileSync(path.join(process.cwd(), 'app/admin/freight-vision/page.tsx'), 'utf8');
+const resources = fs.readFileSync(path.join(process.cwd(), 'app/admin/fleet/resources/page.tsx'), 'utf8');
 
 describe('CX connected operational module links', () => {
   it('links Live Availability and Return Journeys bidirectionally', () => {
@@ -18,6 +19,13 @@ describe('CX connected operational module links', () => {
     expect(vision).toContain("/admin/messages?jobId=${encodeURIComponent(job.id)}");
     expect(vision).toContain('Diary');
     expect(vision).toContain('Replay');
+  });
+
+  it('routes Drivers & Vehicles to the fleet operational registers', () => {
+    expect(resources).toContain("router.push('/admin/fleet/drivers')");
+    expect(resources).toContain("router.push('/admin/fleet/vehicles')");
+    expect(resources).not.toContain("router.push('/admin/drivers')");
+    expect(resources).not.toContain("router.push('/admin/vehicles')");
   });
 
   it('does not create a second tracking or return-journey data source', () => {
