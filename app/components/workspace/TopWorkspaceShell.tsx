@@ -92,7 +92,7 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['carrier-my-fleet', 'My Fleet', '/admin/fleet'],
     ['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns'],
     ['carrier-loads', 'Loads', '/admin/marketplace'],
-    ['carrier-quotes', 'Quotes', '/admin/quotes'],
+    ['carrier-quotes', 'Quotes', '/admin/exchange-quotes'],
     ['carrier-diary', 'Diary', '/admin/diary'],
     ['carrier-freight-vision', 'Freight Vision', '/admin/freight-vision'],
     ['carrier-finance', 'Finance', '/admin/invoices'],
@@ -177,6 +177,16 @@ export default function TopWorkspaceShell({
     let base = getVisibleWorkspaceNav(role).map((group) => ({ ...group, items: [...group.items] }));
 
     if (CARRIER_NAV_ROLES.has(role)) {
+      const customerQuotesHref = '/admin/quotes';
+      const customerQuotesPresent = base.some((group) => group.items.some((candidate) => candidate.href === customerQuotesHref));
+      if (!customerQuotesPresent && hasWorkspaceCapability(role, 'quotes.submit')) {
+        base.push({
+          id: 'carrier-customer-quotes',
+          label: 'Customer Quotes',
+          items: [{ id: 'customer-quotes', label: 'Customer Quotes', href: customerQuotesHref, icon: '◫', capability: 'quotes.submit' }],
+        });
+      }
+
       const directoryHref = '/admin/marketplace/directory';
       const alreadyPresent = base.some((group) => group.items.some((candidate) => candidate.href === directoryHref));
       if (!alreadyPresent) {

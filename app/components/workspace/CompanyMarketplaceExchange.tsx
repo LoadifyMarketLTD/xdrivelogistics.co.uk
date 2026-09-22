@@ -54,10 +54,14 @@ const loadTypeLabel = (value: string) => LOAD_TYPES.find(([id]) => id === value)
 const descriptionLabel = (value: string) => DESCRIPTION_OPTIONS.find(([id]) => id === value)?.[1] ?? value.replace(/_/g, ' ');
 function friendlyError(payload: { error?: string; referenceId?: string }, fallback: string) { const message = payload.error || fallback; return payload.referenceId ? `${message} Reference: ${payload.referenceId}` : message; }
 
-export default function CompanyMarketplaceExchange() {
+export default function CompanyMarketplaceExchange({
+  initialTab = 'loads',
+}: {
+  initialTab?: 'loads' | 'bids' | 'won';
+} = {}) {
   const { user, hasSupabaseSession } = useAuth();
   const [companyId, setCompanyId] = useState<string | null>(null);
-  const [tab, setTab] = useState<'loads' | 'bids' | 'won'>('loads');
+  const [tab, setTab] = useState<'loads' | 'bids' | 'won'>(initialTab);
   const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [page, setPage] = useState(1);
   const [loads, setLoads] = useState<LoadRow[]>([]);
