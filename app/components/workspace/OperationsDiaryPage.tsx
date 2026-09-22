@@ -447,7 +447,12 @@ export default function OperationsDiaryPage() {
             </div>
           )}
 
-          {filtered.length > pageSize && <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span>Page {safePage} / {totalPages}</span><span style={{ display: 'flex', gap: 4, alignItems: 'center' }}><label>Per page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} style={{ height: 28 }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><ActionButton tone="secondary" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</ActionButton><ActionButton tone="secondary" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</ActionButton></span></div>
+          {filtered.length > pageSize && <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span>Page {safePage} / {totalPages}</span><span style={{ display: 'flex', gap: 4, alignItems: 'center' }}><label>Per page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} style={{ height: 28 }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><ActionButton tone="secondary" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</ActionButton><ActionButton tone="secondary" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</ActionButton></span></div>}
+        </main>
+      </div>
+    </PageFrame>
+  );
+}
 const viewModeButtonStyle = (active: boolean) => ({
   minHeight: 24,
   border: '1px solid var(--ws-border)',
@@ -459,10 +464,3 @@ const viewModeButtonStyle = (active: boolean) => ({
   fontWeight: active ? 800 : 650,
   cursor: 'pointer',
 }) as const;
-
-}
-        </main>
-      </div>
-    </PageFrame>
-  );
-}
