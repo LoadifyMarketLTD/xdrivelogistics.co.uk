@@ -1,0 +1,165 @@
+/* Live Driver Workspace visual parity layer.
+ * Imported after the shared measured baseline so Driver can match the
+ * production Company Workspace readability without changing Driver IA.
+ */
+
+.xdrive-driver-workspace .driver-top-shell__header {
+  height: 62px !important;
+  min-height: 62px !important;
+  grid-template-rows: 62px !important;
+  gap: 14px !important;
+  padding: 0 16px !important;
+}
+
+.xdrive-driver-workspace .driver-top-shell__logo-button {
+  width: 144px !important;
+  height: 48px !important;
+  flex-basis: 144px !important;
+}
+
+.xdrive-driver-workspace .driver-top-shell__logo {
+  width: 144px !important;
+  height: 40px !important;
+}
+
+.xdrive-driver-workspace .driver-top-shell__identity span {
+  font-size: 11px !important;
+  line-height: 14px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-driver-workspace .driver-top-shell__identity strong {
+  max-width: 190px !important;
+  font-size: 13px !important;
+  line-height: 16px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-driver-workspace .driver-top-nav,
+.xdrive-driver-workspace .driver-top-nav__track,
+.xdrive-driver-workspace .driver-top-nav__item {
+  height: 62px !important;
+  min-height: 62px !important;
+}
+
+.xdrive-driver-workspace .driver-top-nav__track {
+  justify-content: space-between !important;
+  gap: 2px !important;
+}
+
+.xdrive-driver-workspace .driver-top-nav__item {
+  padding: 0 12px !important;
+  color: #26364d !important;
+  font-size: 14px !important;
+  line-height: 1.15 !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-driver-workspace .driver-top-nav__item[data-active="true"] {
+  color: #0b2f6b !important;
+  font-weight: 750 !important;
+  box-shadow: inset 0 -3px 0 #1d57d8 !important;
+}
+
+.xdrive-driver-workspace .driver-top-shell__actions {
+  gap: 8px !important;
+}
+
+.xdrive-driver-workspace .driver-shell-action,
+.xdrive-driver-workspace .driver-shell-notification {
+  height: 36px !important;
+  min-height: 36px !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-driver-workspace .driver-shell-action {
+  padding: 0 14px !important;
+}
+
+.xdrive-driver-workspace .driver-shell-notification {
+  width: 36px !important;
+}
+
+.xdrive-driver-workspace .driver-top-shell__content {
+  min-height: calc(100vh - 62px) !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .xdrive-page-header p {
+  font-size: 13px !important;
+  line-height: 17px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .xdrive-page-header button {
+  min-height: 36px !important;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-section__header > span:first-child,
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-section__header > strong:first-child {
+  font-size: 14px !important;
+  line-height: 19px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-section__header > span:last-child:not(:first-child),
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-facts dt,
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-quick-row span,
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-inline-warning {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-facts dd,
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-quick-row strong,
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-next-action {
+  font-size: 13px !important;
+  line-height: 17px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-cell-label {
+  font-size: 12px !important;
+  line-height: 15px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-cell-primary {
+  font-size: 14px !important;
+  line-height: 19px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-cell-secondary,
+.xdrive-driver-workspace .driver-reference-dashboard .driver-load-row__meta {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+@media (max-width: 1450px) {
+  .xdrive-driver-workspace .driver-top-shell__header {
+    gap: 10px !important;
+    padding: 0 10px !important;
+  }
+  .xdrive-driver-workspace .driver-top-nav__item {
+    padding: 0 9px !important;
+    font-size: 13px !important;
+    font-weight: 650 !important;
+  }
+  .xdrive-driver-workspace .driver-shell-action {
+    padding: 0 10px !important;
+    font-size: 12px !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .xdrive-driver-workspace .driver-top-shell__header {
+    gap: 6px !important;
+    padding: 0 6px !important;
+  }
+  .xdrive-driver-workspace .driver-top-nav__item {
+    padding: 0 7px !important;
+    font-size: 12px !important;
+  }
+  .xdrive-driver-workspace .driver-shell-action {
+    padding: 0 7px !important;
+    font-size: 12px !important;
+  }
+}

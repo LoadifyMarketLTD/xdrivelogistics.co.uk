@@ -71,7 +71,7 @@ export default function DriverWorkspaceShell({
       <div className="driver-operational-page">
         {(resolvedTitle || subtitle || availabilityLabel || personaLabel || headerActions) && (
           <PageHeader
-            eyebrow={personaLabel ?? 'Driver workspace'}
+            eyebrow={pathname === '/driver' ? undefined : (personaLabel ?? 'Driver workspace')}
             title={resolvedTitle}
             description={subtitle}
             actions={
