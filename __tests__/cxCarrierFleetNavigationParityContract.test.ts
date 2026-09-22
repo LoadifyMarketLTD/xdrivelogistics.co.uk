@@ -5,27 +5,36 @@ const shell = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace
 const roles = fs.readFileSync(path.join(process.cwd(), 'lib/workspaceRole.ts'), 'utf8');
 
 describe('CX-close carrier and fleet top navigation', () => {
-  it('promotes the carrier modules that CX exposes as primary navigation', () => {
-    for (const label of [
-      'Dashboard',
-      'Directory',
-      'Live Availability',
-      'My Fleet',
-      'Return Journeys',
-      'Loads',
-      'Quotes',
-      'Diary',
-      'Freight Vision',
-      'Finance',
-      'Drivers & Vehicles',
-      'Drivers',
-    ]) {
-      expect(shell).toContain(`'${label}'`);
+  it('keeps the carrier primary navigation in the exact CX operating sequence', () => {
+    const carrierStart = shell.indexOf("const direct: Array<[string, string, string]> = [");
+    const carrierEnd = shell.indexOf("];", carrierStart);
+    const carrierDirect = shell.slice(carrierStart, carrierEnd);
+    const sequence = [
+      "['carrier-dashboard', 'Dashboard', '/admin']",
+      "['carrier-directory', 'Directory', '/admin/marketplace/directory']",
+      "['carrier-live-availability', 'Live Availability', '/admin/live-availability']",
+      "['carrier-my-fleet', 'My Fleet', '/admin/fleet']",
+      "['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns']",
+      "['carrier-loads', 'Loads', '/admin/marketplace']",
+      "['carrier-quotes', 'Quotes', '/admin/exchange-quotes']",
+      "['carrier-diary', 'Diary', '/admin/diary']",
+      "['carrier-freight-vision', 'Freight Vision', '/admin/freight-vision']",
+      "['carrier-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources']",
+    ];
+    let cursor = -1;
+    for (const item of sequence) {
+      const next = carrierDirect.indexOf(item);
+      expect(next).toBeGreaterThan(cursor);
+      cursor = next;
     }
+    expect(carrierDirect).not.toContain("'Finance'");
+    expect(carrierDirect).not.toContain("'Drivers', '/admin/fleet/drivers'");
     expect(shell).toContain("label: 'More'");
   });
 
   it('keeps secondary XDrive modules accessible under More rather than removing them', () => {
+    expect(shell).toContain("'/admin/invoices'");
+    expect(shell).toContain("'/admin/fleet/drivers'");
     expect(shell).toContain("'/admin/jobs'");
     expect(shell).toContain("'/admin/fleet/vehicles'");
     expect(shell).toContain("'/admin/documents'");
