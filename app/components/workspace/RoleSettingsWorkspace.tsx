@@ -8,7 +8,7 @@ import { useAuth } from '../AuthContext';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from './WorkspaceUI';
 import './role-settings-workspace.css';
 
-type RoleMode = 'customer' | 'broker' | 'owner';
+type RoleMode = 'customer' | 'broker' | 'owner' | 'fleet';
 type Section = 'overview' | 'profile' | 'company' | 'security';
 
 type CompanyRow = {
@@ -43,6 +43,7 @@ const ROLE_LABEL: Record<RoleMode, string> = {
   customer: 'Customer / Shipper',
   broker: 'Broker',
   owner: 'Owner Driver',
+  fleet: 'Fleet / Carrier',
 };
 
 const routeMap: Record<RoleMode, {
@@ -77,6 +78,14 @@ const routeMap: Record<RoleMode, {
     audit: '/driver/event-log',
     legal: '/driver/account/legal-agreements',
     finance: '/driver/finance',
+  },
+  fleet: {
+    vehicles: '/admin/fleet/vehicles',
+    documents: '/admin/documents',
+    notifications: '/admin/notifications',
+    audit: '/admin/event-log',
+    legal: '/admin/settings/legal-agreements',
+    finance: '/admin/invoices',
   },
 };
 
@@ -241,6 +250,7 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
     { label: 'Company Profile', action: () => setSection('company'), active: section === 'company' },
     ...(routes.team ? [{ label: 'Users & Permissions', action: () => router.push(routes.team!), active: false }] : []),
     ...(role === 'owner' ? [{ label: 'Drivers / Staff', action: () => router.push('/driver/profile'), active: false }] : []),
+    ...(role === 'fleet' ? [{ label: 'Drivers / Staff', action: () => router.push('/admin/drivers'), active: false }] : []),
     ...(routes.vehicles ? [{ label: 'Vehicles / Assets', action: () => router.push(routes.vehicles!), active: false }] : []),
     ...(routes.documents ? [{ label: 'Documents', action: () => router.push(routes.documents!), active: false }] : []),
     { label: 'Billing & Membership', action: () => router.push('/settings/billing'), active: false },
