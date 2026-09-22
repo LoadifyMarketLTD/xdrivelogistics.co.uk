@@ -55,6 +55,10 @@ type DashboardMarketplaceLoad = {
   pallets: number | null;
   budget_amount: number | null;
   currency: string | null;
+  distance_miles: number | null;
+  distance_minutes: number | null;
+  distance_to_pickup_miles: number | null;
+  pickup_eta_minutes: number | null;
   exchange_posted_at: string | null;
   member: {
     companyId: string;
@@ -512,6 +516,8 @@ export default function DriverDashboard() {
       </div>
       <div className="driver-load-row__meta">
         <StatusBadge value="Vehicle type match" tone="blue" />
+        <span><strong>To Collection:</strong> {load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} mi${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available'}</span>
+        <span><strong>Job Distance:</strong> {load.distance_miles != null ? `${load.distance_miles.toFixed(1)} mi${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available'}</span>
         <span>{load.member?.name ?? 'Marketplace member'}{load.member?.phone ? ` · ${load.member.phone}` : ''}</span>
         <span>XDrive XDL-{load.id.slice(0, 8).toUpperCase()}</span>
         <div className="driver-row-actions">
