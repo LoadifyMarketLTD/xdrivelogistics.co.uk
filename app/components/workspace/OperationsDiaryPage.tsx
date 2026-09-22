@@ -6,7 +6,7 @@ import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { classifyWorkspaceJobStage, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
-import { CompanyJobSheetPanel } from './CompanyJobSheetPanel';
+import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import {
   ActionButton,
   AlertBanner,
@@ -29,10 +29,27 @@ type JobRow = {
   pickup_location: string | null;
   pickup_postcode: string | null;
   pickup_datetime: string | null;
+  pickup_time_slot: string | null;
   delivery_location: string | null;
   delivery_postcode: string | null;
   delivery_datetime: string | null;
+  delivery_time_slot: string | null;
   vehicle_type: string | null;
+  requested_vehicle_type: string | null;
+  requested_vehicle_label: string | null;
+  cargo_type: string | null;
+  requested_cargo_label: string | null;
+  weight_kg: number | string | null;
+  pallets: number | null;
+  length_cm: number | string | null;
+  width_cm: number | string | null;
+  height_cm: number | string | null;
+  job_distance_miles: number | string | null;
+  distance_miles: number | string | null;
+  pod_required: boolean | null;
+  hard_copy_pod: string | null;
+  special_requirements: string | null;
+  access_restrictions: string | null;
   client_name: string | null;
   customer_reference: string | null;
   booking_reference: string | null;
@@ -60,16 +77,19 @@ type ReviewRow = {
 };
 
 type SearchState = {
+  scope: 'all' | 'ours' | 'subcontracted';
   from: string;
   to: string;
   reference: string;
   customer: string;
   driver: string;
+  pickupWindow: 'any' | 'morning' | 'afternoon' | 'evening';
+  deliveryWindow: 'any' | 'morning' | 'afternoon' | 'evening';
   dateFrom: string;
   dateTo: string;
 };
 
-const EMPTY_SEARCH: SearchState = { from: '', to: '', reference: '', customer: '', driver: '', dateFrom: '', dateTo: '' };
+const EMPTY_SEARCH: SearchState = { scope: 'all', from: '', to: '', reference: '', customer: '', driver: '', pickupWindow: 'any', deliveryWindow: 'any', dateFrom: '', dateTo: '' };
 const TABS: Array<{ id: DiaryTab; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'unallocated', label: 'Unallocated' },
@@ -87,6 +107,23 @@ const normalise = (value: string | null | undefined) => String(value ?? '').trim
 const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not set';
+const timeWindowMatches = (value: string | null | undefined, window: SearchState['pickupWindow']) => {
+  if (window === 'any') return true;
+  if (!value) return false;
+  const hour = new Date(value).getHours();
+  if (Number.isNaN(hour)) return false;
+  if (window === 'morning') return hour < 12;
+  if (window === 'afternoon') return hour >= 12 && hour < 17;
+  return hour >= 17;
+};
+const numberLabel = (value: number | string | null | undefined, suffix: string) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed.toLocaleString('en-GB') + suffix : null;
+};
+const dimensionsLabel = (job: JobRow) => {
+  const values = [job.length_cm, job.width_cm, job.height_cm].map((value) => Number(value));
+  return values.every((value) => Number.isFinite(value)) ? values.map((value) => value.toLocaleString('en-GB')).join(' × ') + ' cm' : null;
+};
 
 // Client-side account-state filter only. Full driver + canonical vehicle
 // operational eligibility is revalidated by the authorised allocation endpoint.
@@ -160,6 +197,7 @@ export default function OperationsDiaryPage() {
   const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [detailTabByJob, setDetailTabByJob] = useState<Record<string, JobSheetTab>>({});
 
   const load = useCallback(async () => {
     if (!companyId) { setJobs([]); setDrivers([]); setReviewsByJob({}); setLoading(false); return; }
@@ -167,7 +205,7 @@ export default function OperationsDiaryPage() {
     const [jobsResult, driversResult, reviewsResult] = await Promise.all([
       supabase
         .from('jobs')
-        .select('id, company_id, assigned_company_id, awarded_carrier_company_id, assigned_driver_id, status, current_status, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, vehicle_type, client_name, customer_reference, booking_reference, pod_generated, pod_generated_at, delivery_photos, updated_at, created_at')
+        .select('id, company_id, assigned_company_id, awarded_carrier_company_id, assigned_driver_id, status, current_status, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, vehicle_type, requested_vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, job_distance_miles, distance_miles, pod_required, hard_copy_pod, special_requirements, access_restrictions, client_name, customer_reference, booking_reference, pod_generated, pod_generated_at, delivery_photos, updated_at, created_at')
         .or(`company_id.eq.${companyId},assigned_company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`)
         .order('pickup_datetime', { ascending: true })
         .limit(300),
@@ -234,11 +272,14 @@ export default function OperationsDiaryPage() {
 
     return jobs
       .filter((job) => matchesTab(job, tab, reviewsByJob[job.id] ?? []))
+      .filter((job) => appliedSearch.scope === 'all' || (appliedSearch.scope === 'ours' ? job.company_id === companyId : job.company_id !== companyId))
       .filter((job) => !from || `${job.pickup_location ?? ''} ${job.pickup_postcode ?? ''}`.toLowerCase().includes(from))
       .filter((job) => !to || `${job.delivery_location ?? ''} ${job.delivery_postcode ?? ''}`.toLowerCase().includes(to))
       .filter((job) => !reference || `${job.id} ${job.customer_reference ?? ''} ${job.booking_reference ?? ''}`.toLowerCase().includes(reference))
       .filter((job) => !customer || String(job.client_name ?? '').toLowerCase().includes(customer))
       .filter((job) => !appliedSearch.driver || job.assigned_driver_id === appliedSearch.driver)
+      .filter((job) => timeWindowMatches(job.pickup_datetime, appliedSearch.pickupWindow))
+      .filter((job) => timeWindowMatches(job.delivery_datetime, appliedSearch.deliveryWindow))
       .filter((job) => {
         if (!fromDate && !toDate) return true;
         if (!job.pickup_datetime) return false;
@@ -248,7 +289,7 @@ export default function OperationsDiaryPage() {
         if (toDate && timestamp > toDate) return false;
         return true;
       });
-  }, [appliedSearch, jobs, reviewsByJob, tab]);
+  }, [appliedSearch, companyId, jobs, reviewsByJob, tab]);
 
   const counts = useMemo(() => Object.fromEntries(TABS.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [])).length])) as Record<DiaryTab, number>, [jobs, reviewsByJob]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -283,6 +324,16 @@ export default function OperationsDiaryPage() {
     });
   };
 
+  const openJobTab = (jobId: string, tabId: JobSheetTab) => {
+    setDetailTabByJob((current) => ({ ...current, [jobId]: tabId }));
+    setSelectedJobId(jobId);
+    setExpandedIds((current) => {
+      const next = new Set(current);
+      next.add(jobId);
+      return next;
+    });
+  };
+
   const assignDriver = async (job: JobRow) => {
     const driverId = driverSelections[job.id];
     if (!driverId) { setError('Choose an active driver account before allocation. Full operational eligibility is verified by the server.'); return; }
@@ -312,7 +363,7 @@ export default function OperationsDiaryPage() {
       <PageHeader
         eyebrow="Operations"
         title="Diary"
-        description="Post-award operating-company register: scan, expand, allocate where authorised and inspect the complete authorised job sheet without leaving the board. Driver execution lifecycle remains in the driver-authorised execution workflow."
+        description="Post-award bookings, allocation, evidence and authorised job records in one operating register."
         actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
@@ -320,13 +371,16 @@ export default function OperationsDiaryPage() {
 
       <div className="workspace-board-layout">
         <aside className="workspace-filter-rail" aria-label="Diary search filters">
-          <div className="workspace-filter-rail__header">Search Diary</div>
+          <div className="workspace-filter-rail__header">Search Panel</div>
           <div className="workspace-filter-rail__body">
+            <label>BOOKING SCOPE<select value={search.scope} onChange={(event) => setSearch((current) => ({ ...current, scope: event.target.value as SearchState['scope'] }))}><option value="all">All</option><option value="subcontracted">Jobs Sub-contracted</option><option value="ours">Our Bookings</option></select></label>
             <label>FROM<input value={search.from} onChange={(event) => setSearch((current) => ({ ...current, from: event.target.value }))} placeholder="Pickup town / postcode" /></label>
             <label>TO<input value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Delivery town / postcode" /></label>
-            <label>JOB / REF<input value={search.reference} onChange={(event) => setSearch((current) => ({ ...current, reference: event.target.value }))} placeholder="Job, customer or booking ref" /></label>
-            <label>CUSTOMER<input value={search.customer} onChange={(event) => setSearch((current) => ({ ...current, customer: event.target.value }))} placeholder="Customer name" /></label>
-            <label>DRIVER<select value={search.driver} onChange={(event) => setSearch((current) => ({ ...current, driver: event.target.value }))}><option value="">All drivers</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.email ?? 'Driver'}</option>)}</select></label>
+            <label>PICKUP TIME WITHIN<select value={search.pickupWindow} onChange={(event) => setSearch((current) => ({ ...current, pickupWindow: event.target.value as SearchState['pickupWindow'] }))}><option value="any">Any</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
+            <label>DELIVERY TIME WITHIN<select value={search.deliveryWindow} onChange={(event) => setSearch((current) => ({ ...current, deliveryWindow: event.target.value as SearchState['deliveryWindow'] }))}><option value="any">Any</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
+            <label>LOAD ID / REF<input value={search.reference} onChange={(event) => setSearch((current) => ({ ...current, reference: event.target.value }))} placeholder="Job, customer or booking ref" /></label>
+            <label>CUSTOMER NAME<input value={search.customer} onChange={(event) => setSearch((current) => ({ ...current, customer: event.target.value }))} placeholder="Customer name" /></label>
+            <label>MEMBER / DRIVER<select value={search.driver} onChange={(event) => setSearch((current) => ({ ...current, driver: event.target.value }))}><option value="">All drivers</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.email ?? 'Driver'}</option>)}</select></label>
             <label>DATE FROM<input type="date" value={search.dateFrom} onChange={(event) => setSearch((current) => ({ ...current, dateFrom: event.target.value }))} /></label>
             <label>DATE TO<input type="date" value={search.dateTo} onChange={(event) => setSearch((current) => ({ ...current, dateTo: event.target.value }))} /></label>
             <div className="workspace-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={clearSearch}>Clear</ActionButton></div>
@@ -395,40 +449,63 @@ export default function OperationsDiaryPage() {
                 })}
               </div>
               <section className="workspace-panel" aria-label="Diary split booking detail" style={{ minWidth: 0 }}>
-                {selectedJobId ? <CompanyJobSheetPanel jobId={selectedJobId} mode="carrier" /> : <EmptyState compact title="Select a booking" description="Choose a booking from the list to inspect its authorised operational detail." />}
+                {selectedJobId ? <CompanyJobSheetPanel jobId={selectedJobId} mode="carrier" initialTab={detailTabByJob[selectedJobId] ?? 'order'} /> : <EmptyState compact title="Select a booking" description="Choose a booking from the list to inspect its authorised operational detail." />}
               </section>
             </div>
           ) : (
-            <div className="workspace-record-list">
+            <div className="workspace-record-list" style={{ gap: 6 }}>
               {visible.map((job) => {
                 const open = expandedIds.has(job.id);
                 const stage = classifyWorkspaceJobStage(job);
                 const status = effectiveStatus(job);
                 const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
                 const evidenceCount = job.delivery_photos?.length ?? 0;
+                const distance = numberLabel(job.job_distance_miles ?? job.distance_miles, ' mi');
+                const weight = numberLabel(job.weight_kg, ' kg');
+                const dimensions = dimensionsLabel(job);
+                const cargo = job.requested_cargo_label || job.cargo_type?.replace(/_/g, ' ') || 'Cargo not supplied';
+                const requestedVehicle = job.requested_vehicle_label || job.requested_vehicle_type?.replace(/_/g, ' ') || job.vehicle_type?.replace(/_/g, ' ') || 'Vehicle not supplied';
+                const operationalNotes = [job.special_requirements, job.access_restrictions].filter(Boolean).join(' · ');
                 return (
-                  <article key={job.id} className="workspace-operational-row" data-state={status}>
-                    <div className="workspace-operational-row__top">
-                      <div className="workspace-operational-cell"><span className="driver-cell-label">FROM</span><strong>{job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}</strong><div>{job.pickup_postcode ?? 'Postcode not supplied'} · {when(job.pickup_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><span className="driver-cell-label">TO</span><strong>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}</strong><div>{job.delivery_postcode ?? 'Postcode not supplied'} · {when(job.delivery_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><span className="driver-cell-label">JOB / DRIVER</span><strong>{(job.vehicle_type ?? 'Vehicle not supplied').replace(/_/g, ' ')}</strong><div>{driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated')} · {job.client_name ?? 'Customer not supplied'}</div></div>
-                      <div className="workspace-operational-cell"><span className="driver-cell-label">STATUS</span><StatusBadge value={status || stage} tone={stageTone(job)} /><div style={{ marginTop: 4 }}><ActionButton tone="secondary" onClick={() => toggleJob(job.id)}>{open ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => window.location.assign(`/job-replay/${job.id}`)}>Replay</ActionButton></div></div>
+                  <article key={job.id} className="workspace-operational-row" data-state={status} style={{ overflow: 'hidden' }}>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch' }}>
+                      <section style={{ flex: '1.15 1 260px', minWidth: 0, padding: '9px 10px', borderRight: '1px solid var(--ws-border)' }}>
+                        <span className="driver-cell-label">ROUTE</span>
+                        <strong style={{ display: 'block', fontSize: 13, marginTop: 2 }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}</strong>
+                        <div style={{ color: '#64748b', fontSize: 11 }}>{job.pickup_postcode ?? 'Postcode not supplied'}</div>
+                        <span style={{ display: 'block', color: '#94a3b8', margin: '3px 0' }}>↓</span>
+                        <strong style={{ display: 'block', fontSize: 13 }}>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}</strong>
+                        <div style={{ color: '#64748b', fontSize: 11 }}>{job.delivery_postcode ?? 'Postcode not supplied'}</div>
+                      </section>
+                      <section style={{ flex: '1 1 230px', minWidth: 0, padding: '9px 10px', borderRight: '1px solid var(--ws-border)' }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: '58px 1fr', gap: '3px 6px', fontSize: 11 }}><span style={{ color: '#64748b' }}>Pickup</span><strong>{when(job.pickup_datetime)}{job.pickup_time_slot ? ' · ' + job.pickup_time_slot : ''}</strong><span style={{ color: '#64748b' }}>Deliver</span><strong>{when(job.delivery_datetime)}{job.delivery_time_slot ? ' · ' + job.delivery_time_slot : ''}</strong></div>
+                        <div style={{ marginTop: 6, fontSize: 11 }}><strong>{cargo}</strong>{weight ? <span style={{ color: '#64748b' }}> · {weight}</span> : null}{job.pallets != null ? <span style={{ color: '#64748b' }}> · {job.pallets} pallet{job.pallets === 1 ? '' : 's'}</span> : null}</div>
+                        <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>{[distance, dimensions].filter(Boolean).join(' · ') || 'Distance / dimensions not supplied'}</div>
+                      </section>
+                      <section style={{ flex: '.9 1 220px', minWidth: 0, padding: '9px 10px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}><StatusBadge value={status || stage} tone={stageTone(job)} /><strong style={{ fontSize: 11 }}>{requestedVehicle}</strong></div>
+                        <div style={{ marginTop: 5, fontSize: 11 }}><strong>{driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated')}</strong></div>
+                        <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>Load #{job.id.slice(0, 8).toUpperCase()} · {job.client_name ?? 'Customer not supplied'}</div>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>{job.pod_generated ? <StatusBadge value="POD generated" tone="green" /> : evidenceCount > 0 ? <StatusBadge value={String(evidenceCount) + ' evidence file(s)'} tone="blue" /> : job.pod_required ? <StatusBadge value="POD pending" tone="orange" /> : null}{isAwaitingFeedback(job, reviewsByJob[job.id] ?? []) && <StatusBadge value="Awaiting feedback" tone="orange" />}{hasRecentFeedback(reviewsByJob[job.id] ?? []) && <StatusBadge value="Recent feedback" tone="green" />}</div>
+                      </section>
                     </div>
-                    <div className="workspace-record-meta">
-                      <span>Job #{job.id.slice(0, 8).toUpperCase()}</span>
+                    <div className="workspace-record-meta" style={{ minHeight: 28 }}>
                       {job.booking_reference && <span>Booking: {job.booking_reference}</span>}
                       {job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
-                      {job.pod_generated && <StatusBadge value="POD generated" tone="green" />}
-                      {!job.pod_generated && evidenceCount > 0 && <StatusBadge value={`${evidenceCount} evidence file(s)`} tone="blue" />}
-                      {isAwaitingFeedback(job, reviewsByJob[job.id] ?? []) && <StatusBadge value="Awaiting feedback" tone="orange" />}
-                      {hasRecentFeedback(reviewsByJob[job.id] ?? []) && <StatusBadge value="Recent feedback" tone="green" />}
-                      {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}><option value="">Choose active driver</option>{activeAccountDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
+                      {job.hard_copy_pod && <span>Hard-copy POD: {job.hard_copy_pod}</span>}
+                      {operationalNotes && <span style={{ flex: '1 1 320px' }}><strong>Load notes:</strong> {operationalNotes}</span>}
                     </div>
-                    {open && <CompanyJobSheetPanel jobId={job.id} mode="carrier" />}
+                    <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', minHeight: 36, padding: '4px 8px', borderTop: '1px solid var(--ws-border)', background: '#fbfdff' }}>
+                      <button type="button" onClick={() => toggleJob(job.id)} aria-label={open ? 'Collapse booking' : 'Expand booking'} style={{ width: 28, height: 26, border: '1px solid var(--ws-border)', borderRadius: 3, background: '#fff', cursor: 'pointer', fontWeight: 900 }}>{open ? '▴' : '▾'}</button>
+                      {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}><option value="">Choose active driver</option>{activeAccountDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
+                      {(['order','notes','history','documents','pod','invoice','replay'] as JobSheetTab[]).map((tabId) => <ActionButton key={tabId} tone={detailTabByJob[job.id] === tabId && open ? 'primary' : 'secondary'} onClick={() => openJobTab(job.id, tabId)}>{tabId === 'pod' ? 'POD' : tabId.charAt(0).toUpperCase() + tabId.slice(1)}</ActionButton>)}
+                    </div>
+                    {open && <CompanyJobSheetPanel jobId={job.id} mode="carrier" initialTab={detailTabByJob[job.id] ?? 'order'} />}
                   </article>
                 );
               })}
             </div>
+
           )}
 
           {filtered.length > pageSize && <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span>Page {safePage} / {totalPages}</span><span style={{ display: 'flex', gap: 4, alignItems: 'center' }}><label>Per page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} style={{ height: 28 }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><ActionButton tone="secondary" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</ActionButton><ActionButton tone="secondary" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</ActionButton></span></div>}
