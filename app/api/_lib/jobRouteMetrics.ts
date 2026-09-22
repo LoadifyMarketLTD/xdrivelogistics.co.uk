@@ -12,7 +12,7 @@ export type JobRouteMetrics = {
   deliveryLng: number;
   distanceMiles: number;
   durationMinutes: number;
-  source: 'mapbox_driving' | 'google_directions';
+  source: 'mapbox_driving' | 'google_directions' | 'osrm_driving';
 };
 
 function postcodeKey(value: unknown) {
@@ -153,6 +153,31 @@ async function routeWithGoogle(points: RouteCoordinates[], token: string): Promi
   }
 }
 
+async function routeWithOsrm(points: RouteCoordinates[]): Promise<ProviderRoute | null> {
+  const coordinatePath = points.map((point) => String(point.lng) + ',' + String(point.lat)).join(';');
+  const url = new URL('https://router.project-osrm.org/route/v1/driving/' + coordinatePath);
+  url.searchParams.set('overview', 'false');
+  url.searchParams.set('steps', 'false');
+
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(8_000),
+      cache: 'no-store',
+      headers: { 'User-Agent': 'XDriveLogistics/1.0 route-metrics' },
+    });
+    if (!response.ok) return null;
+    const payload = await response.json() as {
+      code?: string;
+      routes?: Array<{ distance?: number; duration?: number }>;
+    };
+    if (payload.code !== 'Ok') return null;
+    const route = payload.routes?.[0];
+    return roundedRoute(Number(route?.distance), Number(route?.duration));
+  } catch {
+    return null;
+  }
+}
+
 export async function calculateJobRouteMetrics(postcodes: string[]): Promise<JobRouteMetrics | null> {
   const ordered = postcodes.map(postcodeKey).filter(Boolean);
   if (ordered.length < 2) return null;
@@ -194,6 +219,18 @@ export async function calculateJobRouteMetrics(postcodes: string[]): Promise<Job
         source: 'google_directions',
       };
     }
+  }
+
+  const osrmRoute = await routeWithOsrm(points);
+  if (osrmRoute) {
+    return {
+      pickupLat: points[0].lat,
+      pickupLng: points[0].lng,
+      deliveryLat: points[points.length - 1].lat,
+      deliveryLng: points[points.length - 1].lng,
+      ...osrmRoute,
+      source: 'osrm_driving',
+    };
   }
 
   return null;
