@@ -28,11 +28,13 @@ describe('CX-informed Directory and Direct Booking contract', () => {
     expect(directoryUi).not.toContain('distanceMilesFromMember');
   });
 
-  it('offers Book Direct only from Broker or Customer member-network context', () => {
+  it('offers Book Direct from authorised Broker, Customer and Carrier member-network contexts', () => {
     expect(directoryUi).toContain("pathname.startsWith('/broker')");
     expect(directoryUi).toContain("'/broker/post-load'");
     expect(directoryUi).toContain("pathname.startsWith('/customer')");
     expect(directoryUi).toContain("'/customer/post-load'");
+    expect(directoryUi).toContain("pathname.startsWith('/admin')");
+    expect(directoryUi).toContain("'/admin/post-load'");
     expect(directoryUi).toContain('Book Direct');
     expect(directoryUi).toContain("['carrier / fleet', 'owner driver']");
     expect(directoryUi).not.toContain("'/super-admin/");
