@@ -11,6 +11,48 @@ const ACTIVE_JOB_STATUSES = new Set([
 const statusOf = (job: { current_status?: string | null; status?: string | null }) =>
   String(job.current_status ?? job.status ?? '').trim().toLowerCase();
 
+type Coordinates = { lat: number; lng: number };
+
+function validCoordinates(lat: unknown, lng: unknown): Coordinates | null {
+  const parsedLat = Number(lat);
+  const parsedLng = Number(lng);
+  return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
+}
+
+function distanceMiles(from: Coordinates, to: Coordinates) {
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const earthMiles = 3958.8;
+  const deltaLat = radians(to.lat - from.lat);
+  const deltaLng = radians(to.lng - from.lng);
+  const a = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(radians(from.lat)) * Math.cos(radians(to.lat)) * Math.sin(deltaLng / 2) ** 2;
+  return earthMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function postcodeHint(value: string) {
+  const normalized = value.toUpperCase().replace(/[^A-Z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
+  const full = normalized.match(/\b([A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2})\b/);
+  if (full?.[1]) return { kind: 'postcode' as const, value: full[1].replace(/\s+/g, '') };
+  const outcode = normalized.match(/\b([A-Z]{1,2}\d[A-Z\d]?)\b/);
+  return outcode?.[1] ? { kind: 'outcode' as const, value: outcode[1] } : null;
+}
+
+async function resolveSearchCoordinates(value: string): Promise<Coordinates | null> {
+  const hint = postcodeHint(value);
+  if (!hint) return null;
+  try {
+    const endpoint = hint.kind === 'postcode'
+      ? `https://api.postcodes.io/postcodes/${encodeURIComponent(hint.value)}`
+      : `https://api.postcodes.io/outcodes/${encodeURIComponent(hint.value)}`;
+    const response = await fetch(endpoint, { signal: AbortSignal.timeout(5_000) });
+    if (!response.ok) return null;
+    const payload = await response.json() as { result?: { latitude?: number; longitude?: number } | null };
+    return validCoordinates(payload.result?.latitude, payload.result?.longitude);
+  } catch {
+    return null;
+  }
+}
+
 type NearbyPosition = {
   driver_id?: unknown;
   company_id: string | null;
@@ -26,10 +68,18 @@ type NearbyPosition = {
   has_tail_lift: unknown;
   available_until: unknown;
   recorded_at: unknown;
+  distance_miles?: number | null;
 };
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return NextResponse.json({ error: 'Availability is temporarily unavailable.' }, { status: 503 });
+  const searchPostcode = request.nextUrl.searchParams.get('postcode')?.trim() ?? '';
+  const requestedRadius = Number(request.nextUrl.searchParams.get('radiusMiles') ?? 100);
+  const radiusMiles = Number.isFinite(requestedRadius) ? Math.min(300, Math.max(1, requestedRadius)) : 100;
+  const searchOrigin = searchPostcode ? await resolveSearchCoordinates(searchPostcode) : null;
+  if (searchPostcode && !searchOrigin) {
+    return NextResponse.json({ error: 'Search postcode or outcode could not be resolved.' }, { status: 400 });
+  }
   const token = getBearerToken(request);
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
@@ -160,5 +210,22 @@ export async function GET(request: NextRequest) {
     }];
   });
 
-  return NextResponse.json({ positions }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
+  const rangedPositions = positions
+    .map((position) => {
+      if (!searchOrigin) return position;
+      const coordinates = validCoordinates(position.lat, position.lng);
+      if (!coordinates) return { ...position, distance_miles: null };
+      return { ...position, distance_miles: Number(distanceMiles(searchOrigin, coordinates).toFixed(1)) };
+    })
+    .filter((position) => !searchOrigin || (position.distance_miles != null && position.distance_miles <= radiusMiles))
+    .sort((a, b) => searchOrigin ? (a.distance_miles ?? Number.POSITIVE_INFINITY) - (b.distance_miles ?? Number.POSITIVE_INFINITY) : 0);
+
+  return NextResponse.json({
+    positions: rangedPositions,
+    search: {
+      postcode: searchPostcode || null,
+      radiusMiles,
+      resolved: searchPostcode ? Boolean(searchOrigin) : null,
+    },
+  }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
 }

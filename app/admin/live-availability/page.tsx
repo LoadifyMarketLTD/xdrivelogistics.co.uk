@@ -39,10 +39,12 @@ type NearbyAvailabilityPosition = {
   has_tail_lift?: boolean | null;
   available_until?: string | null;
   recorded_at?: string | null;
+  distance_miles?: number | null;
 };
 
 type NearbyAvailabilityResponse = {
   positions?: NearbyAvailabilityPosition[];
+  search?: { postcode?: string | null; radiusMiles?: number; resolved?: boolean | null };
   error?: string;
 };
 
@@ -81,6 +83,9 @@ export default function LiveAvailabilityPage() {
   const [availability, setAvailability] = useState('all');
   const [freshness, setFreshness] = useState<FreshnessFilter>('all');
   const [nearbyVehicle, setNearbyVehicle] = useState('all');
+  const [nearbyPostcode, setNearbyPostcode] = useState('');
+  const [nearbyRadius, setNearbyRadius] = useState('100');
+  const [nearbyQuery, setNearbyQuery] = useState({ postcode: '', radius: '100' });
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [nearbyPositions, setNearbyPositions] = useState<NearbyAvailabilityPosition[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(true);
@@ -100,7 +105,10 @@ export default function LiveAvailabilityPage() {
     }
 
     try {
-      const response = await fetch('/api/availability/nearby', {
+      const params = new URLSearchParams();
+      if (nearbyQuery.postcode.trim()) params.set('postcode', nearbyQuery.postcode.trim());
+      params.set('radiusMiles', nearbyQuery.radius);
+      const response = await fetch(`/api/availability/nearby?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
@@ -117,7 +125,7 @@ export default function LiveAvailabilityPage() {
     } finally {
       setNearbyLoading(false);
     }
-  }, []);
+  }, [nearbyQuery.postcode, nearbyQuery.radius]);
 
   useEffect(() => {
     void loadNearby();
@@ -132,6 +140,9 @@ export default function LiveAvailabilityPage() {
     setAvailability('all');
     setFreshness('all');
     setNearbyVehicle('all');
+    setNearbyPostcode('');
+    setNearbyRadius('100');
+    setNearbyQuery({ postcode: '', radius: '100' });
     setFilterNotice('');
   };
 
@@ -142,6 +153,8 @@ export default function LiveAvailabilityPage() {
       availability,
       freshness,
       nearbyVehicle,
+      nearbyPostcode,
+      nearbyRadius,
     }));
     setFilterNotice('Availability filter defaults saved on this device.');
   };
@@ -154,11 +167,16 @@ export default function LiveAvailabilityPage() {
         setFilterNotice('No saved availability defaults are available on this device.');
         return;
       }
-      const parsed = JSON.parse(raw) as Partial<{ tab: Tab; availability: string; freshness: FreshnessFilter; nearbyVehicle: string }>;
+      const parsed = JSON.parse(raw) as Partial<{ tab: Tab; availability: string; freshness: FreshnessFilter; nearbyVehicle: string; nearbyPostcode: string; nearbyRadius: string }>;
       if (parsed.tab === 'live' || parsed.tab === 'future' || parsed.tab === 'nearby') setTab(parsed.tab);
       if (typeof parsed.availability === 'string') setAvailability(parsed.availability);
       if (parsed.freshness === 'all' || parsed.freshness === 'live' || parsed.freshness === 'stale' || parsed.freshness === 'missing') setFreshness(parsed.freshness);
       if (typeof parsed.nearbyVehicle === 'string') setNearbyVehicle(parsed.nearbyVehicle);
+      const savedPostcode = typeof parsed.nearbyPostcode === 'string' ? parsed.nearbyPostcode : '';
+      const savedRadius = typeof parsed.nearbyRadius === 'string' ? parsed.nearbyRadius : '100';
+      setNearbyPostcode(savedPostcode);
+      setNearbyRadius(savedRadius);
+      setNearbyQuery({ postcode: savedPostcode, radius: savedRadius });
       setFilterNotice('Saved availability defaults loaded.');
     } catch {
       setFilterNotice('Saved availability defaults could not be read.');
@@ -297,15 +315,18 @@ export default function LiveAvailabilityPage() {
       <OperationalSignalStrip items={signals} ariaLabel="Live availability operational signals" />
 
       <Panel title="Availability filters" description={tab === 'nearby' ? 'Search privacy-scoped Exchange availability by member or vehicle type.' : 'Filter the operational register without changing saved driver data.'} style={{ marginBottom: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: tab === 'live' ? 'minmax(220px,2fr) repeat(2,minmax(150px,1fr))' : 'minmax(220px,2fr) minmax(150px,1fr)', gap: 8 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: tab === 'live' ? 'minmax(220px,2fr) repeat(2,minmax(150px,1fr))' : tab === 'nearby' ? 'minmax(190px,1.4fr) minmax(150px,1fr) 100px minmax(150px,1fr)' : 'minmax(220px,2fr) minmax(150px,1fr)', gap: 8 }}>
           <label style={labelStyle}>Search<input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === 'nearby' ? 'Member, ID or vehicle type' : 'Driver, registration, route or future position'} /></label>
           {tab !== 'nearby' && <label style={labelStyle}>Availability<select style={inputStyle} value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="all">All states</option>{availabilityValues.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
           {tab === 'live' && <label style={labelStyle}>Tracking freshness<select style={inputStyle} value={freshness} onChange={(event) => setFreshness(event.target.value as FreshnessFilter)}><option value="all">All freshness</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>}
+          {tab === 'nearby' && <label style={labelStyle}>Near postcode / outcode<input style={inputStyle} value={nearbyPostcode} onChange={(event) => setNearbyPostcode(event.target.value)} placeholder="BB1" /></label>}
+          {tab === 'nearby' && <label style={labelStyle}>Radius<select style={inputStyle} value={nearbyRadius} onChange={(event) => setNearbyRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} mi</option>)}</select></label>}
           {tab === 'nearby' && <label style={labelStyle}>Vehicle<select style={inputStyle} value={nearbyVehicle} onChange={(event) => setNearbyVehicle(event.target.value)}><option value="all">All vehicle types</option>{nearbyVehicleTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
           <ActionButton tone="secondary" onClick={saveDefaults}>Save Default</ActionButton>
           <ActionButton tone="secondary" onClick={loadDefaults}>Load Default</ActionButton>
+          {tab === 'nearby' && <ActionButton tone="success" onClick={() => setNearbyQuery({ postcode: nearbyPostcode.trim(), radius: nearbyRadius })}>Find Nearest</ActionButton>}
           <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
         </div>
       </Panel>
@@ -359,13 +380,14 @@ export default function LiveAvailabilityPage() {
           </Panel>
           <Panel title="Who's nearby" description={`${filteredNearby.length} privacy-scoped Exchange vehicle(s) visible to this company.`}>
             <DataTable
-              columns={['Member', 'Vehicle', 'Capacity', 'Equipment', 'Available until', 'Freshness', 'Action']}
+              columns={['Member', 'Vehicle', 'Capacity', 'Distance', 'Equipment', 'Available until', 'Freshness', 'Action']}
               rows={filteredNearby.map((position, index) => {
                 const pointId = nearbyPointKey(position, index);
                 return [
                   <div key="member"><strong style={{ display: 'block' }}>{position.member_name ?? 'Exchange member'}</strong><span style={{ color: '#64748b' }}>{position.member_code ? `ID ${position.member_code}` : position.member_type ?? 'Member profile'}</span></div>,
                   (position.vehicle_type ?? 'Vehicle not published').replaceAll('_', ' '),
                   capacityLabel(position),
+                  position.distance_miles != null ? `${position.distance_miles.toFixed(1)} mi` : '—',
                   position.has_tail_lift === true ? <StatusBadge key="equipment" value="Tail lift" tone="blue" /> : position.has_tail_lift === false ? 'No tail lift' : 'Equipment not published',
                   when(position.available_until),
                   <button key="freshness" type="button" onClick={() => setSelectedDriverId(pointId)} style={{ border: 0, padding: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer' }}>{isStale(position.recorded_at) ? 'Stale' : 'Fresh'} · {when(position.recorded_at)}</button>,
