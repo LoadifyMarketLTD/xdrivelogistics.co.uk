@@ -10,6 +10,9 @@ describe('CX connected operational module links', () => {
     expect(live).toContain("router.push('/admin/fleet/returns')");
     expect(live).toContain('Return Journeys');
     expect(live).toContain('Return Journey');
+    expect(live).toContain("router.push('/admin/fleet/drivers')");
+    expect(live).toContain('Driver register');
+    expect(live).not.toContain('/admin/drivers?driver=');
   });
 
   it('links Freight Vision into the canonical job, Diary, Replay and Messenger flows', () => {
