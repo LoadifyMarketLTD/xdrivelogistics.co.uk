@@ -217,6 +217,13 @@ export default function CarrierOperationsDashboardHome() {
     return { companyBids, unallocatedJobs, liveJobs, evidenceReview, exceptions, attentionJobs, overdueInvoices, overdueExposure, wonValue, expiringDocuments };
   }, [carrierExecutionJobs, data]);
 
+  const latestBookings = useMemo(
+    () => [...carrierExecutionJobs]
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, 5),
+    [carrierExecutionJobs],
+  );
+
   const filteredJobs = useMemo(() => {
     const base = view === 'attention'
       ? metrics.attentionJobs
@@ -375,10 +382,30 @@ export default function CarrierOperationsDashboardHome() {
 
           <OperationalCard title="Carrier workflow" subtitle="Shortcuts follow the carrier operating sequence.">
             <WorkflowLink label="1. Find marketplace work" detail="Search suitable loads and lanes" onClick={() => router.push('/admin/marketplace')} />
-            <WorkflowLink label="2. Price and review marketplace quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/marketplace')} />
+            <WorkflowLink label="2. Price and review marketplace quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/exchange-quotes')} />
             <WorkflowLink label="3. Allocate awarded work" detail="Select an eligible executing driver; XDrive persists that driver's canonical active vehicle with the allocation" onClick={() => router.push('/admin/fleet/assignments')} />
             <WorkflowLink label="4. Control live execution" detail="Monitor active jobs and positions" onClick={() => router.push('/admin/fleet/active-jobs')} />
             <WorkflowLink label="5. Review photo evidence and exceptions" detail="Review delivery photos and operational exceptions; use the job sheet for full POD state" onClick={() => setView('attention')} />
+          </OperationalCard>
+
+          <OperationalCard title="Latest bookings" subtitle="Most recent carrier-awarded bookings, matching the CX at-a-glance dashboard pattern.">
+            {latestBookings.length ? latestBookings.map((job) => (
+              <WorkflowLink
+                key={job.id}
+                label={`${job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → ${job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}`}
+                detail={`#${job.id.slice(0, 8).toUpperCase()} · ${when(job.pickup_datetime)} · ${workspaceJobPresentationStatus(job)}`}
+                onClick={() => router.push(`/admin/jobs/${job.id}`)}
+              />
+            )) : (
+              <EmptyState compact title="No recent carrier bookings" description="Awarded carrier work will appear here when available." />
+            )}
+          </OperationalCard>
+
+          <OperationalCard title="Reports & finance" subtitle="CX-equivalent reporting entry points mapped to verified XDrive registers instead of estimated dashboard figures.">
+            <WorkflowLink label="Invoices / accounts" detail="Draft, awaiting payment, overdue, disputed and paid invoices" onClick={() => router.push('/admin/invoices')} />
+            <WorkflowLink label="Gross margin / subcontract reporting" detail="Open Finance reports and exports; XDrive does not fabricate dashboard margin estimates" onClick={() => router.push('/admin/finance/reports')} />
+            <WorkflowLink label="Bookings / Diary" detail="Operational booking history, evidence and feedback" onClick={() => router.push('/admin/diary')} />
+            <WorkflowLink label="Return Journeys" detail="Published and available return capacity" onClick={() => router.push('/admin/fleet/returns')} />
           </OperationalCard>
         </div>
       </OperationalPageLayout>
