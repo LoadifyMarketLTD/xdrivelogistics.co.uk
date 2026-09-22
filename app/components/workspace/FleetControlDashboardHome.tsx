@@ -18,16 +18,11 @@ import {
   OperationalCard,
   OperationalFilterInput,
   OperationalFilterSelect,
-  OperationalPageLayout,
   StatusBadge,
   workspaceTheme,
 } from './WorkspaceUI';
-import {
-  OperationalAttentionItem,
-  OperationalAttentionRail,
-  OperationalSignalStrip,
-  OperationalWorkspaceGrid,
-} from './OperationalConvergence';
+import { OperationalSignalStrip } from './OperationalConvergence';
+import { useOperationsIntelligence } from './useOperationsIntelligence';
 import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import { daysUntil, metricValue, unavailable } from './AdminDashboardShared';
 import { fleetQueueStage } from '../../../lib/jobs/workspaceJobStage';
@@ -122,10 +117,13 @@ function vehicleDocumentSignal(documents: WorkspaceDocument[]) {
 export default function FleetControlDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
+  const intelligence = useOperationsIntelligence(data.companyId);
   const [focus, setFocus] = useState<FleetFocus>('all');
   const [urgency, setUrgency] = useState<FleetUrgency>('all');
   const [searchDraft, setSearchDraft] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [resourceSearchDraft, setResourceSearchDraft] = useState('');
+  const [resourceSearchTerm, setResourceSearchTerm] = useState('');
 
   const latestLocationByDriver = useMemo(() => {
     const map = new Map<string, WorkspaceDataState['locations'][number]>();
@@ -304,6 +302,28 @@ export default function FleetControlDashboardHome() {
     (rows) => rows.filter((driver) => normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'available').length,
   );
 
+  const visibleResources = useMemo(() => data.drivers.filter((driver) => {
+    if (!resourceSearchTerm) return true;
+    const vehicles = vehiclesByDriver.get(driver.id) ?? [];
+    const future = intelligence.futureByDriver.get(driver.id);
+    const journey = intelligence.journeyByDriver.get(driver.id);
+    const location = latestLocationByDriver.get(driver.id);
+    const haystack = [
+      driverName(driver),
+      driver.email,
+      driver.phone,
+      driver.status,
+      driver.availability_status,
+      ...vehicles.flatMap((vehicle) => [vehicle.reg_plate, vehicle.make, vehicle.model, vehicle.type]),
+      future?.futurePosition,
+      journey?.fromPostcode,
+      journey?.toPostcode,
+      location ? String(location.lat) : null,
+      location ? String(location.lng) : null,
+    ].filter(Boolean).join(' ').toLowerCase();
+    return haystack.includes(resourceSearchTerm);
+  }), [data.drivers, intelligence.futureByDriver, intelligence.journeyByDriver, latestLocationByDriver, resourceSearchTerm, vehiclesByDriver]);
+
   const clearFilters = () => {
     setSearchDraft('');
     setSearchTerm('');
@@ -311,229 +331,131 @@ export default function FleetControlDashboardHome() {
     setUrgency('all');
   };
 
+  const clearResourceSearch = () => {
+    setResourceSearchDraft('');
+    setResourceSearchTerm('');
+  };
+
   return (
-    <div style={{ width: '100%', padding: '12px 12px 16px' }}>
+    <div style={{ width: '100%', padding: '10px 12px 16px' }}>
       <DashboardHomeHeader
         eyebrow="Fleet operations"
-        title="Fleet Command Centre"
+        title="My Fleet"
         badge="Resource control"
-        description="Won carrier work, driver allocation, active execution, fleet resources, live tracking and operational signals in one workspace."
-        actions={
-          <>
-            <ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocate Jobs</ActionButton>
-            <ActionButton tone="primary" onClick={() => void data.refresh()}>Refresh</ActionButton>
-          </>
-        }
+        description="Drivers, vehicles, live tracking, future capacity, return journeys and compliance signals in one operating register."
+        actions={<><ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocate Jobs</ActionButton><ActionButton tone="primary" onClick={() => { void data.refresh(); void intelligence.refresh(); }}>Refresh</ActionButton></>}
       />
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
+      {intelligence.error ? <AlertBanner>{intelligence.error}</AlertBanner> : null}
 
       <OperationalSignalStrip
         ariaLabel="Fleet operational signals"
         items={[
-          {
-            key: 'unallocated',
-            label: 'Unallocated',
-            value: metricValue(data, ['jobs'], () => wonUnallocatedJobs.length),
-            detail: 'Awarded work awaiting driver',
-            tone: unavailable(data, ['jobs']) ? 'blue' : wonUnallocatedJobs.length ? 'orange' : 'green',
-            onClick: () => router.push('/admin/fleet/assignments'),
-          },
-          {
-            key: 'allocated',
-            label: 'Allocated',
-            value: metricValue(data, ['jobs'], () => allocatedJobs.length),
-            detail: 'Driver selected',
-            tone: unavailable(data, ['jobs']) ? 'blue' : 'navy',
-            onClick: () => router.push('/admin/fleet/jobs'),
-          },
-          {
-            key: 'active',
-            label: 'Active Jobs',
-            value: metricValue(data, ['jobs'], () => activeJobs.length),
-            detail: 'Currently in execution',
-            tone: unavailable(data, ['jobs']) ? 'blue' : activeJobs.length ? 'green' : 'navy',
-            onClick: () => router.push('/admin/fleet/active-jobs'),
-          },
-          {
-            key: 'available-drivers',
-            label: 'Available Drivers',
-            value: availableDriverCount,
-            detail: 'Active + available flag',
-            tone: driverDataUnavailable ? 'blue' : 'green',
-            onClick: () => router.push('/admin/fleet/availability'),
-          },
-          {
-            key: 'tracking-alerts',
-            label: 'Tracking Alerts',
-            value: trackingDataUnavailable ? '—' : trackingAttentionCount,
-            detail: trackingDataUnavailable ? 'Tracking data unavailable' : 'Missing or stale positions',
-            tone: trackingDataUnavailable ? 'blue' : trackingAttentionCount ? 'orange' : 'green',
-            onClick: () => router.push('/admin/fleet/positions'),
-          },
-          {
-            key: 'documents-expiring',
-            label: 'Documents expiring',
-            value: documentsExpiringValue,
-            detail: documentDataUnavailable
-              ? 'Document feeds unavailable'
-              : documentDataPartial
-                ? 'Partial document feeds · expiry count not presented as complete'
-                : 'Expired or due within 30 days',
-            tone: documentDataUnavailable ? 'blue' : documentDataPartial ? 'orange' : documentsExpiring.length ? 'orange' : 'green',
-            onClick: () => router.push('/admin/fleet/compliance'),
-          },
-          {
-            key: 'compliance-alerts',
-            label: 'Compliance Alerts',
-            value: complianceDataUnavailable ? '—' : complianceAttentionCount,
-            detail: complianceDataUnavailable ? 'Compliance data unavailable' : 'Documents requiring attention',
-            tone: complianceDataUnavailable ? 'blue' : complianceAttentionCount ? 'orange' : 'green',
-            onClick: () => router.push('/admin/fleet/compliance'),
-          },
+          { key: 'unallocated', label: 'Unallocated', value: metricValue(data, ['jobs'], () => wonUnallocatedJobs.length), detail: 'Awarded work awaiting driver', tone: unavailable(data, ['jobs']) ? 'blue' : wonUnallocatedJobs.length ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/assignments') },
+          { key: 'allocated', label: 'Allocated', value: metricValue(data, ['jobs'], () => allocatedJobs.length), detail: 'Driver selected', tone: unavailable(data, ['jobs']) ? 'blue' : 'navy', onClick: () => router.push('/admin/fleet/jobs') },
+          { key: 'active', label: 'Active Jobs', value: metricValue(data, ['jobs'], () => activeJobs.length), detail: 'Currently in execution', tone: unavailable(data, ['jobs']) ? 'blue' : activeJobs.length ? 'green' : 'navy', onClick: () => router.push('/admin/fleet/active-jobs') },
+          { key: 'available-drivers', label: 'Available Drivers', value: availableDriverCount, detail: 'Active + available flag', tone: driverDataUnavailable ? 'blue' : 'green', onClick: () => router.push('/admin/fleet/availability') },
+          { key: 'tracking-alerts', label: 'Tracking Alerts', value: trackingDataUnavailable ? '—' : trackingAttentionCount, detail: trackingDataUnavailable ? 'Tracking data unavailable' : 'Missing or stale positions', tone: trackingDataUnavailable ? 'blue' : trackingAttentionCount ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/positions') },
+          { key: 'documents-expiring', label: 'Documents expiring', value: documentsExpiringValue, detail: documentDataUnavailable ? 'Document feeds unavailable' : documentDataPartial ? 'Partial document feeds' : 'Expired or due within 30 days', tone: documentDataUnavailable ? 'blue' : documentDataPartial ? 'orange' : documentsExpiring.length ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/compliance') },
+          { key: 'compliance-alerts', label: 'Compliance Alerts', value: complianceDataUnavailable ? '—' : complianceAttentionCount, detail: complianceDataUnavailable ? 'Compliance data unavailable' : 'Documents requiring attention', tone: complianceDataUnavailable ? 'blue' : complianceAttentionCount ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/compliance') },
         ]}
       />
 
-      <OperationalPageLayout>
-        <OperationalWorkspaceGrid
-          asideLabel="Fleet attention"
-          main={
-            <>
-              <OperationalCard
-                title="Won / Received → Allocation → Execution"
-                subtitle="Only jobs awarded to this Fleet company enter this carrier-won queue. Driver allocation remains a separate authorised action."
-                actions={<ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Open allocation</ActionButton>}
-                flush
-              >
-                <DataTable
-                  columns={['Stage', 'Route', 'Pickup', 'Vehicle required', 'Driver', 'State', 'Action']}
-                  rows={fleetJobQueue.slice(0, 12).map(({ job, stage, tone, needsAllocation }) => {
-                    const assignedDriver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
-                    return [
-                      <StatusBadge key="stage" value={stage} tone={tone} />,
-                      <strong key="route">{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong>,
-                      when(job.pickup_datetime),
-                      (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-                      assignedDriver ? driverName(assignedDriver) : 'Unallocated',
-                      <StatusBadge key="state" value={needsAllocation ? 'unallocated' : (job.current_status ?? job.status)} tone={needsAllocation ? 'orange' : undefined} />,
-                      <ActionButton
-                        key="action"
-                        tone={needsAllocation ? 'success' : 'secondary'}
-                        onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}
-                      >
-                        {needsAllocation ? 'Allocate' : 'Open'}
-                      </ActionButton>,
-                    ];
-                  })}
-                  empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Fleet job data unavailable' : 'No carrier-won jobs in allocation or execution'} />}
-                />
-              </OperationalCard>
-
-              <OperationalCard
-                title="Fleet resource status"
-                subtitle="Driver, visible vehicle-assignment signals, tracking freshness and recorded document signals. Canonical eligibility is enforced server-side."
-                actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>All drivers</ActionButton>}
-                flush
-              >
-                <DataTable
-                  columns={['Driver', 'Vehicle signal', 'Tracking', 'Document signal', 'Availability', 'Action']}
-                  rows={data.drivers.slice(0, 10).map((driver) => {
-                    const vehicles = vehiclesByDriver.get(driver.id) ?? [];
-                    const vehicle = vehicles.length === 1 ? vehicles[0] : undefined;
-                    const vehicleSignal = vehicles.length === 0
-                      ? 'No assigned vehicle'
-                      : vehicles.length > 1
-                        ? `${vehicles.length} assigned vehicles`
-                        : vehicleName(vehicle);
-                    const timestamp = locationTimestamp(latestLocationByDriver.get(driver.id));
-                    const activeDriver = normalise(driver.status) === 'active';
-                    const documentSignal = vehicles.length === 0
-                      ? { label: 'No assigned vehicle', tone: 'red' as const }
-                      : vehicles.length > 1
-                        ? { label: 'Canonical vehicle resolved server-side', tone: 'orange' as const }
-                        : vehicleDocumentSignal(vehicleDocumentsByVehicle.get(vehicle?.id ?? '') ?? []);
-                    return [
-                      <span key="driver">
-                        <strong style={{ display: 'block' }}>{driverName(driver)}</strong>
-                        <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '10px', marginTop: '1px' }}>{normalise(driver.status) || 'status unavailable'} · {driver.phone ?? driver.email ?? 'No contact recorded'}</span>
-                      </span>,
-                      vehicleSignal,
-                      <StatusBadge key="tracking" value={trackingDataUnavailable ? 'Unavailable' : !activeDriver ? 'Not monitored' : timestamp ? compactTimeAgo(timestamp) : 'Position missing'} tone={activeDriver && !timestamp ? 'orange' : undefined} />,
-                      <StatusBadge key="documents" value={documentSignal.label} tone={documentSignal.tone} />,
-                      <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={activeDriver && normalise(driver.availability_status) === 'available' ? 'green' : undefined} />,
-                      <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Manage</ActionButton>,
-                    ];
-                  })}
-                  empty={<EmptyState compact title={driverDataUnavailable ? 'Driver data unavailable' : 'No fleet resources recorded'} />}
-                />
-              </OperationalCard>
-            </>
-          }
-          aside={
-            <OperationalAttentionRail
-              title="Fleet attention"
-              subtitle="Tracking and compliance risks that can block safe deployment."
-              meta={`${visibleAttention.length} / ${attentionItems.length}`}
-              controls={
-                <>
-                  <div style={{ flex: '1 1 100%', minWidth: 0 }}>
-                    <OperationalFilterInput
-                      id="fleet-attention-search"
-                      value={searchDraft}
-                      onChange={setSearchDraft}
-                      onClear={() => {
-                        setSearchDraft('');
-                        setSearchTerm('');
-                      }}
-                      placeholder="Find driver, vehicle or signal"
-                    />
-                  </div>
-                  <OperationalFilterSelect
-                    id="fleet-focus"
-                    value={focus}
-                    onChange={(value) => setFocus(value as FleetFocus)}
-                    options={[
-                      { value: 'all', label: 'All attention' },
-                      { value: 'tracking', label: 'Tracking' },
-                      { value: 'compliance', label: 'Compliance' },
-                    ]}
-                  />
-                  <OperationalFilterSelect
-                    id="fleet-urgency"
-                    value={urgency}
-                    onChange={(value) => setUrgency(value as FleetUrgency)}
-                    options={[
-                      { value: 'all', label: 'All priorities' },
-                      { value: 'critical', label: 'Critical only' },
-                      { value: 'high', label: 'High only' },
-                    ]}
-                  />
-                  <ActionButton tone="primary" onClick={() => setSearchTerm(searchDraft.trim().toLowerCase())}>Search</ActionButton>
-                  <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
-                </>
-              }
-            >
-              {visibleAttention.length ? visibleAttention.slice(0, 12).map((item) => (
-                <OperationalAttentionItem
-                  key={item.id}
-                  priority={<StatusBadge value={item.priority} tone={PRIORITY_TONE[item.priority]} />}
-                  entity={item.entity}
-                  detail={`${item.area} · ${item.detail}`}
-                  state={<StatusBadge value={item.state} tone={item.priority === 'critical' ? 'red' : item.priority === 'high' ? 'orange' : 'blue'} />}
-                  tone={PRIORITY_TONE[item.priority]}
-                  action={<ActionButton tone={item.priority === 'critical' ? 'danger' : 'secondary'} onClick={() => router.push(item.href)}>{item.actionLabel}</ActionButton>}
-                />
-              )) : (
-                <EmptyState
-                  compact
-                  title={unavailable(data, ['drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments']) ? 'Fleet attention data unavailable' : 'No fleet attention items'}
-                  description={unavailable(data, ['drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments']) ? 'One or more fleet resource sources are unavailable.' : 'No tracking or compliance issue currently matches this view.'}
-                />
-              )}
-            </OperationalAttentionRail>
-          }
+      {fleetJobQueue.length > 0 && <OperationalCard
+        title="Won / Received → Allocation → Execution"
+        subtitle="Carrier-won work requiring allocation or active execution."
+        actions={<ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Open allocation</ActionButton>}
+        flush
+      >
+        <DataTable
+          columns={['Stage', 'Route', 'Pickup', 'Vehicle required', 'Driver', 'State', 'Action']}
+          rows={fleetJobQueue.slice(0, 8).map(({ job, stage, tone, needsAllocation }) => {
+            const assignedDriver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
+            return [
+              <StatusBadge key="stage" value={stage} tone={tone} />,
+              <strong key="route">{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong>,
+              when(job.pickup_datetime),
+              (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
+              assignedDriver ? driverName(assignedDriver) : 'Unallocated',
+              <StatusBadge key="state" value={needsAllocation ? 'unallocated' : (job.current_status ?? job.status)} tone={needsAllocation ? 'orange' : undefined} />,
+              <ActionButton key="action" tone={needsAllocation ? 'success' : 'secondary'} onClick={() => router.push(needsAllocation ? '/admin/fleet/assignments?job=' + job.id : '/admin/jobs/' + job.id)}>{needsAllocation ? 'Allocate' : 'Open'}</ActionButton>,
+            ];
+          })}
         />
-      </OperationalPageLayout>
+      </OperationalCard>}
+
+      <OperationalCard
+        title="Fleet resource register"
+        subtitle="Inline driver status, vehicle assignment, live tracking, future position, return journey, network advertising and document readiness."
+        actions={<><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/availability')}>Add Future Position</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</ActionButton></>}
+        flush
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: 8, borderBottom: '1px solid #dbe2ea', background: '#f8fafc', flexWrap: 'wrap' }}>
+          <div style={{ flex: '1 1 280px', minWidth: 220 }}><OperationalFilterInput id="fleet-resource-search" value={resourceSearchDraft} onChange={setResourceSearchDraft} onClear={clearResourceSearch} placeholder="Search driver, vehicle, postcode or status" /></div>
+          <ActionButton tone="primary" onClick={() => setResourceSearchTerm(resourceSearchDraft.trim().toLowerCase())}>Search</ActionButton>
+          <ActionButton tone="secondary" onClick={clearResourceSearch}>Clear</ActionButton>
+          <span style={{ marginLeft: 'auto', color: workspaceTheme.muted, fontSize: 11 }}>{visibleResources.length} visible resource{visibleResources.length === 1 ? '' : 's'}</span>
+        </div>
+        <DataTable
+          columns={['Driver', 'Vehicle', 'Availability', 'Current location / tracked', 'Future position', 'Return journey', 'Advertise', 'Documents', 'Actions']}
+          rows={visibleResources.slice(0, 25).map((driver) => {
+            const vehicles = vehiclesByDriver.get(driver.id) ?? [];
+            const vehicle = vehicles.length === 1 ? vehicles[0] : undefined;
+            const location = latestLocationByDriver.get(driver.id);
+            const timestamp = locationTimestamp(location);
+            const future = intelligence.futureByDriver.get(driver.id);
+            const journey = intelligence.journeyByDriver.get(driver.id);
+            const advertising = vehicle ? intelligence.advertisingByVehicle.get(vehicle.id) : null;
+            const documentSignal = vehicles.length === 0
+              ? { label: 'No assigned vehicle', tone: 'red' as const }
+              : vehicles.length > 1
+                ? { label: 'Canonical vehicle server-side', tone: 'orange' as const }
+                : vehicleDocumentSignal(vehicleDocumentsByVehicle.get(vehicle?.id ?? '') ?? []);
+            const vehicleSignal = vehicles.length === 0 ? 'No assigned vehicle' : vehicles.length > 1 ? String(vehicles.length) + ' assigned vehicles' : vehicleName(vehicle);
+            const locationLabel = location ? location.lat.toFixed(4) + ', ' + location.lng.toFixed(4) : 'No current position';
+            const futureLabel = future?.futurePosition ? future.futurePosition + (future.futurePositionDate ? ' · ' + when(future.futurePositionDate) : '') : 'No future position';
+            const journeyLabel = journey ? (journey.fromPostcode || 'From not set') + ' → ' + (journey.toPostcode || 'Go Anywhere') : 'No return journey';
+            return [
+              <span key="driver"><strong style={{ display: 'block' }}>{driverName(driver)}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10, marginTop: 1 }}>{normalise(driver.status) || 'status unavailable'} · {driver.phone ?? driver.email ?? 'No contact recorded'}</span></span>,
+              <span key="vehicle"><strong>{vehicleSignal}</strong>{vehicle?.type ? <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>{vehicle.type.replace(/_/g, ' ')}</span> : null}</span>,
+              <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'available' ? 'green' : undefined} />,
+              <span key="tracking"><strong style={{ display: 'block' }}>{locationLabel}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>{trackingDataUnavailable ? 'Tracking unavailable' : compactTimeAgo(timestamp)}</span></span>,
+              <span key="future"><strong style={{ display: 'block' }}>{futureLabel}</strong>{future ? <button type="button" onClick={() => router.push('/admin/fleet/availability')} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d57d8', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Set / edit</button> : null}</span>,
+              <span key="journey"><strong style={{ display: 'block' }}>{journeyLabel}</strong>{journey ? <button type="button" onClick={() => router.push('/admin/fleet/returns')} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d57d8', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Manage journey</button> : null}</span>,
+              <StatusBadge key="advertise" value={advertising || 'Not advertised'} tone={advertising && normalise(advertising) !== 'not advertised' ? 'green' : undefined} />,
+              <StatusBadge key="documents" value={documentSignal.label} tone={documentSignal.tone} />,
+              <span key="actions" style={{ display: 'inline-flex', gap: 4 }}><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Manage</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton></span>,
+            ];
+          })}
+          empty={<EmptyState compact title={driverDataUnavailable ? 'Driver data unavailable' : resourceSearchTerm ? 'No fleet resources match this search' : 'No fleet resources recorded'} />}
+        />
+      </OperationalCard>
+
+      <OperationalCard
+        title="Fleet attention"
+        subtitle="Tracking and compliance risks that can block safe deployment."
+        flush
+      >
+        <div style={{ display: 'flex', gap: 6, padding: 8, borderBottom: '1px solid #dbe2ea', background: '#f8fafc', flexWrap: 'wrap', alignItems: 'center' }}>
+          <div style={{ flex: '1 1 260px', minWidth: 220 }}><OperationalFilterInput id="fleet-attention-search" value={searchDraft} onChange={setSearchDraft} onClear={() => { setSearchDraft(''); setSearchTerm(''); }} placeholder="Find driver, vehicle or signal" /></div>
+          <OperationalFilterSelect id="fleet-focus" value={focus} onChange={(value) => setFocus(value as FleetFocus)} options={[{ value: 'all', label: 'All attention' }, { value: 'tracking', label: 'Tracking' }, { value: 'compliance', label: 'Compliance' }]} />
+          <OperationalFilterSelect id="fleet-urgency" value={urgency} onChange={(value) => setUrgency(value as FleetUrgency)} options={[{ value: 'all', label: 'All priorities' }, { value: 'critical', label: 'Critical only' }, { value: 'high', label: 'High only' }]} />
+          <ActionButton tone="primary" onClick={() => setSearchTerm(searchDraft.trim().toLowerCase())}>Search</ActionButton><ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
+          <span style={{ marginLeft: 'auto', color: workspaceTheme.muted, fontSize: 11 }}>{visibleAttention.length} / {attentionItems.length}</span>
+        </div>
+        <DataTable
+          columns={['Priority', 'Area', 'Driver / vehicle', 'Detail', 'State', 'Action']}
+          rows={visibleAttention.slice(0, 20).map((item) => [
+            <StatusBadge key="priority" value={item.priority} tone={PRIORITY_TONE[item.priority]} />,
+            item.area,
+            <strong key="entity">{item.entity}</strong>,
+            item.detail,
+            <StatusBadge key="state" value={item.state} tone={item.priority === 'critical' ? 'red' : item.priority === 'high' ? 'orange' : 'blue'} />,
+            <ActionButton key="action" tone={item.priority === 'critical' ? 'danger' : 'secondary'} onClick={() => router.push(item.href)}>{item.actionLabel}</ActionButton>,
+          ])}
+          empty={<EmptyState compact title={unavailable(data, ['drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments']) ? 'Fleet attention data unavailable' : 'No fleet attention items'} description={unavailable(data, ['drivers', 'vehicles', 'locations', 'driverDocuments', 'vehicleDocuments']) ? 'One or more fleet resource sources are unavailable.' : 'No tracking or compliance issue currently matches this view.'} />}
+        />
+      </OperationalCard>
     </div>
   );
-}
