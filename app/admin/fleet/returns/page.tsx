@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
+import { useAuth } from '../../../components/AuthContext';
 import { selectWithMissingColumnFallback } from '../../../../lib/supabaseSchemaCompat';
 import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../../components/workspace/useCompanyWorkspaceData';
 import {
@@ -51,6 +52,14 @@ const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not supplied';
 
+const toLocalDateTime = (value: string | Date | null | undefined): string => {
+  if (!value) return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+};
+
 const positionAge = (value: string | null | undefined) => {
   if (!value) return { label: 'No position', stale: true };
   const timestamp = new Date(value).getTime();
@@ -62,6 +71,7 @@ const positionAge = (value: string | null | undefined) => {
 
 export default function CompanyReturnJourneysPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const workspace = useCompanyWorkspaceData();
   const [journeys, setJourneys] = useState<ReturnJourney[]>([]);
   const [loading, setLoading] = useState(true);
@@ -71,6 +81,16 @@ export default function CompanyReturnJourneysPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [driverSearch, setDriverSearch] = useState('');
+  const [editorOpen, setEditorOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editDriverId, setEditDriverId] = useState('');
+  const [editFrom, setEditFrom] = useState('');
+  const [editTo, setEditTo] = useState('');
+  const [editAvailableFrom, setEditAvailableFrom] = useState('');
+  const [editAvailableTo, setEditAvailableTo] = useState('');
+  const [editVehicleType, setEditVehicleType] = useState('');
+  const [editNotes, setEditNotes] = useState('');
+  const canManageReturnJourneys = ['owner', 'admin', 'dispatcher'].includes(String(user?.membershipRole ?? '').toLowerCase());
 
   const loadJourneys = useCallback(async () => {
     if (!isSupabaseConfigured || !workspace.companyId) {
@@ -130,6 +150,88 @@ export default function CompanyReturnJourneysPage() {
     return map;
   }, [workspace.locations]);
 
+  const activeDrivers = useMemo(
+    () => workspace.drivers.filter((driver) => normalise(driver.status) === 'active'),
+    [workspace.drivers],
+  );
+
+  const resetEditor = () => {
+    setEditDriverId('');
+    setEditFrom('');
+    setEditTo('');
+    setEditAvailableFrom('');
+    setEditAvailableTo('');
+    setEditVehicleType('');
+    setEditNotes('');
+  };
+
+  const openNewJourney = () => {
+    resetEditor();
+    setError('');
+    setNotice('');
+    setEditorOpen(true);
+  };
+
+  const openJourney = (journey: ReturnJourney) => {
+    setEditDriverId(journey.driver_id ?? '');
+    setEditFrom(journey.from_postcode ?? '');
+    setEditTo(journey.to_postcode ?? '');
+    setEditAvailableFrom(toLocalDateTime(journey.available_from));
+    setEditAvailableTo(toLocalDateTime(journey.available_to));
+    setEditVehicleType(journey.vehicle_type ?? '');
+    setEditNotes(journey.notes ?? '');
+    setError('');
+    setNotice('');
+    setEditorOpen(true);
+  };
+
+  const saveJourney = async (clear = false, journey?: ReturnJourney) => {
+    const driverId = journey?.driver_id ?? editDriverId;
+    if (!workspace.companyId || !driverId) {
+      setError('Choose an active driver before publishing return capacity.');
+      return;
+    }
+    if (!clear && !editFrom.trim()) {
+      setError('Returning from is required.');
+      return;
+    }
+
+    setSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+
+      const response = await fetch('/api/admin/return-journeys', {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: workspace.companyId,
+          driverId,
+          fromPostcode: clear ? null : editFrom.trim(),
+          toPostcode: clear ? null : editTo.trim() || null,
+          availableFrom: clear || !editAvailableFrom ? null : new Date(editAvailableFrom).toISOString(),
+          availableTo: clear || !editAvailableTo ? null : new Date(editAvailableTo).toISOString(),
+          vehicleType: clear ? null : editVehicleType.trim() || null,
+          notes: clear ? null : editNotes.trim() || null,
+        }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Return journey could not be updated.');
+
+      setNotice(clear ? 'Return journey closed.' : 'Return journey published.');
+      setEditorOpen(false);
+      resetEditor();
+      await loadJourneys();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Return journey could not be updated.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const visible = useMemo(() => {
     const fromTerm = from.trim().toLowerCase();
     const toTerm = to.trim().toLowerCase();
@@ -164,6 +266,7 @@ export default function CompanyReturnJourneysPage() {
         description="Company return capacity published by drivers in this carrier organisation, with availability window, driver contact and last-position context."
         actions={
           <>
+            {canManageReturnJourneys ? <ActionButton tone="success" onClick={openNewJourney}>Publish Return Journey</ActionButton> : null}
             <ActionButton tone="secondary" onClick={() => router.push('/admin/live-availability')}>Live / Future Availability</ActionButton>
             <ActionButton tone="secondary" onClick={() => void loadJourneys()} disabled={loading}>Refresh</ActionButton>
           </>
@@ -173,6 +276,32 @@ export default function CompanyReturnJourneysPage() {
       {workspace.error && <AlertBanner tone="warning">Some fleet context is unavailable. Return Journey records remain separated from unavailable workspace datasets.</AlertBanner>}
       {notice && <AlertBanner tone="info">{notice}</AlertBanner>}
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+
+      {editorOpen && canManageReturnJourneys ? (
+        <section className="workspace-panel" aria-label="Return journey editor" style={{ marginBottom: 12 }}>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
+            <strong>Publish Return Journey</strong>
+            <ActionButton tone="secondary" onClick={() => { setEditorOpen(false); resetEditor(); }}>Close</ActionButton>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(150px,1fr))', gap: 8, paddingTop: 8 }}>
+            <label>DRIVER<select value={editDriverId} onChange={(event) => {
+              const driverId = event.target.value;
+              setEditDriverId(driverId);
+              const vehicle = workspace.vehicles.find((item) => item.assigned_driver_id === driverId);
+              if (vehicle?.type) setEditVehicleType(vehicle.type);
+            }}><option value="">Choose active driver</option>{activeDrivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.email ?? 'Driver'}</option>)}</select></label>
+            <label>FROM<input value={editFrom} onChange={(event) => setEditFrom(event.target.value)} placeholder="Postcode / area" /></label>
+            <label>TO<input value={editTo} onChange={(event) => setEditTo(event.target.value)} placeholder="Postcode / anywhere" /></label>
+            <label>VEHICLE<input value={editVehicleType} onChange={(event) => setEditVehicleType(event.target.value)} placeholder="Vehicle type" /></label>
+            <label>AVAILABLE FROM<input type="datetime-local" value={editAvailableFrom} onChange={(event) => setEditAvailableFrom(event.target.value)} /></label>
+            <label>AVAILABLE TO<input type="datetime-local" value={editAvailableTo} onChange={(event) => setEditAvailableTo(event.target.value)} /></label>
+            <label style={{ gridColumn: 'span 2' }}>NOTES<input value={editNotes} onChange={(event) => setEditNotes(event.target.value)} placeholder="Return capacity notes" /></label>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, paddingTop: 8 }}>
+            <ActionButton tone="success" disabled={saving || !editDriverId || !editFrom.trim()} onClick={() => void saveJourney(false)}>{saving ? 'Publishing…' : 'Publish / Update'}</ActionButton>
+          </div>
+        </section>
+      ) : null}
 
       <div className="workspace-board-layout">
         <aside className="workspace-filter-rail" aria-label="Return journey filters">
@@ -252,6 +381,8 @@ export default function CompanyReturnJourneysPage() {
                       <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                         {location ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Locate</ActionButton> : null}
                         {driver?.phone ? <a href={`tel:${driver.phone.replace(/\s+/g, '')}`} style={compactLinkStyle}>Call driver</a> : null}
+                        {canManageReturnJourneys && journey.driver_id ? <ActionButton tone="secondary" onClick={() => openJourney(journey)}>Edit</ActionButton> : null}
+                        {canManageReturnJourneys && journey.driver_id && ACTIVE_STATUSES.has(status) ? <ActionButton tone="danger" disabled={saving} onClick={() => void saveJourney(true, journey)}>Close Return</ActionButton> : null}
                         {journey.driver_id ? <ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage driver</ActionButton> : <span>Driver action unavailable</span>}
                       </div>
                     </div>
