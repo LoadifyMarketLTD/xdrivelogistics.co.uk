@@ -139,7 +139,7 @@ export default function DriverNetworkPage() {
             <button type="button" data-active={activeTab === 'drivers' ? 'true' : 'false'} onClick={() => setActiveTab('drivers')}>Drivers <span>{filteredDrivers.length}</span></button>
           </div>
 
-          <div className="driver-directory-toolbar"><strong>{activeTab === 'companies' ? 'AUTHORISED COMPANIES' : 'AUTHORISED DRIVERS'}</strong><span>{loading ? 'Loadingâ€¦' : `${activeTab === 'companies' ? filteredCompanies.length : filteredDrivers.length} accessible record(s)`}</span></div>
+          <div className="driver-directory-toolbar"><strong>{activeTab === 'companies' ? 'AUTHORISED COMPANIES' : 'AUTHORISED DRIVERS'}</strong><span>{loading ? 'Loading...' : `${activeTab === 'companies' ? filteredCompanies.length : filteredDrivers.length} accessible record(s)`}</span></div>
 
           {activeTab === 'companies' ? (
             <div className="driver-directory-list">
