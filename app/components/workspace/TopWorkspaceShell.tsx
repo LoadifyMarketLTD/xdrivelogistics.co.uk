@@ -95,9 +95,7 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['carrier-quotes', 'Quotes', '/admin/exchange-quotes'],
     ['carrier-diary', 'Diary', '/admin/diary'],
     ['carrier-freight-vision', 'Freight Vision', '/admin/freight-vision'],
-    ['carrier-finance', 'Finance', '/admin/invoices'],
     ['carrier-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
-    ['carrier-drivers', 'Drivers', '/admin/fleet/drivers'],
   ];
 
   const directHrefs = new Set(direct.map(([, , href]) => href));
@@ -107,6 +105,8 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
   });
 
   const morePreferred = [
+    '/admin/invoices',
+    '/admin/fleet/drivers',
     '/admin/jobs',
     '/admin/fleet/vehicles',
     '/admin/messages',
