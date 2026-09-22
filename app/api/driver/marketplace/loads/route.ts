@@ -12,6 +12,7 @@ import {
 } from '../../_lib/marketplacePublic';
 import { isDriverContext, respond } from '../../mobile/_lib';
 import { requireWebDriver } from '../../_lib/webDriver';
+import { calculateJobRouteMetrics } from '../../../_lib/jobRouteMetrics';
 
 const LIST_LIMIT = 150;
 
@@ -117,6 +118,9 @@ function publicLoad(
     service_mode: marketplaceText(job.service_mode),
     direct_delivery_required: job.direct_delivery_required === true,
     distance_miles: marketplaceNumber(job.job_distance_miles ?? job.distance_miles),
+    distance_minutes: marketplaceNumber(job.job_distance_minutes),
+    distance_to_pickup_miles: marketplaceNumber(job.distance_to_pickup_miles),
+    pickup_eta_minutes: marketplaceNumber(job.pickup_eta_minutes),
     is_fixed_price: job.is_fixed_price === true,
     budget_amount: proposedPriceAmount(job.budget_amount),
     currency: marketplaceText(job.currency) ?? 'GBP',
@@ -186,6 +190,42 @@ export async function GET(request: NextRequest) {
     return visibilityAllows(job, driver.companyId);
   });
 
+  const missingRouteJobs = jobs.filter((job) =>
+    marketplaceNumber(job.job_distance_miles) == null
+    || marketplaceNumber(job.job_distance_minutes) == null
+    || marketplaceNumber(job.pickup_lat) == null
+    || marketplaceNumber(job.pickup_lng) == null
+    || marketplaceNumber(job.delivery_lat) == null
+    || marketplaceNumber(job.delivery_lng) == null
+  );
+  if (missingRouteJobs.length) {
+    const repaired = await Promise.all(missingRouteJobs.slice(0, 20).map(async (job) => {
+      const pickupPostcode = marketplaceText(job.pickup_postcode);
+      const deliveryPostcode = marketplaceText(job.delivery_postcode);
+      if (!pickupPostcode || !deliveryPostcode) return null;
+      const route = await calculateJobRouteMetrics([pickupPostcode, deliveryPostcode]);
+      if (!route) return null;
+      await supabaseAdmin.from('jobs').update({
+        pickup_lat: route.pickupLat,
+        pickup_lng: route.pickupLng,
+        delivery_lat: route.deliveryLat,
+        delivery_lng: route.deliveryLng,
+        job_distance_miles: route.distanceMiles,
+        job_distance_minutes: route.durationMinutes,
+      }).eq('id', String(job.id));
+      Object.assign(job, {
+        pickup_lat: route.pickupLat,
+        pickup_lng: route.pickupLng,
+        delivery_lat: route.deliveryLat,
+        delivery_lng: route.deliveryLng,
+        job_distance_miles: route.distanceMiles,
+        job_distance_minutes: route.durationMinutes,
+      });
+      return job.id;
+    }));
+    void repaired;
+  }
+
   if (requestedId && jobs.length === 0) {
     return respond(404, { error: 'This load is not available to your marketplace account.' });
   }
@@ -249,6 +289,91 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const loads = jobs.map((job) => publicLoad(job, companyById, profileByUserId, bidByJobId));
+  const [{ data: latestDriverLocation }, { data: homeCompany }] = await Promise.all([
+    supabaseAdmin
+      .from('driver_locations')
+      .select('lat,lng,recorded_at')
+      .eq('driver_id', driver.driverId)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    driver.companyId
+      ? supabaseAdmin.from('companies').select('postcode').eq('id', driver.companyId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+
+  const validCoordinates = (lat: unknown, lng: unknown) => {
+    const parsedLat = Number(lat);
+    const parsedLng = Number(lng);
+    return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
+  };
+  const postcodeKey = (value: unknown) => String(value ?? '').replace(/\s+/g, '').toUpperCase();
+  const latestPosition = validCoordinates(latestDriverLocation?.lat, latestDriverLocation?.lng);
+  const recordedAt = latestDriverLocation?.recorded_at ? new Date(latestDriverLocation.recorded_at).getTime() : Number.NaN;
+  const fresh = latestPosition !== null && Number.isFinite(recordedAt) && Date.now() - recordedAt <= 120 * 60_000;
+
+  let driverPosition = fresh ? latestPosition : null;
+  if (!driverPosition && homeCompany?.postcode) {
+    try {
+      const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcodeKey(homeCompany.postcode))}`, {
+        signal: AbortSignal.timeout(5_000),
+        cache: 'no-store',
+      });
+      if (response.ok) {
+        const payload = await response.json() as { result?: { latitude?: number; longitude?: number } | null };
+        driverPosition = validCoordinates(payload.result?.latitude, payload.result?.longitude);
+      }
+    } catch {
+      // No driver-to-pickup metric is safer than an invented one.
+    }
+  }
+
+  const loads = await Promise.all(jobs.map(async (job) => {
+    let distanceToPickupMiles: number | null = null;
+    let pickupEtaMinutes: number | null = null;
+    if (driverPosition) {
+      let pickup = validCoordinates(job.pickup_lat, job.pickup_lng);
+      if (!pickup && job.pickup_postcode) {
+        try {
+          const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcodeKey(job.pickup_postcode))}`, {
+            signal: AbortSignal.timeout(5_000),
+            cache: 'no-store',
+          });
+          if (response.ok) {
+            const payload = await response.json() as { result?: { latitude?: number; longitude?: number } | null };
+            pickup = validCoordinates(payload.result?.latitude, payload.result?.longitude);
+          }
+        } catch {
+          pickup = null;
+        }
+      }
+      const token = process.env.MAPBOX_ACCESS_TOKEN?.trim();
+      if (pickup && token) {
+        try {
+          const coordinates = `${driverPosition.lng},${driverPosition.lat};${pickup.lng},${pickup.lat}`;
+          const url = new URL(`https://api.mapbox.com/directions/v5/mapbox/driving/${coordinates}`);
+          url.searchParams.set('overview', 'false');
+          url.searchParams.set('steps', 'false');
+          url.searchParams.set('access_token', token);
+          const response = await fetch(url, { signal: AbortSignal.timeout(5_000), cache: 'no-store' });
+          if (response.ok) {
+            const payload = await response.json() as { routes?: Array<{ distance?: number; duration?: number }> };
+            const route = payload.routes?.[0];
+            const metres = Number(route?.distance);
+            const seconds = Number(route?.duration);
+            if (Number.isFinite(metres) && metres > 0) distanceToPickupMiles = Math.round((metres / 1609.344) * 10) / 10;
+            if (Number.isFinite(seconds) && seconds > 0) pickupEtaMinutes = Math.max(1, Math.round(seconds / 60));
+          }
+        } catch {
+          // Leave live pickup metrics unavailable rather than fabricating them.
+        }
+      }
+    }
+    return {
+      ...publicLoad(job, companyById, profileByUserId, bidByJobId),
+      distance_to_pickup_miles: distanceToPickupMiles,
+      pickup_eta_minutes: pickupEtaMinutes,
+    };
+  }));
   return respond(200, requestedId ? { load: loads[0] } : { loads });
 }
