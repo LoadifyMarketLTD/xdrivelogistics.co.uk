@@ -16,14 +16,18 @@ describe('Fleet CX convergence contract', () => {
     expect(source).toContain("label: 'Compliance Alerts'");
   });
 
-  it('places the execution queue and resource table in the main operational canvas with attention beside them', () => {
-    expect(source).toContain('<OperationalWorkspaceGrid');
-    expect(source).toContain('Won / Received → Allocation → Execution');
-    expect(source).toContain('Fleet resource status');
-    expect(source).toContain('<OperationalAttentionRail');
+  it('uses a dense Fleet resource register and keeps attention below rather than reserving a permanent side rail', () => {
+    expect(source).toContain('Fleet resource register');
+    expect(source).toContain('Current location / tracked');
+    expect(source).toContain('Future position');
+    expect(source).toContain('Return journey');
+    expect(source).toContain('Advertise');
+    expect(source).toContain('Fleet attention');
+    expect(source).not.toContain('<OperationalWorkspaceGrid');
+    expect(source).not.toContain('<OperationalAttentionRail');
 
-    expect(source.indexOf('Won / Received → Allocation → Execution')).toBeLessThan(source.indexOf('Fleet resource status'));
-    expect(source.indexOf('<OperationalSignalStrip')).toBeLessThan(source.indexOf('<OperationalWorkspaceGrid'));
+    expect(source.indexOf('<OperationalSignalStrip')).toBeLessThan(source.indexOf('Fleet resource register'));
+    expect(source.indexOf('Fleet resource register')).toBeLessThan(source.indexOf('Fleet attention'));
   });
 
   it('keeps unavailable tracking and compliance signals truthful', () => {
