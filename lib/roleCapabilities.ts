@@ -204,6 +204,10 @@ export type RouteRequirement = {
 const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   // carrier_fleet (/admin)
   { prefix: '/admin/action-centre', workspace: 'carrier_fleet' },
+  { prefix: '/admin/live-availability', workspace: 'carrier_fleet', anyOf: ['fleet.positions.view'] },
+  { prefix: '/admin/freight-vision', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
+  { prefix: '/admin/messages', workspace: 'carrier_fleet' },
+  { prefix: '/admin/event-log', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
   { prefix: '/admin/post-load', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'] },
   { prefix: '/admin/fleet/assignments', workspace: 'carrier_fleet', anyOf: ['jobs.allocate'] },
   { prefix: '/admin/fleet/active-jobs', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
