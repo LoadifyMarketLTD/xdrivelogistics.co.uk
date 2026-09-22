@@ -453,10 +453,12 @@ export default function TopWorkspaceShell({
               className="top-workspace-shell__logo"
             />
           </button>
-          <div className="top-workspace-shell__identity">
-            <span>{definition.label}</span>
-            <strong>{companyName}</strong>
-          </div>
+          {!CARRIER_NAV_ROLES.has(role) && (
+            <div className="top-workspace-shell__identity">
+              <span>{definition.label}</span>
+              <strong>{companyName}</strong>
+            </div>
+          )}
         </div>
 
         <nav
