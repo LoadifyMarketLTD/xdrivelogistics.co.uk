@@ -1,5 +1,10 @@
 type RouteCoordinates = { lat: number; lng: number };
 
+type ProviderRoute = {
+  distanceMiles: number;
+  durationMinutes: number;
+};
+
 export type JobRouteMetrics = {
   pickupLat: number;
   pickupLng: number;
@@ -7,7 +12,7 @@ export type JobRouteMetrics = {
   deliveryLng: number;
   distanceMiles: number;
   durationMinutes: number;
-  source: 'mapbox_driving';
+  source: 'mapbox_driving' | 'google_directions';
 };
 
 function postcodeKey(value: unknown) {
@@ -53,7 +58,7 @@ async function geocodePostcodes(postcodes: string[]) {
     const outcode = postcode.match(/^[A-Z]{1,2}\d[A-Z\d]?/)?.[0] ?? '';
     if (!outcode) return;
     try {
-      const response = await fetch(`https://api.postcodes.io/outcodes/${encodeURIComponent(outcode)}`, {
+      const response = await fetch('https://api.postcodes.io/outcodes/' + encodeURIComponent(outcode), {
         signal: AbortSignal.timeout(5_000),
         cache: 'no-store',
       });
@@ -71,20 +76,17 @@ async function geocodePostcodes(postcodes: string[]) {
   return result;
 }
 
-export async function calculateJobRouteMetrics(postcodes: string[]): Promise<JobRouteMetrics | null> {
-  const ordered = postcodes.map(postcodeKey).filter(Boolean);
-  if (ordered.length < 2) return null;
+function roundedRoute(metres: number, seconds: number): ProviderRoute | null {
+  if (!Number.isFinite(metres) || metres <= 0 || !Number.isFinite(seconds) || seconds <= 0) return null;
+  return {
+    distanceMiles: Math.round((metres / 1609.344) * 10) / 10,
+    durationMinutes: Math.max(1, Math.round(seconds / 60)),
+  };
+}
 
-  const geocoded = await geocodePostcodes(ordered);
-  const coordinates = ordered.map((postcode) => geocoded.get(postcode) ?? null);
-  if (coordinates.some((item) => item === null)) return null;
-
-  const token = process.env.MAPBOX_ACCESS_TOKEN?.trim();
-  if (!token) return null;
-
-  const points = coordinates as RouteCoordinates[];
-  const coordinatePath = points.map((point) => `${point.lng},${point.lat}`).join(';');
-  const url = new URL(`https://api.mapbox.com/directions/v5/mapbox/driving/${coordinatePath}`);
+async function routeWithMapbox(points: RouteCoordinates[], token: string): Promise<ProviderRoute | null> {
+  const coordinatePath = points.map((point) => String(point.lng) + ',' + String(point.lat)).join(';');
+  const url = new URL('https://api.mapbox.com/directions/v5/mapbox/driving/' + coordinatePath);
   url.searchParams.set('overview', 'false');
   url.searchParams.set('steps', 'false');
   url.searchParams.set('access_token', token);
@@ -99,20 +101,100 @@ export async function calculateJobRouteMetrics(postcodes: string[]): Promise<Job
       routes?: Array<{ distance?: number; duration?: number }>;
     };
     const route = payload.routes?.[0];
-    const metres = Number(route?.distance);
-    const seconds = Number(route?.duration);
-    if (!Number.isFinite(metres) || metres <= 0 || !Number.isFinite(seconds) || seconds <= 0) return null;
-
-    return {
-      pickupLat: points[0].lat,
-      pickupLng: points[0].lng,
-      deliveryLat: points[points.length - 1].lat,
-      deliveryLng: points[points.length - 1].lng,
-      distanceMiles: Math.round((metres / 1609.344) * 10) / 10,
-      durationMinutes: Math.max(1, Math.round(seconds / 60)),
-      source: 'mapbox_driving',
-    };
+    return roundedRoute(Number(route?.distance), Number(route?.duration));
   } catch {
     return null;
   }
+}
+
+async function routeWithGoogle(points: RouteCoordinates[], token: string): Promise<ProviderRoute | null> {
+  const origin = points[0];
+  const destination = points[points.length - 1];
+  const url = new URL('https://maps.googleapis.com/maps/api/directions/json');
+  url.searchParams.set('origin', String(origin.lat) + ',' + String(origin.lng));
+  url.searchParams.set('destination', String(destination.lat) + ',' + String(destination.lng));
+  if (points.length > 2) {
+    url.searchParams.set(
+      'waypoints',
+      points.slice(1, -1).map((point) => String(point.lat) + ',' + String(point.lng)).join('|'),
+    );
+  }
+  url.searchParams.set('mode', 'driving');
+  url.searchParams.set('key', token);
+
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(6_000),
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const payload = await response.json() as {
+      status?: string;
+      routes?: Array<{
+        legs?: Array<{
+          distance?: { value?: number };
+          duration?: { value?: number };
+        }>;
+      }>;
+    };
+    if (payload.status !== 'OK') return null;
+    const legs = payload.routes?.[0]?.legs ?? [];
+    if (legs.length === 0) return null;
+
+    let metres = 0;
+    let seconds = 0;
+    for (const leg of legs) {
+      metres += Number(leg.distance?.value);
+      seconds += Number(leg.duration?.value);
+    }
+    return roundedRoute(metres, seconds);
+  } catch {
+    return null;
+  }
+}
+
+export async function calculateJobRouteMetrics(postcodes: string[]): Promise<JobRouteMetrics | null> {
+  const ordered = postcodes.map(postcodeKey).filter(Boolean);
+  if (ordered.length < 2) return null;
+
+  const geocoded = await geocodePostcodes(ordered);
+  const coordinates = ordered.map((postcode) => geocoded.get(postcode) ?? null);
+  if (coordinates.some((item) => item === null)) return null;
+
+  const points = coordinates as RouteCoordinates[];
+  const mapboxToken = process.env.MAPBOX_ACCESS_TOKEN?.trim();
+  if (mapboxToken) {
+    const route = await routeWithMapbox(points, mapboxToken);
+    if (route) {
+      return {
+        pickupLat: points[0].lat,
+        pickupLng: points[0].lng,
+        deliveryLat: points[points.length - 1].lat,
+        deliveryLng: points[points.length - 1].lng,
+        ...route,
+        source: 'mapbox_driving',
+      };
+    }
+  }
+
+  const googleToken = (
+    process.env.GOOGLE_MAPS_API_KEY
+    ?? process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+    ?? ''
+  ).trim();
+  if (googleToken) {
+    const route = await routeWithGoogle(points, googleToken);
+    if (route) {
+      return {
+        pickupLat: points[0].lat,
+        pickupLng: points[0].lng,
+        deliveryLat: points[points.length - 1].lat,
+        deliveryLng: points[points.length - 1].lng,
+        ...route,
+        source: 'google_directions',
+      };
+    }
+  }
+
+  return null;
 }
