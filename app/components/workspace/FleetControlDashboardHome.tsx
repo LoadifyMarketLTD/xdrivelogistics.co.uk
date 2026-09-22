@@ -459,3 +459,4 @@ export default function FleetControlDashboardHome() {
       </OperationalCard>
     </div>
   );
+}
