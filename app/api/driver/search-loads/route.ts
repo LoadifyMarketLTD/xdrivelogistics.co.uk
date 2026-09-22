@@ -17,13 +17,13 @@ import { vehicleMatchesMarketplaceSizeRange } from '../../../../lib/vehicleSizeR
 type Coordinates = { lat: number; lng: number };
 type CompanyRef = {
   name?: string | null;
-  company_number?: string | null;
+  xd_id?: string | null;
   phone?: string | null;
   company_type?: string | null;
   created_at?: string | null;
 } | Array<{
   name?: string | null;
-  company_number?: string | null;
+  xd_id?: string | null;
   phone?: string | null;
   company_type?: string | null;
   created_at?: string | null;
@@ -87,7 +87,7 @@ const SEARCH_SELECT = [
   'delivery_tail_lift_required', 'delivery_forklift_available', 'delivery_handball_required',
   'service_mode', 'direct_delivery_required', 'distance_miles', 'job_distance_miles', 'exchange_posted_at', 'exchange_expires_at',
   'exchange_visibility', 'direct_invite_company_id',
-  'companies!jobs_company_id_fkey(name,company_number,phone,company_type,created_at)',
+  'companies!jobs_company_id_fkey(name,xd_id,phone,company_type,created_at)',
 ].join(',');
 
 const RADIUS_VALUES = new Set([10, 20, 30, 50, 100, 200, 300]);
@@ -348,7 +348,7 @@ export async function GET(request: NextRequest) {
       job_distance_miles: marketplaceNumber(row.job_distance_miles),
       exchange_posted_at: row.exchange_posted_at,
       posterName: company?.name ?? 'Marketplace member',
-      posterMemberCode: company?.company_number ?? null,
+      posterMemberCode: company?.xd_id ?? null,
       posterPhone: company?.phone ?? null,
       posterMemberType: company?.company_type ?? null,
       posterMemberSince: company?.created_at ?? null,

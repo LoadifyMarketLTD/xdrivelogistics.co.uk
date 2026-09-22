@@ -30,14 +30,14 @@ type Coordinates = { lat: number; lng: number };
 type CompanyRef =
   | {
       name?: string | null;
-      company_number?: string | null;
+      xd_id?: string | null;
       phone?: string | null;
       company_type?: string | null;
       created_at?: string | null;
     }
   | Array<{
       name?: string | null;
-      company_number?: string | null;
+      xd_id?: string | null;
       phone?: string | null;
       company_type?: string | null;
       created_at?: string | null;
@@ -112,7 +112,7 @@ const SEARCH_SELECT = [
   'delivery_tail_lift_required', 'delivery_forklift_available', 'delivery_handball_required',
   'service_mode', 'direct_delivery_required', 'distance_miles', 'job_distance_miles',
   'exchange_posted_at', 'exchange_expires_at', 'exchange_visibility', 'direct_invite_company_id',
-  'companies!jobs_company_id_fkey(name,company_number,phone,company_type,created_at)',
+  'companies!jobs_company_id_fkey(name,xd_id,phone,company_type,created_at)',
 ].join(',');
 
 const bidActionSchema = z.discriminatedUnion('action', [
@@ -356,7 +356,7 @@ function publicSearchProjection(
     exchange_visibility: row.exchange_visibility,
     direct_invite_company_id: row.direct_invite_company_id,
     posterName: company?.name ?? 'Marketplace member',
-    posterMemberCode: company?.company_number ?? null,
+    posterMemberCode: company?.xd_id ?? null,
     posterPhone: company?.phone ?? null,
     posterMemberType: company?.company_type ?? null,
     posterMemberSince: company?.created_at ?? null,
@@ -542,7 +542,7 @@ function bidJobProjection(row: Record<string, unknown>, companyId: string) {
     budget_amount: proposedPriceAmount(row.budget_amount),
     currency: marketplaceText(row.currency) ?? 'GBP',
     posterName: company?.name ?? 'Marketplace member',
-    posterMemberCode: company?.company_number ?? null,
+    posterMemberCode: company?.xd_id ?? null,
   };
 }
 
@@ -569,7 +569,7 @@ async function loadBids(companyId: string) {
   if (jobIds.length > 0) {
     const { data: jobsData, error: jobsError } = await supabaseAdmin!
       .from('jobs')
-      .select('id, company_id, awarded_carrier_company_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, currency, companies!jobs_company_id_fkey(name,company_number)')
+      .select('id, company_id, awarded_carrier_company_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, currency, companies!jobs_company_id_fkey(name,xd_id)')
       .in('id', jobIds);
     if (jobsError) {
       return operationalError({
@@ -596,7 +596,7 @@ async function loadBids(companyId: string) {
 async function loadWon(companyId: string) {
   const { data, error } = await supabaseAdmin!
     .from('jobs')
-    .select('id, company_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, currency, awarded_carrier_company_id, created_at, companies!jobs_company_id_fkey(name,company_number)')
+    .select('id, company_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, currency, awarded_carrier_company_id, created_at, companies!jobs_company_id_fkey(name,xd_id)')
     .eq('awarded_carrier_company_id', companyId)
     .order('created_at', { ascending: false })
     .limit(200);
@@ -617,7 +617,7 @@ async function loadWon(companyId: string) {
       ...row,
       companies: undefined,
       posterName: company?.name ?? 'Marketplace member',
-      posterMemberCode: company?.company_number ?? null,
+      posterMemberCode: company?.xd_id ?? null,
     };
   });
 

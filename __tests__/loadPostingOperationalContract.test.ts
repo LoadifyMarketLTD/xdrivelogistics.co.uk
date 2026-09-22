@@ -39,7 +39,7 @@ describe('load posting operational contract', () => {
 
   it('keeps platform identity automatic and customer references explicit', () => {
     expect(form).toContain('Posting identity & XDrive references');
-    expect(form).toContain('Company number');
+    expect(form).toContain('Member ID');
     expect(form).toContain('Generated automatically after save / publish');
     expect(form).toContain('Customer booking reference (optional)');
     expect(form).toContain('XDL-');
