@@ -1,13 +1,16 @@
 import { readFileSync } from 'fs';
 import { describe, expect, it } from 'vitest';
 
-const page = readFileSync(new URL('../app/admin/settings/page.tsx', import.meta.url), 'utf8');
+const settingsPage = readFileSync(new URL('../app/admin/settings/page.tsx', import.meta.url), 'utf8');
+const workspace = readFileSync(new URL('../app/components/workspace/RoleSettingsWorkspace.tsx', import.meta.url), 'utf8');
 
 describe('verified company identity settings contract', () => {
-  it('does not allow Settings to overwrite the verified company number', () => {
-    expect(page).toContain('Company Number');
-    expect(page).toContain('readOnly aria-readonly="true"');
-    expect(page).not.toContain('company_number: companyForm.companyNumber');
-    expect(page).not.toContain('companyNumber: e.target.value');
+  it('keeps the verified company number visible but outside editable company fields', () => {
+    expect(settingsPage).toContain('<RoleSettingsWorkspace role="fleet" />');
+    expect(workspace).toContain('Registered company number');
+    expect(workspace).toContain("company.company_number || 'Not recorded'");
+    expect(workspace).not.toContain('company_number: textOrNull');
+    expect(workspace).not.toContain('company_number: companyForm');
+    expect(workspace).not.toContain('companyNumber: e.target.value');
   });
 });

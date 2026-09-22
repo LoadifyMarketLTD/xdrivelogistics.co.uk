@@ -11,9 +11,10 @@ describe('carrier navbar and Fleet header space cleanup', () => {
   });
 
   it('keeps only operational Fleet page actions that are not duplicated in the main navigation', () => {
-    const headerStart = fleet.indexOf('title="Fleet Command Centre"');
+    const headerStart = fleet.indexOf('title="My Fleet"');
     const headerEnd = fleet.indexOf('/>', headerStart);
     const header = fleet.slice(headerStart, headerEnd);
+    expect(headerStart).toBeGreaterThanOrEqual(0);
     expect(header).toContain('Allocate Jobs');
     expect(header).toContain('Refresh');
     expect(header).not.toContain('>Post Load<');

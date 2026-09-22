@@ -38,9 +38,10 @@ describe('CX marketplace vehicle range parity', () => {
     expect(companyUi).toContain('marketplaceVehicleSizeRank');
   });
 
-  it('keeps legacy exact/specialist filtering separate from the linear size range', () => {
-    expect(driverUi).toContain('Exact / specialist vehicle');
-    expect(companyUi).toContain('Exact / specialist vehicle');
+  it('keeps the exact vehicle selector independent from the linear min/max range', () => {
+    expect(driverUi).toContain('Vehicle');
+    expect(companyUi).toContain('Vehicle Size');
+    expect(companyUi).toContain("['vehicle', filters.vehicle]");
     expect(range).not.toContain("'hiab',");
     expect(range).not.toContain("'moffett',");
     expect(range).not.toContain("'adr_vehicle',");

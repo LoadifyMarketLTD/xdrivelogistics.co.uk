@@ -13,7 +13,7 @@ describe('CX carrier Exchange Quote state parity', () => {
   });
 
   it('derives Archive from withdrawn quotes without inventing a database status', () => {
-    expect(source).toContain("return bid.status === 'withdrawn'");
+    expect(source).toContain("quoteStateView === 'archived' && bid.status === 'withdrawn'");
     expect(source).toContain("withdrawn: bids.filter((bid) => bid.status === 'withdrawn').length");
     expect(source).not.toContain("bid.status === 'archived'");
   });

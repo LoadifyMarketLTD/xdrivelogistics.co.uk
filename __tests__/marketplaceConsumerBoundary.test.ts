@@ -59,29 +59,19 @@ describe('Marketplace consumer boundary', () => {
     expect(server).toContain('submitDriverQuote');
   });
 
-  it('routes Android Marketplace and quote reads through XDrive server projections', () => {
-    const viewModel = fs.readFileSync(
-      path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/DriverViewModel.kt'),
-      'utf8',
-    );
-    const secureApi = fs.readFileSync(
-      path.join(root, 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/data/SecureDriverCommercialApi.kt'),
-      'utf8',
-    );
+  it('keeps mobile Marketplace and quote reads behind device/session-gated XDrive server projections', () => {
+    const nearbyApi = fs.readFileSync(path.join(root, 'app/api/driver/mobile/nearby-jobs/route.ts'), 'utf8');
+    const jobsApi = fs.readFileSync(path.join(root, 'app/api/driver/mobile/jobs/route.ts'), 'utf8');
+    const bidsApi = fs.readFileSync(path.join(root, 'app/api/driver/mobile/bids/route.ts'), 'utf8');
+    const mobileAuth = fs.readFileSync(path.join(root, 'app/api/driver/mobile/_lib.ts'), 'utf8');
 
-    expect(viewModel).toContain('SecureDriverCommercialApi');
-    expect(viewModel).toContain('commercialApi.loadDriverJobs(session)');
-    expect(viewModel).toContain('commercialApi.loadDriverBids(session)');
-    expect(viewModel).toContain('commercialApi.submitJobQuote(session, jobId, amount, note)');
-    expect(viewModel).not.toContain('api.loadAssignedJobs(session, profile)');
-    expect(viewModel).not.toContain('api.loadDriverBids(session, profile)');
-    expect(viewModel).not.toContain('api.submitJobQuote(session, profile');
-
-    expect(secureApi).toContain('/api/driver/mobile/nearby-jobs?limit=100');
-    expect(secureApi).toContain('/api/driver/mobile/jobs?scope=all&limit=100');
-    expect(secureApi).toContain('/api/driver/mobile/bids');
-    expect(secureApi).not.toContain('/rest/v1/jobs');
-    expect(secureApi).not.toContain('/rest/v1/job_bids');
+    for (const source of [nearbyApi, jobsApi, bidsApi]) {
+      expect(source).toContain('requireDriver');
+    }
+    expect(nearbyApi).toContain('mapNearbyJob');
+    expect(bidsApi).toContain('submitDriverQuote');
+    expect(mobileAuth).toContain('enforceActiveNativeDeviceBinding');
+    expect(mobileAuth).toContain("request.headers.get('x-xdrive-installation-id')");
   });
 
   it('keeps full assigned execution jobs assignment-gated on the server for every scope', () => {

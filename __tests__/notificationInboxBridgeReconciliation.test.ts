@@ -6,14 +6,13 @@ const migration = readFileSync(
   resolve(process.cwd(), 'supabase/migrations/20260826094600_notification_inbox_bridge_reconciliation.sql'),
   'utf8',
 );
-
-const androidApi = readFileSync(
-  resolve(process.cwd(), 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/data/ApiClient.kt'),
+const inboxApi = readFileSync(
+  resolve(process.cwd(), 'app/api/workspace/notifications/route.ts'),
   'utf8',
 );
 
-describe('Android notification inbox bridge reconciliation', () => {
-  it('bridges recipient-scoped outbox events into the Android inbox idempotently', () => {
+describe('Notification inbox bridge reconciliation', () => {
+  it('bridges recipient-scoped outbox events into the canonical inbox idempotently', () => {
     expect(migration).toContain('CREATE OR REPLACE FUNCTION public.fn_bridge_notification_event_to_inbox()');
     expect(migration).toContain('IF NEW.recipient_user_id IS NULL THEN');
     expect(migration).toContain('INSERT INTO public.notifications');
@@ -27,17 +26,21 @@ describe('Android notification inbox bridge reconciliation', () => {
     expect(migration).toContain('REVOKE ALL ON FUNCTION public.fn_bridge_notification_event_to_inbox() FROM PUBLIC, anon, authenticated;');
   });
 
-  it('does not rewrite notifications RLS or grants used by Android read/update/delete', () => {
+  it('does not rewrite notification RLS or grants in the bridge migration', () => {
     expect(migration).not.toContain('DROP POLICY');
     expect(migration).not.toContain('CREATE POLICY');
     expect(migration).not.toContain('REVOKE ALL ON TABLE public.notifications');
     expect(migration).not.toContain('GRANT SELECT ON TABLE public.notifications TO authenticated');
-    expect(androidApi).toContain('/rest/v1/notifications?select=id,title,body,type,read_at,created_at');
-    expect(androidApi).toContain('.patch(');
-    expect(androidApi).toContain('.delete()');
   });
 
-  it('supports the new live-tracking ETA alert in the Android inbox', () => {
+  it('keeps inbox read/update/delete operations recipient-scoped on the server', () => {
+    expect(inboxApi).toContain(".from('notifications')");
+    expect(inboxApi).toContain(".eq('user_id', user.id)");
+    expect(inboxApi).toContain('export async function PATCH');
+    expect(inboxApi).toContain('export async function DELETE');
+  });
+
+  it('supports the live-tracking ETA alert in the inbox bridge', () => {
     expect(migration).toContain("WHEN 'tracking_eta_alert' THEN 'Traffic ETA alert'");
     expect(migration).toContain("WHEN 'tracking_eta_alert' THEN COALESCE");
   });

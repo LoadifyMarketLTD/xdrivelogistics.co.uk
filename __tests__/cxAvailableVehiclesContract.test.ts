@@ -7,9 +7,9 @@ describe('CX-benchmark available vehicles discovery', () => {
     'utf8',
   );
 
-  it('exposes business member identity and vehicle capability for exchange discovery', () => {
+  it('exposes XDrive member identity and vehicle capability for exchange discovery', () => {
     expect(source).toContain('member_name: company.name ?? null');
-    expect(source).toContain('member_code: company.company_number ?? null');
+    expect(source).toContain('member_code: company.xd_id ?? null');
     expect(source).toContain('vehicle_type: vehicle?.type ?? null');
     expect(source).toContain('pallets_capacity: vehicle?.pallets_capacity ?? null');
     expect(source).toContain('has_tail_lift: vehicle?.has_tail_lift ?? null');
