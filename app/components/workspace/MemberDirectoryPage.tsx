@@ -24,6 +24,7 @@ type DirectoryCompany = {
   maxPallets: number | null;
   deliveryReliability: DeliveryReliability;
   paymentReliability: PaymentReliability;
+  distanceMiles?: number | null;
 };
 
 type DirectoryDriver = {
@@ -44,6 +45,7 @@ type DirectoryDriver = {
   specialistServices: string[];
   deliveryReliability: DeliveryReliability;
   paymentReliability: PaymentReliability;
+  distanceMiles?: number | null;
 };
 
 type DirectoryTruncation = {
@@ -61,6 +63,7 @@ type DirectoryResponse = {
   truncation?: DirectoryTruncation;
   privacy?: string;
   reputation?: string;
+  nearestSearch?: { near?: string | null; radiusMiles?: number; resolved?: boolean | null };
   error?: string;
 };
 
@@ -88,6 +91,9 @@ export function MemberDirectoryPage({
   const [tailLiftOnly, setTailLiftOnly] = useState(false);
   const [deliveryMin, setDeliveryMin] = useState('');
   const [paymentMin, setPaymentMin] = useState('');
+  const [nearestLocation, setNearestLocation] = useState('');
+  const [nearestRadius, setNearestRadius] = useState('50');
+  const [nearestQuery, setNearestQuery] = useState({ near: '', radius: '50' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [partial, setPartial] = useState(false);
@@ -102,7 +108,10 @@ export function MemberDirectoryPage({
       const { data: session } = await supabase.auth.getSession();
       const token = session.session?.access_token;
       if (!token) throw new Error('Your session has expired. Sign in again.');
-      const response = await fetch('/api/directory', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+      const params = new URLSearchParams();
+      if (nearestQuery.near.trim()) params.set('near', nearestQuery.near.trim());
+      params.set('radiusMiles', nearestQuery.radius);
+      const response = await fetch(`/api/directory?${params.toString()}`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
       const payload = await response.json().catch(() => ({})) as DirectoryResponse;
       if (!response.ok) throw new Error(payload.error || 'Directory could not be loaded.');
       setCompanies(payload.companies ?? []);
@@ -120,7 +129,7 @@ export function MemberDirectoryPage({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [nearestQuery.near, nearestQuery.radius]);
 
   useEffect(() => { void load(); }, [load]);
 
@@ -227,6 +236,9 @@ export function MemberDirectoryPage({
     setTailLiftOnly(false);
     setDeliveryMin('');
     setPaymentMin('');
+    setNearestLocation('');
+    setNearestRadius('50');
+    setNearestQuery({ near: '', radius: '50' });
   };
 
   const capped = Boolean(truncation.companies || truncation.drivers || truncation.vehicleEnrichment || truncation.reputation);
@@ -249,6 +261,8 @@ export function MemberDirectoryPage({
           <div className="workspace-filter-rail__body">
             <label>MEMBER / COMPANY NUMBER<input value={member} onChange={(event) => setMember(event.target.value)} placeholder="Company, driver or company number" /></label>
             <label>LOCATION<input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Town / postcode / country" /></label>
+            <label>FIND MY NEAREST<input value={nearestLocation} onChange={(event) => setNearestLocation(event.target.value)} placeholder="Postcode / outcode, e.g. BB1" /></label>
+            <label>RADIUS<select value={nearestRadius} onChange={(event) => setNearestRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} miles</option>)}</select></label>
             <label>COUNTRY<select value={country} onChange={(event) => setCountry(event.target.value)}><option value="">Any country</option>{countries.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
             {tab === 'companies' ? <label>MEMBER TYPE<input value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier, broker, customer…" /></label> : null}
             <label>VEHICLE TYPE<input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="LWB, Luton, Artic…" /></label>
@@ -257,6 +271,7 @@ export function MemberDirectoryPage({
             <label>DELIVERY RELIABILITY<select value={deliveryMin} onChange={(event) => setDeliveryMin(event.target.value)}><option value="">Any verified score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></label>
             <label>PAYMENT RELIABILITY<select value={paymentMin} onChange={(event) => setPaymentMin(event.target.value)}><option value="">Any verified score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></label>
             {tab === 'drivers' ? <label>AVAILABILITY<select value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label> : null}
+            <ActionButton tone="success" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find My Nearest</ActionButton>
             <ActionButton tone="secondary" onClick={clear}>Clear</ActionButton>
             {reputationNote && <span style={{ color: '#475569', fontSize: 10, lineHeight: '13px' }}>{reputationNote}</span>}
             {privacy && <span style={{ color: '#64748b', fontSize: 10, lineHeight: '13px' }}>{privacy}</span>}
@@ -278,7 +293,7 @@ export function MemberDirectoryPage({
                 <article key={company.companyId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">MEMBER</div><strong><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></strong><div className="driver-cell-secondary">{company.memberId ? `Company no. ${company.memberId}` : 'Company number not supplied'}</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE / CAPABILITY</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Fleet capability not supplied'}{company.specialistServices?.length ? ` · ${company.specialistServices.join(', ')}` : ''}{company.maxPallets != null ? ` · up to ${company.maxPallets} pallets` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DELIVERY / PAYMENT RELIABILITY</div><strong>Delivery {company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">{company.deliveryReliability.evidenceCount} timed delivery record(s) · Payment {company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`} from {company.paymentReliability.evidenceCount} due/settlement record(s){company.paymentReliability.overdueOpen ? ` · ${company.paymentReliability.overdueOpen} overdue open` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId)}>Messages</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}</div></div>
@@ -293,7 +308,7 @@ export function MemberDirectoryPage({
                 <article key={driver.driverId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DRIVER / MEMBER</div><strong>{driver.displayName}</strong><div className="driver-cell-secondary">{driver.companyId ? <MemberIdentityLink companyId={driver.companyId}>{driver.companyName}</MemberIdentityLink> : driver.companyName}{driver.memberId ? ` · Company no. ${driver.memberId}` : ''}</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[driver.city, driver.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">Broad member/company location only</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[driver.city, driver.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">Broad member/company location only{driver.distanceMiles != null ? ` · ${driver.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">VEHICLE / CAPABILITY</div><strong>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}</strong><div className="driver-cell-secondary">{driver.hasTailLift ? 'Tail lift · ' : ''}{driver.palletsCapacity != null ? `${driver.palletsCapacity} pallets · ` : ''}{driver.specialistServices?.length ? driver.specialistServices.join(', ') : 'No specialist service declared'} · no live coordinates exposed</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">COMPANY RELIABILITY</div><strong>Delivery {driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">Payment {driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`} · evidence is company-level and truth-derived</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY / ACTION</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} />{driver.companyId && messagesRoute ? <div style={{ marginTop: 6 }}><ActionButton tone="secondary" onClick={() => openMemberMessages(driver.companyId as string)}>Messages</ActionButton></div> : null}{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) ? <div style={{ marginTop: 6 }}><ActionButton tone="success" onClick={() => openDirectBooking(driver.companyId as string)}>Book Direct</ActionButton></div> : null}</div>
