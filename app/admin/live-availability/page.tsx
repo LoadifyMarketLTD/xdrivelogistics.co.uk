@@ -294,7 +294,7 @@ export default function LiveAvailabilityPage() {
         eyebrow="Fleet resources"
         title="Live Availability"
         description="Live and future driver capacity, tracking freshness and privacy-safe nearby Exchange vehicle discovery in one operational workspace."
-        actions={<ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading || nearbyLoading}>{data.loading || intelligence.loading || nearbyLoading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
+        actions={<><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</ActionButton><ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading || nearbyLoading}>{data.loading || intelligence.loading || nearbyLoading ? 'Refreshing…' : 'Refresh'}</ActionButton></>}
         meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Operational availability'}</span>}
       />
 
@@ -367,7 +367,7 @@ export default function LiveAvailabilityPage() {
                 returnJourney ? `${returnJourney.fromPostcode ?? 'From TBC'} → ${returnJourney.toPostcode ?? 'Go anywhere'}` : 'No return journey',
                 when(future?.futurePositionDate ?? returnJourney?.availableFrom),
                 nextJob ? `${nextJob.pickup_location ?? 'Pickup'} · ${when(nextJob.pickup_datetime)}` : 'No future job allocated',
-                <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedDriverId(driver.id)}>Locate</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)}>Open driver</ActionButton></div>,
+                <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedDriverId(driver.id)}>Locate</ActionButton>{returnJourney ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)}>Open driver</ActionButton></div>,
               ])}
               empty={<EmptyState title="No future availability records match these filters" />}
             />
