@@ -334,6 +334,10 @@ export default function TopWorkspaceShell({
       ? definition.primaryAction
       : null;
   const showWorkspaceContext = CARRIER_NAV_ROLES.has(role);
+  const showCarrierBookingActions =
+    CARRIER_NAV_ROLES.has(role) && hasWorkspaceCapability(role, 'loads.create');
+  const carrierPostLoadHref = '/admin/post-load';
+  const carrierBookDirectHref = '/admin/marketplace/directory';
 
   useEffect(() => {
     if (!user?.companyId || !isSupabaseConfigured) {
@@ -553,13 +557,32 @@ export default function TopWorkspaceShell({
               )}
             </div>
           )}
+          {showCarrierBookingActions && (
+            <>
+              <button
+                type="button"
+                className="top-workspace-action top-workspace-action--primary"
+                onClick={() => router.push(carrierPostLoadHref)}
+              >
+                + Post Load
+              </button>
+              <button
+                type="button"
+                className="top-workspace-action"
+                onClick={() => router.push(carrierBookDirectHref)}
+                title="Choose a carrier from Directory and send a Direct Booking"
+              >
+                Book Direct
+              </button>
+            </>
+          )}
           {primaryAction && (
             <button
               type="button"
-              className="top-workspace-action top-workspace-action--primary"
+              className="top-workspace-action"
               onClick={() => router.push(primaryAction.href)}
             >
-              + {primaryAction.label}
+              {primaryAction.label}
             </button>
           )}
           <button
