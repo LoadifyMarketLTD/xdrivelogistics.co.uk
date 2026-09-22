@@ -77,6 +77,21 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
     ).toBe(true);
   });
 
+  it('allows visible carrier navigation routes when the workspace capability permits them', () => {
+    expect(
+      isRoleAllowedForPath('/admin/live-availability', ADMIN_ROLE, { workspaceRole: 'company_owner' }),
+    ).toBe(true);
+    expect(
+      isRoleAllowedForPath('/admin/freight-vision', ADMIN_ROLE, { workspaceRole: 'company_owner' }),
+    ).toBe(true);
+    expect(
+      isRoleAllowedForPath('/admin/messages', ADMIN_ROLE, { workspaceRole: 'company_owner' }),
+    ).toBe(true);
+    expect(
+      isRoleAllowedForPath('/admin/event-log', ADMIN_ROLE, { workspaceRole: 'company_owner' }),
+    ).toBe(true);
+  });
+
   it('denies /admin routes when role lacks the required capability', () => {
     // viewer has only jobs.view; /admin/operations-centre requires jobs.dispatch → denied
     expect(
