@@ -12,6 +12,8 @@ describe('driver live distance contract', () => {
   it('calculates load-card distance from fresh driver position or home postcode', () => {
     expect(route).toContain("const driverPosition = currentLocationFresh ? latestDriverPosition : homePosition");
     expect(route).toContain('distanceMiles(driverPosition, pickup)');
+    expect(route).toContain('drivingMetricsFromDriver');
+    expect(route).toContain('pickupEtaMinutes: routed?.durationMinutes ?? null');
   });
 
   it('fails closed on impossible UK crow-flight distance values', () => {
