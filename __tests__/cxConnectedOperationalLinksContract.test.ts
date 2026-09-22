@@ -4,6 +4,7 @@ import path from 'node:path';
 const live = fs.readFileSync(path.join(process.cwd(), 'app/admin/live-availability/page.tsx'), 'utf8');
 const vision = fs.readFileSync(path.join(process.cwd(), 'app/admin/freight-vision/page.tsx'), 'utf8');
 const resources = fs.readFileSync(path.join(process.cwd(), 'app/admin/fleet/resources/page.tsx'), 'utf8');
+const returns = fs.readFileSync(path.join(process.cwd(), 'app/admin/fleet/returns/page.tsx'), 'utf8');
 
 describe('CX connected operational module links', () => {
   it('links Live Availability and Return Journeys bidirectionally', () => {
@@ -22,6 +23,14 @@ describe('CX connected operational module links', () => {
     expect(vision).toContain("/admin/messages?jobId=${encodeURIComponent(job.id)}");
     expect(vision).toContain('Diary');
     expect(vision).toContain('Replay');
+  });
+
+  it('opens the declared Return Journey route without creating a second routing contract', () => {
+    expect(returns).toContain('returnRouteUrl');
+    expect(returns).toContain('https://www.google.com/maps/dir/');
+    expect(returns).toContain('Open Route');
+    expect(returns).toContain('journey.from_postcode');
+    expect(returns).toContain('journey.to_postcode');
   });
 
   it('routes Drivers & Vehicles to the fleet operational registers', () => {
