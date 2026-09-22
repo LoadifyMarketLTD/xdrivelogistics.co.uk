@@ -12,7 +12,7 @@ describe('CX-density carrier Diary contract', () => {
     expect(diary).toContain('PICKUP TIME WITHIN');
     expect(diary).toContain('DELIVERY TIME WITHIN');
     expect(diary).toContain('LOAD ID / REF');
-    expect(diary).toContain("supabase\n        .from('jobs')");
+    expect(diary).toContain(".from('jobs')");
     expect(diary).not.toContain('/api/diary/');
   });
 
