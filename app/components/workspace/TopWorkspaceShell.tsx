@@ -17,7 +17,6 @@ import {
   type WorkspaceNavItem,
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
-import SharedContextControls from './SharedContextControls';
 import {
   getActionCentreRoute,
   getNotificationsRoute,
@@ -114,10 +113,13 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
     '/admin/event-log',
     '/admin/settings',
   ];
-  const more = morePreferred.flatMap((href) => {
-    const item = items.get(href);
-    return item && !directHrefs.has(href) ? [item] : [];
-  });
+  const more: WorkspaceNavItem[] = [
+    { id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre', icon: '!' },
+    ...morePreferred.flatMap((href) => {
+      const item = items.get(href);
+      return item && !directHrefs.has(href) ? [item] : [];
+    }),
+  ];
   const seenMore = new Set(more.map((item) => item.href));
   for (const [href, item] of items.entries()) {
     if (!directHrefs.has(href) && !seenMore.has(href)) {
@@ -305,9 +307,7 @@ export default function TopWorkspaceShell({
   const [companyName, setCompanyName] = useState('XDrive Logistics');
   const [unreadCount, setUnreadCount] = useState(0);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
-  const [contextOpen, setContextOpen] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
-  const contextRef = useRef<HTMLDivElement | null>(null);
 
   const navigationTargets = useMemo(
     () =>
@@ -338,16 +338,15 @@ export default function TopWorkspaceShell({
   const actionCentreHref = getActionCentreRoute(actionRole);
   const notificationsHref = getNotificationsRoute(actionRole);
   const primaryAction =
+    !CARRIER_NAV_ROLES.has(role) &&
     definition.primaryAction &&
     (!definition.primaryAction.capability ||
       hasWorkspaceCapability(role, definition.primaryAction.capability))
       ? definition.primaryAction
       : null;
-  const showWorkspaceContext = CARRIER_NAV_ROLES.has(role);
-  const showCarrierBookingActions =
+  const showCarrierPostLoadAction =
     CARRIER_NAV_ROLES.has(role) && hasWorkspaceCapability(role, 'loads.create');
   const carrierPostLoadHref = '/admin/post-load';
-  const carrierBookDirectHref = '/admin/marketplace/directory';
 
   useEffect(() => {
     if (!user?.companyId || !isSupabaseConfigured) {
@@ -402,20 +401,17 @@ export default function TopWorkspaceShell({
 
   useEffect(() => {
     setOpenGroupId(null);
-    setContextOpen(false);
   }, [pathname]);
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setOpenGroupId(null);
-        setContextOpen(false);
       }
     };
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (!(event.target instanceof Node)) return;
       if (navRef.current && !navRef.current.contains(event.target)) setOpenGroupId(null);
-      if (contextRef.current && !contextRef.current.contains(event.target)) setContextOpen(false);
     };
 
     window.addEventListener('keydown', closeOnEscape);
@@ -435,7 +431,6 @@ export default function TopWorkspaceShell({
 
   const openRoute = (href: string) => {
     setOpenGroupId(null);
-    setContextOpen(false);
     router.push(href);
   };
 
@@ -509,10 +504,7 @@ export default function TopWorkspaceShell({
                     data-open={open ? 'true' : 'false'}
                     aria-expanded={open}
                     aria-haspopup="menu"
-                    onClick={() => {
-                      setContextOpen(false);
-                      setOpenGroupId(open ? null : group.id);
-                    }}
+                    onClick={() => setOpenGroupId(open ? null : group.id)}
                   >
                     <span>{group.label}</span>
                     <span aria-hidden="true" className="top-workspace-nav__caret">▾</span>
@@ -546,45 +538,14 @@ export default function TopWorkspaceShell({
         </nav>
 
         <div className="top-workspace-shell__actions">
-          {showWorkspaceContext && (
-            <div ref={contextRef} className="top-workspace-context">
-              <button
-                type="button"
-                className="top-workspace-action top-workspace-action--context"
-                aria-expanded={contextOpen}
-                aria-haspopup="dialog"
-                onClick={() => {
-                  setOpenGroupId(null);
-                  setContextOpen((open) => !open);
-                }}
-              >
-                Workspace
-              </button>
-              {contextOpen && (
-                <div className="top-workspace-context__menu" role="dialog" aria-label="Workspace context and navigation">
-                  <SharedContextControls navigation={navigationTargets} />
-                </div>
-              )}
-            </div>
-          )}
-          {showCarrierBookingActions && (
-            <>
-              <button
-                type="button"
-                className="top-workspace-action top-workspace-action--primary"
-                onClick={() => router.push(carrierPostLoadHref)}
-              >
-                + Post Load
-              </button>
-              <button
-                type="button"
-                className="top-workspace-action"
-                onClick={() => router.push(carrierBookDirectHref)}
-                title="Choose a carrier from Directory and send a Direct Booking"
-              >
-                Book Direct
-              </button>
-            </>
+          {showCarrierPostLoadAction && (
+            <button
+              type="button"
+              className="top-workspace-action top-workspace-action--primary"
+              onClick={() => router.push(carrierPostLoadHref)}
+            >
+              + Post Load
+            </button>
           )}
           {primaryAction && (
             <button
@@ -595,13 +556,15 @@ export default function TopWorkspaceShell({
               {primaryAction.label}
             </button>
           )}
-          <button
-            type="button"
-            className="top-workspace-action"
-            onClick={() => router.push(actionCentreHref)}
-          >
-            Action Centre
-          </button>
+          {!CARRIER_NAV_ROLES.has(role) && (
+            <button
+              type="button"
+              className="top-workspace-action"
+              onClick={() => router.push(actionCentreHref)}
+            >
+              Action Centre
+            </button>
+          )}
           <button
             type="button"
             className="top-workspace-notification"

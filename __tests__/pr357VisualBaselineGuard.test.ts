@@ -14,7 +14,7 @@ const brokerDashboard = read('app/broker/BrokerDashboardHome.tsx');
 describe('PR #357 approved visual baseline', () => {
   it('keeps shared workspace navigation inline in the top header before actions', () => {
     expect(topShell).toContain('top-workspace-nav top-workspace-nav--inline');
-    expect(topShell).toContain('showWorkspaceContext = CARRIER_NAV_ROLES.has(role)');
+    expect(topShell).not.toContain('showWorkspaceContext');
 
     const navIndex = topShell.indexOf('top-workspace-nav top-workspace-nav--inline');
     const actionsIndex = topShell.indexOf('top-workspace-shell__actions');

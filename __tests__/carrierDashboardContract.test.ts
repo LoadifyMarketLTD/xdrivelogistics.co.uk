@@ -149,21 +149,21 @@ describe('carrier dashboard convergence contract', () => {
     expect(carrier).not.toContain('days >= 0 && days <= 30');
   });
 
-  it('keeps one carrier Fleet group, scopes workspace context to carrier roles, and resolves nested nav specifically', () => {
+  it('keeps the carrier shell compact while preserving secondary actions under More', () => {
     const shell = source('app/components/workspace/TopWorkspaceShell.tsx');
 
     expect(shell).toContain("base.find((group) => group.id === 'carrier-fleet')");
     expect(shell).toContain("id: 'carrier-freight-vision'");
-    expect(shell).toContain("import SharedContextControls from './SharedContextControls';");
-    expect(shell).toContain('const showWorkspaceContext = CARRIER_NAV_ROLES.has(role);');
+    expect(shell).toContain("id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre'");
     expect(shell).toContain('data-workspace-role={role}');
-    expect(shell).toContain('{showWorkspaceContext && (');
-    expect(shell).toContain('<SharedContextControls navigation={navigationTargets} />');
     expect(shell).toContain('.sort((a, b) => b.length - a.length)');
     expect(shell).toContain("const carrierPostLoadHref = '/admin/post-load';");
-    expect(shell).toContain("const carrierBookDirectHref = '/admin/marketplace/directory';");
+    expect(shell).toContain('showCarrierPostLoadAction');
     expect(shell).toContain('+ Post Load');
-    expect(shell).toContain('Book Direct');
+    expect(shell).not.toContain("import SharedContextControls from './SharedContextControls';");
+    expect(shell).not.toContain('showWorkspaceContext');
+    expect(shell).not.toContain('carrierBookDirectHref');
+    expect(shell).not.toContain('title="Choose a carrier from Directory and send a Direct Booking"');
   });
 
   it('keeps the carrier dashboard on the measured CX geometry instead of the miniaturized legacy scale', () => {
