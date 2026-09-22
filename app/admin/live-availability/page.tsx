@@ -346,7 +346,7 @@ export default function LiveAvailabilityPage() {
                 currentJob ? <div key="job"><span style={{ display: 'block' }}>{currentJob.pickup_location ?? 'Pickup'} → {currentJob.delivery_location ?? 'Delivery'}</span><span style={{ color: '#64748b' }}>#{currentJob.id.slice(0, 8).toUpperCase()}</span></div> : 'No active job',
                 location ? <button key="location" type="button" onClick={() => setSelectedDriverId(driver.id)} style={{ border: 0, padding: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer' }}>{when(timestamp)} · {freshnessState}</button> : <StatusBadge key="missing" value="missing" tone="grey" />,
                 <div key="future"><span style={{ display: 'block' }}>{future?.futurePosition ?? (returnJourney ? `${returnJourney.fromPostcode ?? 'From TBC'} → ${returnJourney.toPostcode ?? 'Go anywhere'}` : 'Not declared')}</span><span style={{ color: '#64748b' }}>{nextJob ? `Next ${when(nextJob.pickup_datetime)} · ${nextJob.pickup_location ?? 'Pickup'}` : 'No future job allocated'}</span></div>,
-                <ActionButton key="open" tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)}>Open driver</ActionButton>,
+                <ActionButton key="open" tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Driver register</ActionButton>,
               ])}
               empty={<EmptyState title="No drivers match these availability filters" />}
             />
@@ -367,7 +367,7 @@ export default function LiveAvailabilityPage() {
                 returnJourney ? `${returnJourney.fromPostcode ?? 'From TBC'} → ${returnJourney.toPostcode ?? 'Go anywhere'}` : 'No return journey',
                 when(future?.futurePositionDate ?? returnJourney?.availableFrom),
                 nextJob ? `${nextJob.pickup_location ?? 'Pickup'} · ${when(nextJob.pickup_datetime)}` : 'No future job allocated',
-                <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedDriverId(driver.id)}>Locate</ActionButton>{returnJourney ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push(`/admin/drivers?driver=${driver.id}`)}>Open driver</ActionButton></div>,
+                <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedDriverId(driver.id)}>Locate</ActionButton>{returnJourney ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Driver register</ActionButton></div>,
               ])}
               empty={<EmptyState title="No future availability records match these filters" />}
             />
