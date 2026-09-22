@@ -45,6 +45,9 @@ type MarketplaceLoad = {
   service_mode: string | null;
   direct_delivery_required: boolean;
   distance_miles: number | null;
+  distance_minutes: number | null;
+  distance_to_pickup_miles: number | null;
+  pickup_eta_minutes: number | null;
   is_fixed_price: boolean;
   budget_amount: number | null;
   currency: string;
@@ -188,14 +191,14 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                 <div className="driver-load-cell"><span className="driver-cell-label">Commercial</span><strong className="driver-cell-primary">{hasProposedPrice ? money(load.budget_amount, load.currency) : 'Quote required'}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink>{load.member.memberId ? ` · ${load.member.memberId}` : ''}</span></div>
               </div>
 
-              <div className="driver-load-row__meta"><span>Load #{load.id.slice(0, 8).toUpperCase()}</span><span>Posted {formatDT(load.exchange_posted_at)}</span>{load.member.postedBy && <span>Posted by {load.member.postedBy}</span>}{load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}{load.myBid?.status && <StatusBadge value={`Quote ${load.myBid.status}`} tone="purple" />}{load.myBid?.amount != null && <strong style={{ color: '#7c3aed' }}>{money(load.myBid.amount)}</strong>}</div>
+              <div className="driver-load-row__meta"><span>Load #{load.id.slice(0, 8).toUpperCase()}</span><span><strong>To Collection:</strong> {load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} mi${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available'}</span><span><strong>Job Distance:</strong> {load.distance_miles != null ? `${load.distance_miles.toFixed(1)} mi${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available'}</span><span>Posted {formatDT(load.exchange_posted_at)}</span>{load.member.postedBy && <span>Posted by {load.member.postedBy}</span>}{load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}{load.myBid?.status && <StatusBadge value={`Quote ${load.myBid.status}`} tone="purple" />}{load.myBid?.amount != null && <strong style={{ color: '#7c3aed' }}>{money(load.myBid.amount)}</strong>}</div>
 
               <div className="driver-row-details" style={{ display: 'grid', gap: 8 }}>
                 <div className="driver-detail-grid">
                   <div className="driver-detail-item"><span>Posting member</span><strong><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink></strong><small>{[load.member.memberType, load.member.memberId].filter(Boolean).join(' · ') || 'Member identity supplied'}</small></div>
                   <div className="driver-detail-item"><span>Quote contact</span><strong>{load.member.phone ?? 'Business phone not supplied'}</strong><small>{load.member.postedBy ? `Posted by ${load.member.postedBy}` : 'Posted-by name not supplied'}</small></div>
                   <div className="driver-detail-item"><span>Member since</span><strong>{formatDate(load.member.memberSince)}</strong></div>
-                  <div className="driver-detail-item"><span>Distance</span><strong>{load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles` : 'Not supplied'}</strong></div>
+                  <div className="driver-detail-item"><span>To Collection</span><strong>{load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} mi${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available'}</strong></div><div className="driver-detail-item"><span>Job Distance</span><strong>{load.distance_miles != null ? `${load.distance_miles.toFixed(1)} mi${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available'}</strong></div>
                   <div className="driver-detail-item"><span>Dimensions</span><strong>{dimensions(load)}</strong></div>
                   <div className="driver-detail-item"><span>Cargo value</span><strong>{load.cargo_value_gbp != null ? money(load.cargo_value_gbp) : 'Not supplied'}</strong></div>
                   <div className="driver-detail-item"><span>Stackable</span><strong>{load.pallet_stackable == null ? 'Not supplied' : load.pallet_stackable ? 'Yes' : 'No'}</strong></div>
