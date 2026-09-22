@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { isCompanyAdminContext, requireCompanyAdmin } from '../../../_lib/requireCompanyAdmin';
+import { calculateJobRouteMetrics } from '../../../../_lib/jobRouteMetrics';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store, max-age=0' } });
@@ -43,6 +44,12 @@ export async function POST(
     return json(409, { error: 'Only accepted quotes can be converted to jobs.' });
   }
 
+  const pickupPostcode = String(quote.pickup_location ?? '').trim().toUpperCase();
+  const deliveryPostcode = String(quote.delivery_location ?? '').trim().toUpperCase();
+  const routeMetrics = pickupPostcode && deliveryPostcode
+    ? await calculateJobRouteMetrics([pickupPostcode, deliveryPostcode])
+    : null;
+
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
     .insert({
@@ -54,7 +61,15 @@ export async function POST(
       client_phone: quote.customer_phone ?? null,
       load_details: quote.customer_name,
       pickup_location: quote.pickup_location ?? null,
+      pickup_postcode: pickupPostcode || null,
+      pickup_lat: routeMetrics?.pickupLat ?? null,
+      pickup_lng: routeMetrics?.pickupLng ?? null,
       delivery_location: quote.delivery_location ?? null,
+      delivery_postcode: deliveryPostcode || null,
+      delivery_lat: routeMetrics?.deliveryLat ?? null,
+      delivery_lng: routeMetrics?.deliveryLng ?? null,
+      job_distance_miles: routeMetrics?.distanceMiles ?? null,
+      job_distance_minutes: routeMetrics?.durationMinutes ?? null,
       vehicle_type: quote.vehicle_type ?? null,
       cargo_type: quote.cargo_type ?? null,
     })
