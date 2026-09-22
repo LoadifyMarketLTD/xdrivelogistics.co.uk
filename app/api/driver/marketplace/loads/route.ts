@@ -205,7 +205,7 @@ export async function GET(request: NextRequest) {
       if (!pickupPostcode || !deliveryPostcode) return null;
       const route = await calculateJobRouteMetrics([pickupPostcode, deliveryPostcode]);
       if (!route) return null;
-      await supabaseAdmin.from('jobs').update({
+      await supabaseAdmin!.from('jobs').update({
         pickup_lat: route.pickupLat,
         pickup_lng: route.pickupLng,
         delivery_lat: route.deliveryLat,
