@@ -74,7 +74,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { companyId } = await params;
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
-    .select('id, name, company_number, phone, company_type, status, created_at')
+    .select('id, name, xd_id, phone, company_type, status, created_at')
     .eq('id', companyId)
     .maybeSingle();
 
@@ -99,7 +99,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     member: {
       companyId: company.id,
       name: company.name,
-      memberId: company.company_number ?? null,
+      memberId: company.xd_id ?? null,
       businessPhone: company.phone ?? null,
       memberType: publicMemberType(company.company_type),
       memberSince: company.created_at ?? null,

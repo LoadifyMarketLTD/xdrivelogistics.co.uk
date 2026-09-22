@@ -63,7 +63,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { driverId } = await params;
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id, display_name, status, availability_status')
+    .select('id, company_id, user_id, display_name, status, availability_status')
     .eq('id', driverId)
     .maybeSingle();
 
@@ -84,19 +84,28 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // This endpoint exists for the independent/owner-driver identity case and is
   // deliberately conservative: personal phone/email/address and compliance
   // evidence are not part of the member-facing projection.
-  const { data: vehicle, error: vehicleError } = await supabaseAdmin
-    .from('vehicles')
-    .select('type')
-    .eq('assigned_driver_id', driver.id)
-    .limit(1)
-    .maybeSingle();
+  const [{ data: vehicle, error: vehicleError }, { data: profile, error: profileError }] = await Promise.all([
+    supabaseAdmin
+      .from('vehicles')
+      .select('type')
+      .eq('assigned_driver_id', driver.id)
+      .limit(1)
+      .maybeSingle(),
+    driver.user_id
+      ? supabaseAdmin
+          .from('profiles')
+          .select('xd_id')
+          .eq('user_id', driver.user_id)
+          .maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
 
   return respond(200, {
     member: {
       companyId: driver.company_id ?? null,
       driverId: driver.id,
       name: driver.display_name?.trim() || 'Owner Driver',
-      memberId: null,
+      memberId: profileError ? null : profile?.xd_id ?? null,
       businessPhone: null,
       memberType: driver.company_id ? 'Company Driver' : 'Owner Driver',
       memberSince: null,
@@ -130,6 +139,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         message: 'Driver compliance and personal document evidence is private and is not shown in Member Profile.',
       },
     },
-    partial: Boolean(vehicleError),
+    partial: Boolean(vehicleError || profileError),
   });
 }

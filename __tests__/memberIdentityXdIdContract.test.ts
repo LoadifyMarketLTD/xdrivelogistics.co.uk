@@ -58,4 +58,71 @@ describe('XDrive member identity contract', () => {
     expect(network).toContain('Member ID ${company.xd_id}');
     expect(network).not.toContain('Member ID ${company.company_number}');
   });
+
+  it('uses XDrive IDs in member profiles and bidder decision identity', () => {
+    const companyProfile = read('app/api/member-profile/[companyId]/route.ts');
+    const driverProfile = read('app/api/member-profile/driver/[driverId]/route.ts');
+    const bidderIdentity = read('app/api/_lib/bidderDecisionIdentity.ts');
+
+    expect(companyProfile).toContain(".select('id, name, xd_id, phone, company_type, status, created_at')");
+    expect(companyProfile).toContain('memberId: company.xd_id ?? null');
+    expect(companyProfile).not.toContain('memberId: company.company_number');
+
+    expect(driverProfile).toContain(".select('id, company_id, user_id, display_name, status, availability_status')");
+    expect(driverProfile).toContain(".from('profiles')");
+    expect(driverProfile).toContain(".select('xd_id')");
+    expect(driverProfile).toContain('memberId: profileError ? null : profile?.xd_id ?? null');
+
+    expect(bidderIdentity).toContain("select('id, name, xd_id, phone, company_type')");
+    expect(bidderIdentity).toContain('memberId: text(company?.xd_id)');
+    expect(bidderIdentity).not.toContain('memberId: text(company?.company_number)');
+  });
+
+  it('uses XDrive member IDs in the shared job sheet and member-facing labels', () => {
+    const jobSheet = read('app/api/workspace/jobs/[jobId]/sheet/route.ts');
+    const companyJobSheet = read('app/components/workspace/CompanyJobSheetPanel.tsx');
+    const driverJobSheet = read('app/components/workspace/DriverJobSheetPanel.tsx');
+
+    expect(jobSheet).toContain("select('id, name, xd_id, phone, company_type')");
+    expect(jobSheet).toContain('memberId: text(ownerCompany.xd_id)');
+    expect(jobSheet).toContain('memberId: text(carrierCompany.xd_id)');
+    expect(jobSheet).toContain('memberId: text(executionCompany.xd_id)');
+    expect(jobSheet).not.toContain('memberId: text(ownerCompany.company_number)');
+
+    expect(companyJobSheet).toContain('Member ID ${memberId}');
+    expect(companyJobSheet).not.toContain('Company no. ${memberId}');
+    expect(driverJobSheet).toContain('Member ID ${sheet.memberCode}');
+  });
+
+  it('labels Directory, Member Profile, Return Journeys and driver exchange views with XDrive member identity', () => {
+    const directoryUi = read('app/components/workspace/MemberDirectoryPage.tsx');
+    const memberProfileUi = read('app/components/workspace/MemberProfile.tsx');
+    const returnsUi = read('app/driver/returns/page.tsx');
+    const historyUi = read('app/driver/history/page.tsx');
+    const nearbyUi = read('app/driver/nearby/page.tsx');
+    const settingsUi = read('app/components/workspace/RoleSettingsWorkspace.tsx');
+
+    expect(directoryUi).toContain('MEMBER / XDRIVE ID');
+    expect(directoryUi).toContain('Company, driver or XDrive member ID');
+    expect(directoryUi).toContain('Member ID ${company.memberId}');
+    expect(directoryUi).not.toContain('Company no. ${company.memberId}');
+
+    expect(memberProfileUi).toContain("const memberIdLabel = 'Member ID'");
+    expect(memberProfileUi).toContain('[memberIdLabel, profile.member.memberId');
+    expect(memberProfileUi).toContain('Member ID ${profile.member.memberId}');
+    expect(memberProfileUi).not.toContain('Company no. ${profile.member.memberId}');
+
+    expect(returnsUi).toContain('Member / XDrive ID');
+    expect(returnsUi).toContain('Member ID ${journey.member.code}');
+    expect(returnsUi).not.toContain('Company no. ${journey.member.code}');
+
+    expect(historyUi).toContain('Member ID ${sheet.memberCode}');
+    expect(historyUi).not.toContain('Company no. ${sheet.memberCode}');
+    expect(nearbyUi).toContain('Member ID ${position.member_code}');
+    expect(nearbyUi).not.toContain('Company no. ${position.member_code}');
+
+    expect(settingsUi).toContain("const identityCode = company?.xd_id || 'Not assigned'");
+    expect(settingsUi).not.toContain('company?.xd_id || company?.company_number');
+    expect(settingsUi).toContain('Registered company number');
+  });
 });

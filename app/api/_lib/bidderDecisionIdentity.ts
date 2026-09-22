@@ -75,7 +75,7 @@ export async function enrichBidderDecisionIdentities(
   };
   const companyIds = [...new Set(seeds.map(resolvedCompanyId).filter((id): id is string => Boolean(id)))];
   const companiesResult = companyIds.length
-    ? await admin.from('companies').select('id, name, company_number, phone, company_type').in('id', companyIds)
+    ? await admin.from('companies').select('id, name, xd_id, phone, company_type').in('id', companyIds)
     : { data: [], error: null };
   if (companiesResult.error) throw companiesResult.error;
 
@@ -119,7 +119,7 @@ export async function enrichBidderDecisionIdentities(
       personName,
       companyType: text(company?.company_type) ?? (companyId ? null : 'owner_driver'),
       displayName: companyName ?? personName ?? 'Carrier profile incomplete',
-      memberId: text(company?.company_number),
+      memberId: text(company?.xd_id),
       businessPhone: text(company?.phone),
       quoteLevel: seed.driverId ? 'driver' as const : 'company' as const,
       driverAvailability: text(driver?.availability_status),
