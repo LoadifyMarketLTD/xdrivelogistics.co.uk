@@ -131,11 +131,25 @@ export default function FleetResourcesPage() {
     <PageFrame>
       <PageHeader
         eyebrow="Fleet resources"
-        title="Fleet Resources"
-        description="Driver and vehicle relationship register combining recorded availability, live location, future position, allocated work, return journey and advertising visibility. Canonical operational eligibility remains server-authoritative."
-        actions={<ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
+        title="Drivers & Vehicles"
+        description="One consolidated fleet workspace for driver/vehicle relationships, availability, live tracking, future capacity, return journeys and operational attention."
+        actions={
+          <>
+            <ActionButton tone="secondary" onClick={() => router.push('/admin/drivers')}>Drivers Register</ActionButton>
+            <ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Vehicles Register</ActionButton>
+            <ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
+          </>
+        }
         meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Fleet resource view'}</span>}
       />
+
+      <div style={{ display: 'flex', gap: 4, minHeight: 34, alignItems: 'center', marginBottom: 8, border: '1px solid var(--ws-border, #cfd7e3)', background: '#fff', padding: '0 6px', overflowX: 'auto' }} aria-label="Drivers and vehicles workspace navigation">
+        <button type="button" aria-current="page" style={resourceTabStyle(true)}>Resources</button>
+        <button type="button" onClick={() => router.push('/admin/drivers')} style={resourceTabStyle(false)}>Drivers</button>
+        <button type="button" onClick={() => router.push('/admin/vehicles')} style={resourceTabStyle(false)}>Vehicles</button>
+        <button type="button" onClick={() => router.push('/admin/live-availability')} style={resourceTabStyle(false)}>Live Availability</button>
+        <button type="button" onClick={() => router.push('/admin/fleet/returns')} style={resourceTabStyle(false)}>Return Journeys</button>
+      </div>
 
       {data.error && <AlertBanner tone="warning">{data.error}</AlertBanner>}
       {intelligence.error && <AlertBanner tone="warning">{intelligence.error}</AlertBanner>}
@@ -189,6 +203,19 @@ export default function FleetResourcesPage() {
     </PageFrame>
   );
 }
+
+const resourceTabStyle = (active: boolean) => ({
+  minHeight: 28,
+  border: 0,
+  borderBottom: active ? '2px solid #1d57d8' : '2px solid transparent',
+  background: 'transparent',
+  color: active ? '#0b2f6b' : '#64748b',
+  fontSize: 11,
+  fontWeight: active ? 800 : 700,
+  padding: '0 10px',
+  whiteSpace: 'nowrap' as const,
+  cursor: active ? 'default' : 'pointer',
+});
 
 const inputStyle = { width: '100%', minHeight: 32, border: '1px solid var(--ws-border, #cfd7e3)', borderRadius: 4, padding: '5px 8px', background: '#fff', color: 'var(--ws-text, #172033)', fontSize: 12, boxSizing: 'border-box' as const };
 const labelStyle = { display: 'grid', gap: 4, color: 'var(--ws-muted, #64748b)', fontSize: 11, fontWeight: 700 } as const;
