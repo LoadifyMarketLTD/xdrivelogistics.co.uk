@@ -438,7 +438,7 @@ export function FutureAvailabilityPage() {
         title="Future Availability"
         description="Forward workload, currently available resources and upcoming compliance constraints."
         actions={
-          <ActionButton tone="secondary" onClick={() => router.push('/admin/returns')}>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>
             Return Journeys
           </ActionButton>
         }
