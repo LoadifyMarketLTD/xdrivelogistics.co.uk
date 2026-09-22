@@ -65,6 +65,8 @@ export function buildJobOperationalPresentation(row: OperationalJobRow) {
     client: text(row.client_name),
     distance: distance ? `${distance.toFixed(1)} mi` : undefined,
     eta: durationMinutes ? `${Math.round(durationMinutes)} min` : undefined,
+    journeyDistanceMiles: distance ?? undefined,
+    estimatedJourneyMinutes: durationMinutes ?? undefined,
     weight: weightKg ? `${weightKg.toLocaleString('en-GB')} kg` : undefined,
     dimensions: lengthCm && widthCm && heightCm
       ? `${lengthCm} × ${widthCm} × ${heightCm} cm`
