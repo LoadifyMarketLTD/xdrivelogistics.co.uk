@@ -41,6 +41,14 @@ describe('CX-close Live Availability composition', () => {
     expect(source).toContain('driver identity is not disclosed');
   });
 
+  it('adds CX-style contextual actions without exposing driver identity', () => {
+    expect(source).toContain('/admin/messages?companyId=');
+    expect(source).toContain('/admin/post-load?directCarrier=');
+    expect(source).toContain('Message');
+    expect(source).toContain('Book Direct');
+    expect(source).not.toContain('position.driver_id');
+  });
+
   it('does not introduce Super Admin coupling', () => {
     expect(source).not.toContain('/super-admin');
   });
