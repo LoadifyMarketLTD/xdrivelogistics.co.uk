@@ -16,7 +16,8 @@ import {
   StatusBadge,
 } from './WorkspaceUI';
 
-type DiaryTab = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'evidence';
+type FeedbackMode = 'all' | 'awaiting' | 'recent';
+type DiaryTab = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'feedback' | 'evidence';
 type JobRow = {
   id: string;
   company_id: string | null;
@@ -50,6 +51,14 @@ type DriverRow = {
   availability_status: string | null;
 };
 
+type ReviewRow = {
+  id: string;
+  job_id: string | null;
+  rating: number | null;
+  comment: string | null;
+  created_at: string | null;
+};
+
 type SearchState = {
   from: string;
   to: string;
@@ -69,6 +78,7 @@ const TABS: Array<{ id: DiaryTab; label: string }> = [
   { id: 'completed', label: 'Completed' },
   { id: 'cancelled', label: 'Cancelled' },
   { id: 'expired', label: 'Expired' },
+  { id: 'feedback', label: 'Feedback' },
   { id: 'evidence', label: 'POD / Evidence' },
 ];
 
@@ -96,7 +106,21 @@ function isOperatingCompanyJob(job: JobRow, companyId: string) {
   return Boolean(job.assigned_driver_id) || !['open', 'draft'].includes(stage);
 }
 
-function matchesTab(job: JobRow, tab: DiaryTab) {
+function hasRecentFeedback(reviews: ReviewRow[]) {
+  return reviews.length > 0;
+}
+
+function isAwaitingFeedback(job: JobRow, reviews: ReviewRow[]) {
+  return classifyWorkspaceJobStage(job) === 'completed' && !hasRecentFeedback(reviews);
+}
+
+function feedbackMatches(job: JobRow, reviews: ReviewRow[], mode: FeedbackMode) {
+  const awaiting = isAwaitingFeedback(job, reviews);
+  const recent = hasRecentFeedback(reviews);
+  return mode === 'awaiting' ? awaiting : mode === 'recent' ? recent : awaiting || recent;
+}
+
+function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = [], feedbackMode: FeedbackMode = 'all') {
   if (tab === 'all') return true;
   const stage = classifyWorkspaceJobStage(job);
   if (tab === 'unallocated') return (stage === 'awarded' || stage === 'allocated') && !job.assigned_driver_id;
@@ -105,6 +129,7 @@ function matchesTab(job: JobRow, tab: DiaryTab) {
   if (tab === 'completed') return stage === 'completed';
   if (tab === 'cancelled') return stage === 'cancelled' || stage === 'disputed';
   if (tab === 'expired') return stage === 'expired';
+  if (tab === 'feedback') return feedbackMatches(job, reviews, feedbackMode);
   return stage === 'completed' && (job.pod_generated === true || (job.delivery_photos?.length ?? 0) > 0);
 }
 
@@ -125,10 +150,12 @@ export default function OperationsDiaryPage() {
   const deepJob = searchParams.get('job');
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
+  const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [tab, setTab] = useState<DiaryTab>('all');
+  const [feedbackMode, setFeedbackMode] = useState<FeedbackMode>('all');
   const [search, setSearch] = useState<SearchState>(EMPTY_SEARCH);
   const [appliedSearch, setAppliedSearch] = useState<SearchState>(EMPTY_SEARCH);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set(deepJob ? [deepJob] : []));
@@ -138,9 +165,9 @@ export default function OperationsDiaryPage() {
   const [pageSize, setPageSize] = useState(25);
 
   const load = useCallback(async () => {
-    if (!companyId) { setJobs([]); setDrivers([]); setLoading(false); return; }
+    if (!companyId) { setJobs([]); setDrivers([]); setReviewsByJob({}); setLoading(false); return; }
     setLoading(true); setError('');
-    const [jobsResult, driversResult] = await Promise.all([
+    const [jobsResult, driversResult, reviewsResult] = await Promise.all([
       supabase
         .from('jobs')
         .select('id, company_id, assigned_company_id, awarded_carrier_company_id, assigned_driver_id, status, current_status, pickup_location, pickup_postcode, pickup_datetime, delivery_location, delivery_postcode, delivery_datetime, vehicle_type, client_name, customer_reference, booking_reference, pod_generated, pod_generated_at, delivery_photos, updated_at, created_at')
@@ -152,6 +179,11 @@ export default function OperationsDiaryPage() {
         .select('id, display_name, email, status, availability_status')
         .eq('company_id', companyId)
         .order('display_name', { ascending: true }),
+      supabase
+        .from('reviews')
+        .select('id, job_id, rating, comment, created_at')
+        .eq('company_id', companyId)
+        .order('created_at', { ascending: false }),
     ]);
 
     if (jobsResult.error) {
@@ -166,6 +198,17 @@ export default function OperationsDiaryPage() {
       setDrivers([]);
     } else {
       setDrivers((driversResult.data ?? []) as DriverRow[]);
+    }
+    if (reviewsResult.error) {
+      setReviewsByJob({});
+      setNotice('Feedback records are temporarily unavailable. Core Diary operations remain available.');
+    } else {
+      const grouped: Record<string, ReviewRow[]> = {};
+      for (const review of (reviewsResult.data ?? []) as ReviewRow[]) {
+        if (!review.job_id) continue;
+        (grouped[review.job_id] ??= []).push(review);
+      }
+      setReviewsByJob(grouped);
     }
     setLoading(false);
   }, [companyId]);
@@ -192,7 +235,7 @@ export default function OperationsDiaryPage() {
     const toDate = appliedSearch.dateTo ? new Date(`${appliedSearch.dateTo}T23:59:59`).getTime() : null;
 
     return jobs
-      .filter((job) => matchesTab(job, tab))
+      .filter((job) => matchesTab(job, tab, reviewsByJob[job.id] ?? [], feedbackMode))
       .filter((job) => !from || `${job.pickup_location ?? ''} ${job.pickup_postcode ?? ''}`.toLowerCase().includes(from))
       .filter((job) => !to || `${job.delivery_location ?? ''} ${job.delivery_postcode ?? ''}`.toLowerCase().includes(to))
       .filter((job) => !reference || `${job.id} ${job.customer_reference ?? ''} ${job.booking_reference ?? ''}`.toLowerCase().includes(reference))
@@ -207,14 +250,14 @@ export default function OperationsDiaryPage() {
         if (toDate && timestamp > toDate) return false;
         return true;
       });
-  }, [appliedSearch, jobs, tab]);
+  }, [appliedSearch, feedbackMode, jobs, reviewsByJob, tab]);
 
-  const counts = useMemo(() => Object.fromEntries(TABS.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id)).length])) as Record<DiaryTab, number>, [jobs]);
+  const counts = useMemo(() => Object.fromEntries(TABS.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [], 'all')).length])) as Record<DiaryTab, number>, [jobs, reviewsByJob]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
   const allVisibleExpanded = visible.length > 0 && visible.every((job) => expandedIds.has(job.id));
-  useEffect(() => { setPage(1); }, [tab, appliedSearch, pageSize]);
+  useEffect(() => { setPage(1); }, [tab, feedbackMode, appliedSearch, pageSize]);
 
   const toggleExpandAll = () => {
     const shouldExpand = !allVisibleExpanded;
@@ -294,6 +337,16 @@ export default function OperationsDiaryPage() {
           <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
             <span>{filtered.length} matching booking{filtered.length === 1 ? '' : 's'} · {visible.length} shown</span>
             <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+              {tab === 'feedback' && (
+                <label style={{ display: 'inline-flex', gap: 5, alignItems: 'center' }}>
+                  Feedback
+                  <select value={feedbackMode} onChange={(event) => setFeedbackMode(event.target.value as FeedbackMode)} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}>
+                    <option value="all">All feedback</option>
+                    <option value="awaiting">Awaiting feedback</option>
+                    <option value="recent">Recent feedback</option>
+                  </select>
+                </label>
+              )}
               <span>Operating-company scope only · post-award execution data</span>
               <button
                 type="button"
@@ -333,6 +386,8 @@ export default function OperationsDiaryPage() {
                       {job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
                       {job.pod_generated && <StatusBadge value="POD generated" tone="green" />}
                       {!job.pod_generated && evidenceCount > 0 && <StatusBadge value={`${evidenceCount} evidence file(s)`} tone="blue" />}
+                      {isAwaitingFeedback(job, reviewsByJob[job.id] ?? []) && <StatusBadge value="Awaiting feedback" tone="orange" />}
+                      {hasRecentFeedback(reviewsByJob[job.id] ?? []) && <StatusBadge value="Recent feedback" tone="green" />}
                       {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}><option value="">Choose active driver</option>{activeAccountDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
                     </div>
                     {open && <CompanyJobSheetPanel jobId={job.id} mode="carrier" />}
