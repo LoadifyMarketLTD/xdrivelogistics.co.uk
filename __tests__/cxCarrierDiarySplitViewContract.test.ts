@@ -14,7 +14,7 @@ describe('CX carrier Diary list / split view parity', () => {
 
   it('reuses the authorised CompanyJobSheetPanel in split view', () => {
     expect(source).toContain('Diary split booking detail');
-    expect(source).toContain('<CompanyJobSheetPanel jobId={selectedJobId} mode="carrier" />');
+    expect(source).toContain('<CompanyJobSheetPanel jobId={selectedJobId} mode="carrier" initialTab={detailTabByJob[selectedJobId] ?? \'order\'} />');
     expect(source).not.toContain('/api/diary/');
   });
 
@@ -27,6 +27,6 @@ describe('CX carrier Diary list / split view parity', () => {
   it('retains existing List View expand/collapse and Replay actions', () => {
     expect(source).toContain('toggleExpandAll');
     expect(source).toContain('toggleJob(job.id)');
-    expect(source).toContain('/job-replay/');
+    expect(source).toContain("openJobTab(job.id, 'replay')");
   });
 });
