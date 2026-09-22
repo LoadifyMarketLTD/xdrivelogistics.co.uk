@@ -18,7 +18,7 @@ describe('compact carrier navbar contract', () => {
     expect(shell).toContain('!CARRIER_NAV_ROLES.has(role)');
   });
 
-  it('keeps Action Centre available under More instead of occupying header space', () => {
+  it('keeps secondary Action Centre access under More instead of occupying header space', () => {
     expect(shell).toContain("id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre'");
     expect(shell).toContain("'/admin/invoices'");
     expect(shell).toContain("'/admin/fleet/drivers'");
