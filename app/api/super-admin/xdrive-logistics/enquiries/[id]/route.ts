@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { labelToCargoType, labelToVehicleType } from '../../../../../../lib/vehicleTypes';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { isSuperAdminDeployPreviewReadOnly, verifyPlatformOwner } from '../../../_lib/verifyPlatformOwner';
+import { calculateJobRouteMetrics } from '../../../../_lib/jobRouteMetrics';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -140,6 +141,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
   const pickupSlot = fieldFromNotes(notes, 'Collection time') || 'Not specified';
   const deliverySlot = fieldFromNotes(notes, 'Delivery time') || 'Not specified';
   const publish = action.executionMode === 'marketplace';
+  const routeMetrics = await calculateJobRouteMetrics([pickupPostcode, deliveryPostcode]);
   const jobRow: Record<string, unknown> = {
     company_id: INTAKE_COMPANY_ID,
     created_by: owner.id,
@@ -154,6 +156,12 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     delivery_postcode: deliveryPostcode,
     delivery_datetime: dateTimeFromNotes(notes, 'Delivery date', 'Delivery time'),
     delivery_time_slot: deliverySlot,
+    pickup_lat: routeMetrics?.pickupLat ?? null,
+    pickup_lng: routeMetrics?.pickupLng ?? null,
+    delivery_lat: routeMetrics?.deliveryLat ?? null,
+    delivery_lng: routeMetrics?.deliveryLng ?? null,
+    job_distance_miles: routeMetrics?.distanceMiles ?? null,
+    job_distance_minutes: routeMetrics?.durationMinutes ?? null,
     client_name: enquiry.customer_name,
     client_email: enquiry.customer_email,
     client_phone: enquiry.customer_phone,
