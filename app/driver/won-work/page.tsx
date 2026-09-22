@@ -14,6 +14,10 @@ type WonJob = {
   pickupLocation: string | null;
   deliveryLocation: string | null;
   pickupTime: string | null;
+  distanceToPickupMiles: number | null;
+  pickupEtaMinutes: number | null;
+  jobDistanceMiles: number | null;
+  jobDistanceMinutes: number | null;
   vehicleType: string | null;
   cargoType: string | null;
   canonicalStatus: string;
@@ -247,6 +251,22 @@ export default function WonWorkPage() {
                         <div style={{ fontSize: '13px', color: '#0f172a' }}>{VEHICLE_LABELS[job.vehicleType] ?? job.vehicleType}</div>
                       </div>
                     )}
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>To Collection</div>
+                      <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 700 }}>
+                        {job.distanceToPickupMiles != null
+                          ? `${job.distanceToPickupMiles.toFixed(1)} mi${job.pickupEtaMinutes != null ? ` · ${Math.round(job.pickupEtaMinutes)} min` : ''}`
+                          : 'Not available'}
+                      </div>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Job Distance</div>
+                      <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 700 }}>
+                        {job.jobDistanceMiles != null
+                          ? `${job.jobDistanceMiles.toFixed(1)} mi${job.jobDistanceMinutes != null ? ` · ${Math.round(job.jobDistanceMinutes)} min` : ''}`
+                          : 'Not available'}
+                      </div>
+                    </div>
                   </div>
 
                   <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
