@@ -340,7 +340,7 @@ export default function FleetControlDashboardHome() {
     <div style={{ width: '100%', padding: '10px 12px 16px' }}>
       <DashboardHomeHeader
         eyebrow="Fleet operations"
-        title="Fleet Command Centre"
+        title="My Fleet"
         badge="Resource control"
         description="Drivers, vehicles, live tracking, future capacity, return journeys and compliance signals in one operating register."
         actions={<><ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocate Jobs</ActionButton><ActionButton tone="primary" onClick={() => { void data.refresh(); void intelligence.refresh(); }}>Refresh</ActionButton></>}
