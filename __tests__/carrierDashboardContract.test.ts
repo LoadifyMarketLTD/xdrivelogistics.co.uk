@@ -166,14 +166,14 @@ describe('carrier dashboard convergence contract', () => {
     expect(shell).not.toContain('title="Choose a carrier from Directory and send a Direct Booking"');
   });
 
-  it('keeps the carrier dashboard on the measured CX geometry instead of the miniaturized legacy scale', () => {
+  it('keeps the carrier dashboard readable while preserving the approved operational geometry', () => {
     const shellCss = source('app/components/workspace/top-workspace-shell.css');
 
-    expect(shellCss).toContain('height: 50px !important;');
+    expect(shellCss).toContain('height: 62px !important;');
     expect(shellCss).toContain('.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button');
     expect(shellCss).toContain('min-height: 72px !important;');
     expect(shellCss).toContain('.top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"]');
-    expect(shellCss).toContain('top: 62px !important;');
-    expect(shellCss).toContain('font-size: 13px !important;');
+    expect(shellCss).toContain('top: 74px !important;');
+    expect(shellCss).toContain('font-size: 14px !important;');
   });
 });
