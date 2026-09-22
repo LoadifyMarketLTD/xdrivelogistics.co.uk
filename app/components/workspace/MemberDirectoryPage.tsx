@@ -139,7 +139,9 @@ export function MemberDirectoryPage({
     ? '/broker/post-load'
     : pathname.startsWith('/customer')
       ? '/customer/post-load'
-      : null;
+      : pathname.startsWith('/admin')
+        ? '/admin/post-load'
+        : null;
   const messagesRoute = pathname.startsWith('/broker')
     ? '/broker/messages'
     : pathname.startsWith('/customer')
