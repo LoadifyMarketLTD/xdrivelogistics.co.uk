@@ -74,9 +74,9 @@ type JobSheet = {
   unavailable: { bodyType: string; bookingFooter: string; extras: string };
 };
 
-type Tab = 'order' | 'notes' | 'history' | 'replay' | 'documents' | 'pod' | 'invoice';
+export type JobSheetTab = 'order' | 'notes' | 'history' | 'replay' | 'documents' | 'pod' | 'invoice';
 type SheetMode = 'broker' | 'customer' | 'carrier';
-const TABS: Array<{ id: Tab; label: string }> = [
+const TABS: Array<{ id: JobSheetTab; label: string }> = [
   { id: 'order', label: 'Order' }, { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History' },
   { id: 'replay', label: 'Replay' }, { id: 'documents', label: 'Documents' }, { id: 'pod', label: 'POD' }, { id: 'invoice', label: 'Invoice' },
 ];
@@ -137,11 +137,13 @@ function Detail({ label, value, detail }: { label: string; value: ReactNode; det
   return <div className="workspace-detail-item"><strong>{label}</strong><div>{value}</div>{detail ? <small>{detail}</small> : null}</div>;
 }
 
-export function CompanyJobSheetPanel({ jobId, mode }: { jobId: string; mode: SheetMode }) {
+export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'order' }: { jobId: string; mode: SheetMode; initialTab?: JobSheetTab }) {
   const [sheet, setSheet] = useState<JobSheet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<Tab>('order');
+  const [tab, setTab] = useState<JobSheetTab>(initialTab);
+
+  useEffect(() => { setTab(initialTab); }, [initialTab]);
 
   useEffect(() => {
     let cancelled = false;
