@@ -11,7 +11,8 @@ describe('CX-benchmark nearby jobs contract', () => {
     expect(source).toContain("'job_distance_miles', 'job_distance_minutes'");
     expect(source).toContain(".from('driver_locations')");
     expect(source).toContain(".select('lat,lng,recorded_at')");
-    expect(source).toContain('distanceToPickupMiles: distanceToPickupByJob.get(row.id) ?? null');
+    expect(source).toContain('distanceToPickupMiles: routed?.distanceMiles ?? straightLineDistanceByJob.get(row.id) ?? null');
+    expect(source).toContain('pickupEtaMinutes: routed?.durationMinutes ?? null');
     expect(source).toContain('estimatedJourneyMinutes: marketplaceNumber(row.job_distance_minutes)');
   });
 
@@ -23,6 +24,7 @@ describe('CX-benchmark nearby jobs contract', () => {
     expect(source).toContain("https://api.postcodes.io/outcodes/");
     expect(source).toContain("rawMiles !== null && gbPickup && rawMiles > 700 ? null : rawMiles");
     expect(source).toContain("distanceToPickupMiles: null");
+    expect(source).toContain("distanceMethod: routed ? 'road_route' : driverPosition ? 'straight_line_fallback' : null");
   });
 
   it('does not return expired exchange loads and exposes expiry to the client', () => {
