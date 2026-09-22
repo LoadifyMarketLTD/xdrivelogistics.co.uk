@@ -129,8 +129,8 @@ function availabilityCopy(value: string | null | undefined, fallback: string) {
   return value;
 }
 
-function companyDetail(companyNumber: string | null, phone: string | null) {
-  return [companyNumber ? `Company no. ${companyNumber}` : null, phone].filter(Boolean).join(' · ') || undefined;
+function companyDetail(memberId: string | null, phone: string | null) {
+  return [memberId ? `Member ID ${memberId}` : null, phone].filter(Boolean).join(' · ') || undefined;
 }
 
 function Detail({ label, value, detail }: { label: string; value: ReactNode; detail?: ReactNode }) {

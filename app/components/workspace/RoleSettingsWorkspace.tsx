@@ -240,7 +240,7 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
   };
 
   const companyDisplay = company?.trading_name || company?.name || company?.legal_name || 'Company account';
-  const identityCode = company?.xd_id || company?.company_number || 'Not assigned';
+  const identityCode = company?.xd_id || 'Not assigned';
   const memberCode = profile?.xd_id || 'Not assigned';
   const routes = routeMap[role];
 

@@ -191,14 +191,14 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       if (!companyId || cancelled) return;
       const { data } = await supabase
         .from('companies')
-        .select('id, name, company_number')
+        .select('id, name, xd_id')
         .eq('id', companyId)
         .maybeSingle();
       if (!cancelled) {
         setPostingCompany({
           id: companyId,
           name: typeof data?.name === 'string' ? data.name : null,
-          memberId: typeof data?.company_number === 'string' ? data.company_number : null,
+          memberId: typeof data?.xd_id === 'string' ? data.xd_id : null,
         });
       }
     };
@@ -214,7 +214,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       if (!directCarrierId || !isSupabaseConfigured) return;
       const { data, error: carrierError } = await supabase
         .from('companies')
-        .select('id, name, company_number, status')
+        .select('id, name, xd_id, status')
         .eq('id', directCarrierId)
         .maybeSingle();
       if (cancelled) return;
@@ -225,7 +225,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       setDirectCarrier({
         id: String(data.id),
         name: String(data.name ?? 'Carrier'),
-        memberId: typeof data.company_number === 'string' ? data.company_number : null,
+        memberId: typeof data.xd_id === 'string' ? data.xd_id : null,
       });
     };
     void resolveDirectCarrier();
@@ -458,7 +458,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       <Panel title="Posting identity & XDrive references" description="Platform ownership and the XDrive load reference are automatic. Customer-owned references remain optional inputs below.">
         <div style={gridStyle}>
           <label style={labelStyle}>Posting member<div style={readOnlyStyle}>{postingCompany?.name ?? 'Signed-in company'}</div></label>
-          <label style={labelStyle}>Company number<div style={readOnlyStyle}>{postingCompany?.memberId ?? 'Resolved automatically from company record'}</div></label>
+          <label style={labelStyle}>Member ID<div style={readOnlyStyle}>{postingCompany?.memberId ?? 'Resolved automatically from XDrive membership'}</div></label>
           <label style={labelStyle}>XDrive load reference<div style={readOnlyStyle}>Generated automatically after save / publish</div></label>
         </div>
       </Panel>
@@ -473,7 +473,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           ) : directCarrier ? (
             <div style={gridStyle}>
               <label style={labelStyle}>Selected carrier<div style={readOnlyStyle}>{directCarrier.name}</div></label>
-              <label style={labelStyle}>Company number<div style={readOnlyStyle}>{directCarrier.memberId ?? 'Not supplied'}</div></label>
+              <label style={labelStyle}>Member ID<div style={readOnlyStyle}>{directCarrier.memberId ?? 'Not supplied'}</div></label>
               <label style={labelStyle}>Visibility<div style={readOnlyStyle}>Direct invite only</div></label>
             </div>
           ) : (

@@ -170,10 +170,10 @@ export function MemberProfileOverlay({
     return profile.sections.businessDocuments;
   }, [profile, tab]);
 
-  const companyNumberLabel = profile?.member.companyId ? 'Company number' : 'Member ID';
+  const memberIdLabel = 'Member ID';
   const detailRows = profile ? [
     ['Member', profile.member.name],
-    [companyNumberLabel, profile.member.memberId ?? 'Not supplied'],
+    [memberIdLabel, profile.member.memberId ?? 'Not supplied'],
     ['Type', profile.member.memberType],
     ['Business phone', profile.member.businessPhone ?? 'Not supplied'],
     ['Member since', memberSince(profile.member.memberSince)],
@@ -204,7 +204,7 @@ export function MemberProfileOverlay({
           <div style={{ minWidth: 0 }}>
             <strong style={{ display: 'block', color: workspaceTheme.text, fontSize: 13, lineHeight: '18px' }}>
               {profile?.member.name ?? (loading ? 'Loading member…' : 'Member profile')}
-              {profile?.member.memberId && profile.member.companyId ? ` — Company no. ${profile.member.memberId}` : ''}
+              {profile?.member.memberId && profile.member.companyId ? ` — Member ID ${profile.member.memberId}` : ''}
             </strong>
             <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11, lineHeight: '14px' }}>
               {profile ? `${profile.member.memberType} · Member since ${memberSince(profile.member.memberSince)}` : 'XDrive member information'}

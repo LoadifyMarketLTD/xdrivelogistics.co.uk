@@ -202,7 +202,7 @@ export function DriverJobSheetPanel({ jobId }: { jobId: string }) {
           <div className="workspace-detail-grid">
             <Detail label="Booking / load" value={sheet.reference} detail={`XDrive ${sheet.loadId.slice(0, 8).toUpperCase()}`} />
             <Detail label="Status" value={<StatusBadge value={sheet.status} />} detail={sheet.bookedAt ? `Awarded ${when(sheet.bookedAt)}` : undefined} />
-            <Detail label="Booked by" value={sheet.postingCompanyId ? <MemberIdentityLink companyId={sheet.postingCompanyId}>{sheet.bookedBy}</MemberIdentityLink> : sheet.bookedBy} detail={[sheet.memberCode, sheet.memberPhone].filter(Boolean).join(' · ') || undefined} />
+            <Detail label="Booked by" value={sheet.postingCompanyId ? <MemberIdentityLink companyId={sheet.postingCompanyId}>{sheet.bookedBy}</MemberIdentityLink> : sheet.bookedBy} detail={[sheet.memberCode ? `Member ID ${sheet.memberCode}` : null, sheet.memberPhone].filter(Boolean).join(' · ') || undefined} />
             <Detail label="Agreed rate" value={money(sheet.agreedRate, sheet.currency)} detail={sheet.commercialSnapshotAvailable ? 'Commercial agreement source available' : 'No immutable commercial snapshot returned'} />
             <Detail label="Payment terms" value={sheet.paymentTerms ?? 'Historical terms unavailable'} detail={sheet.paymentDueDays != null ? `${sheet.paymentDueDays} day(s)` : undefined} />
             <Detail label="Customer ref" value={sheet.customerReference ?? 'Not supplied'} />
