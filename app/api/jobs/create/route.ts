@@ -9,6 +9,7 @@ import {
 } from '../../_lib/supabaseAdmin';
 import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFlags';
 import { operationalError } from '../../_lib/operationalError';
+import { calculateJobRouteMetrics } from '../../_lib/jobRouteMetrics';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
@@ -301,6 +302,12 @@ export async function POST(request: NextRequest) {
     executionInstructions,
   });
 
+  const routeMetrics = await calculateJobRouteMetrics([
+    input.pickupPostcode,
+    ...input.additionalStops.map((stop) => stop.postcode),
+    input.deliveryPostcode,
+  ]);
+
   const row: Record<string, unknown> = {
     company_id: input.companyId,
     created_by: authData.user.id,
@@ -314,6 +321,12 @@ export async function POST(request: NextRequest) {
     delivery_postcode: input.deliveryPostcode.toUpperCase(),
     delivery_datetime: input.deliveryDateTime || null,
     delivery_time_slot: input.deliveryTimeSlot,
+    pickup_lat: routeMetrics?.pickupLat ?? null,
+    pickup_lng: routeMetrics?.pickupLng ?? null,
+    delivery_lat: routeMetrics?.deliveryLat ?? null,
+    delivery_lng: routeMetrics?.deliveryLng ?? null,
+    job_distance_miles: routeMetrics?.distanceMiles ?? null,
+    job_distance_minutes: routeMetrics?.durationMinutes ?? null,
     collection_contact_name: input.collectionContact || null,
     collection_contact_phone: input.collectionPhone || null,
     delivery_contact_name: input.deliveryContact || null,
