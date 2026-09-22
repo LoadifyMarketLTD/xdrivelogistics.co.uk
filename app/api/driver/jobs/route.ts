@@ -120,7 +120,7 @@ export async function GET(request: NextRequest) {
       row.delivery_lng = route.deliveryLng;
       row.job_distance_miles = route.distanceMiles;
       row.job_distance_minutes = route.durationMinutes;
-      await supabaseAdmin.from('jobs').update({
+      await supabaseAdmin!.from('jobs').update({
         pickup_lat: route.pickupLat,
         pickup_lng: route.pickupLng,
         delivery_lat: route.deliveryLat,
