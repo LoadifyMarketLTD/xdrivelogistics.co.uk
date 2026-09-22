@@ -160,6 +160,10 @@ describe('carrier dashboard convergence contract', () => {
     expect(shell).toContain('{showWorkspaceContext && (');
     expect(shell).toContain('<SharedContextControls navigation={navigationTargets} />');
     expect(shell).toContain('.sort((a, b) => b.length - a.length)');
+    expect(shell).toContain("const carrierPostLoadHref = '/admin/post-load';");
+    expect(shell).toContain("const carrierBookDirectHref = '/admin/marketplace/directory';");
+    expect(shell).toContain('+ Post Load');
+    expect(shell).toContain('Book Direct');
   });
 
   it('keeps the carrier dashboard on the measured CX geometry instead of the miniaturized legacy scale', () => {
