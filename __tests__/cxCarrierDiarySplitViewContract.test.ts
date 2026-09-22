@@ -24,9 +24,10 @@ describe('CX carrier Diary list / split view parity', () => {
     expect(source).toContain('Full operational eligibility is verified by the server');
   });
 
-  it('retains existing List View expand/collapse and Replay actions', () => {
+  it('retains List View expand/collapse and the shared Replay job-sheet action', () => {
     expect(source).toContain('toggleExpandAll');
     expect(source).toContain('toggleJob(job.id)');
-    expect(source).toContain("openJobTab(job.id, 'replay')");
+    expect(source).toContain("['order','notes','history','documents','pod','invoice','replay']");
+    expect(source).toContain('onClick={() => openJobTab(job.id, tabId)}');
   });
 });

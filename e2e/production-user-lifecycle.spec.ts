@@ -42,21 +42,18 @@ async function login(page: Page, email: string, password: string) {
 test.describe('registration role contract (read-only)', () => {
   test('registration exposes only supported public business account types', async ({ page }) => {
     await page.goto('/register');
-    const accountType = page.locator('#register-role');
-    await expect(accountType).toBeVisible();
-    await expect(accountType.locator('option')).toHaveText([
-      /customer\s*\/\s*shipper/i,
-      /transport broker/i,
-      /fleet operator/i,
-      /owner operator/i,
-    ]);
-    await expect(accountType.locator('option')).not.toContainText([/individual driver|driver only|courier driver/i]);
+    await expect(page.getByRole('button', { name: /Customer \/ Shipper/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Transport Broker/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Owner Driver/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Carrier \/ Fleet/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Individual Driver|Driver Only|Courier Driver/i })).toHaveCount(0);
   });
 
-  test('registration does not expose owner-driver workspace choice', async ({ page }) => {
+  test('registration does not expose a separate owner-driver workspace choice', async ({ page }) => {
     await page.goto('/register');
+    await page.getByRole('button', { name: /Owner Driver/i }).click();
     await expect(page.getByText(/create and manage my own operations workspace/i)).toHaveCount(0);
-    await expect(page.getByText(/owner operators always receive an operations workspace/i)).toBeVisible();
+    await expect(page.getByText(/Owner Drivers receive their own operations workspace and map internally to the driver role/i)).toBeVisible();
   });
 
   test('public user cannot open protected dashboards', async ({ page }) => {

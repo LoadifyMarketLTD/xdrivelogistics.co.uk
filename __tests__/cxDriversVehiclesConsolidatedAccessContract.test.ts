@@ -10,9 +10,9 @@ describe('CX Drivers & Vehicles consolidated access contract', () => {
     expect(source).toContain('Vehicles Register');
   });
 
-  it('keeps direct navigation to both canonical registers and connected capacity surfaces', () => {
-    expect(source).toContain("router.push('/admin/drivers')");
-    expect(source).toContain("router.push('/admin/vehicles')");
+  it('keeps direct navigation to canonical registers and connected capacity surfaces', () => {
+    expect(source).toContain("router.push('/admin/fleet/drivers')");
+    expect(source).toContain("router.push('/admin/fleet/vehicles')");
     expect(source).toContain("router.push('/admin/live-availability')");
     expect(source).toContain("router.push('/admin/fleet/returns')");
   });

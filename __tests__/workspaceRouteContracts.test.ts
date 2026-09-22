@@ -62,7 +62,7 @@ describe('workspace route contracts', () => {
     expect(hrefs('carrier_admin')).toEqual([
       '/admin',
       '/admin/marketplace',
-      '/admin/quotes',
+      '/admin/exchange-quotes',
       '/admin/jobs',
       '/admin/fleet',
       '/admin/fleet/returns',

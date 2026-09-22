@@ -30,15 +30,14 @@ describe('Driver rich quote consolidation contract', () => {
     expect(submit).toContain('collect_within_minutes: collectWithinMinutes');
   });
 
-  it('sends the structured quote from Expo while retaining the richer XDrive line-item UI', () => {
-    const api = read('apps/driver-mobile/src/api/liveLoads.ts');
-    const screen = read('apps/driver-mobile/src/live-loads/LiveLoadsScreen.tsx');
-    expect(api).toContain('baseAmount: quote.baseAmount');
-    expect(api).toContain('additionalExtrasGbp: quote.additionalExtrasGbp');
-    expect(api).toContain('collectWithinMinutes: quote.collectWithinMinutes');
-    expect(screen).toContain("numericInput('Waiting Time'");
-    expect(screen).toContain("numericInput('Tolls'");
-    expect(screen).toContain('Collect within (min)');
-    expect(screen).toContain('computeStructuredExtras(items)');
+  it('accepts the structured quote through the current mobile server mutation', () => {
+    const mobile = read('app/api/driver/mobile/bids/route.ts');
+    expect(mobile).toContain('baseAmount?: unknown');
+    expect(mobile).toContain('additionalExtrasGbp?: unknown');
+    expect(mobile).toContain('collectWithinMinutes?: unknown');
+    expect(mobile).toContain('baseAmount: body?.baseAmount == null ? null : Number(body.baseAmount)');
+    expect(mobile).toContain('additionalExtrasGbp: body?.additionalExtrasGbp == null ? 0 : Number(body.additionalExtrasGbp)');
+    expect(mobile).toContain("collectWithinMinutes: body?.collectWithinMinutes == null || body.collectWithinMinutes === '' ? null : Number(body.collectWithinMinutes)");
+    expect(mobile).toContain('submitDriverQuote(supabaseAdmin, driver');
   });
 });

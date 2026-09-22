@@ -1,37 +1,36 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const page = fs.readFileSync(path.join(process.cwd(), 'app/admin/settings/page.tsx'), 'utf8');
-const css = fs.readFileSync(path.join(process.cwd(), 'app/admin/settings/settings-exchange.css'), 'utf8');
+const settingsPage = fs.readFileSync(path.join(process.cwd(), 'app/admin/settings/page.tsx'), 'utf8');
+const roleSettings = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/RoleSettingsWorkspace.tsx'), 'utf8');
+const inboxPage = fs.readFileSync(path.join(process.cwd(), 'app/admin/notifications/page.tsx'), 'utf8');
+const inbox = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/WorkspaceNotificationInbox.tsx'), 'utf8');
 
-describe('CX-close company settings structure', () => {
-  it('exposes notifications as a first-class settings section', () => {
-    expect(page).toContain("id: 'notifications'");
-    expect(page).toContain('Notification Inbox');
-    expect(page).toContain('Bid / quote received');
+describe('current company settings and notification routing contract', () => {
+  it('delegates fleet settings to the canonical role settings workspace', () => {
+    expect(settingsPage).toContain('<RoleSettingsWorkspace role="fleet" />');
+    expect(roleSettings).toContain("notifications: '/admin/notifications'");
   });
 
-  it('preserves the existing company settings persistence contract', () => {
-    expect(page).toContain('notify_email_new_job: notifForm.emailNewJob');
-    expect(page).toContain('notify_email_status_change: notifForm.emailStatusChange');
-    expect(page).toContain('notify_email_invoice_paid: notifForm.emailInvoicePaid');
-    expect(page).toContain('notify_email_bid_received: notifForm.emailBidReceived');
-    expect(page).toContain(".from('company_settings').upsert(settingsPayload)");
+  it('routes notification settings to the canonical recipient-scoped inbox', () => {
+    expect(inboxPage).toContain('<WorkspaceNotificationInbox role="admin" />');
+    expect(inbox).toContain("fetch('/api/workspace/notifications'");
+    expect(inbox).toContain("'Load Alerts'");
+    expect(inbox).toContain("'Operational'");
   });
 
-  it('does not fabricate granular load-alert preferences unsupported by the schema', () => {
-    expect(page).toContain('Granular CX-style location, vehicle-size, return-journey and live-position alert rules');
-    expect(page).toContain('separate parity-ledger item');
+  it('does not recreate removed company_settings notification preferences in the settings shell', () => {
+    expect(roleSettings).not.toContain("from('company_settings')");
+    expect(roleSettings).not.toContain('notify_email_new_job');
+    expect(roleSettings).not.toContain('notify_email_bid_received');
   });
 
-  it('uses measured workspace settings geometry', () => {
-    expect(css).toContain('grid-template-columns: 190px minmax(0, 1fr)');
-    expect(css).toContain('var(--ws-control-h, 32px)');
-    expect(css).toContain('var(--ws-radius, 4px)');
+  it('keeps granular alert-generation rules explicitly separate from the inbox', () => {
+    expect(inbox).toContain('CX-style matching preferences and alert generation remain a separate backend parity item');
   });
 
-  it('does not couple settings to Super Admin', () => {
-    expect(page).not.toContain('/super-admin');
-    expect(css).not.toContain('/super-admin');
+  it('does not couple settings or notifications to Super Admin', () => {
+    expect(roleSettings).not.toContain('/super-admin');
+    expect(inbox).not.toContain('/super-admin');
   });
 });

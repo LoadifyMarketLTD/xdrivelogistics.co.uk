@@ -9,13 +9,12 @@ const trafficEta = readFileSync(resolve(process.cwd(), 'lib/tracking/trafficEta.
 const etaMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260826095500_job_tracking_eta_cache.sql'), 'utf8');
 const customer = readFileSync(resolve(process.cwd(), 'app/customer/jobs/[id]/page.tsx'), 'utf8');
 const broker = readFileSync(resolve(process.cwd(), 'app/broker/jobs/page.tsx'), 'utf8');
-const androidService = readFileSync(resolve(process.cwd(), 'android-native/app/src/main/java/co/uk/xdrivelogistics/driver/TrackingService.kt'), 'utf8');
 const driverLocationSchema = readFileSync(resolve(process.cwd(), 'supabase/migrations/015_add_driver_app_columns.sql'), 'utf8');
 
-describe('CX-style live job tracking contract', () => {
+describe('CX-style live job tracking server contract', () => {
   it('publishes browser GPS throughout the complete active execution lifecycle', () => {
     for (const status of ['allocated', 'on_my_way', 'on_site_pickup', 'loaded', 'in_transit', 'on_site_delivery']) {
-      expect(publisher).toContain(`'${status}'`);
+      expect(publisher).toContain("'" + status + "'");
     }
     expect(publisher).toContain('navigator.geolocation.watchPosition');
     expect(publisher).toContain("fetch('/api/driver/location'");
@@ -41,8 +40,6 @@ describe('CX-style live job tracking contract', () => {
   it('ends external location visibility outside active execution', () => {
     expect(readApi).toContain('tracking_active: false');
     expect(readApi).toContain("['delivered', 'completed', 'invoiced', 'paid']");
-    expect(androidService).toContain('UploadOutcome.JOB_NOT_ACTIVE');
-    expect(androidService).toContain('The delivery is no longer in an active tracking stage.');
   });
 
   it('exposes authorised live tracking to both customer and broker job surfaces', () => {

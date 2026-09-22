@@ -22,14 +22,17 @@ describe('Driver Marketplace consolidation contract', () => {
     expect(eligibility).toContain("await query.eq('company_id', driver.companyId)");
     expect(bids).toContain("scope === 'active-company'");
     expect(bids).toContain(".select('job_id')");
-    expect(bids).toContain('Driver mobile is the named driver\'s personal quote history');
+    expect(bids).toContain("Driver mobile is the named driver's personal quote history");
   });
 
-  it('routes Expo Live Loads and quoting through the device-bound API client', () => {
-    const liveLoads = read('apps/driver-mobile/src/api/liveLoads.ts');
-    expect(liveLoads).toContain("import { apiRequest } from './client'");
-    expect(liveLoads).toContain("apiRequest<LiveLoadsResponse>(`/api/driver/mobile/nearby-jobs?");
-    expect(liveLoads).toContain("apiRequest<{ activeJobIds?: string[] }>('/api/driver/mobile/bids?scope=active-company')");
-    expect(liveLoads).not.toContain(".from('job_bids')");
+  it('routes current mobile load discovery and quoting through device/session-gated server APIs', () => {
+    const nearby = read('app/api/driver/mobile/nearby-jobs/route.ts');
+    const bids = read('app/api/driver/mobile/bids/route.ts');
+    const mobileAuth = read('app/api/driver/mobile/_lib.ts');
+    expect(nearby).toContain('const driver = await requireDriver(request)');
+    expect(bids).toContain('const driver = await requireDriver(request)');
+    expect(bids).toContain('submitDriverQuote');
+    expect(mobileAuth).toContain('enforceActiveNativeDeviceBinding');
+    expect(mobileAuth).toContain("request.headers.get('x-xdrive-installation-id')");
   });
 });
