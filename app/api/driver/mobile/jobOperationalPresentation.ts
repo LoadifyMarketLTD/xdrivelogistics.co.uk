@@ -51,7 +51,8 @@ function checklist(value: unknown) {
 }
 
 export function buildJobOperationalPresentation(row: OperationalJobRow) {
-  const distance = positiveNumber(row.distance_miles ?? row.job_distance_miles);
+  // Canonical job distance is collection -> delivery. Never substitute a driver-to-pickup distance here.
+  const distance = positiveNumber(row.job_distance_miles ?? row.distance_miles);
   const durationMinutes = positiveNumber(row.job_distance_minutes);
   const weightKg = positiveNumber(row.weight_kg);
   const lengthCm = positiveNumber(row.length_cm);
