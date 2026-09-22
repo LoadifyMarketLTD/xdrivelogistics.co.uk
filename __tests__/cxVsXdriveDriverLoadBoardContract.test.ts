@@ -24,12 +24,14 @@ describe('CX vs XDrive driver load board contract', () => {
     expect(source).toContain("bidQuery.eq('bidder_user_id', driver.userId)");
   });
 
-  it('keeps exact pickup and delivery coordinates out of the pre-award response', () => {
+  it('keeps exact pickup and delivery coordinates out of the pre-award response while allowing internal routing', () => {
     expect(source).toContain("pickup_area: publicAreaLabel(job.pickup_postcode");
     expect(source).toContain("delivery_area: publicAreaLabel(job.delivery_postcode");
-    expect(source).not.toContain('pickup_lat:');
-    expect(source).not.toContain('pickup_lng:');
-    expect(source).not.toContain('delivery_lat:');
-    expect(source).not.toContain('delivery_lng:');
+    expect(source).toContain('distance_to_pickup_miles: marketplaceNumber(job.distance_to_pickup_miles)');
+    expect(source).toContain('pickup_eta_minutes: marketplaceNumber(job.pickup_eta_minutes)');
+    expect(source).not.toContain('pickup_lat: marketplaceNumber(job.pickup_lat)');
+    expect(source).not.toContain('pickup_lng: marketplaceNumber(job.pickup_lng)');
+    expect(source).not.toContain('delivery_lat: marketplaceNumber(job.delivery_lat)');
+    expect(source).not.toContain('delivery_lng: marketplaceNumber(job.delivery_lng)');
   });
 });
