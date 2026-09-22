@@ -16,8 +16,8 @@ import {
   StatusBadge,
 } from './WorkspaceUI';
 
-type FeedbackMode = 'all' | 'awaiting' | 'recent';
-type DiaryTab = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'feedback' | 'evidence';
+type DiaryViewMode = 'list' | 'split';
+type DiaryTab = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'awaiting_feedback' | 'recent_feedback' | 'evidence';
 type JobRow = {
   id: string;
   company_id: string | null;
@@ -78,7 +78,8 @@ const TABS: Array<{ id: DiaryTab; label: string }> = [
   { id: 'completed', label: 'Completed' },
   { id: 'cancelled', label: 'Cancelled' },
   { id: 'expired', label: 'Expired' },
-  { id: 'feedback', label: 'Feedback' },
+  { id: 'awaiting_feedback', label: 'Awaiting Feedback' },
+  { id: 'recent_feedback', label: 'Recent Feedback' },
   { id: 'evidence', label: 'POD / Evidence' },
 ];
 
@@ -114,13 +115,7 @@ function isAwaitingFeedback(job: JobRow, reviews: ReviewRow[]) {
   return classifyWorkspaceJobStage(job) === 'completed' && !hasRecentFeedback(reviews);
 }
 
-function feedbackMatches(job: JobRow, reviews: ReviewRow[], mode: FeedbackMode) {
-  const awaiting = isAwaitingFeedback(job, reviews);
-  const recent = hasRecentFeedback(reviews);
-  return mode === 'awaiting' ? awaiting : mode === 'recent' ? recent : awaiting || recent;
-}
-
-function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = [], feedbackMode: FeedbackMode = 'all') {
+function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = []) {
   if (tab === 'all') return true;
   const stage = classifyWorkspaceJobStage(job);
   if (tab === 'unallocated') return (stage === 'awarded' || stage === 'allocated') && !job.assigned_driver_id;
@@ -129,7 +124,8 @@ function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = [], feedb
   if (tab === 'completed') return stage === 'completed';
   if (tab === 'cancelled') return stage === 'cancelled' || stage === 'disputed';
   if (tab === 'expired') return stage === 'expired';
-  if (tab === 'feedback') return feedbackMatches(job, reviews, feedbackMode);
+  if (tab === 'awaiting_feedback') return isAwaitingFeedback(job, reviews);
+  if (tab === 'recent_feedback') return hasRecentFeedback(reviews);
   return stage === 'completed' && (job.pod_generated === true || (job.delivery_photos?.length ?? 0) > 0);
 }
 
@@ -155,7 +151,8 @@ export default function OperationsDiaryPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [tab, setTab] = useState<DiaryTab>('all');
-  const [feedbackMode, setFeedbackMode] = useState<FeedbackMode>('all');
+  const [viewMode, setViewMode] = useState<DiaryViewMode>('list');
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(deepJob);
   const [search, setSearch] = useState<SearchState>(EMPTY_SEARCH);
   const [appliedSearch, setAppliedSearch] = useState<SearchState>(EMPTY_SEARCH);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set(deepJob ? [deepJob] : []));
@@ -221,6 +218,7 @@ export default function OperationsDiaryPage() {
       next.add(deepJob);
       return next;
     });
+    setSelectedJobId(deepJob);
   }, [deepJob]);
 
   const activeAccountDrivers = useMemo(() => drivers.filter(isActiveDriverAccount), [drivers]);
@@ -235,7 +233,7 @@ export default function OperationsDiaryPage() {
     const toDate = appliedSearch.dateTo ? new Date(`${appliedSearch.dateTo}T23:59:59`).getTime() : null;
 
     return jobs
-      .filter((job) => matchesTab(job, tab, reviewsByJob[job.id] ?? [], feedbackMode))
+      .filter((job) => matchesTab(job, tab, reviewsByJob[job.id] ?? []))
       .filter((job) => !from || `${job.pickup_location ?? ''} ${job.pickup_postcode ?? ''}`.toLowerCase().includes(from))
       .filter((job) => !to || `${job.delivery_location ?? ''} ${job.delivery_postcode ?? ''}`.toLowerCase().includes(to))
       .filter((job) => !reference || `${job.id} ${job.customer_reference ?? ''} ${job.booking_reference ?? ''}`.toLowerCase().includes(reference))
@@ -250,14 +248,19 @@ export default function OperationsDiaryPage() {
         if (toDate && timestamp > toDate) return false;
         return true;
       });
-  }, [appliedSearch, feedbackMode, jobs, reviewsByJob, tab]);
+  }, [appliedSearch, jobs, reviewsByJob, tab]);
 
-  const counts = useMemo(() => Object.fromEntries(TABS.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [], 'all')).length])) as Record<DiaryTab, number>, [jobs, reviewsByJob]);
+  const counts = useMemo(() => Object.fromEntries(TABS.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [])).length])) as Record<DiaryTab, number>, [jobs, reviewsByJob]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
   const allVisibleExpanded = visible.length > 0 && visible.every((job) => expandedIds.has(job.id));
-  useEffect(() => { setPage(1); }, [tab, feedbackMode, appliedSearch, pageSize]);
+  useEffect(() => { setPage(1); }, [tab, appliedSearch, pageSize]);
+  useEffect(() => {
+    if (viewMode !== 'split') return;
+    if (selectedJobId && visible.some((job) => job.id === selectedJobId)) return;
+    setSelectedJobId(visible[0]?.id ?? null);
+  }, [selectedJobId, viewMode, visible]);
 
   const toggleExpandAll = () => {
     const shouldExpand = !allVisibleExpanded;
@@ -336,17 +339,11 @@ export default function OperationsDiaryPage() {
           </div>
           <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
             <span>{filtered.length} matching booking{filtered.length === 1 ? '' : 's'} · {visible.length} shown</span>
-            <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-              {tab === 'feedback' && (
-                <label style={{ display: 'inline-flex', gap: 5, alignItems: 'center' }}>
-                  Feedback
-                  <select value={feedbackMode} onChange={(event) => setFeedbackMode(event.target.value as FeedbackMode)} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}>
-                    <option value="all">All feedback</option>
-                    <option value="awaiting">Awaiting feedback</option>
-                    <option value="recent">Recent feedback</option>
-                  </select>
-                </label>
-              )}
+            <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <span role="group" aria-label="Diary view mode" style={{ display: 'inline-flex', gap: 3 }}>
+                <button type="button" aria-pressed={viewMode === 'list'} onClick={() => setViewMode('list')} style={viewModeButtonStyle(viewMode === 'list')}>List View</button>
+                <button type="button" aria-pressed={viewMode === 'split'} onClick={() => setViewMode('split')} style={viewModeButtonStyle(viewMode === 'split')}>Split View</button>
+              </span>
               <span>Operating-company scope only · post-award execution data</span>
               <button
                 type="button"
@@ -364,6 +361,43 @@ export default function OperationsDiaryPage() {
             <div className="workspace-panel"><EmptyState compact title="Loading Diary…" /></div>
           ) : visible.length === 0 ? (
             <div className="workspace-panel"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div>
+          ) : viewMode === 'split' ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(360px,0.82fr) minmax(520px,1.18fr)', gap: 8, alignItems: 'start' }}>
+              <div className="workspace-record-list" aria-label="Diary split booking list">
+                {visible.map((job) => {
+                  const stage = classifyWorkspaceJobStage(job);
+                  const status = effectiveStatus(job);
+                  const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
+                  const selected = selectedJobId === job.id;
+                  return (
+                    <article key={job.id} className="workspace-operational-row" data-state={status} style={{ outline: selected ? '2px solid #1d57d8' : 'none', outlineOffset: selected ? -2 : 0 }}>
+                      <button type="button" onClick={() => setSelectedJobId(job.id)} aria-pressed={selected} style={{ width: '100%', border: 0, background: 'transparent', padding: 8, textAlign: 'left', cursor: 'pointer' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'flex-start' }}>
+                          <span style={{ minWidth: 0 }}>
+                            <strong style={{ display: 'block', fontSize: 12 }}>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong>
+                            <span style={{ display: 'block', color: '#64748b', fontSize: 11, marginTop: 2 }}>#{job.id.slice(0, 8).toUpperCase()} · {when(job.pickup_datetime)}</span>
+                            <span style={{ display: 'block', color: '#64748b', fontSize: 11, marginTop: 2 }}>{driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated')} · {(job.vehicle_type ?? 'Vehicle not supplied').replace(/_/g, ' ')}</span>
+                          </span>
+                          <StatusBadge value={status || stage} tone={stageTone(job)} />
+                        </div>
+                      </button>
+                      {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && (
+                        <div style={{ display: 'flex', gap: 4, padding: '0 8px 8px', alignItems: 'center' }}>
+                          <select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))} style={{ height: 28, minWidth: 0, flex: 1, border: '1px solid var(--ws-border)', borderRadius: 4 }}>
+                            <option value="">Choose active driver</option>
+                            {activeAccountDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}
+                          </select>
+                          <ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton>
+                        </div>
+                      )}
+                    </article>
+                  );
+                })}
+              </div>
+              <section className="workspace-panel" aria-label="Diary split booking detail" style={{ minWidth: 0 }}>
+                {selectedJobId ? <CompanyJobSheetPanel jobId={selectedJobId} mode="carrier" /> : <EmptyState compact title="Select a booking" description="Choose a booking from the list to inspect its authorised operational detail." />}
+              </section>
+            </div>
           ) : (
             <div className="workspace-record-list">
               {visible.map((job) => {
@@ -403,3 +437,14 @@ export default function OperationsDiaryPage() {
     </PageFrame>
   );
 }
+const viewModeButtonStyle = (active: boolean) => ({
+  minHeight: 24,
+  border: '1px solid var(--ws-border)',
+  borderRadius: 4,
+  background: active ? '#eef4ff' : '#fff',
+  color: active ? '#0b2f6b' : '#64748b',
+  padding: '0 8px',
+  fontSize: 11,
+  fontWeight: active ? 800 : 650,
+  cursor: 'pointer',
+}) as const;

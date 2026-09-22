@@ -10,10 +10,10 @@ describe('CX carrier Diary feedback parity contract', () => {
   it('uses real company-scoped review reads for Feedback views', () => {
     expect(diary).toContain(".from('reviews')");
     expect(diary).toContain(".eq('company_id', companyId)");
-    expect(diary).toContain("type FeedbackMode = 'all' | 'awaiting' | 'recent'");
-    expect(diary).toContain("label: 'Feedback'");
-    expect(diary).toContain('Awaiting feedback');
-    expect(diary).toContain('Recent feedback');
+    expect(diary).toContain("'awaiting_feedback'");
+    expect(diary).toContain("'recent_feedback'");
+    expect(diary).toContain("label: 'Awaiting Feedback'");
+    expect(diary).toContain("label: 'Recent Feedback'");
   });
 
   it('derives awaiting feedback only from completed jobs with no real review', () => {
