@@ -10,6 +10,7 @@ import './driver-top-shell.css';
 import './driver-top-shell-more.css';
 import './driver-account.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
+import './driver-live-parity.css';
 import './driver-dashboard-reference.css';
 import './driver-dashboard-cx-close.css';
 
