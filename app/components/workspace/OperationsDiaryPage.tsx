@@ -16,9 +16,8 @@ import {
   StatusBadge,
 } from './WorkspaceUI';
 
-type FeedbackMode = 'all' | 'awaiting' | 'recent';
 type DiaryViewMode = 'list' | 'split';
-type DiaryTab = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'feedback' | 'evidence';
+type DiaryTab = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'awaiting_feedback' | 'recent_feedback' | 'evidence';
 type JobRow = {
   id: string;
   company_id: string | null;
@@ -79,7 +78,8 @@ const TABS: Array<{ id: DiaryTab; label: string }> = [
   { id: 'completed', label: 'Completed' },
   { id: 'cancelled', label: 'Cancelled' },
   { id: 'expired', label: 'Expired' },
-  { id: 'feedback', label: 'Feedback' },
+  { id: 'awaiting_feedback', label: 'Awaiting Feedback' },
+  { id: 'recent_feedback', label: 'Recent Feedback' },
   { id: 'evidence', label: 'POD / Evidence' },
 ];
 
@@ -115,13 +115,7 @@ function isAwaitingFeedback(job: JobRow, reviews: ReviewRow[]) {
   return classifyWorkspaceJobStage(job) === 'completed' && !hasRecentFeedback(reviews);
 }
 
-function feedbackMatches(job: JobRow, reviews: ReviewRow[], mode: FeedbackMode) {
-  const awaiting = isAwaitingFeedback(job, reviews);
-  const recent = hasRecentFeedback(reviews);
-  return mode === 'awaiting' ? awaiting : mode === 'recent' ? recent : awaiting || recent;
-}
-
-function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = [], feedbackMode: FeedbackMode = 'all') {
+function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = []) {
   if (tab === 'all') return true;
   const stage = classifyWorkspaceJobStage(job);
   if (tab === 'unallocated') return (stage === 'awarded' || stage === 'allocated') && !job.assigned_driver_id;
@@ -130,7 +124,8 @@ function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = [], feedb
   if (tab === 'completed') return stage === 'completed';
   if (tab === 'cancelled') return stage === 'cancelled' || stage === 'disputed';
   if (tab === 'expired') return stage === 'expired';
-  if (tab === 'feedback') return feedbackMatches(job, reviews, feedbackMode);
+  if (tab === 'awaiting_feedback') return isAwaitingFeedback(job, reviews);
+  if (tab === 'recent_feedback') return hasRecentFeedback(reviews);
   return stage === 'completed' && (job.pod_generated === true || (job.delivery_photos?.length ?? 0) > 0);
 }
 
@@ -156,7 +151,6 @@ export default function OperationsDiaryPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [tab, setTab] = useState<DiaryTab>('all');
-  const [feedbackMode, setFeedbackMode] = useState<FeedbackMode>('all');
   const [viewMode, setViewMode] = useState<DiaryViewMode>('list');
   const [selectedJobId, setSelectedJobId] = useState<string | null>(deepJob);
   const [search, setSearch] = useState<SearchState>(EMPTY_SEARCH);
@@ -239,7 +233,7 @@ export default function OperationsDiaryPage() {
     const toDate = appliedSearch.dateTo ? new Date(`${appliedSearch.dateTo}T23:59:59`).getTime() : null;
 
     return jobs
-      .filter((job) => matchesTab(job, tab, reviewsByJob[job.id] ?? [], feedbackMode))
+      .filter((job) => matchesTab(job, tab, reviewsByJob[job.id] ?? []))
       .filter((job) => !from || `${job.pickup_location ?? ''} ${job.pickup_postcode ?? ''}`.toLowerCase().includes(from))
       .filter((job) => !to || `${job.delivery_location ?? ''} ${job.delivery_postcode ?? ''}`.toLowerCase().includes(to))
       .filter((job) => !reference || `${job.id} ${job.customer_reference ?? ''} ${job.booking_reference ?? ''}`.toLowerCase().includes(reference))
@@ -254,14 +248,14 @@ export default function OperationsDiaryPage() {
         if (toDate && timestamp > toDate) return false;
         return true;
       });
-  }, [appliedSearch, feedbackMode, jobs, reviewsByJob, tab]);
+  }, [appliedSearch, jobs, reviewsByJob, tab]);
 
-  const counts = useMemo(() => Object.fromEntries(TABS.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [], 'all')).length])) as Record<DiaryTab, number>, [jobs, reviewsByJob]);
+  const counts = useMemo(() => Object.fromEntries(TABS.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [])).length])) as Record<DiaryTab, number>, [jobs, reviewsByJob]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
   const allVisibleExpanded = visible.length > 0 && visible.every((job) => expandedIds.has(job.id));
-  useEffect(() => { setPage(1); }, [tab, feedbackMode, appliedSearch, pageSize]);
+  useEffect(() => { setPage(1); }, [tab, appliedSearch, pageSize]);
   useEffect(() => {
     if (viewMode !== 'split') return;
     if (selectedJobId && visible.some((job) => job.id === selectedJobId)) return;
@@ -350,16 +344,6 @@ export default function OperationsDiaryPage() {
                 <button type="button" aria-pressed={viewMode === 'list'} onClick={() => setViewMode('list')} style={viewModeButtonStyle(viewMode === 'list')}>List View</button>
                 <button type="button" aria-pressed={viewMode === 'split'} onClick={() => setViewMode('split')} style={viewModeButtonStyle(viewMode === 'split')}>Split View</button>
               </span>
-              {tab === 'feedback' && (
-                <label style={{ display: 'inline-flex', gap: 5, alignItems: 'center' }}>
-                  Feedback
-                  <select value={feedbackMode} onChange={(event) => setFeedbackMode(event.target.value as FeedbackMode)} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}>
-                    <option value="all">All feedback</option>
-                    <option value="awaiting">Awaiting feedback</option>
-                    <option value="recent">Recent feedback</option>
-                  </select>
-                </label>
-              )}
               <span>Operating-company scope only · post-award execution data</span>
               <button
                 type="button"
