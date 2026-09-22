@@ -29,7 +29,7 @@ type LoadRow = {
   distanceFromSearchOriginMiles: number | null; distanceToSearchDestinationMiles: number | null; journeyDistanceMiles: number | null; jobDescription: string; loadType: string; myBid: BidRow | null;
 };
 
-type BidJob = { id?: string; pickup_location?: string | null; pickup_postcode?: string | null; delivery_location?: string | null; delivery_postcode?: string | null; pickup_datetime?: string | null; vehicle_type?: string | null; requested_vehicle_label?: string | null; status?: string | null; current_status?: string | null; budget_amount?: number | string | null; currency?: string | null; posterName?: string; posterMemberCode?: string | null; };
+type BidJob = { id?: string; pickup_location?: string | null; pickup_postcode?: string | null; delivery_location?: string | null; delivery_postcode?: string | null; pickup_datetime?: string | null; delivery_datetime?: string | null; vehicle_type?: string | null; requested_vehicle_label?: string | null; status?: string | null; current_status?: string | null; budget_amount?: number | string | null; currency?: string | null; posterName?: string; posterMemberCode?: string | null; };
 type BidRow = { id: string; job_id: string; company_id: string | null; amount: number | string | null; bid_price_gbp: number | string | null; currency: string | null; message: string | null; status: string; created_at: string; job?: BidJob | null; };
 type WonRow = { id: string; pickup_location?: string | null; pickup_postcode?: string | null; delivery_location?: string | null; delivery_postcode?: string | null; pickup_datetime?: string | null; delivery_datetime?: string | null; vehicle_type?: string | null; requested_vehicle_label?: string | null; status?: string | null; current_status?: string | null; budget_amount?: number | string | null; currency?: string | null; posterName?: string; posterMemberCode?: string | null; };
 type SearchResponse = { rows?: LoadRow[]; total?: number; page?: number; pageSize?: number; totalPages?: number; radiusSearch?: { fromResolved?: boolean; toResolved?: boolean; fromRadius?: number; toRadius?: number; }; generatedAt?: string; error?: string; referenceId?: string; };
@@ -37,6 +37,17 @@ type ListResponse<T> = { rows?: T[]; total?: number; generatedAt?: string; error
 type Filters = { from: string; fromRadius: string; to: string; toRadius: string; vehicle: string; minVehicle: string; maxVehicle: string; body: string; freight: string; member: string; description: string; loadType: string; postedWithinHours: string; dateFrom: string; dateTo: string; minBudget: string; maxBudget: string; pageSize: string; };
 type RecentSearch = { id: string; label: string; filters: Filters; createdAt: string; };
 type QuoteStateView = 'all' | 'submitted' | 'accepted' | 'unsuccessful' | 'archived';
+type QuoteTimeWindow = 'any' | '2' | '4' | '8' | '24';
+type QuoteFilters = { pickupWithin: QuoteTimeWindow; deliveryWithin: QuoteTimeWindow; loadRef: string; bookedBy: string };
+
+const EMPTY_QUOTE_FILTERS: QuoteFilters = { pickupWithin: 'any', deliveryWithin: 'any', loadRef: '', bookedBy: '' };
+const QUOTE_TIME_WINDOWS: Array<{ value: QuoteTimeWindow; label: string }> = [
+  { value: 'any', label: 'Any' },
+  { value: '2', label: '2 hours' },
+  { value: '4', label: '4 hours' },
+  { value: '8', label: '8 hours' },
+  { value: '24', label: '24 hours' },
+];
 
 const DEFAULT_FILTERS: Filters = { from: '', fromRadius: '30', to: '', toRadius: '100', vehicle: '', minVehicle: '', maxVehicle: '', body: '', freight: '', member: '', description: 'any', loadType: 'all', postedWithinHours: '', dateFrom: '', dateTo: '', minBudget: '', maxBudget: '', pageSize: '25' };
 const VEHICLE_OPTIONS = [['', 'Any vehicle'], ['swb_van', 'SWB Van'], ['mwb_van', 'MWB Van'], ['lwb_van', 'LWB Van'], ['xlwb_van', 'XLWB Van'], ['luton', 'Luton'], ['luton_tail_lift', 'Luton Tail Lift'], ['curtainside_van', 'Curtainside Van'], ['truck_7_5t', '7.5T'], ['truck_18t', '18T'], ['truck_26t', '26T'], ['artic', 'Artic']] as const;
@@ -48,6 +59,13 @@ const fieldStyle = { height: 32, border: '1px solid #cbd5e1', borderRadius: 4, p
 const labelStyle = { display: 'block', color: '#475569', fontSize: '11px', fontWeight: 700, lineHeight: '15px', marginBottom: 4, textTransform: 'uppercase' } as const;
 const money = (value: unknown, currency = 'GBP') => { const amount = Number(value); if (!Number.isFinite(amount)) return '—'; try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'GBP' }).format(amount); } catch { return `£${amount.toFixed(2)}`; } };
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Not set';
+const withinQuoteWindow = (value: string | null | undefined, window: QuoteTimeWindow) => {
+  if (window === 'any') return true;
+  if (!value) return false;
+  const timestamp = new Date(value).getTime();
+  if (Number.isNaN(timestamp)) return false;
+  return timestamp >= Date.now() && timestamp <= Date.now() + Number(window) * 60 * 60 * 1000;
+};
 const vehicleLabel = (row: Pick<LoadRow, 'requested_vehicle_label' | 'requested_vehicle_type' | 'vehicle_type'>) => row.requested_vehicle_label || row.requested_vehicle_type?.replace(/_/g, ' ') || row.vehicle_type?.replace(/_/g, ' ') || 'Vehicle not specified';
 const routeLabel = (location: string | null | undefined, postcode: string | null | undefined) => postcode || location || 'Not set';
 const bidAmount = (bid: Pick<BidRow, 'bid_price_gbp' | 'amount'>) => { const preferred = Number(bid.bid_price_gbp); if (Number.isFinite(preferred)) return preferred; const legacy = Number(bid.amount); return Number.isFinite(legacy) ? legacy : null; };
@@ -81,6 +99,9 @@ export default function CompanyMarketplaceExchange({
   const [quoteAmount, setQuoteAmount] = useState('');
   const [quoteMessage, setQuoteMessage] = useState('');
   const [quoteStateView, setQuoteStateView] = useState<QuoteStateView>('all');
+  const [quoteFilters, setQuoteFilters] = useState<QuoteFilters>(EMPTY_QUOTE_FILTERS);
+  const [appliedQuoteFilters, setAppliedQuoteFilters] = useState<QuoteFilters>(EMPTY_QUOTE_FILTERS);
+  const [expandedQuotes, setExpandedQuotes] = useState<Set<string>>(new Set());
   const [working, setWorking] = useState(false);
 
   useEffect(() => { if (!hasSupabaseSession || !user?.id) return; void resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: user.companyId ?? null }).then(setCompanyId); }, [hasSupabaseSession, user?.id, user?.companyId]);
@@ -150,12 +171,29 @@ export default function CompanyMarketplaceExchange({
 
   const statusCounts = useMemo(() => ({ submitted: bids.filter((bid) => bid.status === 'submitted').length, accepted: bids.filter((bid) => bid.status === 'accepted').length, unsuccessful: bids.filter((bid) => ['rejected', 'unsuccessful'].includes(bid.status)).length, withdrawn: bids.filter((bid) => bid.status === 'withdrawn').length }), [bids]);
   const visibleBids = useMemo(() => bids.filter((bid) => {
-    if (quoteStateView === 'all') return true;
-    if (quoteStateView === 'submitted') return bid.status === 'submitted';
-    if (quoteStateView === 'accepted') return bid.status === 'accepted';
-    if (quoteStateView === 'unsuccessful') return ['rejected', 'unsuccessful'].includes(bid.status);
-    return bid.status === 'withdrawn';
-  }), [bids, quoteStateView]);
+    const stateMatch = quoteStateView === 'all'
+      || (quoteStateView === 'submitted' && bid.status === 'submitted')
+      || (quoteStateView === 'accepted' && bid.status === 'accepted')
+      || (quoteStateView === 'unsuccessful' && ['rejected', 'unsuccessful'].includes(bid.status))
+      || (quoteStateView === 'archived' && bid.status === 'withdrawn');
+    if (!stateMatch) return false;
+    if (!withinQuoteWindow(bid.job?.pickup_datetime, appliedQuoteFilters.pickupWithin)) return false;
+    if (!withinQuoteWindow(bid.job?.delivery_datetime, appliedQuoteFilters.deliveryWithin)) return false;
+    const refNeedle = appliedQuoteFilters.loadRef.trim().toLowerCase();
+    if (refNeedle && ![bid.job_id, bid.job?.id].filter(Boolean).join(' ').toLowerCase().includes(refNeedle)) return false;
+    const bookedByNeedle = appliedQuoteFilters.bookedBy.trim().toLowerCase();
+    if (bookedByNeedle && ![bid.job?.posterName, bid.job?.posterMemberCode].filter(Boolean).join(' ').toLowerCase().includes(bookedByNeedle)) return false;
+    return true;
+  }), [appliedQuoteFilters, bids, quoteStateView]);
+  const allVisibleQuotesExpanded = visibleBids.length > 0 && visibleBids.every((bid) => expandedQuotes.has(bid.id));
+  const toggleAllVisibleQuotes = () => setExpandedQuotes((current) => {
+    const next = new Set(current);
+    for (const bid of visibleBids) {
+      if (allVisibleQuotesExpanded) next.delete(bid.id);
+      else next.add(bid.id);
+    }
+    return next;
+  });
   const mapLoads = useMemo(() => loads.map((load) => ({ id: load.id, pickupLabel: routeLabel(load.pickup_location, load.pickup_postcode), pickupPostcode: load.pickup_postcode, deliveryLabel: routeLabel(load.delivery_location, load.delivery_postcode), deliveryPostcode: load.delivery_postcode, vehicleLabel: vehicleLabel(load), posterName: load.posterName, pickupAt: load.pickup_datetime, postedAt: load.exchange_posted_at })), [loads]);
   const allVisibleExpanded = loads.length > 0 && loads.every((load) => expanded.has(load.id));
   const toggleExpandAll = () => setExpanded(allVisibleExpanded ? new Set() : new Set(loads.map((load) => load.id)));
@@ -202,13 +240,27 @@ export default function CompanyMarketplaceExchange({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, color: '#64748b', fontSize: '11px' }}><span>Page {page} of {totalPages} · {total} results</span><div style={{ display: 'flex', gap: 4 }}><ActionButton tone="secondary" disabled={page <= 1 || loading} onClick={() => void loadLoads(page - 1, false)}>Previous</ActionButton><ActionButton tone="secondary" disabled={page >= totalPages || loading} onClick={() => void loadLoads(page + 1, false)}>Next</ActionButton></div></div>
       </>}
 
-      {tab === 'bids' && <Panel title="My Quotes" description="Commercial responses submitted by your company to marketplace loads." flush><div style={{ display: 'flex', gap: 4, minHeight: 34, alignItems: 'center', padding: '0 8px', borderBottom: '1px solid #dbe2ea', overflowX: 'auto' }}>{([
-        ['all', 'All', bids.length],
-        ['submitted', 'Submitted', statusCounts.submitted],
-        ['accepted', 'Accepted / Won', statusCounts.accepted],
-        ['unsuccessful', 'Unsuccessful', statusCounts.unsuccessful],
-        ['archived', 'Archived', statusCounts.withdrawn],
-      ] as const).map(([id, label, count]) => <button key={id} type="button" onClick={() => setQuoteStateView(id)} style={{ height: 28, border: 0, borderBottom: quoteStateView === id ? '2px solid #1d57d8' : '2px solid transparent', background: 'transparent', color: quoteStateView === id ? '#1d57d8' : '#64748b', fontSize: 11, fontWeight: quoteStateView === id ? 800 : 650, padding: '0 10px', whiteSpace: 'nowrap', cursor: 'pointer' }}>{label} {count}</button>)}</div><div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900, fontSize: '12px' }}><thead><tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left' }}>{['Quote', 'Load / route', 'Member', 'Amount', 'Submitted', 'Status', 'Action'].map((heading) => <th key={heading} style={{ height: 40, padding: '0 8px', borderBottom: '1px solid #dbe2ea', fontSize: 11 }}>{heading}</th>)}</tr></thead><tbody>{visibleBids.map((bid) => <tr key={bid.id} style={{ borderBottom: '1px solid #edf2f7' }}><td style={{ padding: '8px', fontWeight: 800 }}>{bid.id.slice(0, 8).toUpperCase()}</td><td style={{ padding: '8px' }}><strong>{routeLabel(bid.job?.pickup_location, bid.job?.pickup_postcode)} → {routeLabel(bid.job?.delivery_location, bid.job?.delivery_postcode)}</strong><div style={{ color: '#64748b' }}>Load {bid.job_id.slice(0, 8).toUpperCase()}</div></td><td style={{ padding: '8px' }}>{bid.job?.posterName || 'Marketplace member'}{bid.job?.posterMemberCode && <div style={{ color: '#64748b' }}>ID {bid.job.posterMemberCode}</div>}</td><td style={{ padding: '8px', fontWeight: 800 }}>{money(bidAmount(bid), bid.currency || 'GBP')}</td><td style={{ padding: '8px' }}>{when(bid.created_at)}</td><td style={{ padding: '8px' }}><StatusBadge value={bid.status} /></td><td style={{ padding: '8px' }}>{bid.status === 'submitted' ? <ActionButton tone="secondary" disabled={working} onClick={() => void withdrawQuote(bid.id)}>Withdraw</ActionButton> : '—'}</td></tr>)}{!loading && visibleBids.length === 0 && <tr><td colSpan={7} style={{ padding: 28, textAlign: 'center', color: '#64748b' }}>{bids.length === 0 ? 'No marketplace quotes have been submitted by this company.' : 'No quotes match this quote state.'}</td></tr>}</tbody></table></div></Panel>}
+      {tab === 'bids' && <Panel title="My Quotes" description="Commercial responses submitted by your company to marketplace loads." flush>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(140px,1fr)) auto', gap: 8, alignItems: 'end', padding: 8, borderBottom: '1px solid #dbe2ea', background: '#f8fafc' }}>
+          <label><span style={labelStyle}>Pickup Time Within</span><select value={quoteFilters.pickupWithin} onChange={(event) => setQuoteFilters((current) => ({ ...current, pickupWithin: event.target.value as QuoteTimeWindow }))} style={{ ...fieldStyle, width: '100%' }}>{QUOTE_TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label><span style={labelStyle}>Delivery Time Within</span><select value={quoteFilters.deliveryWithin} onChange={(event) => setQuoteFilters((current) => ({ ...current, deliveryWithin: event.target.value as QuoteTimeWindow }))} style={{ ...fieldStyle, width: '100%' }}>{QUOTE_TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label><span style={labelStyle}>Load ID / Ref</span><input value={quoteFilters.loadRef} onChange={(event) => setQuoteFilters((current) => ({ ...current, loadRef: event.target.value }))} placeholder="Load ID / ref" style={{ ...fieldStyle, width: '100%' }} /></label>
+          <label><span style={labelStyle}>Booked by</span><input value={quoteFilters.bookedBy} onChange={(event) => setQuoteFilters((current) => ({ ...current, bookedBy: event.target.value }))} placeholder="Member / company" style={{ ...fieldStyle, width: '100%' }} /></label>
+          <div style={{ display: 'flex', gap: 4 }}><ActionButton tone="success" onClick={() => setAppliedQuoteFilters(quoteFilters)}>Search</ActionButton><ActionButton tone="secondary" onClick={() => { setQuoteFilters(EMPTY_QUOTE_FILTERS); setAppliedQuoteFilters(EMPTY_QUOTE_FILTERS); }}>Clear</ActionButton></div>
+        </div>
+        <div style={{ display: 'flex', gap: 4, minHeight: 34, alignItems: 'center', padding: '0 8px', borderBottom: '1px solid #dbe2ea', overflowX: 'auto' }}>{([
+          ['all', 'All', bids.length],
+          ['submitted', 'Submitted', statusCounts.submitted],
+          ['accepted', 'Accepted / Won', statusCounts.accepted],
+          ['unsuccessful', 'Unsuccessful', statusCounts.unsuccessful],
+          ['archived', 'Archived', statusCounts.withdrawn],
+        ] as const).map(([id, label, count]) => <button key={id} type="button" onClick={() => setQuoteStateView(id)} style={{ height: 28, border: 0, borderBottom: quoteStateView === id ? '2px solid #1d57d8' : '2px solid transparent', background: 'transparent', color: quoteStateView === id ? '#1d57d8' : '#64748b', fontSize: 11, fontWeight: quoteStateView === id ? 800 : 650, padding: '0 10px', whiteSpace: 'nowrap', cursor: 'pointer' }}>{label} {count}</button>)}<span style={{ marginLeft: 'auto' }}><OperationalExpandAllControl expanded={allVisibleQuotesExpanded} disabled={!visibleBids.length} onToggle={toggleAllVisibleQuotes} noun="quotes" /></span></div>
+        <div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 980, fontSize: '12px' }}><thead><tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left' }}>{['Quote', 'Load / route', 'Member', 'Pickup / delivery', 'Amount', 'Submitted', 'Status', 'Action'].map((heading) => <th key={heading} style={{ height: 40, padding: '0 8px', borderBottom: '1px solid #dbe2ea', fontSize: 11 }}>{heading}</th>)}</tr></thead><tbody>{visibleBids.flatMap((bid) => {
+          const expandedQuote = expandedQuotes.has(bid.id);
+          return [<tr key={bid.id} style={{ borderBottom: '1px solid #edf2f7' }}><td style={{ padding: '8px', fontWeight: 800 }}>{bid.id.slice(0, 8).toUpperCase()}</td><td style={{ padding: '8px' }}><strong>{routeLabel(bid.job?.pickup_location, bid.job?.pickup_postcode)} → {routeLabel(bid.job?.delivery_location, bid.job?.delivery_postcode)}</strong><div style={{ color: '#64748b' }}>Load {bid.job_id.slice(0, 8).toUpperCase()}</div></td><td style={{ padding: '8px' }}>{bid.job?.posterName || 'Marketplace member'}{bid.job?.posterMemberCode && <div style={{ color: '#64748b' }}>ID {bid.job.posterMemberCode}</div>}</td><td style={{ padding: '8px' }}><div>{when(bid.job?.pickup_datetime)}</div><div style={{ color: '#64748b' }}>{when(bid.job?.delivery_datetime)}</div></td><td style={{ padding: '8px', fontWeight: 800 }}>{money(bidAmount(bid), bid.currency || 'GBP')}</td><td style={{ padding: '8px' }}>{when(bid.created_at)}</td><td style={{ padding: '8px' }}><StatusBadge value={bid.status} /></td><td style={{ padding: '8px' }}><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setExpandedQuotes((current) => { const next = new Set(current); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })}>{expandedQuote ? 'Collapse' : 'Details'}</ActionButton>{bid.status === 'submitted' ? <ActionButton tone="secondary" disabled={working} onClick={() => void withdrawQuote(bid.id)}>Withdraw</ActionButton> : null}</div></td></tr>,
+          expandedQuote ? <tr key={`${bid.id}-details`} style={{ background: '#fbfdff', borderBottom: '1px solid #dbe2ea' }}><td colSpan={8} style={{ padding: '8px 12px' }}><div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(150px,1fr))', gap: 8, fontSize: 11 }}><div><strong>Load ID</strong><div>{bid.job_id}</div></div><div><strong>Vehicle</strong><div>{bid.job?.requested_vehicle_label || bid.job?.vehicle_type?.replace(/_/g, ' ') || 'Not supplied'}</div></div><div><strong>Marketplace budget</strong><div>{money(bid.job?.budget_amount, bid.job?.currency || 'GBP')}</div></div><div><strong>Quote message</strong><div>{bid.message || 'No quote message'}</div></div></div></td></tr> : null];
+        })}{!loading && visibleBids.length === 0 && <tr><td colSpan={8} style={{ padding: 28, textAlign: 'center', color: '#64748b' }}>{bids.length === 0 ? 'No marketplace quotes have been submitted by this company.' : 'No quotes match the current state and search filters.'}</td></tr>}</tbody></table></div>
+      </Panel>}
       {tab === 'won' && <Panel title="Won Work" description="Marketplace loads awarded to your company." flush><div style={{ overflowX: 'auto' }}><table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900, fontSize: '12px' }}><thead><tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left' }}>{['Load', 'Route', 'Member', 'Pickup', 'Vehicle', 'Status', 'Budget', 'Action'].map((heading) => <th key={heading} style={{ height: 40, padding: '0 8px', borderBottom: '1px solid #dbe2ea', fontSize: 11 }}>{heading}</th>)}</tr></thead><tbody>{won.map((job) => <tr key={job.id} style={{ borderBottom: '1px solid #edf2f7' }}><td style={{ padding: '8px', fontWeight: 800 }}>{job.id.slice(0, 8).toUpperCase()}</td><td style={{ padding: '8px' }}><strong>{routeLabel(job.pickup_location, job.pickup_postcode)} → {routeLabel(job.delivery_location, job.delivery_postcode)}</strong></td><td style={{ padding: '8px' }}>{job.posterName || 'Marketplace member'}{job.posterMemberCode && <div style={{ color: '#64748b' }}>ID {job.posterMemberCode}</div>}</td><td style={{ padding: '8px' }}>{when(job.pickup_datetime)}</td><td style={{ padding: '8px', textTransform: 'capitalize' }}>{job.requested_vehicle_label || job.vehicle_type?.replace(/_/g, ' ') || '—'}</td><td style={{ padding: '8px' }}><StatusBadge value={job.current_status || job.status || 'awarded'} /></td><td style={{ padding: '8px' }}>{money(job.budget_amount, job.currency || 'GBP')}</td><td style={{ padding: '8px' }}><ActionButton tone="secondary" onClick={() => window.location.assign(`/admin/jobs/${job.id}`)}>Open Job</ActionButton></td></tr>)}{!loading && won.length === 0 && <tr><td colSpan={8} style={{ padding: 28, textAlign: 'center', color: '#64748b' }}>No marketplace work has been awarded to this company yet.</td></tr>}</tbody></table></div></Panel>}
 
       {bidTarget && <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onMouseDown={(event) => { if (event.currentTarget === event.target && !working) setBidTarget(null); }}><div role="dialog" aria-modal="true" aria-label="Submit marketplace quote" style={{ width: 'min(520px,100%)', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4, boxShadow: 'none', padding: '16px' }}><div style={{ fontWeight: 800, color: '#0f172a', fontSize: '14px' }}>Submit Quote</div><div style={{ color: '#64748b', fontSize: '11px', marginTop: 4 }}>{routeLabel(bidTarget.pickup_location, bidTarget.pickup_postcode)} → {routeLabel(bidTarget.delivery_location, bidTarget.delivery_postcode)} · {bidTarget.posterName}</div><label style={{ display: 'block', marginTop: 12 }}><span style={labelStyle}>Quote amount (GBP)</span><input autoFocus type="number" min="0.01" step="0.01" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} style={{ ...fieldStyle, width: '100%' }} /></label><label style={{ display: 'block', marginTop: 8 }}><span style={labelStyle}>Message / terms</span><textarea value={quoteMessage} onChange={(e) => setQuoteMessage(e.target.value)} rows={4} placeholder="Availability, vehicle, timing or commercial notes" style={{ ...fieldStyle, width: '100%', height: 'auto', padding: '8px', resize: 'vertical' }} /></label><div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}><ActionButton tone="secondary" disabled={working} onClick={() => setBidTarget(null)}>Cancel</ActionButton><ActionButton tone="success" disabled={working} onClick={() => void submitQuote()}>{working ? 'Submitting…' : 'Submit Quote'}</ActionButton></div></div></div>}

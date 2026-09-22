@@ -534,6 +534,7 @@ function bidJobProjection(row: Record<string, unknown>, companyId: string) {
       : publicAreaLabel(row.delivery_postcode, row.delivery_country_code, 'Delivery area TBC'),
     delivery_postcode: awardedToViewer ? marketplaceText(row.delivery_postcode) : publicOutcode(row.delivery_postcode),
     pickup_datetime: marketplaceText(row.pickup_datetime),
+    delivery_datetime: marketplaceText(row.delivery_datetime),
     vehicle_type: marketplaceText(row.vehicle_type),
     requested_vehicle_label: marketplaceText(row.requested_vehicle_label),
     status: marketplaceText(row.status),
@@ -568,7 +569,7 @@ async function loadBids(companyId: string) {
   if (jobIds.length > 0) {
     const { data: jobsData, error: jobsError } = await supabaseAdmin!
       .from('jobs')
-      .select('id, company_id, awarded_carrier_company_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, currency, companies!jobs_company_id_fkey(name,company_number)')
+      .select('id, company_id, awarded_carrier_company_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, currency, companies!jobs_company_id_fkey(name,company_number)')
       .in('id', jobIds);
     if (jobsError) {
       return operationalError({
