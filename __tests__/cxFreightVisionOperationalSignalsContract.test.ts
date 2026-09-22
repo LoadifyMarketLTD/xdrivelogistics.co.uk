@@ -29,6 +29,15 @@ describe('CX-close Freight Vision operational signals', () => {
     expect(source).toContain('Open full job');
   });
 
+  it('keeps Freight Vision live with contextual contact parity', () => {
+    expect(source).toContain('window.setInterval');
+    expect(source).toContain('60_000');
+    expect(source).toContain('Auto refresh 60s');
+    expect(source).toContain('/admin/messages?jobId=');
+    expect(source).toContain('Message');
+    expect(source).toContain('availability_status');
+  });
+
   it('does not introduce Super Admin coupling', () => {
     expect(source).not.toContain('/super-admin');
   });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import FleetPositionMap, { type FleetMapPoint } from '../fleet/FleetPositionMap';
 import { useCompanyWorkspaceData, type WorkspaceJob, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
@@ -129,9 +129,14 @@ export default function FreightVisionPage() {
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
-  const refreshAll = async () => {
+  const refreshAll = useCallback(async () => {
     await Promise.all([data.refresh(), intelligence.refresh()]);
-  };
+  }, [data.refresh, intelligence.refresh]);
+
+  useEffect(() => {
+    const interval = window.setInterval(() => { void refreshAll(); }, 60_000);
+    return () => window.clearInterval(interval);
+  }, [refreshAll]);
 
   const latestLocations = useMemo(() => {
     const map = new Map<string, WorkspaceLocation>();
@@ -204,7 +209,7 @@ export default function FreightVisionPage() {
         title="Freight Vision"
         description="Active jobs, live driver positions, planned targets, tracking freshness and exception signals in one operational control desk. Behind ETA is a schedule-risk rule, not traffic-predicted ETA."
         actions={<ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
-        meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Operational data'}</span>}
+        meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Operational data'} · Auto refresh 60s</span>}
       />
 
       {data.error && <AlertBanner tone="warning">{data.error}</AlertBanner>}
@@ -236,11 +241,11 @@ export default function FreightVisionPage() {
             columns={['Job / route', 'Driver / vehicle', 'Targets', 'Tracking', 'Latest event', 'Action']}
             rows={filtered.map(({ job, driver, vehicle, location, locationTimestamp, state, events, reason }) => [
               <div key="job"><strong style={{ display: 'block' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Pickup'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ color: '#64748b' }}>#{job.id.slice(0, 8).toUpperCase()} · {(job.current_status ?? job.status).replaceAll('_', ' ')}</span></div>,
-              <div key="resource"><span style={{ display: 'block' }}>{driver?.display_name ?? driver?.email ?? 'Not assigned'}</span><span style={{ color: '#64748b' }}>{vehicle?.reg_plate ?? vehicle?.type?.replaceAll('_', ' ') ?? 'Vehicle not linked'}</span></div>,
+              <div key="resource"><span style={{ display: 'block' }}>{driver?.display_name ?? driver?.email ?? 'Not assigned'}</span><span style={{ color: '#64748b' }}>{vehicle?.reg_plate ?? vehicle?.type?.replaceAll('_', ' ') ?? 'Vehicle not linked'}</span>{driver ? <div style={{ marginTop: 4 }}><StatusBadge value={driver.availability_status ?? 'offline'} tone={driver.availability_status === 'available' ? 'green' : driver.availability_status === 'busy' ? 'orange' : 'grey'} /></div> : null}</div>,
               <div key="targets"><span style={{ display: 'block' }}>PU {when(job.pickup_datetime)}</span><span style={{ color: '#64748b' }}>DEL {when(job.delivery_datetime)}</span></div>,
               <div key="tracking"><StatusBadge value={stateLabel[state]} tone={toneForState(state)} /><span style={{ display: 'block', color: '#64748b', marginTop: 4, maxWidth: 230 }}>{reason}</span>{location ? <button type="button" onClick={() => setSelectedDriverId(driver?.id ?? null)} style={{ border: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer', padding: 0, marginTop: 3 }}>Position {when(locationTimestamp)}</button> : null}</div>,
               events[0] ? <div key="event"><strong style={{ display: 'block' }}>{events[0].eventType.replaceAll('_', ' ')}</strong><span style={{ color: '#64748b' }}>{events[0].message ?? 'Operational status update'} · {when(events[0].createdAt)}</span></div> : <span key="event-none" style={{ color: '#64748b' }}>No timeline event</span>,
-              <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedJobId(job.id)}>Inspect</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open job</ActionButton>{driver?.phone ? <a href={`tel:${driver.phone.replace(/\s+/g, '')}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', border: '1px solid #cbd5e1', color: '#0b2f6b', textDecoration: 'none', fontSize: 11, fontWeight: 800 }}>Call driver</a> : null}</div>,
+              <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedJobId(job.id)}>Inspect</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open job</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/admin/messages?jobId=${encodeURIComponent(job.id)}`)}>Message</ActionButton>{driver?.phone ? <a href={`tel:${driver.phone.replace(/\s+/g, '')}`} style={{ display: 'inline-flex', alignItems: 'center', padding: '5px 8px', border: '1px solid #cbd5e1', color: '#0b2f6b', textDecoration: 'none', fontSize: 11, fontWeight: 800 }}>Call driver</a> : null}</div>,
             ])}
             empty={<EmptyState title="No active jobs match the current filters" description="Clear one or more filters or refresh the operational data." />}
           />
