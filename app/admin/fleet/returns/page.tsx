@@ -60,6 +60,13 @@ const toLocalDateTime = (value: string | Date | null | undefined): string => {
   return local.toISOString().slice(0, 16);
 };
 
+const returnRouteUrl = (journey: ReturnJourney) => {
+  if (!journey.from_postcode) return null;
+  const params = new URLSearchParams({ api: '1', origin: journey.from_postcode });
+  if (journey.to_postcode) params.set('destination', journey.to_postcode);
+  return `https://www.google.com/maps/dir/?${params.toString()}`;
+};
+
 const positionAge = (value: string | null | undefined) => {
   if (!value) return { label: 'No position', stale: true };
   const timestamp = new Date(value).getTime();
@@ -380,6 +387,7 @@ export default function CompanyReturnJourneysPage() {
                       <span>Company-owned return capacity</span>
                       <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                         {location ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Locate</ActionButton> : null}
+                        {returnRouteUrl(journey) ? <a href={returnRouteUrl(journey) ?? undefined} target="_blank" rel="noreferrer" style={compactLinkStyle}>Open Route</a> : null}
                         {driver?.phone ? <a href={`tel:${driver.phone.replace(/\s+/g, '')}`} style={compactLinkStyle}>Call driver</a> : null}
                         {canManageReturnJourneys && journey.driver_id ? <ActionButton tone="secondary" onClick={() => openJourney(journey)}>Edit</ActionButton> : null}
                         {canManageReturnJourneys && journey.driver_id && ACTIVE_STATUSES.has(status) ? <ActionButton tone="danger" disabled={saving} onClick={() => void saveJourney(true, journey)}>Close Return</ActionButton> : null}
