@@ -7,7 +7,6 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase } from '../../../lib/supabaseClient';
 import { marketplaceVehicleSizeOptions, marketplaceVehicleSizeRank } from '../../../lib/vehicleSizeRange';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
-import { OperationalSignalStrip } from './OperationalConvergence';
 import { OperationalExpandAllControl } from './OperationalExpandAllControl';
 import {
   ActionButton,
@@ -202,25 +201,17 @@ export default function CompanyMarketplaceExchange({
 
   const dedicatedQuotes = initialTab === 'bids';
 
-  const signals = [
-    { key: 'live', label: 'Live results', value: tab === 'loads' ? total : loads.length, detail: 'Current search', tone: 'blue' as const, onClick: () => setTab('loads') },
-    { key: 'submitted', label: 'Submitted', value: statusCounts.submitted, detail: 'Awaiting decision', tone: 'purple' as const, onClick: () => setTab('bids') },
-    { key: 'accepted', label: 'Accepted', value: statusCounts.accepted, detail: 'Awarded commercially', tone: 'green' as const, onClick: () => setTab('bids') },
-    { key: 'won', label: 'Won work', value: won.length, detail: 'Marketplace awards', tone: 'green' as const, onClick: () => setTab('won') },
-    { key: 'unsuccessful', label: 'Unsuccessful', value: statusCounts.unsuccessful, detail: 'Rejected quotes', tone: statusCounts.unsuccessful ? 'orange' as const : 'blue' as const, onClick: () => setTab('bids') },
-  ];
-
   return (
     <PageFrame>
       <PageHeader
         eyebrow="Carrier exchange"
-        title={dedicatedQuotes ? 'Quotes' : 'Marketplace'}
-        description={dedicatedQuotes ? 'Search and manage submitted marketplace quotes without leaving the quote register.' : 'Search live loads, quote available work and monitor your marketplace awards from one operational workspace.'}
+        title={dedicatedQuotes ? 'Quotes' : 'Loads'}
+        description={dedicatedQuotes ? 'Search and manage submitted marketplace quotes without leaving the quote register.' : 'Search live exchange work, inspect operational detail and quote without leaving the load board.'}
         actions={<><ActionButton tone="secondary" onClick={() => tab === 'loads' ? void loadLoads(page, false) : void loadListTab(tab)} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>{!dedicatedQuotes && tab === 'loads' ? <ActionButton tone="secondary" onClick={saveDefault}>Save Default</ActionButton> : null}</>}
         meta={<span>{generatedAt ? 'Updated ' + when(generatedAt) : 'Live exchange data'}</span>}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}{notice && <AlertBanner tone="info">{notice}</AlertBanner>}{!companyId && hasSupabaseSession && <AlertBanner tone="info">Resolving your active company workspace…</AlertBanner>}
-      {!dedicatedQuotes && <><div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #dbe2ea', marginBottom: 8 }}>{tabButton('loads', 'Available Loads')}{tabButton('bids', 'My Quotes')}{tabButton('won', 'Won Work')}</div><OperationalSignalStrip items={signals} ariaLabel="Marketplace operational signals" /></>}
+      {!dedicatedQuotes && <div style={{ display: 'flex', gap: 4, borderBottom: '1px solid #dbe2ea', marginBottom: 8 }}>{tabButton('loads', 'Available Loads')}{tabButton('won', 'Won Work')}</div>}
 
       {tab === 'loads' && <>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
