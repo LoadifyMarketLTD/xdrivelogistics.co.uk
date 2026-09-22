@@ -35,6 +35,14 @@ describe('CX-close Live Availability composition', () => {
     expect(source).toContain('minHeight: 28');
   });
 
+  it('supports CX-style saved availability defaults without inventing server preferences', () => {
+    expect(source).toContain('LIVE_AVAILABILITY_DEFAULTS_KEY');
+    expect(source).toContain('window.localStorage.setItem');
+    expect(source).toContain('Save Default');
+    expect(source).toContain('Load Default');
+    expect(source).toContain('Clear');
+  });
+
   it('preserves privacy-scoped Nearby Exchange behaviour', () => {
     expect(source).toContain('/api/availability/nearby');
     expect(source).toContain("position.scope === 'exchange'");
