@@ -322,7 +322,11 @@ export default function LiveAvailabilityPage() {
                   position.has_tail_lift === true ? <StatusBadge key="equipment" value="Tail lift" tone="blue" /> : position.has_tail_lift === false ? 'No tail lift' : 'Equipment not published',
                   when(position.available_until),
                   <button key="freshness" type="button" onClick={() => setSelectedDriverId(pointId)} style={{ border: 0, padding: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer' }}>{isStale(position.recorded_at) ? 'Stale' : 'Fresh'} · {when(position.recorded_at)}</button>,
-                  <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedDriverId(pointId)}>Locate</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/companies')}>Companies</ActionButton><ActionButton tone="success" onClick={() => router.push('/admin/marketplace')}>Find work</ActionButton></div>,
+                  <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                    <ActionButton tone="secondary" onClick={() => setSelectedDriverId(pointId)}>Locate</ActionButton>
+                    {position.company_id ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/messages?companyId=${encodeURIComponent(position.company_id!)}`)}>Message</ActionButton> : null}
+                    {position.company_id ? <ActionButton tone="success" onClick={() => router.push(`/admin/post-load?directCarrier=${encodeURIComponent(position.company_id!)}`)}>Book Direct</ActionButton> : null}
+                  </div>,
                 ];
               })}
               empty={<EmptyState title={nearbyLoading ? 'Loading nearby Exchange availability…' : nearbyError ? 'Nearby Exchange availability unavailable' : 'No nearby Exchange vehicles'} />}
