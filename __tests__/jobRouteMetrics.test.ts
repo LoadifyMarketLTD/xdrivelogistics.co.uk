@@ -96,10 +96,10 @@ describe('calculateJobRouteMetrics provider fallback', () => {
   });
 
   it('returns null rather than fabricating route metrics when no routing provider is configured', async () => {
-    const fetchMock = vi.fn().mockResolvedValueOnce(geocodeResponse());
+    const fetchMock = vi.fn().mockResolvedValueOnce(geocodeResponse()).mockResolvedValueOnce(jsonResponse({}, false));
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(calculateJobRouteMetrics(['BB1 9QL', 'LS4 2AU'])).resolves.toBeNull();
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });
