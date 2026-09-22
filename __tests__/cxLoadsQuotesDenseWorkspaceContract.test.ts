@@ -25,8 +25,8 @@ describe('CX-density Loads and Quotes workspaces', () => {
 
   it('renders the dedicated Quotes route without Marketplace KPI/navigation duplication', () => {
     expect(source).toContain("const dedicatedQuotes = initialTab === 'bids'");
-    expect(source).toContain("title={dedicatedQuotes ? 'Quotes' : 'Marketplace'}");
-    expect(source).toContain('{!dedicatedQuotes && <>');
+    expect(source).toContain("title={dedicatedQuotes ? 'Quotes' : 'Loads'}");
+    expect(source).toContain('{!dedicatedQuotes && <div');
     expect(source).toContain('Search Panel');
     expect(source).toContain('Pickup Time Within');
     expect(source).toContain('Delivery Time Within');
