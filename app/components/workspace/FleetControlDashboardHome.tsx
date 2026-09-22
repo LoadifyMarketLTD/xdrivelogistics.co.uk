@@ -340,7 +340,7 @@ export default function FleetControlDashboardHome() {
     <div style={{ width: '100%', padding: '10px 12px 16px' }}>
       <DashboardHomeHeader
         eyebrow="Fleet operations"
-        title="My Fleet"
+        title="Fleet Command Centre"
         badge="Resource control"
         description="Drivers, vehicles, live tracking, future capacity, return journeys and compliance signals in one operating register."
         actions={<><ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocate Jobs</ActionButton><ActionButton tone="primary" onClick={() => { void data.refresh(); void intelligence.refresh(); }}>Refresh</ActionButton></>}
@@ -387,7 +387,7 @@ export default function FleetControlDashboardHome() {
 
       <OperationalCard
         title="Fleet resource register"
-        subtitle="Inline driver status, vehicle assignment, live tracking, future position, return journey, network advertising and document readiness."
+        subtitle="Inline driver status, vehicle assignment, live tracking, future position, return journey, network advertising and document readiness. Canonical eligibility is enforced server-side."
         actions={<><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/availability')}>Add Future Position</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</ActionButton></>}
         flush
       >
@@ -425,7 +425,7 @@ export default function FleetControlDashboardHome() {
               <span key="journey"><strong style={{ display: 'block' }}>{journeyLabel}</strong>{journey ? <button type="button" onClick={() => router.push('/admin/fleet/returns')} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d57d8', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Manage journey</button> : null}</span>,
               <StatusBadge key="advertise" value={advertising || 'Not advertised'} tone={advertising && normalise(advertising) !== 'not advertised' ? 'green' : undefined} />,
               <StatusBadge key="documents" value={documentSignal.label} tone={documentSignal.tone} />,
-              <span key="actions" style={{ display: 'inline-flex', gap: 4 }}><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Manage</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton></span>,
+              <span key="actions" style={{ display: 'inline-flex', gap: 4 }}><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Driver</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicle</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton></span>,
             ];
           })}
           empty={<EmptyState compact title={driverDataUnavailable ? 'Driver data unavailable' : resourceSearchTerm ? 'No fleet resources match this search' : 'No fleet resources recorded'} />}
