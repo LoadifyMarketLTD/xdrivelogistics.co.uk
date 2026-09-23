@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
 
   let query = admin
     .from('vehicles')
-    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, assigned_driver_id, created_at')
+    .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets, assigned_driver_id, status, current_status, is_available, is_tracked, current_location, last_tracked_at, created_at')
     .eq('company_id', companyId)
     .order('created_at', { ascending: false })
     .limit(100);

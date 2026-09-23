@@ -19,6 +19,12 @@ type VehicleRow = {
   has_straps: boolean | null;
   has_blankets: boolean | null;
   assigned_driver_id: string | null;
+  status?: string | null;
+  current_status?: string | null;
+  is_available?: boolean | null;
+  is_tracked?: boolean | null;
+  current_location?: string | null;
+  last_tracked_at?: string | null;
 };
 
 type VehicleForm = {
@@ -50,6 +56,8 @@ export default function DriverVehiclesPage() {
   const [canonicalVehicleId, setCanonicalVehicleId] = useState<string | null>(null);
   const [canonicalVehicleSignalAvailable, setCanonicalVehicleSignalAvailable] = useState(true);
   const [canManageVehicles, setCanManageVehicles] = useState(false);
+  const [futurePosition, setFuturePosition] = useState<string | null>(null);
+  const [futurePositionDate, setFuturePositionDate] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -75,7 +83,10 @@ export default function DriverVehiclesPage() {
       return;
     }
 
-    const response = await fetch('/api/driver/vehicles', { headers: { Authorization: auth } });
+    const [response, futureResponse] = await Promise.all([
+      fetch('/api/driver/vehicles', { headers: { Authorization: auth } }),
+      fetch('/api/driver/load-alert-preferences', { headers: { Authorization: auth }, cache: 'no-store' }),
+    ]);
     const payload = (await response.json().catch(() => ({}))) as {
       vehicles?: VehicleRow[];
       canonicalVehicleId?: string | null;
@@ -83,6 +94,15 @@ export default function DriverVehiclesPage() {
       canManageVehicles?: boolean;
       error?: string;
     };
+
+    if (futureResponse.ok) {
+      const futurePayload = (await futureResponse.json().catch(() => ({}))) as { driver?: { futurePosition?: string | null; futurePositionDate?: string | null } };
+      setFuturePosition(futurePayload.driver?.futurePosition ?? null);
+      setFuturePositionDate(futurePayload.driver?.futurePositionDate ?? null);
+    } else {
+      setFuturePosition(null);
+      setFuturePositionDate(null);
+    }
 
     if (!response.ok) setError(payload.error || 'Vehicle data could not be loaded.');
     else {
@@ -226,19 +246,23 @@ export default function DriverVehiclesPage() {
               <div className="fleet-commandbar"><label className="check"><input type="checkbox" checked={form.has_tail_lift} onChange={(event) => setField('has_tail_lift', event.target.checked)} />Tail lift</label><label className="check"><input type="checkbox" checked={form.has_straps} onChange={(event) => setField('has_straps', event.target.checked)} />Straps</label><label className="check"><input type="checkbox" checked={form.has_blankets} onChange={(event) => setField('has_blankets', event.target.checked)} />Blankets</label><span className="spacer" /><button type="button" className="btn" onClick={cancelForm}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update vehicle' : 'Add vehicle'}</button></div>
             </section>}
             <div className="tablewrap fleet-tablewrap fleet-tablewrap--compact">
-              <table className="fleet-table fleet-table--compact">
-                <thead><tr><th>Name</th><th>Size / Type</th><th>Payload</th><th>Equipment</th><th>Status</th><th>Actions</th></tr></thead>
+              <table className="fleet-table fleet-table--compact fleet-table--operations">
+                <thead><tr><th>Name</th><th>Size</th><th>Status</th><th>Current Location / Last Tracked</th><th>Future Vehicle Position</th><th>Future Journey</th><th>Advertise Status</th><th>Tracking</th><th>Actions</th></tr></thead>
                 <tbody>
                   {vehicles.map((vehicle) => {
                     const assigned = Boolean(driverId) && vehicle.assigned_driver_id === driverId;
                     const canonical = vehicle.id === canonicalVehicleId;
-                    const equipment = [vehicle.has_tail_lift && 'Tail lift', vehicle.has_straps && 'Straps', vehicle.has_blankets && 'Blankets'].filter(Boolean).join(' · ') || 'Standard';
-                    return <tr key={vehicle.id} className="fleet-row" data-id={vehicle.id} data-search={`${vehicleName(vehicle)} ${vehicle.reg_plate ?? ''} ${vehicle.type ?? ''}`.toLowerCase()}>
+                    const liveStatus = vehicle.is_available === true ? 'Available' : vehicle.current_status || vehicle.status || (canonical ? 'Active' : assigned ? 'Assigned' : 'Recorded');
+                    const lastTracked = vehicle.last_tracked_at ? new Date(vehicle.last_tracked_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : null;
+                    return <tr key={vehicle.id} className="fleet-row" data-id={vehicle.id} data-search={`${vehicleName(vehicle)} ${vehicle.reg_plate ?? ''} ${vehicle.type ?? ''} ${vehicle.current_location ?? ''}`.toLowerCase()}>
                       <td><div className="fleet-name"><div><b>{vehicleName(vehicle)}</b><span className="meta">{assigned ? 'Assigned to current driver' : 'Company fleet record'}</span></div></div></td>
                       <td>{VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Unknown'}</td>
-                      <td>{vehicle.payload_kg != null ? `${vehicle.payload_kg} kg` : 'Not supplied'}</td>
-                      <td>{equipment}</td>
-                      <td><StatusBadge value={canonical ? 'Active' : assigned ? 'Assigned' : 'Recorded'} tone={canonical ? 'green' : assigned ? 'blue' : 'grey'} /></td>
+                      <td><StatusBadge value={liveStatus} tone={vehicle.is_available === true || canonical ? 'green' : assigned ? 'blue' : 'grey'} /></td>
+                      <td><b>{vehicle.current_location || 'No current location'}</b><span className="meta">{lastTracked ? `Last tracked ${lastTracked}` : vehicle.is_tracked ? 'Tracking enabled · no fix recorded' : 'Not tracked'}</span></td>
+                      <td>{assigned ? <button type="button" className="fleet-inline-link" onClick={() => window.location.assign('/driver/returns')}>{futurePosition || 'Add Future Position'}{futurePositionDate && <span>{new Date(futurePositionDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>}</button> : <span className="muted">Driver not assigned</span>}</td>
+                      <td>{assigned ? <button type="button" className="fleet-inline-link" onClick={() => window.location.assign('/driver/returns')}>Add / View Journey</button> : <span className="muted">—</span>}</td>
+                      <td><span className="fleet-advertise-state">{vehicle.is_available === true ? 'XDrive Exchange · Live' : 'Not advertised'}</span></td>
+                      <td><StatusBadge value={vehicle.is_tracked ? 'Tracked' : 'Not tracked'} tone={vehicle.is_tracked ? 'green' : 'grey'} /></td>
                       <td><button type="button" className="rowbtn blue" onClick={() => startEdit(vehicle)} disabled={!canManageVehicles}>Open</button>{assigned && canManageVehicles && <button type="button" className="rowbtn" onClick={() => void deactivate(vehicle.id)} disabled={deactivatingId === vehicle.id}>{deactivatingId === vehicle.id ? 'Removing…' : 'Unassign'}</button>}</td>
                     </tr>;
                   })}

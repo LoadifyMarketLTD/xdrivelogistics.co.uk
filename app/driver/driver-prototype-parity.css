@@ -1536,3 +1536,49 @@
     display:none;
   }
 }
+
+
+/* My Fleet operational columns: mirror the CX fleet workflow, not vehicle-spec inventory. */
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations{
+  min-width:1450px !important;
+  table-layout:fixed;
+}
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations th:nth-child(1){width:16%}
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations th:nth-child(2){width:8%}
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations th:nth-child(3){width:9%}
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations th:nth-child(4){width:17%}
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations th:nth-child(5){width:15%}
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations th:nth-child(6){width:11%}
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations th:nth-child(7){width:10%}
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations th:nth-child(8){width:7%}
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations th:nth-child(9){width:7%}
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations td{
+  vertical-align:middle;
+}
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations td > .meta,
+.driver-prototype-port .driver-fleet-prototype .fleet-table--operations td > b + .meta{
+  display:block;
+  margin-top:3px;
+}
+.driver-prototype-port .driver-fleet-prototype .fleet-inline-link{
+  border:0;
+  padding:0;
+  background:transparent;
+  color:#0756b8;
+  font:inherit;
+  font-weight:800;
+  text-align:left;
+  cursor:pointer;
+}
+.driver-prototype-port .driver-fleet-prototype .fleet-inline-link span{
+  display:block;
+  margin-top:3px;
+  color:#65758a;
+  font-size:9px;
+  font-weight:500;
+}
+.driver-prototype-port .driver-fleet-prototype .fleet-advertise-state{
+  font-size:10px;
+  font-weight:700;
+  color:#34475c;
+}
