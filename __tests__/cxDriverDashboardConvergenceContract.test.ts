@@ -51,6 +51,14 @@ describe('Driver CX convergence contract', () => {
     expect(page).toContain("router.push('/driver/history')");
   });
 
+  it('surfaces real CX-style feedback and reporting shortcuts without fabricated metrics', () => {
+    expect(page).toContain('Feedback in last 90 days');
+    expect(page).toContain('feedback90Days');
+    expect(page).toContain('feedbackAverage');
+    expect(page).toContain('Reports & Finance');
+    expect(page).toContain("router.push('/driver/finance')");
+  });
+
   it('preserves truthful server-authoritative eligibility wording', () => {
     expect(page).toContain('Full quote eligibility remains server-authoritative.');
     expect(page).toContain('data.driverDocuments');
