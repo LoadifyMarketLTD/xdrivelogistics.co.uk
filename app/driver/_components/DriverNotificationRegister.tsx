@@ -17,11 +17,11 @@ type NotificationRow = {
 };
 
 type TabId = 'all' | 'unread' | 'load_alerts' | 'operational';
-const tabLabels: Array<{ id: TabId; label: string; detail: string }> = [
-  { id: 'all', label: 'All', detail: 'Recipient-scoped inbox' },
-  { id: 'unread', label: 'Unread', detail: 'Needs your attention' },
-  { id: 'load_alerts', label: 'Load Alerts', detail: 'Marketplace / nearby / return-journey alerts' },
-  { id: 'operational', label: 'Operational', detail: 'Jobs, bids, POD, ETA and finance' },
+const tabLabels: Array<{ id: TabId; label: string }> = [
+  { id: 'all', label: 'All' },
+  { id: 'unread', label: 'Unread' },
+  { id: 'load_alerts', label: 'Load Alerts' },
+  { id: 'operational', label: 'Operational' },
 ];
 
 const LOAD_ALERT_TYPES = new Set([
@@ -194,50 +194,66 @@ export default function DriverNotificationRegister({
         )}
       >
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
-        <div className="driver-board-layout driver-messages-board">
-          <aside className="driver-filter-rail" aria-label="Notification filters">
-            <div className="driver-filter-rail__header">Notification Inbox</div>
-            <div className="driver-filter-rail__body">
-              {tabLabels.map((item) => (
-                <button key={item.id} type="button" className="driver-account-link" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>
-                  <span><strong>{item.label}</strong><small>{item.detail}</small></span><span>{counts[item.id]}</span>
-                </button>
-              ))}
+
+        <div className="driver-notification-register">
+          <div className="driver-tab-strip" role="tablist" aria-label="Notification inbox filters">
+            {tabLabels.map((item) => (
+              <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>
+                {item.label} <span>{counts[item.id]}</span>
+              </button>
+            ))}
+          </div>
+
+          <div className="driver-register-toolbar">
+            <div>
+              <strong>Notification inbox</strong>
+              <span>{visibleMessages.length} visible · {counts.unread} unread</span>
             </div>
-          </aside>
-          <main className="driver-board-main">
-            <div className="driver-tab-strip" role="tablist" aria-label="Notification inbox filters">
-              {tabLabels.map((item) => <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} <span>{counts[item.id]}</span></button>)}
+          </div>
+
+          {loading ? (
+            <EmptyState compact title="Loading notifications…" />
+          ) : visibleMessages.length === 0 ? (
+            <EmptyState compact title={tab === 'load_alerts' ? 'No load alerts match this view' : 'No notifications match this filter'} />
+          ) : (
+            <div className="driver-register-table-wrap">
+              <table className="driver-register-table driver-notification-table">
+                <thead>
+                  <tr>
+                    <th>Notification</th>
+                    <th>Details</th>
+                    <th>Created</th>
+                    <th>Status</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleMessages.map((message) => (
+                    <tr key={message.id} data-state={message.read_at ? 'read' : 'unread'}>
+                      <td>
+                        <strong>{message.title}</strong>
+                        <small>{typeLabel(message.type)}</small>
+                      </td>
+                      <td>{message.body?.trim() || 'Open XDrive for details.'}</td>
+                      <td>{formatDateTime(message.created_at)}</td>
+                      <td>
+                        <div className="driver-register-statuses">
+                          {LOAD_ALERT_TYPES.has(String(message.type ?? '')) && <StatusBadge value="Load alert" tone="blue" />}
+                          <StatusBadge value={message.read_at ? 'Read' : 'Unread'} tone={message.read_at ? 'grey' : 'orange'} />
+                        </div>
+                      </td>
+                      <td>
+                        <div className="driver-register-actions">
+                          {!message.read_at && <ActionButton tone="secondary" disabled={workingId === message.id} onClick={() => void markRead(message.id)}>Mark read</ActionButton>}
+                          <ActionButton tone="secondary" disabled={workingId === message.id} onClick={() => void removeNotification(message.id)}>Remove</ActionButton>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
-            <div className="driver-board-summary"><span>{visibleMessages.length} notification{visibleMessages.length === 1 ? '' : 's'} · {counts.unread} unread · {counts.load_alerts} load alert{counts.load_alerts === 1 ? '' : 's'}</span></div>
-            {loading ? (
-              <div className="driver-load-row"><EmptyState compact title="Loading notifications…" /></div>
-            ) : visibleMessages.length === 0 ? (
-              <div className="driver-load-row"><EmptyState compact title={tab === 'load_alerts' ? 'No load alerts match this view' : 'No notifications match this filter'} description={tab === 'load_alerts' ? 'Real load-alert records will appear here when generated. CX-style matching preferences remain a separate backend parity item.' : undefined} /></div>
-            ) : (
-              <div className="driver-load-list">
-                {visibleMessages.map((message) => (
-                  <article key={message.id} className="driver-load-row" data-state={message.read_at ? 'read' : 'unread'}>
-                    <div className="driver-load-row__top">
-                      <div className="driver-load-cell"><span className="driver-cell-label">Notification</span><strong className="driver-cell-primary">{message.title}</strong><span className="driver-cell-secondary">{typeLabel(message.type)}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Details</span><strong className="driver-cell-primary">{message.body?.trim() || 'Open XDrive for details.'}</strong><span className="driver-cell-secondary">Recipient-scoped inbox record</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Created</span><strong className="driver-cell-primary">{formatDateTime(message.created_at)}</strong><span className="driver-cell-secondary">Operational notification</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Inbox state</span><strong className="driver-cell-primary">{message.read_at ? 'Read' : 'Unread'}</strong><span className="driver-cell-secondary"><StatusBadge value={message.read_at ? 'Read' : 'Unread'} tone={message.read_at ? 'grey' : 'orange'} /></span></div>
-                    </div>
-                    <div className="driver-load-row__meta">
-                      <span>Notification #{message.id.slice(0, 8).toUpperCase()}</span>
-                      {LOAD_ALERT_TYPES.has(String(message.type ?? '')) && <StatusBadge value="Load alert" tone="blue" />}
-                      <StatusBadge value={message.read_at ? 'Read' : 'Unread'} tone={message.read_at ? 'grey' : 'orange'} />
-                      <div className="driver-row-actions">
-                        {!message.read_at && <ActionButton tone="secondary" disabled={workingId === message.id} onClick={() => void markRead(message.id)}>Mark read</ActionButton>}
-                        <ActionButton tone="secondary" disabled={workingId === message.id} onClick={() => void removeNotification(message.id)}>Remove</ActionButton>
-                      </div>
-                    </div>
-                  </article>
-                ))}
-              </div>
-            )}
-          </main>
+          )}
         </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>

@@ -276,41 +276,6 @@ export default function DriverFinancePage() {
     refunded: payments?.refunded ?? 0,
   }), [payments]);
 
-  const financeRail = (
-    <aside className="left finance-filter-rail" aria-label="Finance summary">
-      <div className="left-title">Finance Filters</div>
-      <div className="finance-filter-body">
-        <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Invoice state</div>
-        {STATUS_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className="driver-account-link"
-            data-active={activeTab === tab.id ? 'true' : 'false'}
-            onClick={() => setActiveTab(tab.id)}
-          >
-            <span><strong>{tab.label}</strong><small>{counts[tab.id]} invoice{counts[tab.id] === 1 ? '' : 's'}</small></span>
-            <span>{counts[tab.id]}</span>
-          </button>
-        ))}
-        <div style={{ marginTop: '6px', fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Payment state</div>
-        {PAYMENT_TABS.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            className="driver-account-link"
-            data-active={paymentTab === tab.id ? 'true' : 'false'}
-            onClick={() => setPaymentTab(tab.id)}
-          >
-            <span><strong>{tab.label}</strong><small>{paymentCounts[tab.id]} record{paymentCounts[tab.id] === 1 ? '' : 's'}</small></span>
-            <span>{paymentCounts[tab.id]}</span>
-          </button>
-        ))}
-        {canGenerateInvoices && <ActionButton tone="primary" onClick={openJobPicker}>{showJobPicker ? 'Close generator' : 'Generate Invoice'}</ActionButton>}
-      </div>
-    </aside>
-  );
-
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
       <DriverWorkspaceShell
@@ -320,9 +285,7 @@ export default function DriverFinancePage() {
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {generateError && <AlertBanner tone="danger">{generateError}</AlertBanner>}
 
-        <div className="pagebody finance-pagebody">
-          {financeRail}
-          <main className="main finance-main">
+        <div className="driver-finance-register">
             <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 6, flexWrap: 'wrap' }}>
               <span>Gross <strong>{money(values?.gross ?? 0)}</strong> · Net <strong>{money(values?.net ?? 0)}</strong> · VAT <strong>{money(values?.vat ?? 0)}</strong></span>
               <span>Recorded paid <strong>{money(values?.paid ?? 0)}</strong> · Outstanding <strong>{money(values?.outstanding ?? 0)}</strong></span>
@@ -388,31 +351,41 @@ export default function DriverFinancePage() {
             </div>
 
             {loading ? (
-              <div className="finance-row-card"><EmptyState compact title="Loading invoices…" /></div>
+              <EmptyState compact title="Loading invoices…" />
             ) : invoices.length === 0 ? (
-              <div className="finance-row-card"><EmptyState compact title="No invoices in this view" description={canGenerateInvoices ? 'Generate an invoice from a completed job or choose another invoice/payment filter.' : 'Choose another invoice/payment filter or refresh the register.'} /></div>
+              <EmptyState compact title="No invoices in this view" description={canGenerateInvoices ? 'Generate an invoice from a completed job or choose another invoice/payment filter.' : 'Choose another invoice/payment filter or refresh the register.'} />
             ) : (
-              <div className="finance-register">
-                {invoices.map((invoice) => (
-                  <article key={invoice.id} className="finance-row-card" data-state={invoice.status.toLowerCase()}>
-                    <div className="driver-load-row__top">
-                      <div className="driver-load-cell"><span className="driver-cell-label">Invoice</span><strong className="driver-cell-primary">{invoice.invoice_number}</strong><span className="driver-cell-secondary">{date(invoice.invoice_date)}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Customer</span><strong className="driver-cell-primary">{invoice.client_name}</strong><span className="driver-cell-secondary">Job {invoice.job_ref}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Due</span><strong className="driver-cell-primary">{date(invoice.due_date)}</strong><span className="driver-cell-secondary">Invoice due date</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Total</span><strong className="driver-cell-primary">{money(invoice.amount, invoice.currency)}</strong><span className="driver-cell-secondary">Net {money(invoice.net_amount, invoice.currency)} · VAT {money(invoice.vat_amount, invoice.currency)}</span></div>
-                    </div>
-                    <div className="driver-load-row__meta">
-                      <span>{invoice.job_id ? `Job #${invoice.job_id.slice(0, 8).toUpperCase()}` : invoice.job_ref}</span>
-                      <span>Invoice: <StatusBadge value={invoice.status} tone={statusTone(invoice.status)} /></span>
-                      <span>Payment: <StatusBadge value={invoice.payment_status.replace(/_/g, ' ')} tone={paymentTone(invoice.payment_status)} /></span>
-                      <span>Recorded paid {money(invoice.paid_amount, invoice.currency)} · Outstanding {money(invoice.outstanding_amount, invoice.currency)}</span>
-                      <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>Open invoice</ActionButton></div>
-                    </div>
-                  </article>
-                ))}
+              <div className="driver-register-table-wrap">
+                <table className="driver-register-table driver-finance-table">
+                  <thead>
+                    <tr>
+                      <th>Invoice</th>
+                      <th>Customer / job</th>
+                      <th>Due</th>
+                      <th>Total</th>
+                      <th>Invoice state</th>
+                      <th>Payment</th>
+                      <th>Outstanding</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {invoices.map((invoice) => (
+                      <tr key={invoice.id} data-state={invoice.status.toLowerCase()}>
+                        <td><strong>{invoice.invoice_number}</strong><small>{date(invoice.invoice_date)}</small></td>
+                        <td><strong>{invoice.client_name}</strong><small>{invoice.job_id ? `Job #${invoice.job_id.slice(0, 8).toUpperCase()}` : invoice.job_ref}</small></td>
+                        <td>{date(invoice.due_date)}</td>
+                        <td><strong>{money(invoice.amount, invoice.currency)}</strong><small>Net {money(invoice.net_amount, invoice.currency)} · VAT {money(invoice.vat_amount, invoice.currency)}</small></td>
+                        <td><StatusBadge value={invoice.status} tone={statusTone(invoice.status)} /></td>
+                        <td><StatusBadge value={invoice.payment_status.replace(/_/g, ' ')} tone={paymentTone(invoice.payment_status)} /></td>
+                        <td>{money(invoice.outstanding_amount, invoice.currency)}</td>
+                        <td><ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}`)}>Open</ActionButton></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
             )}
-          </main>
         </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>
