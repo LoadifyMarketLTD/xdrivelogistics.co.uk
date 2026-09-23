@@ -193,6 +193,28 @@ function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
   ];
 }
 
+function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
+  return [
+    { id: 'customer-home', label: 'Customer', items: [{ id: 'customer-dashboard', label: 'Customer Dashboard', href: '/customer', icon: '⌂' }] },
+    { id: 'customer-loads', label: 'Loads', items: [
+      { id: 'customer-post-load', label: 'Post Load', href: '/customer/post-load', icon: '+' },
+      { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: '■' },
+      { id: 'customer-quotes', label: 'Quotes', href: '/customer/quotes', icon: '▣' },
+      { id: 'customer-awards', label: 'Awards', href: '/customer/awards', icon: '✓' },
+    ] },
+    { id: 'customer-delivery', label: 'Delivery', items: [
+      { id: 'customer-deliveries', label: 'Deliveries', href: '/customer/deliveries', icon: '■' },
+      { id: 'customer-pod-docs', label: 'POD & Documents', href: '/customer/documents', icon: '▤' },
+      { id: 'customer-updates', label: 'Updates', href: '/customer/updates', icon: '●' },
+    ] },
+    { id: 'customer-finance', label: 'Finance', items: [{ id: 'customer-invoices', label: 'Invoices', href: '/customer/invoices', icon: '£' }] },
+    { id: 'customer-administration', label: 'Administration', items: [
+      { id: 'customer-team', label: 'Team', href: '/customer/team', icon: '◎' },
+      { id: 'customer-settings', label: 'Settings', href: '/customer/settings', icon: '⚙' },
+    ] },
+  ];
+}
+
 export default function TopWorkspaceShell({
   children,
   forcedRole,
@@ -331,6 +353,7 @@ export default function TopWorkspaceShell({
     }
 
     if (role === 'broker') return composeBrokerPrototypeNav();
+    if (role === 'customer') return composeCustomerPrototypeNav();
     if (CARRIER_NAV_ROLES.has(role)) base = composeCarrierPrimaryNav(base);
     else if (role === 'fleet_manager') base = composeFleetPrimaryNav(base);
 
