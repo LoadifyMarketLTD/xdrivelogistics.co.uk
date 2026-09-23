@@ -608,6 +608,14 @@ export default function DriverDashboard() {
 
   const compliantDocuments = Math.max(0, myDocuments.length - documentAlerts.length);
   const futurePositionPublished = driverProfile?.future_position ? 1 : 0;
+  const feedback90Days = _feedback.filter((review) => {
+    if (!review.created_at) return false;
+    const created = new Date(review.created_at).getTime();
+    return !Number.isNaN(created) && created >= Date.now() - 90 * 86_400_000;
+  });
+  const feedbackAverage = feedback90Days.length
+    ? feedback90Days.reduce((sum, review) => sum + Number(review.rating ?? 0), 0) / feedback90Days.length
+    : null;
   return (
     <div className="driver-reference-dashboard driver-prototype-dashboard driver-exact-prototype">
       <DriverWorkspaceShell
