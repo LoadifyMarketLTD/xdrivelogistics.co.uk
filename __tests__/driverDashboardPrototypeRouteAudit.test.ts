@@ -20,8 +20,9 @@ describe('Driver Dashboard prototype and route audit', () => {
   it('uses the approved prototype dashboard hierarchy instead of the old duplicated dashboard stack', () => {
     expect(page).toContain('Today at a glance');
     expect(page).toContain('Operational workboard');
-    expect(page).toContain('Matching loads');
-    expect(page).toContain('Driver readiness');
+    expect(page).toContain('Commercial position');
+    expect(page).toContain('Performance & evidence');
+    expect(page).toContain('Driver workflow');
     expect(page).toContain('Latest bookings');
     expect(page).not.toContain('<span>Quote activity</span>');
     expect(page).not.toContain('<span>Recent completed work</span>');
@@ -32,9 +33,7 @@ describe('Driver Dashboard prototype and route audit', () => {
   });
 
   it('keeps dashboard shortcuts on real Driver routes', () => {
-    for (const route of [
-      '/driver/post-load',
-      '/driver/history',
+    for (const route of [      '/driver/history',
       '/driver/jobs',
       '/driver/loads',
       '/driver/availability',
@@ -50,10 +49,13 @@ describe('Driver Dashboard prototype and route audit', () => {
     expect(page.toLowerCase()).not.toContain('my fleet');
   });
 
-  it('keeps the Dashboard concise at five KPI cards and four readiness destinations', () => {
-    expect(css).toContain('grid-template-columns: repeat(5, minmax(0, 1fr));');
-    expect(css).toContain('.driver-proto-readiness');
-    expect(page.match(/<span>(CURRENT JOB|TODAY|UPCOMING|MATCHING LOADS|AVAILABILITY)<\/span>/g)?.length).toBe(5);
+  it('keeps the approved six-card command strip and functional workboard tabs', () => {
+    expect(css).toContain('.driver-proto-kpis--six');
+    expect(page.match(/<span>(NEEDS ATTENTION|UPCOMING WORK|LIVE JOBS|MATCHING LOADS|DOCUMENT ALERTS|EXCEPTIONS)<\/span>/g)?.length).toBe(6);
+    for (const tab of ['Needs attention', 'Upcoming', 'Live jobs', 'Documents', 'Exceptions', 'All work']) {
+      expect(page).toContain(tab);
+    }
+    expect(page).toContain('setWorkboardView');
     for (const route of ['/driver/vehicles', '/driver/availability', '/driver/documents', '/driver/history']) {
       expect(page).toContain(`router.push('${route}')`);
     }
