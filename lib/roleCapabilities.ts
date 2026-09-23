@@ -295,6 +295,10 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
 
   // owner_operator (/driver)
   { prefix: '/driver/action-centre', workspace: 'owner_operator' },
+  { prefix: '/driver/directory', workspace: 'owner_operator' },
+  { prefix: '/driver/nearby', workspace: 'owner_operator' },
+  { prefix: '/driver/freight-vision', workspace: 'owner_operator' },
+  { prefix: '/driver/drivers-vehicles', workspace: 'owner_operator' },
   { prefix: '/driver/post-load', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/settings', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/change-password', workspace: 'owner_operator' },

@@ -97,6 +97,12 @@ describe('workspace route contracts', () => {
     }
   });
 
+  it('authorizes every Driver top-navigation workspace route explicitly', () => {
+    for (const href of ['/driver/directory', '/driver/nearby', '/driver/freight-vision', '/driver/drivers-vehicles']) {
+      expect(getProtectedRouteRequirement(href)?.prefix, `${href} is missing a protected route requirement`).toBe(href);
+    }
+  });
+
   it('authorizes the nested Directory entries through existing protected prefixes', () => {
     expect(getProtectedRouteRequirement('/customer/network/directory')?.prefix).toBe('/customer/network');
     expect(getProtectedRouteRequirement('/broker/carrier-network/directory')?.prefix).toBe('/broker/carrier-network');
