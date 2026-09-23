@@ -7,7 +7,6 @@ const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), rela
 describe('Driver Dashboard prototype and route audit', () => {
   const topShell = read('app/driver/_components/DriverTopWorkspaceShell.tsx');
   const page = read('app/driver/page.tsx');
-  const css = read('app/driver/driver-dashboard-prototype-exact.css');
 
   it('keeps Dashboard as the first Driver navbar destination and routes it to /driver', () => {
     const dashboard = "{ id: 'dashboard', label: 'Dashboard', href: '/driver' }";
@@ -17,16 +16,13 @@ describe('Driver Dashboard prototype and route audit', () => {
     expect(topShell.indexOf(dashboard)).toBeLessThan(topShell.indexOf(directory));
   });
 
-  it('uses the literal 17883 Dashboard V2 structure', () => {
-    for (const marker of ['xd2-hero', 'xd2-kpis', 'xd2-primary-grid', 'xd2-workboard', 'xd2-readiness', 'xd2-secondary-grid', 'xd2-finance', 'xd2-bottom-grid']) {
+  it('uses the approved CX-close Dashboard V2 structure', () => {
+    for (const marker of ['driver-dashboard-statusbar', 'driver-dashboard-register', 'driver-dashboard-readiness']) {
       expect(page).toContain(marker);
     }
-    expect(page).toContain('Today at a glance');
-    expect(page).toContain('Operational workboard');
-    expect(page).toContain('Commercial position');
-    expect(page).toContain('Performance & evidence');
-    expect(page).toContain('Driver workflow');
-    expect(page).toContain('Latest bookings');
+    for (const label of ['My Work', 'Recent Bookings', 'Driver & Vehicle Readiness', 'Reports & Finance', 'Feedback in last 90 days']) {
+      expect(page).toContain(label);
+    }
     expect(page).not.toContain('<span>Quote activity</span>');
     expect(page).not.toContain('<span>Recent completed work</span>');
     expect(page).not.toContain('<span>Status & availability</span>');
@@ -48,9 +44,8 @@ describe('Driver Dashboard prototype and route audit', () => {
   });
 
   it('keeps the approved six-card command strip and functional workboard tabs', () => {
-    expect(css).toContain('.xd2-kpis');
-    expect(css).toContain('.xd2-kpi');
-    for (const label of ['Needs Attention', 'Upcoming Work', 'Live Jobs', 'Matching Loads', 'Document Alerts', 'Exceptions']) {
+    expect(page).toContain('driver-dashboard-statusbar');
+    for (const label of ['Availability', 'Active vehicle', 'Needs attention', 'Upcoming work', 'Live jobs', 'Matching loads']) {
       expect(page).toContain(label);
     }
     for (const tab of ['Needs attention', 'Upcoming', 'Live jobs', 'Documents', 'Exceptions', 'All work']) {
