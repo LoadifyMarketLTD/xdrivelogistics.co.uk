@@ -585,3 +585,341 @@
     min-height: 0 !important;
   }
 }
+/* Driver Dashboard — yesterday's prototype composition, simplified for the driver role. */
+.xdrive-driver-workspace .driver-prototype-dashboard .xdrive-page-header {
+  margin-bottom: 10px !important;
+}
+
+.xdrive-driver-workspace .driver-proto-hero {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 13px;
+  border: 1px solid #c7d1dc;
+  background: #fff;
+}
+
+.xdrive-driver-workspace .driver-proto-hero > div:first-child {
+  min-width: 0;
+}
+
+.xdrive-driver-workspace .driver-proto-hero h2,
+.xdrive-driver-workspace .driver-proto-panel__head h3 {
+  margin: 0;
+  color: #21384f;
+  font-weight: 800;
+}
+
+.xdrive-driver-workspace .driver-proto-hero h2 {
+  margin-top: 2px;
+  font-size: 18px;
+  line-height: 23px;
+}
+
+.xdrive-driver-workspace .driver-proto-hero p,
+.xdrive-driver-workspace .driver-proto-panel__head p {
+  margin: 3px 0 0;
+  color: #627489;
+  font-size: 11.5px;
+  line-height: 16px;
+}
+
+.xdrive-driver-workspace .driver-proto-eyebrow {
+  display: block;
+  color: #1d57d8;
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.xdrive-driver-workspace .driver-proto-hero__status {
+  min-width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: #526174;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 8px;
+  border: 1px solid #c7d1dc;
+  background: #fff;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis button {
+  min-width: 0;
+  min-height: 82px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 0;
+  border-right: 1px solid #dce3eb;
+  border-top: 3px solid #c8d2dd;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis button:last-child {
+  border-right: 0;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis button:hover,
+.xdrive-driver-workspace .driver-proto-kpis button:focus-visible {
+  background: #f7f9fc;
+  border-top-color: #1d57d8;
+  outline: none;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis span {
+  color: #5d6f83;
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 800;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis strong {
+  display: block;
+  max-width: 100%;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #0b2f6b;
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis small {
+  display: block;
+  max-width: 100%;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #7a8796;
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-driver-workspace .driver-proto-panel {
+  margin-top: 8px;
+  border: 1px solid #c7d1dc;
+  background: #fff;
+}
+
+.xdrive-driver-workspace .driver-proto-panel__head {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #dce3eb;
+  background: #f2f4f7;
+}
+
+.xdrive-driver-workspace .driver-proto-panel__head > div {
+  min-width: 0;
+}
+
+.xdrive-driver-workspace .driver-proto-panel__head h3 {
+  margin-top: 1px;
+  font-size: 14px;
+  line-height: 19px;
+}
+
+.xdrive-driver-workspace .driver-proto-panel__body {
+  padding: 8px;
+}
+
+.xdrive-driver-workspace .driver-proto-workboard .driver-proto-panel__body {
+  padding: 8px;
+}
+
+.xdrive-driver-workspace .driver-proto-next-action {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 7px;
+  padding: 8px 10px;
+  border: 1px solid #bcd3ef;
+  background: #f4f8fd;
+}
+
+.xdrive-driver-workspace .driver-proto-next-action > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.xdrive-driver-workspace .driver-proto-next-action span,
+.xdrive-driver-workspace .driver-proto-next-booking__label {
+  color: #1d57d8;
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.xdrive-driver-workspace .driver-proto-next-action strong {
+  color: #21384f;
+  font-size: 13px;
+  line-height: 17px;
+}
+
+.xdrive-driver-workspace .driver-proto-next-action small {
+  color: #627489;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.xdrive-driver-workspace .driver-proto-next-booking__label {
+  margin: 0 0 6px 2px;
+}
+
+.xdrive-driver-workspace .driver-proto-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, .65fr);
+  gap: 8px;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.xdrive-driver-workspace .driver-proto-readiness button {
+  min-width: 0;
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 9px 10px;
+  border: 0;
+  border-right: 1px solid #e1e6ec;
+  border-bottom: 1px solid #e1e6ec;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness button:nth-child(2n) {
+  border-right: 0;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness button:nth-last-child(-n+2) {
+  border-bottom: 0;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness button:hover,
+.xdrive-driver-workspace .driver-proto-readiness button:focus-visible {
+  background: #f8fafc;
+  outline: none;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness span {
+  color: #667689;
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 700;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness strong {
+  display: block;
+  max-width: 100%;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #24364b;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness small {
+  display: block;
+  max-width: 100%;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #7a8796;
+  font-size: 10.5px;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-driver-workspace .driver-prototype-dashboard .driver-load-row__top {
+  min-height: 76px !important;
+}
+
+.xdrive-driver-workspace .driver-prototype-dashboard .driver-load-cell {
+  padding: 9px 10px !important;
+}
+
+.xdrive-driver-workspace .driver-prototype-dashboard .driver-load-row__meta {
+  min-height: 30px !important;
+  padding: 4px 8px !important;
+}
+
+@media (max-width: 1180px) {
+  .xdrive-driver-workspace .driver-proto-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .xdrive-driver-workspace .driver-proto-kpis button:nth-child(3n) {
+    border-right: 0;
+  }
+  .xdrive-driver-workspace .driver-proto-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .xdrive-driver-workspace .driver-proto-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .xdrive-driver-workspace .driver-proto-hero__status {
+    min-width: 0;
+    justify-content: flex-start;
+  }
+  .xdrive-driver-workspace .driver-proto-kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+  .xdrive-driver-workspace .driver-proto-kpis button {
+    border-right: 1px solid #dce3eb;
+  }
+  .xdrive-driver-workspace .driver-proto-kpis button:nth-child(2n) {
+    border-right: 0;
+  }
+  .xdrive-driver-workspace .driver-proto-readiness {
+    grid-template-columns: 1fr;
+  }
+  .xdrive-driver-workspace .driver-proto-readiness button {
+    border-right: 0;
+    border-bottom: 1px solid #e1e6ec;
+  }
+  .xdrive-driver-workspace .driver-proto-readiness button:last-child {
+    border-bottom: 0;
+  }
+  .xdrive-driver-workspace .driver-proto-next-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
