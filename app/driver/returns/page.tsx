@@ -350,6 +350,11 @@ export default function ReturnJourneysPage() {
         </div>
         <div className="pagebody">
           <aside className="left">
+            <div className="return-side-actions">
+              <button type="button" className="btn primary" onClick={() => setTab('add')}>+ Add Journey</button>
+              <button type="button" className={tab === 'mine' ? 'btn active' : 'btn'} onClick={() => setTab('mine')}>Our Journeys</button>
+              <button type="button" className={tab === 'search' ? 'btn active' : 'btn'} onClick={() => setTab('search')}>Search</button>
+            </div>
             <div className="left-title">{tab === 'add' ? 'Future Position' : tab === 'mine' ? 'My Journeys' : 'Journey Search'}</div>
             {tab === 'search' && <form onSubmit={handleSearch}>
               <div className="filter"><span className="label">From / Radius</span><div className="row2"><input className="input" value={search.from} onChange={(event) => setSearch((current) => ({ ...current, from: event.target.value }))} placeholder="Enter location" /><select className="select" value={search.fromRadius} onChange={(event) => setSearch((current) => ({ ...current, fromRadius: event.target.value }))}>{radiusOptions.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
@@ -368,9 +373,7 @@ export default function ReturnJourneysPage() {
             {error && <AlertBanner tone="danger">{error}</AlertBanner>}
             {successMsg && <AlertBanner tone="success">{successMsg}</AlertBanner>}
             <div className="return-tabs return-tabs--workspace">
-              <button type="button" className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>Available Journeys</button>
-              <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>Our Journeys</button>
-              <button type="button" className={tab === 'add' ? 'active' : ''} onClick={() => setTab('add')}>Add Journey</button>
+              <strong>{tab === 'add' ? 'Add Journey' : tab === 'mine' ? 'Our Journeys' : 'Available Journeys'}</strong>
               <span className="spacer" />
               <div className="return-view"><button type="button" className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>Map View</button><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button></div>
               <button type="button" className="btn" onClick={refreshCurrent} disabled={loading}>Refresh</button>
