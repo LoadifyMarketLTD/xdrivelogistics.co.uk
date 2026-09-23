@@ -16,4 +16,15 @@ describe('driver finance invoice contract', () => {
     expect(route).toContain('Your company is not a party to the related job.');
     expect(route).toContain('An active company is required to create invoices.');
   });
+
+  it('keeps a single full-width invoice lifecycle filter row without duplicate payment tabs', () => {
+    const page = readRepoFile('app/driver/finance/page.tsx');
+    const css = readRepoFile('app/driver/driver-prototype-parity.css');
+
+    expect(page).toContain('aria-label="Invoice states"');
+    expect(page).not.toContain('aria-label="Payment states"');
+    expect(page).not.toContain('PAYMENT_TABS');
+    expect(page).not.toContain('paymentTab');
+    expect(css).toContain('grid-template-columns:repeat(7,minmax(0,1fr))');
+  });
 });

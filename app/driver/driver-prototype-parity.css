@@ -1390,3 +1390,52 @@
   .xdrive-driver-workspace .driver-dashboard-readiness__grid button:nth-child(2){border-right:0}
   .xdrive-driver-workspace .driver-dashboard-readiness__grid button:nth-child(-n+2){border-bottom:1px solid #d9e0e7}
 }
+
+
+/* Finance: one lifecycle filter row, distributed across the full register width. */
+.xdrive-driver-workspace .driver-finance-register .finance-tabs{
+  width:100%;
+  display:grid !important;
+  grid-template-columns:repeat(7,minmax(0,1fr)) !important;
+  align-items:stretch;
+  border:1px solid #c8d2dd;
+  background:#fff;
+}
+.xdrive-driver-workspace .driver-finance-register .finance-tabs button{
+  width:100%;
+  min-width:0;
+  height:38px;
+  border:0;
+  border-right:1px solid #d9e0e7;
+  border-bottom:2px solid transparent;
+  background:#fff;
+  padding:0 8px;
+  color:#33495f;
+  font-size:11px;
+  font-weight:700;
+  cursor:pointer;
+  text-align:center;
+}
+.xdrive-driver-workspace .driver-finance-register .finance-tabs button:last-child{
+  border-right:0;
+}
+.xdrive-driver-workspace .driver-finance-register .finance-tabs button[data-active='true']{
+  background:#f4f8fd;
+  color:#0b2f6b;
+  border-bottom-color:#1d57d8;
+}
+.xdrive-driver-workspace .driver-finance-register .finance-tabs button span{
+  margin-left:4px;
+  color:#1d57d8;
+  font-weight:800;
+}
+@media(max-width:900px){
+  .xdrive-driver-workspace .driver-finance-register .finance-tabs{
+    display:flex !important;
+    overflow-x:auto;
+  }
+  .xdrive-driver-workspace .driver-finance-register .finance-tabs button{
+    min-width:112px;
+    flex:0 0 auto;
+  }
+}
