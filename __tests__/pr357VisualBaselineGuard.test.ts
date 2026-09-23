@@ -67,7 +67,7 @@ describe('PR #357 approved visual baseline', () => {
 
   it('keeps the Customer transport-control dashboard structure', () => {
     expect(customerDashboard).toContain('title="Transport Control"');
-    expect(customerDashboard).toContain('OperationalSignalStrip');
+    expect(customerDashboard).toContain('customer-dash-metrics');
     expect(customerDashboard).toContain('customer-exchange-dashboard');
     expect(customerDashboard).toContain('Open transport requests');
     expect(customerDashboard).toContain('Recent quote activity');
