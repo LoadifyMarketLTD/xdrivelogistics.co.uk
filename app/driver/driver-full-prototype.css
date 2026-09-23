@@ -312,7 +312,7 @@
 .driver-prototype-port .load-quote-state{margin-left:auto;display:flex;height:100%}.driver-prototype-port .load-quote-state button{height:29px;border:1px solid #cbd3dc;background:#fff;padding:0 8px;font-size:9px;cursor:pointer}.driver-prototype-port .load-quote-state button+button{border-left:0}.driver-prototype-port .load-quote-state button.active{background:#f4f7fb;color:#0b2f6b;font-weight:700}
 .driver-prototype-port .load-budget{font-size:9px;color:#758190;text-align:center}.driver-prototype-port .load-budget b{font-size:12px;color:#0b2f6b;margin-left:3px}
 .driver-prototype-port .load-won{background:#fff;border:1px solid var(--line);border-top:0}.driver-prototype-port .load-won.hidden{display:none}
-.driver-prototype-port .load-page-text{margin-left:12px}.driver-prototype-port .load-extra{grid-template-columns:repeat(5,1fr)}
+.driver-prototype-port .load-page-text{margin-left:12px}.driver-prototype-port .load-head-page-size{display:flex;align-items:center;gap:5px;font-size:10.5px;font-weight:700;color:#526579;white-space:nowrap}.driver-prototype-port .load-head-page-size select{height:24px;min-width:52px;border:1px solid #c9d3de;background:#fff;font-size:10.5px}.driver-prototype-port .load-head-count{font-size:10.5px;color:#6b7b8c;white-space:nowrap}.driver-prototype-port .load-extra{grid-template-columns:repeat(5,1fr)}
 @media(max-width:1250px){.driver-prototype-port .load-extra{grid-template-columns:1fr 1fr}.driver-prototype-port .load-extra-note{grid-column:1/-1!important}.driver-prototype-port .load-quote-state{display:none}}
 
 /* Finance workspace: XDrive lifecycle first, CX parity clearly separated */
