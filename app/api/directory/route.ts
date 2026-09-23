@@ -177,7 +177,7 @@ export async function GET(request: NextRequest) {
   const [companiesResult, driversResult, vehiclesResult, reputationJobsResult, reputationInvoicesResult] = await Promise.all([
     supabaseAdmin
       .from('companies')
-      .select('id, name, xd_id, phone, company_type, status, created_at, city, postcode, country')
+      .select('id, name, xd_id, email, phone, company_type, status, created_at, city, postcode, country')
       .eq('status', 'active')
       .order('name', { ascending: true })
       .limit(COMPANY_LIMIT),
@@ -220,6 +220,7 @@ export async function GET(request: NextRequest) {
     name: company.name,
     memberId: company.xd_id ?? null,
     businessPhone: company.phone ?? null,
+    businessEmail: company.email ?? null,
     memberType: memberType(company.company_type),
     memberSince: company.created_at ?? null,
     city: company.city ?? null,
@@ -321,6 +322,7 @@ export async function GET(request: NextRequest) {
         memberId: memberIdByUserId.get(String(driver.user_id ?? '')) || company?.memberId || null,
         memberType: company?.memberType ?? 'Owner Driver',
         businessPhone: company?.businessPhone ?? null,
+        businessEmail: company?.businessEmail ?? null,
         city: company?.city ?? null,
         postcode: company?.postcode ?? null,
         country: company?.country ?? null,

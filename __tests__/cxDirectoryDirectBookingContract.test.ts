@@ -19,13 +19,21 @@ describe('CX-informed Directory and Direct Booking contract', () => {
     expect(directoryApi).not.toContain('exact_lng');
   });
   it('adds CX-useful business filters without fabricating unavailable radius data', () => {
-    for (const label of ['COUNTRY', 'VEHICLE TYPE', 'SPECIALIST SERVICE', 'TAIL LIFT CAPABILITY']) {
+    for (const label of ['Country', 'Vehicle Size', 'Body Type', 'Phone', 'Email', 'Specialist Services', 'Tail Lift']) {
       expect(directoryUi).toContain(label);
     }
+    expect(directoryApi).toContain('businessEmail: company.email ?? null');
+    expect(directoryUi).toContain('businessEmail');
+    expect(directoryUi).toContain('bodyType');
     expect(directoryUi).toContain('specialistService');
     expect(directoryUi).toContain('tailLiftOnly');
     expect(directoryUi).not.toContain('fakeRadius');
     expect(directoryUi).not.toContain('distanceMilesFromMember');
+    expect(directoryUi).toContain('<strong>COMPANIES</strong>');
+    expect(directoryUi).toContain('<strong>DRIVERS</strong>');
+    expect(directoryUi).toContain('driverDirectoryPageSize = 5');
+    expect(directoryUi).toContain('driverDirectoryCompanies');
+    expect(directoryUi).toContain('driverDirectoryDrivers');
   });
 
   it('offers Book Direct from authorised Broker, Customer and Carrier member-network contexts', () => {

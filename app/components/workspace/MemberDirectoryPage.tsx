@@ -15,6 +15,7 @@ type DirectoryCompany = {
   name: string;
   memberId: string | null;
   businessPhone: string | null;
+  businessEmail: string | null;
   memberType: string;
   memberSince: string | null;
   city: string | null;
@@ -36,6 +37,7 @@ type DirectoryDriver = {
   memberId: string | null;
   memberType: string;
   businessPhone: string | null;
+  businessEmail: string | null;
   city: string | null;
   postcode: string | null;
   country: string | null;
@@ -121,6 +123,9 @@ export function MemberDirectoryPage({
   const [member, setMember] = useState('');
   const [location, setLocation] = useState('');
   const [memberType, setMemberType] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
+  const [bodyType, setBodyType] = useState('');
   const [vehicle, setVehicle] = useState('');
   const [vehicleMatch, setVehicleMatch] = useState<'minimum' | 'exact'>('minimum');
   const [availability, setAvailability] = useState('');
@@ -142,8 +147,8 @@ export function MemberDirectoryPage({
   const [privacy, setPrivacy] = useState('');
   const [reputationNote, setReputationNote] = useState('');
   const [sortBy, setSortBy] = useState<'distance' | 'name' | 'delivery' | 'payment'>('distance');
-  const [pageSize, setPageSize] = useState<25 | 50 | 100>(25);
-  const [page, setPage] = useState(1);
+  const [companyPage, setCompanyPage] = useState(1);
+  const [driverPage, setDriverPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -188,6 +193,11 @@ export function MemberDirectoryPage({
     ...drivers.flatMap((driver) => driver.specialistServices ?? []),
   ])).sort(), [companies, drivers]);
 
+  const bodyTypes = useMemo(
+    () => specialistServices.filter((value) => ['curtainside', 'flatbed', 'refrigerated', 'temperature controlled'].includes(normalise(value))),
+    [specialistServices],
+  );
+
   const directBookingRoute = pathname.startsWith('/broker')
     ? '/broker/post-load'
     : pathname.startsWith('/customer')
@@ -230,6 +240,9 @@ export function MemberDirectoryPage({
     const memberNeedle = normalise(member);
     const locationNeedle = normalise(location);
     const typeNeedle = normalise(memberType);
+    const phoneNeedle = normalise(phone);
+    const emailNeedle = normalise(email);
+    const bodyNeedle = normalise(bodyType);
     const countryNeedle = normalise(country);
     const serviceNeedle = normalise(specialistService);
     const capabilityNeedles = capabilityFilters.map(normalise);
@@ -242,6 +255,9 @@ export function MemberDirectoryPage({
       return (!memberNeedle || memberText.includes(memberNeedle))
         && (!locationNeedle || locationText.includes(locationNeedle))
         && (!typeNeedle || normalise(company.memberType).includes(typeNeedle))
+        && (!phoneNeedle || normalise(company.businessPhone).includes(phoneNeedle))
+        && (!emailNeedle || normalise(company.businessEmail).includes(emailNeedle))
+        && (!bodyNeedle || serviceText.includes(bodyNeedle))
         && (!countryNeedle || normalise(company.country) === countryNeedle)
         && (!vehicle.trim() || company.vehicleTypes.some((value) => vehicleCapabilityMatches(value, vehicle, vehicleMatch)))
         && (!serviceNeedle || serviceText.includes(serviceNeedle))
@@ -250,12 +266,15 @@ export function MemberDirectoryPage({
         && (!deliveryThreshold || (company.deliveryReliability.score != null && company.deliveryReliability.score >= deliveryThreshold))
         && (!paymentThreshold || (company.paymentReliability.score != null && company.paymentReliability.score >= paymentThreshold));
     });
-  }, [capabilityFilters, companies, country, deliveryMin, location, member, memberType, paymentMin, specialistService, tailLiftOnly, vehicle, vehicleMatch]);
+  }, [bodyType, capabilityFilters, companies, country, deliveryMin, email, location, member, memberType, paymentMin, phone, specialistService, tailLiftOnly, vehicle, vehicleMatch]);
 
   const visibleDrivers = useMemo(() => {
     const memberNeedle = normalise(member);
     const locationNeedle = normalise(location);
     const availabilityNeedle = normalise(availability);
+    const phoneNeedle = normalise(phone);
+    const emailNeedle = normalise(email);
+    const bodyNeedle = normalise(bodyType);
     const countryNeedle = normalise(country);
     const serviceNeedle = normalise(specialistService);
     const capabilityNeedles = capabilityFilters.map(normalise);
@@ -267,6 +286,9 @@ export function MemberDirectoryPage({
       const serviceText = normalise((driver.specialistServices ?? []).join(' '));
       return (!memberNeedle || memberText.includes(memberNeedle))
         && (!locationNeedle || locationText.includes(locationNeedle))
+        && (!phoneNeedle || normalise(driver.businessPhone).includes(phoneNeedle))
+        && (!emailNeedle || normalise(driver.businessEmail).includes(emailNeedle))
+        && (!bodyNeedle || serviceText.includes(bodyNeedle))
         && (!countryNeedle || normalise(driver.country) === countryNeedle)
         && vehicleCapabilityMatches(driver.vehicleType, vehicle, vehicleMatch)
         && (!availabilityNeedle || normalise(driver.availability) === availabilityNeedle)
@@ -276,12 +298,15 @@ export function MemberDirectoryPage({
         && (!deliveryThreshold || (driver.deliveryReliability.score != null && driver.deliveryReliability.score >= deliveryThreshold))
         && (!paymentThreshold || (driver.paymentReliability.score != null && driver.paymentReliability.score >= paymentThreshold));
     });
-  }, [availability, capabilityFilters, country, deliveryMin, drivers, location, member, paymentMin, specialistService, tailLiftOnly, vehicle, vehicleMatch]);
+  }, [availability, bodyType, capabilityFilters, country, deliveryMin, drivers, email, location, member, paymentMin, phone, specialistService, tailLiftOnly, vehicle, vehicleMatch]);
 
   const clear = () => {
     setMember('');
     setLocation('');
     setMemberType('');
+    setPhone('');
+    setEmail('');
+    setBodyType('');
     setVehicle('');
     setVehicleMatch('minimum');
     setAvailability('');
@@ -308,13 +333,17 @@ export function MemberDirectoryPage({
     if (sortBy === 'payment') return (b.paymentReliability.score ?? -1) - (a.paymentReliability.score ?? -1);
     return (a.distanceMiles ?? Number.POSITIVE_INFINITY) - (b.distanceMiles ?? Number.POSITIVE_INFINITY);
   }), [sortBy, visibleDrivers]);
-  const totalRecords = tab === 'companies' ? sortCompanies.length : sortDrivers.length;
-  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const pageStart = (safePage - 1) * pageSize;
-  const paginatedCompanies = tab === 'companies' ? sortCompanies.slice(pageStart, pageStart + pageSize) : [];
-  const paginatedDrivers = tab === 'drivers' ? sortDrivers.slice(pageStart, pageStart + pageSize) : [];
-  useEffect(() => { setPage(1); }, [tab, pageSize, sortBy, member, location, memberType, vehicle, availability, country, specialistService, tailLiftOnly, deliveryMin, paymentMin, nearestQuery]);
+  const driverDirectoryPageSize = 5;
+  const companyTotalPages = Math.max(1, Math.ceil(sortCompanies.length / driverDirectoryPageSize));
+  const driverTotalPages = Math.max(1, Math.ceil(sortDrivers.length / driverDirectoryPageSize));
+  const safeCompanyPage = Math.min(companyPage, companyTotalPages);
+  const safeDriverPage = Math.min(driverPage, driverTotalPages);
+  const driverDirectoryCompanies = sortCompanies.slice((safeCompanyPage - 1) * driverDirectoryPageSize, safeCompanyPage * driverDirectoryPageSize);
+  const driverDirectoryDrivers = sortDrivers.slice((safeDriverPage - 1) * driverDirectoryPageSize, safeDriverPage * driverDirectoryPageSize);
+  useEffect(() => {
+    setCompanyPage(1);
+    setDriverPage(1);
+  }, [tab, sortBy, member, location, memberType, phone, email, bodyType, vehicle, vehicleMatch, availability, country, specialistService, tailLiftOnly, capabilityFilters, deliveryMin, paymentMin, nearestQuery]);
 
   const capped = Boolean(truncation.companies || truncation.drivers || truncation.vehicleEnrichment || truncation.reputation);
   const capMessage = capped
@@ -339,10 +368,13 @@ export function MemberDirectoryPage({
             <div className="filter"><span className="label">Member Name / ID</span><input className="input" value={member} onChange={(event) => setMember(event.target.value)} placeholder="Name or XD member ID" /></div>
             <div className="filter"><span className="label">Location / Radius</span><div className="row2"><input className="input" value={nearestLocation} onChange={(event) => setNearestLocation(event.target.value)} placeholder="Town / postcode" /><select className="select" value={nearestRadius} onChange={(event) => setNearestRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
             <div className="filter"><span className="label">Vehicle Size</span><div className="directory-vehicle-match"><label className="check"><input type="radio" name="directory-vehicle-match" checked={vehicleMatch === 'minimum'} onChange={() => setVehicleMatch('minimum')} />Minimum</label><label className="check"><input type="radio" name="directory-vehicle-match" checked={vehicleMatch === 'exact'} onChange={() => setVehicleMatch('exact')} />Exact</label></div><input className="input" value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="Any vehicle" /></div>
-            {tab === 'companies' && <div className="filter"><span className="label">Member Type</span><input className="input" value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier / Owner Driver / Broker" /></div>}
+            <div className="filter"><span className="label">Body Type</span><select className="select" value={bodyType} onChange={(event) => setBodyType(event.target.value)}><option value="">Any body type</option>{bodyTypes.map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
+            <div className="filter"><span className="label">Phone</span><input className="input" value={phone} onChange={(event) => setPhone(event.target.value)} placeholder="Business phone" /></div>
+            <div className="filter"><span className="label">Email</span><input className="input" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Business email" /></div>
+            <div className="filter"><span className="label">Member Type</span><input className="input" value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier / Owner Driver / Broker" /></div>
             <div className="filter"><span className="label">Specialist Services</span><select className="select" value={specialistService} onChange={(event) => setSpecialistService(event.target.value)}><option value="">Any service</option>{specialistServices.map((value) => <option key={value} value={value}>{value}</option>)}</select><label className="check"><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} />Tail Lift</label>{DIRECTORY_CAPABILITIES.map((capability) => <label key={capability} className="check"><input type="checkbox" checked={capabilityFilters.includes(capability)} onChange={(event) => setCapabilityFilters((current) => event.target.checked ? [...current, capability] : current.filter((value) => value !== capability))} />{capability}</label>)}</div>
             <div className="filter"><span className="label">Reliability</span><div className="row2"><select className="select" value={deliveryMin} onChange={(event) => setDeliveryMin(event.target.value)}><option value="">Any delivery score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select><select className="select" value={paymentMin} onChange={(event) => setPaymentMin(event.target.value)}><option value="">Any payment score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></div></div>
-            {tab === 'drivers' && <div className="filter"><span className="label">Availability</span><select className="select" value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></div>}
+            <div className="filter"><span className="label">Availability</span><select className="select" value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></div>
           </aside>
           <main className="main">
             <div className="head"><div><h1>Directory</h1><p>Search the XDrive member network by identity, location, capability, vehicle and performance</p></div></div>
@@ -353,44 +385,57 @@ export function MemberDirectoryPage({
               <div className="dir-hero-actions"><button type="button" className="btn" onClick={() => void load()}>Refresh</button><button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Search</button></div>
             </div>
             <div className="dir-tabs">
-              <button type="button" className={tab === 'companies' ? 'active' : ''} onClick={() => setTab('companies')}>COMPANIES <span>{visibleCompanies.length}</span></button>
-              <button type="button" className={tab === 'drivers' ? 'active' : ''} onClick={() => setTab('drivers')}>DRIVERS <span>{visibleDrivers.length}</span></button>
-              <div className="dir-sort">Sort By: <select className="select" value={sortBy} onChange={(event) => setSortBy(event.target.value as 'distance' | 'name' | 'delivery' | 'payment')}><option value="distance">Distance</option><option value="name">Member Name</option><option value="delivery">Delivery Reliability</option><option value="payment">Payment Reliability</option></select></div>
+              <div className="dir-sort">Sort By: <select className="select" value={sortBy} onChange={(event) => setSortBy(event.target.value as 'distance' | 'name' | 'delivery' | 'payment')}><option value="distance">Location / Distance</option><option value="name">Member Name</option><option value="delivery">Delivery Reliability</option><option value="payment">Payment Reliability</option></select></div>
             </div>
-            <div className="dir-summary"><span>{totalRecords} matching loaded record(s)</span><span className="spacer">Click a company identity for Member Profile</span></div>
             {loading ? <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div> : (
-              <div className="tablewrap">
-                <table className="dir-table" style={{ minWidth: 1280 }}>
-                  <thead><tr><th>Member</th><th>Location</th><th>Member Type</th><th>Vehicle / Capability</th><th>Delivery / Tracking</th><th>Payment / Last Seen</th><th>Status</th><th>Actions</th></tr></thead>
-                  <tbody>
-                    {tab === 'companies' ? paginatedCompanies.map((company) => (
-                      <tr key={company.companyId} className="dir-row">
-                        <td><button type="button" className="dir-member-link"><b><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></b><span className="meta">{company.memberId ?? 'Member ID not supplied'}</span></button></td>
-                        <td>{[company.city, company.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi` : ''}</span></td>
-                        <td>{company.memberType}</td>
-                        <td>{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Not supplied'}<span className="meta">{company.specialistServices?.length ? company.specialistServices.join(', ') : 'No specialist service declared'}</span></td>
-                        <td>{company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}<span className="meta">{company.deliveryReliability.evidenceCount} timed delivery record(s)</span></td>
-                        <td>{company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`}<span className="meta">{company.paymentReliability.evidenceCount} due/settlement record(s)</span></td>
-                        <td><StatusBadge value="Not advertised" /></td>
-                        <td><button type="button" className="rowbtn blue" onClick={() => setProfileCompanyId(company.companyId)}>Profile</button>{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId, company.name)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
-                      </tr>
-                    )) : paginatedDrivers.map((driver) => (
-                      <tr key={driver.driverId} className="dir-row">
-                        <td><b>{driver.displayName}</b><span className="meta">{driver.memberId ?? driver.companyName}</span></td>
-                        <td>{[driver.city, driver.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{driver.country ?? 'Country not supplied'}{driver.distanceMiles != null ? ` · ${driver.distanceMiles.toFixed(1)} mi` : ''}</span></td>
-                        <td>{driver.memberType}</td>
-                        <td>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}<span className="meta">{driver.hasTailLift ? 'Tail Lift · ' : ''}{driver.specialistServices?.length ? driver.specialistServices.join(', ') : 'No specialist service declared'}</span></td>
-                        <td>{driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}<span className="meta">Company-level delivery evidence</span></td>
-                        <td>{driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`}<span className="meta">Company-level payment evidence</span></td>
-                        <td><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} /></td>
-                        <td>{driver.companyId && <button type="button" className="rowbtn blue" onClick={() => setProfileCompanyId(driver.companyId)}>Profile</button>}{driver.companyId && messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(driver.companyId as string, driver.companyName)}>Message</button>}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <>
+                <div className="dir-summary"><strong>COMPANIES</strong><span>{sortCompanies.length} matching member(s)</span><span className="spacer">Click a company identity for Member Profile</span></div>
+                <div className="tablewrap">
+                  <table className="dir-table" style={{ minWidth: 1280 }}>
+                    <thead><tr><th>Member</th><th>Location</th><th>Member Type</th><th>Vehicle / Capability</th><th>Delivery / Tracking</th><th>Payment / Last Seen</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                      {driverDirectoryCompanies.map((company) => (
+                        <tr key={company.companyId} className="dir-row">
+                          <td><button type="button" className="dir-member-link"><b><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></b><span className="meta">{company.memberId ?? 'Member ID not supplied'}</span></button></td>
+                          <td>{[company.city, company.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi` : ''}</span></td>
+                          <td>{company.memberType}</td>
+                          <td>{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Not supplied'}<span className="meta">{company.specialistServices?.length ? company.specialistServices.join(', ') : 'No specialist service declared'}</span></td>
+                          <td>{company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}<span className="meta">{company.deliveryReliability.evidenceCount} timed delivery record(s)</span></td>
+                          <td>{company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`}<span className="meta">{company.paymentReliability.evidenceCount} due/settlement record(s)</span></td>
+                          <td><StatusBadge value="Not advertised" /></td>
+                          <td><button type="button" className="rowbtn blue" onClick={() => setProfileCompanyId(company.companyId)}>Profile</button>{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId, company.name)}>Chat</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book</button>}</td>
+                        </tr>
+                      ))}
+                      {driverDirectoryCompanies.length === 0 && <tr><td colSpan={8}><EmptyState compact title="No companies match these filters" /></td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="footer"><span>{sortCompanies.length ? `${(safeCompanyPage - 1) * driverDirectoryPageSize + 1}-${Math.min(safeCompanyPage * driverDirectoryPageSize, sortCompanies.length)} of ${sortCompanies.length}` : '0 of 0'}</span><div className="right"><button type="button" className="rowbtn" disabled={safeCompanyPage <= 1} onClick={() => setCompanyPage((current) => Math.max(1, current - 1))}>Previous</button><button type="button" className="rowbtn blue">{safeCompanyPage}</button><button type="button" className="rowbtn" disabled={safeCompanyPage >= companyTotalPages} onClick={() => setCompanyPage((current) => Math.min(companyTotalPages, current + 1))}>Next</button></div></div>
+
+                <div className="dir-summary" style={{ marginTop: 10 }}><strong>DRIVERS</strong><span>{sortDrivers.length} matching driver(s)</span></div>
+                <div className="tablewrap">
+                  <table className="dir-table" style={{ minWidth: 1280 }}>
+                    <thead><tr><th>Driver / Member</th><th>Location</th><th>Member Type</th><th>Vehicle / Capability</th><th>Delivery / Tracking</th><th>Payment / Last Seen</th><th>Status</th><th>Actions</th></tr></thead>
+                    <tbody>
+                      {driverDirectoryDrivers.map((driver) => (
+                        <tr key={driver.driverId} className="dir-row">
+                          <td><b>{driver.displayName}</b><span className="meta">{driver.memberId ?? driver.companyName}</span></td>
+                          <td>{[driver.city, driver.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{driver.country ?? 'Country not supplied'}{driver.distanceMiles != null ? ` · ${driver.distanceMiles.toFixed(1)} mi` : ''}</span></td>
+                          <td>{driver.memberType}</td>
+                          <td>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}<span className="meta">{driver.hasTailLift ? 'Tail Lift · ' : ''}{driver.specialistServices?.length ? driver.specialistServices.join(', ') : 'No specialist service declared'}</span></td>
+                          <td>{driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}<span className="meta">Company-level delivery evidence</span></td>
+                          <td>{driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`}<span className="meta">Company-level payment evidence</span></td>
+                          <td><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} /></td>
+                          <td>{driver.companyId && <button type="button" className="rowbtn blue" onClick={() => setProfileCompanyId(driver.companyId)}>Profile</button>}{driver.companyId && messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(driver.companyId as string, driver.companyName)}>Chat</button>}{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(driver.companyId as string)}>Book</button>}</td>
+                        </tr>
+                      ))}
+                      {driverDirectoryDrivers.length === 0 && <tr><td colSpan={8}><EmptyState compact title="No drivers match these filters" /></td></tr>}
+                    </tbody>
+                  </table>
+                </div>
+                <div className="footer"><span>{sortDrivers.length ? `${(safeDriverPage - 1) * driverDirectoryPageSize + 1}-${Math.min(safeDriverPage * driverDirectoryPageSize, sortDrivers.length)} of ${sortDrivers.length}` : '0 of 0'}</span><div className="right"><button type="button" className="rowbtn" disabled={safeDriverPage <= 1} onClick={() => setDriverPage((current) => Math.max(1, current - 1))}>Previous</button><button type="button" className="rowbtn blue">{safeDriverPage}</button><button type="button" className="rowbtn" disabled={safeDriverPage >= driverTotalPages} onClick={() => setDriverPage((current) => Math.min(driverTotalPages, current + 1))}>Next</button></div></div>
+              </>
             )}
-            <div className="footer"><span>Items per Page:</span><select className="fleet-page-size" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value) as 25 | 50 | 100)}><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select><span style={{ marginLeft: 10 }}>{totalRecords ? `${pageStart + 1}-${Math.min(pageStart + pageSize, totalRecords)} of ${totalRecords}` : '0 of 0'}</span><div className="right"><button type="button" className="rowbtn" disabled={safePage <= 1} onClick={() => setPage(1)}>First</button><button type="button" className="rowbtn" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button><button type="button" className="rowbtn blue">{safePage}</button><button type="button" className="rowbtn" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</button><button type="button" className="rowbtn" disabled={safePage >= totalPages} onClick={() => setPage(totalPages)}>Last</button></div></div>
             {reputationNote && <div className="footer">{reputationNote}</div>}
             {privacy && <div className="footer">{privacy}</div>}
           </main>
