@@ -154,6 +154,8 @@ export default function MyQuotesPage() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [pageSize, setPageSize] = useState<25 | 50>(25);
+  const [page, setPage] = useState(1);
 
   const fetchBids = useCallback(async () => {
     if (!isSupabaseConfigured || !userId) { setLoading(false); return; }
@@ -330,13 +332,17 @@ export default function MyQuotesPage() {
     return next;
   }, [filteredBids]);
   const visibleBids = useMemo(() => filteredBids.filter((bid) => quoteBucket(bid) === activeTab), [activeTab, filteredBids]);
-  const allVisibleExpanded = visibleBids.length > 0 && visibleBids.every((bid) => expandedIds.has(bid.id));
+  const pageCount = Math.max(1, Math.ceil(visibleBids.length / pageSize));
+  const safePage = Math.min(page, pageCount);
+  const paginatedBids = useMemo(() => visibleBids.slice((safePage - 1) * pageSize, safePage * pageSize), [pageSize, safePage, visibleBids]);
+  const allVisibleExpanded = paginatedBids.length > 0 && paginatedBids.every((bid) => expandedIds.has(bid.id));
   const toggleExpandAll = () => setExpandedIds((previous) => {
     const next = new Set(previous);
-    visibleBids.forEach((bid) => { if (allVisibleExpanded) next.delete(bid.id); else next.add(bid.id); });
+    paginatedBids.forEach((bid) => { if (allVisibleExpanded) next.delete(bid.id); else next.add(bid.id); });
     return next;
   });
-  const clearFilters = () => { setFilters(EMPTY_FILTERS); setAppliedFilters(EMPTY_FILTERS); };
+  useEffect(() => { setPage(1); }, [activeTab, appliedFilters, pageSize]);
+  const clearFilters = () => { setFilters(EMPTY_FILTERS); setAppliedFilters(EMPTY_FILTERS); setPage(1); };
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
@@ -372,7 +378,7 @@ export default function MyQuotesPage() {
             </div>
             {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {activeTab} quotes found.</span></div> : (
               <div className="quote-entries quote-register">
-                {visibleBids.map((bid) => {
+                {paginatedBids.map((bid) => {
                   const view = viewForBid(bid);
                   const expanded = expandedIds.has(bid.id);
                   const bidPrice = bid.bid_price_gbp ?? bid.amount ?? null;
@@ -403,7 +409,7 @@ export default function MyQuotesPage() {
                 })}
               </div>
             )}
-            <div className="footer"><span>Items per Page:</span><select className="fleet-page-size" defaultValue="25"><option>25</option><option>50</option></select><span style={{ marginLeft: 10 }}>1-{visibleBids.length} of {visibleBids.length}</span><div className="right"><button type="button" className="rowbtn" disabled>Previous</button><button type="button" className="rowbtn blue">1</button><button type="button" className="rowbtn" disabled>Next</button></div></div>
+            <div className="footer"><span>Items per Page:</span><select className="fleet-page-size" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value) as 25 | 50)}><option value={25}>25</option><option value={50}>50</option></select><span style={{ marginLeft: 10 }}>{visibleBids.length ? `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, visibleBids.length)} of ${visibleBids.length}` : '0 of 0'}</span><div className="right"><button type="button" className="rowbtn" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button><button type="button" className="rowbtn blue">{safePage}</button><button type="button" className="rowbtn" disabled={safePage >= pageCount} onClick={() => setPage((current) => Math.min(pageCount, current + 1))}>Next</button></div></div>
           </main>
         </div>
       </section>
