@@ -3,11 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
-import { ActionButton, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type QuoteDirection = 'outgoing' | 'incoming';
 type TabId = 'received' | 'archived' | 'submitted' | 'unsuccessful';
@@ -98,12 +96,6 @@ type QuoteView = {
 
 type FilterState = { pickupWithin: TimeWindow; deliveryWithin: TimeWindow; loadRef: string; bookedBy: string };
 
-const TABS: Array<{ id: TabId; label: string }> = [
-  { id: 'received', label: 'Received' },
-  { id: 'archived', label: 'Archived' },
-  { id: 'submitted', label: 'Submitted' },
-  { id: 'unsuccessful', label: 'Unsuccessful' },
-];
 const TIME_WINDOWS: Array<{ value: TimeWindow; label: string }> = [
   { value: 'any', label: 'Any' }, { value: '2', label: '2 hours' }, { value: '4', label: '4 hours' },
   { value: '8', label: '8 hours' }, { value: '24', label: '24 hours' },
@@ -133,13 +125,6 @@ function quoteBucket(bid: BidRow): TabId {
   if (bid.status === 'submitted') return 'submitted';
   if (['rejected', 'withdrawn'].includes(bid.status)) return 'unsuccessful';
   return 'archived';
-}
-function quoteTone(status: string): 'green' | 'red' | 'purple' | 'orange' | 'grey' {
-  if (status === 'accepted') return 'green';
-  if (status === 'rejected') return 'red';
-  if (status === 'withdrawn') return 'grey';
-  if (status === 'submitted') return 'orange';
-  return 'purple';
 }
 function normaliseCompany(value: unknown): { name: string } | null {
   if (Array.isArray(value)) return (value[0] as { name?: string | null } | undefined)?.name ? { name: String((value[0] as { name: string }).name) } : null;
@@ -353,33 +338,41 @@ export default function MyQuotesPage() {
   });
   const clearFilters = () => { setFilters(EMPTY_FILTERS); setAppliedFilters(EMPTY_FILTERS); };
 
-  const filterRail = (
-    <aside className="driver-filter-rail" aria-label="Quote search filters">
-      <div className="driver-filter-rail__header">Search Quotes</div>
-      <div className="driver-filter-rail__body">
-        <div className="driver-filter-field"><label>Pickup Time Within</label><select value={filters.pickupWithin} onChange={(e) => setFilters((c) => ({ ...c, pickupWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
-        <div className="driver-filter-field"><label>Delivery Time Within</label><select value={filters.deliveryWithin} onChange={(e) => setFilters((c) => ({ ...c, deliveryWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select></div>
-        <div className="driver-filter-field"><label>Load ID / Ref</label><input value={filters.loadRef} onChange={(e) => setFilters((c) => ({ ...c, loadRef: e.target.value }))} placeholder="Load / authorised ref" /></div>
-        <div className="driver-filter-field"><label>Booked by</label><input value={filters.bookedBy} onChange={(e) => setFilters((c) => ({ ...c, bookedBy: e.target.value }))} placeholder="Member / company" /></div>
-        <div className="driver-filter-actions"><ActionButton tone="success" onClick={() => setAppliedFilters(filters)}>Search</ActionButton><ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton></div>
-      </div>
-    </aside>
-  );
-
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Received, archived, submitted and unsuccessful quote records. Pre-award quotes keep execution details protected until authorised assignment.">
-        <div className="driver-board-layout driver-quotes-board">
-          {filterRail}
-          <main className="driver-board-main">
-            <div className="driver-tab-strip" role="tablist" aria-label="Quote states">
-              {TABS.map((tab) => <button key={tab.id} type="button" data-active={activeTab === tab.id ? 'true' : 'false'} onClick={() => setActiveTab(tab.id)}>{tab.label} <span>{counts[tab.id]}</span></button>)}
+      <section className="page driver-quotes-prototype">
+        <div className="subbar">
+          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Quotes</b></span>
+          <div className="sub-actions">
+            <button type="button" className="btn" onClick={clearFilters}>Clear</button>
+            <button type="button" className="btn primary" onClick={() => setAppliedFilters(filters)}>Search</button>
+          </div>
+        </div>
+        <div className="pagebody">
+          <aside className="left">
+            <div className="left-title">Search Quotes</div>
+            <div className="filter"><span className="label">Pickup Time Within</span><select className="select" value={filters.pickupWithin} onChange={(event) => setFilters((current) => ({ ...current, pickupWithin: event.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+            <div className="filter"><span className="label">Delivery Time Within</span><select className="select" value={filters.deliveryWithin} onChange={(event) => setFilters((current) => ({ ...current, deliveryWithin: event.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
+            <div className="filter"><span className="label">Load ID / Ref</span><input className="input" value={filters.loadRef} onChange={(event) => setFilters((current) => ({ ...current, loadRef: event.target.value }))} placeholder="Load ID / reference" /></div>
+            <div className="filter"><span className="label">Member / Company</span><input className="input" value={filters.bookedBy} onChange={(event) => setFilters((current) => ({ ...current, bookedBy: event.target.value }))} placeholder="Name / XD member ID" /></div>
+          </aside>
+          <main className="main">
+            <div className="head"><div><h1>Quotes</h1><p>Submitted offers, counter-offers, awards and quote outcomes</p></div></div>
+            {error && <div className="vision-note">{error}</div>}
+            <div className="quote-head quote-head-cx">
+              <div><b>Quote Register</b><span>Marketplace offers, counter-offers and outcomes</span></div>
+              <button type="button" className="text-action" onClick={toggleExpandAll}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
+              <span className="quote-count">{visibleBids.length} records</span>
             </div>
-            <div className="driver-board-summary"><span>{visibleBids.length} {activeTab} quote{visibleBids.length === 1 ? '' : 's'}</span>{visibleBids.length > 0 && <button type="button" onClick={toggleExpandAll} style={{ border: 0, background: 'transparent', color: '#1d57d8', fontWeight: 700 }}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>}</div>
-            {error && <div role="alert" className="driver-board-alert driver-board-alert--error">{error}</div>}
-            {loading ? <div className="driver-load-row"><EmptyState compact title="Loading quotes…" /></div>
-              : visibleBids.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No quotes here" description={`No ${activeTab} quotes found.`} /></div>
-              : <div className="driver-load-list">{visibleBids.map((bid) => {
+            <div className="quote-tabs">
+              <button type="button" className={activeTab === 'received' ? 'active' : ''} onClick={() => setActiveTab('received')}>Received <span>{counts.received}</span></button>
+              <button type="button" className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted <span>{counts.submitted}</span></button>
+              <button type="button" className={activeTab === 'unsuccessful' ? 'active' : ''} onClick={() => setActiveTab('unsuccessful')}>Unsuccessful <span>{counts.unsuccessful}</span></button>
+              <button type="button" className={activeTab === 'archived' ? 'active' : ''} onClick={() => setActiveTab('archived')}>Archived <span>{counts.archived}</span></button>
+            </div>
+            {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {activeTab} quotes found.</span></div> : (
+              <div className="quote-entries quote-register">
+                {visibleBids.map((bid) => {
                   const view = viewForBid(bid);
                   const expanded = expandedIds.has(bid.id);
                   const bidPrice = bid.bid_price_gbp ?? bid.amount ?? null;
@@ -387,41 +380,33 @@ export default function MyQuotesPage() {
                   const counterpartName = bid.direction === 'incoming' ? incomingCompanyName : view.postingCompanyName;
                   const counterpartCompanyId = bid.direction === 'incoming' ? bid.company_id : view.postingCompanyId;
                   const fullExecutionAccess = view.access === 'assigned' || view.access === 'own';
-                  return <article key={bid.id} className="driver-load-row" data-state={bid.status === 'accepted' ? 'accepted' : bid.status}>
-                    <div className="driver-load-row__top">
-                      <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{view.pickup}</strong><span className="driver-cell-secondary">{view.access === 'marketplace' ? 'Area only · ' : ''}{fmtDate(view.pickupDatetime)}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{view.delivery}</strong><span className="driver-cell-secondary">{view.access === 'marketplace' ? 'Area only · ' : ''}{fmtDate(view.deliveryDatetime)}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Quote</span><strong className="driver-cell-primary">{money(bidPrice, bid.currency || 'GBP')}</strong><span className="driver-cell-secondary">{bid.direction === 'incoming' ? 'Received' : 'Your quote'}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Commercial</span><strong className="driver-cell-primary">{counterpartCompanyId ? <MemberIdentityLink companyId={counterpartCompanyId}>{counterpartName}</MemberIdentityLink> : counterpartName}</strong><span className="driver-cell-secondary">Submitted · {fmtDate(bid.created_at)}</span></div>
+                  return <article key={bid.id} className="quote-entry quote-sheet">
+                    <div className="quote-sheet-main">
+                      <section className="quote-route"><div><span>From:</span><b>{view.pickup}</b></div><div><span>To:</span><b>{view.delivery}</b></div></section>
+                      <section className="quote-times"><div><span>Pickup:</span><b>{fmtDate(view.pickupDatetime)}</b></div><div><span>Deliver:</span><b>{fmtDate(view.deliveryDatetime)}</b></div></section>
+                      <section className="quote-commercial"><div className={'quote-status-band ' + (bid.status === 'accepted' ? 'green' : bid.status === 'rejected' ? 'red' : 'amber')}>{bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}</div><div className="quote-price-line"><span>{bid.direction === 'incoming' ? 'Quote' : 'Your Quote'}</span><b>{money(bidPrice, bid.currency || 'GBP')}</b></div><span className="meta">Submitted: {fmtDate(bid.created_at)}</span><span className="quote-vehicle">{view.vehicle?.replace(/_/g,' ') ?? 'Vehicle not supplied'}</span></section>
                     </div>
-                    <div className="driver-load-row__meta">
-                      <span>Load #{bid.job_id.slice(0, 8).toUpperCase()}</span>
-                      <span><strong>To Collection:</strong> {view.distanceToPickupMiles != null ? `${view.distanceToPickupMiles.toFixed(1)} mi${view.pickupEtaMinutes != null ? ` · ${Math.round(view.pickupEtaMinutes)} min` : ''}` : 'Not available'}</span>
-                      <span><strong>Job Distance:</strong> {view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} mi${view.jobDistanceMinutes != null ? ` · ${Math.round(view.jobDistanceMinutes)} min` : ''}` : 'Not available'}</span>
-                      {fullExecutionAccess && view.bookingReference && <span>Booking: {view.bookingReference}</span>}
-                      {fullExecutionAccess && view.customerReference && <span>Customer ref: {view.customerReference}</span>}
-                      <StatusBadge value={bid.status.charAt(0).toUpperCase() + bid.status.slice(1)} tone={quoteTone(bid.status)} />
-                      {view.access === 'marketplace' && <StatusBadge value="Quote-safe route" tone="blue" />}
-                      {view.access === 'protected' && <StatusBadge value="Execution protected" tone="grey" />}
-                      <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => setExpandedIds((previous) => { const next = new Set(previous); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })}>{expanded ? 'Collapse' : 'Details'}</ActionButton>{bid.direction === 'outgoing' && bid.status === 'submitted' && <ActionButton tone="secondary" onClick={() => void handleWithdrawBid(bid.id)}>Withdraw</ActionButton>}{view.access === 'assigned' && <ActionButton tone="success" onClick={() => router.push(`/driver/jobs/${bid.job_id}`)}>Open job</ActionButton>}{view.access === 'marketplace' && <ActionButton tone="secondary" onClick={() => router.push(`/driver/loads/${bid.job_id}`)}>Open load</ActionButton>}</div>
+                    <div className={'quote-entry-extra ' + (expanded ? '' : 'hidden')}>
+                      <section><b>Load</b><span>To Collection: {view.distanceToPickupMiles != null ? `${view.distanceToPickupMiles.toFixed(1)} mi` : 'Not available'}</span><span>Job Distance: {view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} mi` : 'Not available'}</span><span>Requested: {view.vehicle?.replace(/_/g,' ') ?? 'Not supplied'}</span></section>
+                      <section><b>Commercial</b><span>Quote: {money(bidPrice,bid.currency || 'GBP')}</span><span>Proposed price: {money(view.budget,view.currency)}</span><span>Load ID: {bid.job_id}</span></section>
+                      <section><b>Member / company</b><span>{counterpartCompanyId ? <MemberIdentityLink companyId={counterpartCompanyId}>{counterpartName}</MemberIdentityLink> : counterpartName}</span><span>{view.postingMemberId ?? 'Member ID unavailable'}</span>{view.postingPhone && <span>{view.postingPhone}</span>}</section>
+                      <section className="quote-note"><b>Quote Notes</b><span>{bid.message ?? 'No quote message supplied.'}</span>{!fullExecutionAccess && <small>Execution details remain protected until authorised allocation.</small>}</section>
                     </div>
-                    {expanded && <div className="driver-row-details"><div className="driver-detail-grid">
-                      <div className="driver-detail-item"><span>Load ID</span><strong>{bid.job_id}</strong></div>
-                      <div className="driver-detail-item"><span>{bid.direction === 'incoming' ? 'Quoted by' : 'Booked by'}</span><strong>{counterpartCompanyId ? <MemberIdentityLink companyId={counterpartCompanyId}>{counterpartName}</MemberIdentityLink> : counterpartName}</strong></div>
-                      <div className="driver-detail-item"><span>Vehicle</span><strong>{view.vehicle?.replace(/_/g, ' ') || (view.access === 'protected' ? 'Protected until allocation' : 'Not supplied')}</strong></div>
-                      <div className="driver-detail-item"><span>To Collection</span><strong>{view.distanceToPickupMiles != null ? `${view.distanceToPickupMiles.toFixed(1)} mi${view.pickupEtaMinutes != null ? ` · ${Math.round(view.pickupEtaMinutes)} min` : ''}` : 'Not available'}</strong></div>
-                      <div className="driver-detail-item"><span>Job Distance</span><strong>{view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} mi${view.jobDistanceMinutes != null ? ` · ${Math.round(view.jobDistanceMinutes)} min` : ''}` : 'Not available'}</strong></div>
-                      <div className="driver-detail-item"><span>Proposed price</span><strong>{money(view.budget, view.currency)}</strong></div>
-                      <div className="driver-detail-item"><span>Direction</span><strong>{bid.direction === 'incoming' ? 'Received' : 'Submitted'}</strong></div>
-                      <div className="driver-detail-item"><span>Detail access</span><strong>{view.access === 'assigned' ? 'Assigned execution record' : view.access === 'own' ? 'Your company booking' : view.access === 'marketplace' ? 'Pre-award quote-safe' : 'Awaiting authorised allocation'}</strong></div>
-                      {view.postingPhone && <div className="driver-detail-item"><span>Posting member phone</span><strong>{view.postingPhone}</strong><small>{view.postedBy ? `Posted by ${view.postedBy}` : 'Business contact'}</small></div>}
-                      {bid.message && <div className="driver-detail-item"><span>Quote message</span><strong>{bid.message}</strong></div>}
-                    </div>{!fullExecutionAccess && <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #dbeafe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}><strong>Execution privacy:</strong> submitting or accepting a quote does not expose exact addresses, site contacts, customer/PO/booking references or private instructions. Full execution details appear only when this driver is authorised for the job.</div>}</div>}
+                    <div className="quote-sheet-footer">
+                      <button type="button" className="quote-expand" onClick={() => setExpandedIds((previous) => { const next = new Set(previous); if(next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })}>{expanded ? '⌃' : '⌄'}</button>
+                      <button type="button" className="quote-primary-action" onClick={() => view.access === 'assigned' ? router.push(`/driver/jobs/${bid.job_id}`) : router.push(`/driver/loads/${bid.job_id}`)}>View Quote</button>
+                      <span className="quote-id">{bid.job_id.slice(0,8).toUpperCase()}</span><span className="quote-spacer" />
+                      {bid.direction === 'outgoing' && bid.status === 'submitted' && <button type="button" className="text-action" onClick={() => void handleWithdrawBid(bid.id)}>Withdraw</button>}
+                      <span className="quote-member-identity">{counterpartName}</span>
+                    </div>
                   </article>;
-                })}</div>}
+                })}
+              </div>
+            )}
+            <div className="footer"><span>Items per Page:</span><select className="fleet-page-size" defaultValue="25"><option>25</option><option>50</option></select><span style={{ marginLeft: 10 }}>1-{visibleBids.length} of {visibleBids.length}</span><div className="right"><button type="button" className="rowbtn" disabled>Previous</button><button type="button" className="rowbtn blue">1</button><button type="button" className="rowbtn" disabled>Next</button></div></div>
           </main>
         </div>
-      </DriverWorkspaceShell>
+      </section>
     </ProtectedRoute>
   );
 }

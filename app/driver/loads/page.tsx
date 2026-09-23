@@ -3,10 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
-import { ActionButton, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { ActionButton } from '../../components/workspace/WorkspaceUI';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -113,10 +111,6 @@ function fmtDate(value: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'TBC';
   return date.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
-function money(value: number | null, currency = 'GBP') {
-  if (value == null) return 'Open quote';
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 }
 function postedWithinMs(filter: PostedWithinFilter) {
   const values: Record<Exclude<PostedWithinFilter, 'any'>, number> = {
@@ -288,78 +282,84 @@ export default function AvailableLoadsPage() {
     }
   };
 
-  const visibleLoads = filteredLoads.slice(0, visibleCount); const canLoadMore = visibleCount < filteredLoads.length;
-  const filterRail = (
-    <aside className="driver-filter-rail" aria-label="Load search filters">
-      <div className="driver-filter-rail__header">Search Loads</div>
-      <div className="driver-filter-rail__body">
-        <label style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#475569', fontSize: '10px', fontWeight: 700 }}><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} />Save as Default</label>
-        <div className="driver-filter-field"><label htmlFor="driver-load-region">Region</label><select id="driver-load-region" value={regionFilter} onChange={(event) => setRegionFilter(event.target.value as RegionFilter)}><option value="any">UK & ROI + Euro</option><option value="uk_roi">UK & ROI</option><option value="euro">Euro / International</option></select></div>
-        <div className="driver-filter-field"><label htmlFor="driver-load-from">From</label><input id="driver-load-from" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Pickup area / outcode" /></div>
-        <div className="driver-filter-field"><label htmlFor="driver-load-to">To</label><input id="driver-load-to" value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Delivery area / outcode" /></div>
-        <div className="driver-filter-field"><label htmlFor="driver-load-vehicle">Vehicle size</label><select id="driver-load-vehicle" value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="any">Any vehicle</option>{Object.entries(VEHICLE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-        <div className="driver-filter-field"><label htmlFor="driver-load-cargo">Freight type</label><input id="driver-load-cargo" value={cargoFilter} onChange={(event) => setCargoFilter(event.target.value)} placeholder="Pallets, boxes, ADR…" /></div>
-        <div className="driver-filter-field"><label htmlFor="driver-load-member">Member Name / ID</label><input id="driver-load-member" value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Company / member ID" /></div>
-        <div className="driver-filter-field"><label htmlFor="driver-load-job-description">Job description</label><select id="driver-load-job-description" value={jobTimingFilter} onChange={(event) => setJobTimingFilter(event.target.value as JobTimingFilter)}><option value="any">Any</option><option value="same_day_timed">Same Day - Timed</option><option value="same_day_non_timed">Same Day - Non Timed</option><option value="next_day_timed">Next Day - Timed</option><option value="next_day_non_timed">Next Day - Non Timed</option></select></div>
-        <div className="driver-filter-field"><label htmlFor="driver-load-posted-within">Posted within last</label><select id="driver-load-posted-within" value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">All</option><option value="15m">15 minutes</option><option value="30m">30 minutes</option><option value="1h">1 hour</option><option value="2h">2 hours</option><option value="4h">4 hours</option><option value="8h">8 hours</option><option value="24h">24 hours</option></select></div>
-        <div className="driver-filter-field"><label htmlFor="driver-load-weight">Minimum weight</label><input id="driver-load-weight" type="number" min="0" value={weightMinFilter} onChange={(event) => setWeightMinFilter(event.target.value)} placeholder="kg" /></div>
-        <div className="driver-filter-field"><label htmlFor="driver-load-from-date">Date from</label><input id="driver-load-from-date" type="date" value={dateFromFilter} onChange={(event) => setDateFromFilter(event.target.value)} /></div>
-        <div className="driver-filter-field"><label htmlFor="driver-load-to-date">Date to</label><input id="driver-load-to-date" type="date" value={dateToFilter} onChange={(event) => setDateToFilter(event.target.value)} /></div>
-        <div className="driver-filter-field"><label htmlFor="driver-load-sort">Sort</label><select id="driver-load-sort" value={sortBy} onChange={(event) => setSortBy(event.target.value as SortMode)}><option value="date_desc">Newest posted</option><option value="date_asc">Oldest posted</option><option value="price_desc">Highest proposed price</option><option value="price_asc">Lowest proposed price</option></select></div>
-        <div className="driver-filter-actions"><ActionButton tone="success" onClick={applySearch}>Search</ActionButton><ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton></div>
-      </div>
-    </aside>
-  );
+  const visibleLoads = filteredLoads.slice(0, visibleCount);
+  const canLoadMore = visibleCount < filteredLoads.length;
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Quote from broad route, freight and member information; exact execution details unlock only after award." headerActions={<ActionButton tone="primary" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</ActionButton>}>
-        {successMsg && <div style={{ minHeight: 32, display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #bbf7d0', borderRadius: 4, background: '#ecfdf3', color: '#166534', fontSize: 12, fontWeight: 700 }}>{successMsg}</div>}
-        {error && <div role="alert" style={{ minHeight: 32, display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #fecaca', borderRadius: 4, background: '#fef2f2', color: '#b91c1c', fontSize: 12, fontWeight: 700 }}>{error}</div>}
-        <div className="driver-board-layout">
-          {filterRail}
-          <main className="driver-board-main">
-            <div className="driver-tab-strip" aria-label="Marketplace views">
-              <button type="button" data-active="true">All Live <span>{filteredLoads.length}</span></button>
-              <button type="button" onClick={() => router.push('/driver/loads/search')}>Advanced Search</button>
-              <button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button>
-              <button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button>
-              <button type="button" onClick={() => router.push('/driver/returns')}>Return Journeys</button>
+      <section className="page driver-loads-prototype">
+        <div className="subbar">
+          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Loads</b></span>
+          <div className="sub-actions">
+            <button type="button" className="btn" onClick={clearFilters}>Clear</button>
+            <button type="button" className="btn" onClick={() => { setSaveAsDefault(true); applySearch(); }}>Save Default</button>
+            <button type="button" className="btn primary" onClick={applySearch}>Search</button>
+          </div>
+        </div>
+        <div className="pagebody">
+          <aside className="left">
+            <div className="left-title">Search Loads</div>
+            <div className="filter"><span className="label">Scope</span><div className="load-scope"><button type="button" className={regionFilter !== 'euro' ? 'active' : ''} onClick={() => setRegionFilter('uk_roi')}>UK & ROI</button><button type="button" className={regionFilter === 'euro' ? 'active' : ''} onClick={() => setRegionFilter('euro')}>Euro</button></div></div>
+            <div className="filter"><span className="label">From / Radius</span><input className="input" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Blackburn BB1 / postcode" /></div>
+            <div className="filter"><span className="label">To</span><input className="input" value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Enter destination" /></div>
+            <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="any">Any exact / specialist</option>{Object.entries(VEHICLE_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+            <div className="filter"><span className="label">Freight Type</span><input className="input" value={cargoFilter} onChange={(event) => setCargoFilter(event.target.value)} placeholder="Pallets, cartons, machinery" /></div>
+            <div className="filter"><span className="label">Member Name / ID</span><input className="input" value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Member name / ID" /></div>
+            <div className="filter"><span className="label">Job Timing</span><select className="select" value={jobTimingFilter} onChange={(event) => setJobTimingFilter(event.target.value as JobTimingFilter)}><option value="any">Any timing</option><option value="same_day_timed">Same Day - Timed</option><option value="same_day_non_timed">Same Day - Non Timed</option><option value="next_day_timed">Next Day - Timed</option><option value="next_day_non_timed">Next Day - Non Timed</option></select></div>
+            <div className="filter"><span className="label">Posted Within</span><select className="select" value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">All</option><option value="15m">15 minutes</option><option value="30m">30 minutes</option><option value="1h">1 hour</option><option value="2h">2 hours</option><option value="4h">4 hours</option><option value="8h">8 hours</option><option value="24h">24 hours</option></select></div>
+            <div className="filter"><span className="label">Pickup Window</span><div className="row2"><input className="input" type="date" value={dateFromFilter} onChange={(event) => setDateFromFilter(event.target.value)} /><input className="input" type="date" value={dateToFilter} onChange={(event) => setDateToFilter(event.target.value)} /></div></div>
+            <div className="filter"><span className="label">Minimum Weight</span><input className="input" type="number" min="0" value={weightMinFilter} onChange={(event) => setWeightMinFilter(event.target.value)} placeholder="kg" /></div>
+            <div className="filter"><span className="label">Preferences</span><label className="check"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} />Save as Default</label></div>
+          </aside>
+          <main className="main">
+            <div className="head"><div><h1>Loads</h1><p>Search live freight, inspect privacy-safe details and prepare a quote</p></div></div>
+            {successMsg && <div className="vision-note">{successMsg}</div>}
+            {error && <div className="vision-note">{error}</div>}
+            <div className="load-nav-unified">
+              <div className="load-market-nav"><button type="button" className="active">Available Loads</button><button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button><button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button></div>
+              <span className="load-nav-divider" aria-hidden="true" />
+              <div className="load-tabs"><button type="button" className="active">All Live</button><button type="button">On Demand</button><button type="button">Regular Load</button><button type="button">Daily Hire</button></div>
+              <div className="load-posted">Show loads posted within last <select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">all</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
             </div>
-            <div className="driver-board-summary">
-              <span>{loading ? 'Loading live exchange…' : `${filteredLoads.length} live result${filteredLoads.length === 1 ? '' : 's'} · showing ${Math.min(visibleCount, filteredLoads.length)}`}</span>
-              <span style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}><button type="button" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }} style={{ border: 0, background: 'transparent', color: '#1d57d8', cursor: 'pointer', fontWeight: 700 }}>{expandAll ? 'Collapse All Entries' : 'Expand All Entries'}</button><label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page:<select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }} style={{ height: 28, border: '1px solid #d8dee8', borderRadius: 3, background: '#fff' }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label></span>
+            <div className="load-result-head">
+              <div><b>Search Loads Results</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
+              <div className="load-view-switch"><button type="button" className="active">List View</button><button type="button" disabled>Map View</button></div>
+              <button type="button" className="text-action" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }}>{expandAll ? 'Collapse all visible loads' : 'Expand all visible loads'}</button>
+              <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
             </div>
-            {loading ? <div style={{ border: '1px solid #d8dee8', borderRadius: 4, background: '#fff' }}><EmptyState compact title="Loading exchange loads…" /></div>
-              : loads.length === 0 ? <div style={{ border: '1px solid #d8dee8', borderRadius: 4, background: '#fff' }}><EmptyState title="No exchange loads available right now" description="Refresh the board or keep your availability and return journey current while new work is posted." action={<ActionButton tone="primary" onClick={() => void fetchLoads()}>Retry board</ActionButton>} /></div>
-              : filteredLoads.length === 0 ? <div style={{ border: '1px solid #d8dee8', borderRadius: 4, background: '#fff' }}><EmptyState title="No loads match these filters" description="Broaden the route, vehicle, freight or date criteria." action={<ActionButton tone="secondary" onClick={clearFilters}>Clear filters</ActionButton>} /></div>
-              : <div className="driver-load-list">{visibleLoads.map((load) => {
-                  const expanded = expandAll || expandedLoadId === load.id; const quoted = Boolean(load.myBid?.status);
-                  const selectedVehicleLabel = load.requested_vehicle_label ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g, ' ')) : 'Any vehicle');
-                  const cargoLabel = load.requested_cargo_label ?? load.cargo_type?.replace(/_/g, ' ') ?? 'Freight'; const dim = dimensions(load);
-                  const toCollection = load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} mi${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available';
-                  const jobDistance = load.distance_miles != null ? `${load.distance_miles.toFixed(1)} mi${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available';
-                  const detailSummary = [['To Collection', toCollection], ['Job Distance', jobDistance], dim ? ['Dimensions', dim] : null, load.cargo_value_gbp != null ? ['Cargo value', money(load.cargo_value_gbp)] : null, load.pallet_stackable != null ? ['Stackable', load.pallet_stackable ? 'Yes' : 'No'] : null, load.payment_terms ? ['Payment terms', load.payment_terms] : null, load.hard_copy_pod ? ['Hard-copy POD', load.hard_copy_pod] : load.pod_required != null ? ['POD required', load.pod_required ? 'Yes' : 'No'] : null].filter((item): item is [string, string] => Boolean(item));
+            {loading ? <div className="xd2-calm-empty"><b>Loading exchange loads…</b><span>Refreshing live freight.</span></div> : loads.length === 0 ? <div className="xd2-calm-empty"><b>No exchange loads available right now</b><span>Refresh the board or keep your availability and return journey current.</span></div> : filteredLoads.length === 0 ? <div className="xd2-calm-empty"><b>No loads match these filters</b><span>Broaden the route, vehicle, freight or date criteria.</span></div> : (
+              <div className="load-list">
+                {visibleLoads.map((load) => {
+                  const expanded = expandAll || expandedLoadId === load.id;
+                  const quoted = Boolean(load.myBid?.status);
+                  const selectedVehicleLabel = load.requested_vehicle_label ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g,' ')) : 'Any vehicle');
+                  const cargoLabel = load.requested_cargo_label ?? load.cargo_type?.replace(/_/g,' ') ?? 'Freight';
+                  const dim = dimensions(load);
+                  const toCollection = load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} miles${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available';
+                  const jobDistance = load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available';
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
-                  return <article key={load.id} className="driver-load-row" data-state={quoted ? 'quoted' : 'open'}>
-                    <div className="driver-load-row__top">
-                      <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{load.pickup_area}</strong><span className="driver-cell-secondary">Area only · {fmtDate(load.pickup_datetime)}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{load.delivery_area}</strong><span className="driver-cell-secondary">Area only · {fmtDate(load.delivery_datetime)}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Load</span><strong className="driver-cell-primary">{selectedVehicleLabel}</strong><span className="driver-cell-secondary">{cargoLabel}{load.weight_kg ? ` · ${load.weight_kg} kg` : ''}{load.pallets ? ` · ${load.pallets} pallet${load.pallets === 1 ? '' : 's'}` : ''}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Commercial</span><strong className="driver-cell-primary">{hasProposedPrice ? money(load.budget_amount, load.currency) : 'Quote required'}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink>{load.member.memberId ? ` · ${load.member.memberId}` : ''} · posted {fmtDate(load.exchange_posted_at)}</span></div>
+                  return <article key={load.id} className="load-card cx-load-card">
+                    <div className="load-primary">
+                      <div className="load-route"><div className="load-route-line"><span>From:</span><b>{load.pickup_area}</b></div><div className="load-route-line"><span>To:</span><b>{load.delivery_area}</b></div><div className="load-quickfacts"><span>{jobDistance}</span><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Weight not supplied'}</span></div></div>
+                      <div className="load-times"><div className="load-time-line"><span>Pickup:</span><b>{fmtDate(load.pickup_datetime)}</b></div><div className="load-time-line"><span>Deliver:</span><b>{fmtDate(load.delivery_datetime)}</b></div><div className="load-requested"><span>Requested:</span><b>{selectedVehicleLabel}</b></div></div>
+                      <div className="load-member"><span className="load-type">{load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace')}</span><div className="load-postedby">Posted by <b>{load.member.postedBy ?? load.member.name}</b></div><span className="meta">{fmtDate(load.exchange_posted_at)} · Load ID: {load.id.slice(0,8).toUpperCase()}</span><span className="load-vehicle">{selectedVehicleLabel}</span></div>
                     </div>
-                    <div className="driver-load-row__meta"><span>Load #{load.id.slice(0, 8).toUpperCase()}</span><span><strong>To Collection:</strong> {toCollection}</span><span><strong>Job Distance:</strong> {jobDistance}</span>{load.member.postedBy && <span>Posted by: {load.member.postedBy}</span>}{isEuroLoad(load) && <StatusBadge value="International" tone="blue" />}{load.direct_delivery_required && <StatusBadge value="Direct" tone="blue" />}{hasProposedPrice && <StatusBadge value="Proposed price" tone="orange" />}{load.myBid?.status && <StatusBadge value={`Quote ${load.myBid.status}`} tone="purple" />}{load.myBid?.amount != null && <strong style={{ color: '#7c3aed' }}>{money(load.myBid.amount)}</strong>}<div className="driver-row-actions">{!quoted && <ActionButton tone="success" onClick={() => { setExpandAll(false); setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</ActionButton>}<ActionButton tone="secondary" onClick={() => { if (expandAll) { setExpandAll(false); setExpandedLoadId(null); } else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open load</ActionButton></div></div>
-                    {expanded && <div className="driver-row-details"><div className="driver-detail-grid">{detailSummary.map(([label, value]) => <div key={`${load.id}-${label}`} className="driver-detail-item"><span>{label}</span><strong>{value}</strong></div>)}<div className="driver-detail-item"><span>Posting member</span><strong><MemberIdentityLink companyId={load.member.companyId}>{load.member.name}</MemberIdentityLink></strong><small>{[load.member.memberType, load.member.memberId].filter(Boolean).join(' · ') || 'Member identity available'}</small></div><div className="driver-detail-item"><span>Quote contact</span><strong>{load.member.phone ?? 'Business phone not supplied'}</strong><small>{load.member.postedBy ? `Posted by ${load.member.postedBy}` : 'Posted by name not supplied'}</small></div></div>
-                      {load.handling_requirements.length > 0 && <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Quote-safe requirements: </strong>{load.handling_requirements.join(' · ')}</div>}
-                      <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #dbeafe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}><strong>Pre-award privacy:</strong> exact addresses, site contacts, customer/PO/booking references and private execution notes are released only after an authorised award/allocation.</div>
-                      {bidLoadId === load.id && !quoted && <div className="driver-inline-quote"><div className="driver-filter-field"><label htmlFor={`bid-${load.id}`}>Your quote (£)</label><input id={`bid-${load.id}`} type="number" min="1" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} placeholder="Amount" /></div><div className="driver-filter-field"><label htmlFor={`message-${load.id}`}>Message</label><textarea id={`message-${load.id}`} rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} placeholder="Optional message to posting member" /></div><ActionButton tone="success" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit(load.id)}>{bidLoading ? 'Submitting…' : 'Submit Quote'}</ActionButton><ActionButton tone="secondary" onClick={() => { setBidLoadId(null); setBidAmount(''); setBidMessage(''); }}>Cancel</ActionButton></div>}
-                    </div>}
+                    <div className={'load-extra cx-load-extra ' + (expanded ? '' : 'hidden')}>
+                      <div className="load-extra-col"><div><b>To Collection</b><span>{toCollection}</span></div><div><b>Job Distance</b><span>{jobDistance}</span></div><div><b>Weight</b><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</span></div><div><b>Packaging</b><span>{cargoLabel}</span></div></div>
+                      <div className="load-extra-col"><div><b>Dimensions</b><span>{dim ?? 'Not supplied'}</span></div><div><b>Requested</b><span>{selectedVehicleLabel}</span></div><div><b>Payment Terms</b><span>{load.payment_terms ?? 'Not supplied'}</span></div><div><b>Hard copy POD</b><span>{load.hard_copy_pod ?? (load.pod_required == null ? 'Not supplied' : load.pod_required ? 'Required' : 'Not required')}</span></div></div>
+                      <div className="load-extra-note"><b>Load Notes</b><span>{load.public_quote_notes ?? 'No public quote notes supplied.'}</span><small>Pre-award execution contacts and exact private addresses remain protected until authorised award/allocation.</small></div>
+                      {load.handling_requirements.length > 0 && <div className="load-extra-note"><b>Requirements</b><span>{load.handling_requirements.join(' · ')}</span></div>}
+                      {bidLoadId === load.id && !quoted && <div className="driver-inline-quote"><div className="driver-filter-field"><label>Your quote (£)</label><input type="number" min="1" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} /></div><div className="driver-filter-field"><label>Message</label><textarea rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} /></div><ActionButton tone="success" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit(load.id)}>{bidLoading ? 'Submitting…' : 'Submit Quote'}</ActionButton><ActionButton tone="secondary" onClick={() => setBidLoadId(null)}>Cancel</ActionButton></div>}
+                    </div>
+                    <div className="load-card-footer"><button type="button" className="load-expand" onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '⌃' : '⌄'}</button>{!quoted && <button type="button" className="load-quote-footer" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}<span className="load-footer-spacer" /><button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button><span className="load-footer-identity">{load.member.memberId ?? 'Member ID unavailable'} · {load.member.name}{load.member.phone ? ` · ${load.member.phone}` : ''}</span></div>
                   </article>;
-                })}</div>}
-            {canLoadMore && <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 4 }}><ActionButton tone="secondary" onClick={() => setVisibleCount((current) => current + pageSize)}>Load more results</ActionButton></div>}
+                })}
+              </div>
+            )}
+            <div className="footer"><span>1-{Math.min(visibleCount, filteredLoads.length)} of {filteredLoads.length}</span><span className="load-page-text">Items per Page: <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></span><div className="right">{canLoadMore && <button type="button" className="rowbtn blue" onClick={() => setVisibleCount((current) => current + pageSize)}>Next</button>}</div></div>
           </main>
         </div>
-      </DriverWorkspaceShell>
+      </section>
     </ProtectedRoute>
   );
 }

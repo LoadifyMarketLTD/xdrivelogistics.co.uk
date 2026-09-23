@@ -277,9 +277,9 @@ export default function DriverFinancePage() {
   }), [payments]);
 
   const financeRail = (
-    <aside className="driver-filter-rail" aria-label="Finance summary">
-      <div className="driver-filter-rail__header">Invoice & Payment</div>
-      <div className="driver-filter-rail__body">
+    <aside className="left finance-filter-rail" aria-label="Finance summary">
+      <div className="left-title">Finance Filters</div>
+      <div className="finance-filter-body">
         <div style={{ fontSize: '11px', fontWeight: 800, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>Invoice state</div>
         {STATUS_TABS.map((tab) => (
           <button
@@ -320,14 +320,14 @@ export default function DriverFinancePage() {
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {generateError && <AlertBanner tone="danger">{generateError}</AlertBanner>}
 
-        <div className="driver-board-layout driver-finance-board">
+        <div className="pagebody finance-pagebody">
           {financeRail}
-          <main className="driver-board-main">
+          <main className="main finance-main">
             <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 6, flexWrap: 'wrap' }}>
               <span>Gross <strong>{money(values?.gross ?? 0)}</strong> · Net <strong>{money(values?.net ?? 0)}</strong> · VAT <strong>{money(values?.vat ?? 0)}</strong></span>
               <span>Recorded paid <strong>{money(values?.paid ?? 0)}</strong> · Outstanding <strong>{money(values?.outstanding ?? 0)}</strong></span>
             </div>
-            <div className="driver-tab-strip" role="tablist" aria-label="Invoice states">
+            <div className="finance-tabs" role="tablist" aria-label="Invoice states">
               {STATUS_TABS.map((tab) => (
                 <button key={tab.id} type="button" data-active={activeTab === tab.id ? 'true' : 'false'} onClick={() => setActiveTab(tab.id)}>
                   {tab.label} <span>{counts[tab.id]}</span>
@@ -350,7 +350,7 @@ export default function DriverFinancePage() {
                 ) : eligibleJobs.length === 0 ? (
                   <EmptyState compact title="No eligible jobs" description="No delivered or completed jobs are currently available for invoice generation." />
                 ) : (
-                  <div className="driver-load-list">
+                  <div className="finance-register">
                     {eligibleJobs.map((job) => {
                       const commercialAmount = job.invoice?.amount ?? job.agreed_amount ?? job.direct_invoice_amount;
                       const commercialLabel = job.invoice
@@ -359,7 +359,7 @@ export default function DriverFinancePage() {
                           ? 'Agreed carrier rate'
                           : 'Invoice amount';
                       return (
-                        <article key={job.id} className="driver-load-row">
+                        <article key={job.id} className="finance-row-card">
                           <div className="driver-load-row__top">
                             <div className="driver-load-cell"><span className="driver-cell-label">Route</span><strong className="driver-cell-primary">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong><span className="driver-cell-secondary">{date(job.pickup_datetime)}</span></div>
                             <div className="driver-load-cell"><span className="driver-cell-label">Customer</span><strong className="driver-cell-primary">{job.client_name ?? 'Marketplace customer'}</strong><span className="driver-cell-secondary">{job.customer_reference ?? `JOB-${job.id.slice(0, 8).toUpperCase()}`}</span></div>
@@ -388,13 +388,13 @@ export default function DriverFinancePage() {
             </div>
 
             {loading ? (
-              <div className="driver-load-row"><EmptyState compact title="Loading invoices…" /></div>
+              <div className="finance-row-card"><EmptyState compact title="Loading invoices…" /></div>
             ) : invoices.length === 0 ? (
-              <div className="driver-load-row"><EmptyState compact title="No invoices in this view" description={canGenerateInvoices ? 'Generate an invoice from a completed job or choose another invoice/payment filter.' : 'Choose another invoice/payment filter or refresh the register.'} /></div>
+              <div className="finance-row-card"><EmptyState compact title="No invoices in this view" description={canGenerateInvoices ? 'Generate an invoice from a completed job or choose another invoice/payment filter.' : 'Choose another invoice/payment filter or refresh the register.'} /></div>
             ) : (
-              <div className="driver-load-list">
+              <div className="finance-register">
                 {invoices.map((invoice) => (
-                  <article key={invoice.id} className="driver-load-row" data-state={invoice.status.toLowerCase()}>
+                  <article key={invoice.id} className="finance-row-card" data-state={invoice.status.toLowerCase()}>
                     <div className="driver-load-row__top">
                       <div className="driver-load-cell"><span className="driver-cell-label">Invoice</span><strong className="driver-cell-primary">{invoice.invoice_number}</strong><span className="driver-cell-secondary">{date(invoice.invoice_date)}</span></div>
                       <div className="driver-load-cell"><span className="driver-cell-label">Customer</span><strong className="driver-cell-primary">{invoice.client_name}</strong><span className="driver-cell-secondary">Job {invoice.job_ref}</span></div>

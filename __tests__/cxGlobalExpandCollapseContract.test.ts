@@ -30,7 +30,7 @@ describe('CX global Expand all / Collapse all operational contract', () => {
   });
 
   it('keeps Driver Loads, Advanced Search, Quotes and Diary globally expandable', () => {
-    expect(driverLoads).toContain("expandAll ? 'Collapse All Entries' : 'Expand All Entries'");
+    expect(driverLoads).toMatch(/Collapse all visible loads|Expand all visible loads/);
     expect(driverAdvancedLoads).toContain('OperationalExpandAllControl');
     expect(driverAdvancedLoads).toContain('allExpanded');
     expect(driverAdvancedLoads).toContain('new Set(loads.map');

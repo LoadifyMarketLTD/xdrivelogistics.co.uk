@@ -21,9 +21,7 @@ const DRIVER_PRIMARY_PAGE_TITLES: Readonly<Record<string, string>> = {
 
 const DRIVER_ACCOUNT_PREFIXES = [
   '/driver/profile',
-  '/driver/vehicles',
   '/driver/documents',
-  '/driver/finance',
   '/driver/messages',
   '/driver/change-password',
   '/driver/event-log',
@@ -66,6 +64,28 @@ export default function DriverWorkspaceShell({
   const resolvedTitle = resolveDriverPageTitle(pathname, driverName);
   const accountPath = isDriverAccountPath(pathname);
 
+  if (pathname !== '/driver' && !accountPath) {
+    return (
+      <section className="page driver-prototype-page-shell">
+        <div className="subbar">
+          <span className="crumb">Workspace &nbsp;/&nbsp; <b>{resolvedTitle}</b></span>
+          <div className="sub-actions">
+            {availabilityLabel && <StatusBadge value={availabilityLabel} />}
+            {headerActions}
+          </div>
+        </div>
+        <div className="pagebody no-left">
+          <main className="main">
+            <div className="head">
+              <div><h1>{resolvedTitle}</h1>{subtitle && <p>{subtitle}</p>}</div>
+            </div>
+            {children}
+          </main>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <PageFrame>
       <div className="driver-operational-page">
@@ -74,12 +94,7 @@ export default function DriverWorkspaceShell({
             eyebrow={pathname === '/driver' ? undefined : (personaLabel ?? 'Driver workspace')}
             title={resolvedTitle}
             description={subtitle}
-            actions={
-              <>
-                {availabilityLabel && <StatusBadge value={availabilityLabel} />}
-                {headerActions}
-              </>
-            }
+            actions={<>{availabilityLabel && <StatusBadge value={availabilityLabel} />}{headerActions}</>}
           />
         )}
         {accountPath ? (

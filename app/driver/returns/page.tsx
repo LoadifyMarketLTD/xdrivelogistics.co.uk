@@ -1,8 +1,7 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import ReturnJourneyMap from '../_components/ReturnJourneyMap';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
@@ -10,7 +9,7 @@ import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { OperationalExpandAllControl } from '../../components/workspace/OperationalExpandAllControl';
-import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { AlertBanner } from '../../components/workspace/WorkspaceUI';
 
 type DriverRow = {
   id: string;
@@ -339,172 +338,81 @@ export default function ReturnJourneysPage() {
     else void loadJourneys(tab === 'mine' ? 'mine' : 'marketplace', page, false);
   };
 
-  const searchRail = (
-    <aside className="driver-filter-rail driver-returns-search-rail" aria-label="Return journey search filters">
-      <div className="driver-filter-rail__header">Search Journeys</div>
-      <form className="driver-filter-rail__body" onSubmit={handleSearch}>
-        <div className="driver-filter-field"><label>From</label><input value={search.from} onChange={(event) => setSearch((current) => ({ ...current, from: event.target.value }))} placeholder="Location / postcode" /></div>
-        <div className="driver-filter-field"><label>From radius</label><select value={search.fromRadius} onChange={(event) => setSearch((current) => ({ ...current, fromRadius: event.target.value }))}>{radiusOptions.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div>
-        <div className="driver-filter-field"><label>To</label><input value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Location / postcode" /></div>
-        <div className="driver-filter-field"><label>To radius</label><select value={search.toRadius} onChange={(event) => setSearch((current) => ({ ...current, toRadius: event.target.value }))}>{radiusOptions.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div>
-        <div className="driver-filter-field"><label>Vehicle</label><select value={search.vehicleType} onChange={(event) => setSearch((current) => ({ ...current, vehicleType: event.target.value }))}><option value="">Any vehicle</option>{Object.entries(VEHICLE_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-        <div className="driver-filter-field"><label>Date</label><select value={search.date} onChange={(event) => setSearch((current) => ({ ...current, date: event.target.value }))}><option value="today10">Today + 10 Days</option><option value="anytime">Anytime</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option></select></div>
-        {advancedOpen && (
-          <>
-            <div className="driver-filter-field"><label>Member / XDrive ID</label><input value={search.member} onChange={(event) => setSearch((current) => ({ ...current, member: event.target.value }))} /></div>
-            <div className="driver-filter-field"><label>Journey type</label><select value={search.kind} onChange={(event) => setSearch((current) => ({ ...current, kind: event.target.value as SearchDefaults['kind'] }))}><option value="all">All</option><option value="ad_hoc">Ad Hoc</option><option value="regular">Regular</option></select></div>
-          </>
-        )}
-        <div className="driver-filter-actions"><ActionButton type="submit" tone="success">Search</ActionButton><ActionButton tone="secondary" onClick={clearSearch}>Clear</ActionButton></div>
-        <ActionButton tone="secondary" onClick={saveSearchDefault}>Save as Default</ActionButton>
-        <button type="button" className="driver-returns-link-button" onClick={() => setAdvancedOpen((value) => !value)}>{advancedOpen ? 'Hide Advanced Search' : 'Advanced Search'}</button>
-        {recentSearches.length > 0 && (
-          <div className="driver-filter-field"><label>Recent searches</label><select defaultValue="" onChange={(event) => { const selected = recentSearches[Number(event.target.value)]; if (selected) setSearch(selected); event.target.value = ''; }}><option value="">Choose recent search</option>{recentSearches.map((entry, index) => <option value={index} key={`${entry.from}-${entry.to}-${index}`}>{entry.from || 'Anywhere'} → {entry.to || 'Anywhere'}</option>)}</select></div>
-        )}
-      </form>
-    </aside>
-  );
-
-  const mineRail = (
-    <aside className="driver-filter-rail driver-returns-mine-rail" aria-label="My return journeys summary">
-      <div className="driver-filter-rail__header">My Journeys</div>
-      <div className="driver-filter-rail__body">
-        <div className="driver-returns-rail-stat"><span>Journeys</span><strong>{total}</strong></div>
-        <div className="driver-returns-rail-stat"><span>Live status</span><StatusBadge value={liveStatus} tone={liveStatus === 'available' ? 'green' : liveStatus === 'busy' ? 'orange' : 'grey'} /></div>
-        <div className="driver-returns-rail-stat"><span>Future position</span><strong>{driver?.future_position ?? 'Not advertised'}</strong><small>{fmtDate(driver?.future_position_date)}</small></div>
-        <ActionButton tone="primary" onClick={() => setTab('add')}>Add Journey</ActionButton>
-      </div>
-    </aside>
-  );
-
-  const futurePositionRail = (
-    <aside className="driver-filter-rail driver-returns-future-rail" aria-label="Future position">
-      <div className="driver-filter-rail__header">Future Position</div>
-      <form className="driver-filter-rail__body" onSubmit={(event) => void saveFuturePosition(event)}>
-        <div className="driver-filter-field"><label>Future location</label><input value={futurePosition} onChange={(event) => setFuturePosition(event.target.value)} placeholder="e.g. Birmingham B1" /></div>
-        <div className="driver-filter-field"><label>Available from</label><input type="datetime-local" value={futureDate} onChange={(event) => setFutureDate(event.target.value)} /></div>
-        <div className="driver-returns-rail-stat"><span>Current declaration</span><strong>{driver?.future_position ?? 'None'}</strong><small>{fmtDate(driver?.future_position_date)}</small></div>
-        <ActionButton type="submit" tone="primary" disabled={saving}>{saving ? 'Saving…' : 'Save position'}</ActionButton>
-      </form>
-    </aside>
-  );
-
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell
-        subtitle="Publish empty-vehicle routes, search the exchange and manage return journeys from one operational board."
-        availabilityLabel={liveStatus}
-        headerActions={<ActionButton tone="primary" onClick={refreshCurrent} disabled={loading}>Refresh</ActionButton>}
-      >
-        {error && <AlertBanner tone="danger">{error}</AlertBanner>}
-        {successMsg && <AlertBanner tone="success">{successMsg}</AlertBanner>}
-
-        <div className="driver-tab-strip driver-returns-tabs" role="tablist" aria-label="Return journey views">
-          <button type="button" data-active={tab === 'search' ? 'true' : 'false'} onClick={() => setTab('search')}>Search Journeys</button>
-          <button type="button" data-active={tab === 'mine' ? 'true' : 'false'} onClick={() => setTab('mine')}>My Journeys</button>
-          <button type="button" data-active={tab === 'add' ? 'true' : 'false'} onClick={() => setTab('add')}>Add Journey</button>
+      <section className="page driver-returns-prototype">
+        <div className="subbar">
+          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Return Journeys</b></span>
+          <div className="sub-actions">
+            <button type="button" className="btn" onClick={clearSearch}>Clear</button>
+            <button type="button" className="btn" onClick={() => setTab('mine')}>Our Journeys</button>
+            <button type="button" className="btn primary" onClick={() => setTab('add')}>+ Add Journey</button>
+          </div>
         </div>
-
-        {tab === 'add' ? (
-          <div className="driver-board-layout driver-returns-add-board">
-            {futurePositionRail}
-            <main className="driver-board-main">
-              <section className="driver-returns-form-panel">
-                <div className="driver-returns-panel-head"><div><strong>Add Journey</strong><span>Publish empty capacity without replacing your other journeys.</span></div></div>
-                <form className="driver-returns-form-grid" onSubmit={(event) => void publishJourney(event)}>
-                  <div className="driver-filter-field"><label>From</label><input value={addFrom} onChange={(event) => setAddFrom(event.target.value)} placeholder="e.g. Leeds LS1" /></div>
-                  <div className="driver-filter-field"><label>To</label><input value={addTo} disabled={goAnywhere} onChange={(event) => setAddTo(event.target.value)} placeholder="e.g. Blackburn BB1" /></div>
-                  <div className="driver-filter-field driver-returns-span-2"><label>Via (comma separated)</label><input value={addVia} onChange={(event) => setAddVia(event.target.value)} placeholder="e.g. Birmingham B76, Manchester M1" /></div>
-                  <div className="driver-filter-field"><label>Departs at</label><input type="datetime-local" value={addFromDate} onChange={(event) => setAddFromDate(event.target.value)} /></div>
-                  <div className="driver-filter-field"><label>Available until</label><input type="datetime-local" value={addUntil} onChange={(event) => setAddUntil(event.target.value)} /></div>
-                  <div className="driver-filter-field"><label>Vehicle size</label><select value={addVehicleType} onChange={(event) => setAddVehicleType(event.target.value)}><option value="">Any / assigned vehicle</option>{Object.entries(VEHICLE_TYPE_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-                  <div className="driver-filter-field"><label>Body type</label><input value={addBodyType} onChange={(event) => setAddBodyType(event.target.value)} placeholder="Panel, Box, Curtain Side…" /></div>
-                  <div className="driver-filter-field"><label>Weight available (kg)</label><input type="number" min="0" value={addWeight} onChange={(event) => setAddWeight(event.target.value)} /></div>
-                  <div className="driver-filter-field"><label>Space / pallet positions</label><input type="number" min="0" step="1" value={addSpace} onChange={(event) => setAddSpace(event.target.value)} /></div>
-                  <div className="driver-filter-field"><label>Journey type</label><select value={addKind} onChange={(event) => setAddKind(event.target.value === 'regular' ? 'regular' : 'ad_hoc')}><option value="ad_hoc">Ad Hoc</option><option value="regular">Regular</option></select></div>
-                  <label className="driver-returns-check"><input type="checkbox" checked={goAnywhere} onChange={(event) => { setGoAnywhere(event.target.checked); if (event.target.checked) setAddTo(''); }} /><span>Go Anywhere</span></label>
-                  <div className="driver-filter-field driver-returns-span-2"><label>Journey notes</label><textarea value={addNotes} onChange={(event) => setAddNotes(event.target.value)} placeholder="Equipment, route, access or empty-space notes" /></div>
-                  <div className="driver-returns-form-actions driver-returns-span-2"><ActionButton type="submit" tone="primary" disabled={saving}>{saving ? 'Publishing…' : 'Publish Journey'}</ActionButton></div>
-                </form>
-              </section>
-            </main>
-          </div>
-        ) : (
-          <div className="driver-board-layout driver-returns-board">
-            {tab === 'search' ? searchRail : mineRail}
-            <main className="driver-board-main">
-              <div className="driver-board-summary driver-returns-summary">
-                <span><strong>{tab === 'mine' ? 'My Journeys' : 'Available Journeys'}</strong>{generatedAt ? ` · updated ${new Date(generatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : ''}</span>
-                <span className="driver-returns-summary-actions">
-                  <button type="button" data-active={view === 'list' ? 'true' : 'false'} onClick={() => setView('list')}>List View</button>
-                  <button type="button" data-active={view === 'map' ? 'true' : 'false'} onClick={() => setView('map')}>Map View</button>
-                  {view === 'list' && <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!journeys.length} onToggle={toggleExpandAll} noun="return journeys" />}
-                </span>
-              </div>
-
-              {view === 'map' ? (
-                <ReturnJourneyMap journeys={mapJourneys} />
-              ) : loading ? (
-                <div className="driver-load-row"><EmptyState compact title="Loading journeys…" description="Refreshing exchange results." /></div>
-              ) : journeys.length === 0 ? (
-                <div className="driver-load-row"><EmptyState compact title="No matching journeys" description={tab === 'mine' ? 'Publish a return journey to advertise your empty vehicle.' : 'Adjust the search or publish a new empty-vehicle journey.'} /></div>
-              ) : (
-                <div className="driver-load-list">
-                  {journeys.map((journey) => {
-                    const open = expanded[journey.id] === true;
-                    return (
-                      <article key={journey.id} className="driver-load-row driver-return-row" data-state={journey.status}>
-                        <div className="driver-load-row__top driver-return-row__contract">
-                          <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{journey.from || 'Not set'}</strong></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{journey.goAnywhere ? 'Go Anywhere' : journey.to || 'Not set'}</strong><span className="driver-cell-secondary">{journey.availableTo ? `Until ${fmtDate(journey.availableTo)}` : 'Until not set'}</span></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Departs</span><strong className="driver-cell-primary">{fmtDate(journey.availableFrom)}</strong></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">ETA</span><strong className="driver-cell-primary driver-return-eta-unavailable">ETA unavailable</strong></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Vehicle</span><strong className="driver-cell-primary">{vehicleLabel(journey.vehicleType)}</strong><span className="driver-cell-secondary">{journey.bodyType || 'Body not specified'}{journey.journeyDistanceMiles != null ? ` · ${journey.journeyDistanceMiles} miles` : ''}</span></div>
-                          <div className="driver-load-cell"><span className="driver-cell-label">Member</span><strong className="driver-cell-primary"><MemberIdentityLink companyId={journey.companyId}>{journey.member.name}</MemberIdentityLink></strong><span className="driver-cell-secondary">{journey.member.code ? `Member ID ${journey.member.code}` : journey.driverName || 'Exchange member'}</span></div>
-                          <div className="driver-load-cell driver-return-actions-cell"><span className="driver-cell-label">Actions</span><ActionButton tone="secondary" onClick={() => setExpanded((current) => ({ ...current, [journey.id]: !open }))}>{open ? 'Collapse' : 'Details'}</ActionButton></div>
-                        </div>
-                        <div className="driver-load-row__meta">
-                          <span>Journey #{journey.id.slice(0, 8).toUpperCase()}</span>
-                          <StatusBadge value={journey.journeyKind === 'regular' ? 'Regular' : 'Ad Hoc'} tone={journey.journeyKind === 'regular' ? 'purple' : 'blue'} />
-                          <StatusBadge value={journey.status} tone={journey.status === 'cancelled' ? 'red' : 'green'} />
-                        </div>
-                        {open && (
-                          <div className="driver-row-details driver-return-details">
-                            <div className="driver-detail-grid">
-                              <div className="driver-detail-item"><span>Via</span><strong>{journey.viaLocations.length ? journey.viaLocations.join(' → ') : 'Direct / not specified'}</strong></div>
-                              <div className="driver-detail-item"><span>Weight</span><strong>{journey.weightKg != null ? `${journey.weightKg} kg` : 'Not supplied'}</strong></div>
-                              <div className="driver-detail-item"><span>Space</span><strong>{journey.spaceUnits != null ? journey.spaceUnits : 'Not supplied'}</strong></div>
-                              <div className="driver-detail-item"><span>Posted</span><strong>{fmtDate(journey.createdAt)}</strong></div>
-                              <div className="driver-detail-item"><span>Member</span><strong><MemberIdentityLink companyId={journey.companyId}>{journey.member.name}</MemberIdentityLink></strong></div>
-                              <div className="driver-detail-item"><span>Driver</span><strong>{journey.driverName ?? '—'}</strong></div>
-                            </div>
-                            {journey.notes && <div className="driver-returns-notes"><strong>Notes</strong><span>{journey.notes}</span></div>}
-                            <div className="driver-row-actions driver-returns-detail-actions">
-                              <a className="driver-returns-action-link" href={routeUrl(journey)} target="_blank" rel="noopener noreferrer">Open Route</a>
-                              {journey.member.phone && <a className="driver-returns-action-link" href={`tel:${journey.member.phone.replace(/\s+/g, '')}`}>Call Member</a>}
-                              {tab === 'mine' && journey.status !== 'cancelled' && <ActionButton tone="danger" disabled={saving} onClick={() => void cancelJourney(journey.id)}>Cancel Journey</ActionButton>}
-                            </div>
-                          </div>
-                        )}
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-
-              <div className="driver-board-summary driver-returns-pagination">
-                <span>{total ? `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize, total)} of ${total}` : '0 results'}</span>
-                <span className="driver-returns-pagination-actions">
-                  <label>Items per Page: <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>{pageSizeOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-                  <ActionButton tone="secondary" disabled={page <= 1} onClick={() => void loadJourneys(tab === 'mine' ? 'mine' : 'marketplace', page - 1, false)}>Previous</ActionButton>
-                  <strong>Page {page} / {totalPages}</strong>
-                  <ActionButton tone="secondary" disabled={page >= totalPages} onClick={() => void loadJourneys(tab === 'mine' ? 'mine' : 'marketplace', page + 1, false)}>Next</ActionButton>
-                </span>
-              </div>
-            </main>
-          </div>
-        )}
-      </DriverWorkspaceShell>
+        <div className="pagebody">
+          <aside className="left">
+            <div className="left-title">{tab === 'add' ? 'Future Position' : tab === 'mine' ? 'My Journeys' : 'Journey Search'}</div>
+            {tab === 'search' && <form onSubmit={handleSearch}>
+              <div className="filter"><span className="label">From / Radius</span><div className="row2"><input className="input" value={search.from} onChange={(event) => setSearch((current) => ({ ...current, from: event.target.value }))} placeholder="Enter location" /><select className="select" value={search.fromRadius} onChange={(event) => setSearch((current) => ({ ...current, fromRadius: event.target.value }))}>{radiusOptions.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
+              <div className="filter"><span className="label">To</span><input className="input" value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Destination / Go Anywhere" /></div>
+              <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={search.vehicleType} onChange={(event) => setSearch((current) => ({ ...current, vehicleType: event.target.value }))}><option value="">Motorcycle - 7.5T</option>{Object.entries(VEHICLE_TYPE_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+              <div className="filter"><span className="label">Date</span><select className="select" value={search.date} onChange={(event) => setSearch((current) => ({ ...current, date: event.target.value }))}><option value="anytime">Anytime</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option><option value="today10">Today + 10 Days</option></select></div>
+              <div className="filter"><span className="label">Search Tools</span><button type="button" className="rowbtn" onClick={() => setAdvancedOpen((value) => !value)}>Advanced Search</button></div>
+              {advancedOpen && <><div className="filter"><span className="label">Member / Driver</span><input className="input" value={search.member} onChange={(event) => setSearch((current) => ({ ...current, member: event.target.value }))} placeholder="Name or ID" /></div><div className="filter"><span className="label">Journey Type</span><select className="select" value={search.kind} onChange={(event) => setSearch((current) => ({ ...current, kind: event.target.value as SearchDefaults['kind'] }))}><option value="all">All</option><option value="ad_hoc">Ad Hoc</option><option value="regular">Regular</option></select></div></>}
+              <div className="filter"><button type="submit" className="btn primary">Search</button> <button type="button" className="btn" onClick={saveSearchDefault}>Save as Default</button></div>
+            </form>}
+            {tab === 'mine' && <div className="filter"><div className="linkrow active">Journeys<span className="count">{total}</span></div><div className="linkrow">Live status<span className="count">{liveStatus}</span></div><div className="linkrow">Future position<span className="count">{driver?.future_position ?? 'None'}</span></div></div>}
+            {tab === 'add' && <form onSubmit={(event) => void saveFuturePosition(event)}><div className="filter"><span className="label">Future location</span><input className="input" value={futurePosition} onChange={(event) => setFuturePosition(event.target.value)} placeholder="e.g. Birmingham B1" /></div><div className="filter"><span className="label">Available from</span><input className="input" type="datetime-local" value={futureDate} onChange={(event) => setFutureDate(event.target.value)} /></div><button type="submit" className="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save Position'}</button></form>}
+          </aside>
+          <main className="main">
+            <div className="head"><div><h1>Return Journeys</h1><p>Search, track and advertise empty vehicle journeys and future capacity</p></div></div>
+            {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+            {successMsg && <AlertBanner tone="success">{successMsg}</AlertBanner>}
+            <div className="return-tabs">
+              <button type="button" className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>All</button>
+              <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>My Journeys</button>
+              <button type="button" className={tab === 'add' ? 'active' : ''} onClick={() => setTab('add')}>Add Journey</button>
+              <span className="spacer" />
+              <div className="return-view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>Map View</button></div>
+              <button type="button" className="btn" onClick={refreshCurrent} disabled={loading}>Refresh</button>
+            </div>
+            {tab === 'add' ? <section className="postload-section">
+              <div className="postload-section-head"><div><span>1</span><b>Add Journey</b><small>Publish empty capacity without replacing your other journeys.</small></div></div>
+              <form className="postload-grid job" onSubmit={(event) => void publishJourney(event)}>
+                <div className="postload-field"><label>From</label><input value={addFrom} onChange={(event) => setAddFrom(event.target.value)} placeholder="e.g. Leeds LS1" /></div>
+                <div className="postload-field"><label>To</label><input value={addTo} disabled={goAnywhere} onChange={(event) => setAddTo(event.target.value)} placeholder="e.g. Blackburn BB1" /></div>
+                <div className="postload-field"><label>Departs at</label><input type="datetime-local" value={addFromDate} onChange={(event) => setAddFromDate(event.target.value)} /></div>
+                <div className="postload-field"><label>Available until</label><input type="datetime-local" value={addUntil} onChange={(event) => setAddUntil(event.target.value)} /></div>
+                <div className="postload-field"><label>Vehicle size</label><select value={addVehicleType} onChange={(event) => setAddVehicleType(event.target.value)}><option value="">Any / assigned vehicle</option>{Object.entries(VEHICLE_TYPE_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
+                <div className="postload-field"><label>Body type</label><input value={addBodyType} onChange={(event) => setAddBodyType(event.target.value)} /></div>
+                <div className="postload-field"><label>Weight available (kg)</label><input type="number" value={addWeight} onChange={(event) => setAddWeight(event.target.value)} /></div>
+                <div className="postload-field"><label>Space / pallet positions</label><input type="number" value={addSpace} onChange={(event) => setAddSpace(event.target.value)} /></div>
+                <div className="postload-field"><label>Journey type</label><select value={addKind} onChange={(event) => setAddKind(event.target.value === 'regular' ? 'regular' : 'ad_hoc')}><option value="ad_hoc">Ad Hoc</option><option value="regular">Regular</option></select></div>
+                <label className="postload-check"><input type="checkbox" checked={goAnywhere} onChange={(event) => { setGoAnywhere(event.target.checked); if (event.target.checked) setAddTo(''); }} /> Go Anywhere</label>
+                <div className="postload-field span2"><label>Via</label><input value={addVia} onChange={(event) => setAddVia(event.target.value)} placeholder="Comma separated locations" /></div>
+                <div className="postload-field span2"><label>Journey notes</label><textarea value={addNotes} onChange={(event) => setAddNotes(event.target.value)} /></div>
+                <div className="postload-field span2"><button type="submit" className="btn primary" disabled={saving}>{saving ? 'Publishing…' : 'Publish Journey'}</button></div>
+              </form>
+            </section> : view === 'map' ? <ReturnJourneyMap journeys={mapJourneys} /> : (
+              <>
+                <div className="toolbar"><b>{tab === 'mine' ? 'My Return Journeys' : 'Available Return Journeys'}</b><span className="spacer muted small">{generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}` : ''}</span>{view === 'list' && <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!journeys.length} onToggle={toggleExpandAll} noun="return journeys" />}</div>
+                {loading ? <div className="xd2-calm-empty"><b>Loading journeys…</b><span>Refreshing exchange results.</span></div> : journeys.length === 0 ? <div className="xd2-calm-empty"><b>No matching journeys</b><span>{tab === 'mine' ? 'Publish a return journey to advertise your empty vehicle.' : 'Adjust the search or publish a new empty-vehicle journey.'}</span></div> : (
+                  <div className="tablewrap">
+                    <table style={{ minWidth: 1380 }}><thead><tr><th>Journey</th><th>Route</th><th>Departs At</th><th>ETA</th><th>Vehicle</th><th>Distance</th><th>Member</th><th>Actions</th></tr></thead><tbody>
+                      {journeys.map((journey) => {
+                        const open = expanded[journey.id] === true;
+                        return <Fragment key={journey.id}><tr className="return-row"><td><b>{journey.id.slice(0,8).toUpperCase()}</b><span className="meta">{journey.journeyKind === 'regular' ? 'Regular Journey' : 'Empty Vehicle Journey'}</span></td><td><span className="route">{journey.from || 'Not set'} <span>→</span> {journey.goAnywhere ? 'Go Anywhere' : journey.to || 'Not set'}</span></td><td>{fmtDate(journey.availableFrom)}</td><td>Unavailable</td><td>{vehicleLabel(journey.vehicleType)}<span className="meta">{journey.bodyType || 'Body not specified'}</span></td><td>{journey.journeyDistanceMiles != null ? `${journey.journeyDistanceMiles} miles` : 'Unavailable'}</td><td><b><MemberIdentityLink companyId={journey.companyId}>{journey.member.name}</MemberIdentityLink></b><span className="meta">{journey.member.code ? `Member ID ${journey.member.code}` : journey.driverName ?? 'Exchange member'}</span></td><td><button type="button" className="rowbtn blue" onClick={() => setExpanded((current) => ({ ...current, [journey.id]: !open }))}>{open ? 'Close' : 'Track'}</button>{tab === 'mine' && journey.status !== 'cancelled' && <button type="button" className="rowbtn" onClick={() => void cancelJourney(journey.id)}>Cancel</button>}</td></tr>
+                        {open && <tr className="return-row-detail"><td colSpan={8}><div className="fleet-inspector"><div><b>Journey details</b><span className="meta">Via: {journey.viaLocations.length ? journey.viaLocations.join(' → ') : 'Direct / not specified'} · Weight: {journey.weightKg != null ? `${journey.weightKg} kg` : 'Not supplied'} · Space: {journey.spaceUnits ?? 'Not supplied'} · Posted: {fmtDate(journey.createdAt)}</span></div><a className="rowbtn blue" href={routeUrl(journey)} target="_blank" rel="noopener noreferrer">Open Route</a></div></td></tr>}</Fragment>;
+                      })}
+                    </tbody></table>
+                  </div>
+                )}
+              </>
+            )}
+            <div className="footer"><span>Items per Page:</span><select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>{pageSizeOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select><span style={{ marginLeft: 10 }}>{total ? `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize,total)} of ${total}` : '0 results'}</span><div className="right"><button type="button" className="rowbtn" disabled={page <= 1} onClick={() => void loadJourneys(tab === 'mine' ? 'mine' : 'marketplace', page - 1, false)}>Previous</button><button type="button" className="rowbtn blue">{page}</button><button type="button" className="rowbtn" disabled={page >= totalPages} onClick={() => void loadJourneys(tab === 'mine' ? 'mine' : 'marketplace', page + 1, false)}>Next</button></div></div>
+          </main>
+        </div>
+      </section>
     </ProtectedRoute>
   );
 }
