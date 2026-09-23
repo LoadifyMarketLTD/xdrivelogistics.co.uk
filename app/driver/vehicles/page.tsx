@@ -176,17 +176,6 @@ export default function DriverVehiclesPage() {
     setNotice('Assigned vehicle removed.'); await load();
   };
 
-  const assignedRelationshipSummary = assignedVehicles.length === 0
-    ? 'None'
-    : assignedVehicles.length === 1
-      ? vehicleName(assignedVehicles[0])
-      : `${assignedVehicles.length} assigned vehicle records`;
-  const canonicalSummary = !canonicalVehicleSignalAvailable
-    ? 'Unavailable'
-    : canonicalVehicle
-      ? vehicleName(canonicalVehicle)
-      : 'None';
-
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-fleet-prototype">
@@ -219,15 +208,16 @@ export default function DriverVehiclesPage() {
             {error && <div className="vision-note">{error}</div>}
             {notice && <div className="vision-note">{notice}</div>}
             {!canonicalVehicleSignalAvailable && <div className="vision-note">Canonical active-vehicle signal is temporarily unavailable. Vehicle records remain visible.</div>}
-            <div className="fleet-ops-strip">
-              <button type="button"><span>Active Vehicle</span><b>{canonicalVehicle ? 1 : 0}</b></button>
-              <button type="button"><span>Assigned Vehicles</span><b>{assignedVehicles.length}</b></button>
-              <button type="button"><span>Equipment Records</span><b>{equippedCount}</b></button>
-              <button type="button"><span>Payload Records</span><b>{vehicles.filter((vehicle) => Boolean(vehicle.payload_kg)).length}</b></button>
-              <button type="button"><span>Fleet Records</span><b>{vehicles.length}</b></button>
-              <div className="fleet-ops-actions"><button type="button" className="btn primary" onClick={() => window.location.href='/driver/jobs'}>Allocate Jobs</button><button type="button" className="btn" onClick={() => void load()}>Refresh</button></div>
+            <div className="fleet-cx-toolbar">
+              <div>
+                <strong>Company Vehicles</strong>
+                <span>{vehicles.length} vehicle{vehicles.length === 1 ? '' : 's'} · {assignedVehicles.length} assigned to you · {canonicalVehicle ? '1 active' : 'no active vehicle'}</span>
+              </div>
+              <div className="fleet-cx-toolbar__actions">
+                <button type="button" className="btn" onClick={() => void load()} disabled={loading}>Refresh</button>
+                {canManageVehicles && !showForm && <button type="button" className="btn green" onClick={startAdd}>Add Vehicle</button>}
+              </div>
             </div>
-            <div className="tabs"><button className="tab active">All fleet {vehicles.length}</button><button className="tab">Tracked {canonicalVehicle ? 1 : 0}</button><button className="tab">Future positions</button><button className="tab">Future journeys</button></div>
             {showForm && canManageVehicles && <section className="fleet-inspector">
               <div><b>{editingId ? 'Edit vehicle' : 'Add vehicle'}</b><span className="meta">Save real vehicle capacity and equipment data.</span></div>
               <div className="row2"><select className="select" value={form.type} onChange={(event) => setField('type', event.target.value)}>{VEHICLE_GROUPS.flatMap(([, options]) => options).map(([label,value]) => <option key={value} value={value}>{label}</option>)}</select><input className="input" value={form.reg_plate} onChange={(event) => setField('reg_plate', event.target.value)} placeholder="Registration" /></div>
@@ -235,23 +225,20 @@ export default function DriverVehiclesPage() {
               <div className="row2"><input className="input" type="number" value={form.payload_kg} onChange={(event) => setField('payload_kg', event.target.value)} placeholder="Payload kg" /><input className="input" type="number" value={form.pallets_capacity} onChange={(event) => setField('pallets_capacity', event.target.value)} placeholder="Pallets" /></div>
               <div className="fleet-commandbar"><label className="check"><input type="checkbox" checked={form.has_tail_lift} onChange={(event) => setField('has_tail_lift', event.target.checked)} />Tail lift</label><label className="check"><input type="checkbox" checked={form.has_straps} onChange={(event) => setField('has_straps', event.target.checked)} />Straps</label><label className="check"><input type="checkbox" checked={form.has_blankets} onChange={(event) => setField('has_blankets', event.target.checked)} />Blankets</label><span className="spacer" /><button type="button" className="btn" onClick={cancelForm}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update vehicle' : 'Add vehicle'}</button></div>
             </section>}
-            <div className="fleet-commandbar"><span className="spacer muted small">{vehicles.length} visible resources</span>{canManageVehicles && !showForm && <button type="button" className="btn" onClick={startAdd}>Add Vehicle</button>}</div>
-            <div className="tablewrap fleet-tablewrap">
-              <table className="fleet-table" style={{ minWidth: 1320 }}>
-                <thead><tr><th>Name</th><th>Size</th><th>Status</th><th>Assignment</th><th>Payload</th><th>Pallets</th><th>Equipment</th><th>Actions</th></tr></thead>
+            <div className="tablewrap fleet-tablewrap fleet-tablewrap--compact">
+              <table className="fleet-table fleet-table--compact">
+                <thead><tr><th>Name</th><th>Size / Type</th><th>Payload</th><th>Equipment</th><th>Status</th><th>Actions</th></tr></thead>
                 <tbody>
                   {vehicles.map((vehicle) => {
                     const assigned = Boolean(driverId) && vehicle.assigned_driver_id === driverId;
                     const canonical = vehicle.id === canonicalVehicleId;
                     const equipment = [vehicle.has_tail_lift && 'Tail lift', vehicle.has_straps && 'Straps', vehicle.has_blankets && 'Blankets'].filter(Boolean).join(' · ') || 'Standard';
                     return <tr key={vehicle.id} className="fleet-row" data-id={vehicle.id} data-search={`${vehicleName(vehicle)} ${vehicle.reg_plate ?? ''} ${vehicle.type ?? ''}`.toLowerCase()}>
-                      <td><div className="fleet-name"><div><b>{vehicleName(vehicle)}</b><span className="meta">{vehicle.reg_plate ?? 'No registration'} · {assigned ? 'Assigned to current driver' : 'Company fleet record'}</span></div></div></td>
+                      <td><div className="fleet-name"><div><b>{vehicleName(vehicle)}</b><span className="meta">{assigned ? 'Assigned to current driver' : 'Company fleet record'}</span></div></div></td>
                       <td>{VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Unknown'}</td>
-                      <td><StatusBadge value={canonical ? 'Canonical active' : assigned ? 'Assigned' : 'Recorded'} tone={canonical ? 'green' : assigned ? 'blue' : 'grey'} /></td>
-                      <td>{canonical ? 'Canonical active vehicle' : assigned ? 'Assigned relationship' : 'Company fleet'}</td>
                       <td>{vehicle.payload_kg != null ? `${vehicle.payload_kg} kg` : 'Not supplied'}</td>
-                      <td>{vehicle.pallets_capacity ?? 'Not supplied'}</td>
                       <td>{equipment}</td>
+                      <td><StatusBadge value={canonical ? 'Active' : assigned ? 'Assigned' : 'Recorded'} tone={canonical ? 'green' : assigned ? 'blue' : 'grey'} /></td>
                       <td><button type="button" className="rowbtn blue" onClick={() => startEdit(vehicle)} disabled={!canManageVehicles}>Open</button>{assigned && canManageVehicles && <button type="button" className="rowbtn" onClick={() => void deactivate(vehicle.id)} disabled={deactivatingId === vehicle.id}>{deactivatingId === vehicle.id ? 'Removing…' : 'Unassign'}</button>}</td>
                     </tr>;
                   })}
@@ -259,8 +246,6 @@ export default function DriverVehiclesPage() {
               </table>
             </div>
             {!loading && vehicles.length === 0 && <div className="xd2-calm-empty"><b>No vehicle records</b><span>{canManageVehicles ? 'Add a real vehicle to the workspace.' : 'No vehicle is assigned to this Driver profile.'}</span></div>}
-            <div className="fleet-inspector"><div><b>Fleet resource inspector</b><span className="meta">Canonical active vehicle: {canonicalSummary}. Assigned relationship: {assignedRelationshipSummary}.</span></div></div>
-            <div className="footer"><span>Items per Page:</span><select className="fleet-page-size" defaultValue="25"><option>25</option><option>50</option><option>100</option></select><span style={{ marginLeft: 10 }}>1-{vehicles.length} of {vehicles.length}</span><span style={{ marginLeft: 18 }}>Fleet resource control · assignment · capacity · equipment · readiness</span></div>
           </main>
         </div>
       </section>

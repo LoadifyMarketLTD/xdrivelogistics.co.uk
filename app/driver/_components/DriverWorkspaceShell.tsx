@@ -3,7 +3,6 @@
 import { usePathname } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
-import AccountSectionNav from './AccountSectionNav';
 
 const DRIVER_PRIMARY_PAGE_TITLES: Readonly<Record<string, string>> = {
   '/driver': 'Driver Dashboard',
@@ -15,6 +14,12 @@ const DRIVER_PRIMARY_PAGE_TITLES: Readonly<Record<string, string>> = {
   '/driver/availability/live': 'Live Availability',
   '/driver/returns': 'Return Journeys',
   '/driver/account': 'Account',
+  '/driver/profile': 'Profile',
+  '/driver/documents': 'Documents',
+  '/driver/messages': 'Messages',
+  '/driver/notifications': 'Notifications',
+  '/driver/change-password': 'Security',
+  '/driver/event-log': 'Event Log',
   '/driver/load-alerts': 'Load Alerts',
   '/driver/post-load': 'Post Load',
 };
@@ -98,8 +103,7 @@ export default function DriverWorkspaceShell({
           />
         )}
         {accountPath ? (
-          <div className="driver-account-workspace">
-            <AccountSectionNav />
+          <div className="driver-account-workspace driver-account-workspace--single">
             <div className="driver-account-workspace__content">{children}</div>
           </div>
         ) : children}

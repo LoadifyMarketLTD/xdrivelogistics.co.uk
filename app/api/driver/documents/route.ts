@@ -8,11 +8,7 @@ const MAX_DOCUMENT_BYTES = 10 * 1024 * 1024;
 const ALLOWED_DOCUMENT_TYPES = new Set([
   'Driving Licence',
   'Insurance',
-  'DBS Certificate',
-  'CPC Card',
-  'Tacho Card',
-  'Medical Certificate',
-  'Other',
+  'Hire & Reward',
 ]);
 
 const MIME_EXTENSION: Record<string, string> = {
