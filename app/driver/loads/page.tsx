@@ -88,7 +88,7 @@ type SavedLoadFilters = {
   fromRadius: number;
   toRadius: number;
   bodyFilter: string;
-  jobDescriptionFilter: string;
+  jobDescriptionFilters: string[];
   cargoFilter: string;
   weightMinFilter: string;
   dateFromFilter: string;
@@ -180,7 +180,7 @@ export default function AvailableLoadsPage() {
   const [fromRadius, setFromRadius] = useState(10);
   const [toRadius, setToRadius] = useState(30);
   const [bodyFilter, setBodyFilter] = useState('');
-  const [jobDescriptionFilter, setJobDescriptionFilter] = useState('any');
+  const [jobDescriptionFilters, setJobDescriptionFilters] = useState<string[]>([]);
   const [cargoFilter, setCargoFilter] = useState('');
   const [weightMinFilter, setWeightMinFilter] = useState('');
   const [dateFromFilter, setDateFromFilter] = useState('');
@@ -225,7 +225,7 @@ export default function AvailableLoadsPage() {
       const raw = window.localStorage.getItem(LOAD_FILTER_STORAGE_KEY); if (!raw) return;
       const saved = JSON.parse(raw) as Partial<SavedLoadFilters>;
       setVehicleFilter(saved.vehicleFilter ?? 'any'); setPickupFilter(saved.pickupFilter ?? ''); setDeliveryFilter(saved.deliveryFilter ?? '');
-      setFromRadius(saved.fromRadius ?? 10); setToRadius(saved.toRadius ?? 30); setBodyFilter(saved.bodyFilter ?? ''); setJobDescriptionFilter(saved.jobDescriptionFilter ?? 'any');
+      setFromRadius(saved.fromRadius ?? 10); setToRadius(saved.toRadius ?? 30); setBodyFilter(saved.bodyFilter ?? ''); setJobDescriptionFilters(saved.jobDescriptionFilters ?? []);
       setCargoFilter(saved.cargoFilter ?? ''); setWeightMinFilter(saved.weightMinFilter ?? ''); setDateFromFilter(saved.dateFromFilter ?? '');
       setDateToFilter(saved.dateToFilter ?? ''); setMemberFilter(saved.memberFilter ?? ''); setRegionFilter(saved.regionFilter ?? 'any');
       setPostedWithinFilter(saved.postedWithinFilter ?? 'any'); setJobTimingFilter(saved.jobTimingFilter ?? 'any'); setLoadTypeFilter(saved.loadTypeFilter ?? 'all'); setSortBy(saved.sortBy ?? 'date_desc'); setSaveAsDefault(true);
@@ -273,8 +273,8 @@ export default function AvailableLoadsPage() {
     });
   }, [cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loadTypeFilter, loads, memberFilter, pickupFilter, postedWithinFilter, regionFilter, serverMatchIds, sortBy, vehicleFilter, weightMinFilter]);
 
-  useEffect(() => { setVisibleCount(pageSize); setExpandAll(false); }, [vehicleFilter, pickupFilter, deliveryFilter, fromRadius, toRadius, bodyFilter, jobDescriptionFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
-  const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, pickupFilter, deliveryFilter, fromRadius, toRadius, bodyFilter, jobDescriptionFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy });
+  useEffect(() => { setVisibleCount(pageSize); setExpandAll(false); }, [vehicleFilter, pickupFilter, deliveryFilter, fromRadius, toRadius, bodyFilter, jobDescriptionFilters, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
+  const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, pickupFilter, deliveryFilter, fromRadius, toRadius, bodyFilter, jobDescriptionFilters, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy });
   const applySearch = async () => {
     setVisibleCount(pageSize);
     if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
@@ -289,8 +289,8 @@ export default function AvailableLoadsPage() {
       if (bodyFilter) params.set('body', bodyFilter);
       if (cargoFilter.trim()) params.set('freight', cargoFilter.trim());
       if (memberFilter.trim()) params.set('member', memberFilter.trim());
-      const description = jobDescriptionFilter !== 'any' ? jobDescriptionFilter : jobTimingFilter;
-      if (description !== 'any') params.set('description', description);
+      const descriptions = jobDescriptionFilters.length > 0 ? jobDescriptionFilters : (jobTimingFilter !== 'any' ? [jobTimingFilter] : []);
+      if (descriptions.length > 0) params.set('description', descriptions.join(','));
       if (loadTypeFilter !== 'all') params.set('loadType', loadTypeFilter);
       if (dateFromFilter) params.set('dateFrom', dateFromFilter);
       if (dateToFilter) params.set('dateTo', dateToFilter);
@@ -315,8 +315,16 @@ export default function AvailableLoadsPage() {
       setError(reason instanceof Error ? reason.message : 'The load search could not be completed.');
     } finally { setSearching(false); }
   };
+  const toggleJobDescription = (value: string) => setJobDescriptionFilters((current) => current.includes(value) ? current.filter((item) => item !== value) : [...current, value]);
+  const applyDatePreset = (days: number | null) => {
+    if (days == null) { setDateFromFilter(''); setDateToFilter(''); return; }
+    const today = new Date();
+    const end = new Date(today); end.setDate(end.getDate() + days);
+    const toIsoDate = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+    setDateFromFilter(toIsoDate(today)); setDateToFilter(toIsoDate(end));
+  };
   const clearFilters = () => {
-    setVehicleFilter('any'); setPickupFilter(''); setDeliveryFilter(''); setFromRadius(10); setToRadius(30); setBodyFilter(''); setJobDescriptionFilter('any'); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter(''); setServerMatchIds(null);
+    setVehicleFilter('any'); setPickupFilter(''); setDeliveryFilter(''); setFromRadius(10); setToRadius(30); setBodyFilter(''); setJobDescriptionFilters([]); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter(''); setServerMatchIds(null);
     setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
   const handleBidSubmit = async (loadId: string) => {
@@ -367,10 +375,10 @@ export default function AvailableLoadsPage() {
             <div className="filter"><span className="label">Body Type</span><select className="select" value={bodyFilter} onChange={(event) => setBodyFilter(event.target.value)}><option value="">Any body type</option><option value="tail lift">Tail Lift</option><option value="curtainside">Curtainside</option><option value="box">Box</option><option value="flatbed">Flatbed</option><option value="refrigerated">Refrigerated</option><option value="hiab">Hiab</option><option value="moffett">Moffett</option><option value="adr">ADR</option></select></div>
             <div className="filter"><span className="label">Freight Type</span><input className="input" value={cargoFilter} onChange={(event) => setCargoFilter(event.target.value)} placeholder="Pallets, cartons, machinery" /></div>
             <div className="filter"><span className="label">Member Name / ID</span><input className="input" value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Member name / ID" /></div>
-            <div className="filter"><span className="label">Job Description</span><select className="select" value={jobDescriptionFilter} onChange={(event) => setJobDescriptionFilter(event.target.value)}><option value="any">Any description</option><option value="deliver_direct">Deliver Direct</option><option value="same_day_timed">Same Day - Timed</option><option value="same_day_non_timed">Same Day - Non Timed</option><option value="next_day_timed">Next Day - Timed</option><option value="next_day_non_timed">Next Day - Non Timed</option><option value="3_5_days">3-5 Days</option><option value="multi_drop">Multi Drop</option></select></div>
+            <div className="filter"><span className="label">Job Description</span><div className="loads-check-list">{([['same_day_timed','Same Day - Timed'],['same_day_non_timed','Same Day - Non Timed'],['next_day_timed','Next Day - Timed'],['next_day_non_timed','Next Day - Non Timed'],['3_5_days','3-5 Days'],['deliver_direct','Deliver Direct'],['multi_drop','Multi Drop']] as const).map(([value,label]) => <label key={value} className="check"><input type="checkbox" checked={jobDescriptionFilters.includes(value)} onChange={() => toggleJobDescription(value)} />{label}</label>)}</div></div>
             <div className="filter"><span className="label">Job Timing</span><select className="select" value={jobTimingFilter} onChange={(event) => setJobTimingFilter(event.target.value as JobTimingFilter)}><option value="any">Any timing</option><option value="same_day_timed">Same Day - Timed</option><option value="same_day_non_timed">Same Day - Non Timed</option><option value="next_day_timed">Next Day - Timed</option><option value="next_day_non_timed">Next Day - Non Timed</option></select></div>
             <div className="filter"><span className="label">Posted Within</span><select className="select" value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">All</option><option value="15m">15 minutes</option><option value="30m">30 minutes</option><option value="1h">1 hour</option><option value="2h">2 hours</option><option value="4h">4 hours</option><option value="8h">8 hours</option><option value="24h">24 hours</option></select></div>
-            <div className="filter"><span className="label">Pickup Window</span><div className="row2 loads-date-range"><input className="input" type="date" value={dateFromFilter} onChange={(event) => setDateFromFilter(event.target.value)} /><input className="input" type="date" value={dateToFilter} onChange={(event) => setDateToFilter(event.target.value)} /></div></div>
+            <div className="filter"><span className="label">Date</span><select className="select" defaultValue="custom" onChange={(event) => { const value = event.target.value; if (value === 'any') applyDatePreset(null); else if (value !== 'custom') applyDatePreset(Number(value)); }}><option value="custom">Custom dates</option><option value="any">Anytime</option><option value="0">Today</option><option value="1">Today + 1 Day</option><option value="3">Today + 3 Days</option><option value="7">Today + 7 Days</option><option value="10">Today + 10 Days</option></select><div className="row2 loads-date-range"><input className="input" type="date" value={dateFromFilter} onChange={(event) => setDateFromFilter(event.target.value)} /><input className="input" type="date" value={dateToFilter} onChange={(event) => setDateToFilter(event.target.value)} /></div></div>
             <div className="filter"><span className="label">Minimum Weight</span><input className="input" type="number" min="0" value={weightMinFilter} onChange={(event) => setWeightMinFilter(event.target.value)} placeholder="kg" /></div>
             <div className="filter"><span className="label">Preferences</span><label className="check"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} />Save as Default</label></div>
           </aside>

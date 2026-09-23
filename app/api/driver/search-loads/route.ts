@@ -240,7 +240,7 @@ export async function GET(request: NextRequest) {
   const body = searchParams.get('body')?.trim().toLowerCase() ?? '';
   const freight = searchParams.get('freight')?.trim().toLowerCase() ?? '';
   const member = searchParams.get('member')?.trim().toLowerCase() ?? '';
-  const description = searchParams.get('description')?.trim().toLowerCase() ?? '';
+  const descriptions = (searchParams.get('description') ?? '').split(',').map((value) => value.trim().toLowerCase()).filter(Boolean);
   const requestedLoadType = searchParams.get('loadType')?.trim().toLowerCase() ?? 'all';
   const postedWithinHours = marketplaceNumber(searchParams.get('postedWithinHours'));
   const dateFrom = searchParams.get('dateFrom')?.trim() ?? '';
@@ -380,7 +380,7 @@ export async function GET(request: NextRequest) {
     if ((minVehicle || maxVehicle) && !vehicleMatchesMarketplaceSizeRange(comparableVehicle, minVehicle, maxVehicle)) return false;
     if (body && !bodyText.includes(body)) return false;
     if (member && !memberText.includes(member)) return false;
-    if (description && description !== 'any' && row.jobDescription !== description) return false;
+    if (descriptions.length > 0 && !descriptions.includes('any') && !descriptions.includes(row.jobDescription)) return false;
     if (requestedLoadType !== 'all' && row.loadType !== requestedLoadType) return false;
     return true;
   });
