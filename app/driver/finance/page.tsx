@@ -70,16 +70,6 @@ type FinanceSummary = {
 
 type ValueSummary = { net: number; vat: number; gross: number; paid: number; outstanding: number };
 
-type PaymentSummary = {
-  total: number;
-  unpaid: number;
-  partially_paid: number;
-  paid: number;
-  overdue: number;
-  disputed: number;
-  refunded: number;
-};
-
 const STATUS_TABS: Array<{ id: InvoiceStatus | 'All'; label: string }> = [
   { id: 'All', label: 'All' },
   { id: 'Draft', label: 'Draft' },
@@ -88,16 +78,6 @@ const STATUS_TABS: Array<{ id: InvoiceStatus | 'All'; label: string }> = [
   { id: 'Paid', label: 'Paid' },
   { id: 'Disputed', label: 'Disputed' },
   { id: 'Cancelled', label: 'Cancelled' },
-];
-
-const PAYMENT_TABS: Array<{ id: PaymentStatus | 'All'; label: string }> = [
-  { id: 'All', label: 'All payments' },
-  { id: 'unpaid', label: 'Unpaid' },
-  { id: 'partially_paid', label: 'Part paid' },
-  { id: 'paid', label: 'Paid' },
-  { id: 'overdue', label: 'Overdue' },
-  { id: 'disputed', label: 'Disputed' },
-  { id: 'refunded', label: 'Refunded' },
 ];
 
 const money = (amount: number, currency = 'GBP') =>
@@ -136,10 +116,8 @@ export default function DriverFinancePage() {
   const { user } = useAuth();
   const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const [activeTab, setActiveTab] = useState<InvoiceStatus | 'All'>('All');
-  const [paymentTab, setPaymentTab] = useState<PaymentStatus | 'All'>('All');
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
-  const [payments, setPayments] = useState<PaymentSummary | null>(null);
   const [values, setValues] = useState<ValueSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -167,14 +145,12 @@ export default function DriverFinancePage() {
     try {
       const params = new URLSearchParams();
       if (activeTab !== 'All') params.set('invoice_status', activeTab);
-      if (paymentTab !== 'All') params.set('payment_status', paymentTab);
       const response = await fetch(`/api/driver/finance/invoices?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       const payload = (await response.json().catch(() => null)) as {
         rows?: InvoiceRow[];
         invoiceSummary?: FinanceSummary;
-        paymentSummary?: PaymentSummary;
         valueSummary?: ValueSummary;
         error?: string;
       } | null;
@@ -186,14 +162,13 @@ export default function DriverFinancePage() {
         payment_status: toCanonicalPaymentStatus(row.payment_status),
       })));
       setSummary(payload?.invoiceSummary ?? null);
-      setPayments(payload?.paymentSummary ?? null);
       setValues(payload?.valueSummary ?? null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Failed to load invoices.');
     } finally {
       setLoading(false);
     }
-  }, [activeTab, paymentTab]);
+  }, [activeTab]);
 
   useEffect(() => { void loadInvoices(); }, [loadInvoices]);
 
@@ -266,16 +241,6 @@ export default function DriverFinancePage() {
     Cancelled: summary?.cancelled ?? 0,
   }), [summary]);
 
-  const paymentCounts = useMemo(() => ({
-    All: payments?.total ?? 0,
-    unpaid: payments?.unpaid ?? 0,
-    partially_paid: payments?.partially_paid ?? 0,
-    paid: payments?.paid ?? 0,
-    overdue: payments?.overdue ?? 0,
-    disputed: payments?.disputed ?? 0,
-    refunded: payments?.refunded ?? 0,
-  }), [payments]);
-
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
       <DriverWorkspaceShell
@@ -297,14 +262,6 @@ export default function DriverFinancePage() {
                 </button>
               ))}
             </div>
-            <div className="driver-tab-strip" role="tablist" aria-label="Payment states">
-              {PAYMENT_TABS.map((tab) => (
-                <button key={tab.id} type="button" data-active={paymentTab === tab.id ? 'true' : 'false'} onClick={() => setPaymentTab(tab.id)}>
-                  {tab.label} <span>{paymentCounts[tab.id]}</span>
-                </button>
-              ))}
-            </div>
-
             {showJobPicker && canGenerateInvoices && (
               <section className="driver-row-details" aria-label="Generate invoice from completed job">
                 <div className="driver-detail-tabs"><strong>Completed jobs ready for invoicing</strong></div>
