@@ -13,6 +13,7 @@ import '../components/workspace/workspace-measured-cx-baseline.css';
 import './driver-live-parity.css';
 import './driver-dashboard-reference.css';
 import './driver-dashboard-cx-close.css';
+import './driver-prototype-parity.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Force dynamic rendering so hard reloads and deep links receive matching nonces.

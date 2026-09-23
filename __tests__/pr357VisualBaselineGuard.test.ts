@@ -42,18 +42,22 @@ describe('PR #357 approved visual baseline', () => {
 
   it('keeps the approved dense Driver dashboard structure', () => {
     for (const marker of [
-      'driver-dashboard-layout',
-      'driver-dashboard-left',
-      'driver-dashboard-main',
-      'Status & availability',
-      'Canonical active vehicle',
-      'Journey & position',
-      'Current execution',
-      'Recent bookings',
-      'Relevant loads',
-      'Feedback',
-      'Compliance & document alerts',
+      'driver-prototype-dashboard',
+      'Today at a glance',
+      'Operational workboard',
+      'Matching loads',
+      'Driver readiness',
+      'Latest bookings',
+      'NEXT ACTION',
     ]) expect(driverDashboard).toContain(marker);
+
+    for (const stale of [
+      'Status & availability',
+      '<span>Canonical active vehicle</span>',
+      'Journey & position',
+      'Quote activity',
+      'Compliance & document alerts',
+    ]) expect(driverDashboard).not.toContain(stale);
   });
 
   it('keeps the Customer transport-control dashboard structure', () => {

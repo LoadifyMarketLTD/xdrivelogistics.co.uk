@@ -1,0 +1,925 @@
+/* Prototype-to-live convergence for Driver Workspace content.
+ * IMPORTANT: this layer must not change the top navbar or My Fleet.
+ * It maps the approved CX-reference prototype density onto real data/components only.
+ */
+
+.xdrive-driver-workspace .driver-top-shell__content {
+  --driver-prototype-rail: 245px;
+  --driver-prototype-head-h: 42px;
+  --driver-prototype-control-h: 36px;
+  --driver-prototype-tab-h: 38px;
+}
+
+/* Shared operational composition: prototype left rail + dense result/work area. */
+.xdrive-driver-workspace .driver-board-layout {
+  grid-template-columns: var(--driver-prototype-rail) minmax(0, 1fr) !important;
+  gap: 12px !important;
+}
+
+.xdrive-driver-workspace .driver-filter-rail {
+  width: var(--driver-prototype-rail) !important;
+  top: 74px !important;
+  border-color: #c7d1dc !important;
+  background: #fff !important;
+}
+
+.xdrive-driver-workspace .driver-filter-rail__header {
+  min-height: 42px !important;
+  padding: 0 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  background: #f2f4f7 !important;
+  color: #213750 !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-driver-workspace .driver-filter-rail__body {
+  gap: 8px !important;
+  padding: 11px !important;
+}
+
+.xdrive-driver-workspace .driver-filter-field {
+  gap: 4px !important;
+}
+
+.xdrive-driver-workspace .driver-filter-field label {
+  color: #526174 !important;
+  font-size: 11.5px !important;
+  line-height: 15px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-driver-workspace .driver-filter-field input,
+.xdrive-driver-workspace .driver-filter-field select {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
+}
+
+.xdrive-driver-workspace .driver-filter-field textarea {
+  min-height: 84px !important;
+  padding: 8px 10px !important;
+  font-size: 12px !important;
+  line-height: 17px !important;
+}
+
+.xdrive-driver-workspace .driver-filter-actions {
+  gap: 8px !important;
+  padding-top: 4px !important;
+}
+
+.xdrive-driver-workspace .driver-board-main {
+  gap: 8px !important;
+}
+
+/* Prototype tabs / scope bars. */
+.xdrive-driver-workspace .driver-tab-strip,
+.xdrive-driver-workspace .driver-status-tabs {
+  min-height: 38px !important;
+  background: #fff !important;
+  border-color: #c7d1dc !important;
+}
+
+.xdrive-driver-workspace .driver-tab-strip button,
+.xdrive-driver-workspace .driver-status-tabs button {
+  min-height: 37px !important;
+  height: 37px !important;
+  padding: 0 11px !important;
+  color: #46566a !important;
+  font-size: 11.5px !important;
+  line-height: 16px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-driver-workspace .driver-tab-strip button[data-active='true'],
+.xdrive-driver-workspace .driver-status-tabs button[data-active='true'] {
+  background: #eef4fb !important;
+  color: #0b2f6b !important;
+  box-shadow: inset 0 -2px 0 #1d57d8 !important;
+}
+
+.xdrive-driver-workspace .driver-board-summary {
+  min-height: 40px !important;
+  padding: 5px 8px !important;
+  color: #617184 !important;
+  font-size: 11.5px !important;
+  line-height: 16px !important;
+  font-weight: 600 !important;
+}
+
+/* Prototype result cards: stronger hierarchy, same real records/actions. */
+.xdrive-driver-workspace .driver-load-list,
+.xdrive-driver-workspace .driver-job-list {
+  gap: 7px !important;
+}
+
+.xdrive-driver-workspace .driver-load-row,
+.xdrive-driver-workspace .driver-job-row {
+  border-color: #b8c5d2 !important;
+  border-left-width: 3px !important;
+  background: #fff !important;
+}
+
+.xdrive-driver-workspace .driver-load-row__top,
+.xdrive-driver-workspace .driver-job-row__top {
+  min-height: 82px !important;
+}
+
+.xdrive-driver-workspace .driver-load-cell,
+.xdrive-driver-workspace .driver-job-cell {
+  padding: 10px 11px !important;
+}
+
+.xdrive-driver-workspace .driver-cell-label {
+  margin-bottom: 3px !important;
+  color: #657487 !important;
+  font-size: 11px !important;
+  line-height: 15px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-driver-workspace .driver-cell-primary {
+  color: #24364b !important;
+  font-size: 13.5px !important;
+  line-height: 19px !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-driver-workspace .driver-cell-secondary {
+  margin-top: 3px !important;
+  color: #687789 !important;
+  font-size: 11px !important;
+  line-height: 15px !important;
+  font-weight: 500 !important;
+}
+
+.xdrive-driver-workspace .driver-load-row__meta,
+.xdrive-driver-workspace .driver-job-row__meta {
+  min-height: 30px !important;
+  padding: 5px 9px !important;
+  gap: 9px !important;
+  background: #f4f7fb !important;
+  color: #627285 !important;
+  font-size: 11px !important;
+  line-height: 15px !important;
+}
+
+.xdrive-driver-workspace .driver-row-details {
+  padding: 11px !important;
+  background: #fafbfd !important;
+}
+
+.xdrive-driver-workspace .driver-detail-grid {
+  gap: 8px !important;
+}
+
+.xdrive-driver-workspace .driver-detail-item {
+  min-height: 52px !important;
+  padding: 8px 10px !important;
+}
+
+.xdrive-driver-workspace .driver-detail-item span {
+  font-size: 10.5px !important;
+  line-height: 14px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-driver-workspace .driver-detail-item strong {
+  font-size: 12.5px !important;
+  line-height: 17px !important;
+  font-weight: 750 !important;
+}
+
+/* Dashboard prototype: section bands, readable cards and operational density. */
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-section {
+  border-color: #c7d1dc !important;
+  background: #fff !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-section__header {
+  min-height: 44px !important;
+  padding: 0 11px !important;
+  background: #f2f4f7 !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-section__header > span:first-child,
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-section__header > strong:first-child {
+  color: #21384f !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-section__body {
+  padding: 10px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-facts > div {
+  min-height: 38px !important;
+  padding: 7px 2px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-facts dt {
+  font-size: 11.5px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-facts dd {
+  font-size: 12.5px !important;
+  font-weight: 750 !important;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .driver-dashboard-quick-row {
+  min-height: 52px !important;
+  padding: 9px 10px !important;
+}
+
+/* Availability prototype: 245px control rail + stronger panel hierarchy. */
+.xdrive-driver-workspace .driver-reference-availability {
+  --availability-rail: var(--driver-prototype-rail) !important;
+}
+
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-board {
+  grid-template-columns: var(--driver-prototype-rail) minmax(0, 1fr) !important;
+  gap: 12px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-rail {
+  top: 74px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-section__head,
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-panel__head {
+  min-height: 44px !important;
+  padding: 0 11px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-section__head strong,
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-panel__head strong {
+  font-size: 14px !important;
+  line-height: 19px !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-panel__head span {
+  font-size: 11.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-status {
+  min-height: 58px !important;
+  padding: 9px 10px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-status strong {
+  font-size: 13.5px !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-status span,
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-facts dt {
+  font-size: 11px !important;
+  line-height: 15px !important;
+}
+
+.xdrive-driver-workspace .driver-reference-availability .driver-availability-facts dd {
+  font-size: 12.5px !important;
+  line-height: 17px !important;
+}
+
+/* Return Journeys prototype. */
+.xdrive-driver-workspace .driver-returns-exchange {
+  --returns-rail: var(--driver-prototype-rail) !important;
+}
+
+.xdrive-driver-workspace .driver-returns-exchange .driver-returns-tabs {
+  min-height: 38px !important;
+}
+
+.xdrive-driver-workspace .driver-returns-exchange .driver-returns-tabs button {
+  min-height: 37px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-driver-workspace .driver-returns-exchange .driver-filter-rail {
+  top: 74px !important;
+}
+
+.xdrive-driver-workspace .driver-returns-exchange .driver-filter-field input,
+.xdrive-driver-workspace .driver-returns-exchange .driver-filter-field select,
+.xdrive-driver-workspace .driver-returns-exchange .driver-returns-pagination select {
+  min-height: 36px !important;
+  height: 36px !important;
+  font-size: 12px !important;
+}
+
+.xdrive-driver-workspace .driver-returns-exchange .driver-returns-summary,
+.xdrive-driver-workspace .driver-returns-exchange .driver-returns-pagination {
+  min-height: 40px !important;
+  font-size: 11.5px !important;
+}
+
+.xdrive-driver-workspace .driver-returns-exchange .driver-return-row__contract {
+  min-height: 82px !important;
+}
+
+.xdrive-driver-workspace .driver-returns-exchange .driver-return-row .driver-cell-primary {
+  font-size: 13.5px !important;
+  line-height: 19px !important;
+}
+
+/* Diary prototype: booking cards and action strip, real booking data only. */
+.xdrive-driver-workspace .driver-diary-route {
+  --driver-diary-rail: var(--driver-prototype-rail) !important;
+}
+
+.xdrive-driver-workspace .driver-diary-route .driver-diary-status-strip {
+  min-height: 38px !important;
+}
+
+.xdrive-driver-workspace .driver-diary-route .driver-diary-status-strip button {
+  min-height: 37px !important;
+  padding: 0 11px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-driver-workspace .driver-diary-route .driver-diary-toolbar,
+.xdrive-driver-workspace .driver-diary-route .driver-board-summary {
+  min-height: 40px !important;
+  padding: 5px 9px !important;
+  font-size: 11.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-driver-workspace .driver-diary-route .driver-diary-entry__top {
+  min-height: 96px !important;
+  padding: 11px 12px !important;
+}
+
+.xdrive-driver-workspace .driver-diary-route .driver-diary-entry .driver-cell-label {
+  font-size: 11px !important;
+  line-height: 15px !important;
+}
+
+.xdrive-driver-workspace .driver-diary-route .driver-diary-entry .driver-cell-primary {
+  font-size: 13.5px !important;
+  line-height: 19px !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-driver-workspace .driver-diary-route .driver-diary-entry .driver-cell-secondary,
+.xdrive-driver-workspace .driver-diary-route .driver-diary-entry .driver-load-row__meta {
+  font-size: 11px !important;
+  line-height: 15px !important;
+}
+
+.xdrive-driver-workspace .driver-diary-route .driver-diary-action-rail {
+  min-height: 38px !important;
+  padding: 3px 8px !important;
+}
+
+.xdrive-driver-workspace .driver-diary-route .driver-diary-action-rail button {
+  min-height: 31px !important;
+  padding: 0 12px !important;
+  font-size: 11px !important;
+  line-height: 15px !important;
+  font-weight: 650 !important;
+}
+
+/* Finance / Quotes use the same prototype register rhythm. */
+.xdrive-driver-workspace .driver-finance-board .driver-tab-strip,
+.xdrive-driver-workspace .driver-quotes-board .driver-tab-strip {
+  min-height: 38px !important;
+}
+
+.xdrive-driver-workspace .driver-finance-board .driver-load-row__top,
+.xdrive-driver-workspace .driver-quotes-board .driver-load-row__top {
+  min-height: 82px !important;
+}
+
+/* Shared Post Load form already uses the prototype component; strengthen parity in Driver. */
+.xdrive-driver-workspace .xdrive-post-load-form {
+  gap: 12px !important;
+  font-size: 13px !important;
+}
+
+.xdrive-driver-workspace .xdrive-post-load-form > section > div:first-child {
+  min-height: 44px !important;
+}
+
+.xdrive-driver-workspace .xdrive-post-load-form input,
+.xdrive-driver-workspace .xdrive-post-load-form select {
+  min-height: 36px !important;
+}
+
+/* Explicitly responsive; no Fleet selectors and no navbar selectors in this file. */
+
+/* Account prototype: full-page management density, real profile/account data. */
+.xdrive-driver-workspace .driver-account-workspace {
+  grid-template-columns: 245px minmax(0, 1fr) !important;
+  gap: 12px !important;
+}
+
+.xdrive-driver-workspace .driver-account-section-nav {
+  top: 74px !important;
+  border-color: #c7d1dc !important;
+}
+
+.xdrive-driver-workspace .driver-account-section-nav__head,
+.xdrive-driver-workspace .driver-account-column__head {
+  min-height: 42px !important;
+  padding: 0 11px !important;
+  color: #213750 !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-driver-workspace .driver-account-section-nav__link {
+  min-height: 42px !important;
+  padding: 0 11px !important;
+  font-size: 12.5px !important;
+  line-height: 17px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-driver-workspace .driver-account-column__body {
+  gap: 8px !important;
+  padding: 10px !important;
+}
+
+.xdrive-driver-workspace .driver-account-member-card > div {
+  min-height: 44px !important;
+  grid-template-columns: 145px minmax(0, 1fr) !important;
+}
+
+.xdrive-driver-workspace .driver-account-member-card span,
+.xdrive-driver-workspace .driver-account-edit label {
+  font-size: 11.5px !important;
+  line-height: 15px !important;
+}
+
+.xdrive-driver-workspace .driver-account-member-card strong,
+.xdrive-driver-workspace .driver-account-link strong,
+.xdrive-driver-workspace .driver-account-status strong {
+  font-size: 12.5px !important;
+  line-height: 17px !important;
+}
+
+.xdrive-driver-workspace .driver-account-edit input {
+  height: 36px !important;
+  min-height: 36px !important;
+  font-size: 12px !important;
+}
+
+.xdrive-driver-workspace .driver-account-link {
+  min-height: 54px !important;
+  padding: 9px 10px !important;
+}
+
+/* Directory prototype: same left-search + result-register composition as the reference suite. */
+.xdrive-driver-workspace .workspace-board-layout {
+  grid-template-columns: 245px minmax(0, 1fr) !important;
+  gap: 12px !important;
+}
+
+.xdrive-driver-workspace .workspace-filter-rail {
+  width: 245px !important;
+  top: 74px !important;
+  border-color: #c7d1dc !important;
+}
+
+.xdrive-driver-workspace .workspace-filter-rail__header {
+  min-height: 42px !important;
+  padding: 0 12px !important;
+  display: flex !important;
+  align-items: center !important;
+  color: #213750 !important;
+  font-size: 14px !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-driver-workspace .workspace-filter-rail__body {
+  gap: 8px !important;
+  padding: 11px !important;
+}
+
+.xdrive-driver-workspace .workspace-filter-rail__body label {
+  color: #526174 !important;
+  font-size: 11.5px !important;
+  line-height: 15px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-driver-workspace .workspace-filter-rail__body input:not([type='checkbox']),
+.xdrive-driver-workspace .workspace-filter-rail__body select {
+  min-height: 36px !important;
+  height: 36px !important;
+  font-size: 12px !important;
+}
+
+.xdrive-driver-workspace .workspace-tab-strip {
+  min-height: 38px !important;
+}
+
+.xdrive-driver-workspace .workspace-tab-strip button {
+  min-height: 37px !important;
+  height: 37px !important;
+  padding: 0 12px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-driver-workspace .workspace-record-meta {
+  min-height: 40px !important;
+  font-size: 11.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-driver-workspace .workspace-record-list {
+  gap: 7px !important;
+}
+
+.xdrive-driver-workspace .workspace-operational-row {
+  border-color: #b8c5d2 !important;
+}
+
+.xdrive-driver-workspace .workspace-operational-row__top {
+  min-height: 82px !important;
+}
+
+.xdrive-driver-workspace .workspace-operational-cell {
+  padding: 10px 11px !important;
+}
+
+.xdrive-driver-workspace .workspace-operational-cell > strong {
+  color: #24364b !important;
+  font-size: 13.5px !important;
+  line-height: 19px !important;
+  font-weight: 800 !important;
+}
+@media (max-width: 1200px) {
+  .xdrive-driver-workspace .driver-board-layout,
+  .xdrive-driver-workspace .driver-reference-availability .driver-availability-board,
+  .xdrive-driver-workspace .driver-returns-exchange .driver-returns-board,
+  .xdrive-driver-workspace .driver-returns-exchange .driver-returns-add-board,
+  .xdrive-driver-workspace .driver-diary-route .driver-diary-board {
+    grid-template-columns: 1fr !important;
+  }
+
+  .xdrive-driver-workspace .driver-filter-rail,
+  .xdrive-driver-workspace .driver-reference-availability .driver-availability-rail {
+    position: static !important;
+    width: 100% !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .xdrive-driver-workspace .driver-load-row__top,
+  .xdrive-driver-workspace .driver-job-row__top,
+  .xdrive-driver-workspace .driver-detail-grid {
+    min-height: 0 !important;
+  }
+}
+/* Driver Dashboard — yesterday's prototype composition, simplified for the driver role. */
+.xdrive-driver-workspace .driver-prototype-dashboard .xdrive-page-header {
+  margin-bottom: 10px !important;
+}
+
+.xdrive-driver-workspace .driver-proto-hero {
+  min-height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 11px 13px;
+  border: 1px solid #c7d1dc;
+  background: #fff;
+}
+
+.xdrive-driver-workspace .driver-proto-hero > div:first-child {
+  min-width: 0;
+}
+
+.xdrive-driver-workspace .driver-proto-hero h2,
+.xdrive-driver-workspace .driver-proto-panel__head h3 {
+  margin: 0;
+  color: #21384f;
+  font-weight: 800;
+}
+
+.xdrive-driver-workspace .driver-proto-hero h2 {
+  margin-top: 2px;
+  font-size: 18px;
+  line-height: 23px;
+}
+
+.xdrive-driver-workspace .driver-proto-hero p,
+.xdrive-driver-workspace .driver-proto-panel__head p {
+  margin: 3px 0 0;
+  color: #627489;
+  font-size: 11.5px;
+  line-height: 16px;
+}
+
+.xdrive-driver-workspace .driver-proto-eyebrow {
+  display: block;
+  color: #1d57d8;
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.xdrive-driver-workspace .driver-proto-hero__status {
+  min-width: 160px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  color: #526174;
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  margin-top: 8px;
+  border: 1px solid #c7d1dc;
+  background: #fff;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis button {
+  min-width: 0;
+  min-height: 82px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 0;
+  border-right: 1px solid #dce3eb;
+  border-top: 3px solid #c8d2dd;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis button:last-child {
+  border-right: 0;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis button:hover,
+.xdrive-driver-workspace .driver-proto-kpis button:focus-visible {
+  background: #f7f9fc;
+  border-top-color: #1d57d8;
+  outline: none;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis span {
+  color: #5d6f83;
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 800;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis strong {
+  display: block;
+  max-width: 100%;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #0b2f6b;
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-driver-workspace .driver-proto-kpis small {
+  display: block;
+  max-width: 100%;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #7a8796;
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-driver-workspace .driver-proto-panel {
+  margin-top: 8px;
+  border: 1px solid #c7d1dc;
+  background: #fff;
+}
+
+.xdrive-driver-workspace .driver-proto-panel__head {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #dce3eb;
+  background: #f2f4f7;
+}
+
+.xdrive-driver-workspace .driver-proto-panel__head > div {
+  min-width: 0;
+}
+
+.xdrive-driver-workspace .driver-proto-panel__head h3 {
+  margin-top: 1px;
+  font-size: 14px;
+  line-height: 19px;
+}
+
+.xdrive-driver-workspace .driver-proto-panel__body {
+  padding: 8px;
+}
+
+.xdrive-driver-workspace .driver-proto-workboard .driver-proto-panel__body {
+  padding: 8px;
+}
+
+.xdrive-driver-workspace .driver-proto-next-action {
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 7px;
+  padding: 8px 10px;
+  border: 1px solid #bcd3ef;
+  background: #f4f8fd;
+}
+
+.xdrive-driver-workspace .driver-proto-next-action > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.xdrive-driver-workspace .driver-proto-next-action span,
+.xdrive-driver-workspace .driver-proto-next-booking__label {
+  color: #1d57d8;
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+
+.xdrive-driver-workspace .driver-proto-next-action strong {
+  color: #21384f;
+  font-size: 13px;
+  line-height: 17px;
+}
+
+.xdrive-driver-workspace .driver-proto-next-action small {
+  color: #627489;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.xdrive-driver-workspace .driver-proto-next-booking__label {
+  margin: 0 0 6px 2px;
+}
+
+.xdrive-driver-workspace .driver-proto-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(320px, .65fr);
+  gap: 8px;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.xdrive-driver-workspace .driver-proto-readiness button {
+  min-width: 0;
+  min-height: 76px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 9px 10px;
+  border: 0;
+  border-right: 1px solid #e1e6ec;
+  border-bottom: 1px solid #e1e6ec;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness button:nth-child(2n) {
+  border-right: 0;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness button:nth-last-child(-n+2) {
+  border-bottom: 0;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness button:hover,
+.xdrive-driver-workspace .driver-proto-readiness button:focus-visible {
+  background: #f8fafc;
+  outline: none;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness span {
+  color: #667689;
+  font-size: 10.5px;
+  line-height: 14px;
+  font-weight: 700;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness strong {
+  display: block;
+  max-width: 100%;
+  margin-top: 3px;
+  overflow: hidden;
+  color: #24364b;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-driver-workspace .driver-proto-readiness small {
+  display: block;
+  max-width: 100%;
+  margin-top: 2px;
+  overflow: hidden;
+  color: #7a8796;
+  font-size: 10.5px;
+  line-height: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-driver-workspace .driver-prototype-dashboard .driver-load-row__top {
+  min-height: 76px !important;
+}
+
+.xdrive-driver-workspace .driver-prototype-dashboard .driver-load-cell {
+  padding: 9px 10px !important;
+}
+
+.xdrive-driver-workspace .driver-prototype-dashboard .driver-load-row__meta {
+  min-height: 30px !important;
+  padding: 4px 8px !important;
+}
+
+@media (max-width: 1180px) {
+  .xdrive-driver-workspace .driver-proto-kpis {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .xdrive-driver-workspace .driver-proto-kpis button:nth-child(3n) {
+    border-right: 0;
+  }
+  .xdrive-driver-workspace .driver-proto-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 760px) {
+  .xdrive-driver-workspace .driver-proto-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .xdrive-driver-workspace .driver-proto-hero__status {
+    min-width: 0;
+    justify-content: flex-start;
+  }
+  .xdrive-driver-workspace .driver-proto-kpis {
+    grid-template-columns: 1fr 1fr;
+  }
+  .xdrive-driver-workspace .driver-proto-kpis button {
+    border-right: 1px solid #dce3eb;
+  }
+  .xdrive-driver-workspace .driver-proto-kpis button:nth-child(2n) {
+    border-right: 0;
+  }
+  .xdrive-driver-workspace .driver-proto-readiness {
+    grid-template-columns: 1fr;
+  }
+  .xdrive-driver-workspace .driver-proto-readiness button {
+    border-right: 0;
+    border-bottom: 1px solid #e1e6ec;
+  }
+  .xdrive-driver-workspace .driver-proto-readiness button:last-child {
+    border-bottom: 0;
+  }
+  .xdrive-driver-workspace .driver-proto-next-action {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
