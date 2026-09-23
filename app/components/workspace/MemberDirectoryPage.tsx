@@ -100,6 +100,9 @@ export function MemberDirectoryPage({
   const [truncation, setTruncation] = useState<DirectoryTruncation>({});
   const [privacy, setPrivacy] = useState('');
   const [reputationNote, setReputationNote] = useState('');
+  const [sortBy, setSortBy] = useState<'distance' | 'name' | 'delivery' | 'payment'>('distance');
+  const [pageSize, setPageSize] = useState<25 | 50 | 100>(25);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -241,19 +244,37 @@ export function MemberDirectoryPage({
     setNearestQuery({ near: '', radius: '50' });
   };
 
+  const sortCompanies = useMemo(() => [...visibleCompanies].sort((a, b) => {
+    if (sortBy === 'name') return a.name.localeCompare(b.name);
+    if (sortBy === 'delivery') return (b.deliveryReliability.score ?? -1) - (a.deliveryReliability.score ?? -1);
+    if (sortBy === 'payment') return (b.paymentReliability.score ?? -1) - (a.paymentReliability.score ?? -1);
+    return (a.distanceMiles ?? Number.POSITIVE_INFINITY) - (b.distanceMiles ?? Number.POSITIVE_INFINITY);
+  }), [sortBy, visibleCompanies]);
+  const sortDrivers = useMemo(() => [...visibleDrivers].sort((a, b) => {
+    if (sortBy === 'name') return a.displayName.localeCompare(b.displayName);
+    if (sortBy === 'delivery') return (b.deliveryReliability.score ?? -1) - (a.deliveryReliability.score ?? -1);
+    if (sortBy === 'payment') return (b.paymentReliability.score ?? -1) - (a.paymentReliability.score ?? -1);
+    return (a.distanceMiles ?? Number.POSITIVE_INFINITY) - (b.distanceMiles ?? Number.POSITIVE_INFINITY);
+  }), [sortBy, visibleDrivers]);
+  const totalRecords = tab === 'companies' ? sortCompanies.length : sortDrivers.length;
+  const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageStart = (safePage - 1) * pageSize;
+  const paginatedCompanies = tab === 'companies' ? sortCompanies.slice(pageStart, pageStart + pageSize) : [];
+  const paginatedDrivers = tab === 'drivers' ? sortDrivers.slice(pageStart, pageStart + pageSize) : [];
+  useEffect(() => { setPage(1); }, [tab, pageSize, sortBy, member, location, memberType, vehicle, availability, country, specialistService, tailLiftOnly, deliveryMin, paymentMin, nearestQuery]);
+
   const capped = Boolean(truncation.companies || truncation.drivers || truncation.vehicleEnrichment || truncation.reputation);
   const capMessage = capped
     ? `Directory results may be incomplete because the current endpoint is capped at ${truncation.limits?.companies ?? 500} companies and ${truncation.limits?.drivers ?? 500} drivers${truncation.vehicleEnrichment ? `, with vehicle enrichment capped at ${truncation.limits?.vehicles ?? 1000} records` : ''}. Do not treat the visible list as the complete XDrive network.`
     : 'Part of the Directory enrichment is temporarily unavailable. Verified member records are still shown.';
 
   if (pathname.startsWith('/driver')) {
-    const records = tab === 'companies' ? visibleCompanies : visibleDrivers;
     return (
       <section className="page driver-directory-prototype-page">
         <div className="subbar">
           <span className="crumb">Workspace &nbsp;/&nbsp; <b>Directory</b></span>
           <div className="sub-actions">
-            <button type="button" className="btn" disabled title="Saved Networks is not yet backed by a Driver API">Saved Networks</button>
             <button type="button" className="btn" onClick={clear}>Clear</button>
             <button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find Nearest</button>
           </div>
@@ -261,7 +282,7 @@ export function MemberDirectoryPage({
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search</div>
-            <button type="button" className="directory-nearest" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find My Nearest</button>
+            <button type="button" className="directory-nearest" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find Nearest</button>
             <div className="filter"><span className="label">Country</span><select className="select" value={country} onChange={(event) => setCountry(event.target.value)}><option value="">Any country</option>{countries.map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
             <div className="filter"><span className="label">Member Name / ID</span><input className="input" value={member} onChange={(event) => setMember(event.target.value)} placeholder="Name or XD member ID" /></div>
             <div className="filter"><span className="label">Location / Radius</span><div className="row2"><input className="input" value={nearestLocation} onChange={(event) => setNearestLocation(event.target.value)} placeholder="Town / postcode" /><select className="select" value={nearestRadius} onChange={(event) => setNearestRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
@@ -277,20 +298,20 @@ export function MemberDirectoryPage({
             {partial && <AlertBanner tone="warning">{capMessage}</AlertBanner>}
             <div className="directory-hero">
               <div><b>XDrive Member Network</b><span>Companies and drivers · capability · trust · reliability</span></div>
-              <div className="dir-hero-actions"><button type="button" className="btn" onClick={() => void load()}>Refresh</button><button type="button" className="btn primary">Search</button></div>
+              <div className="dir-hero-actions"><button type="button" className="btn" onClick={() => void load()}>Refresh</button><button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Search</button></div>
             </div>
             <div className="dir-tabs">
               <button type="button" className={tab === 'companies' ? 'active' : ''} onClick={() => setTab('companies')}>COMPANIES <span>{visibleCompanies.length}</span></button>
               <button type="button" className={tab === 'drivers' ? 'active' : ''} onClick={() => setTab('drivers')}>DRIVERS <span>{visibleDrivers.length}</span></button>
-              <div className="dir-sort">Sort By: <select className="select" defaultValue="Distance"><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
+              <div className="dir-sort">Sort By: <select className="select" value={sortBy} onChange={(event) => setSortBy(event.target.value as 'distance' | 'name' | 'delivery' | 'payment')}><option value="distance">Distance</option><option value="name">Member Name</option><option value="delivery">Delivery Reliability</option><option value="payment">Payment Reliability</option></select></div>
             </div>
-            <div className="dir-summary"><span>{records.length} matching loaded record(s)</span><span className="spacer">Click a company identity for Member Profile</span></div>
+            <div className="dir-summary"><span>{totalRecords} matching loaded record(s)</span><span className="spacer">Click a company identity for Member Profile</span></div>
             {loading ? <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div> : (
               <div className="tablewrap">
                 <table className="dir-table" style={{ minWidth: 1280 }}>
                   <thead><tr><th>Member</th><th>Location</th><th>Member Type</th><th>Vehicle / Capability</th><th>Delivery / Tracking</th><th>Payment / Last Seen</th><th>Status</th><th>Actions</th></tr></thead>
                   <tbody>
-                    {tab === 'companies' ? visibleCompanies.map((company) => (
+                    {tab === 'companies' ? paginatedCompanies.map((company) => (
                       <tr key={company.companyId} className="dir-row">
                         <td><button type="button" className="dir-member-link"><b><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></b><span className="meta">{company.memberId ?? 'Member ID not supplied'}</span></button></td>
                         <td>{[company.city, company.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi` : ''}</span></td>
@@ -301,7 +322,7 @@ export function MemberDirectoryPage({
                         <td><StatusBadge value="Not advertised" /></td>
                         <td><button type="button" className="rowbtn blue" onClick={() => router.push(`/driver/network/${company.companyId}`)}>Profile</button>{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
                       </tr>
-                    )) : visibleDrivers.map((driver) => (
+                    )) : paginatedDrivers.map((driver) => (
                       <tr key={driver.driverId} className="dir-row">
                         <td><b>{driver.displayName}</b><span className="meta">{driver.memberId ?? driver.companyName}</span></td>
                         <td>{[driver.city, driver.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{driver.country ?? 'Country not supplied'}{driver.distanceMiles != null ? ` · ${driver.distanceMiles.toFixed(1)} mi` : ''}</span></td>
@@ -317,7 +338,7 @@ export function MemberDirectoryPage({
                 </table>
               </div>
             )}
-            <div className="footer"><span>Items per Page:</span><select className="fleet-page-size" defaultValue="25"><option>25</option><option>50</option><option>100</option></select><span style={{ marginLeft: 10 }}>1-{records.length} of {records.length}</span><div className="right"><button className="rowbtn" disabled>First</button><button className="rowbtn" disabled>Previous</button><button className="rowbtn blue">1</button><button className="rowbtn" disabled>Next</button><button className="rowbtn" disabled>Last</button></div></div>
+            <div className="footer"><span>Items per Page:</span><select className="fleet-page-size" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value) as 25 | 50 | 100)}><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select><span style={{ marginLeft: 10 }}>{totalRecords ? `${pageStart + 1}-${Math.min(pageStart + pageSize, totalRecords)} of ${totalRecords}` : '0 of 0'}</span><div className="right"><button type="button" className="rowbtn" disabled={safePage <= 1} onClick={() => setPage(1)}>First</button><button type="button" className="rowbtn" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button><button type="button" className="rowbtn blue">{safePage}</button><button type="button" className="rowbtn" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</button><button type="button" className="rowbtn" disabled={safePage >= totalPages} onClick={() => setPage(totalPages)}>Last</button></div></div>
             {reputationNote && <div className="footer">{reputationNote}</div>}
             {privacy && <div className="footer">{privacy}</div>}
           </main>
