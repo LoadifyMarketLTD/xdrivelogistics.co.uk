@@ -15,8 +15,10 @@ describe('Driver CX convergence contract', () => {
 
   it('uses the approved prototype hierarchy without the old duplicated desktop rail', () => {
     expect(page).toContain('Today at a glance');
-    expect(page).toContain('Matching loads');
-    expect(page).toContain('Driver readiness');
+    expect(page).toContain('MATCHING LOADS');
+    expect(page).toContain('Commercial position');
+    expect(page).toContain('Performance & evidence');
+    expect(page).toContain('Driver workflow');
     expect(page).toContain('Latest bookings');
     expect(page).not.toContain('<span>Status & availability</span>');
     expect(page).not.toContain('<span>Canonical active vehicle</span>');
@@ -41,7 +43,7 @@ describe('Driver CX convergence contract', () => {
 
   it('preserves truthful server-authoritative eligibility wording', () => {
     expect(page).toContain('Full quote eligibility remains server-authoritative.');
-    expect(page).toContain('data.datasets.driverDocuments.availability');
+    expect(page).toContain('data.driverDocuments');
     expect(page).toContain("fetch('/api/driver/vehicles'");
   });
 });

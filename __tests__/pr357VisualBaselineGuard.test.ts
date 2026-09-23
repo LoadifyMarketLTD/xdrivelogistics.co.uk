@@ -45,8 +45,10 @@ describe('PR #357 approved visual baseline', () => {
       'driver-prototype-dashboard',
       'Today at a glance',
       'Operational workboard',
-      'Matching loads',
-      'Driver readiness',
+      'MATCHING LOADS',
+      'Commercial position',
+      'Performance & evidence',
+      'Driver workflow',
       'Latest bookings',
       'NEXT ACTION',
     ]) expect(driverDashboard).toContain(marker);

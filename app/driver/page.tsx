@@ -222,6 +222,7 @@ export default function DriverDashboard() {
   const [feedback, setFeedback] = useState<DashboardReview[]>([]);
   const [contextWarnings, setContextWarnings] = useState<DashboardContextWarnings>({});
   const [contextLoading, setContextLoading] = useState(true);
+  const [workboardView, setWorkboardView] = useState<'attention' | 'upcoming' | 'live' | 'documents' | 'exceptions' | 'all'>('attention');
 
   const myJobs = useMemo(
     () => filterJobsForDriver(data.jobs, { driverId: user?.driverId, ownerDriver }),
@@ -242,7 +243,7 @@ export default function DriverDashboard() {
       }
     : null;
 
-  const todaysJobs = myJobs
+  const _todaysJobs = myJobs
     .filter((job) => job.pickup_datetime && new Date(job.pickup_datetime).toDateString() === new Date().toDateString())
     .sort((a, b) => String(a.pickup_datetime ?? '').localeCompare(String(b.pickup_datetime ?? '')));
 
@@ -476,7 +477,7 @@ export default function DriverDashboard() {
     );
   };
 
-  const renderRelevantLoad = (load: DashboardMarketplaceLoad) => (
+  const _renderRelevantLoad = (load: DashboardMarketplaceLoad) => (
     <article key={load.id} className="driver-load-row driver-dashboard-marketplace-row">
       <div className="driver-load-row__top">
         <div className="driver-load-cell">
@@ -518,190 +519,189 @@ export default function DriverDashboard() {
   };
 
   const availabilityValue = driverProfile?.availability_status ? humanize(driverProfile.availability_status) : 'Unavailable';
-  const availabilityTone = driverProfile?.availability_status === 'available'
+  const _availabilityTone = driverProfile?.availability_status === 'available'
     ? 'green'
     : driverProfile?.availability_status === 'busy'
       ? 'orange'
       : 'grey';
   const driverStatusValue = driverProfile?.status ? humanize(driverProfile.status) : 'Unavailable';
-  const assignedVehicleName = assignedVehicle
+  const _assignedVehicleName = assignedVehicle
     ? [vehicleLabel(assignedVehicle.type), assignedVehicle.reg_plate].filter(Boolean).join(' · ')
     : 'Not available';
 
   const dashboardBookings = recentBookings.filter((job) => job.id !== upcomingJobs[0]?.id).slice(0, 3);
-  const dashboardLoads = relevantLoads.slice(0, 2);
   const latestFeedback = feedback[0] ?? null;
+  const quoteRows = data.bids ?? [];
+  const openQuotes = quoteRows.filter((bid) => ['submitted', 'pending'].includes(String(bid.status ?? '').toLowerCase())).length;
+  const acceptedQuotes = quoteRows.filter((bid) => ['accepted', 'awarded', 'won'].includes(String(bid.status ?? '').toLowerCase())).length;
+  const warningCount = Object.values(contextWarnings).filter(Boolean).length + (transitionError ? 1 : 0);
+  const liveJobs = currentJob ? [currentJob] : [];
+  const needsAttentionCount = (currentJob && currentAction ? 1 : 0) + documentAlerts.length + warningCount;
+  const workboardTabs = [
+    { id: 'attention' as const, label: 'Needs attention', count: needsAttentionCount },
+    { id: 'upcoming' as const, label: 'Upcoming', count: upcomingJobs.length },
+    { id: 'live' as const, label: 'Live jobs', count: liveJobs.length },
+    { id: 'documents' as const, label: 'Documents', count: documentAlerts.length },
+    { id: 'exceptions' as const, label: 'Exceptions', count: warningCount },
+    { id: 'all' as const, label: 'All work', count: myJobs.length },
+  ];
+
+  const renderWorkboardBody = () => {
+    if (workboardView === 'live') {
+      return liveJobs.length
+        ? <div className="driver-load-list">{liveJobs.map((job) => renderJobRow(job, 'Open job'))}</div>
+        : <EmptyState compact title="No live job" description="There is no active execution at the moment." />;
+    }
+    if (workboardView === 'upcoming') {
+      return upcomingJobs.length
+        ? <div className="driver-load-list">{upcomingJobs.slice(0, 4).map((job) => renderJobRow(job, 'Open booking'))}</div>
+        : <EmptyState compact title="No upcoming bookings" description="No future allocated work is currently scheduled." />;
+    }
+    if (workboardView === 'documents') {
+      return documentAlerts.length
+        ? <div className="driver-proto-register">{documentAlerts.map((document) => (
+            <button key={document.id} type="button" onClick={() => router.push('/driver/documents')}>
+              <div>
+                <strong>{humanize(document.doc_type ?? 'Document')}</strong>
+                <span>{document.expiry_date ? 'Expiry ' + fmtFullDate(document.expiry_date) : 'No expiry supplied'}</span>
+              </div>
+              <StatusBadge value={humanize(document.status ?? 'Attention')} tone={statusTone(String(document.status ?? 'pending'))} />
+            </button>
+          ))}</div>
+        : <EmptyState compact title="No document alerts" description="There are no current document actions requiring attention." />;
+    }
+    if (workboardView === 'exceptions') {
+      const warnings = Object.values(contextWarnings).filter(Boolean);
+      return warnings.length || transitionError
+        ? <div className="driver-proto-exceptions">
+            {transitionError && <AlertBanner tone="danger">{transitionError}</AlertBanner>}
+            {warnings.map((warning) => <AlertBanner key={warning} tone="warning">{warning}</AlertBanner>)}
+          </div>
+        : <EmptyState compact title="No active exceptions" description="Driver workspace services are reporting normally." />;
+    }
+    if (workboardView === 'all') {
+      return myJobs.length
+        ? <div className="driver-load-list">{myJobs.slice(0, 5).map((job) => renderJobRow(job, 'Open job'))}</div>
+        : <EmptyState compact title="No driver work" description="No driver jobs are currently available." />;
+    }
+    if (currentJob && currentAction) {
+      return <>
+        {renderJobRow(currentJob, 'Open full job')}
+        <div className="driver-proto-next-action">
+          <div><span>NEXT ACTION</span><strong>{currentAction.label}</strong><small>{currentAction.description}</small></div>
+          <ActionButton tone="success" disabled={transitioningJobId === currentJob.id} onClick={() => void runCurrentAction()}>
+            {transitioningJobId === currentJob.id ? 'Saving…' : currentAction.label}
+          </ActionButton>
+        </div>
+      </>;
+    }
+    if (documentAlerts.length) {
+      return <div className="driver-proto-attention-line">
+        <div><strong>{documentAlerts.length + ' document alert' + (documentAlerts.length === 1 ? '' : 's') + ' require attention'}</strong><span>Open Documents to review expiry or status issues.</span></div>
+        <ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Open Documents</ActionButton>
+      </div>;
+    }
+    if (warningCount) {
+      return <div className="driver-proto-attention-line">
+        <div><strong>{warningCount + ' workspace exception' + (warningCount === 1 ? '' : 's')}</strong><span>Open Exceptions to inspect service availability.</span></div>
+        <ActionButton tone="secondary" onClick={() => setWorkboardView('exceptions')}>View exceptions</ActionButton>
+      </div>;
+    }
+    return <EmptyState compact title="Operations queue clear" description="Use Loads to find marketplace work or Diary to review bookings." />;
+  };
 
   return (
-    <div className="driver-reference-dashboard driver-prototype-dashboard">
+    <div className="driver-reference-dashboard driver-prototype-dashboard driver-prototype-dashboard--v2">
       <DriverWorkspaceShell
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
         driverName="Dashboard"
-        subtitle="Today's work, readiness and marketplace activity in one operating view."
-        availabilityLabel={driverProfile?.availability_status ? availabilityValue : undefined}
-        headerActions={
-          <>
-            {ownerDriver && <ActionButton tone="warning" onClick={() => router.push('/driver/post-load')}>Post Load</ActionButton>}
-            <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>Open Diary</ActionButton>
-            <ActionButton tone="primary" onClick={() => void refreshDashboard()} disabled={data.loading || contextLoading}>Refresh</ActionButton>
-          </>
-        }
+        subtitle="Live operations, work readiness, marketplace position and compliance at a glance."
+        headerActions={<>
+          <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>Open Diary</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/driver/action-centre')}>Action Centre</ActionButton>
+          <ActionButton tone="primary" onClick={() => void refreshDashboard()} disabled={data.loading || contextLoading}>Refresh</ActionButton>
+        </>}
       >
         {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
-        {transitionError && <AlertBanner tone="danger">{transitionError}</AlertBanner>}
         {transitionMessage && <AlertBanner tone="success">{transitionMessage}</AlertBanner>}
 
-        <section className="driver-proto-hero">
+        <section className="driver-proto-command-hero">
           <div>
             <span className="driver-proto-eyebrow">OPERATIONS CONTROL</span>
-            <h2>Today at a glance</h2>
-            <p>Execution first. Everything else is a shortcut to the dedicated workspace.</p>
+            <div className="driver-proto-command-title"><h2>Today at a glance</h2><StatusBadge value="LIVE WORKSPACE" tone="green" /></div>
+            <p>Driver work, readiness, marketplace matching and compliance in one operating view.</p>
           </div>
-          <div className="driver-proto-hero__status">
-            <span>Availability</span>
-            <StatusBadge value={availabilityValue} tone={availabilityTone} />
+          <div className="driver-proto-command-actions">
+            <ActionButton tone="secondary" onClick={() => router.push('/driver/loads')}>Find Loads</ActionButton>
+            <ActionButton tone="primary" onClick={() => router.push('/driver/history')}>Open Diary</ActionButton>
           </div>
         </section>
 
-        <section className="driver-proto-kpis" aria-label="Driver dashboard summary">
-          <button type="button" onClick={() => currentJob ? router.push(`/driver/jobs/${currentJob.id}`) : router.push('/driver/jobs')}>
-            <span>CURRENT JOB</span>
-            <strong>{currentJob && currentStatus ? humanize(currentStatus) : 'None'}</strong>
-            <small>{currentJob ? `#${currentJob.id.slice(0, 8).toUpperCase()}` : 'No active execution'}</small>
-          </button>
-          <button type="button" onClick={() => router.push('/driver/jobs')}>
-            <span>TODAY</span>
-            <strong>{todaysJobs.length}</strong>
-            <small>Jobs scheduled today</small>
-          </button>
-          <button type="button" onClick={() => router.push('/driver/history')}>
-            <span>UPCOMING</span>
-            <strong>{upcomingJobs.length}</strong>
-            <small>Future allocated work</small>
-          </button>
-          <button type="button" onClick={() => router.push('/driver/loads')}>
-            <span>MATCHING LOADS</span>
-            <strong>{contextWarnings.loads ? '—' : relevantLoads.length}</strong>
-            <small>{assignedVehicle ? `For ${vehicleLabel(assignedVehicle.type)}` : 'Active vehicle required'}</small>
-          </button>
-          <button type="button" onClick={() => router.push('/driver/availability')}>
-            <span>AVAILABILITY</span>
-            <strong>{availabilityValue}</strong>
-            <small>{driverStatusValue}</small>
-          </button>
+        <section className="driver-proto-kpis driver-proto-kpis--six" aria-label="Driver operational indicators">
+          <button className="tone-orange" type="button" onClick={() => setWorkboardView('attention')}><span>NEEDS ATTENTION</span><strong>{needsAttentionCount}</strong><small>{needsAttentionCount ? 'Driver actions or alerts' : 'No urgent actions'}</small></button>
+          <button className="tone-amber" type="button" onClick={() => setWorkboardView('upcoming')}><span>UPCOMING WORK</span><strong>{upcomingJobs.length}</strong><small>Future allocated work</small></button>
+          <button className="tone-blue" type="button" onClick={() => setWorkboardView('live')}><span>LIVE JOBS</span><strong>{liveJobs.length}</strong><small>Currently executing</small></button>
+          <button className="tone-green" type="button" onClick={() => router.push('/driver/loads')}><span>MATCHING LOADS</span><strong>{contextWarnings.loads ? '—' : relevantLoads.length}</strong><small>{assignedVehicle ? 'For ' + vehicleLabel(assignedVehicle.type) : 'Active vehicle required'}</small></button>
+          <button className="tone-navy" type="button" onClick={() => router.push('/driver/documents')}><span>DOCUMENT ALERTS</span><strong>{documentAlerts.length}</strong><small>{myDocuments.length + ' on record'}</small></button>
+          <button className="tone-red" type="button" onClick={() => setWorkboardView('exceptions')}><span>EXCEPTIONS</span><strong>{warningCount}</strong><small>{warningCount ? 'Service attention' : 'No active exceptions'}</small></button>
         </section>
 
-        <section className="driver-proto-panel driver-proto-workboard">
-          <div className="driver-proto-panel__head">
-            <div>
-              <span className="driver-proto-eyebrow">LIVE OPERATIONS</span>
-              <h3>Operational workboard</h3>
-              <p>{currentJob ? 'Continue the active job from the next required lifecycle action.' : upcomingJobs[0] ? 'No active execution. Your next allocated booking is shown below.' : 'No active or upcoming driver work requires action.'}</p>
+        <div className="driver-proto-command-grid">
+          <section className="driver-proto-panel driver-proto-workboard">
+            <div className="driver-proto-panel__head driver-proto-workboard__head">
+              <div><span className="driver-proto-eyebrow">LIVE OPERATIONS</span><h3>Operational workboard</h3><p>Execution, upcoming work, evidence and exception recovery.</p></div>
+              <span className="driver-proto-visible-count">{(workboardTabs.find((tab) => tab.id === workboardView)?.count ?? 0) + ' visible'}</span>
             </div>
-            <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>Full jobs register</ActionButton>
-          </div>
-          <div className="driver-proto-panel__body">
-            {currentJob && currentAction ? (
-              <>
-                {renderJobRow(currentJob, 'Open full job')}
-                <div className="driver-proto-next-action">
-                  <div>
-                    <span>NEXT ACTION</span>
-                    <strong>{currentAction.label}</strong>
-                    <small>{currentAction.description}</small>
-                  </div>
-                  <ActionButton
-                    tone="success"
-                    disabled={transitioningJobId === currentJob.id}
-                    onClick={() => void runCurrentAction()}
-                  >
-                    {transitioningJobId === currentJob.id ? 'Saving…' : currentAction.label}
-                  </ActionButton>
-                </div>
-              </>
-            ) : upcomingJobs[0] ? (
-              <div className="driver-proto-next-booking">
-                <div className="driver-proto-next-booking__label">NEXT BOOKING</div>
-                {renderJobRow(upcomingJobs[0], 'Open booking')}
-              </div>
-            ) : (
-              <EmptyState compact title="Operations queue clear" description="Use Loads to find marketplace work or Diary to review previous bookings." />
-            )}
-          </div>
-        </section>
+            <div className="driver-proto-work-tabs">
+              {workboardTabs.map((tab) => <button key={tab.id} type="button" data-active={workboardView === tab.id} onClick={() => setWorkboardView(tab.id)}>{tab.label}</button>)}
+            </div>
+            <div className="driver-proto-panel__body driver-proto-workboard__body">{renderWorkboardBody()}</div>
+            <div className="driver-proto-work-foot"><span>Showing live server-authoritative Driver data</span><button type="button" onClick={() => router.push('/driver/jobs')}>Open full jobs register →</button></div>
+          </section>
 
-        <div className="driver-proto-grid">
+          <aside className="driver-proto-resource-card">
+            <div className="driver-proto-resource-card__head"><div><span className="driver-proto-eyebrow">RESOURCE READINESS</span><h3>Driver & vehicle</h3></div><button type="button" onClick={() => router.push('/driver/availability')}>Live status</button></div>
+            <button type="button" onClick={() => router.push('/driver/availability')}><div><strong>Availability</strong><span>{driverStatusValue}</span></div><b className={driverProfile?.availability_status === 'available' ? 'positive' : ''}>{availabilityValue}</b></button>
+            <button type="button" onClick={() => router.push('/driver/vehicles')}><div><strong>Active vehicle</strong><span>{assignedVehicle ? vehicleLabel(assignedVehicle.type) : 'No canonical vehicle selected'}</span></div><b>{assignedVehicle?.reg_plate ?? '—'}</b></button>
+            <button type="button" onClick={() => router.push('/driver/documents')}><div><strong>Document alerts</strong><span>Expiry and status attention</span></div><b className={documentAlerts.length ? 'warning' : ''}>{documentAlerts.length}</b></button>
+            <button type="button" onClick={() => router.push('/driver/availability')}><div><strong>Future position</strong><span>{driverProfile?.future_position ?? 'Not advertised'}</span></div><b>{driverProfile?.future_position_date ? fmtDate(driverProfile.future_position_date) : '—'}</b></button>
+            <div className="driver-proto-resource-actions"><ActionButton tone="secondary" onClick={() => router.push('/driver/vehicles')}>Vehicle</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/driver/availability')}>Availability</ActionButton></div>
+          </aside>
+        </div>
+
+        <div className="driver-proto-bottom-grid">
           <section className="driver-proto-panel">
-            <div className="driver-proto-panel__head">
-              <div>
-                <span className="driver-proto-eyebrow">MARKETPLACE</span>
-                <h3>Matching loads</h3>
-                <p>Vehicle-matched work only. Full quote eligibility remains server-authoritative.</p>
-              </div>
-              <ActionButton tone="secondary" onClick={() => router.push('/driver/loads')}>All loads</ActionButton>
-            </div>
-            <div className="driver-proto-panel__body">
-              {contextWarnings.loads ? (
-                <EmptyState compact title="Matching loads unavailable" description={contextWarnings.loads} />
-              ) : !assignedVehicle ? (
-                <EmptyState compact title="Active vehicle required" description="Choose your canonical active vehicle before Dashboard matching can be shown." />
-              ) : dashboardLoads.length === 0 ? (
-                <EmptyState compact title="No matching loads" description={`No open exchange work currently matches ${vehicleLabel(assignedVehicle.type)}.`} />
-              ) : (
-                <div className="driver-load-list">{dashboardLoads.map(renderRelevantLoad)}</div>
-              )}
+            <div className="driver-proto-panel__head"><div><span className="driver-proto-eyebrow">COMMERCIAL</span><h3>Commercial position</h3></div><button type="button" className="driver-proto-text-action" onClick={() => router.push('/driver/quotes')}>Quotes →</button></div>
+            <div className="driver-proto-metric-list">
+              <button type="button" onClick={() => router.push('/driver/quotes')}><div><strong>Quotes awaiting decision</strong><span>Submitted pricing still open</span></div><b>{openQuotes}</b></button>
+              <button type="button" onClick={() => router.push('/driver/quotes')}><div><strong>Accepted quotes</strong><span>Awarded marketplace work</span></div><b>{acceptedQuotes}</b></button>
+              <button type="button" onClick={() => router.push('/driver/loads')}><div><strong>Matching marketplace loads</strong><span>Vehicle-matched open work. Full quote eligibility remains server-authoritative.</span></div><b>{contextWarnings.loads ? '—' : relevantLoads.length}</b></button>
             </div>
           </section>
 
           <section className="driver-proto-panel">
-            <div className="driver-proto-panel__head">
-              <div>
-                <span className="driver-proto-eyebrow">RESOURCE READINESS</span>
-                <h3>Driver readiness</h3>
-                <p>One summary line per resource. Detailed management stays in its own workspace.</p>
-              </div>
+            <div className="driver-proto-panel__head"><div><span className="driver-proto-eyebrow">SERVICE QUALITY</span><h3>Performance & evidence</h3></div></div>
+            <div className="driver-proto-metric-list">
+              <button type="button" onClick={() => router.push('/driver/history')}><div><strong>Latest feedback</strong><span>Most recent completed-work rating</span></div><b>{contextWarnings.feedback ? '—' : latestFeedback?.rating != null ? String(latestFeedback.rating) + '/5' : '—'}</b></button>
+              <button type="button" onClick={() => router.push('/driver/documents')}><div><strong>Documents on record</strong><span>Driver compliance records</span></div><b>{myDocuments.length}</b></button>
+              <button type="button" onClick={() => router.push('/driver/history')}><div><strong>Recent bookings</strong><span>Latest non-active jobs</span></div><b>{dashboardBookings.length}</b></button>
             </div>
-            <div className="driver-proto-readiness">
-              <button type="button" onClick={() => router.push('/driver/vehicles')}>
-                <span>Active vehicle</span>
-                <strong>{assignedVehicleName}</strong>
-                <small>{contextWarnings.vehicle ?? (assignedVehicle ? vehicleLabel(assignedVehicle.type) : 'No canonical vehicle selected')}</small>
-              </button>
-              <button type="button" onClick={() => router.push('/driver/availability')}>
-                <span>Future position</span>
-                <strong>{driverProfile?.future_position ?? 'Not advertised'}</strong>
-                <small>{fmtFullDate(driverProfile?.future_position_date)}</small>
-              </button>
-              <button type="button" onClick={() => router.push('/driver/documents')}>
-                <span>Documents</span>
-                <strong>{data.datasets.driverDocuments.availability === 'unavailable' ? 'Unavailable' : documentAlerts.length ? `${documentAlerts.length} alert${documentAlerts.length === 1 ? '' : 's'}` : 'No current alert'}</strong>
-                <small>{myDocuments.length} document{myDocuments.length === 1 ? '' : 's'} on record</small>
-              </button>
-              <button type="button" onClick={() => router.push('/driver/history')}>
-                <span>Latest feedback</span>
-                <strong>{contextWarnings.feedback ? 'Unavailable' : latestFeedback?.rating != null ? `${latestFeedback.rating}/5` : 'No recent feedback'}</strong>
-                <small>{latestFeedback ? fmtDate(latestFeedback.created_at) : 'Completed work feedback appears in Diary'}</small>
-              </button>
+          </section>
+
+          <section className="driver-proto-panel">
+            <div className="driver-proto-panel__head"><div><span className="driver-proto-eyebrow">SHORTCUTS</span><h3>Driver workflow</h3></div></div>
+            <div className="driver-proto-flow-list">
+              <button type="button" onClick={() => router.push('/driver/loads')}><b>1. Find marketplace work</b><span>Search suitable loads for the active vehicle.</span><em>→</em></button>
+              <button type="button" onClick={() => router.push('/driver/quotes')}><b>2. Price and review quotes</b><span>Manage submitted commercial offers.</span><em>→</em></button>
+              <button type="button" onClick={() => currentJob ? router.push('/driver/jobs/' + currentJob.id) : router.push('/driver/jobs')}><b>3. Execute allocated work</b><span>Continue the server-authoritative job lifecycle.</span><em>→</em></button>
+              <button type="button" onClick={() => router.push('/driver/documents')}><b>4. Maintain readiness</b><span>Keep vehicle, availability and documents current.</span><em>→</em></button>
             </div>
           </section>
         </div>
 
-        <section className="driver-proto-panel">
-          <div className="driver-proto-panel__head">
-            <div>
-              <span className="driver-proto-eyebrow">RECENT ACTIVITY</span>
-              <h3>Latest bookings</h3>
-              <p>Only the latest three non-active bookings are repeated here.</p>
-            </div>
-            <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>Open Diary</ActionButton>
-          </div>
-          <div className="driver-proto-panel__body">
-            {dashboardBookings.length === 0 ? (
-              <EmptyState compact title="No recent bookings" />
-            ) : (
-              <div className="driver-load-list">{dashboardBookings.map((job) => renderJobRow(job, 'Open job'))}</div>
-            )}
-          </div>
+        <section className="driver-proto-panel driver-proto-latest">
+          <div className="driver-proto-panel__head"><div><span className="driver-proto-eyebrow">RECENT ACTIVITY</span><h3>Latest bookings</h3></div><ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>View all</ActionButton></div>
+          <div className="driver-proto-panel__body">{dashboardBookings.length === 0 ? <EmptyState compact title="No recent bookings" /> : <div className="driver-load-list">{dashboardBookings.map((job) => renderJobRow(job, 'Open job'))}</div>}</div>
         </section>
       </DriverWorkspaceShell>
     </div>
