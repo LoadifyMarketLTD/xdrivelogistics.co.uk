@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
@@ -96,10 +97,84 @@ export async function POST(request: NextRequest) {
   }
 
   const conversationId = typeof body.conversationId === 'string' ? body.conversationId.trim() : '';
+  const targetCompanyId = typeof body.companyId === 'string' ? body.companyId.trim() : '';
   const messageBody = typeof body.body === 'string' ? body.body.trim() : '';
-  if (!UUID_RE.test(conversationId)) return json(400, { error: 'A valid existing conversation is required.' });
   if (!messageBody) return json(400, { error: 'Message body is required.' });
   if (messageBody.length > 4000) return json(400, { error: 'Message body must be 4,000 characters or fewer.' });
+
+  if (!conversationId && targetCompanyId) {
+    if (!UUID_RE.test(targetCompanyId)) return json(400, { error: 'A valid member company is required.' });
+    if (driver.companyId && driver.companyId === targetCompanyId) {
+      return json(409, { error: 'You cannot start a member chat with your own company.' });
+    }
+
+    const { data: targetCompany, error: targetCompanyError } = await supabaseAdmin
+      .from('companies')
+      .select('id, status')
+      .eq('id', targetCompanyId)
+      .maybeSingle();
+    if (targetCompanyError) return json(500, { error: 'Member company could not be verified.' });
+    if (!targetCompany || String(targetCompany.status ?? '').toLowerCase() !== 'active') {
+      return json(404, { error: 'This member is not available for messaging.' });
+    }
+
+    const { data: memberships, error: membershipError } = await supabaseAdmin
+      .from('company_memberships')
+      .select('user_id, role_in_company, created_at')
+      .eq('company_id', targetCompanyId)
+      .eq('status', 'active')
+      .not('user_id', 'is', null)
+      .limit(50);
+    if (membershipError) return json(500, { error: 'Member messaging contact could not be verified.' });
+
+    const rolePriority: Record<string, number> = { owner: 0, admin: 1, dispatcher: 2, viewer: 3 };
+    const recipientMembership = [...(memberships ?? [])]
+      .filter((row) => typeof row.user_id === 'string' && row.user_id !== driver.userId)
+      .sort((a, b) => {
+        const roleDiff = (rolePriority[String(a.role_in_company ?? '')] ?? 9) - (rolePriority[String(b.role_in_company ?? '')] ?? 9);
+        if (roleDiff !== 0) return roleDiff;
+        return new Date(a.created_at ?? 0).getTime() - new Date(b.created_at ?? 0).getTime();
+      })[0] ?? null;
+
+    let recipientUserId = typeof recipientMembership?.user_id === 'string' ? recipientMembership.user_id : null;
+    if (!recipientUserId) {
+      const { data: targetDriver, error: targetDriverError } = await supabaseAdmin
+        .from('drivers')
+        .select('user_id')
+        .eq('company_id', targetCompanyId)
+        .eq('status', 'active')
+        .eq('app_access', true)
+        .not('user_id', 'is', null)
+        .limit(1)
+        .maybeSingle();
+      if (targetDriverError) return json(500, { error: 'Member messaging contact could not be verified.' });
+      recipientUserId = typeof targetDriver?.user_id === 'string' && targetDriver.user_id !== driver.userId
+        ? targetDriver.user_id
+        : null;
+    }
+
+    if (!recipientUserId) {
+      return json(409, { error: 'This member does not currently have an active messaging contact.' });
+    }
+
+    const newConversationId = randomUUID();
+    const { data: inserted, error: insertError } = await supabaseAdmin
+      .from('messages')
+      .insert({
+        company_id: null,
+        conversation_id: newConversationId,
+        sender_user_id: driver.userId,
+        recipient_user_id: recipientUserId,
+        body: messageBody,
+      })
+      .select('id, company_id, conversation_id, sender_user_id, recipient_user_id, body, created_at')
+      .single();
+
+    if (insertError) return json(500, { error: 'Message could not be sent.' });
+    return json(201, { conversationId: newConversationId, message: inserted });
+  }
+
+  if (!UUID_RE.test(conversationId)) return json(400, { error: 'A valid existing conversation is required.' });
 
   // Service-role access is manually reduced to an existing conversation in
   // which the current user is already a participant. This endpoint cannot be

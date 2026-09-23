@@ -57,18 +57,23 @@ describe('CX contextual Freight Messenger contract', () => {
       expect(ui).toContain(': targetBidId');
       expect(ui).toContain(': targetJobId');
       expect(ui).toContain(': targetCompanyId');
-      expect(ui).toContain('No verified conversation exists for the requested job, quote or member context.');
+      if (ui === workspaceUi) expect(ui).toContain('No verified conversation exists for the requested job, quote or member context.');
+      else expect(ui).toContain('No existing conversation was found for this member. You can start a verified Directory chat below.');
       expect(ui).toContain('contextPartial');
       expect(ui).toContain('Open job');
     }
   });
 
-  it('does not allow contextual navigation to create an arbitrary recipient', () => {
+  it('allows Directory member chat only through a verified active company target', () => {
     expect(directory).toContain('router.push(`${messagesRoute}?companyId=${encodeURIComponent(companyId)}`)');
-    expect(workspaceUi).toContain('arbitrary recipient creation stays disabled');
-    expect(driverUi).toContain('arbitrary recipient creation stays disabled');
-    expect(workspaceApi).not.toContain('recipient_user_id: payload');
+    expect(driverUi).toContain('Start member chat');
+    expect(driverUi).toContain('No user ID is exposed or accepted from the browser.');
+    expect(driverApi).toContain(".eq('id', targetCompanyId)");
+    expect(driverApi).toContain(".from('company_memberships')");
+    expect(driverApi).toContain(".eq('company_id', targetCompanyId)");
+    expect(driverApi).toContain('const newConversationId = randomUUID();');
     expect(driverApi).not.toContain('recipient_user_id: body');
+    expect(workspaceApi).not.toContain('recipient_user_id: payload');
   });
   it('links Customer Quotes and Job Sheet into contextual messaging', () => {
     expect(customerQuotes).toContain("conversationId?: string");

@@ -16,6 +16,18 @@ type MemberProfileResponse = {
     name: string;
     memberId: string | null;
     businessPhone: string | null;
+    businessEmail?: string | null;
+    companyNumber?: string | null;
+    vatNumber?: string | null;
+    addressLine1?: string | null;
+    addressLine2?: string | null;
+    city?: string | null;
+    postcode?: string | null;
+    country?: string | null;
+    paymentTerms?: string | null;
+    fleetDetails?: string[];
+    operatorLicence?: string | null;
+    mainContact?: string | null;
     memberType: string;
     memberSince: string | null;
     status: string;
@@ -175,7 +187,16 @@ export function MemberProfileOverlay({
     ['Member', profile.member.name],
     [memberIdLabel, profile.member.memberId ?? 'Not supplied'],
     ['Type', profile.member.memberType],
+    ['Main contact', profile.member.mainContact ?? 'Not supplied'],
     ['Business phone', profile.member.businessPhone ?? 'Not supplied'],
+    ['Business email', profile.member.businessEmail ?? 'Not supplied'],
+    ['Company registration number', profile.member.companyNumber ?? 'Not supplied'],
+    ['VAT number', profile.member.vatNumber ?? 'Not supplied'],
+    ['Post code', profile.member.postcode ?? 'Not supplied'],
+    ['Operator licence', profile.member.operatorLicence ?? 'Not supplied'],
+    ['Fleet details', profile.member.fleetDetails?.length ? profile.member.fleetDetails.join(', ') : 'Not supplied'],
+    ['Payment terms', profile.member.paymentTerms ?? 'Not supplied'],
+    ['Business address', [profile.member.addressLine1, profile.member.addressLine2, profile.member.city, profile.member.postcode, profile.member.country].filter(Boolean).join(', ') || 'Not supplied'],
     ['Member since', memberSince(profile.member.memberSince)],
     ['Account status', human(profile.member.status)],
     ...(profile.member.driverId ? [['Availability', human(profile.member.availability)], ['Vehicle', human(profile.member.vehicleType)]] : []),

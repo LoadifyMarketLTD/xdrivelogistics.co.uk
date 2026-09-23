@@ -64,7 +64,7 @@ describe('XDrive member identity contract', () => {
     const driverProfile = read('app/api/member-profile/driver/[driverId]/route.ts');
     const bidderIdentity = read('app/api/_lib/bidderDecisionIdentity.ts');
 
-    expect(companyProfile).toContain(".select('id, name, xd_id, phone, company_type, status, created_at')");
+    expect(companyProfile).toContain(".select('id, name, xd_id, company_number, vat_number, email, phone, address_line1, address_line2, city, postcode, country, company_type, status, created_at')");
     expect(companyProfile).toContain('memberId: company.xd_id ?? null');
     expect(companyProfile).not.toContain('memberId: company.company_number');
 

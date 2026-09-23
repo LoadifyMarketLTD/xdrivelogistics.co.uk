@@ -74,7 +74,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const { companyId } = await params;
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
-    .select('id, name, xd_id, phone, company_type, status, created_at')
+    .select('id, name, xd_id, company_number, vat_number, email, phone, address_line1, address_line2, city, postcode, country, company_type, status, created_at')
     .eq('id', companyId)
     .maybeSingle();
 
@@ -91,16 +91,78 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return respond(404, { error: 'This trading member is not available.' });
   }
 
-  // This endpoint is intentionally conservative. It exposes only the member's
-  // business-facing identity fields. Home addresses, private emails, driver
-  // identity/compliance data, document URLs and internal company settings do
-  // not cross this contract.
+  const [settingsResult, vehiclesResult, licenceResult, mainContactMembershipResult] = await Promise.all([
+    supabaseAdmin
+      .from('company_settings')
+      .select('default_payment_terms')
+      .eq('company_id', companyId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('vehicles')
+      .select('type, has_tail_lift')
+      .eq('company_id', companyId)
+      .limit(100),
+    supabaseAdmin
+      .from('company_documents')
+      .select('status, expiry_date')
+      .eq('company_id', companyId)
+      .eq('doc_type', 'operator_licence')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('company_memberships')
+      .select('user_id, role_in_company')
+      .eq('company_id', companyId)
+      .eq('status', 'active')
+      .in('role_in_company', ['owner', 'admin'])
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  let mainContact: string | null = null;
+  if (!mainContactMembershipResult.error && mainContactMembershipResult.data?.user_id) {
+    const { data: contactProfile } = await supabaseAdmin
+      .from('profiles')
+      .select('full_name')
+      .eq('user_id', mainContactMembershipResult.data.user_id)
+      .maybeSingle();
+    mainContact = contactProfile?.full_name?.trim() || null;
+  }
+
+  const fleetDetails = [...new Set((vehiclesResult.data ?? []).map((vehicle) => {
+    const label = String(vehicle.type ?? '').replace(/_/g, ' ');
+    return vehicle.has_tail_lift ? `${label} · tail lift` : label;
+  }).filter(Boolean))];
+
+  const operatorLicence = licenceResult.error
+    ? 'Unknown'
+    : licenceResult.data
+      ? `${String(licenceResult.data.status ?? 'unknown').replace(/_/g, ' ')}${licenceResult.data.expiry_date ? ` · expires ${licenceResult.data.expiry_date}` : ''}`
+      : 'Not supplied';
+
+  // Only business-facing member data crosses this contract. Private home
+  // addresses, private user emails, driver identity/compliance evidence and
+  // document URLs remain excluded.
   return respond(200, {
     member: {
       companyId: company.id,
       name: company.name,
       memberId: company.xd_id ?? null,
       businessPhone: company.phone ?? null,
+      businessEmail: company.email ?? null,
+      companyNumber: company.company_number ?? null,
+      vatNumber: company.vat_number ?? null,
+      addressLine1: company.address_line1 ?? null,
+      addressLine2: company.address_line2 ?? null,
+      city: company.city ?? null,
+      postcode: company.postcode ?? null,
+      country: company.country ?? null,
+      paymentTerms: settingsResult.data?.default_payment_terms ?? null,
+      fleetDetails,
+      operatorLicence,
+      mainContact,
       memberType: publicMemberType(company.company_type),
       memberSince: company.created_at ?? null,
       status: 'active',

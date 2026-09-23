@@ -59,7 +59,9 @@ export default function DriverMessagesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [reply, setReply] = useState('');
+  const [startMessage, setStartMessage] = useState('');
   const [sending, setSending] = useState(false);
+  const [startingConversation, setStartingConversation] = useState(false);
   const [sendError, setSendError] = useState('');
   const [contextPartial, setContextPartial] = useState(false);
   const [contextTargetMissing, setContextTargetMissing] = useState(false);
@@ -122,6 +124,37 @@ export default function DriverMessagesPage() {
     [selectedKey, threads],
   );
 
+  const startMemberConversation = async () => {
+    if (!targetCompanyId || !startMessage.trim() || startingConversation) return;
+    setStartingConversation(true);
+    setSendError('');
+    try {
+      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (sessionError || !token) throw new Error('Your session has expired. Please sign in again.');
+
+      const response = await fetch('/api/driver/messages', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ companyId: targetCompanyId, body: startMessage.trim() }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; conversationId?: string };
+      if (!response.ok || !payload.conversationId) throw new Error(payload.error || 'Conversation could not be started.');
+
+      setStartMessage('');
+      setContextTargetMissing(false);
+      router.replace(`/driver/messages?conversation=${encodeURIComponent(payload.conversationId)}`);
+      await loadMessages();
+    } catch (reason) {
+      setSendError(reason instanceof Error ? reason.message : 'Conversation could not be started.');
+    } finally {
+      setStartingConversation(false);
+    }
+  };
+
   const sendReply = async () => {
     if (!selected?.conversationId || !selected.canReply || !reply.trim() || sending) return;
     setSending(true);
@@ -163,14 +196,14 @@ export default function DriverMessagesPage() {
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {sendError && <AlertBanner tone="danger">{sendError}</AlertBanner>}
         {contextPartial && <AlertBanner tone="warning">Some message context could not be enriched. Participant message history remains available without inferred context.</AlertBanner>}
-        {contextTargetMissing && <AlertBanner tone="warning">No verified conversation exists for the requested job, quote or member context. XDrive will not create an arbitrary recipient thread.</AlertBanner>}
+        {contextTargetMissing && <AlertBanner tone="warning">{targetCompanyId ? 'No existing conversation was found for this member. You can start a verified Directory chat below.' : 'No verified conversation exists for the requested job or quote context.'}</AlertBanner>}
 
         <div className="driver-board-layout driver-messages-board">
           <aside className="driver-filter-rail" aria-label="Message conversations">
             <div className="driver-filter-rail__header">Messages</div>
             <div className="driver-filter-rail__body">
               <div style={{ fontSize: '11px', color: '#64748b', lineHeight: '16px' }}>
-                Existing participant conversations. New arbitrary recipients are not exposed by the verified messaging contract.
+                Existing participant conversations. Directory member chat starts only from a verified active XDrive company.
               </div>
               {threads.map((thread) => (
                 <button
@@ -203,12 +236,39 @@ export default function DriverMessagesPage() {
 
             {loading ? (
               <div className="driver-load-row"><EmptyState compact title="Loading messages…" /></div>
+            ) : targetCompanyId && contextTargetMissing && !selected ? (
+              <section className="driver-row-details" aria-label="Start member conversation">
+                <div className="driver-detail-tabs">
+                  <strong>Start member chat</strong>
+                  <span style={{ fontSize: '11px', color: '#64748b' }}>Directory verified company</span>
+                </div>
+                <div className="driver-detail-grid" style={{ marginTop: '10px' }}>
+                  <label className="driver-filter-field" style={{ gridColumn: '1 / -1' }}>
+                    Message
+                    <textarea
+                      value={startMessage}
+                      maxLength={4000}
+                      rows={5}
+                      onChange={(event) => setStartMessage(event.target.value)}
+                      placeholder="Write a message to this XDrive member"
+                    />
+                  </label>
+                  <div className="driver-row-actions" style={{ gridColumn: '1 / -1' }}>
+                    <span style={{ fontSize: '11px', color: '#64748b' }}>
+                      XDrive resolves the active company contact server-side. No user ID is exposed or accepted from the browser.
+                    </span>
+                    <ActionButton tone="primary" disabled={startingConversation || !startMessage.trim()} onClick={() => void startMemberConversation()}>
+                      {startingConversation ? 'Starting…' : 'Start Chat'}
+                    </ActionButton>
+                  </div>
+                </div>
+              </section>
             ) : threads.length === 0 ? (
               <div className="driver-load-row">
                 <EmptyState compact title="No messages yet" description="Existing participant conversations will appear here when real message records exist." />
               </div>
             ) : !selected ? (
-              <div className="driver-load-row"><EmptyState compact title={contextTargetMissing ? 'No contextual conversation found' : 'Choose a conversation'} description={contextTargetMissing ? 'Continue from a verified quote or existing transport relationship; arbitrary recipient creation stays disabled.' : undefined} /></div>
+              <div className="driver-load-row"><EmptyState compact title="Choose a conversation" /></div>
             ) : (
               <section className="driver-row-details" aria-label={`Conversation with ${selected.counterpartName}`}>
                 <div className="driver-detail-tabs">

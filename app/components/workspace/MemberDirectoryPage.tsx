@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
-import { MemberIdentityLink } from './MemberProfile';
+import { MemberIdentityLink, MemberProfileOverlay } from './MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
 
 type DeliveryReliability = { score: number | null; evidenceCount: number; completedJobs: number };
@@ -127,6 +127,7 @@ export function MemberDirectoryPage({
   const [specialistService, setSpecialistService] = useState('');
   const [tailLiftOnly, setTailLiftOnly] = useState(false);
   const [capabilityFilters, setCapabilityFilters] = useState<string[]>([]);
+  const [profileCompanyId, setProfileCompanyId] = useState<string | null>(null);
   const [deliveryMin, setDeliveryMin] = useState('');
   const [paymentMin, setPaymentMin] = useState('');
   const [nearestLocation, setNearestLocation] = useState('');
@@ -189,9 +190,11 @@ export function MemberDirectoryPage({
     ? '/broker/post-load'
     : pathname.startsWith('/customer')
       ? '/customer/post-load'
-      : pathname.startsWith('/admin')
-        ? '/admin/post-load'
-        : null;
+      : pathname.startsWith('/driver')
+        ? '/driver/post-load'
+        : pathname.startsWith('/admin')
+          ? '/admin/post-load'
+          : null;
   const messagesRoute = pathname.startsWith('/broker')
     ? '/broker/messages'
     : pathname.startsWith('/customer')
@@ -361,7 +364,7 @@ export function MemberDirectoryPage({
                         <td>{company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}<span className="meta">{company.deliveryReliability.evidenceCount} timed delivery record(s)</span></td>
                         <td>{company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`}<span className="meta">{company.paymentReliability.evidenceCount} due/settlement record(s)</span></td>
                         <td><StatusBadge value="Not advertised" /></td>
-                        <td><button type="button" className="rowbtn blue" onClick={() => router.push(`/driver/network/${company.companyId}`)}>Profile</button>{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
+                        <td><button type="button" className="rowbtn blue" onClick={() => setProfileCompanyId(company.companyId)}>Profile</button>{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
                       </tr>
                     )) : paginatedDrivers.map((driver) => (
                       <tr key={driver.driverId} className="dir-row">
@@ -372,7 +375,7 @@ export function MemberDirectoryPage({
                         <td>{driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}<span className="meta">Company-level delivery evidence</span></td>
                         <td>{driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`}<span className="meta">Company-level payment evidence</span></td>
                         <td><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} /></td>
-                        <td>{driver.companyId && <button type="button" className="rowbtn blue" onClick={() => router.push(`/driver/network/${driver.companyId}`)}>Profile</button>}{driver.companyId && messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(driver.companyId as string)}>Message</button>}</td>
+                        <td>{driver.companyId && <button type="button" className="rowbtn blue" onClick={() => setProfileCompanyId(driver.companyId)}>Profile</button>}{driver.companyId && messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(driver.companyId as string)}>Message</button>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -384,6 +387,7 @@ export function MemberDirectoryPage({
             {privacy && <div className="footer">{privacy}</div>}
           </main>
         </div>
+        {profileCompanyId && <MemberProfileOverlay companyId={profileCompanyId} onClose={() => setProfileCompanyId(null)} />}
       </section>
     );
   }
