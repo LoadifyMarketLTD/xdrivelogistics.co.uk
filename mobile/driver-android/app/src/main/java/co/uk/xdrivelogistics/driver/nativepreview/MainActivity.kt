@@ -415,7 +415,12 @@ private fun XDriveNativeApp(
                         onRefresh = onRefreshLoads,
                         onOpenLoad = { selectedLoad = it }
                     )
-                    1 -> AlertsNativeScreen(modulesState, onRefreshModules, onAlertAction)
+                    1 -> AlertsNativeScreen(
+                        state = modulesState,
+                        onRefresh = onRefreshModules,
+                        onAction = onAlertAction,
+                        onOpenJob = { selectedLoad = it }
+                    )
                     2 -> QuotesNativeScreen(modulesState, onRefreshModules)
                     3 -> BookingsNativeScreen(modulesState, onRefreshModules)
                     4 -> MoreScreen(onSignOut = onSignOut, onOpen = { morePage = it })

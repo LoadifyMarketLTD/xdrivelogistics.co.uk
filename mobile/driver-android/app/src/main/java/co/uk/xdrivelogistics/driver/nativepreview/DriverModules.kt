@@ -27,7 +27,12 @@ private val ModuleMuted = Color(0xFF667085)
 private val ModuleBlue = Color(0xFF1D57D8)
 
 @Composable
-fun AlertsNativeScreen(state: DriverModulesState, onRefresh: () -> Unit, onAction: (String, String) -> Unit) {
+fun AlertsNativeScreen(
+    state: DriverModulesState,
+    onRefresh: () -> Unit,
+    onAction: (String, String) -> Unit,
+    onOpenJob: (NativeLoad) -> Unit
+) {
     var selected by remember { mutableStateOf("inbox") }
     var selectedAlert by remember { mutableStateOf<NativeAlert?>(null) }
 
@@ -36,7 +41,8 @@ fun AlertsNativeScreen(state: DriverModulesState, onRefresh: () -> Unit, onActio
             alert = alert,
             state = state,
             onBack = { selectedAlert = null },
-            onAction = onAction
+            onAction = onAction,
+            onOpenJob = onOpenJob
         )
         return
     }
@@ -61,7 +67,7 @@ fun AlertsNativeScreen(state: DriverModulesState, onRefresh: () -> Unit, onActio
             state.error,
             onRefresh,
             alerts
-        ) { alert -> AlertCard(alert) {
+        ) { alert -> AlertCard(alert, state) {
             if (alert.actionable && alert.unread) onAction(alert.id, "mark_notification_read")
             selectedAlert = alert
         } }
@@ -165,8 +171,164 @@ private fun StatusTabs(
     }
 }
 
+private fun alertJobLoad(alert: NativeAlert, state: DriverModulesState): NativeLoad? {
+    val payload = runCatching { JSONObject(alert.payloadJson) }.getOrElse { JSONObject() }
+    val jobId = sequenceOf(
+        alert.entityId,
+        payload.optString("jobId"),
+        payload.optString("job_id"),
+        payload.optString("loadId"),
+        payload.optString("load_id")
+    ).firstOrNull { !it.isNullOrBlank() } ?: return null
+
+    val bookings = (state.bookings + state.upcoming + state.completed).distinctBy { it.id }
+    val booking = bookings.firstOrNull { it.id == jobId }
+    val quote = state.quotes.firstOrNull { it.jobId == jobId }
+
+    fun first(vararg values: String?): String? =
+        values.firstOrNull { !it.isNullOrBlank() }?.trim()
+
+    fun number(vararg keys: String): Double? {
+        for (key in keys) {
+            if (payload.has(key) && !payload.isNull(key)) {
+                val value = payload.optDouble(key, Double.NaN)
+                if (value.isFinite()) return value
+            }
+        }
+        return null
+    }
+
+    val reference = first(
+        payload.optString("reference"),
+        payload.optString("loadReference"),
+        payload.optString("load_reference")
+    ) ?: if (jobId.length >= 8) "XDL-" + jobId.take(8).uppercase(Locale.UK) else jobId
+
+    val companyName = first(
+        booking?.companyName,
+        payload.optString("companyName"),
+        payload.optString("company_name"),
+        payload.optString("customerName"),
+        payload.optString("customer_name")
+    ) ?: "XDrive member"
+
+    val memberId = first(
+        booking?.memberId,
+        payload.optString("companyXdId"),
+        payload.optString("company_xd_id"),
+        payload.optString("memberId"),
+        payload.optString("member_id")
+    )
+
+    val pickup = first(
+        booking?.pickup,
+        payload.optString("pickupLocation"),
+        payload.optString("pickup_location"),
+        payload.optString("pickupArea"),
+        payload.optString("pickup_area"),
+        payload.optString("pickupPostcode"),
+        payload.optString("pickup_postcode")
+    ) ?: "Collection area TBC"
+
+    val delivery = first(
+        booking?.delivery,
+        payload.optString("deliveryLocation"),
+        payload.optString("delivery_location"),
+        payload.optString("deliveryArea"),
+        payload.optString("delivery_area"),
+        payload.optString("deliveryPostcode"),
+        payload.optString("delivery_postcode")
+    ) ?: "Delivery area TBC"
+
+    val requirements = buildList {
+        val array = payload.optJSONArray("handling_requirements")
+            ?: payload.optJSONArray("handlingRequirements")
+        if (array != null) {
+            for (i in 0 until array.length()) {
+                array.optString(i).takeIf { it.isNotBlank() }?.let(::add)
+            }
+        } else {
+            first(payload.optString("requirements"), payload.optString("handling"))?.let {
+                it.split("·", ",").map(String::trim).filter(String::isNotBlank).forEach(::add)
+            }
+        }
+    }
+
+    return NativeLoad(
+        id = jobId,
+        reference = reference,
+        companyName = companyName,
+        memberId = memberId,
+        memberPhone = first(payload.optString("memberPhone"), payload.optString("member_phone"), payload.optString("phone")),
+        memberType = first(payload.optString("memberType"), payload.optString("member_type")),
+        pickupArea = pickup,
+        deliveryArea = delivery,
+        pickupAt = first(booking?.pickupAt, payload.optString("pickupDatetime"), payload.optString("pickup_datetime"), payload.optString("pickup_at")),
+        deliveryAt = first(payload.optString("deliveryDatetime"), payload.optString("delivery_datetime"), payload.optString("delivery_at")),
+        vehicleLabel = first(payload.optString("vehicleLabel"), payload.optString("vehicle_label"), payload.optString("vehicleType"), payload.optString("vehicle_type"), payload.optString("vehicle")),
+        pallets = number("pallets", "pallet_count"),
+        weightKg = number("weightKg", "weight_kg", "weight"),
+        cargoLabel = first(payload.optString("cargoLabel"), payload.optString("cargo_label"), payload.optString("cargoType"), payload.optString("cargo_type")),
+        distanceToPickupMiles = number("distanceToPickupMiles", "distance_to_pickup_miles"),
+        pickupEtaMinutes = number("pickupEtaMinutes", "pickup_eta_minutes"),
+        jobDistanceMiles = number("jobDistanceMiles", "distance_miles", "job_distance_miles"),
+        jobDistanceMinutes = number("jobDistanceMinutes", "distance_minutes", "job_distance_minutes"),
+        budgetAmount = quote?.amount ?: number("budgetAmount", "budget_amount", "amount"),
+        currency = first(quote?.currency, payload.optString("currency")) ?: "GBP",
+        serviceMode = first(payload.optString("serviceMode"), payload.optString("service_mode")),
+        paymentTerms = first(payload.optString("paymentTerms"), payload.optString("payment_terms")),
+        publicQuoteNotes = first(payload.optString("publicQuoteNotes"), payload.optString("public_quote_notes"), payload.optString("notes"), payload.optString("instructions")),
+        handlingRequirements = requirements,
+        postedAt = first(payload.optString("postedAt"), payload.optString("posted_at"), alert.createdAt)
+    )
+}
+
 @Composable
-private fun AlertCard(alert: NativeAlert, onOpen: () -> Unit) {
+private fun AlertCard(alert: NativeAlert, state: DriverModulesState, onOpen: () -> Unit) {
+    val payload = remember(alert.payloadJson) {
+        runCatching { JSONObject(alert.payloadJson) }.getOrElse { JSONObject() }
+    }
+    val jobId = sequenceOf(
+        alert.entityId,
+        payload.optString("jobId"),
+        payload.optString("job_id"),
+        payload.optString("loadId"),
+        payload.optString("load_id")
+    ).firstOrNull { !it.isNullOrBlank() }
+
+    val bookings = remember(state.bookings, state.upcoming, state.completed) {
+        (state.bookings + state.upcoming + state.completed).distinctBy { it.id }
+    }
+    val booking = bookings.firstOrNull { it.id == jobId }
+    val quote = state.quotes.firstOrNull { it.jobId == jobId }
+
+    val company = booking?.companyName
+        ?: payload.optString("companyName").ifBlank { payload.optString("company_name") }
+    val vehicle = sequenceOf(
+        payload.optString("vehicleType"),
+        payload.optString("vehicle_type"),
+        payload.optString("vehicle"),
+        payload.optString("vehicleName")
+    ).firstOrNull { it.isNotBlank() }.orEmpty()
+    val pickup = booking?.pickup
+        ?: payload.optString("pickupLocation").ifBlank { payload.optString("pickup") }
+    val delivery = booking?.delivery
+        ?: payload.optString("deliveryLocation").ifBlank { payload.optString("delivery") }
+    val pickupAt = booking?.pickupAt
+        ?: payload.optString("pickupDatetime").ifBlank { payload.optString("pickup_at") }
+    val deliveryAt = payload.optString("deliveryDatetime").ifBlank { payload.optString("delivery_at") }
+    val notes = sequenceOf(
+        payload.optString("notes"),
+        payload.optString("instructions"),
+        payload.optString("jobNotes"),
+        payload.optString("job_notes")
+    ).firstOrNull { it.isNotBlank() }.orEmpty()
+    val reason = sequenceOf(
+        payload.optString("notificationReason"),
+        payload.optString("notification_reason"),
+        payload.optString("reason")
+    ).firstOrNull { it.isNotBlank() }.orEmpty()
+
     Card(
         Modifier.fillMaxWidth().clickable(onClick = onOpen),
         shape = RoundedCornerShape(14.dp),
@@ -174,28 +336,56 @@ private fun AlertCard(alert: NativeAlert, onOpen: () -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors = CardDefaults.cardColors(containerColor = ModuleCard)
     ) {
-        Column(Modifier.padding(13.dp)) {
+        Column(Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
             Row(Modifier.fillMaxWidth()) {
-                Text(
-                    alert.title,
-                    Modifier.weight(1f),
-                    color = ModuleText,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.ExtraBold
-                )
+                Column(Modifier.weight(1f)) {
+                    Text(
+                        company.ifBlank { alert.title },
+                        color = ModuleText,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    if (vehicle.isNotBlank()) {
+                        Text(vehicle, color = ModuleMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
                 NativeBadge(if (alert.unread) "NEW" else "READ", alert.unread)
             }
-            if (alert.body.isNotBlank()) {
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    alert.body,
-                    color = ModuleMuted,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    lineHeight = 18.sp
-                )
+
+            if (!pickup.isNullOrBlank() || !delivery.isNullOrBlank()) {
+                HorizontalDivider(color = ModuleLine)
+                if (!pickup.isNullOrBlank()) {
+                    Text("COLLECT  ${pickup.uppercase(Locale.UK)}", color = ModuleText, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                    if (!pickupAt.isNullOrBlank()) {
+                        Text(pickupAt.replace('T', ' ').take(16), color = ModuleMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
+                if (!delivery.isNullOrBlank()) {
+                    Text("DELIVER  ${delivery.uppercase(Locale.UK)}", color = ModuleText, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                    if (deliveryAt.isNotBlank()) {
+                        Text(deliveryAt.replace('T', ' ').take(16), color = ModuleMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
-            Spacer(Modifier.height(8.dp))
+
+            if (notes.isNotBlank()) {
+                HorizontalDivider(color = ModuleLine)
+                Text("Notes: $notes", color = ModuleMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, lineHeight = 17.sp)
+            }
+
+            quote?.amount?.let {
+                HorizontalDivider(color = ModuleLine)
+                Text("You quoted: ${money(it, quote.currency)}", color = ModuleText, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+            }
+
+            if (reason.isNotBlank()) {
+                Text("Notification Reason: $reason", color = ModuleMuted, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+            }
+
+            if (company.isBlank() && pickup.isNullOrBlank() && delivery.isNullOrBlank() && alert.body.isNotBlank()) {
+                Text(alert.body, color = ModuleMuted, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, lineHeight = 18.sp)
+            }
+
             Text("View details  ›", color = ModuleBlue, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
         }
     }
@@ -206,7 +396,8 @@ private fun AlertDetailNativeScreen(
     alert: NativeAlert,
     state: DriverModulesState,
     onBack: () -> Unit,
-    onAction: (String, String) -> Unit
+    onAction: (String, String) -> Unit,
+    onOpenJob: (NativeLoad) -> Unit
 ) {
     val payload = remember(alert.payloadJson) { runCatching { JSONObject(alert.payloadJson) }.getOrElse { JSONObject() } }
     val jobId = sequenceOf(
