@@ -103,12 +103,12 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
     <div className="driver-top-shell driver-prototype-port">
       <aside className="global-rail" aria-label="XDrive workspace shortcuts">
         <button type="button" className="rail-logo" title="XDrive" onClick={() => router.push('/driver')}>XD</button>
-        <button type="button" title="Dashboard" onClick={() => router.push('/driver')}>âŒ‚</button>
-        <button type="button" title="Loads" onClick={() => router.push('/driver/loads')}>â†”</button>
-        <button type="button" title="Diary" onClick={() => router.push('/driver/history')}>â–¤</button>
-        <button type="button" title="Fleet" onClick={() => router.push('/driver/vehicles')}>â–¦</button>
+        <button type="button" title="Dashboard" onClick={() => router.push('/driver')}>&#8962;</button>
+        <button type="button" title="Loads" onClick={() => router.push('/driver/loads')}>&#8596;</button>
+        <button type="button" title="Diary" onClick={() => router.push('/driver/history')}>&#9636;</button>
+        <button type="button" title="Fleet" onClick={() => router.push('/driver/vehicles')}>&#9638;</button>
         <span className="rail-spacer" />
-        <button type="button" title="Settings" onClick={() => router.push('/driver/settings')}>âš™</button>
+        <button type="button" title="Settings" onClick={() => router.push('/driver/settings')}>&#9881;</button>
       </aside>
       <header className="topbar">
         <div className="brand">
