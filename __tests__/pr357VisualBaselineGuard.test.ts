@@ -22,22 +22,25 @@ describe('PR #357 approved visual baseline', () => {
     expect(actionsIndex).toBeGreaterThan(navIndex);
   });
 
-  it('keeps Driver primary navigation in the top header with the approved PR357 order', () => {
+  it('keeps Driver navigation aligned to the approved full prototype order', () => {
     for (const item of [
       "label: 'Dashboard', href: '/driver'",
+      "label: 'Directory', href: '/driver/directory'",
+      "label: 'Live Availability', href: '/driver/nearby'",
+      "label: 'My Fleet', href: '/driver/vehicles'",
+      "label: 'Return Journeys', href: '/driver/returns'",
       "label: 'Loads', href: '/driver/loads'",
       "label: 'Quotes', href: '/driver/quotes'",
-      "label: 'Jobs', href: '/driver/jobs'",
       "label: 'Diary', href: '/driver/history'",
-      "label: 'Availability', href: '/driver/availability'",
-      "label: 'Return Journeys', href: '/driver/returns'",
-      "label: 'Account', href: '/driver/account'",
+      "label: 'Freight Vision', href: '/driver/freight-vision'",
+      "label: 'Finance', href: '/driver/finance'",
+      "label: 'Drivers & Vehicles', href: '/driver/drivers-vehicles'",
     ]) expect(driverShell).toContain(item);
 
-    const navIndex = driverShell.indexOf('driver-top-nav');
-    const actionsIndex = driverShell.indexOf('driver-top-shell__actions');
+    const navIndex = driverShell.indexOf('main-nav');
+    const toolsIndex = driverShell.indexOf('top-tools');
     expect(navIndex).toBeGreaterThan(-1);
-    expect(actionsIndex).toBeGreaterThan(navIndex);
+    expect(toolsIndex).toBeGreaterThan(navIndex);
   });
 
   it('keeps the approved dense Driver dashboard structure', () => {

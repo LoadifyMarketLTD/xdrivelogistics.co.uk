@@ -4,46 +4,41 @@ import { describe, expect, it } from 'vitest';
 
 const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), relative), 'utf8');
 
-describe('live Driver workspace visual parity contract', () => {
-  it('keeps the Driver information architecture unchanged', () => {
+describe('live Driver approved prototype parity contract', () => {
+  it('keeps the full prototype information architecture visible', () => {
     const shell = read('app/driver/_components/DriverTopWorkspaceShell.tsx');
-    for (const label of ['Dashboard', 'Directory', 'Return Journeys', 'Loads', 'Quotes', 'Diary', 'Event Log']) {
+    for (const label of ['Dashboard','Directory','Live Availability','My Fleet','Return Journeys','Loads','Quotes','Diary','Freight Vision','Finance','Drivers & Vehicles']) {
       expect(shell).toContain(`label: '${label}'`);
     }
-    expect(shell).toContain("summary className=\"driver-top-nav__item driver-top-nav__more-trigger\"");
-    expect(shell).toContain('Action Centre');
-    expect(shell).toContain('Sign out');
+    expect(shell).toContain('global-rail');
+    expect(shell).toContain('topbar');
+    expect(shell).toContain('main-nav');
   });
 
-  it('matches the Company workspace readable header scale', () => {
-    const css = read('app/driver/driver-live-parity.css');
-    expect(css).toContain('height: 62px !important;');
-    expect(css).toContain('font-size: 14px !important;');
-    expect(css).toContain('font-weight: 650 !important;');
-    expect(css).toContain('box-shadow: inset 0 -3px 0 #1d57d8 !important;');
-    expect(css).toContain('height: 36px !important;');
-    expect(css).toContain('font-weight: 700 !important;');
-  });
-
-  it('loads the parity layer after the measured baseline', () => {
+  it('loads the literal full prototype CSS in the Driver layout', () => {
     const layout = read('app/driver/layout.tsx');
-    const baseline = layout.indexOf("workspace-measured-cx-baseline.css");
-    const parity = layout.indexOf("driver-live-parity.css");
-    expect(baseline).toBeGreaterThan(-1);
-    expect(parity).toBeGreaterThan(baseline);
+    const full = layout.indexOf("driver-full-prototype.css");
+    expect(full).toBeGreaterThan(-1);
+    expect(layout).toContain("driver-dashboard-prototype-exact.css");
+  });
+  it('preserves the approved dashboard V2 composition', () => {
+    const page = read('app/driver/page.tsx');
+    for (const marker of ['xd2-hero','xd2-kpis','xd2-primary-grid','xd2-secondary-grid','xd2-finance','xd2-bottom-grid']) {
+      expect(page).toContain(marker);
+    }
   });
 
-  it('removes the duplicate dashboard role eyebrow while keeping it elsewhere', () => {
+  it('uses prototype page chrome for non-account Driver routes', () => {
     const shell = read('app/driver/_components/DriverWorkspaceShell.tsx');
-    expect(shell).toContain("eyebrow={pathname === '/driver' ? undefined : (personaLabel ?? 'Driver workspace')}");
+    expect(shell).toContain('driver-prototype-page-shell');
+    expect(shell).toContain('className="subbar"');
+    expect(shell).toContain('className="pagebody no-left"');
+    expect(shell).toContain('className="main"');
   });
 
-  it('raises dashboard operational copy to the readable scale', () => {
-    const css = read('app/driver/driver-live-parity.css');
-    expect(css).toContain('.driver-reference-dashboard .driver-cell-label');
-    expect(css).toContain('.driver-reference-dashboard .driver-cell-primary');
-    expect(css).toContain('.driver-reference-dashboard .driver-cell-secondary');
-    expect(css).toContain('font-size: 12px !important;');
-    expect(css).toContain('font-size: 14px !important;');
+  it('keeps Company workspace files out of the Driver prototype port', () => {
+    const css = read('app/driver/driver-full-prototype.css');
+    expect(css).toContain('.driver-prototype-port');
+    expect(css).not.toContain('.admin-top-shell');
   });
 });

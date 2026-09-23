@@ -1,11 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { supabase } from '../../../lib/supabaseClient';
-import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type NearbyPosition = {
   company_id: string | null;
@@ -25,10 +25,6 @@ type NearbyPosition = {
 
 type NearbyResponse = { positions?: NearbyPosition[]; error?: string };
 
-const when = (value: string | null | undefined) => value
-  ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
-  : 'Not supplied';
-
 const freshness = (value: string | null | undefined) => {
   if (!value) return { label: 'No timestamp', tone: 'grey' as const };
   const stamp = new Date(value).getTime();
@@ -39,22 +35,12 @@ const freshness = (value: string | null | undefined) => {
   return { label: minutes < 60 ? `${minutes}m ago` : `${Math.floor(minutes / 60)}h ago`, tone: 'orange' as const };
 };
 
-const capacity = (position: NearbyPosition) => {
-  const parts: string[] = [];
-  if (position.payload_kg != null && Number.isFinite(Number(position.payload_kg))) {
-    parts.push(`${Number(position.payload_kg).toLocaleString('en-GB')} kg`);
-  }
-  if (position.pallets_capacity != null && Number.isFinite(Number(position.pallets_capacity))) {
-    parts.push(`${Number(position.pallets_capacity)} pallet${Number(position.pallets_capacity) === 1 ? '' : 's'}`);
-  }
-  return parts.length ? parts.join(' · ') : 'Capacity not published';
-};
-
 const vehicleLabel = (value: string | null | undefined) => value
   ? value.replace(/_/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase())
   : 'Vehicle not published';
 
 export default function DriverNearbyPage() {
+  const router = useRouter();
   const [positions, setPositions] = useState<NearbyPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -116,59 +102,72 @@ export default function DriverNearbyPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell
-        subtitle="Discover exchange vehicles advertising nearby availability. Other companies are shown with a privacy-rounded area, never an exact driver position."
-        headerActions={<ActionButton tone="primary" onClick={() => void loadNearby()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
-      >
-        {error && <AlertBanner tone="danger">{error}</AlertBanner>}
-        <AlertBanner tone="info">Nearby Exchange shows trading-member and vehicle-capacity information only. Another company’s driver identity and exact location remain protected.</AlertBanner>
+      <section className="page driver-live-availability-prototype">
+        <div className="subbar">
+          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Live Availability</b></span>
+          <div className="sub-actions">
+            <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); }}>Clear</button>
+            <button type="button" className="btn primary" onClick={() => void loadNearby()} disabled={loading}>{loading ? 'Refreshing…' : 'Search'}</button>
+          </div>
+        </div>
 
-        <div className="driver-board-layout driver-nearby-board">
-          <aside className="driver-filter-rail" aria-label="Nearby Exchange filters">
-            <div className="driver-filter-rail__header">Search Nearby</div>
-            <div className="driver-filter-rail__body">
-              <div className="driver-filter-field"><label>Member / vehicle</label><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Company, member ID or vehicle" /></div>
-              <div className="driver-filter-field"><label>Vehicle</label><select value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="all">Any vehicle</option>{vehicleOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}</select></div>
-              <ActionButton tone="secondary" onClick={() => { setSearch(''); setVehicle('all'); }}>Clear filters</ActionButton>
-            </div>
+        <div className="pagebody">
+          <aside className="left">
+            <div className="left-title">Search Panel</div>
+            <div className="filter"><span className="label">Mode</span><div className="avail-mode"><button type="button" className="active">Live</button><button type="button" onClick={() => router.push('/driver/returns')}>Future</button></div></div>
+            <div className="filter"><span className="label">Scope</span><select className="select" defaultValue="UK only"><option>UK only</option></select></div>
+            <div className="filter"><span className="label">Member / Vehicle</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, member ID or vehicle" /></div>
+            <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="all">Any vehicle</option>{vehicleOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}</select></div>
+            <div className="filter"><span className="label">Groups</span><label className="check"><input type="checkbox" checked readOnly />Exchange visible</label></div>
           </aside>
-
-          <main className="driver-board-main">
-            <div className="driver-board-summary">
-              <span><strong>Who’s Nearby</strong> · {visible.length} exchange vehicle{visible.length === 1 ? '' : 's'} visible</span>
-              <span>Privacy-rounded exchange positions</span>
+          <main className="main">
+            <div className="head"><div><h1>Live Availability</h1><p>Find live or future vehicle capacity by location, status, member, vehicle and group</p></div></div>
+            {error && <div className="vision-note">{error}</div>}
+            <div className="avail-topbar">
+              <div className="avail-view-tabs"><button type="button" className="active">Map View</button><button type="button">List View</button></div>
+              <div className="avail-audience"><button type="button" className="active">All</button><button type="button">Drivers & Sub-contractors</button><button type="button">Other Drivers</button></div>
+              <button type="button" className="text-action" disabled>Open map in new window</button>
             </div>
-
-            {loading ? (
-              <div className="driver-load-row"><EmptyState compact title="Loading nearby vehicles…" /></div>
-            ) : visible.length === 0 ? (
-              <div className="driver-load-row"><EmptyState compact title="No nearby exchange vehicles" description="No other trading member is currently publishing exchange-visible availability for these filters." /></div>
-            ) : (
-              <div className="driver-load-list">
-                {visible.map((position, index) => {
-                  const fresh = freshness(position.recorded_at);
-                  const key = `${position.company_id ?? 'member'}:${position.vehicle_type ?? 'vehicle'}:${position.recorded_at ?? index}`;
-                  return (
-                    <article key={key} className="driver-load-row" data-state="available">
-                      <div className="driver-load-row__top">
-                        <div className="driver-load-cell"><span className="driver-cell-label">Member</span><strong className="driver-cell-primary">{position.company_id ? <MemberIdentityLink companyId={position.company_id}>{position.member_name ?? 'Exchange member'}</MemberIdentityLink> : position.member_name ?? 'Exchange member'}</strong><span className="driver-cell-secondary">{position.member_code ? `Member ID ${position.member_code}` : position.member_type ?? 'Trading member'}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Vehicle</span><strong className="driver-cell-primary">{vehicleLabel(position.vehicle_type)}</strong><span className="driver-cell-secondary">{capacity(position)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Equipment</span><strong className="driver-cell-primary">{position.has_tail_lift === true ? 'Tail lift' : position.has_tail_lift === false ? 'No tail lift declared' : 'Equipment not published'}</strong><span className="driver-cell-secondary">Available until {when(position.available_until)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Position freshness</span><StatusBadge value={fresh.label} tone={fresh.tone} /><span className="driver-cell-secondary">Approximate exchange area only</span></div>
-                      </div>
-                      <div className="driver-load-row__meta">
-                        <span>Availability updated {when(position.recorded_at)}</span>
-                        <StatusBadge value="Exchange visible" tone="blue" />
-                        <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => openApproximateArea(position)}>View area</ActionButton></div>
-                      </div>
-                    </article>
-                  );
-                })}
+            <div className="toolbar"><b>Live Availability</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button></div>
+            <div className="availgrid">
+              <div className="map availmap">
+                <div className="mapnote">Privacy-rounded exchange availability. Exact driver coordinates remain protected.</div>
               </div>
-            )}
+              <div style={{ overflow: 'auto' }}>
+                <div className="tablewrap avail-tablewrap">
+                  <table className="avail-table" style={{ minWidth: 1050 }}>
+                    <thead><tr><th>Member (ID)</th><th>Vehicle Size</th><th>Current Location</th><th>Home Location</th><th>Location Received</th><th>Journeys</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>
+                      {visible.map((position, index) => {
+                        const fresh = freshness(position.recorded_at);
+                        return <tr key={`${position.company_id ?? 'member'}:${position.vehicle_type ?? 'vehicle'}:${position.recorded_at ?? index}`} className="avail-row">
+                          <td><b>{position.company_id ? <MemberIdentityLink companyId={position.company_id}>{position.member_name ?? 'Exchange member'}</MemberIdentityLink> : position.member_name ?? 'Exchange member'}</b><span className="meta">{position.member_code ? `Member ID ${position.member_code}` : position.member_type ?? 'Trading member'}</span></td>
+                          <td>{vehicleLabel(position.vehicle_type)}<span className="meta">{position.payload_kg != null ? `${position.payload_kg} kg` : 'Capacity not published'}{position.pallets_capacity != null ? ` · ${position.pallets_capacity} pallets` : ''}</span></td>
+                          <td><span className="link">Privacy-rounded area</span></td>
+                          <td>Not published</td>
+                          <td>{fresh.label}</td>
+                          <td>—</td>
+                          <td><StatusBadge value="Available" tone="green" /></td>
+                          <td><button type="button" className="rowbtn blue" onClick={() => openApproximateArea(position)}>View Map</button></td>
+                        </tr>;
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                {!loading && visible.length === 0 && <div className="xd2-calm-empty"><b>No nearby exchange vehicles</b><span>No trading member is publishing exchange-visible availability for these filters.</span></div>}
+              </div>
+            </div>
+            <div className="avail-legend">
+              <span><i className="legend-dot green" />Available</span>
+              <span><i className="legend-dot amber" />Maybe Available</span>
+              <span><i className="legend-dot red" />Unavailable</span>
+              <span><i className="legend-dot" />Unknown</span>
+              <span><i className="legend-cluster">{visible.length}</i>Visible</span>
+            </div>
+            <div className="footer">Availability from drivers, future positions and approved tracking sources</div>
           </main>
         </div>
-      </DriverWorkspaceShell>
+      </section>
     </ProtectedRoute>
   );
 }

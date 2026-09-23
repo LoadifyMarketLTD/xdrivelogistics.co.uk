@@ -6,65 +6,34 @@ import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 
 import { useAuth } from '../../components/AuthContext';
-import {
-  getActionCentreRoute,
-  getNotificationsRoute,
-  resolveActionCentreRole,
-} from '../../components/workspace/actionCentreConfig';
+import { getNotificationsRoute, resolveActionCentreRole } from '../../components/workspace/actionCentreConfig';
 import { workspaceTheme } from '../../components/workspace/WorkspaceUI';
-import {
-  getWorkspaceDefinition,
-  hasWorkspaceCapability,
-} from '../../../lib/workspaceRole';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const DRIVER_PRIMARY_NAV = [
   { id: 'dashboard', label: 'Dashboard', href: '/driver' },
   { id: 'directory', label: 'Directory', href: '/driver/directory' },
+  { id: 'availability', label: 'Live Availability', href: '/driver/nearby' },
+  { id: 'fleet', label: 'My Fleet', href: '/driver/vehicles' },
   { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
   { id: 'loads', label: 'Loads', href: '/driver/loads' },
   { id: 'quotes', label: 'Quotes', href: '/driver/quotes' },
   { id: 'diary', label: 'Diary', href: '/driver/history' },
-  { id: 'event-log', label: 'Event Log', href: '/driver/event-log' },
-] as const;
-
-const DRIVER_MORE_NAV = [
-  { id: 'jobs', label: 'Jobs', href: '/driver/jobs' },
-  { id: 'availability', label: 'Availability', href: '/driver/availability' },
-  { id: 'nearby', label: "Who's Nearby?", href: '/driver/nearby' },
-  { id: 'messages', label: 'Messages', href: '/driver/messages' },
-  { id: 'vehicle', label: 'Vehicle', href: '/driver/vehicles' },
-  { id: 'documents', label: 'Documents', href: '/driver/documents' },
-  { id: 'invoices', label: 'Invoices', href: '/driver/finance' },
-  { id: 'billing', label: 'Membership & Billing', href: '/settings/billing' },
-  { id: 'notifications', label: 'Notifications', href: '/driver/notifications' },
-  { id: 'account', label: 'Account', href: '/driver/account' },
-] as const;
-
-const ACCOUNT_PREFIXES = [
-  '/driver/account',
-  '/driver/profile',
-  '/driver/change-password',
+  { id: 'vision', label: 'Freight Vision', href: '/driver/freight-vision' },
+  { id: 'finance', label: 'Finance', href: '/driver/finance' },
+  { id: 'drivers', label: 'Drivers & Vehicles', href: '/driver/drivers-vehicles' },
 ] as const;
 
 export default function DriverTopWorkspaceShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const role = user?.ownerDriverWorkspace ? 'owner_driver' as const : 'driver' as const;
-  const definition = getWorkspaceDefinition(role);
   const [companyName, setCompanyName] = useState('Driver Account');
   const [unreadCount, setUnreadCount] = useState(0);
 
   const actionRole = resolveActionCentreRole(role);
-  const actionCentreHref = getActionCentreRoute(actionRole);
   const notificationsHref = getNotificationsRoute(actionRole);
-  const primaryAction =
-    definition.primaryAction &&
-    (!definition.primaryAction.capability || hasWorkspaceCapability(role, definition.primaryAction.capability))
-      ? definition.primaryAction
-      : null;
-  const visibleMoreNav = DRIVER_MORE_NAV.filter((item) => item.id !== 'billing' || hasWorkspaceCapability(role, 'billing.manage'));
 
   useEffect(() => {
     if (!user?.companyId || !isSupabaseConfigured) {
@@ -127,66 +96,42 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
 
   const isActive = (href: string) => {
     if (href === '/driver') return pathname === '/driver';
-    if (href === '/driver/account') {
-      return ACCOUNT_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-    }
     return pathname === href || pathname.startsWith(`${href}/`);
   };
 
-  const moreActive = visibleMoreNav.some((item) => isActive(item.href));
-
   return (
-    <div className="driver-top-shell">
-      <header className="driver-top-shell__header">
-        <div className="driver-top-shell__brand">
-          <button type="button" className="driver-top-shell__logo-button" onClick={() => router.push(definition.homeHref)} aria-label="Open Driver dashboard">
-            <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={150} height={41} priority className="driver-top-shell__logo" />
+    <div className="driver-top-shell driver-prototype-port">
+      <aside className="global-rail" aria-label="XDrive workspace shortcuts">
+        <button type="button" className="rail-logo" title="XDrive" onClick={() => router.push('/driver')}>XD</button>
+        <button type="button" title="Dashboard" onClick={() => router.push('/driver')}>âŒ‚</button>
+        <button type="button" title="Loads" onClick={() => router.push('/driver/loads')}>â†”</button>
+        <button type="button" title="Diary" onClick={() => router.push('/driver/history')}>â–¤</button>
+        <button type="button" title="Fleet" onClick={() => router.push('/driver/vehicles')}>â–¦</button>
+        <span className="rail-spacer" />
+        <button type="button" title="Settings" onClick={() => router.push('/driver/settings')}>âš™</button>
+      </aside>
+      <header className="topbar">
+        <div className="brand">
+          <button type="button" className="driver-prototype-brand-button" onClick={() => router.push('/driver')} aria-label="Open Driver dashboard">
+            <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={160} height={44} priority />
           </button>
-          <div className="driver-top-shell__identity"><span>{definition.label}</span><strong>{companyName}</strong></div>
         </div>
-
-        <nav className="driver-top-nav" aria-label="Driver workspace navigation">
-          <div className="driver-top-nav__track">
-            {DRIVER_PRIMARY_NAV.map((item) => {
-              const active = isActive(item.href);
-              return <button key={item.id} type="button" className="driver-top-nav__item" data-active={active ? 'true' : 'false'} onClick={() => router.push(item.href)} aria-current={active ? 'page' : undefined}>{item.label}</button>;
-            })}
-            <details className="driver-top-nav__more">
-              <summary className="driver-top-nav__item driver-top-nav__more-trigger" data-active={moreActive ? 'true' : 'false'}>More <span aria-hidden="true">▾</span></summary>
-              <div className="driver-top-nav__more-menu" role="menu" aria-label="More Driver workspace options">
-                {visibleMoreNav.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    role="menuitem"
-                    className="driver-top-nav__more-item"
-                    data-active={isActive(item.href) ? 'true' : 'false'}
-                    onClick={(event) => {
-                      const details = event.currentTarget.closest('details');
-                      if (details) details.removeAttribute('open');
-                      router.push(item.href);
-                    }}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-            </details>
-          </div>
+        <button type="button" className="cta post" onClick={() => router.push('/driver/post-load')}>POST LOAD</button>
+        <button type="button" className="cta direct" onClick={() => router.push('/driver/directory')}>BOOK DIRECT</button>
+        <nav className="main-nav" aria-label="Driver workspace navigation">
+          {DRIVER_PRIMARY_NAV.map((item) => {
+            const active = isActive(item.href);
+            return <button key={item.id} type="button" className={active ? 'active' : ''} onClick={() => router.push(item.href)} aria-current={active ? 'page' : undefined}>{item.label}</button>;
+          })}
         </nav>
-
-        <div className="driver-top-shell__actions">
-          {primaryAction && <button type="button" className="driver-shell-action driver-shell-action--primary" onClick={() => router.push(primaryAction.href)}>+ {primaryAction.label}</button>}
-          <button type="button" className="driver-shell-action" onClick={() => router.push(actionCentreHref)}>Action Centre</button>
-          <button type="button" className="driver-shell-notification" onClick={() => router.push(notificationsHref)} aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`} title="Notifications">
-            <span aria-hidden="true">🔔</span>
-            {unreadCount > 0 && <span className="driver-shell-notification__count">{unreadCount > 99 ? '99+' : unreadCount}</span>}
-          </button>
-          <button type="button" className="driver-shell-action driver-shell-action--signout" onClick={() => void logout()}>Sign out</button>
+        <div className="top-tools">
+          <button type="button" onClick={() => router.push('/driver/messages')}>Messages</button>
+          <button type="button" onClick={() => router.push(notificationsHref)}>Alerts {unreadCount > 0 && <b className="notif">{unreadCount > 99 ? '99+' : unreadCount}</b>}</button>
+          <button type="button" onClick={() => router.push('/driver/settings')}>Settings</button>
+          <button type="button" className="avatar account-toggle" onClick={() => router.push('/driver/account')} aria-label="Open account">{(companyName || 'DR').slice(0, 2).toUpperCase()}</button>
         </div>
       </header>
-
-      <main className="driver-top-shell__content" style={{ background: workspaceTheme.page }}>{children}</main>
+      <main className="app driver-prototype-app" style={{ background: workspaceTheme.page }}>{children}</main>
     </div>
   );
 }

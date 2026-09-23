@@ -102,8 +102,8 @@ describe('XDrive member identity contract', () => {
     const nearbyUi = read('app/driver/nearby/page.tsx');
     const settingsUi = read('app/components/workspace/RoleSettingsWorkspace.tsx');
 
-    expect(directoryUi).toContain('MEMBER / XDRIVE ID');
-    expect(directoryUi).toContain('Company, driver or XDrive member ID');
+    expect(directoryUi).toContain('Member Name / ID');
+    expect(directoryUi).toContain('Name or XD member ID');
     expect(directoryUi).toContain('Member ID ${company.memberId}');
     expect(directoryUi).not.toContain('Company no. ${company.memberId}');
 
@@ -112,7 +112,7 @@ describe('XDrive member identity contract', () => {
     expect(memberProfileUi).toContain('Member ID ${profile.member.memberId}');
     expect(memberProfileUi).not.toContain('Company no. ${profile.member.memberId}');
 
-    expect(returnsUi).toContain('Member / XDrive ID');
+    expect(returnsUi).toContain('Member / Driver');
     expect(returnsUi).toContain('Member ID ${journey.member.code}');
     expect(returnsUi).not.toContain('Company no. ${journey.member.code}');
 

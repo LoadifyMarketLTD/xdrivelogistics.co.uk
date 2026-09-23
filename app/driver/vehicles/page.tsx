@@ -3,10 +3,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
-import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase } from '../../../lib/supabaseClient';
 import { VEHICLE_GROUPS, VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
-import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type VehicleRow = {
   id: string;
@@ -188,72 +187,83 @@ export default function DriverVehiclesPage() {
       ? vehicleName(canonicalVehicle)
       : 'None';
 
-  const vehicleSignalRail = (
-    <aside className="driver-filter-rail" aria-label="Vehicle assignment signals">
-      <div className="driver-filter-rail__header">Vehicle Signals</div>
-      <div className="driver-filter-rail__body">
-        <div className="driver-returns-rail-stat"><span>{canManageVehicles ? 'Company vehicles' : 'Assigned vehicle records'}</span><strong>{vehicles.length}</strong></div>
-        <div className="driver-returns-rail-stat"><span>Assigned relationship</span><strong>{assignedRelationshipSummary}</strong></div>
-        <div className="driver-returns-rail-stat"><span>Canonical active vehicle</span><strong>{canonicalSummary}</strong></div>
-        <div className="driver-returns-rail-stat"><span>Equipment recorded</span><strong>{equippedCount}</strong></div>
-        <div className="driver-returns-rail-stat"><span>Payload recorded</span><strong>{vehicles.filter((vehicle) => Boolean(vehicle.payload_kg)).length}</strong></div>
-        <span style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Canonical active vehicle is an identity signal only. Full driver + vehicle operational eligibility is revalidated by the server where required.</span>
-        {canManageVehicles ? <ActionButton tone="success" onClick={startAdd}>+ Add vehicle</ActionButton> : <span style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Company drivers have read-only access to vehicle records assigned to their profile. Fleet changes are managed by the company.</span>}
-      </div>
-    </aside>
-  );
-
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell
-        subtitle="Vehicle records, assignment relationships and the canonical active-vehicle signal. Full operational eligibility remains server-authoritative."
-        headerActions={<ActionButton tone="primary" onClick={() => void load()} disabled={loading}>Refresh</ActionButton>}
-      >
-        {error && <AlertBanner tone="danger">{error}</AlertBanner>}
-        {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
-        {!canonicalVehicleSignalAvailable && <AlertBanner tone="warning">Canonical active-vehicle signal is temporarily unavailable. Vehicle records and assignment relationships remain visible.</AlertBanner>}
-        <div className="driver-board-layout driver-vehicle-board">
-          {vehicleSignalRail}
-          <main className="driver-board-main">
-            {showForm && canManageVehicles && (
-              <section className="driver-row-details">
-                <div className="driver-detail-tabs"><strong>{editingId ? 'Edit vehicle' : 'Add vehicle'}</strong></div>
-                <div className="driver-detail-grid">
-                  <label className="driver-filter-field">Vehicle type<select value={form.type} onChange={(event) => setField('type', event.target.value)}>{VEHICLE_GROUPS.map(([group, options]) => <optgroup key={group} label={group}>{options.map(([label, value]) => <option key={value} value={value}>{label}</option>)}</optgroup>)}</select></label>
-                  <label className="driver-filter-field">Registration<input value={form.reg_plate} onChange={(event) => setField('reg_plate', event.target.value)} placeholder="e.g. AB12 CDE" /></label>
-                  <label className="driver-filter-field">Make<input value={form.make} onChange={(event) => setField('make', event.target.value)} placeholder="e.g. Mercedes" /></label>
-                  <label className="driver-filter-field">Model<input value={form.model} onChange={(event) => setField('model', event.target.value)} placeholder="e.g. Sprinter" /></label>
-                  <label className="driver-filter-field">Payload (kg)<input type="number" min="0" value={form.payload_kg} onChange={(event) => setField('payload_kg', event.target.value)} /></label>
-                  <label className="driver-filter-field">Pallet capacity<input type="number" min="0" value={form.pallets_capacity} onChange={(event) => setField('pallets_capacity', event.target.value)} /></label>
-                </div>
-                <div className="driver-row-actions" style={{ marginTop: 5, justifyContent: 'flex-start' }}>
-                  {(['has_tail_lift', 'has_straps', 'has_blankets'] as const).map((field) => <label key={field} className="driver-returns-check"><input type="checkbox" checked={form[field]} onChange={(event) => setField(field, event.target.checked)} /><span>{field.replace(/_/g, ' ').replace('has ', '').replace(/\b\w/g, (character) => character.toUpperCase())}</span></label>)}
-                </div>
-                <div className="driver-row-actions" style={{ marginTop: 5 }}><ActionButton tone="secondary" onClick={cancelForm}>Cancel</ActionButton><ActionButton tone="primary" onClick={() => void save()} disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update vehicle' : 'Add vehicle'}</ActionButton></div>
-              </section>
-            )}
-            <div className="driver-board-summary"><span><strong>Vehicle register</strong> · {vehicles.length} record{vehicles.length === 1 ? '' : 's'}</span>{canManageVehicles && !showForm ? <ActionButton tone="success" onClick={startAdd}>+ Add vehicle</ActionButton> : null}</div>
-            {loading ? <div className="driver-load-row"><EmptyState compact title="Loading vehicles…" /></div> : vehicles.length === 0 ? <div className="driver-load-row"><EmptyState compact title={canManageVehicles ? 'No vehicles in this workspace' : 'No vehicle assigned to you'} description={canManageVehicles ? 'Add a vehicle to provide capacity and equipment information for operations.' : 'Your company fleet manager can assign a vehicle to your driver profile.'} /></div> : (
-              <div className="driver-load-list">{vehicles.map((vehicle) => {
-                const assigned = Boolean(driverId) && vehicle.assigned_driver_id === driverId;
-                const canonical = vehicle.id === canonicalVehicleId;
-                const equipment = [vehicle.has_tail_lift && 'Tail lift', vehicle.has_straps && 'Straps', vehicle.has_blankets && 'Blankets'].filter(Boolean).join(' · ') || 'Standard';
-                return (
-                  <article key={vehicle.id} className="driver-load-row" data-state={canonical ? 'active' : assigned ? 'assigned' : 'recorded'}>
-                    <div className="driver-load-row__top">
-                      <div className="driver-load-cell"><span className="driver-cell-label">Vehicle</span><strong className="driver-cell-primary">{vehicleName(vehicle)}</strong><span className="driver-cell-secondary">{VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Unknown'}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Capacity</span><strong className="driver-cell-primary">{vehicle.payload_kg ? `${vehicle.payload_kg} kg` : 'Payload not set'}</strong><span className="driver-cell-secondary">{vehicle.pallets_capacity != null ? `${vehicle.pallets_capacity} pallet positions` : 'Pallet capacity not set'}</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Equipment</span><strong className="driver-cell-primary">{equipment}</strong><span className="driver-cell-secondary">Recorded equipment</span></div>
-                      <div className="driver-load-cell"><span className="driver-cell-label">Assignment</span><strong className="driver-cell-primary">{canonical ? 'Canonical active vehicle' : assigned ? 'Assigned relationship' : 'Company fleet record'}</strong><span className="driver-cell-secondary"><StatusBadge value={canonical ? 'Canonical active' : assigned ? 'Assigned relation' : 'Fleet record'} tone={canonical ? 'blue' : 'grey'} /></span></div>
-                    </div>
-                    <div className="driver-load-row__meta"><span>Vehicle #{vehicle.id.slice(0, 8).toUpperCase()}</span>{canManageVehicles ? <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => startEdit(vehicle)}>Edit</ActionButton>{assigned && <ActionButton tone="danger" onClick={() => void deactivate(vehicle.id)} disabled={deactivatingId === vehicle.id}>{deactivatingId === vehicle.id ? 'Removing…' : 'Unassign'}</ActionButton>}</div> : <span>Read only</span>}</div>
-                  </article>
-                );
-              })}</div>
-            )}
+      <section className="page driver-fleet-prototype">
+        <div className="subbar">
+          <span className="crumb">Workspace &nbsp;/&nbsp; <b>My Fleet</b></span>
+          <div className="sub-actions">
+            <button type="button" className="btn" onClick={() => void load()} disabled={loading}>Refresh Tracking</button>
+            <button type="button" className="btn" disabled={!canManageVehicles} onClick={startAdd}>+ Add Vehicle</button>
+            <button type="button" className="btn green" onClick={() => window.location.href = '/driver/availability'}>Advertise Availability</button>
+          </div>
+        </div>
+        <div className="pagebody">
+          <aside className="left">
+            <div className="left-title">Fleet Filters</div>
+            <div className="filter"><span className="label">Quick search</span><input className="input" placeholder="Vehicle, driver, registration" onChange={(event) => {
+              const needle = event.target.value.trim().toLowerCase();
+              document.querySelectorAll<HTMLElement>('.fleet-row').forEach((row) => {
+                row.style.display = !needle || (row.dataset.search ?? '').includes(needle) ? '' : 'none';
+              });
+            }} /></div>
+            <div className="filter">
+              <div className="linkrow active">All fleet<span className="count">{vehicles.length}</span></div>
+              <div className="linkrow">Assigned to me<span className="count">{assignedVehicles.length}</span></div>
+              <div className="linkrow">Canonical active<span className="count">{canonicalVehicle ? 1 : 0}</span></div>
+            </div>
+            <div className="filter"><span className="label">Capacity</span><label className="check"><input type="checkbox" checked={equippedCount > 0} readOnly />Equipment recorded</label></div>
+          </aside>
+          <main className="main">
+            <div className="head"><div><h1>My Fleet</h1><p>Operational fleet control with inline status, assignment, capacity and readiness</p></div></div>
+            {error && <div className="vision-note">{error}</div>}
+            {notice && <div className="vision-note">{notice}</div>}
+            {!canonicalVehicleSignalAvailable && <div className="vision-note">Canonical active-vehicle signal is temporarily unavailable. Vehicle records remain visible.</div>}
+            <div className="fleet-ops-strip">
+              <button type="button"><span>Active Vehicle</span><b>{canonicalVehicle ? 1 : 0}</b></button>
+              <button type="button"><span>Assigned Vehicles</span><b>{assignedVehicles.length}</b></button>
+              <button type="button"><span>Equipment Records</span><b>{equippedCount}</b></button>
+              <button type="button"><span>Payload Records</span><b>{vehicles.filter((vehicle) => Boolean(vehicle.payload_kg)).length}</b></button>
+              <button type="button"><span>Fleet Records</span><b>{vehicles.length}</b></button>
+              <div className="fleet-ops-actions"><button type="button" className="btn primary" onClick={() => window.location.href='/driver/jobs'}>Allocate Jobs</button><button type="button" className="btn" onClick={() => void load()}>Refresh</button></div>
+            </div>
+            <div className="tabs"><button className="tab active">All fleet {vehicles.length}</button><button className="tab">Tracked {canonicalVehicle ? 1 : 0}</button><button className="tab">Future positions</button><button className="tab">Future journeys</button></div>
+            {showForm && canManageVehicles && <section className="fleet-inspector">
+              <div><b>{editingId ? 'Edit vehicle' : 'Add vehicle'}</b><span className="meta">Save real vehicle capacity and equipment data.</span></div>
+              <div className="row2"><select className="select" value={form.type} onChange={(event) => setField('type', event.target.value)}>{VEHICLE_GROUPS.flatMap(([, options]) => options).map(([label,value]) => <option key={value} value={value}>{label}</option>)}</select><input className="input" value={form.reg_plate} onChange={(event) => setField('reg_plate', event.target.value)} placeholder="Registration" /></div>
+              <div className="row2"><input className="input" value={form.make} onChange={(event) => setField('make', event.target.value)} placeholder="Make" /><input className="input" value={form.model} onChange={(event) => setField('model', event.target.value)} placeholder="Model" /></div>
+              <div className="row2"><input className="input" type="number" value={form.payload_kg} onChange={(event) => setField('payload_kg', event.target.value)} placeholder="Payload kg" /><input className="input" type="number" value={form.pallets_capacity} onChange={(event) => setField('pallets_capacity', event.target.value)} placeholder="Pallets" /></div>
+              <div className="fleet-commandbar"><label className="check"><input type="checkbox" checked={form.has_tail_lift} onChange={(event) => setField('has_tail_lift', event.target.checked)} />Tail lift</label><label className="check"><input type="checkbox" checked={form.has_straps} onChange={(event) => setField('has_straps', event.target.checked)} />Straps</label><label className="check"><input type="checkbox" checked={form.has_blankets} onChange={(event) => setField('has_blankets', event.target.checked)} />Blankets</label><span className="spacer" /><button type="button" className="btn" onClick={cancelForm}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update vehicle' : 'Add vehicle'}</button></div>
+            </section>}
+            <div className="fleet-commandbar"><span className="spacer muted small">{vehicles.length} visible resources</span>{canManageVehicles && !showForm && <button type="button" className="btn" onClick={startAdd}>Add Vehicle</button>}</div>
+            <div className="tablewrap fleet-tablewrap">
+              <table className="fleet-table" style={{ minWidth: 1320 }}>
+                <thead><tr><th>Name</th><th>Size</th><th>Status</th><th>Assignment</th><th>Payload</th><th>Pallets</th><th>Equipment</th><th>Actions</th></tr></thead>
+                <tbody>
+                  {vehicles.map((vehicle) => {
+                    const assigned = Boolean(driverId) && vehicle.assigned_driver_id === driverId;
+                    const canonical = vehicle.id === canonicalVehicleId;
+                    const equipment = [vehicle.has_tail_lift && 'Tail lift', vehicle.has_straps && 'Straps', vehicle.has_blankets && 'Blankets'].filter(Boolean).join(' · ') || 'Standard';
+                    return <tr key={vehicle.id} className="fleet-row" data-id={vehicle.id} data-search={`${vehicleName(vehicle)} ${vehicle.reg_plate ?? ''} ${vehicle.type ?? ''}`.toLowerCase()}>
+                      <td><div className="fleet-name"><div><b>{vehicleName(vehicle)}</b><span className="meta">{vehicle.reg_plate ?? 'No registration'} · {assigned ? 'Assigned to current driver' : 'Company fleet record'}</span></div></div></td>
+                      <td>{VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Unknown'}</td>
+                      <td><StatusBadge value={canonical ? 'Canonical active' : assigned ? 'Assigned' : 'Recorded'} tone={canonical ? 'green' : assigned ? 'blue' : 'grey'} /></td>
+                      <td>{canonical ? 'Canonical active vehicle' : assigned ? 'Assigned relationship' : 'Company fleet'}</td>
+                      <td>{vehicle.payload_kg != null ? `${vehicle.payload_kg} kg` : 'Not supplied'}</td>
+                      <td>{vehicle.pallets_capacity ?? 'Not supplied'}</td>
+                      <td>{equipment}</td>
+                      <td><button type="button" className="rowbtn blue" onClick={() => startEdit(vehicle)} disabled={!canManageVehicles}>Open</button>{assigned && canManageVehicles && <button type="button" className="rowbtn" onClick={() => void deactivate(vehicle.id)} disabled={deactivatingId === vehicle.id}>{deactivatingId === vehicle.id ? 'Removing…' : 'Unassign'}</button>}</td>
+                    </tr>;
+                  })}
+                </tbody>
+              </table>
+            </div>
+            {!loading && vehicles.length === 0 && <div className="xd2-calm-empty"><b>No vehicle records</b><span>{canManageVehicles ? 'Add a real vehicle to the workspace.' : 'No vehicle is assigned to this Driver profile.'}</span></div>}
+            <div className="fleet-inspector"><div><b>Fleet resource inspector</b><span className="meta">Canonical active vehicle: {canonicalSummary}. Assigned relationship: {assignedRelationshipSummary}.</span></div></div>
+            <div className="footer"><span>Items per Page:</span><select className="fleet-page-size" defaultValue="25"><option>25</option><option>50</option><option>100</option></select><span style={{ marginLeft: 10 }}>1-{vehicles.length} of {vehicles.length}</span><span style={{ marginLeft: 18 }}>Fleet resource control · assignment · capacity · equipment · readiness</span></div>
           </main>
         </div>
-      </DriverWorkspaceShell>
+      </section>
     </ProtectedRoute>
   );
 }

@@ -1,40 +1,41 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { describe, expect, it } from 'vitest';
 
 const shell = fs.readFileSync(path.join(process.cwd(), 'app/driver/_components/DriverTopWorkspaceShell.tsx'), 'utf8');
-const css = fs.readFileSync(path.join(process.cwd(), 'app/driver/driver-top-shell-more.css'), 'utf8');
+const prototypeCss = fs.readFileSync(path.join(process.cwd(), 'app/driver/driver-full-prototype.css'), 'utf8');
 const notificationsApi = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/notifications/route.ts'), 'utf8');
 
-describe('CX-close Driver top navigation', () => {
-  it('keeps the CX-style primary modules visible and moves secondary tools under More', () => {
-    for (const label of ['Dashboard', 'Directory', 'Return Journeys', 'Loads', 'Quotes', 'Diary', 'Event Log']) {
-      expect(shell).toContain(`label: '${label}'`);
+describe('approved prototype Driver top navigation', () => {
+  it('uses the complete approved prototype module order', () => {
+    const labels = ['Dashboard','Directory','Live Availability','My Fleet','Return Journeys','Loads','Quotes','Diary','Freight Vision','Finance','Drivers & Vehicles'];
+    let previous = -1;
+    for (const label of labels) {
+      const current = shell.indexOf(`label: '${label}'`);
+      expect(current).toBeGreaterThan(previous);
+      previous = current;
     }
-    expect(shell).toContain('DRIVER_MORE_NAV');
-    for (const label of ['Jobs', 'Availability', 'Messages', 'Vehicle', 'Documents', 'Invoices', 'Notifications', 'Account']) {
-      expect(shell).toContain(`label: '${label}'`);
-    }
-    expect(shell).toContain(`label: "Who's Nearby?"`);
-    expect(shell).toContain('More <span');
   });
 
-  it('keeps each promoted More item on an existing Driver route', () => {
-    for (const href of ['/driver/jobs', '/driver/availability', '/driver/nearby', '/driver/messages', '/driver/vehicles', '/driver/documents', '/driver/finance', '/driver/notifications', '/driver/account']) {
+  it('maps prototype modules to real Driver routes', () => {
+    for (const href of ['/driver','/driver/directory','/driver/nearby','/driver/vehicles','/driver/returns','/driver/loads','/driver/quotes','/driver/history','/driver/freight-vision','/driver/finance','/driver/drivers-vehicles']) {
       expect(shell).toContain(`href: '${href}'`);
     }
   });
+  it('ports the approved prototype rail and topbar instead of the legacy More navigation', () => {
+    expect(shell).toContain('global-rail');
+    expect(shell).toContain('topbar');
+    expect(shell).toContain('main-nav');
+    expect(shell).not.toContain('DRIVER_MORE_NAV');
+    expect(shell).not.toContain('driver-top-nav__more-trigger');
+    expect(prototypeCss).toContain('.driver-prototype-port .global-rail');
+    expect(prototypeCss).toContain('.driver-prototype-port .topbar');
+  });
 
-  it('counts unread recipient inbox rows rather than notification delivery failures', () => {
+  it('keeps real notification inbox counting', () => {
     expect(shell).toContain("fetch('/api/driver/notifications'");
     expect(shell).not.toContain(".from('notifications')");
     expect(notificationsApi).toContain(".eq('user_id', driver.userId)");
-    expect(notificationsApi).not.toContain(".from('notification_events')");
-  });
-
-  it('keeps the More menu dense and consistent with the workspace shell', () => {
-    expect(css).toContain('min-height: 32px');
-    expect(css).toContain('border-radius: 4px');
-    expect(css).toContain('font-size: 12px');
   });
 
   it('does not introduce Super Admin coupling', () => {
