@@ -29,7 +29,8 @@ describe('CX workspace accessibility convergence', () => {
     const source = read('app/driver/page.tsx');
     expect(source).toContain('<ActionButton');
     expect(source).toContain('<StatusBadge');
-    expect(source).toContain('<strong>Next action:</strong>');
+    expect(source).toContain('<span>NEXT ACTION</span>');
+    expect(source).toContain('driver-proto-next-action');
   });
 
   it('keeps customer Action Centre controls as semantic buttons', () => {
