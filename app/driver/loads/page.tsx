@@ -409,7 +409,7 @@ export default function AvailableLoadsPage() {
                   const toCollection = load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} miles${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available';
                   const jobDistance = load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available';
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
-                  return <article key={load.id} className="load-card cx-load-card">
+                  return <article key={load.id} className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}>
                     <div className="load-primary">
                       <div className="load-route"><div className="load-route-line"><span>From:</span><b>{load.pickup_area}</b></div><div className="load-route-line"><span>To:</span><b>{load.delivery_area}</b></div><div className="load-quickfacts"><span>{jobDistance}</span><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Weight not supplied'}</span></div></div>
                       <div className="load-times"><div className="load-time-line"><span>Pickup:</span><b>{fmtDate(load.pickup_datetime)}</b></div><div className="load-time-line"><span>Deliver:</span><b>{fmtDate(load.delivery_datetime)}</b></div><div className="load-requested"><span>Requested:</span><b>{selectedVehicleLabel}</b></div></div>
