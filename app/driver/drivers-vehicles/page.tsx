@@ -67,7 +67,7 @@ export default function DriverDriversVehiclesPage() {
   }, [search, vehicles]);
 
   const assignedCount = vehicles.filter((vehicle) => vehicle.assigned_driver_id === driverId).length;
-  const trackedCount = canonicalVehicleId ? 1 : 0;
+  const canonicalCount = canonicalVehicleId ? 1 : 0;
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
@@ -82,15 +82,15 @@ export default function DriverDriversVehiclesPage() {
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search</div>
-            <div className="filter"><span className="label">Driver / Vehicle</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Driver, vehicle, registration" /></div>
-            <div className="filter"><span className="label">Quick filters</span>
-              <label className="check"><input type="checkbox" checked readOnly />Current Driver</label>
-              <label className="check"><input type="checkbox" checked={trackedCount > 0} readOnly />Canonical vehicle</label>
-              <label className="check"><input type="checkbox" checked={assignedCount > 0} readOnly />Assigned vehicles</label>
+            <div className="filter"><span className="label">Vehicle Search</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Vehicle, registration, type" /></div>
+            <div className="filter"><span className="label">Current state</span>
+              <div className="check">Current driver · active</div>
+              <div className="check">Canonical vehicle · {canonicalCount ? 'configured' : 'not configured'}</div>
+              <div className="check">Assigned vehicles · {assignedCount}</div>
             </div>
           </aside>
           <main className="main">
-            <div className="head"><div><h1>Drivers & Vehicles</h1><p>Manage users, drivers, vehicles, tracking, documents and audit history</p></div></div>
+            <div className="head"><div><h1>Drivers & Vehicles</h1><p>Review driver identity, vehicles, tracking readiness, documents and audit history</p></div></div>
             {error && <div className="vision-note">{error}</div>}
             <div className="subtabs">
               <button type="button" className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users / Drivers</button>
@@ -114,8 +114,8 @@ export default function DriverDriversVehiclesPage() {
               {!loading && visible.length === 0 && <div className="xd2-calm-empty"><b>No vehicle records</b><span>No real vehicle record matches the current filter.</span></div>}
             </div>}
             {tab === 'tracking' && <div className="dv-panel active">
-              <div className="toolbar"><b>Vehicle Tracking</b><span className="spacer muted small">{trackedCount} canonical tracked signal</span></div>
-              <div className="split"><div className="splitlist">{vehicles.map((vehicle) => <div key={vehicle.id} className="listrow"><div className="grow"><b>{vehicle.reg_plate ?? vehicleName(vehicle)}</b><span className="meta">{vehicleName(vehicle)}</span></div><StatusBadge value={vehicle.id === canonicalVehicleId ? 'Canonical' : 'No live signal'} tone={vehicle.id === canonicalVehicleId ? 'green' : 'grey'} /></div>)}</div><div className="splitmain"><div className="map"><div className="mapnote">Approved XDrive tracking only. No position is fabricated when tracking data is unavailable.</div></div></div></div>
+              <div className="toolbar"><b>Vehicle Tracking Readiness</b><span className="spacer muted small">{canonicalCount} canonical vehicle configured</span><button type="button" className="btn" onClick={() => router.push('/driver/freight-vision')}>Open Freight Vision</button></div>
+              <div className="split"><div className="splitlist">{vehicles.map((vehicle) => <div key={vehicle.id} className="listrow"><div className="grow"><b>{vehicle.reg_plate ?? vehicleName(vehicle)}</b><span className="meta">{vehicleName(vehicle)}</span></div><StatusBadge value={vehicle.id === canonicalVehicleId ? 'Canonical vehicle' : 'Fleet record'} tone={vehicle.id === canonicalVehicleId ? 'green' : 'grey'} /></div>)}</div><div className="splitmain"><div className="map"><div className="mapnote">Canonical vehicle assignment is not treated as a live tracking signal. Open Freight Vision for authorised job tracking and ETA data.</div></div></div></div>
             </div>}
 
             {tab === 'documents' && <div className="dv-panel active"><div className="toolbar"><b>Vehicle & Driver Documents</b><span className="spacer" /><button type="button" className="btn primary" onClick={() => router.push('/driver/documents')}>Open Documents</button></div><div className="xd2-calm-empty"><b>Documents remain server-authoritative</b><span>Open the Driver Documents register to review or upload real records.</span></div></div>}
