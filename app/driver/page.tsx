@@ -747,8 +747,35 @@ export default function DriverDashboard() {
               <span>Return journeys</span><strong>Journey board</strong><small>Advertise and manage return availability</small>
             </button>
             <button type="button" onClick={() => router.push('/driver/history')}>
-              <span>Feedback</span><strong>{_feedback.length} recent</strong><small>Recent delivery feedback</small>
+              <span>Feedback</span><strong>{feedback90Days.length} in 90 days</strong><small>{feedbackAverage == null ? 'No recent rating' : 'Average ' + feedbackAverage.toFixed(1) + ' / 5'}</small>
             </button>
+          </div>
+        </section>
+
+        <section className="driver-dashboard-register driver-dashboard-feedback">
+          <div className="driver-dashboard-register__head">
+            <div>
+              <strong>Feedback in last 90 days</strong>
+              <span>Recent delivery feedback tied to your completed work</span>
+            </div>
+            <button type="button" className="text-action" onClick={() => router.push('/driver/history')}>Open Diary →</button>
+          </div>
+          <div className="driver-dashboard-register__body">
+            {feedback90Days.length === 0 ? (
+              <EmptyState compact title="No recent feedback" description="Feedback received on completed work in the last 90 days will appear here." />
+            ) : (
+              <div className="driver-dashboard-feedback-list">
+                {feedback90Days.slice(0, 3).map((review) => (
+                  <article key={review.id} className="driver-dashboard-feedback-row">
+                    <div>
+                      <strong>{review.rating != null ? review.rating.toFixed(1) + ' / 5' : 'Rating not supplied'}</strong>
+                      <span>{review.comment?.trim() || 'No written feedback supplied.'}</span>
+                    </div>
+                    <small>{fmtDate(review.created_at)}</small>
+                  </article>
+                ))}
+              </div>
+            )}
           </div>
         </section>
       </DriverWorkspaceShell>
