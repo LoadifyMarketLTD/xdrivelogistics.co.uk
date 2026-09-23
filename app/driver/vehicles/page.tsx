@@ -187,22 +187,7 @@ export default function DriverVehiclesPage() {
             <button type="button" className="btn green" onClick={() => window.location.href = '/driver/availability'}>Advertise Availability</button>
           </div>
         </div>
-        <div className="pagebody">
-          <aside className="left">
-            <div className="left-title">Fleet Filters</div>
-            <div className="filter"><span className="label">Quick search</span><input className="input" placeholder="Vehicle, driver, registration" onChange={(event) => {
-              const needle = event.target.value.trim().toLowerCase();
-              document.querySelectorAll<HTMLElement>('.fleet-row').forEach((row) => {
-                row.style.display = !needle || (row.dataset.search ?? '').includes(needle) ? '' : 'none';
-              });
-            }} /></div>
-            <div className="filter">
-              <div className="linkrow active">All fleet<span className="count">{vehicles.length}</span></div>
-              <div className="linkrow">Assigned to me<span className="count">{assignedVehicles.length}</span></div>
-              <div className="linkrow">Canonical active<span className="count">{canonicalVehicle ? 1 : 0}</span></div>
-            </div>
-            <div className="filter"><span className="label">Capacity</span><label className="check"><input type="checkbox" checked={equippedCount > 0} readOnly />Equipment recorded</label></div>
-          </aside>
+        <div className="pagebody fleet-pagebody">
           <main className="main">
             <div className="head"><div><h1>My Fleet</h1><p>Operational fleet control with inline status, assignment, capacity and readiness</p></div></div>
             {error && <div className="vision-note">{error}</div>}
@@ -213,10 +198,25 @@ export default function DriverVehiclesPage() {
                 <strong>Company Vehicles</strong>
                 <span>{vehicles.length} vehicle{vehicles.length === 1 ? '' : 's'} · {assignedVehicles.length} assigned to you · {canonicalVehicle ? '1 active' : 'no active vehicle'}</span>
               </div>
-              <div className="fleet-cx-toolbar__actions">
-                <button type="button" className="btn" onClick={() => void load()} disabled={loading}>Refresh</button>
-                {canManageVehicles && !showForm && <button type="button" className="btn green" onClick={startAdd}>Add Vehicle</button>}
+              <div className="fleet-cx-toolbar__summary" aria-label="Fleet summary">
+                <span>Fleet <b>{vehicles.length}</b></span>
+                <span>Assigned <b>{assignedVehicles.length}</b></span>
+                <span>Active <b>{canonicalVehicle ? 1 : 0}</b></span>
+                <span>Equipment <b>{equippedCount}</b></span>
               </div>
+            </div>
+            <div className="fleet-register-tools">
+              <label className="fleet-register-search">
+                <span>Search</span>
+                <input className="input" placeholder="Vehicle, driver or registration" onChange={(event) => {
+                  const needle = event.target.value.trim().toLowerCase();
+                  document.querySelectorAll<HTMLElement>('.fleet-row').forEach((row) => {
+                    row.style.display = !needle || (row.dataset.search ?? '').includes(needle) ? '' : 'none';
+                  });
+                }} />
+              </label>
+              <span className="spacer" />
+              <span className="muted small">{vehicles.length} fleet record{vehicles.length === 1 ? '' : 's'}</span>
             </div>
             {showForm && canManageVehicles && <section className="fleet-inspector">
               <div><b>{editingId ? 'Edit vehicle' : 'Add vehicle'}</b><span className="meta">Save real vehicle capacity and equipment data.</span></div>
