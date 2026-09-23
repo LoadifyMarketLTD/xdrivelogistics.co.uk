@@ -22,14 +22,14 @@ describe('live Driver approved prototype parity contract', () => {
     expect(full).toBeGreaterThan(-1);
     expect(layout).toContain("driver-dashboard-prototype-exact.css");
   });
-  it('keeps the compact dashboard composition without duplicated summary bands', () => {
+  it('keeps the dashboard as a compact operational register, not a SaaS card wall', () => {
     const page = read('app/driver/page.tsx');
-    for (const marker of ['xd2-kpis','xd2-primary-grid','xd2-bottom-grid']) {
+    for (const marker of ['driver-dashboard-statusbar','driver-dashboard-register','driver-dashboard-tabs','driver-dashboard-readiness']) {
       expect(page).toContain(marker);
     }
-    expect(page).not.toContain('xd2-hero');
-    expect(page).not.toContain('xd2-secondary-grid');
-    expect(page).not.toContain('xd2-finance');
+    for (const removed of ['xd2-hero','xd2-kpis','xd2-primary-grid','xd2-secondary-grid','xd2-finance','xd2-bottom-grid']) {
+      expect(page).not.toContain(removed);
+    }
   });
 
   it('uses prototype page chrome for non-account Driver routes', () => {

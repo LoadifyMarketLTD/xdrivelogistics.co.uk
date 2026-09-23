@@ -1160,3 +1160,233 @@
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 }
+
+
+/* 2026-09-23 Driver Dashboard: operational register layout, not SaaS cards. */
+.xdrive-driver-workspace .driver-dashboard-statusbar{
+  width:100%;
+  display:grid;
+  grid-template-columns:repeat(6,minmax(0,1fr));
+  border:1px solid #c8d2dd;
+  background:#fff;
+  margin:0 0 8px;
+}
+.xdrive-driver-workspace .driver-dashboard-statusbar button{
+  min-width:0;
+  min-height:62px;
+  border:0;
+  border-right:1px solid #d9e0e7;
+  background:#fff;
+  padding:7px 10px;
+  display:flex;
+  flex-direction:column;
+  align-items:flex-start;
+  justify-content:center;
+  gap:1px;
+  text-align:left;
+  cursor:pointer;
+}
+.xdrive-driver-workspace .driver-dashboard-statusbar button:last-child{border-right:0}
+.xdrive-driver-workspace .driver-dashboard-statusbar button:hover{background:#f6f9fc}
+.xdrive-driver-workspace .driver-dashboard-statusbar span{
+  color:#647386;
+  font-size:9.5px;
+  line-height:13px;
+  font-weight:800;
+  text-transform:uppercase;
+  letter-spacing:.02em;
+}
+.xdrive-driver-workspace .driver-dashboard-statusbar strong{
+  color:#0b2f6b;
+  font-size:16px;
+  line-height:20px;
+  font-weight:800;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+.xdrive-driver-workspace .driver-dashboard-statusbar small{
+  color:#748194;
+  font-size:9.5px;
+  line-height:12px;
+  max-width:100%;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.xdrive-driver-workspace .driver-dashboard-register,
+.xdrive-driver-workspace .driver-dashboard-readiness{
+  width:100%;
+  border:1px solid #c8d2dd;
+  background:#fff;
+  margin:0 0 8px;
+}
+.xdrive-driver-workspace .driver-dashboard-register__head{
+  min-height:43px;
+  padding:6px 9px;
+  border-bottom:1px solid #c8d2dd;
+  background:#eef5fc;
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.xdrive-driver-workspace .driver-dashboard-register__head > div:first-child{
+  display:flex;
+  flex-direction:column;
+  gap:1px;
+}
+.xdrive-driver-workspace .driver-dashboard-register__head strong{
+  color:#23384f;
+  font-size:12.5px;
+  line-height:16px;
+  font-weight:800;
+}
+.xdrive-driver-workspace .driver-dashboard-register__head span{
+  color:#66768a;
+  font-size:10px;
+  line-height:13px;
+}
+.xdrive-driver-workspace .driver-dashboard-register__actions{
+  display:flex;
+  align-items:center;
+  gap:5px;
+}
+.xdrive-driver-workspace .driver-dashboard-tabs{
+  min-height:34px;
+  display:flex;
+  align-items:stretch;
+  border-bottom:1px solid #c8d2dd;
+  background:#fff;
+  overflow-x:auto;
+}
+.xdrive-driver-workspace .driver-dashboard-tabs button{
+  min-width:106px;
+  height:34px;
+  border:0;
+  border-right:1px solid #d9e0e7;
+  border-bottom:2px solid transparent;
+  background:#fff;
+  color:#34495f;
+  padding:0 9px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:6px;
+  font-size:10.5px;
+  font-weight:700;
+  cursor:pointer;
+  white-space:nowrap;
+}
+.xdrive-driver-workspace .driver-dashboard-tabs button[data-active='true']{
+  color:#0b2f6b;
+  border-bottom-color:#f5a300;
+  background:#f8fbfe;
+}
+.xdrive-driver-workspace .driver-dashboard-tabs button span{
+  min-width:18px;
+  height:18px;
+  padding:0 5px;
+  border-radius:9px;
+  background:#eef3f8;
+  color:#53657a;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  font-size:9px;
+  line-height:18px;
+}
+.xdrive-driver-workspace .driver-dashboard-register__body{
+  min-height:70px;
+  background:#fff;
+}
+.xdrive-driver-workspace .driver-dashboard-clear{
+  min-height:64px;
+  padding:11px 12px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  gap:2px;
+}
+.xdrive-driver-workspace .driver-dashboard-clear strong{
+  color:#17314d;
+  font-size:12px;
+  line-height:16px;
+}
+.xdrive-driver-workspace .driver-dashboard-clear span{
+  color:#6c7b8e;
+  font-size:10.5px;
+  line-height:14px;
+}
+
+.xdrive-driver-workspace .driver-dashboard-register .driver-load-list{
+  gap:0 !important;
+}
+.xdrive-driver-workspace .driver-dashboard-register .driver-load-row{
+  border:0 !important;
+  border-bottom:1px solid #d7dee6 !important;
+  border-radius:0 !important;
+  margin:0 !important;
+  box-shadow:none !important;
+}
+.xdrive-driver-workspace .driver-dashboard-register .driver-load-row:last-child{
+  border-bottom:0 !important;
+}
+
+.xdrive-driver-workspace .driver-dashboard-readiness__grid{
+  display:grid;
+  grid-template-columns:repeat(4,minmax(0,1fr));
+}
+.xdrive-driver-workspace .driver-dashboard-readiness__grid button{
+  min-height:58px;
+  border:0;
+  border-right:1px solid #d9e0e7;
+  background:#fff;
+  padding:7px 10px;
+  display:flex;
+  flex-direction:column;
+  justify-content:center;
+  align-items:flex-start;
+  text-align:left;
+  gap:1px;
+  cursor:pointer;
+}
+.xdrive-driver-workspace .driver-dashboard-readiness__grid button:last-child{border-right:0}
+.xdrive-driver-workspace .driver-dashboard-readiness__grid button:hover{background:#f7fafc}
+.xdrive-driver-workspace .driver-dashboard-readiness__grid span{
+  color:#5e6e81;
+  font-size:9.5px;
+  line-height:13px;
+  font-weight:800;
+  text-transform:uppercase;
+}
+.xdrive-driver-workspace .driver-dashboard-readiness__grid strong{
+  color:#0b2f6b;
+  font-size:13px;
+  line-height:17px;
+  font-weight:800;
+}
+.xdrive-driver-workspace .driver-dashboard-readiness__grid small{
+  color:#748194;
+  font-size:9.5px;
+  line-height:13px;
+}
+
+.xdrive-driver-workspace .driver-reference-dashboard .xd2-kpis,
+.xdrive-driver-workspace .driver-reference-dashboard .xd2-primary-grid,
+.xdrive-driver-workspace .driver-reference-dashboard .xd2-bottom-grid,
+.xdrive-driver-workspace .driver-reference-dashboard .xd2-secondary-grid,
+.xdrive-driver-workspace .driver-reference-dashboard .xd2-finance{
+  display:none !important;
+}
+
+@media(max-width:1200px){
+  .xdrive-driver-workspace .driver-dashboard-statusbar{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .xdrive-driver-workspace .driver-dashboard-statusbar button:nth-child(3n){border-right:0}
+  .xdrive-driver-workspace .driver-dashboard-statusbar button:nth-child(-n+3){border-bottom:1px solid #d9e0e7}
+  .xdrive-driver-workspace .driver-dashboard-readiness__grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .xdrive-driver-workspace .driver-dashboard-readiness__grid button:nth-child(2){border-right:0}
+  .xdrive-driver-workspace .driver-dashboard-readiness__grid button:nth-child(-n+2){border-bottom:1px solid #d9e0e7}
+}

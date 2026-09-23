@@ -608,13 +608,12 @@ export default function DriverDashboard() {
 
   const compliantDocuments = Math.max(0, myDocuments.length - documentAlerts.length);
   const futurePositionPublished = driverProfile?.future_position ? 1 : 0;
-
-  return (
+  return (
     <div className="driver-reference-dashboard driver-prototype-dashboard driver-exact-prototype">
       <DriverWorkspaceShell
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
         driverName="Dashboard"
-        subtitle="Live operations, resources, commercial position and compliance at a glance."
+        subtitle="Live operations, jobs, vehicle readiness and compliance."
         headerActions={<>
           <button type="button" className="btn" onClick={() => router.push('/driver/history')}>Open Diary</button>
           <button type="button" className="btn" onClick={() => router.push('/driver/action-centre')}>Action Centre</button>
@@ -623,90 +622,103 @@ export default function DriverDashboard() {
       >
         {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
         {transitionMessage && <AlertBanner tone="success">{transitionMessage}</AlertBanner>}
-        <section className="xd2-kpis" aria-label="Driver operational indicators">
-          <button type="button" className={'xd2-kpi attention ' + (workboardView === 'attention' ? 'active' : '')} onClick={() => setWorkboardView('attention')}>
-            <span className="xd2-kpi-label">Needs Attention</span><b>{needsAttentionCount}</b><small>{needsAttentionCount ? 'Driver actions or alerts' : 'No urgent actions'}</small>
+
+        <section className="driver-dashboard-statusbar" aria-label="Driver operational summary">
+          <button type="button" onClick={() => router.push('/driver/availability')}>
+            <span>Availability</span><strong>{availabilityValue}</strong><small>{driverStatusValue}</small>
           </button>
-          <button type="button" className={'xd2-kpi allocation ' + (workboardView === 'upcoming' ? 'active' : '')} onClick={() => setWorkboardView('upcoming')}>
-            <span className="xd2-kpi-label">Upcoming Work</span><b>{upcomingJobs.length}</b><small>Future allocated work</small>
+          <button type="button" onClick={() => router.push('/driver/vehicles')}>
+            <span>Active vehicle</span><strong>{assignedVehicle?.reg_plate ?? 'Not assigned'}</strong><small>{assignedVehicle ? vehicleLabel(assignedVehicle.type) : 'Select vehicle'}</small>
           </button>
-          <button type="button" className={'xd2-kpi live ' + (workboardView === 'live' ? 'active' : '')} onClick={() => setWorkboardView('live')}>
-            <span className="xd2-kpi-label">Live Jobs</span><b>{liveJobs.length}</b><small>Currently executing</small>
+          <button type="button" onClick={() => setWorkboardView('attention')}>
+            <span>Needs attention</span><strong>{needsAttentionCount}</strong><small>{needsAttentionCount ? 'Driver actions or alerts' : 'No urgent actions'}</small>
           </button>
-          <button type="button" className="xd2-kpi drivers" onClick={() => router.push('/driver/loads')}>
-            <span className="xd2-kpi-label">Matching Loads</span><b>{contextWarnings.loads ? '—' : relevantLoads.length}</b><small>{assignedVehicle ? 'For ' + vehicleLabel(assignedVehicle.type) : 'Active vehicle required'}</small>
+          <button type="button" onClick={() => setWorkboardView('upcoming')}>
+            <span>Upcoming work</span><strong>{upcomingJobs.length}</strong><small>Allocated work</small>
+          </button>
+          <button type="button" onClick={() => setWorkboardView('live')}>
+            <span>Live jobs</span><strong>{liveJobs.length}</strong><small>Currently executing</small>
+          </button>
+          <button type="button" onClick={() => router.push('/driver/loads')}>
+            <span>Matching loads</span><strong>{contextWarnings.loads ? '—' : relevantLoads.length}</strong><small>{assignedVehicle ? vehicleLabel(assignedVehicle.type) : 'Active vehicle required'}</small>
           </button>
         </section>
 
-        <div className="xd2-primary-grid">
-          <section className="xd2-card xd2-workboard">
-            <div className="xd2-card-head">
-              <div><span className="xd2-card-kicker">LIVE OPERATIONS</span><h3>Operational workboard</h3><p>{workboardTabs.find((tab) => tab.id === workboardView)?.label ?? 'Needs attention'} · driver work only</p></div>
-              <span className="xd2-count">{workboardTabs.find((tab) => tab.id === workboardView)?.count ?? 0} visible</span>
+        <section className="driver-dashboard-register">
+          <div className="driver-dashboard-register__head">
+            <div>
+              <strong>My Work</strong>
+              <span>Live Driver operations and job lifecycle</span>
             </div>
-            <div className="xd2-work-tabs">
-              {workboardTabs.map((tab) => (
-                <button key={tab.id} type="button" className={workboardView === tab.id ? 'active' : ''} onClick={() => setWorkboardView(tab.id)}>{tab.label}</button>
-              ))}
+            <div className="driver-dashboard-register__actions">
+              <button type="button" className="btn" onClick={() => router.push('/driver/loads')}>Find Loads</button>
+              <button type="button" className="btn" onClick={() => router.push('/driver/history')}>Diary</button>
+              <button type="button" className="btn primary" onClick={() => router.push('/driver/jobs')}>Jobs Register</button>
             </div>
-            <div id="dashWorkRows">
-              {workboardView === 'attention' && !currentJob && documentAlerts.length === 0 && warningCount === 0 ? (
-                <div className="xd2-empty">
-                  <div className="xd2-empty-icon">✓</div>
-                  <div><b>No driver work needs attention</b><span>Your operations queue is clear. Find marketplace work or open Diary to review bookings.</span></div>
-                  <div className="xd2-empty-actions">
-                    <button type="button" className="btn" onClick={() => router.push('/driver/loads')}>Find marketplace work</button>
-                    <button type="button" className="btn primary" onClick={() => router.push('/driver/history')}>Open Diary</button>
-                  </div>
-                </div>
-              ) : renderWorkboardBody()}
-            </div>
-            <div className="xd2-card-foot"><span>Showing live server-authoritative Driver data</span><button type="button" className="text-action" onClick={() => router.push('/driver/jobs')}>Open full jobs register →</button></div>
-          </section>
+          </div>
+          <div className="driver-dashboard-tabs" role="tablist" aria-label="Driver work filters">
+            {workboardTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                data-active={workboardView === tab.id ? 'true' : 'false'}
+                onClick={() => setWorkboardView(tab.id)}
+              >
+                {tab.label}<span>{tab.count}</span>
+              </button>
+            ))}
+          </div>
 
-          <section className="xd2-card xd2-readiness">
-            <div className="xd2-card-head compact">
-              <div><span className="xd2-card-kicker">RESOURCE READINESS</span><h3>Driver & vehicle</h3></div>
-              <button type="button" className="text-action" onClick={() => router.push('/driver/availability')}>Live status</button>
-            </div>
-            <button type="button" className={'xd2-readiness-row ' + (driverProfile?.availability_status === 'available' ? 'good' : 'neutral')} onClick={() => router.push('/driver/availability')}>
-              <div><span>Availability</span><small>{driverStatusValue}</small></div><b>{availabilityValue}</b>
-            </button>
-            <button type="button" className="xd2-readiness-row neutral" onClick={() => router.push('/driver/vehicles')}>
-              <div><span>Active vehicle</span><small>{assignedVehicle ? vehicleLabel(assignedVehicle.type) : 'No canonical vehicle selected'}</small></div><b>{assignedVehicle?.reg_plate ?? '—'}</b>
-            </button>
-            <button type="button" className={'xd2-readiness-row ' + (documentAlerts.length ? 'warn' : 'good')} onClick={() => router.push('/driver/documents')}>
-              <div><span>Document alerts</span><small>Documents requiring attention</small></div><b>{documentAlerts.length}</b>
-            </button>
-            <button type="button" className="xd2-readiness-row neutral" onClick={() => router.push('/driver/availability')}>
-              <div><span>Future position</span><small>{driverProfile?.future_position ?? 'Not advertised'}</small></div><b>{futurePositionPublished ? fmtDate(driverProfile?.future_position_date) : '—'}</b>
-            </button>
-            <div className="xd2-readiness-actions">
-              <button type="button" className="btn" onClick={() => router.push('/driver/vehicles')}>Vehicle</button>
-              <button type="button" className="btn" onClick={() => router.push('/driver/availability')}>Availability</button>
-            </div>
-          </section>
-        </div>
+          <div className="driver-dashboard-register__body">
+            {workboardView === 'attention' && !currentJob && documentAlerts.length === 0 && warningCount === 0 ? (
+              <div className="driver-dashboard-clear">
+                <strong>No driver work needs attention</strong>
+                <span>Your operations queue is clear.</span>
+              </div>
+            ) : renderWorkboardBody()}
+          </div>
+        </section>
 
-        <div className="xd2-bottom-grid">
-          <section className="xd2-card">
-            <div className="xd2-card-head compact"><div><span className="xd2-card-kicker">RECENT ACTIVITY</span><h3>Latest bookings</h3></div><button type="button" className="text-action" onClick={() => router.push('/driver/history')}>View all</button></div>
+        <section className="driver-dashboard-register">
+          <div className="driver-dashboard-register__head">
+            <div>
+              <strong>Recent Bookings</strong>
+              <span>Latest allocated and completed Driver work</span>
+            </div>
+            <button type="button" className="text-action" onClick={() => router.push('/driver/history')}>Open Diary →</button>
+          </div>
+          <div className="driver-dashboard-register__body">
             {dashboardBookings.length === 0 ? (
-              <div className="xd2-calm-empty"><b>No recent driver bookings</b><span>New allocated and completed work will appear here.</span></div>
+              <EmptyState compact title="No recent driver bookings" description="New allocated and completed work will appear here." />
             ) : (
               <div className="driver-load-list">{dashboardBookings.map((job) => renderJobRow(job, 'Open job'))}</div>
             )}
-          </section>
+          </div>
+        </section>
 
-          <section className="xd2-card">
-            <div className="xd2-card-head compact"><div><span className="xd2-card-kicker">COMPLIANCE</span><h3>Driver readiness</h3></div><button type="button" className="text-action" onClick={() => router.push('/driver/documents')}>Documents</button></div>
-            <div className="xd2-compliance-grid">
-              <div className="good"><span>Compliant records</span><b>{compliantDocuments}</b></div>
-              <div className="warn"><span>Require attention</span><b>{documentAlerts.length}</b></div>
-              <div className={warningCount ? 'danger' : 'good'}><span>Workspace exceptions</span><b>{warningCount}</b></div>
+        <section className="driver-dashboard-readiness">
+          <div className="driver-dashboard-register__head">
+            <div>
+              <strong>Driver & Vehicle Readiness</strong>
+              <span>Operational status in one compact register</span>
             </div>
-          </section>
-        </div>
+            <button type="button" className="text-action" onClick={() => router.push('/driver/documents')}>Documents →</button>
+          </div>
+          <div className="driver-dashboard-readiness__grid">
+            <button type="button" onClick={() => router.push('/driver/availability')}>
+              <span>Availability</span><strong>{availabilityValue}</strong><small>{driverStatusValue}</small>
+            </button>
+            <button type="button" onClick={() => router.push('/driver/vehicles')}>
+              <span>Vehicle</span><strong>{assignedVehicle?.reg_plate ?? 'Not assigned'}</strong><small>{assignedVehicle ? vehicleLabel(assignedVehicle.type) : 'No canonical vehicle selected'}</small>
+            </button>
+            <button type="button" onClick={() => router.push('/driver/documents')}>
+              <span>Documents</span><strong>{compliantDocuments} compliant</strong><small>{documentAlerts.length} require attention</small>
+            </button>
+            <button type="button" onClick={() => router.push('/driver/availability')}>
+              <span>Future position</span><strong>{driverProfile?.future_position ?? 'Not advertised'}</strong><small>{futurePositionPublished ? fmtDate(driverProfile?.future_position_date) : 'No future position'}</small>
+            </button>
+          </div>
+        </section>
       </DriverWorkspaceShell>
     </div>
   );
