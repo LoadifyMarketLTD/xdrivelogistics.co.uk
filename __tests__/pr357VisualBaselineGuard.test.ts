@@ -79,7 +79,7 @@ describe('PR #357 approved visual baseline', () => {
     expect(carrierDashboard).toContain('carrierControlSignals');
 
     expect(brokerDashboard).toContain('title="Broker Dashboard"');
-    expect(brokerDashboard).toContain('OperationalAttentionRail');
-    expect(brokerDashboard).toContain('title="Action Centre"');
+    expect(brokerDashboard).toContain('<ExchangeKpiStrip>');
+    expect(brokerDashboard).toContain('title="Operational action queue"');
   });
 });

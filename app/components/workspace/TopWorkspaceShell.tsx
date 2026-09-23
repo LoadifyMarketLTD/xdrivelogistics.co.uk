@@ -162,6 +162,37 @@ function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
   return more.length ? [...primary, { id: 'fleet-more', label: 'More', items: more }] : primary;
 }
 
+function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
+  return [
+    { id: 'broker-home', label: 'Broker', items: [{ id: 'broker-dashboard', label: 'Broker Dashboard', href: '/broker', icon: '⌂' }] },
+    { id: 'broker-customers-loads', label: 'Customers & Loads', items: [
+      { id: 'broker-customers', label: 'Customers', href: '/broker/customers', icon: '○' },
+      { id: 'broker-customer-loads', label: 'Customer Loads', href: '/broker/loads', icon: '■' },
+      { id: 'broker-post-load', label: 'Post Load', href: '/broker/post-load', icon: '+' },
+    ] },
+    { id: 'broker-commercial', label: 'Commercial', items: [
+      { id: 'broker-carrier-quotes', label: 'Carrier Quotes', href: '/broker/bids', icon: '▣' },
+      { id: 'broker-compare-quotes', label: 'Compare Quotes', href: '/broker/compare-quotes', icon: '⇄' },
+      { id: 'broker-awards', label: 'Awards', href: '/broker/awards', icon: '✓' },
+      { id: 'broker-margin', label: 'Margin / Profit', href: '/broker/margins', icon: '%' },
+    ] },
+    { id: 'broker-operations', label: 'Operations', items: [
+      { id: 'broker-active-jobs', label: 'Active Jobs', href: '/broker/jobs', icon: '■' },
+      { id: 'broker-pod-review', label: 'POD Review', href: '/broker/pod-review', icon: '▤' },
+      { id: 'broker-disputes', label: 'Disputes', href: '/broker/disputes', icon: '!' },
+    ] },
+    { id: 'broker-finance', label: 'Finance', items: [
+      { id: 'broker-customer-invoices', label: 'Customer Invoices', href: '/broker/customer-invoices', icon: '£' },
+      { id: 'broker-carrier-costs', label: 'Carrier Costs', href: '/broker/carrier-costs', icon: '£' },
+    ] },
+    { id: 'broker-administration', label: 'Administration', items: [
+      { id: 'broker-settings', label: 'Settings', href: '/broker/settings', icon: '⚙' },
+      { id: 'broker-team', label: 'Team', href: '/broker/team', icon: '◎' },
+      { id: 'broker-network', label: 'Carrier Network', href: '/broker/carrier-network', icon: '⊕' },
+    ] },
+  ];
+}
+
 export default function TopWorkspaceShell({
   children,
   forcedRole,
@@ -299,6 +330,7 @@ export default function TopWorkspaceShell({
       }
     }
 
+    if (role === 'broker') return composeBrokerPrototypeNav();
     if (CARRIER_NAV_ROLES.has(role)) base = composeCarrierPrimaryNav(base);
     else if (role === 'fleet_manager') base = composeFleetPrimaryNav(base);
 
