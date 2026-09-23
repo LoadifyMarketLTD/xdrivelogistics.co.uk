@@ -1,0 +1,7 @@
+(function(){
+ 'use strict';
+ const R=window.XDRIVE_REAL||{},Api=window.XDriveApi,p=R.profile||{},$=id=>document.getElementById(id);if(!Api)return;
+ const pretty=v=>String(v||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+ $('profileName').value=p.name||'';$('profileEmail').value=p.email||'';$('profilePhone').value=p.phone||'';$('profileStatus').textContent=pretty(p.status||'Unknown');$('profileAvailability').textContent=pretty(p.availabilityStatus||'Not supplied');$('profileType').textContent=p.driverType?pretty(p.driverType):'Not supplied';$('profileBid').textContent=p.canCommercialBid?'Enabled':'Not enabled';$('profileCompany').textContent=p.companyName||'Not linked';$('profileCompanyId').textContent=p.companyXdId||'Not assigned';document.body.classList.add('live-ready');
+ $('profileSave').onclick=()=>{const name=$('profileName').value.trim(),phone=$('profilePhone').value.trim(),button=$('profileSave'),msg=$('profileMessage');if(name.length>160){msg.textContent='Display name must be 160 characters or fewer.';return}if(phone.length>40){msg.textContent='Phone number must be 40 characters or fewer.';return}button.disabled=true;button.textContent='Saving...';msg.textContent='';const r=Api.put('/api/driver/profile',{displayName:name,phone});if(!Api.ok(r)){msg.textContent=Api.error(r);button.disabled=false;button.textContent='Save Profile';return}msg.textContent='Profile saved.';button.disabled=false;button.textContent='Save Profile';setTimeout(()=>location.reload(),400)};
+})();

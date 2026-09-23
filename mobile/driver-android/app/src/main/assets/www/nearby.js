@@ -1,0 +1,13 @@
+(function(){
+ 'use strict';
+ const Api=window.XDriveApi;if(!Api)return;const box=document.getElementById('nearbyList'),tabs=[...document.querySelectorAll('[data-nearby-tab]')];let rows=[],mode='all';
+ const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+ const fresh=v=>{const t=new Date(v||0).getTime();if(!Number.isFinite(t))return'Unknown freshness';const m=Math.max(0,Math.round((Date.now()-t)/60000));return m<1?'Updated now':m===1?'Updated 1 min ago':`Updated ${m} min ago`};
+ const pretty=v=>String(v||'').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+ const cap=p=>[p.vehicle_type?pretty(p.vehicle_type):'Vehicle not supplied',p.payload_kg!=null?`${Number(p.payload_kg)} kg payload`:null,p.pallets_capacity!=null?`${Number(p.pallets_capacity)} pallets`:null,p.has_tail_lift===true?'Tail lift':null].filter(Boolean).join(' · ');
+ const mapHref=p=>`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(String(p.lat)+','+String(p.lng))}`;
+ function filtered(){return mode==='all'?rows:rows.filter(p=>p.scope===mode)}
+ function render(){const list=filtered();box.innerHTML=list.length?list.map(p=>{const fleet=p.scope==='fleet';const title=fleet?'Fleet driver':(p.member_name||'Exchange member');const code=!fleet&&p.member_code?` · ${esc(p.member_code)}`:'';const until=p.available_until?new Date(p.available_until).toLocaleString('en-GB',{timeZone:'Europe/London',hour12:false}):'Not supplied';return `<article class="panel"><div class="info-row"><span><strong>${esc(title)}</strong>${code}<br><small>${fleet?'Exact company-only position':'Privacy-rounded Exchange area'}</small></span><span class="badge ${fleet?'green':'orange'}">${fleet?'FLEET':'EXCHANGE'}</span></div><div class="details">${esc(cap(p))}</div><div class="info-row"><span>Available until</span><strong>${esc(until)}</strong></div><div class="info-row"><span>Freshness</span><strong>${esc(fresh(p.recorded_at))}</strong></div><a class="secondary" href="${mapHref(p)}" style="display:grid;place-items:center;text-decoration:none">${fleet?'View position':'View area'}</a></article>`}).join(''):'<div class="panel"><div class="details">No nearby availability in this view.</div></div>';document.body.classList.add('live-ready')}
+ function load(){const r=Api.get('/api/availability/nearby');if(!Api.ok(r)){box.innerHTML=`<div class="panel"><div class="details">${esc(Api.error(r))}</div></div>`;document.body.classList.add('live-ready');return}rows=Array.isArray(r.body.positions)?r.body.positions:[];render()}
+ tabs.forEach(b=>b.onclick=()=>{mode=b.dataset.nearbyTab||'all';tabs.forEach(x=>x.classList.toggle('active',x===b));render()});load();
+})();

@@ -1,0 +1,8 @@
+(function(){
+'use strict';const Api=window.XDriveApi;if(!Api)return;const $=id=>document.getElementById(id);let diag={};
+try{if(window.XDriveNative&&typeof XDriveNative.appDiagnostics==='function'){const r=JSON.parse(XDriveNative.appDiagnostics()||'{}');if(Number(r.status)===200&&r.body&&typeof r.body==='object')diag=r.body}}catch(_e){}
+const safe=()=>['package','versionName','versionCode','manufacturer','model','androidRelease','androidSdk','installationId','firebaseConfigured','pendingActions','pendingLocations'].map(k=>k+': '+String(diag[k]??'n/a')).join('\n');
+$('supportDiagView').textContent=safe().replace(/\n/g,' · ');
+$('supportSend').onclick=()=>{const subject=$('supportSubject').value.trim(),description=$('supportDescription').value.trim();if(subject.length<3){$('supportMsg').textContent='Enter a subject of at least 3 characters.';return}if(description.length<10){$('supportMsg').textContent='Describe the issue using at least 10 characters.';return}const full=description+($('supportDiagnostics').checked?'\n\n--- XDrive Driver diagnostics ---\n'+safe():'');$('supportSend').disabled=true;$('supportSend').textContent='Submitting...';const r=Api.post('/api/support/tickets',{subject,description:full.slice(0,5000),category:$('supportCategory').value,priority:$('supportPriority').value});$('supportSend').disabled=false;$('supportSend').textContent='Submit Ticket';if(!Api.ok(r)){$('supportMsg').textContent=Api.error(r);return}const t=r.body.ticket||{};$('supportMsg').textContent='Ticket created'+(t.id?' · '+String(t.id).slice(0,8).toUpperCase():'')+'.';$('supportDescription').value='';};
+document.body.classList.add('live-ready');
+})();

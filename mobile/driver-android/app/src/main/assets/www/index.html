@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XDrive Driver - Loads</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="live-hydrate">
+<main class="app-shell"><section class="phone">
+<header class="topbar">
+<div class="brand"><span class="brand-x">X</span>Drive</div>
+<div class="top-title">Loads</div>
+<div></div>
+</header>
+<div class="tabs">
+<button id="tab-available" class="tab active" onclick="showLoadTab('available')">Available</button><button id="tab-saved" class="tab" onclick="showLoadTab('saved')">Saved</button><button id="tab-dismissed" class="tab" onclick="showLoadTab('dismissed')">Dismissed</button>
+</div>
+<section class="screen loads-screen">
+<a class="loads-search-entry" href="load-search.html"><strong>Search Loads</strong><span>Location &middot; radius &middot; vehicle &middot; body/equipment &middot; date &middot; freight &middot; member</span></a>
+<div id="load-list"></div>
+<div id="load-empty" class="panel load-empty" style="display:none"><div class="panel-title">Nothing here yet</div><div class="details" id="load-empty-text"></div><a class="secondary" href="load-search.html" style="display:grid;place-items:center;text-decoration:none;margin-top:10px">Search Loads</a></div>
+</section><nav class="bottom-nav">
+<a class="nav-item active" href="index.html"><span>&#8962;</span><small>Loads</small></a>
+<a class="nav-item" href="alerts.html"><span>&#9671;</span><small>Alerts</small></a>
+<a class="nav-item" href="quote.html"><span>&#9670;</span><small>My Quotes</small></a>
+<a class="nav-item" href="bookings.html"><span>&#9635;</span><small>Bookings</small></a>
+<a class="nav-item" href="more.html"><span>&#8226;&#8226;&#8226;</span><small>More</small></a>
+</nav>
+</section></main>
+<script>
+const list=document.getElementById('load-list');
+let activeLoadTab='available';
+function sortAvailable(){
+  [...list.querySelectorAll('.load-card')].sort((a,b)=>{
+    const d=Number(a.dataset.distance)-Number(b.dataset.distance);
+    return d!==0?d:Number(b.dataset.posted)-Number(a.dataset.posted);
+  }).forEach(card=>{
+    const shell=card.closest('.swipe-shell');
+    list.appendChild(shell||card);
+  });
+}
+function showLoadTab(state){
+  activeLoadTab=state;
+  ['available','saved','dismissed'].forEach(x=>document.getElementById('tab-'+x).classList.toggle('active',x===state));
+  let visible=0;
+  list.querySelectorAll('.load-card').forEach(card=>{const shell=card.closest('.swipe-shell')||card;const match=card.dataset.state===state;shell.style.display=match?'block':'none';if(match)visible++});
+  const empty=document.getElementById('load-empty'),text=document.getElementById('load-empty-text');
+  if(empty&&text){const messages={available:'No available loads right now. New marketplace loads will appear here.',saved:'No saved loads yet. Swipe right on an available load to save it for later.',dismissed:'No dismissed loads. Loads you dismiss will remain here until you restore them.'};text.textContent=messages[state]||'';empty.style.display=visible===0?'block':'none'}
+}
+function persistLoadState(card,state){ return true; /* replaced by native-actions.js with server persistence */ }
+function moveLoad(card,state){
+  const previous=card.dataset.state||'available';
+  if(persistLoadState(card,state)===false){card.dataset.state=previous;showLoadTab(activeLoadTab);return}
+  card.dataset.state=state;
+  const shell=card.closest('.swipe-shell');
+  card.style.transform='translateX(0)';
+  shell.classList.remove('open-save','open-dismiss','drag-save','drag-dismiss','is-dragging');
+  showLoadTab(activeLoadTab);
+}
+function prepareSwipe(card){
+  const shell=document.createElement('div'); shell.className='swipe-shell';
+  card.parentNode.insertBefore(shell,card); shell.appendChild(card);
+  const save=document.createElement('button'); save.className='swipe-action save-action'; save.innerHTML='&#9733;'; save.setAttribute('aria-label','Save job');
+  const dismiss=document.createElement('button'); dismiss.className='swipe-action dismiss-action'; dismiss.innerHTML='&#128465;'; dismiss.setAttribute('aria-label','Dismiss job');
+  shell.insertBefore(save,card); shell.appendChild(dismiss);
+  save.onclick=e=>{e.stopPropagation();moveLoad(card,card.dataset.state==='saved'?'available':'saved')};
+  dismiss.onclick=e=>{e.stopPropagation();moveLoad(card,card.dataset.state==='dismissed'?'available':'dismissed')};
+  const ACTION_OFFSET=76,COMMIT_THRESHOLD=70,MAX_DRAG=96;
+  let startX=0,startY=0,baseOffset=0,delta=0,dragging=false,horizontal=false,moved=false,pointerId=null;
+  const closeSwipe=()=>{card.style.transform='translateX(0)';shell.classList.remove('open-save','open-dismiss','drag-save','drag-dismiss','is-dragging')};
+  const finishSwipe=()=>{if(!dragging)return;dragging=false;shell.classList.remove('drag-save','drag-dismiss','is-dragging');if(horizontal&&delta>=COMMIT_THRESHOLD){moveLoad(card,card.dataset.state==='saved'?'available':'saved')}else if(horizontal&&delta<=-COMMIT_THRESHOLD){moveLoad(card,card.dataset.state==='dismissed'?'available':'dismissed')}else{closeSwipe()}pointerId=null;horizontal=false;delta=0;baseOffset=0;setTimeout(()=>moved=false,120)};
+  const cancelSwipe=()=>{if(!dragging)return;dragging=false;pointerId=null;horizontal=false;delta=0;baseOffset=0;closeSwipe();setTimeout(()=>moved=false,120)};
+  card.addEventListener('pointerdown',e=>{if(e.target.closest('a,button'))return;startX=e.clientX;startY=e.clientY;closeSwipe();baseOffset=0;delta=0;dragging=true;horizontal=false;moved=false;pointerId=e.pointerId;card.setPointerCapture(e.pointerId)});
+  card.addEventListener('pointermove',e=>{if(!dragging||e.pointerId!==pointerId)return;const dx=e.clientX-startX,dy=e.clientY-startY;if(!horizontal){if(Math.abs(dy)>8&&Math.abs(dy)>=Math.abs(dx)*0.85){cancelSwipe();return}if(Math.abs(dx)<8)return;horizontal=true;shell.classList.add('is-dragging')}delta=Math.max(-MAX_DRAG,Math.min(MAX_DRAG,baseOffset+dx));moved=true;card.style.transform=`translateX(${delta}px)`;shell.classList.toggle('drag-save',delta>0);shell.classList.toggle('drag-dismiss',delta<0)});
+  card.addEventListener('pointerup',e=>{if(e.pointerId===pointerId)finishSwipe()});
+  card.addEventListener('pointercancel',e=>{if(e.pointerId===pointerId)cancelSwipe()});
+  card.addEventListener('lostpointercapture',()=>{if(dragging)cancelSwipe()});
+  card.addEventListener('click',e=>{if(moved){e.preventDefault();e.stopPropagation()}},true);
+}
+sortAvailable();
+[...list.querySelectorAll('.load-card')].forEach(prepareSwipe);
+const requestedTab=new URLSearchParams(location.search).get('tab');
+showLoadTab(['available','saved','dismissed'].includes(requestedTab)?requestedTab:'available');
+</script>
+<script src="real-data.js"></script>
+<script src="real-data-adapter.js"></script>
+<script src="native-actions.js"></script><script src="theme.js"></script></body></html>
+
+

@@ -1,0 +1,13 @@
+(function(){
+ 'use strict';
+ const Api=window.XDriveApi,Native=window.XDriveNative;if(!Api)return;
+ const $=id=>document.getElementById(id),status=$('avStatus'),until=$('avUntil'),copy=$('avCopy'),msg=$('avMsg'),start=$('avStart'),stop=$('avStop'),visibility=$('avVisibility'),hours=$('avHours');
+ const parseNative=raw=>{try{return JSON.parse(raw||'{}')}catch{return{status:500,body:{error:'Invalid native response.'}}}};
+ let active=false,busy=false;
+ function setBusy(v){busy=v;start.disabled=v;stop.disabled=v;visibility.disabled=v||active;hours.disabled=v||active}
+ function load(){const r=Api.get('/api/driver/availability-presence');if(!Api.ok(r)){status.textContent='Unavailable';msg.textContent=Api.error(r);document.body.classList.add('live-ready');return}active=!!r.body.active;const p=r.body.presence||{};status.textContent=active?'ON':'OFF';until.textContent=active&&p.available_until?new Date(p.available_until).toLocaleString('en-GB',{timeZone:'Europe/London',hour12:false}):'-';if(active&&p.visibility)visibility.value=p.visibility;copy.textContent=active?'Live availability is active and will switch off automatically.':'Availability sharing is off by default and separate from live job tracking.';start.style.display=active?'none':'grid';stop.style.display=active?'grid':'none';setBusy(false);document.body.classList.add('live-ready')}
+ function snapshot(){if(!Native||typeof Native.locationSnapshot!=='function')return{status:503,body:{error:'Native location is unavailable.'}};return parseNative(Native.locationSnapshot())}
+ start.onclick=()=>{if(busy)return;msg.textContent='';setBusy(true);try{if(Native&&typeof Native.ensureLocationFeatures==='function')Native.ensureLocationFeatures()}catch(_e){}setTimeout(()=>{const loc=snapshot();if(Number(loc.status)===403){msg.textContent='Allow Location permission, then tap Start live availability again.';setBusy(false);return}if(Number(loc.status)!==200){msg.textContent=(loc.body&&loc.body.error)||'A recent location fix is required. Enable Location and retry.';setBusy(false);return}const r=Api.post('/api/driver/availability-presence',{lat:Number(loc.body.lat),lng:Number(loc.body.lng),visibility:visibility.value,hours:Number(hours.value||4)});if(!Api.ok(r)){msg.textContent=Api.error(r);setBusy(false);return}try{if(Native&&typeof Native.ensureLocationFeatures==='function')Native.ensureLocationFeatures()}catch(_e){}msg.textContent='Live availability started.';load()},500)};
+ stop.onclick=()=>{if(busy)return;setBusy(true);msg.textContent='';const r=Api.del('/api/driver/availability-presence');if(!Api.ok(r)){msg.textContent=Api.error(r);setBusy(false);return}msg.textContent='Live availability stopped.';load()};
+ load();
+})();

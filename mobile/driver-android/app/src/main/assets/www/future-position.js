@@ -1,0 +1,10 @@
+(function(){
+ const Api=window.XDriveApi;if(!Api)return;
+ const msg=document.getElementById('futureMsg'),current=document.getElementById('futureCurrent'),pos=document.getElementById('futurePosition'),date=document.getElementById('futureDate');
+ const ukParts=v=>Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:'Europe/London',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(v)).filter(x=>x.type!=='literal').map(x=>[x.type,x.value]));
+ function localInput(v){if(!v)return'';const d=new Date(v);if(Number.isNaN(d.getTime()))return'';const p=ukParts(d);return p.year+'-'+p.month+'-'+p.day+'T'+p.hour+':'+p.minute}
+ function ukWallToIso(value){const m=/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(value||''));if(!m)return'';const target=Date.UTC(+m[1],+m[2]-1,+m[3],+m[4],+m[5]);let utc=target;for(let i=0;i<3;i++){const p=ukParts(new Date(utc)),seen=Date.UTC(+p.year,+p.month-1,+p.day,+p.hour,+p.minute),delta=target-seen;if(Math.abs(delta)<60000)break;utc+=delta}return new Date(utc).toISOString()}
+ function load(){const r=Api.get('/api/driver/load-alert-preferences');if(!Api.ok(r)){current.textContent=Api.error(r);document.body.classList.add('live-ready');return}const c=r.body.context||{};pos.value=c.futurePosition||'';date.value=localInput(c.futurePositionDate);current.textContent=c.futurePosition?(c.futurePosition+(c.futurePositionDate?' · '+new Date(c.futurePositionDate).toLocaleString('en-GB',{timeZone:'Europe/London',hour12:false}):'')):'No future position published.';document.body.classList.add('live-ready')}
+ document.getElementById('saveFuture').onclick=()=>{msg.textContent='';const body={futurePosition:pos.value.trim(),futureDate:date.value?ukWallToIso(date.value):''};const r=Api.put('/api/driver/future-position',body);if(!Api.ok(r)){msg.textContent=Api.error(r);return}msg.textContent='Future Position saved.';load()};
+ load();
+})();

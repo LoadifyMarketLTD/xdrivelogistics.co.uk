@@ -1,0 +1,15 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XDrive Driver - Collection Pass</title><link rel="stylesheet" href="styles.css"></head><body class="live-hydrate">
+<main class="app-shell"><section class="phone"><header class="topbar"><a id="passBack" class="back" href="bookings.html">&#8592;</a><div class="top-title">Collection Pass</div><div></div></header>
+<section class="screen detail-screen">
+<div class="panel"><div class="panel-title">Secure Collection</div><div id="passJob" class="details">Loading assigned job...</div></div>
+<div id="passPanel" class="panel collection-pass-panel">
+  <div class="collection-pass-state"><span id="passBadge" class="badge orange">LOADING</span><span id="passRequired" class="details"></span></div>
+  <div id="passCodeWrap" class="collection-pass-code-wrap" style="display:none"><div class="field-label">6-digit Collection Pass</div><div id="passCode" class="collection-pass-code">------</div><div class="details">Show this code only to the authorised collection contact. The posting company verifies it in XDrive before loading.</div></div>
+  <div id="passMeta" class="details"></div>
+  <div class="collection-pass-actions"><button id="passActivate" class="primary" type="button">Activate Collection Pass</button><button id="passRotate" class="secondary" type="button" style="display:none">Generate New Code</button><button id="passRevoke" class="danger" type="button" style="display:none">Revoke Pass</button></div>
+</div>
+<div class="panel"><div class="panel-title">How it works</div><div class="details">The pass is tied to this assigned job, driver and vehicle. It expires automatically. If the job requires secure collection, XDrive will not allow the job to be marked Loaded until the posting company has verified the pass.</div></div>
+<div id="passMessage" class="save-note"></div>
+</section>
+<nav class="bottom-nav"><a class="nav-item" href="index.html"><span>&#8962;</span><small>Loads</small></a><a class="nav-item" href="alerts.html"><span>&#9671;</span><small>Alerts</small></a><a class="nav-item" href="quote.html"><span>&#9670;</span><small>My Quotes</small></a><a class="nav-item active" href="bookings.html"><span>&#9635;</span><small>Bookings</small></a><a class="nav-item" href="more.html"><span>&#8226;&#8226;&#8226;</span><small>More</small></a></nav>
+</section></main><script src="real-data.js"></script><script src="collection-pass.js"></script><script src="theme.js"></script></body></html>

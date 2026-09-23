@@ -1,0 +1,23 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XDrive Driver - More</title><link rel="stylesheet" href="styles.css"></head><body class="live-hydrate">
+<main class="app-shell"><section class="phone more-phone">
+<header class="more-hero"><div class="more-eyebrow">XDRIVE DRIVER</div><h1>More</h1><p>Driver account, tools and records</p></header>
+<section class="screen more-screen"><div class="appearance-card"><div class="more-title">Appearance</div><div class="more-sub">Auto follows your phone's display setting.</div><div class="appearance-switch"><button id="theme-auto" onclick="setTheme('auto')">Auto</button><button id="theme-day" onclick="setTheme('day')">Day</button><button id="theme-night" onclick="setTheme('night')">Night</button></div></div>
+<a class="profile-card more-link" href="profile.html"><div class="avatar">D</div><div><div class="more-title" id="profile-name">Loading driver</div><div class="more-sub" id="profile-email"></div></div><b>&rsaquo;</b></a>
+<a class="more-row" href="vehicle.html"><span class="more-icon">&#128663;</span><span><strong>Vehicle</strong><small id="vehicle-summary">Loading assigned vehicle</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="documents.html"><span class="more-icon">&#128196;</span><span><strong>Documents</strong><small id="documents-count">Loading records</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="alerts.html"><span class="more-icon">&#128276;</span><span><strong>Alerts</strong><small>Load and job alerts</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="event-log.html"><span class="more-icon">&#128203;</span><span><strong>Event Log</strong><small>Read-only operational history</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="post-load.html"><span class="more-icon">&#10133;</span><span><strong>Post Load</strong><small>Create and advertise a new load</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="return-journey.html"><span class="more-icon">&#10148;</span><span><strong>Return Journey</strong><small>Journey availability and matching</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="availability.html"><span class="more-icon">&#128994;</span><span><strong>Availability</strong><small>Share live availability for a limited time</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="nearby.html"><span class="more-icon">&#128506;</span><span><strong>Who’s Nearby</strong><small>Fleet and privacy-rounded Exchange availability</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="directory.html"><span class="more-icon">&#128214;</span><span><strong>Directory</strong><small>Find XDrive members and fleet capability</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="future-position.html"><span class="more-icon">&#128205;</span><span><strong>Future Position</strong><small>Publish where you will be available next</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="smart-load-alerts.html"><span class="more-icon">&#128276;</span><span><strong>Smart Load Alerts</strong><small>Configure matching and notification rules</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="messenger.html"><span class="more-icon">&#128172;</span><span><strong>Messenger</strong><small>Job and dispatcher messages</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="invoices.html"><span class="more-icon">&#128179;</span><span><strong>Invoices &amp; Earnings</strong><small id="invoice-count">Loading finance records</small></span><b>&rsaquo;</b></a>
+<a class="more-row" href="support.html"><span class="more-icon">&#10067;</span><span><strong>Help &amp; Support</strong><small>Technical help and support tickets</small></span><b>&rsaquo;</b></a>
+<button class="signout-btn" onclick="realSignOut()">Sign Out</button></section>
+<nav class="bottom-nav"><a class="nav-item" href="index.html"><span>&#8962;</span><small>Loads</small></a><a class="nav-item" href="alerts.html"><span>&#9671;</span><small>Alerts</small></a><a class="nav-item" href="quote.html"><span>&#9670;</span><small>My Quotes</small></a><a class="nav-item" href="bookings.html"><span>&#9635;</span><small>Bookings</small></a><a class="nav-item active" href="more.html"><span>&#8226;&#8226;&#8226;</span><small>More</small></a></nav>
+</section></main>
+<script>function realSignOut(){try{if(window.XDriveNative&&typeof XDriveNative.signOut==='function')XDriveNative.signOut();}catch(e){}localStorage.clear();sessionStorage.clear();location.replace('login.html');}</script><script src="real-data.js"></script><script src="real-pages-adapter.js"></script><script src="theme.js"></script></body></html>

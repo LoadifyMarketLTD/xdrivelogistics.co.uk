@@ -1,0 +1,10 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XDrive Driver - Nearby Map</title><link rel="stylesheet" href="styles.css"></head><body class="live-hydrate">
+<main class="app-shell"><section class="phone"><header class="topbar"><a class="back" href="nearby.html">&#8592;</a><div class="top-title">Nearby Map</div><div></div></header>
+<div class="tabs"><button class="tab active" data-map-tab="all">All</button><button class="tab" data-map-tab="fleet">Fleet</button><button class="tab" data-map-tab="exchange">Exchange</button></div>
+<section class="screen detail-screen">
+<div class="panel"><div class="panel-title">Live availability map</div><div class="details">Fleet markers use exact company-only positions. Exchange markers remain privacy-rounded.</div></div>
+<div class="panel"><div id="nearbyMapShell" style="position:relative;height:430px;overflow:hidden;border-radius:12px;border:1px solid var(--line);background:#EAF2FF"><iframe id="nearbyMapFrame" title="Nearby availability map" style="position:absolute;inset:0;width:100%;height:100%;border:0;pointer-events:none"></iframe><div id="nearbyMapMarkers" style="position:absolute;inset:0;pointer-events:none"></div></div><div id="nearbyMapLegend" class="details" style="margin-top:10px">Loading positions...</div><a id="nearbyMapExternal" class="secondary" href="#" target="_blank" rel="noopener" style="display:grid;place-items:center;text-decoration:none">Open Interactive Map</a></div>
+<div id="nearbyMapList"></div>
+</section>
+<nav class="bottom-nav"><a class="nav-item" href="index.html"><span>&#8962;</span><small>Loads</small></a><a class="nav-item" href="alerts.html"><span>&#9671;</span><small>Alerts</small></a><a class="nav-item" href="quote.html"><span>&#9670;</span><small>My Quotes</small></a><a class="nav-item" href="bookings.html"><span>&#9635;</span><small>Bookings</small></a><a class="nav-item active" href="more.html"><span>&#8226;&#8226;&#8226;</span><small>More</small></a></nav>
+</section></main><script src="real-data.js"></script><script src="nearby-map.js"></script><script src="theme.js"></script></body></html>

@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>XDrive Driver</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#F1F3F6}
+.persistent-shell{position:relative;width:100%;height:100%;overflow:hidden;background:#F1F3F6}
+.tab-stack{position:absolute;inset:0;overflow:hidden}
+.tab-frame{position:absolute;inset:0;width:100%;height:100%;border:0;background:#F1F3F6;display:none}
+.tab-frame.active{display:block}
+.shell-bottom-nav{position:fixed!important;left:0!important;right:0!important;bottom:0!important;width:100%!important;z-index:9999!important}
+.shell-bottom-nav .nav-item{font-family:inherit;color:#D7E2F1;background:transparent!important}.shell-bottom-nav .nav-item.active{color:#F5A300}.shell-nav-icon{display:grid!important;place-items:center!important;width:22px!important;height:22px!important;background:none!important;box-shadow:none!important;border-radius:0!important}.shell-nav-icon svg{display:block;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}.shell-nav-more svg{fill:currentColor;stroke:none}
+.shell-bottom-nav button{border:0}
+.shell-loading{position:absolute;inset:0;display:grid;place-items:center;color:#667085;font:700 14px system-ui;background:#F1F3F6}
+</style>
+</head>
+<body>
+<div class="persistent-shell">
+  <div id="tab-stack" class="tab-stack"><iframe class="tab-frame active" data-tab="loads" title="loads" allow="geolocation; camera; microphone" src="index.html"></iframe></div>
+  <nav class="bottom-nav shell-bottom-nav" aria-label="Primary navigation">
+    <button class="nav-item active" data-shell-tab="loads" type="button"><span class="shell-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg></span><small>Loads</small></button>
+    <button class="nav-item" data-shell-tab="alerts" type="button"><span class="shell-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></span><small>Alerts</small></button>
+    <button class="nav-item" data-shell-tab="quotes" type="button"><span class="shell-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 4h14v16H5z"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span><small>My Quotes</small></button>
+    <button class="nav-item" data-shell-tab="bookings" type="button"><span class="shell-nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/></svg></span><small>Bookings</small></button>
+    <button class="nav-item" data-shell-tab="more" type="button"><span class="shell-nav-icon shell-nav-more"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="19" cy="12" r="1.8"/></svg></span><small>More</small></button>
+  </nav>
+</div>
+<script src="persistent-tabs.js"></script>
+</body>
+</html>
