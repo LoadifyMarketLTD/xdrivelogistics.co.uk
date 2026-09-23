@@ -33,10 +33,12 @@ describe('CX-informed Directory and Direct Booking contract', () => {
     expect(directoryUi).toContain("'/broker/post-load'");
     expect(directoryUi).toContain("pathname.startsWith('/customer')");
     expect(directoryUi).toContain("'/customer/post-load'");
+    expect(directoryUi).toContain("pathname.startsWith('/driver')");
+    expect(directoryUi).toContain("'/driver/post-load'");
     expect(directoryUi).toContain("pathname.startsWith('/admin')");
     expect(directoryUi).toContain("'/admin/post-load'");
     expect(directoryUi).toContain('Book Direct');
-    expect(directoryUi).toContain("['carrier / fleet', 'owner driver']");
+    expect(directoryUi).toContain("['carrier / fleet', 'owner driver', 'standard', 'sole trader']");
     expect(directoryUi).not.toContain("'/super-admin/");
   });
   it('passes the selected carrier through the canonical load-creation path', () => {
