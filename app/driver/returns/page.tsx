@@ -346,8 +346,6 @@ export default function ReturnJourneysPage() {
           <span className="crumb">Workspace &nbsp;/&nbsp; <b>Return Journeys</b></span>
           <div className="sub-actions">
             <button type="button" className="btn" onClick={clearSearch}>Clear</button>
-            <button type="button" className="btn" onClick={() => setTab('mine')}>Our Journeys</button>
-            <button type="button" className="btn primary" onClick={() => setTab('add')}>+ Add Journey</button>
           </div>
         </div>
         <div className="pagebody">
@@ -355,7 +353,7 @@ export default function ReturnJourneysPage() {
             <div className="left-title">{tab === 'add' ? 'Future Position' : tab === 'mine' ? 'My Journeys' : 'Journey Search'}</div>
             {tab === 'search' && <form onSubmit={handleSearch}>
               <div className="filter"><span className="label">From / Radius</span><div className="row2"><input className="input" value={search.from} onChange={(event) => setSearch((current) => ({ ...current, from: event.target.value }))} placeholder="Enter location" /><select className="select" value={search.fromRadius} onChange={(event) => setSearch((current) => ({ ...current, fromRadius: event.target.value }))}>{radiusOptions.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
-              <div className="filter"><span className="label">To / Radius</span><div className="row2"><input className="input" value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Destination / Go Anywhere" /><select className="select" value={search.toRadius} onChange={(event) => setSearch((current) => ({ ...current, toRadius: event.target.value }))}>{radiusOptions.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
+              <div className="filter"><span className="label">To / Radius</span><div className="row2"><input className="input" value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Enter destination" /><select className="select" value={search.toRadius} onChange={(event) => setSearch((current) => ({ ...current, toRadius: event.target.value }))}>{radiusOptions.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
               <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={search.vehicleType} onChange={(event) => setSearch((current) => ({ ...current, vehicleType: event.target.value }))}><option value="">Motorcycle - 7.5T</option>{Object.entries(VEHICLE_TYPE_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
               <div className="filter"><span className="label">Date</span><select className="select" value={search.date} onChange={(event) => setSearch((current) => ({ ...current, date: event.target.value }))}><option value="anytime">Anytime</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option><option value="today10">Today + 10 Days</option></select></div>
               <div className="filter"><span className="label">Search Tools</span><button type="button" className="rowbtn" onClick={() => setAdvancedOpen((value) => !value)}>Advanced Search</button></div>
