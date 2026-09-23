@@ -69,6 +69,42 @@ type DirectoryResponse = {
 
 const normalise = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 
+const DIRECTORY_VEHICLE_RANK: Record<string, number> = {
+  motorcycle: 1,
+  car: 2,
+  smallvan: 3,
+  swb: 3,
+  mwb: 4,
+  lwb: 5,
+  xlwb: 6,
+  luton: 7,
+  '7.5t': 8,
+  '18t': 9,
+  '26t': 10,
+  artic: 11,
+};
+
+const normaliseVehicle = (value: string | null | undefined) =>
+  normalise(value).replace(/[^a-z0-9.]/g, '');
+
+const vehicleCapabilityMatches = (
+  advertised: string | null | undefined,
+  requested: string,
+  mode: 'minimum' | 'exact',
+) => {
+  if (!requested.trim()) return true;
+  const requestedKey = normaliseVehicle(requested);
+  const advertisedKey = normaliseVehicle(advertised);
+  if (!requestedKey || !advertisedKey) return false;
+  if (mode === 'exact') return advertisedKey.includes(requestedKey) || requestedKey.includes(advertisedKey);
+  const requestedRank = DIRECTORY_VEHICLE_RANK[requestedKey];
+  const advertisedRank = DIRECTORY_VEHICLE_RANK[advertisedKey];
+  if (requestedRank != null && advertisedRank != null) return advertisedRank >= requestedRank;
+  return advertisedKey.includes(requestedKey) || requestedKey.includes(advertisedKey);
+};
+
+const DIRECTORY_CAPABILITIES = ['Livery', 'Hiab', 'Trailer', 'Moffett', 'Electric Vehicle'] as const;
+
 export function MemberDirectoryPage({
   title = 'Directory',
   eyebrow = 'XDrive member network',
@@ -85,10 +121,12 @@ export function MemberDirectoryPage({
   const [location, setLocation] = useState('');
   const [memberType, setMemberType] = useState('');
   const [vehicle, setVehicle] = useState('');
+  const [vehicleMatch, setVehicleMatch] = useState<'minimum' | 'exact'>('minimum');
   const [availability, setAvailability] = useState('');
   const [country, setCountry] = useState('');
   const [specialistService, setSpecialistService] = useState('');
   const [tailLiftOnly, setTailLiftOnly] = useState(false);
+  const [capabilityFilters, setCapabilityFilters] = useState<string[]>([]);
   const [deliveryMin, setDeliveryMin] = useState('');
   const [paymentMin, setPaymentMin] = useState('');
   const [nearestLocation, setNearestLocation] = useState('');
@@ -181,35 +219,35 @@ export function MemberDirectoryPage({
     const memberNeedle = normalise(member);
     const locationNeedle = normalise(location);
     const typeNeedle = normalise(memberType);
-    const vehicleNeedle = normalise(vehicle);
     const countryNeedle = normalise(country);
     const serviceNeedle = normalise(specialistService);
+    const capabilityNeedles = capabilityFilters.map(normalise);
     const deliveryThreshold = Number(deliveryMin || 0);
     const paymentThreshold = Number(paymentMin || 0);
     return companies.filter((company) => {
       const memberText = normalise(`${company.name} ${company.memberId ?? ''}`);
       const locationText = normalise(`${company.city ?? ''} ${company.postcode ?? ''} ${company.country ?? ''}`);
-      const vehicleText = normalise((company.vehicleTypes ?? []).join(' '));
       const serviceText = normalise((company.specialistServices ?? []).join(' '));
       return (!memberNeedle || memberText.includes(memberNeedle))
         && (!locationNeedle || locationText.includes(locationNeedle))
         && (!typeNeedle || normalise(company.memberType).includes(typeNeedle))
         && (!countryNeedle || normalise(company.country) === countryNeedle)
-        && (!vehicleNeedle || vehicleText.includes(vehicleNeedle))
+        && (!vehicle.trim() || company.vehicleTypes.some((value) => vehicleCapabilityMatches(value, vehicle, vehicleMatch)))
         && (!serviceNeedle || serviceText.includes(serviceNeedle))
         && (!tailLiftOnly || serviceText.includes('tail lift'))
+        && capabilityNeedles.every((needle) => serviceText.includes(needle))
         && (!deliveryThreshold || (company.deliveryReliability.score != null && company.deliveryReliability.score >= deliveryThreshold))
         && (!paymentThreshold || (company.paymentReliability.score != null && company.paymentReliability.score >= paymentThreshold));
     });
-  }, [companies, country, deliveryMin, location, member, memberType, paymentMin, specialistService, tailLiftOnly, vehicle]);
+  }, [capabilityFilters, companies, country, deliveryMin, location, member, memberType, paymentMin, specialistService, tailLiftOnly, vehicle, vehicleMatch]);
 
   const visibleDrivers = useMemo(() => {
     const memberNeedle = normalise(member);
     const locationNeedle = normalise(location);
-    const vehicleNeedle = normalise(vehicle);
     const availabilityNeedle = normalise(availability);
     const countryNeedle = normalise(country);
     const serviceNeedle = normalise(specialistService);
+    const capabilityNeedles = capabilityFilters.map(normalise);
     const deliveryThreshold = Number(deliveryMin || 0);
     const paymentThreshold = Number(paymentMin || 0);
     return drivers.filter((driver) => {
@@ -219,24 +257,27 @@ export function MemberDirectoryPage({
       return (!memberNeedle || memberText.includes(memberNeedle))
         && (!locationNeedle || locationText.includes(locationNeedle))
         && (!countryNeedle || normalise(driver.country) === countryNeedle)
-        && (!vehicleNeedle || normalise(driver.vehicleType).includes(vehicleNeedle))
+        && vehicleCapabilityMatches(driver.vehicleType, vehicle, vehicleMatch)
         && (!availabilityNeedle || normalise(driver.availability) === availabilityNeedle)
         && (!serviceNeedle || serviceText.includes(serviceNeedle))
         && (!tailLiftOnly || driver.hasTailLift === true)
+        && capabilityNeedles.every((needle) => serviceText.includes(needle))
         && (!deliveryThreshold || (driver.deliveryReliability.score != null && driver.deliveryReliability.score >= deliveryThreshold))
         && (!paymentThreshold || (driver.paymentReliability.score != null && driver.paymentReliability.score >= paymentThreshold));
     });
-  }, [availability, country, deliveryMin, drivers, location, member, paymentMin, specialistService, tailLiftOnly, vehicle]);
+  }, [availability, capabilityFilters, country, deliveryMin, drivers, location, member, paymentMin, specialistService, tailLiftOnly, vehicle, vehicleMatch]);
 
   const clear = () => {
     setMember('');
     setLocation('');
     setMemberType('');
     setVehicle('');
+    setVehicleMatch('minimum');
     setAvailability('');
     setCountry('');
     setSpecialistService('');
     setTailLiftOnly(false);
+    setCapabilityFilters([]);
     setDeliveryMin('');
     setPaymentMin('');
     setNearestLocation('');
@@ -286,9 +327,9 @@ export function MemberDirectoryPage({
             <div className="filter"><span className="label">Country</span><select className="select" value={country} onChange={(event) => setCountry(event.target.value)}><option value="">Any country</option>{countries.map((value) => <option key={value} value={value}>{value}</option>)}</select></div>
             <div className="filter"><span className="label">Member Name / ID</span><input className="input" value={member} onChange={(event) => setMember(event.target.value)} placeholder="Name or XD member ID" /></div>
             <div className="filter"><span className="label">Location / Radius</span><div className="row2"><input className="input" value={nearestLocation} onChange={(event) => setNearestLocation(event.target.value)} placeholder="Town / postcode" /><select className="select" value={nearestRadius} onChange={(event) => setNearestRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
-            <div className="filter"><span className="label">Vehicle Size</span><input className="input" value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="Any vehicle" /></div>
+            <div className="filter"><span className="label">Vehicle Size</span><div className="directory-vehicle-match"><label className="check"><input type="radio" name="directory-vehicle-match" checked={vehicleMatch === 'minimum'} onChange={() => setVehicleMatch('minimum')} />Minimum</label><label className="check"><input type="radio" name="directory-vehicle-match" checked={vehicleMatch === 'exact'} onChange={() => setVehicleMatch('exact')} />Exact</label></div><input className="input" value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="Any vehicle" /></div>
             {tab === 'companies' && <div className="filter"><span className="label">Member Type</span><input className="input" value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier / Owner Driver / Broker" /></div>}
-            <div className="filter"><span className="label">Specialist Services</span><select className="select" value={specialistService} onChange={(event) => setSpecialistService(event.target.value)}><option value="">Any service</option>{specialistServices.map((value) => <option key={value} value={value}>{value}</option>)}</select><label className="check"><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} />Tail Lift</label></div>
+            <div className="filter"><span className="label">Specialist Services</span><select className="select" value={specialistService} onChange={(event) => setSpecialistService(event.target.value)}><option value="">Any service</option>{specialistServices.map((value) => <option key={value} value={value}>{value}</option>)}</select><label className="check"><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} />Tail Lift</label>{DIRECTORY_CAPABILITIES.map((capability) => <label key={capability} className="check"><input type="checkbox" checked={capabilityFilters.includes(capability)} onChange={(event) => setCapabilityFilters((current) => event.target.checked ? [...current, capability] : current.filter((value) => value !== capability))} />{capability}</label>)}</div>
             <div className="filter"><span className="label">Reliability</span><div className="row2"><select className="select" value={deliveryMin} onChange={(event) => setDeliveryMin(event.target.value)}><option value="">Any delivery score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select><select className="select" value={paymentMin} onChange={(event) => setPaymentMin(event.target.value)}><option value="">Any payment score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></div></div>
             {tab === 'drivers' && <div className="filter"><span className="label">Availability</span><select className="select" value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></div>}
           </aside>
