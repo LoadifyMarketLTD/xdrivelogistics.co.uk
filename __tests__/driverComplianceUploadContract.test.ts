@@ -49,4 +49,20 @@ describe('Driver compliance upload contract', () => {
     expect(uploadRoute).toContain("Expiry date cannot be before the issue date.");
     expect(documentsPage).toContain('File must be 10 MB or smaller.');
   });
+
+  test('automatically removes expired documents before returning the register', () => {
+    expect(uploadRoute).toContain('export async function GET(request: NextRequest)');
+    expect(uploadRoute).toContain('purgeExpiredDriverDocuments(driver.driverId)');
+    expect(uploadRoute).toContain(".lt('expiry_date', today)");
+    expect(uploadRoute).toContain("storage.from('driver-docs').remove(storagePaths)");
+    expect(documentsPage).toContain("fetch('/api/driver/documents'");
+    expect(documentsPage).not.toContain(".from('driver_documents')\n      .select('id, doc_type, file_path");
+  });
+
+  test('automatically removes older records when a same-type document is replaced', () => {
+    expect(uploadRoute).toContain('purgeReplacedDriverDocuments(driver.driverId, docType, record.id)');
+    expect(uploadRoute).toContain(".eq('doc_type', docType)");
+    expect(uploadRoute).toContain(".neq('id', keepId)");
+    expect(uploadRoute).toContain('replacedDeleted: replacedCleanup.deleted');
+  });
 });

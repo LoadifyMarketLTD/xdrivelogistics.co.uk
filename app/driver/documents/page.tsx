@@ -70,20 +70,39 @@ export default function DriverDocumentsPage() {
   const [signedUrls, setSignedUrls] = useState<Record<string, string>>({});
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const loadDocs = async (currentDriverId: string) => {
-    const { data, error } = await supabase
-      .from('driver_documents')
-      .select('id, doc_type, file_path, issued_date, expiry_date, status, rejection_reason, created_at')
-      .eq('driver_id', currentDriverId)
-      .order('created_at', { ascending: false });
+  const loadDocs = async () => {
+    const { data: sessionData } = await supabase.auth.getSession();
+    const accessToken = sessionData.session?.access_token?.trim();
+    if (!accessToken) {
+      setLoadError('Your session has expired. Please sign in again.');
+      setDocs([]);
+      return;
+    }
 
-    if (error) {
+    const response = await fetch('/api/driver/documents', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    }).catch(() => null);
+
+    if (!response) {
       setLoadError('Your compliance documents could not be loaded.');
       setDocs([]);
-    } else {
-      setLoadError('');
-      setDocs((data ?? []) as DriverDoc[]);
+      return;
     }
+
+    const payload = await response.json().catch(() => ({})) as {
+      documents?: DriverDoc[];
+      error?: string;
+    };
+
+    if (!response.ok) {
+      setLoadError(payload.error || 'Your compliance documents could not be loaded.');
+      setDocs([]);
+      return;
+    }
+
+    setLoadError('');
+    setDocs(payload.documents ?? []);
   };
 
   const loadDriver = async () => {
@@ -108,7 +127,7 @@ export default function DriverDocumentsPage() {
 
     setDriverId(data.id as string);
     setCompanyId((data as { id: string; company_id: string | null }).company_id);
-    await loadDocs(data.id as string);
+    await loadDocs();
     setLoading(false);
   };
 
@@ -218,7 +237,7 @@ export default function DriverDocumentsPage() {
     setExpiryDate('');
     setDocType(DOC_TYPES[0].value);
     if (fileRef.current) fileRef.current.value = '';
-    await loadDocs(driverId);
+    await loadDocs();
   };
 
   const getSignedUrl = async (filePath: string, docId: string) => {
