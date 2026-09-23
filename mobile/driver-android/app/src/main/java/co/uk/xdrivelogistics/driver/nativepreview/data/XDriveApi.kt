@@ -34,6 +34,9 @@ class XDriveApi(
         .writeTimeout(20, TimeUnit.SECONDS)
         .build()
 
+    @Volatile
+    private var deviceSessionRegistered = false
+
     suspend fun signIn(email: String, password: String): ApiResponse = withContext(Dispatchers.IO) {
         val body = JSONObject()
             .put("email", email.trim())
@@ -48,14 +51,50 @@ class XDriveApi(
             .post(body)
             .build()
 
-        execute(request).also { response ->
-            if (response.successful) {
-                val json = JSONObject(response.body)
-                val access = json.optString("access_token").trim()
-                val refresh = json.optString("refresh_token").trim()
-                if (access.isNotBlank()) authStore.saveSession(access, refresh)
-            }
+        val response = execute(request)
+        if (!response.successful) return@withContext response
+
+        val json = JSONObject(response.body)
+        val access = json.optString("access_token").trim()
+        val refresh = json.optString("refresh_token").trim()
+        if (access.isBlank()) return@withContext ApiResponse(401, "{\"error\":\"Missing access token.\"}")
+
+        authStore.saveSession(access, refresh)
+        val registration = registerNativeDeviceSession(access)
+        if (!registration.successful) {
+            authStore.clearSession()
+            return@withContext registration
         }
+        deviceSessionRegistered = true
+        response
+    }
+
+    private fun registerNativeDeviceSession(accessToken: String): ApiResponse {
+        val payload = JSONObject()
+            .put("installation_id", authStore.installationId)
+            .put("app_package", "co.uk.xdrivelogistics.driver")
+            .put("device_label", Build.MANUFACTURER + " " + Build.MODEL)
+            .toString()
+            .toRequestBody(JSON)
+
+        val request = Request.Builder()
+            .url(API_BASE + "/api/driver/mobile/device-session")
+            .header("Accept", "application/json")
+            .header("Authorization", "Bearer " + accessToken)
+            .header("x-xdrive-installation-id", authStore.installationId)
+            .post(payload)
+            .build()
+        return execute(request)
+    }
+
+    private fun ensureNativeDeviceSession(accessToken: String): ApiResponse? {
+        if (deviceSessionRegistered) return null
+        val registration = registerNativeDeviceSession(accessToken)
+        if (registration.successful) {
+            deviceSessionRegistered = true
+            return null
+        }
+        return registration
     }
 
     suspend fun refreshSession(): Boolean = withContext(Dispatchers.IO) {
@@ -134,12 +173,14 @@ class XDriveApi(
     private suspend fun authorizedGet(url: String): ApiResponse = withContext(Dispatchers.IO) {
         var token = authStore.accessToken
             ?: return@withContext ApiResponse(401, "{\"error\":\"Not signed in.\"}")
+        ensureNativeDeviceSession(token)?.let { return@withContext it }
 
         var response = execute(
             Request.Builder()
                 .url(url)
                 .header("Accept", "application/json")
                 .header("Authorization", "Bearer " + token)
+                .header("x-xdrive-installation-id", authStore.installationId)
                 .header(
                     "User-Agent",
                     "XDriveNativePreview/" + BuildConfig.VERSION_NAME + " (" + Build.MANUFACTURER + " " + Build.MODEL + ")"
@@ -156,6 +197,7 @@ class XDriveApi(
                     .url(url)
                     .header("Accept", "application/json")
                     .header("Authorization", "Bearer " + token)
+                    .header("x-xdrive-installation-id", authStore.installationId)
                     .header(
                         "User-Agent",
                         "XDriveNativePreview/" + BuildConfig.VERSION_NAME + " (" + Build.MANUFACTURER + " " + Build.MODEL + ")"
@@ -212,11 +254,13 @@ class XDriveApi(
     private suspend fun authorizedPost(url: String, payload: JSONObject): ApiResponse = withContext(Dispatchers.IO) {
         var token = authStore.accessToken
             ?: return@withContext ApiResponse(401, "{\"error\":\"Not signed in.\"}")
+        ensureNativeDeviceSession(token)?.let { return@withContext it }
 
         fun request(currentToken: String) = Request.Builder()
             .url(url)
             .header("Accept", "application/json")
             .header("Authorization", "Bearer " + currentToken)
+            .header("x-xdrive-installation-id", authStore.installationId)
             .header(
                 "User-Agent",
                 "XDriveNativePreview/" + BuildConfig.VERSION_NAME + " (" + Build.MANUFACTURER + " " + Build.MODEL + ")"
@@ -248,12 +292,14 @@ class XDriveApi(
     private suspend fun authorizedWrite(url: String, payload: JSONObject?, method: String): ApiResponse = withContext(Dispatchers.IO) {
         var token = authStore.accessToken
             ?: return@withContext ApiResponse(401, "{\"error\":\"Not signed in.\"}")
+        ensureNativeDeviceSession(token)?.let { return@withContext it }
 
         fun request(currentToken: String): Request {
             val builder = Request.Builder()
                 .url(url)
                 .header("Accept", "application/json")
                 .header("Authorization", "Bearer " + currentToken)
+                .header("x-xdrive-installation-id", authStore.installationId)
                 .header("User-Agent", "XDriveNativePreview/" + BuildConfig.VERSION_NAME + " (" + Build.MANUFACTURER + " " + Build.MODEL + ")")
             return when (method) {
                 "PUT" -> builder.put((payload ?: JSONObject()).toString().toRequestBody(JSON)).build()

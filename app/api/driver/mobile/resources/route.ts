@@ -104,7 +104,7 @@ export async function GET(request: NextRequest) {
       : Promise.resolve({ data: [], error: null }),
     // The user-scoped inbox is retained because post-award Driver Instructions
     // are deliberately appended here when a Driver is already assigned.
-    supabaseAdmin!.from('notifications').select('id,title,body,type,read_at,created_at').eq('user_id', context.userId).order('created_at', { ascending: false }).limit(100),
+    supabaseAdmin!.from('notifications').select('id,title,body,type,read_at,saved_at,deleted_at,created_at').eq('user_id', context.userId).order('created_at', { ascending: false }).limit(100),
     operationalAlertsQuery,
     supabaseAdmin!.from('return_journeys')
       .select('id,from_postcode,to_postcode,available_from,available_to,vehicle_type,notes,status')
@@ -170,6 +170,8 @@ export async function GET(request: NextRequest) {
       message: String(row.body ?? ''),
       title: String(row.title ?? ''),
       read_at: row.read_at ?? null,
+      saved_at: row.saved_at ?? null,
+      deleted_at: row.deleted_at ?? null,
       source: 'driver_inbox',
     },
     status: row.read_at ? 'sent' : 'pending',
@@ -228,24 +230,27 @@ export async function POST(request: NextRequest) {
   if (!body) return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
   const action = String(body.action ?? '');
 
-  if (action === 'mark_notification_read' || action === 'delete_notification') {
+  if (['mark_notification_read', 'save_notification', 'unsave_notification', 'delete_notification', 'restore_notification'].includes(action)) {
     const notificationId = cleanString(body.notificationId, 80);
     if (!notificationId) return NextResponse.json({ error: 'Notification id is required.' }, { status: 400 });
-    if (action === 'mark_notification_read') {
-      const { data, error } = await supabaseAdmin!.from('notifications')
-        .update({ read_at: new Date().toISOString() })
-        .eq('id', notificationId)
-        .eq('user_id', context.userId)
-        .select('id');
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      if (!data?.length) return NextResponse.json({ error: 'Notification not found.' }, { status: 404 });
-    } else {
-      const { data, error } = await supabaseAdmin!.from('notifications')
-        .delete().eq('id', notificationId).eq('user_id', context.userId).select('id');
-      if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-      if (!data?.length) return NextResponse.json({ error: 'Notification not found.' }, { status: 404 });
-    }
-    return NextResponse.json({ ok: true });
+
+    const now = new Date().toISOString();
+    const updates: Record<string, string | null> =
+      action === 'mark_notification_read' ? { read_at: now } :
+      action === 'save_notification' ? { saved_at: now } :
+      action === 'unsave_notification' ? { saved_at: null } :
+      action === 'delete_notification' ? { deleted_at: now } :
+      { deleted_at: null };
+
+    const { data, error } = await supabaseAdmin!.from('notifications')
+      .update(updates)
+      .eq('id', notificationId)
+      .eq('user_id', context.userId)
+      .select('id,title,body,type,read_at,saved_at,deleted_at,created_at')
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (!data) return NextResponse.json({ error: 'Notification not found.' }, { status: 404 });
+    return NextResponse.json({ ok: true, notification: data });
   }
 
   if (action === 'save_return_journey') {

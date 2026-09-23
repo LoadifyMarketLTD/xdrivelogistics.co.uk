@@ -58,6 +58,21 @@ class DriverModulesViewModel(
         }
     }
 
+    fun alertAction(id: String, action: String) {
+        viewModelScope.launch {
+            val result = repo.alertAction(id, action)
+            if (result.isFailure) {
+                _state.value = _state.value.copy(error = result.exceptionOrNull()?.message)
+                return@launch
+            }
+            val alerts = repo.alerts()
+            _state.value = _state.value.copy(
+                alerts = alerts.getOrDefault(_state.value.alerts),
+                error = alerts.exceptionOrNull()?.message
+            )
+        }
+    }
+
     fun clear() {
         _state.value = DriverModulesState()
     }

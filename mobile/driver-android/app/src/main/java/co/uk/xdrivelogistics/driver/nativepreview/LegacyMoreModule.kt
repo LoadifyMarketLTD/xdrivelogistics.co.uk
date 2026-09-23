@@ -121,8 +121,9 @@ fun LegacyMoreModule(page: String, api: XDriveApi) {
             }
         },
         update = { view ->
-            val wanted = "file:///android_asset/www/" + page
-            if (view.url != wanted) view.loadUrl(wanted)
+            if (view.url.isNullOrBlank() || view.url == "about:blank") {
+                view.loadUrl("file:///android_asset/www/" + page)
+            }
         }
     )
 }

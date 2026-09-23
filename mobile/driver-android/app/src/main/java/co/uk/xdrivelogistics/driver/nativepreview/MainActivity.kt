@@ -185,6 +185,7 @@ class MainActivity : ComponentActivity() {
                         modulesState = modulesState,
                         onRefreshLoads = loadsViewModel::refresh,
                         onRefreshModules = modulesViewModel::load,
+                        onAlertAction = modulesViewModel::alertAction,
                         onSubmitQuote = loadsViewModel::submitQuote,
                         onClearQuoteResult = loadsViewModel::clearQuoteResult,
                         onToggleSaved = loadsViewModel::toggleSaved,
@@ -315,6 +316,7 @@ private fun XDriveNativeApp(
     modulesState: DriverModulesState,
     onRefreshLoads: () -> Unit,
     onRefreshModules: () -> Unit,
+    onAlertAction: (String, String) -> Unit,
     onSubmitQuote: (String, Double, Int?, String) -> Unit,
     onClearQuoteResult: () -> Unit,
     onToggleSaved: (String) -> Unit,
@@ -413,7 +415,7 @@ private fun XDriveNativeApp(
                         onRefresh = onRefreshLoads,
                         onOpenLoad = { selectedLoad = it }
                     )
-                    1 -> AlertsNativeScreen(modulesState, onRefreshModules)
+                    1 -> AlertsNativeScreen(modulesState, onRefreshModules, onAlertAction)
                     2 -> QuotesNativeScreen(modulesState, onRefreshModules)
                     3 -> BookingsNativeScreen(modulesState, onRefreshModules)
                     4 -> MoreScreen(onSignOut = onSignOut, onOpen = { morePage = it })
