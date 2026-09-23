@@ -719,6 +719,30 @@ export default function DriverDashboard() {
             </button>
           </div>
         </section>
+
+        <section className="driver-dashboard-readiness driver-dashboard-cx-shortcuts">
+          <div className="driver-dashboard-register__head">
+            <div>
+              <strong>Reports & Finance</strong>
+              <span>Operational reporting and accounts shortcuts</span>
+            </div>
+            <button type="button" className="text-action" onClick={() => router.push('/driver/finance')}>Open Finance →</button>
+          </div>
+          <div className="driver-dashboard-readiness__grid">
+            <button type="button" onClick={() => router.push('/driver/finance')}>
+              <span>Invoices</span><strong>Finance register</strong><small>Draft, submitted and payment status</small>
+            </button>
+            <button type="button" onClick={() => router.push('/driver/history')}>
+              <span>Bookings</span><strong>{myJobs.length} total</strong><small>Diary and completed work</small>
+            </button>
+            <button type="button" onClick={() => router.push('/driver/returns')}>
+              <span>Return journeys</span><strong>Journey board</strong><small>Advertise and manage return availability</small>
+            </button>
+            <button type="button" onClick={() => router.push('/driver/history')}>
+              <span>Feedback</span><strong>{_feedback.length} recent</strong><small>Recent delivery feedback</small>
+            </button>
+          </div>
+        </section>
       </DriverWorkspaceShell>
     </div>
   );
