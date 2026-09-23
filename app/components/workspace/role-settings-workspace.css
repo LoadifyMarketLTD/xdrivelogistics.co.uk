@@ -40,6 +40,9 @@
   color:#0b2f6b;
 }
 .role-settings-main{min-width:0}
+.role-settings-layout--topnav{
+  grid-template-columns:minmax(0,1fr);
+}
 .role-settings-overview{
   display:grid;
   grid-template-columns:repeat(3,minmax(0,1fr));

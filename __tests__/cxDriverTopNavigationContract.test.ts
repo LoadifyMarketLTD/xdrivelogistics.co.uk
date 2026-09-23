@@ -22,14 +22,24 @@ describe('approved prototype Driver top navigation', () => {
       expect(shell).toContain(`href: '${href}'`);
     }
   });
-  it('ports the approved prototype rail and topbar instead of the legacy More navigation', () => {
-    expect(shell).toContain('global-rail');
+  it('keeps the approved topbar while permanently removing the blue side rail', () => {
     expect(shell).toContain('topbar');
     expect(shell).toContain('main-nav');
+    expect(shell).not.toContain('global-rail');
     expect(shell).not.toContain('DRIVER_MORE_NAV');
     expect(shell).not.toContain('driver-top-nav__more-trigger');
-    expect(prototypeCss).toContain('.driver-prototype-port .global-rail');
     expect(prototypeCss).toContain('.driver-prototype-port .topbar');
+    expect(prototypeCss).not.toContain('.driver-prototype-port .global-rail');
+  });
+
+  it('moves the existing settings functions into the top Settings button', () => {
+    for (const label of ['Overview','My Profile','Company Profile','Drivers / Staff','Vehicles / Assets','Documents','Billing & Membership','Settings','Security','Audit / Event Log','Support']) {
+      expect(shell).toContain(`label: '${label}'`);
+    }
+    expect(shell).toContain('driver-settings-menu');
+    expect(shell).toContain('driver-settings-menu__panel');
+    expect(shell).toContain("'/driver/settings?section=overview'");
+    expect(shell).toContain("'/driver/settings?section=security'");
   });
 
   it('keeps real notification inbox counting', () => {
