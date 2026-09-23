@@ -29,6 +29,7 @@ private val ModuleBlue = Color(0xFF1D57D8)
 @Composable
 fun AlertsNativeScreen(
     state: DriverModulesState,
+    loads: List<NativeLoad>,
     onRefresh: () -> Unit,
     onAction: (String, String) -> Unit,
     onOpenJob: (NativeLoad) -> Unit
@@ -67,10 +68,23 @@ fun AlertsNativeScreen(
             state.error,
             onRefresh,
             alerts
-        ) { alert -> AlertCard(alert, state) {
-            if (alert.actionable && alert.unread) onAction(alert.id, "mark_notification_read")
-            selectedAlert = alert
-        } }
+        ) { alert ->
+            val job = alertJobLoad(alert, state, loads)
+            if (job != null) {
+                NativeLoadCard(
+                    load = job,
+                    onOpen = {
+                        if (alert.actionable && alert.unread) onAction(alert.id, "mark_notification_read")
+                        onOpenJob(job)
+                    }
+                )
+            } else {
+                AlertCard(alert, state) {
+                    if (alert.actionable && alert.unread) onAction(alert.id, "mark_notification_read")
+                    selectedAlert = alert
+                }
+            }
+        }
     }
 }
 
@@ -171,7 +185,7 @@ private fun StatusTabs(
     }
 }
 
-private fun alertJobLoad(alert: NativeAlert, state: DriverModulesState): NativeLoad? {
+private fun alertJobLoad(alert: NativeAlert, state: DriverModulesState, loads: List<NativeLoad> = emptyList()): NativeLoad? {
     val payload = runCatching { JSONObject(alert.payloadJson) }.getOrElse { JSONObject() }
     val jobId = sequenceOf(
         alert.entityId,
@@ -180,6 +194,8 @@ private fun alertJobLoad(alert: NativeAlert, state: DriverModulesState): NativeL
         payload.optString("loadId"),
         payload.optString("load_id")
     ).firstOrNull { !it.isNullOrBlank() } ?: return null
+
+    loads.firstOrNull { it.id == jobId }?.let { return it }
 
     val bookings = (state.bookings + state.upcoming + state.completed).distinctBy { it.id }
     val booking = bookings.firstOrNull { it.id == jobId }
@@ -427,6 +443,15 @@ private fun AlertDetailNativeScreen(
     val amount = quote?.amount
         ?: payload.optDouble("amount", Double.NaN).takeIf { it.isFinite() }
         ?: payload.optDouble("acceptedAmount", Double.NaN).takeIf { it.isFinite() }
+    fun payloadFirst(vararg keys: String): String =
+        keys.asSequence().map { payload.optString(it).trim() }.firstOrNull { it.isNotBlank() }.orEmpty()
+    val paymentTerms = payloadFirst("paymentTerms", "payment_terms", "terms")
+    val phone = payloadFirst("memberPhone", "member_phone", "companyPhone", "company_phone", "phone")
+    val vehicle = payloadFirst("vehicleLabel", "vehicle_label", "vehicleType", "vehicle_type", "vehicle")
+    val customerRef = payloadFirst("customerRef", "customer_ref", "reference", "loadReference", "load_reference")
+    val pickup = booking?.pickup ?: payloadFirst("pickupLocation", "pickup_location", "pickup", "pickupPostcode", "pickup_postcode")
+    val delivery = booking?.delivery ?: payloadFirst("deliveryLocation", "delivery_location", "delivery", "deliveryPostcode", "delivery_postcode")
+    val job = alertJobLoad(alert, state)
 
     Column(Modifier.fillMaxSize()) {
         Surface(color = ModuleNavy) {
@@ -479,18 +504,38 @@ private fun AlertDetailNativeScreen(
                             fontSize = 16.sp,
                             fontWeight = FontWeight.ExtraBold
                         )
+                        if (paymentTerms.isNotBlank()) {
+                            Spacer(Modifier.height(8.dp))
+                            Text("Payment terms: $paymentTerms", color = ModuleText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        if (phone.isNotBlank()) {
+                            Spacer(Modifier.height(5.dp))
+                            Text("Tel: $phone", color = ModuleText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
                     }
                 }
             }
-            if (!route.isNullOrBlank()) {
+            if (!route.isNullOrBlank() || pickup.isNotBlank() || delivery.isNotBlank()) {
                 item {
                     BaseModuleCard {
                         Text("Job", color = ModuleMuted, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold)
                         Spacer(Modifier.height(5.dp))
-                        Text(route, color = ModuleText, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold)
-                        booking?.let {
+                        Text(
+                            route?.takeIf { it.isNotBlank() } ?: "${pickup.uppercase(Locale.UK)}  →  ${delivery.uppercase(Locale.UK)}",
+                            color = ModuleText,
+                            fontSize = 15.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        val ref = booking?.reference ?: customerRef
+                        if (ref.isNotBlank()) {
                             Spacer(Modifier.height(8.dp))
-                            Text(it.reference, color = ModuleMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            Text("Ref: $ref", color = ModuleMuted, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        if (vehicle.isNotBlank()) {
+                            Spacer(Modifier.height(5.dp))
+                            Text("Vehicle: $vehicle", color = ModuleText, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                        }
+                        booking?.let {
                             Spacer(Modifier.height(6.dp))
                             NativeBadge(it.status.replace('_', ' ').uppercase(Locale.UK), true)
                         }
@@ -540,6 +585,21 @@ private fun AlertDetailNativeScreen(
                         fontWeight = FontWeight.SemiBold,
                         lineHeight = 19.sp
                     )
+                }
+            }
+            if (job != null) {
+                item {
+                    Button(
+                        onClick = { onOpenJob(job) },
+                        modifier = Modifier.fillMaxWidth().height(50.dp),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = ModuleOrange, contentColor = Color(0xFF172033))
+                    ) {
+                        Text(
+                            if (quote?.status.equals("accepted", true) || booking != null) "VIEW BOOKING / JOB" else "VIEW LOAD",
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                    }
                 }
             }
             if (alert.actionable) {

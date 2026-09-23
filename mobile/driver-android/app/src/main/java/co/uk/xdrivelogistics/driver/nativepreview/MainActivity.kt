@@ -417,6 +417,7 @@ private fun XDriveNativeApp(
                     )
                     1 -> AlertsNativeScreen(
                         state = modulesState,
+                        loads = loadsState.loads,
                         onRefresh = onRefreshModules,
                         onAction = onAlertAction,
                         onOpenJob = { selectedLoad = it }
@@ -564,7 +565,7 @@ private fun NativeLoadsScreen(
 }
 
 @Composable
-private fun NativeLoadCard(
+fun NativeLoadCard(
     load: NativeLoad,
     modifier: Modifier = Modifier,
     onOpen: () -> Unit
