@@ -10,9 +10,10 @@ describe('live Driver approved prototype parity contract', () => {
     for (const label of ['Dashboard','Directory','Live Availability','My Fleet','Return Journeys','Loads','Quotes','Diary','Freight Vision','Finance','Drivers & Vehicles']) {
       expect(shell).toContain(`label: '${label}'`);
     }
-    expect(shell).toContain('global-rail');
+    expect(shell).not.toContain('global-rail');
     expect(shell).toContain('topbar');
     expect(shell).toContain('main-nav');
+    expect(shell).toContain('driver-settings-menu');
   });
 
   it('loads the literal full prototype CSS in the Driver layout', () => {

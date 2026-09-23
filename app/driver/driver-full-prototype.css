@@ -15,12 +15,25 @@
 .driver-prototype-port .main-nav button:hover{background:#f7f9fb}.driver-prototype-port .main-nav button.active{color:var(--navy);background:#fbfcfd}
 .driver-prototype-port .main-nav button.active:after{content:"";position:absolute;left:0;right:0;bottom:0;height:3px;background:var(--orange)}
 .driver-prototype-port .nav-badge{display:inline-grid;place-items:center;min-width:17px;height:17px;border-radius:9px;background:#d94b43;color:white;font-size:9px;margin-left:3px}
-.driver-prototype-port .top-tools{display:flex;align-items:center;border-left:1px solid var(--line);gap:4px;padding:0 8px}
+.driver-prototype-port .top-tools{display:flex;align-items:center;border-left:1px solid var(--line);gap:4px;padding:0 8px;overflow:visible}
 .driver-prototype-port .top-tools button{height:29px;border:1px solid #c6ced7;background:white;border-radius:2px;padding:0 7px;cursor:pointer}
+.driver-prototype-port .driver-settings-menu{position:relative;display:flex;align-items:center}
+.driver-prototype-port .driver-settings-menu__panel{
+  position:absolute;top:calc(100% + 6px);right:0;z-index:120;
+  width:230px;padding:5px;background:#fff;border:1px solid #c8d2de;
+  box-shadow:0 12px 28px rgba(10,35,79,.16);
+}
+.driver-prototype-port .top-tools .driver-settings-menu__panel button{
+  width:100%;height:34px;display:flex;align-items:center;justify-content:flex-start;
+  border:0;border-bottom:1px solid #edf1f5;border-radius:0;background:#fff;
+  padding:0 10px;text-align:left;color:#1f3652;font-size:11.5px;font-weight:700;
+}
+.driver-prototype-port .top-tools .driver-settings-menu__panel button:last-child{border-bottom:0}
+.driver-prototype-port .top-tools .driver-settings-menu__panel button:hover{background:#f3f7fb;color:#0b2f6b}
 .driver-prototype-port .notif{display:inline-grid;place-items:center;min-width:17px;height:17px;border-radius:9px;background:#d94b43;color:white;font-size:9px}
 .driver-prototype-port .avatar{width:29px;height:29px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:white;font-weight:700}
 .driver-prototype-port .app{height:calc(100vh - 58px);min-height:0}
-.driver-prototype-port .driver-prototype-app{margin-left:52px;width:calc(100% - 52px)}
+.driver-prototype-port .driver-prototype-app{margin-left:0;width:100%}
 .driver-prototype-port .page{height:100%;display:flex;flex-direction:column}
 .driver-prototype-port .subbar{height:41px;display:flex;align-items:center;padding:0 12px;background:#fff;border-bottom:1px solid var(--line);gap:5px}
 .driver-prototype-port .crumb{font-size:11px;color:#7b8794}.driver-prototype-port .crumb b{font-size:12px;color:#263548}
@@ -91,24 +104,18 @@
 @media(max-width:1400px){.driver-prototype-port .main-nav button{padding:0 7px;font-size:11px}.driver-prototype-port .brand{width:185px}.driver-prototype-port .brand img{width:145px}.driver-prototype-port .pagebody{grid-template-columns:220px minmax(0,1fr)}}
 
 /* XDrive workspace shell refinement: CX-inspired architecture, not a pixel clone */
-.driver-prototype-port body{padding-left:52px;padding-bottom:30px}
-.driver-prototype-port .topbar{margin-left:52px;width:calc(100% - 52px);position:relative;z-index:40}
+.driver-prototype-port body{padding-left:0;padding-bottom:30px}
+.driver-prototype-port .topbar{margin-left:0;width:100%;position:relative;z-index:40}
 .driver-prototype-port .app{height:calc(100vh - 88px)}
-.driver-prototype-port .global-rail{position:fixed;inset:0 auto 30px 0;width:52px;background:#0a234f;border-right:1px solid #071d42;display:flex;flex-direction:column;align-items:stretch;z-index:60}
-.driver-prototype-port .global-rail button{height:48px;border:0;border-bottom:1px solid #ffffff10;background:transparent;color:#dfe8f4;font-size:18px;cursor:pointer}
-.driver-prototype-port .global-rail button:hover{background:#103b84;color:#fff}
-.driver-prototype-port .global-rail .rail-logo{height:58px;background:#fff;color:#0b2f6b;font-size:13px;font-weight:800;border-right:1px solid var(--line)}
-.driver-prototype-port .global-rail button[data-rail-page].active{background:#1d57d8;box-shadow:inset 3px 0 0 #f5a300;color:#fff}
-.driver-prototype-port .rail-spacer{flex:1}
 .driver-prototype-port .account-toggle{border:0!important;cursor:pointer;padding:0!important}
-.driver-prototype-port .live-strip{position:fixed;left:52px;right:0;bottom:0;height:30px;background:#fff;border-top:1px solid #cfd6df;display:flex;align-items:center;z-index:70;font-size:10px}
+.driver-prototype-port .live-strip{position:fixed;left:0;right:0;bottom:0;height:30px;background:#fff;border-top:1px solid #cfd6df;display:flex;align-items:center;z-index:70;font-size:10px}
 .driver-prototype-port .live-label{height:100%;display:flex;align-items:center;border-right:1px solid var(--line)}
 .driver-prototype-port .live-label b{height:100%;display:flex;align-items:center;padding:0 9px;background:#f5a300;color:#1a1f2b}
 .driver-prototype-port .live-label span{padding:0 9px;color:#0b2f6b;font-weight:700}
 .driver-prototype-port .live-items{flex:1;display:flex;gap:22px;overflow:hidden;white-space:nowrap;padding:0 11px;color:#285a90}
 .driver-prototype-port .live-items span:before{content:"●";color:#16a34a;margin-right:5px}
 .driver-prototype-port .messenger-btn{height:24px;margin-right:5px;border:1px solid #0b2f6b;background:#0b2f6b;color:#fff;border-radius:2px;padding:0 10px;font-weight:700}
-.driver-prototype-port .account-shade{position:fixed;left:52px;right:0;top:58px;bottom:30px;background:rgba(18,25,34,.38);z-index:80;opacity:0;pointer-events:none;transition:opacity .16s ease}
+.driver-prototype-port .account-shade{position:fixed;left:0;right:0;top:58px;bottom:30px;background:rgba(18,25,34,.38);z-index:80;opacity:0;pointer-events:none;transition:opacity .16s ease}
 .driver-prototype-port .account-shade.open{opacity:1;pointer-events:auto}
 .driver-prototype-port .account-drawer{position:fixed;top:58px;right:0;width:min(980px,calc(100vw - 120px));height:610px;max-height:calc(100vh - 110px);background:#fff;z-index:90;display:grid;grid-template-columns:1.05fr .95fr 1fr;border-left:1px solid #cfd6df;border-bottom:1px solid #cfd6df;box-shadow:0 10px 28px rgba(10,35,79,.12);transform:translateX(102%);transition:transform .18s ease}
 .driver-prototype-port .account-drawer.open{transform:translateX(0)}
@@ -127,13 +134,12 @@
 .driver-prototype-port .drawer-link span{margin-left:auto;color:#8995a4;font-size:19px}
 .driver-prototype-port .drawer-subhead{margin-top:28px!important}
 @media(max-width:1400px){
-  .driver-prototype-port body{padding-left:48px}
-  .driver-prototype-port .topbar{margin-left:48px;width:calc(100% - 48px)}
-  .driver-prototype-port .driver-prototype-app{margin-left:48px;width:calc(100% - 48px)}
-  .driver-prototype-port .global-rail{width:48px}
-  .driver-prototype-port .live-strip{left:48px}
-  .driver-prototype-port .account-shade{left:48px}
-  .driver-prototype-port .account-drawer{width:min(900px,calc(100vw - 96px))}
+  .driver-prototype-port body{padding-left:0}
+  .driver-prototype-port .topbar{margin-left:0;width:100%}
+  .driver-prototype-port .driver-prototype-app{margin-left:0;width:100%}
+  .driver-prototype-port .live-strip{left:0}
+  .driver-prototype-port .account-shade{left:0}
+  .driver-prototype-port .account-drawer{width:min(900px,calc(100vw - 48px))}
 }
 
 /* Full-page Account / Workspace hub */

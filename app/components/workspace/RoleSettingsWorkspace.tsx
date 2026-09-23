@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
@@ -97,6 +97,7 @@ const textOrNull = (value: string) => value.trim() || null;
 
 export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
   const [section, setSection] = useState<Section>('overview');
   const [company, setCompany] = useState<CompanyRow | null>(null);
@@ -112,6 +113,14 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
   const [success, setSuccess] = useState('');
 
   const canEditCompany = membershipRole === 'owner' || membershipRole === 'admin';
+
+  useEffect(() => {
+    if (role !== 'owner') return;
+    const requested = searchParams.get('section');
+    if (requested === 'overview' || requested === 'profile' || requested === 'company' || requested === 'security') {
+      setSection(requested);
+    }
+  }, [role, searchParams]);
 
   const load = useCallback(async () => {
     if (!user?.id || !isSupabaseConfigured) {
@@ -278,16 +287,18 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
-      <div className="role-settings-layout">
-        <aside className="role-settings-nav">
-          <div className="role-settings-company">
-            <strong>{companyDisplay}</strong>
-            <span>{identityCode} · {role === 'owner' ? 'owner operator' : role}</span>
-          </div>
-          {nav.map((item) => (
-            <button key={item.label} type="button" data-active={item.active ? 'true' : 'false'} onClick={item.action}>{item.label}</button>
-          ))}
-        </aside>
+      <div className={role === 'owner' ? 'role-settings-layout role-settings-layout--topnav' : 'role-settings-layout'}>
+        {role !== 'owner' && (
+          <aside className="role-settings-nav">
+            <div className="role-settings-company">
+              <strong>{companyDisplay}</strong>
+              <span>{identityCode} · {role}</span>
+            </div>
+            {nav.map((item) => (
+              <button key={item.label} type="button" data-active={item.active ? 'true' : 'false'} onClick={item.action}>{item.label}</button>
+            ))}
+          </aside>
+        )}
 
         <main className="role-settings-main">
           {loading ? <Panel><EmptyState compact title="Loading settings…" /></Panel> : !company ? (

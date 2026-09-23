@@ -24,6 +24,20 @@ const DRIVER_PRIMARY_NAV = [
   { id: 'drivers', label: 'Drivers & Vehicles', href: '/driver/drivers-vehicles' },
 ] as const;
 
+const DRIVER_SETTINGS_MENU = [
+  { label: 'Overview', href: '/driver/settings?section=overview' },
+  { label: 'My Profile', href: '/driver/settings?section=profile' },
+  { label: 'Company Profile', href: '/driver/settings?section=company' },
+  { label: 'Drivers / Staff', href: '/driver/profile' },
+  { label: 'Vehicles / Assets', href: '/driver/vehicles' },
+  { label: 'Documents', href: '/driver/documents' },
+  { label: 'Billing & Membership', href: '/settings/billing' },
+  { label: 'Settings', href: '/driver/notifications' },
+  { label: 'Security', href: '/driver/settings?section=security' },
+  { label: 'Audit / Event Log', href: '/driver/event-log' },
+  { label: 'Support', href: '/help' },
+] as const;
+
 export default function DriverTopWorkspaceShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -31,6 +45,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
   const role = user?.ownerDriverWorkspace ? 'owner_driver' as const : 'driver' as const;
   const [companyName, setCompanyName] = useState('Driver Account');
   const [unreadCount, setUnreadCount] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const actionRole = resolveActionCentreRole(role);
   const notificationsHref = getNotificationsRoute(actionRole);
@@ -55,6 +70,10 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
 
     return () => { cancelled = true; };
   }, [user?.companyId, user?.email]);
+
+  useEffect(() => {
+    setSettingsOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured) {
@@ -101,15 +120,6 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
 
   return (
     <div className="driver-top-shell driver-prototype-port">
-      <aside className="global-rail" aria-label="XDrive workspace shortcuts">
-        <button type="button" className="rail-logo" title="XDrive" onClick={() => router.push('/driver')}>XD</button>
-        <button type="button" title="Dashboard" onClick={() => router.push('/driver')}>&#8962;</button>
-        <button type="button" title="Loads" onClick={() => router.push('/driver/loads')}>&#8596;</button>
-        <button type="button" title="Diary" onClick={() => router.push('/driver/history')}>&#9636;</button>
-        <button type="button" title="Fleet" onClick={() => router.push('/driver/vehicles')}>&#9638;</button>
-        <span className="rail-spacer" />
-        <button type="button" title="Settings" onClick={() => router.push('/driver/settings')}>&#9881;</button>
-      </aside>
       <header className="topbar">
         <div className="brand">
           <button type="button" className="driver-prototype-brand-button" onClick={() => router.push('/driver')} aria-label="Open Driver dashboard">
@@ -127,7 +137,33 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
         <div className="top-tools">
           <button type="button" onClick={() => router.push('/driver/messages')}>Messages</button>
           <button type="button" onClick={() => router.push(notificationsHref)}>Alerts {unreadCount > 0 && <b className="notif">{unreadCount > 99 ? '99+' : unreadCount}</b>}</button>
-          <button type="button" onClick={() => router.push('/driver/settings')}>Settings</button>
+          <div className="driver-settings-menu">
+            <button
+              type="button"
+              aria-haspopup="menu"
+              aria-expanded={settingsOpen}
+              onClick={() => setSettingsOpen((open) => !open)}
+            >
+              Settings
+            </button>
+            {settingsOpen && (
+              <div className="driver-settings-menu__panel" role="menu" aria-label="Driver settings">
+                {DRIVER_SETTINGS_MENU.map((item) => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setSettingsOpen(false);
+                      router.push(item.href);
+                    }}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button type="button" className="avatar account-toggle" onClick={() => router.push('/driver/account')} aria-label="Open account">{(companyName || 'DR').slice(0, 2).toUpperCase()}</button>
         </div>
       </header>
