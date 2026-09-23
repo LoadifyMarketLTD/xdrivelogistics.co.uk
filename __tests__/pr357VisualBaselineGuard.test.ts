@@ -45,7 +45,7 @@ describe('PR #357 approved visual baseline', () => {
       'driver-prototype-dashboard',
       'Today at a glance',
       'Operational workboard',
-      'MATCHING LOADS',
+      'Matching Loads',
       'Commercial position',
       'Performance & evidence',
       'Driver workflow',
