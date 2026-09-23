@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import ReturnJourneyMap from '../_components/ReturnJourneyMap';
 import { useAuth } from '../../components/AuthContext';
@@ -150,7 +150,7 @@ export default function ReturnJourneysPage() {
     setFutureDate(row?.future_position_date ? row.future_position_date.slice(0, 16) : '');
   }, [driverId]);
 
-  const loadJourneys = useCallback(async (scope: 'marketplace' | 'mine', requestedPage = 1, recordSearch = false) => {
+  const loadJourneys = useCallback(async (scope: 'marketplace' | 'mine', requestedPage = 1, recordSearch = false, searchOverride?: SearchDefaults) => {
     const auth = await getAuthHeader();
     if (!auth) {
       setError('Your session has expired. Sign in again to use Return Journeys.');
@@ -160,16 +160,17 @@ export default function ReturnJourneysPage() {
 
     setLoading(true);
     setError('');
+    const criteria = searchOverride ?? search;
     const params = new URLSearchParams({ scope, page: String(requestedPage), page_size: String(pageSize) });
     if (scope === 'marketplace') {
-      params.set('from', search.from);
-      params.set('from_radius', search.fromRadius);
-      params.set('to', search.to);
-      params.set('to_radius', search.toRadius);
-      params.set('vehicle_type', search.vehicleType);
-      params.set('member', search.member);
-      params.set('date', search.date);
-      params.set('kind', search.kind);
+      params.set('from', criteria.from);
+      params.set('from_radius', criteria.fromRadius);
+      params.set('to', criteria.to);
+      params.set('to_radius', criteria.toRadius);
+      params.set('vehicle_type', criteria.vehicleType);
+      params.set('member', criteria.member);
+      params.set('date', criteria.date);
+      params.set('kind', criteria.kind);
     }
 
     try {
@@ -186,7 +187,7 @@ export default function ReturnJourneysPage() {
         setGeneratedAt(payload.generatedAt ?? null);
         setExpanded({});
         if (scope === 'marketplace' && recordSearch && typeof window !== 'undefined') {
-          const next = [search, ...recentSearches.filter((entry) => JSON.stringify(entry) !== JSON.stringify(search))].slice(0, 6);
+          const next = [criteria, ...recentSearches.filter((entry) => JSON.stringify(entry) !== JSON.stringify(criteria))].slice(0, 6);
           setRecentSearches(next);
           window.localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next));
         }
@@ -354,7 +355,7 @@ export default function ReturnJourneysPage() {
             <div className="left-title">{tab === 'add' ? 'Future Position' : tab === 'mine' ? 'My Journeys' : 'Journey Search'}</div>
             {tab === 'search' && <form onSubmit={handleSearch}>
               <div className="filter"><span className="label">From / Radius</span><div className="row2"><input className="input" value={search.from} onChange={(event) => setSearch((current) => ({ ...current, from: event.target.value }))} placeholder="Enter location" /><select className="select" value={search.fromRadius} onChange={(event) => setSearch((current) => ({ ...current, fromRadius: event.target.value }))}>{radiusOptions.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
-              <div className="filter"><span className="label">To</span><input className="input" value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Destination / Go Anywhere" /></div>
+              <div className="filter"><span className="label">To / Radius</span><div className="row2"><input className="input" value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Destination / Go Anywhere" /><select className="select" value={search.toRadius} onChange={(event) => setSearch((current) => ({ ...current, toRadius: event.target.value }))}>{radiusOptions.map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
               <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={search.vehicleType} onChange={(event) => setSearch((current) => ({ ...current, vehicleType: event.target.value }))}><option value="">Motorcycle - 7.5T</option>{Object.entries(VEHICLE_TYPE_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
               <div className="filter"><span className="label">Date</span><select className="select" value={search.date} onChange={(event) => setSearch((current) => ({ ...current, date: event.target.value }))}><option value="anytime">Anytime</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option><option value="today10">Today + 10 Days</option></select></div>
               <div className="filter"><span className="label">Search Tools</span><button type="button" className="rowbtn" onClick={() => setAdvancedOpen((value) => !value)}>Advanced Search</button></div>
@@ -368,12 +369,12 @@ export default function ReturnJourneysPage() {
             <div className="head"><div><h1>Return Journeys</h1><p>Search, track and advertise empty vehicle journeys and future capacity</p></div></div>
             {error && <AlertBanner tone="danger">{error}</AlertBanner>}
             {successMsg && <AlertBanner tone="success">{successMsg}</AlertBanner>}
-            <div className="return-tabs">
-              <button type="button" className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>All</button>
-              <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>My Journeys</button>
+            <div className="return-tabs return-tabs--workspace">
+              <button type="button" className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>Available Journeys</button>
+              <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>Our Journeys</button>
               <button type="button" className={tab === 'add' ? 'active' : ''} onClick={() => setTab('add')}>Add Journey</button>
               <span className="spacer" />
-              <div className="return-view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>Map View</button></div>
+              <div className="return-view"><button type="button" className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>Map View</button><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button></div>
               <button type="button" className="btn" onClick={refreshCurrent} disabled={loading}>Refresh</button>
             </div>
             {tab === 'add' ? <section className="postload-section">
@@ -395,16 +396,97 @@ export default function ReturnJourneysPage() {
               </form>
             </section> : view === 'map' ? <ReturnJourneyMap journeys={mapJourneys} /> : (
               <>
-                <div className="toolbar"><b>{tab === 'mine' ? 'My Return Journeys' : 'Available Return Journeys'}</b><span className="spacer muted small">{generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}` : ''}</span>{view === 'list' && <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!journeys.length} onToggle={toggleExpandAll} noun="return journeys" />}</div>
+                <div className="return-journey-boardbar">
+                  <div>
+                    <b>{tab === 'mine' ? 'Our Journeys' : `Available Journeys${generatedAt ? ` at ${new Date(generatedAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}` : ''}`}</b>
+                    <span>{total} journey{total === 1 ? '' : 's'} in this view</span>
+                  </div>
+                  <div className="return-journey-boardbar__actions">
+                    {view === 'list' && <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!journeys.length} onToggle={toggleExpandAll} noun="return journeys" />}
+                    <button type="button" className="btn" onClick={refreshCurrent} disabled={loading}>Refresh</button>
+                  </div>
+                </div>
+
+                {tab === 'search' && (
+                  <div className="return-kind-tabs" role="tablist" aria-label="Journey type">
+                    {([
+                      ['all', 'All'],
+                      ['ad_hoc', 'Ad Hoc'],
+                      ['regular', 'Regular'],
+                    ] as const).map(([value, label]) => (
+                      <button
+                        key={value}
+                        type="button"
+                        data-active={search.kind === value ? 'true' : 'false'}
+                        onClick={() => {
+                          const next = { ...search, kind: value };
+                          setSearch(next);
+                          void loadJourneys('marketplace', 1, false, next);
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
                 {loading ? <div className="xd2-calm-empty"><b>Loading journeys…</b><span>Refreshing exchange results.</span></div> : journeys.length === 0 ? <div className="xd2-calm-empty"><b>No matching journeys</b><span>{tab === 'mine' ? 'Publish a return journey to advertise your empty vehicle.' : 'Adjust the search or publish a new empty-vehicle journey.'}</span></div> : (
-                  <div className="tablewrap">
-                    <table style={{ minWidth: 1380 }}><thead><tr><th>Journey</th><th>Route</th><th>Departs At</th><th>ETA</th><th>Vehicle</th><th>Distance</th><th>Member</th><th>Actions</th></tr></thead><tbody>
-                      {journeys.map((journey) => {
-                        const open = expanded[journey.id] === true;
-                        return <Fragment key={journey.id}><tr className="return-row"><td><b>{journey.id.slice(0,8).toUpperCase()}</b><span className="meta">{journey.journeyKind === 'regular' ? 'Regular Journey' : 'Empty Vehicle Journey'}</span></td><td><span className="route">{journey.from || 'Not set'} <span>→</span> {journey.goAnywhere ? 'Go Anywhere' : journey.to || 'Not set'}</span></td><td>{fmtDate(journey.availableFrom)}</td><td>Unavailable</td><td>{vehicleLabel(journey.vehicleType)}<span className="meta">{journey.bodyType || 'Body not specified'}</span></td><td>{journey.journeyDistanceMiles != null ? `${journey.journeyDistanceMiles} miles` : 'Unavailable'}</td><td><b><MemberIdentityLink companyId={journey.companyId}>{journey.member.name}</MemberIdentityLink></b><span className="meta">{journey.member.code ? `Member ID ${journey.member.code}` : journey.driverName ?? 'Exchange member'}</span></td><td><button type="button" className="rowbtn blue" onClick={() => setExpanded((current) => ({ ...current, [journey.id]: !open }))}>{open ? 'Close' : 'Track'}</button>{tab === 'mine' && journey.status !== 'cancelled' && <button type="button" className="rowbtn" onClick={() => void cancelJourney(journey.id)}>Cancel</button>}</td></tr>
-                        {open && <tr className="return-row-detail"><td colSpan={8}><div className="fleet-inspector"><div><b>Journey details</b><span className="meta">Via: {journey.viaLocations.length ? journey.viaLocations.join(' → ') : 'Direct / not specified'} · Weight: {journey.weightKg != null ? `${journey.weightKg} kg` : 'Not supplied'} · Space: {journey.spaceUnits ?? 'Not supplied'} · Posted: {fmtDate(journey.createdAt)}</span></div><a className="rowbtn blue" href={routeUrl(journey)} target="_blank" rel="noopener noreferrer">Open Route</a></div></td></tr>}</Fragment>;
-                      })}
-                    </tbody></table>
+                  <div className="return-journey-list">
+                    {journeys.map((journey) => {
+                      const open = expanded[journey.id] === true;
+                      return (
+                        <article key={journey.id} className="return-journey-card">
+                          <div className="return-journey-card__top">
+                            <div className="return-route-block">
+                              <span>From</span>
+                              <strong>{journey.from || 'Not set'}</strong>
+                              <span>To</span>
+                              <strong>{journey.goAnywhere ? 'Go Anywhere' : journey.to || 'Not set'}</strong>
+                              {journey.viaLocations.length > 0 && <small>Via: {journey.viaLocations.join(' → ')}</small>}
+                            </div>
+                            <div className="return-time-block">
+                              <span>Departs At</span>
+                              <strong>{fmtDate(journey.availableFrom)}</strong>
+                              <span>ETA</span>
+                              <strong>{journey.availableTo ? fmtDate(journey.availableTo) : 'Not supplied'}</strong>
+                            </div>
+                            <div className="return-vehicle-block">
+                              <strong>{journey.journeyKind === 'regular' ? 'Regular Journey' : 'Empty Vehicle'}</strong>
+                              <span>Journey ID: {journey.id.slice(0,8).toUpperCase()}</span>
+                              <b>{vehicleLabel(journey.vehicleType)}</b>
+                            </div>
+                          </div>
+
+                          <div className="return-journey-card__meta">
+                            <div><span>Posted</span><strong>{fmtDate(journey.createdAt)}</strong></div>
+                            <div><span>Weight</span><strong>{journey.weightKg != null ? `${journey.weightKg} kg` : 'Not supplied'}</strong></div>
+                            <div><span>Space</span><strong>{journey.spaceUnits ?? 'Not supplied'}</strong></div>
+                            <div><span>Distance</span><strong>{journey.journeyDistanceMiles != null ? `${journey.journeyDistanceMiles} miles` : 'Unavailable'}</strong></div>
+                            <div className="return-journey-card__bodytype"><span>Vehicle</span><strong>{journey.bodyType || 'Body not specified'}{journey.goAnywhere ? ' · Go Anywhere' : ''}</strong></div>
+                            <div className="return-journey-card__member">
+                              <span>Member</span>
+                              <strong><MemberIdentityLink companyId={journey.companyId}>{journey.member.name}</MemberIdentityLink></strong>
+                              <small>{journey.member.code ? `Member ID ${journey.member.code}` : journey.driverName ?? 'Exchange member'}</small>
+                            </div>
+                          </div>
+
+                          <div className="return-journey-card__actions">
+                            <button type="button" className="rowbtn blue" onClick={() => setExpanded((current) => ({ ...current, [journey.id]: !open }))}>{open ? 'Close' : 'Track'}</button>
+                            <a className="rowbtn" href={routeUrl(journey)} target="_blank" rel="noopener noreferrer">Open Route</a>
+                            {tab === 'mine' && journey.status !== 'cancelled' && <button type="button" className="rowbtn" onClick={() => void cancelJourney(journey.id)}>Cancel</button>}
+                            <span className="spacer" />
+                            <span className="return-journey-card__status">{journey.status}</span>
+                          </div>
+
+                          {open && (
+                            <div className="return-journey-card__detail">
+                              <strong>Journey details</strong>
+                              <span>{journey.notes || 'No additional journey notes supplied.'}</span>
+                            </div>
+                          )}
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </>
