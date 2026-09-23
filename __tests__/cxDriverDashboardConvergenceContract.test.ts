@@ -42,6 +42,15 @@ describe('Driver CX convergence contract', () => {
     expect(page).not.toContain('apps/driver-mobile');
   });
 
+  it('keeps CX-equivalent dashboard reporting shortcuts inside the driver workspace', () => {
+    for (const marker of ['Reports & Finance', 'Invoices', 'Bookings', 'Return journeys', 'Feedback']) {
+      expect(page).toContain(marker);
+    }
+    expect(page).toContain("router.push('/driver/finance')");
+    expect(page).toContain("router.push('/driver/returns')");
+    expect(page).toContain("router.push('/driver/history')");
+  });
+
   it('preserves truthful server-authoritative eligibility wording', () => {
     expect(page).toContain('Full quote eligibility remains server-authoritative.');
     expect(page).toContain('data.driverDocuments');
