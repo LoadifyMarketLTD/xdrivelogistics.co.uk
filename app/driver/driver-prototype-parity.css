@@ -1892,3 +1892,60 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* Driver Diary feedback editor: CX-style terminal booking feedback, XDrive visual identity. */
+.xdrive-driver-workspace .driver-feedback-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(15, 23, 42, .38);
+}
+.xdrive-driver-workspace .driver-feedback-dialog {
+  width: min(520px, 100%);
+  display: grid;
+  gap: 12px;
+  padding: 14px;
+  background: #fff;
+  border: 1px solid #c7d1dc;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, .18);
+}
+.xdrive-driver-workspace .driver-feedback-dialog__head,
+.xdrive-driver-workspace .driver-feedback-dialog__actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.xdrive-driver-workspace .driver-feedback-dialog__head strong {
+  color: #0b2f6b;
+  font-size: 15px;
+}
+.xdrive-driver-workspace .driver-feedback-dialog__head button {
+  border: 0;
+  background: transparent;
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+.xdrive-driver-workspace .driver-feedback-dialog label {
+  display: grid;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #536173;
+}
+.xdrive-driver-workspace .driver-feedback-dialog select,
+.xdrive-driver-workspace .driver-feedback-dialog textarea {
+  width: 100%;
+  border: 1px solid #bac5d1;
+  background: #fff;
+  color: #263548;
+  padding: 8px;
+  font: inherit;
+}
+.xdrive-driver-workspace .driver-feedback-dialog__actions {
+  justify-content: flex-end;
+}

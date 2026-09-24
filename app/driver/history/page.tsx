@@ -157,7 +157,7 @@ type OrderSheet = {
   unavailable: { bodyType: string; extras: string; bookingFooter: string };
 };
 
-type ReviewRow = { id: string; job_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
+type ReviewRow = { id: string; job_id: string | null; reviewer_user_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
 type DocumentRow = { id: string; job_id: string | null; file_name: string | null; file_type: string | null; file_url: string | null; uploaded_at: string | null };
 type TrackingEventRow = { id: string; job_id: string | null; event_type: string | null; event_time: string | null; user_name: string | null; notes: string | null; message: string | null };
 type SearchFilters = { dateRange: DateRange; pickupWithin: TimeWindow; deliveryWithin: TimeWindow; loadRef: string; memberName: string; bookedBy: string; customerName: string; archive: ArchiveFilter };
@@ -317,6 +317,9 @@ export default function JobHistoryPage() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [detailTabs, setDetailTabs] = useState<Record<string, DetailTab>>({});
   const [invoicePreview, setInvoicePreview] = useState<{ id: string; number: string | null } | null>(null);
+  const [feedbackEditor, setFeedbackEditor] = useState<{ jobId: string; rating: number; comment: string } | null>(null);
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [feedbackError, setFeedbackError] = useState('');
 
   const fetchOrderSheet = useCallback(async (jobId: string) => {
     if (orderSheetsByJob[jobId] !== undefined || orderLoadingByJob[jobId]) return;
@@ -397,7 +400,7 @@ export default function JobHistoryPage() {
     }
 
     const [reviewsRes, documentsRes, eventsRes] = await Promise.all([
-      supabase.from('reviews').select('id, job_id, rating, comment, created_at').in('job_id', jobIds).order('created_at', { ascending: false }),
+      supabase.from('reviews').select('id, job_id, reviewer_user_id, rating, comment, created_at').in('job_id', jobIds).order('created_at', { ascending: false }),
       supabase.from('job_documents').select('id, job_id, file_name, file_type, file_url, uploaded_at').in('job_id', jobIds).order('uploaded_at', { ascending: false }),
       supabase.from('job_tracking_events').select('id, job_id, event_type, event_time, user_name, notes, message').in('job_id', jobIds).order('event_time', { ascending: false }),
     ]);
@@ -423,6 +426,32 @@ export default function JobHistoryPage() {
       window.localStorage.removeItem('xdrive:driver-diary:default-search');
     }
   }, []);
+
+  const saveFeedback = async () => {
+    if (!feedbackEditor) return;
+    setFeedbackSaving(true); setFeedbackError('');
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) throw new Error('Session expired.');
+      const response = await fetch(`/api/driver/jobs/${encodeURIComponent(feedbackEditor.jobId)}/feedback`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: feedbackEditor.rating, comment: feedbackEditor.comment }),
+      });
+      const payload = await response.json().catch(() => ({})) as { review?: ReviewRow; error?: string };
+      if (!response.ok || !payload.review) throw new Error(payload.error || 'Feedback could not be saved.');
+      setReviewsByJob((current) => {
+        const existing = current[feedbackEditor.jobId] ?? [];
+        return { ...current, [feedbackEditor.jobId]: [payload.review as ReviewRow, ...existing.filter((item) => item.id !== payload.review?.id)] };
+      });
+      setFeedbackEditor(null);
+    } catch (reason) {
+      setFeedbackError(reason instanceof Error ? reason.message : 'Feedback could not be saved.');
+    } finally {
+      setFeedbackSaving(false);
+    }
+  };
 
   const applySearch = () => {
     setAppliedSearch(search);
@@ -540,6 +569,8 @@ export default function JobHistoryPage() {
                   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : (Array.isArray(job.delivery_photos) ? job.delivery_photos : []);
                   const hasPod = Boolean(job.pod_generated || podPhotos.length > 0); const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews); const expired = isDerivedExpired(job);
                   const currentStatus = effectiveStatus(job);
+                  const ownReview = reviews.find((review) => review.reviewer_user_id === user?.id) ?? null;
+                  const canLeaveFeedback = ['delivered', 'completed', 'cancelled'].includes(currentStatus);
                   const historyRows = [
                     ...(Array.isArray(job.status_history) ? job.status_history.map((entry, index) => ({ key: `status-${index}`, label: STATUS_LABELS[entry.status ?? ''] ?? entry.status ?? 'Status update', at: entry.timestamp ?? entry.at ?? null, detail: 'Job status history' })) : []),
                     ...trackingEvents.map((event) => ({ key: event.id, label: event.event_type ? (STATUS_LABELS[event.event_type] ?? event.event_type.replace(/_/g, ' ')) : 'Tracking event', at: event.event_time, detail: event.message ?? event.notes ?? event.user_name ?? 'Operational event' })),
@@ -590,6 +621,7 @@ export default function JobHistoryPage() {
                             {detailItem.id === 'documents' && documents.length > 0 ? `${detailItem.label} ${documents.length}` : detailItem.id === 'invoice' && invoice?.id ? 'View invoice (£)' : detailItem.label}
                           </button>
                         ))}
+                        {canLeaveFeedback && <button type="button" onClick={() => { setFeedbackError(''); setFeedbackEditor({ jobId: job.id, rating: ownReview?.rating ?? 5, comment: ownReview?.comment ?? '' }); }}>{ownReview ? 'Edit feedback' : 'Leave feedback'}</button>}
                         {feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
                       </div>
 
@@ -650,6 +682,8 @@ export default function JobHistoryPage() {
             {visibleFiltered.length > itemsPerPage && <div className="driver-board-summary driver-diary-pagination"><ActionButton tone="secondary" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</ActionButton><span>Page {safePage} / {totalPages}</span><ActionButton tone="secondary" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</ActionButton></div>}
           </main>
         </div>
+
+        {feedbackEditor && <div className="driver-feedback-overlay" role="presentation" onMouseDown={(event) => { if (event.currentTarget === event.target && !feedbackSaving) setFeedbackEditor(null); }}><section className="driver-feedback-dialog" role="dialog" aria-modal="true" aria-labelledby="driver-feedback-title"><div className="driver-feedback-dialog__head"><strong id="driver-feedback-title">{(reviewsByJob[feedbackEditor.jobId] ?? []).some((review) => review.reviewer_user_id === user?.id) ? 'Edit feedback' : 'Leave feedback'}</strong><button type="button" onClick={() => setFeedbackEditor(null)} disabled={feedbackSaving} aria-label="Close feedback dialog">×</button></div>{feedbackError && <AlertBanner tone="danger">{feedbackError}</AlertBanner>}<label><span>Rating</span><select value={feedbackEditor.rating} onChange={(event) => setFeedbackEditor((current) => current ? { ...current, rating: Number(event.target.value) } : current)}>{[5,4,3,2,1].map((rating) => <option key={rating} value={rating}>{rating}/5</option>)}</select></label><label><span>Comment</span><textarea value={feedbackEditor.comment} maxLength={2000} rows={5} onChange={(event) => setFeedbackEditor((current) => current ? { ...current, comment: event.target.value } : current)} placeholder="Describe the booking experience and communication." /></label><small>{feedbackEditor.comment.length}/2000</small><div className="driver-feedback-dialog__actions"><ActionButton tone="secondary" onClick={() => setFeedbackEditor(null)} disabled={feedbackSaving}>Cancel</ActionButton><ActionButton tone="primary" onClick={() => void saveFeedback()} disabled={feedbackSaving}>{feedbackSaving ? 'Saving…' : 'Save feedback'}</ActionButton></div></section></div>}
 
         <DriverInvoicePreviewModal invoiceId={invoicePreview?.id ?? null} invoiceNumber={invoicePreview?.number ?? null} onClose={() => setInvoicePreview(null)} />
       </DriverWorkspaceShell>
