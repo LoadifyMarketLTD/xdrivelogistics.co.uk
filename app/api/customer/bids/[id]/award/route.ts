@@ -6,6 +6,7 @@ import {
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../_lib/platformFlags';
+import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -37,7 +38,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const { data: bid, error: bidError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, job_id, status')
+    .select('id, job_id, status, company_id')
     .eq('id', bidId)
     .maybeSingle();
 
@@ -68,6 +69,30 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
   if (!membership) {
     return json(403, { error: 'Forbidden - an active owner, admin or dispatcher of the job-owning company is required to award bids.' });
+  }
+
+  let payerStripeReadiness;
+  let carrierStripeReadiness;
+  try {
+    [payerStripeReadiness, carrierStripeReadiness] = await Promise.all([
+      getStripeCommercialReadiness(supabaseAdmin, job.company_id as string),
+      getStripeCommercialReadiness(supabaseAdmin, bid.company_id as string | null),
+    ]);
+  } catch {
+    return json(503, { error: 'Stripe commercial readiness could not be verified. Please try again.' });
+  }
+  if (!payerStripeReadiness.infrastructureAvailable || !carrierStripeReadiness.infrastructureAvailable) {
+    return json(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+  }
+  if (!payerStripeReadiness.ready) {
+    return json(409, stripeCommercialReadinessPayload(
+      'Complete and activate your company Stripe account before awarding transport work.'
+    ));
+  }
+  if (!carrierStripeReadiness.ready) {
+    return json(409, stripeCommercialReadinessPayload(
+      'This carrier cannot be awarded the job until its Stripe account is fully activated.'
+    ));
   }
 
   const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
