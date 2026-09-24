@@ -305,6 +305,7 @@ export default function JobHistoryPage() {
   const [statusFilter, setStatusFilter] = useState<HistoryFilter>('all');
   const [search, setSearch] = useState<SearchFilters>(EMPTY_SEARCH);
   const [appliedSearch, setAppliedSearch] = useState<SearchFilters>(EMPTY_SEARCH);
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [page, setPage] = useState(1);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -403,6 +404,29 @@ export default function JobHistoryPage() {
   }, [authLoading, driverId]);
 
   useEffect(() => { void fetchHistory(); }, [fetchHistory]);
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('xdrive:driver-diary:default-search');
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as Partial<SearchFilters>;
+      const restored = { ...EMPTY_SEARCH, ...parsed } as SearchFilters;
+      setSearch(restored);
+      setAppliedSearch(restored);
+      setSaveAsDefault(true);
+    } catch {
+      window.localStorage.removeItem('xdrive:driver-diary:default-search');
+    }
+  }, []);
+
+  const applySearch = () => {
+    setAppliedSearch(search);
+    if (saveAsDefault) window.localStorage.setItem('xdrive:driver-diary:default-search', JSON.stringify(search));
+  };
+  const toggleDefaultSearch = (checked: boolean) => {
+    setSaveAsDefault(checked);
+    if (checked) window.localStorage.setItem('xdrive:driver-diary:default-search', JSON.stringify(search));
+    else window.localStorage.removeItem('xdrive:driver-diary:default-search');
+  };
 
   const searchedJobs = useMemo(() => jobs.filter((job) => {
     const refDate = job.pickup_datetime ?? job.collection_window_start ?? job.updated_at ?? job.created_at;
@@ -445,7 +469,8 @@ export default function JobHistoryPage() {
         <div className="filter"><span className="label">Booked by</span><input value={search.bookedBy} onChange={(e) => setSearch((current) => ({ ...current, bookedBy: e.target.value }))} placeholder="Booking company" /></div>
         <div className="filter"><span className="label">Customer Name</span><input value={search.customerName} onChange={(e) => setSearch((current) => ({ ...current, customerName: e.target.value }))} placeholder="Customer or reference" /></div>
         <div className="filter"><span className="label">Archived</span><select value={search.archive} onChange={(e) => setSearch((current) => ({ ...current, archive: e.target.value as ArchiveFilter }))}><option value="all">All records</option><option value="active">Active register</option><option value="closed">Closed records</option></select></div>
-        <div className="driver-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={() => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); }}>Clear</ActionButton></div>
+        <label className="driver-diary-save-default"><input type="checkbox" checked={saveAsDefault} onChange={(event) => toggleDefaultSearch(event.target.checked)} /> Save as Default</label>
+        <div className="driver-filter-actions"><ActionButton tone="success" onClick={applySearch}>Search</ActionButton><ActionButton tone="secondary" onClick={() => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); }}>Clear</ActionButton></div>
         <ActionButton tone="secondary" onClick={() => router.push('/driver/directory')}>Contacts</ActionButton>
         <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Payment Report</ActionButton>
       </div>
