@@ -17,6 +17,7 @@ describe('CX surgical parity for Driver Loads, Quotes and Diary', () => {
     expect(loads).toContain('Interactive Freight Radar Map');
     expect(loads).toContain("useState<RegionFilter>('uk_roi')");
     expect(loads).toContain("setRegionFilter('uk_roi')");
+    expect(loads).toContain("['submitted', 'accepted'].includes(String(load.myBid?.status ?? '').toLowerCase())");
   });
 
   it('matches the CX quote register order and action semantics', () => {
@@ -34,6 +35,8 @@ describe('CX surgical parity for Driver Loads, Quotes and Diary', () => {
     expect(quotes).toContain("view.access === 'assigned'");
     expect(quotes).toContain("view.access === 'marketplace'");
     expect(quotes).toContain('setExpandedIds((previous) => new Set(previous).add(bid.id))');
+    expect(quotes).toContain('/api/member-profile/${encodeURIComponent(id)}');
+    expect(quotes).toContain('companyNames[assigned.company_id]');
   });
 
   it('keeps Diary CX state tabs and utility actions explicit', () => {

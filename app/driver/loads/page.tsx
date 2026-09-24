@@ -405,7 +405,7 @@ export default function AvailableLoadsPage() {
               <div className="load-list">
                 {visibleLoads.map((load) => {
                   const expanded = expandAll || expandedLoadId === load.id;
-                  const quoted = Boolean(load.myBid?.status);
+                  const quoted = ['submitted', 'accepted'].includes(String(load.myBid?.status ?? '').toLowerCase());
                   const selectedVehicleLabel = load.requested_vehicle_label ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g,' ')) : 'Any vehicle');
                   const cargoLabel = load.requested_cargo_label ?? load.cargo_type?.replace(/_/g,' ') ?? 'Freight';
                   const dim = dimensions(load);

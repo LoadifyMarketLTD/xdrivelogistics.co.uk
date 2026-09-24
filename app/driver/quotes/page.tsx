@@ -234,12 +234,38 @@ export default function MyQuotesPage() {
     }
 
     const allRows = [...outgoing, ...incoming];
-    const businessCompanyIds = [...new Set(allRows.map((bid) => bid.company_id).filter((id): id is string => Boolean(id)))];
+    const businessCompanyIds = [...new Set([
+      ...allRows.map((bid) => bid.company_id),
+      ...assignedJobs.map((job) => job.company_id),
+      ...ownJobs.map((job) => job.company_id),
+    ].filter((id): id is string => Boolean(id)))];
     const nameMap: Record<string, string> = {};
     if (businessCompanyIds.length) {
       const companiesRes = await supabase.from('companies').select('id, name').in('id', businessCompanyIds);
       if (!companiesRes.error) {
         for (const company of (companiesRes.data ?? []) as Array<{ id: string; name: string | null }>) if (company.name) nameMap[company.id] = company.name;
+      }
+
+      const missingIds = businessCompanyIds.filter((id) => !nameMap[id]);
+      if (missingIds.length) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (token) {
+          const memberPairs = await Promise.all(missingIds.map(async (id) => {
+            try {
+              const response = await fetch(`/api/member-profile/${encodeURIComponent(id)}`, {
+                headers: { Authorization: `Bearer ${token}` },
+                cache: 'no-store',
+              });
+              if (!response.ok) return [id, null] as const;
+              const payload = await response.json().catch(() => ({})) as { member?: { name?: string | null } };
+              return [id, payload.member?.name?.trim() || null] as const;
+            } catch {
+              return [id, null] as const;
+            }
+          }));
+          for (const [id, name] of memberPairs) if (name) nameMap[id] = name;
+        }
       }
     }
 
@@ -259,7 +285,7 @@ export default function MyQuotesPage() {
       if (job) return {
         access: 'own', pickup: job.pickup_location ?? job.pickup_postcode ?? 'Collection', delivery: job.delivery_location ?? job.delivery_postcode ?? 'Delivery',
         pickupDatetime: job.pickup_datetime, deliveryDatetime: job.delivery_datetime, vehicle: job.vehicle_type, budget: job.budget_amount, currency: bid.currency || 'GBP',
-        postingCompanyId: job.company_id, postingCompanyName: job.companies?.name ?? 'Your company', postingMemberId: null, postingPhone: null, postedBy: null,
+        postingCompanyId: job.company_id, postingCompanyName: job.companies?.name ?? (job.company_id ? companyNames[job.company_id] : null) ?? 'Your company', postingMemberId: null, postingPhone: null, postedBy: null,
         customerReference: job.customer_reference, bookingReference: job.booking_reference,
         distanceToPickupMiles: null, pickupEtaMinutes: null, jobDistanceMiles: job.job_distance_miles, jobDistanceMinutes: job.job_distance_minutes,
       };
@@ -269,7 +295,7 @@ export default function MyQuotesPage() {
     if (assigned) return {
       access: 'assigned', pickup: assigned.pickup_location ?? assigned.pickup_postcode ?? 'Collection', delivery: assigned.delivery_location ?? assigned.delivery_postcode ?? 'Delivery',
       pickupDatetime: assigned.pickup_datetime, deliveryDatetime: assigned.delivery_datetime, vehicle: assigned.vehicle_type, budget: assigned.budget_amount, currency: bid.currency || 'GBP',
-      postingCompanyId: assigned.company_id, postingCompanyName: assigned.companies?.name ?? 'Posting member', postingMemberId: null, postingPhone: null, postedBy: null,
+      postingCompanyId: assigned.company_id, postingCompanyName: assigned.companies?.name ?? (assigned.company_id ? companyNames[assigned.company_id] : null) ?? 'Posting member', postingMemberId: null, postingPhone: null, postedBy: null,
       customerReference: assigned.customer_reference, bookingReference: assigned.booking_reference,
       distanceToPickupMiles: null, pickupEtaMinutes: null, jobDistanceMiles: assigned.job_distance_miles, jobDistanceMinutes: assigned.job_distance_minutes,
     };
@@ -291,7 +317,7 @@ export default function MyQuotesPage() {
       postingPhone: null, postedBy: null, customerReference: null, bookingReference: null,
       distanceToPickupMiles: null, pickupEtaMinutes: null, jobDistanceMiles: null, jobDistanceMinutes: null,
     };
-  }, [assignedJobsById, marketplaceByJob, ownJobsById]);
+  }, [assignedJobsById, companyNames, marketplaceByJob, ownJobsById]);
 
   const handleWithdrawBid = async (bidId: string) => {
     if (!isSupabaseConfigured || !userId) return;
