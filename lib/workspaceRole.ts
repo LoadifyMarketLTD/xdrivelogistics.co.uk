@@ -173,7 +173,8 @@ const SHARED_DRIVER_NAV: WorkspaceNavGroup[] = [
   { id: 'operations', label: 'My Work', items: [
     { id: 'jobs', label: 'My Jobs', href: '/driver/jobs', icon: '▣' },
     { id: 'diary', label: 'Diary', href: '/driver/history', icon: '□' },
-    { id: 'availability', label: 'Availability', href: '/driver/availability', icon: '◷' },
+    { id: 'live-availability', label: 'Live Availability', href: '/driver/nearby', icon: '◎' },
+    { id: 'availability', label: 'My Availability', href: '/driver/availability', icon: '◷' },
     { id: 'returns', label: 'Return Journeys', href: '/driver/returns', icon: '↩' },
   ] },
   { id: 'readiness', label: 'Vehicle & Business', items: [

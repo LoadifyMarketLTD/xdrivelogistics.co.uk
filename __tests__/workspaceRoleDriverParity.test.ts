@@ -53,6 +53,7 @@ describe('driver parity across dual identity contexts', () => {
       '/driver/jobs',
       '/driver/loads',
       '/driver/messages',
+      '/driver/nearby',
       '/driver/profile',
       '/driver/quotes',
       '/driver/returns',
