@@ -485,7 +485,7 @@ export default function SuperAdminOperationsControlCentre() {
 
             <footer className={styles.footer}>
               <div><div className={styles.footerBrand}>XDrive Logistics LTD</div><div className={styles.footerTagline}>Your Freight. Our Priority.</div></div>
-              <div className={styles.footerLinks}><Link href="/request-quote">Get a Quote</Link><Link href="/contact">Contact</Link><span>© {new Date().getFullYear()} XDrive Logistics</span></div>
+              <div className={styles.footerLinks}><Link href="/track">Track Shipment</Link><Link href="/quote">Get a Quote</Link><Link href="/contact">Contact</Link><span>© {new Date().getFullYear()} XDrive Logistics</span></div>
             </footer>
           </>
         )}
