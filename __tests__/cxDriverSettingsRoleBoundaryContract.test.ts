@@ -7,7 +7,8 @@ const settings = fs.readFileSync(path.join(process.cwd(), 'app/components/worksp
 
 describe('CX-informed Driver vs Owner Driver settings boundary', () => {
   it('does not present every signed-in driver as an Owner Driver', () => {
-    expect(page).toContain("user?.ownerDriverWorkspace ? 'owner' as const : 'driver' as const");
+    expect(page).toContain('resolveWorkspaceRole(user)');
+    expect(page).toContain("workspaceRole === 'owner_driver' ? 'owner' as const : 'driver' as const");
     expect(page).toContain('<RoleSettingsWorkspace role={settingsRole} />');
   });
 
