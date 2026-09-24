@@ -74,10 +74,14 @@ export async function GET(request: NextRequest) {
     const bidderCompanyIds = [...new Set((receivedBids ?? [])
       .map((bid) => typeof bid.company_id === 'string' ? bid.company_id : '')
       .filter(Boolean))];
-    const { data: bidderCompanies, error: bidderCompaniesError } = bidderCompanyIds.length
-      ? await supabaseAdmin.from('companies').select('id,name,xd_id').in('id', bidderCompanyIds)
-      : { data: [], error: null };
+    const [{ data: bidderCompanies, error: bidderCompaniesError }, { data: postingCompany, error: postingCompanyError }] = await Promise.all([
+      bidderCompanyIds.length
+        ? supabaseAdmin.from('companies').select('id,name,xd_id').in('id', bidderCompanyIds)
+        : Promise.resolve({ data: [], error: null }),
+      supabaseAdmin.from('companies').select('id,name,xd_id').eq('id', driver.companyId).maybeSingle(),
+    ]);
     if (bidderCompaniesError) return respond(500, { error: bidderCompaniesError.message });
+    if (postingCompanyError) return respond(500, { error: postingCompanyError.message });
 
     const companyById = new Map((bidderCompanies ?? []).map((company) => [String(company.id), company]));
     const jobById = new Map((ownedJobs ?? []).map((job) => [String(job.id), job]));
@@ -107,6 +111,8 @@ export async function GET(request: NextRequest) {
           weightKg: job?.weight_kg ?? null,
           itemCount: job?.no_of_items ?? null,
           jobStatus: job?.current_status || job?.status || null,
+          postingCompanyName: postingCompany?.name || 'Your company',
+          postingMemberId: postingCompany?.xd_id || null,
           bidderName: bidderCompany?.name || 'XDrive member',
           bidderMemberId: bidderCompany?.xd_id || null,
           canManage: bid.status === 'submitted',
