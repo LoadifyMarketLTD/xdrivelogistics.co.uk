@@ -196,7 +196,7 @@ export default function OperationsDiaryPage() {
   const [assigning, setAssigning] = useState<string | null>(null);
   const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
   const [detailTabByJob, setDetailTabByJob] = useState<Record<string, JobSheetTab>>({});
 
   const load = useCallback(async () => {
@@ -364,7 +364,6 @@ export default function OperationsDiaryPage() {
         eyebrow="Operations"
         title="Diary"
         description="Post-award bookings, allocation, evidence and authorised job records in one operating register."
-        actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
@@ -373,7 +372,7 @@ export default function OperationsDiaryPage() {
         <aside className="workspace-filter-rail" aria-label="Diary search filters">
           <div className="workspace-filter-rail__header">Search Panel</div>
           <div className="workspace-filter-rail__body">
-            <label>BOOKING SCOPE<select value={search.scope} onChange={(event) => setSearch((current) => ({ ...current, scope: event.target.value as SearchState['scope'] }))}><option value="all">All</option><option value="subcontracted">Jobs Sub-contracted</option><option value="ours">Our Bookings</option></select></label>
+            <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>BOOKING SCOPE</legend><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="all" checked={search.scope === 'all'} onChange={() => setSearch((current) => ({ ...current, scope: 'all' }))} /> All</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="subcontracted" checked={search.scope === 'subcontracted'} onChange={() => setSearch((current) => ({ ...current, scope: 'subcontracted' }))} /> Jobs Sub-contracted</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="ours" checked={search.scope === 'ours'} onChange={() => setSearch((current) => ({ ...current, scope: 'ours' }))} /> Our Bookings</label></fieldset>
             <label>FROM<input value={search.from} onChange={(event) => setSearch((current) => ({ ...current, from: event.target.value }))} placeholder="Pickup town / postcode" /></label>
             <label>TO<input value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Delivery town / postcode" /></label>
             <label>PICKUP TIME WITHIN<select value={search.pickupWindow} onChange={(event) => setSearch((current) => ({ ...current, pickupWindow: event.target.value as SearchState['pickupWindow'] }))}><option value="any">Any</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
@@ -388,26 +387,37 @@ export default function OperationsDiaryPage() {
         </aside>
 
         <main className="workspace-board-main" style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" role="tablist" aria-label="Diary states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            {TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} <span>{counts[item.id]}</span></button>)}
-          </div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
-            <span>{filtered.length} matching booking{filtered.length === 1 ? '' : 's'} · {visible.length} shown</span>
-            <span style={{ display: 'inline-flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-              <span role="group" aria-label="Diary view mode" style={{ display: 'inline-flex', gap: 3 }}>
-                <button type="button" aria-pressed={viewMode === 'list'} onClick={() => setViewMode('list')} style={viewModeButtonStyle(viewMode === 'list')}>List View</button>
-                <button type="button" aria-pressed={viewMode === 'split'} onClick={() => setViewMode('split')} style={viewModeButtonStyle(viewMode === 'split')}>Split View</button>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between', minHeight: 34, marginBottom: 4 }}>
+            <span style={{ display: 'inline-flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <strong>Diary</strong>
+              <span role="group" aria-label="Diary view mode" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
+                <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center', cursor: 'pointer' }}><input type="radio" name="diary-view-mode" checked={viewMode === 'list'} onChange={() => setViewMode('list')} /> List View</label>
+                <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center', cursor: 'pointer' }}><input type="radio" name="diary-view-mode" checked={viewMode === 'split'} onChange={() => setViewMode('split')} /> Split View</label>
               </span>
-              <span>Operating-company scope only · post-award execution data</span>
+            </span>
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 onClick={toggleExpandAll}
                 disabled={!visible.length}
                 aria-label={allVisibleExpanded ? 'Collapse all visible Diary records' : 'Expand all visible Diary records'}
-                style={{ minHeight: 24, border: '1px solid var(--ws-border)', borderRadius: 4, background: '#fff', color: '#0B2F6B', padding: '0 8px', fontSize: 11, fontWeight: 600, cursor: visible.length ? 'pointer' : 'not-allowed' }}
+                style={{ minHeight: 26, border: '1px solid var(--ws-border)', borderRadius: 4, background: '#fff', color: '#0B2F6B', padding: '0 9px', fontSize: 11, fontWeight: 700, cursor: visible.length ? 'pointer' : 'not-allowed' }}
               >
                 {allVisibleExpanded ? 'Collapse all' : 'Expand all'}
               </button>
+              <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
+            </span>
+          </div>
+          <div className="workspace-tab-strip" role="tablist" aria-label="Diary states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
+            {TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} <span>{counts[item.id]}</span></button>)}
+          </div>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between', minHeight: 32 }}>
+            <span>{filtered.length} matching booking{filtered.length === 1 ? '' : 's'} · {visible.length} shown</span>
+            <span style={{ display: 'inline-flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+              <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>Items per Page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} style={{ height: 26 }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+              <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page" style={viewModeButtonStyle(false)}>‹</button>
+              <span>{filtered.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filtered.length)}`} of {filtered.length}</span>
+              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} aria-label="Next Diary page" style={viewModeButtonStyle(false)}>›</button>
             </span>
           </div>
 
@@ -508,7 +518,6 @@ export default function OperationsDiaryPage() {
 
           )}
 
-          {filtered.length > pageSize && <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span>Page {safePage} / {totalPages}</span><span style={{ display: 'flex', gap: 4, alignItems: 'center' }}><label>Per page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} style={{ height: 28 }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><ActionButton tone="secondary" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</ActionButton><ActionButton tone="secondary" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</ActionButton></span></div>}
         </main>
       </div>
     </PageFrame>
