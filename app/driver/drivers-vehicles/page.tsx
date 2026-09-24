@@ -75,7 +75,6 @@ export default function DriverDriversVehiclesPage() {
         <div className="subbar">
           <span className="crumb">Workspace &nbsp;/&nbsp; <b>Drivers & Vehicles</b></span>
           <div className="sub-actions">
-            <button type="button" className="btn" onClick={() => router.push('/driver/account')}>Company Profile</button>
             <button type="button" className="btn primary" disabled={!canManage} onClick={() => router.push('/driver/vehicles')}>Add Vehicle</button>
           </div>
         </div>
