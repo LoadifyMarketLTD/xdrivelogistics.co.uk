@@ -198,6 +198,7 @@ export default function OperationsDiaryPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [detailTabByJob, setDetailTabByJob] = useState<Record<string, JobSheetTab>>({});
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
 
   const load = useCallback(async () => {
     if (!companyId) { setJobs([]); setDrivers([]); setReviewsByJob({}); setLoading(false); return; }
@@ -249,6 +250,19 @@ export default function OperationsDiaryPage() {
   }, [companyId]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('xdrive:operations-diary:default-search');
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as Partial<SearchState>;
+      const restored = { ...EMPTY_SEARCH, ...parsed } as SearchState;
+      setSearch(restored);
+      setAppliedSearch(restored);
+      setSaveAsDefault(true);
+    } catch {
+      window.localStorage.removeItem('xdrive:operations-diary:default-search');
+    }
+  }, []);
   useEffect(() => {
     if (!deepJob) return;
     setExpandedIds((current) => {
@@ -356,7 +370,16 @@ export default function OperationsDiaryPage() {
     } finally { setAssigning(null); }
   };
 
+  const applySearch = () => {
+    setAppliedSearch(search);
+    if (saveAsDefault) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
+  };
   const clearSearch = () => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); };
+  const toggleDefaultSearch = (checked: boolean) => {
+    setSaveAsDefault(checked);
+    if (checked) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
+    else window.localStorage.removeItem('xdrive:operations-diary:default-search');
+  };
 
   return (
     <PageFrame>
@@ -383,7 +406,8 @@ export default function OperationsDiaryPage() {
             <label>MEMBER / DRIVER<select value={search.driver} onChange={(event) => setSearch((current) => ({ ...current, driver: event.target.value }))}><option value="">All drivers</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.email ?? 'Driver'}</option>)}</select></label>
             <label>DATE FROM<input type="date" value={search.dateFrom} onChange={(event) => setSearch((current) => ({ ...current, dateFrom: event.target.value }))} /></label>
             <label>DATE TO<input type="date" value={search.dateTo} onChange={(event) => setSearch((current) => ({ ...current, dateTo: event.target.value }))} /></label>
-            <div className="workspace-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={clearSearch}>Clear</ActionButton></div>
+            <label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={saveAsDefault} onChange={(event) => toggleDefaultSearch(event.target.checked)} /> Save as Default</label>
+            <div className="workspace-filter-actions"><ActionButton tone="success" onClick={applySearch}>Search</ActionButton><ActionButton tone="secondary" onClick={clearSearch}>Clear</ActionButton></div>
           </div>
         </aside>
 
