@@ -22,7 +22,7 @@ describe('Broker approved prototype convergence contract', () => {
   });
 
   it('preserves commercial and operational routes', () => {
-    for (const route of ['/broker/post-load','/broker/compare-quotes','/broker/enquiries','/broker/pod-review','/broker/finance','/broker/margins','/broker/jobs']) expect(source).toContain(route);
+    for (const route of ['/broker/post-load','/broker/bids','/broker/enquiries','/broker/pod-review','/broker/finance','/broker/margins','/broker/jobs']) expect(source).toContain(route);
   });
 
   it('retains truthful unavailable states for jobs, quotes and invoices', () => {

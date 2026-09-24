@@ -172,8 +172,6 @@ function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
     ] },
     { id: 'broker-commercial', label: 'Commercial', items: [
       { id: 'broker-carrier-quotes', label: 'Carrier Quotes', href: '/broker/bids', icon: '▣' },
-      { id: 'broker-compare-quotes', label: 'Compare Quotes', href: '/broker/compare-quotes', icon: '⇄' },
-      { id: 'broker-awards', label: 'Awards', href: '/broker/awards', icon: '✓' },
       { id: 'broker-margin', label: 'Margin / Profit', href: '/broker/margins', icon: '%' },
     ] },
     { id: 'broker-operations', label: 'Operations', items: [
