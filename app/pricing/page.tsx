@@ -44,7 +44,7 @@ function PlanCard({ plan }: { plan: typeof plans[number] }) {
 }
 
 export default function PricingPage() {
-  return <div className="min-h-screen bg-[#F4F6FA] text-[#102447]">
+  return <div className="marketing-editorial min-h-screen bg-[#F4F6FA] text-[#102447]">
     <header className="sticky top-0 z-50 border-b border-[#DDE5EF] bg-white/95 text-[#163568] backdrop-blur-xl">
       <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
         <div className="flex items-center gap-3"><Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link><span className="hidden rounded-full border border-[#F5A300]/35 bg-[#FFF7E5] px-3 py-1.5 text-[0.64rem] font-black uppercase tracking-[0.1em] text-[#A56B00] md:inline-flex">3 Months Free</span></div>
