@@ -9,7 +9,7 @@ import { getCanonicalSiteOrigin, getCanonicalSiteUrl } from '../lib/siteUrl'
 
 const canonicalSiteUrl = getCanonicalSiteUrl()
 const canonicalSiteOrigin = getCanonicalSiteOrigin()
-const platformDescription = 'XDrive is a UK courier and freight exchange platform connecting customers, brokers, owner drivers and carriers from posted work and quotes through award, dispatch, POD and finance-ready records. Access is currently by application.'
+const platformDescription = 'XDrive is a courier and freight exchange platform connecting customers, brokers, owner drivers and carriers from posted work and quotes through award, dispatch, POD and invoice readiness. Access is currently by application.'
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -85,67 +85,30 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
-  const structuredData = {
-    '@context': 'https://schema.org',
-    '@graph': [
-      {
-        '@type': 'Organization',
-        '@id': `${canonicalSiteOrigin}/#organization`,
-        name: COMPANY_CONFIG.name,
-        legalName: COMPANY_CONFIG.legalName,
-        url: canonicalSiteOrigin,
-        logo: `${canonicalSiteOrigin}/xdrive-logo-primary.png`,
-        description: platformDescription,
-        identifier: {
-          '@type': 'PropertyValue',
-          propertyID: 'UK Companies House company number',
-          value: COMPANY_CONFIG.companyNumber,
-        },
-        vatID: COMPANY_CONFIG.vat.registrationNumber,
-        email: COMPANY_CONFIG.email,
-        telephone: COMPANY_CONFIG.phone,
-        address: {
-          '@type': 'PostalAddress',
-          streetAddress: COMPANY_CONFIG.address.street,
-          addressLocality: COMPANY_CONFIG.address.city,
-          postalCode: COMPANY_CONFIG.address.postcode,
-          addressCountry: 'GB',
-        },
-      },
-      {
-        '@type': 'WebSite',
-        '@id': `${canonicalSiteOrigin}/#website`,
-        url: canonicalSiteOrigin,
-        name: COMPANY_CONFIG.name,
-        publisher: { '@id': `${canonicalSiteOrigin}/#organization` },
-        inLanguage: 'en-GB',
-      },
-      {
-        '@type': 'SoftwareApplication',
-        '@id': `${canonicalSiteOrigin}/#platform`,
-        name: 'XDrive Logistics Platform',
-        applicationCategory: 'BusinessApplication',
-        applicationSubCategory: 'Courier and freight exchange platform',
-        operatingSystem: 'Web',
-        url: `${canonicalSiteOrigin}/platform`,
-        description: platformDescription,
-        provider: { '@id': `${canonicalSiteOrigin}/#organization` },
-        audience: {
-          '@type': 'BusinessAudience',
-          audienceType: 'Transport customers, brokers, owner drivers and carriers',
-        },
-      },
-    ],
-  }
-
   return (
     <html lang="en" data-scroll-behavior="smooth">
       <head>
         <script
-          id="xdrive-structured-data"
+          id="organization-schema"
           type="application/ld+json"
           suppressHydrationWarning
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify({
+              "@context": "https://schema.org",
+              "@type": "Organization",
+              "name": "XDrive Logistics",
+              "legalName": "XDrive Logistics Ltd",
+              "url": canonicalSiteOrigin,
+              "logo": `${canonicalSiteOrigin}/xdrive-logo-primary.png`,
+              "address": {
+                "@type": "PostalAddress",
+                "streetAddress": "101 Cornelian Street",
+                "addressLocality": "Blackburn",
+                "postalCode": "BB1 9QL",
+                "addressCountry": "GB"
+              }
+            })
+          }}
         />
       </head>
       <body>
