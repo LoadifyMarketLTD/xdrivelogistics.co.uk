@@ -30,6 +30,8 @@ describe('Driver native received quotes contract', () => {
     expect(bids).toContain(".from('jobs')");
     expect(bids).toContain(".eq('company_id', driver.companyId)");
     expect(bids).toContain(".in('job_id', jobIds)");
+    expect(bids).toContain("postingCompanyName: postingCompany?.name || 'Your company'");
+    expect(bids).toContain("postingMemberId: postingCompany?.xd_id || null");
     expect(bids).toContain("canManage: bid.status === 'submitted'");
   });
 
