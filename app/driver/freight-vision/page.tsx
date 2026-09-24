@@ -196,14 +196,21 @@ export default function DriverFreightVisionPage() {
               <div className="splitlist">
                 <div className="cardhead">Freight Vision <span className="spacer">{displayedJobs.length} loads</span></div>
                 {displayedJobs.map((job) => (
-                  <button key={job.id} type="button" className="vision-job" onClick={() => router.push(`/driver/jobs/${job.id}`)}>
-                    <div className="grow">
-                      <b>{job.id.slice(0, 8).toUpperCase()}</b>
-                      <span className="meta">{route(job.pickup_location, job.pickup_postcode)} → {route(job.delivery_location, job.delivery_postcode)}</span>
-                      <span className="meta">ETA {trackingByJob[job.id]?.eta?.eta_at ? new Date(trackingByJob[job.id].eta!.eta_at).toLocaleString('en-GB') : job.delivery_datetime ? `Planned ${new Date(job.delivery_datetime).toLocaleString('en-GB')}` : 'Not available'}</span>
+                  <article key={job.id} className="vision-job" style={{ display: 'grid', gap: 6 }}>
+                    <button type="button" onClick={() => router.push(`/driver/jobs/${job.id}`)} style={{ display: 'flex', alignItems: 'center', gap: 8, width: '100%', border: 0, background: 'transparent', padding: 0, textAlign: 'left', cursor: 'pointer' }}>
+                      <div className="grow">
+                        <b>{job.id.slice(0, 8).toUpperCase()}</b>
+                        <span className="meta">{route(job.pickup_location, job.pickup_postcode)} → {route(job.delivery_location, job.delivery_postcode)}</span>
+                        <span className="meta">ETA {trackingByJob[job.id]?.eta?.eta_at ? new Date(trackingByJob[job.id].eta!.eta_at).toLocaleString('en-GB') : job.delivery_datetime ? `Planned ${new Date(job.delivery_datetime).toLocaleString('en-GB')}` : 'Not available'}</span>
+                      </div>
+                      <StatusBadge value={human(job.current_status ?? job.status)} />
+                    </button>
+                    <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                      <button type="button" className="rowbtn blue" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open Job</button>
+                      <button type="button" className="rowbtn" onClick={() => router.push(`/driver/history?job=${encodeURIComponent(job.id)}`)}>Diary</button>
+                      <button type="button" className="rowbtn" onClick={() => router.push(`/driver/messages?jobId=${encodeURIComponent(job.id)}`)}>Message</button>
                     </div>
-                    <StatusBadge value={human(job.current_status ?? job.status)} />
-                  </button>
+                  </article>
                 ))}
                 {!loading && displayedJobs.length === 0 && <div className="xd2-calm-empty"><b>No visible Driver jobs</b><span>{scope === 'tracked' ? 'No approved live tracking positions are available.' : riskFilter !== 'all' ? 'No jobs match this Freight Vision signal.' : 'Allocated or executing work will appear here.'}</span></div>}
               </div>

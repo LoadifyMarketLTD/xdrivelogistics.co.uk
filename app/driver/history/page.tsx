@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import DriverInvoicePreviewModal from '../_components/DriverInvoicePreviewModal';
@@ -293,6 +293,8 @@ function cargoDimensions(sheet: OrderSheet | null | undefined, job: HistoryJob) 
 export default function JobHistoryPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const deepJob = searchParams.get('job');
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
   const [jobs, setJobs] = useState<HistoryJob[]>([]);
   const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>({});
@@ -452,6 +454,14 @@ export default function JobHistoryPage() {
   const safePage = Math.min(page, totalPages);
   const visibleJobs = visibleFiltered.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
   useEffect(() => { setPage(1); }, [statusFilter, appliedSearch, itemsPerPage]);
+  useEffect(() => {
+    if (!deepJob || !jobs.some((job) => job.id === deepJob)) return;
+    setStatusFilter('all');
+    setExpandedIds((current) => new Set(current).add(deepJob));
+    setSelectedJobId(deepJob);
+    setDetailTabs((current) => ({ ...current, [deepJob]: current[deepJob] ?? 'order' }));
+    void fetchOrderSheet(deepJob);
+  }, [deepJob, fetchOrderSheet, jobs]);
   useEffect(() => {
     if (viewMode !== 'split') return;
     if (selectedJobId && visibleJobs.some((job) => job.id === selectedJobId)) return;
