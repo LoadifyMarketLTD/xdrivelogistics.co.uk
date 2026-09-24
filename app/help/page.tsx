@@ -40,7 +40,7 @@ export default function HelpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F9FC] text-[#102447]">
+    <div className="marketing-editorial min-h-screen bg-[#F7F9FC] text-[#102447]">
       <script
         id="xdrive-faq-schema"
         type="application/ld+json"
