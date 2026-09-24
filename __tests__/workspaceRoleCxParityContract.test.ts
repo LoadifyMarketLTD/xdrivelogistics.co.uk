@@ -62,6 +62,7 @@ describe('CX-informed XDrive workspace role contract', () => {
   it('enforces owner-only editing of canonical company identity in Settings', () => {
     const settings = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/RoleSettingsWorkspace.tsx'), 'utf8');
     expect(settings).toContain("const canEditCompany = membershipRole === 'owner';");
-    expect(settings).not.toContain("membershipRole === 'owner' || membershipRole === 'admin'");
+    expect(settings).toContain("const canManageCompanyOperations = membershipRole === 'owner' || membershipRole === 'admin';");
+    expect(settings).toContain('disabled={!canEditCompany}');
   });
 });

@@ -123,6 +123,8 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
   // CX-style role boundary: only the account owner/sole trader edits the canonical company profile.
   // Company admins retain day-to-day operational management but company identity remains view-only.
   const canEditCompany = membershipRole === 'owner';
+  const canManageCompanyOperations = membershipRole === 'owner' || membershipRole === 'admin';
+  const canManageBilling = canManageCompanyOperations;
 
   useEffect(() => {
     if (role !== 'owner' && role !== 'driver') return;
@@ -267,24 +269,24 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
     { label: 'Overview', action: () => setSection('overview'), active: section === 'overview' },
     { label: 'My Profile', action: () => setSection('profile'), active: section === 'profile' },
     ...(role === 'driver' ? [] : [{ label: 'Company Profile', action: () => setSection('company'), active: section === 'company' }]),
-    ...(routes.team ? [{ label: 'Users & Permissions', action: () => router.push(routes.team!), active: false }] : []),
-    ...(role === 'owner' ? [{ label: 'Drivers / Staff', action: () => router.push('/driver/drivers-vehicles'), active: false }] : []),
-    ...(role === 'fleet' ? [{ label: 'Drivers / Staff', action: () => router.push('/admin/drivers'), active: false }] : []),
-    ...(routes.vehicles ? [{ label: 'Vehicles / Assets', action: () => router.push(routes.vehicles!), active: false }] : []),
+    ...(routes.team && canManageCompanyOperations ? [{ label: 'Users & Permissions', action: () => router.push(routes.team!), active: false }] : []),
+    ...(role === 'owner' && canManageCompanyOperations ? [{ label: 'Drivers / Staff', action: () => router.push('/driver/drivers-vehicles'), active: false }] : []),
+    ...(role === 'fleet' && canManageCompanyOperations ? [{ label: 'Drivers / Staff', action: () => router.push('/admin/drivers'), active: false }] : []),
+    ...(routes.vehicles && canManageCompanyOperations ? [{ label: 'Vehicles / Assets', action: () => router.push(routes.vehicles!), active: false }] : []),
     ...(routes.documents ? [{ label: 'Documents', action: () => router.push(routes.documents!), active: false }] : []),
-    ...(role === 'driver' ? [] : [{ label: 'Billing & Membership', action: () => router.push('/settings/billing'), active: false }]),
+    ...(role !== 'driver' && canManageBilling ? [{ label: 'Billing & Membership', action: () => router.push('/settings/billing'), active: false }] : []),
     ...(routes.notifications ? [{ label: 'Notifications & Alerts', action: () => router.push(routes.notifications!), active: false }] : []),
     { label: 'Security', action: () => setSection('security'), active: section === 'security' },
     ...(routes.audit ? [{ label: 'Audit / Event Log', action: () => router.push(routes.audit!), active: false }] : []),
     { label: 'Support', action: () => router.push('/help'), active: false },
-  ], [role, router, routes.audit, routes.documents, routes.notifications, routes.team, routes.vehicles, section]);
+  ], [canManageBilling, canManageCompanyOperations, role, router, routes.audit, routes.documents, routes.notifications, routes.team, routes.vehicles, section]);
 
   return (
     <PageFrame>
       <PageHeader
         eyebrow={ROLE_LABEL[role]}
         title="Settings"
-        description="Company, profile, membership and workspace controls using the live XDrive account records."
+        description={role === 'driver' ? 'Personal profile, security, documents and workspace preferences for the signed-in driver.' : 'Company, profile, membership and workspace controls using the live XDrive account records.'}
         actions={
           section === 'company'
             ? <ActionButton tone="primary" disabled={!canEditCompany || saving || loading} onClick={() => void saveCompany()}>{saving ? 'Saving…' : 'Save'}</ActionButton>
@@ -328,7 +330,7 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
                 </div>
                 <div className="role-settings-actions">
                   {role !== 'driver' && <ActionButton tone="secondary" onClick={() => setSection('company')}>Company Profile</ActionButton>}
-                  {role !== 'driver' && <ActionButton tone="secondary" onClick={() => router.push('/settings/billing')}>Membership & Billing</ActionButton>}
+                  {role !== 'driver' && canManageBilling && <ActionButton tone="secondary" onClick={() => router.push('/settings/billing')}>Membership & Billing</ActionButton>}
                   {role === 'driver' && <ActionButton tone="secondary" onClick={() => setSection('profile')}>My Profile</ActionButton>}
                 </div>
               </Panel>
