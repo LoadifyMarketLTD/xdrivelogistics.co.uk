@@ -46,6 +46,7 @@ describe('CX surgical parity for Driver Loads, Quotes and Diary', () => {
     expect(diary).toContain("router.push('/driver/directory')");
     expect(diary).toContain('>Contacts</ActionButton>');
     expect(diary).toContain("router.push('/driver/finance')");
+    for (const filter of ['Member / Driver', 'Booked by', 'Customer Name']) expect(diary).toContain(filter);
     for (const label of ['POD', 'Order', 'Notes', 'History', 'Documents', 'Invoice']) {
       expect(diary).toContain(`label: '${label}'`);
     }

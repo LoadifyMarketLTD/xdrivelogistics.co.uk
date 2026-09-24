@@ -158,9 +158,9 @@ type OrderSheet = {
 type ReviewRow = { id: string; job_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
 type DocumentRow = { id: string; job_id: string | null; file_name: string | null; file_type: string | null; file_url: string | null; uploaded_at: string | null };
 type TrackingEventRow = { id: string; job_id: string | null; event_type: string | null; event_time: string | null; user_name: string | null; notes: string | null; message: string | null };
-type SearchFilters = { dateRange: DateRange; pickupWithin: TimeWindow; deliveryWithin: TimeWindow; loadRef: string; memberName: string; archive: ArchiveFilter };
+type SearchFilters = { dateRange: DateRange; pickupWithin: TimeWindow; deliveryWithin: TimeWindow; loadRef: string; memberName: string; bookedBy: string; customerName: string; archive: ArchiveFilter };
 
-const EMPTY_SEARCH: SearchFilters = { dateRange: 'any', pickupWithin: 'any', deliveryWithin: 'any', loadRef: '', memberName: '', archive: 'all' };
+const EMPTY_SEARCH: SearchFilters = { dateRange: 'any', pickupWithin: 'any', deliveryWithin: 'any', loadRef: '', memberName: '', bookedBy: '', customerName: '', archive: 'all' };
 const FILTERS: Array<{ id: HistoryFilter; label: string }> = [
   { id: 'all', label: 'All' }, { id: 'unallocated', label: 'Unallocated' }, { id: 'allocated', label: 'Allocated' },
   { id: 'in_progress', label: 'In Progress' }, { id: 'completed', label: 'Completed' }, { id: 'cancelled', label: 'Cancelled' },
@@ -412,8 +412,11 @@ export default function JobHistoryPage() {
     if (appliedSearch.archive === 'active' && isClosedRecord(job)) return false;
     if (appliedSearch.archive === 'closed' && !isClosedRecord(job)) return false;
     const refNeedle = appliedSearch.loadRef.trim().toLowerCase(); const memberNeedle = appliedSearch.memberName.trim().toLowerCase();
+    const bookedByNeedle = appliedSearch.bookedBy.trim().toLowerCase(); const customerNeedle = appliedSearch.customerName.trim().toLowerCase();
     if (refNeedle && ![job.id, job.customer_reference, job.booking_reference].filter(Boolean).join(' ').toLowerCase().includes(refNeedle)) return false;
-    if (memberNeedle && !(job.companies?.name ?? '').toLowerCase().includes(memberNeedle)) return false;
+    if (memberNeedle && ![job.companies?.name, job.assigned_driver_id].filter(Boolean).join(' ').toLowerCase().includes(memberNeedle)) return false;
+    if (bookedByNeedle && !(job.companies?.name ?? '').toLowerCase().includes(bookedByNeedle)) return false;
+    if (customerNeedle && ![job.customer_reference, job.booking_reference, job.load_details].filter(Boolean).join(' ').toLowerCase().includes(customerNeedle)) return false;
     return true;
   }), [appliedSearch, jobs]);
   const visibleFiltered = useMemo(() => searchedJobs.filter((job) => filterMatches(job, statusFilter, reviewsByJob[job.id] ?? [])), [reviewsByJob, searchedJobs, statusFilter]);
@@ -438,7 +441,9 @@ export default function JobHistoryPage() {
         <div className="filter"><span className="label">Pickup Time Within</span><select value={search.pickupWithin} onChange={(e) => setSearch((current) => ({ ...current, pickupWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
         <div className="filter"><span className="label">Delivery Time Within</span><select value={search.deliveryWithin} onChange={(e) => setSearch((current) => ({ ...current, deliveryWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
         <div className="filter"><span className="label">Load ID / Ref</span><input value={search.loadRef} onChange={(e) => setSearch((current) => ({ ...current, loadRef: e.target.value }))} placeholder="Job, booking or ref" /></div>
-        <div className="filter"><span className="label">Member Name / ID</span><input value={search.memberName} onChange={(e) => setSearch((current) => ({ ...current, memberName: e.target.value }))} placeholder="Company name" /></div>
+        <div className="filter"><span className="label">Member / Driver</span><input value={search.memberName} onChange={(e) => setSearch((current) => ({ ...current, memberName: e.target.value }))} placeholder="Member, driver or vehicle" /></div>
+        <div className="filter"><span className="label">Booked by</span><input value={search.bookedBy} onChange={(e) => setSearch((current) => ({ ...current, bookedBy: e.target.value }))} placeholder="Booking company" /></div>
+        <div className="filter"><span className="label">Customer Name</span><input value={search.customerName} onChange={(e) => setSearch((current) => ({ ...current, customerName: e.target.value }))} placeholder="Customer or reference" /></div>
         <div className="filter"><span className="label">Archived</span><select value={search.archive} onChange={(e) => setSearch((current) => ({ ...current, archive: e.target.value as ArchiveFilter }))}><option value="all">All records</option><option value="active">Active register</option><option value="closed">Closed records</option></select></div>
         <div className="driver-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={() => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); }}>Clear</ActionButton></div>
         <ActionButton tone="secondary" onClick={() => router.push('/driver/directory')}>Contacts</ActionButton>
