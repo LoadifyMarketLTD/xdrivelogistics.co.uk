@@ -26,7 +26,7 @@ describe('Invoice PDF fiscal totals contract', () => {
   it('renders the issuer company number when supplied', () => {
     expect(source).toContain('if (input.issuerCompanyNumber)');
     expect(source).toContain('Company No. ${pdfText(input.issuerCompanyNumber');
-    expect(previewRoute).toContain('issuerCompanyNumber: company.company_number');
+    expect(previewRoute).toContain('issuerCompanyNumber: cleanText(invoice.issuer_company_number_snapshot) || company.company_number');
   });
 
   it('renders net, VAT rate/amount and the existing payable total from canonical numeric fields', () => {

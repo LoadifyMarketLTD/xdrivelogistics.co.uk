@@ -9,6 +9,7 @@ import {
   supabaseValidator,
 } from '../../../../../_lib/supabaseAdmin';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
+import { DEFAULT_INVOICE_EMAIL_MESSAGE, DEFAULT_INVOICE_EMAIL_SUBJECT } from '../../../../../../../lib/invoiceEmailTemplate';
 import {
   normalizeInvoiceVatTreatment,
   validateInvoiceVatTotals,
@@ -35,25 +36,6 @@ const cleanHeader = (value: unknown) =>
 
 const validEmail = (value: string) =>
   value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
-
-const DEFAULT_EMAIL_SUBJECT = 'Invoice from [[My company]] - Load: [[Load ID]]';
-const DEFAULT_EMAIL_MESSAGE = `Dear [[Customer company]],
-
-I am attaching Invoice [[Invoice number]] for Load [[Load ID]].
-
-Details:
-Late commercial payments may be subject to statutory interest and recovery-cost compensation where applicable.
-
-Invoice: [[Invoice number]]
-Date: [[Invoice date]]
-Amount Due: [[Currency symbol]][[Gross total]]
-Load: [[Load ID]]
-Supplier: [[My company]]
-
-Please let us know if you have any questions.
-
-All the best,
-[[My company]]`;
 
 const cleanTemplateText = (value: unknown, maxLength: number) =>
   typeof value === 'string'
@@ -335,7 +317,7 @@ export async function POST(
 
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
-    .select('name, address_line1, address_line2, city, postcode, company_number, vat_number')
+    .select('name, address_line1, address_line2, city, postcode, company_number, vat_number, xd_id')
     .eq('id', sender.companyId)
     .maybeSingle();
   if (companyError) return failDelivery(500, companyError.message);
@@ -373,11 +355,11 @@ export async function POST(
     'Load ID': jobReference,
   };
   const resolvedSubject = cleanHeader(replaceTemplateTokens(
-    requestedSubject || DEFAULT_EMAIL_SUBJECT,
+    requestedSubject || DEFAULT_INVOICE_EMAIL_SUBJECT,
     templateValues,
   ));
   const resolvedMessage = replaceTemplateTokens(
-    requestedMessage || DEFAULT_EMAIL_MESSAGE,
+    requestedMessage || DEFAULT_INVOICE_EMAIL_MESSAGE,
     templateValues,
   ).trim();
 
@@ -400,22 +382,30 @@ export async function POST(
       dueDate: String(claimedInvoice.due_date ?? new Date().toISOString().slice(0, 10)),
       issuerName: companyName,
       issuerAddress,
-      issuerCompanyNumber: company.company_number as string | null,
+      issuerCompanyNumber: cleanHeader(claimedInvoice.issuer_company_number_snapshot) || company.company_number as string | null,
       issuerVatNumber: issuerVatNumber || null,
+      issuerXdId: cleanHeader(claimedInvoice.issuer_xd_id_snapshot) || cleanHeader(company.xd_id) || null,
       issuerEmail: pdfContext.issuerEmail,
       issuerPhone: pdfContext.issuerPhone,
       issuerWebsite: 'www.xdrivelogistics.co.uk',
       clientName,
       clientAddress: claimedInvoice.client_address as string | null,
       clientEmail: recipientEmail,
+      customerCompanyNumber: cleanHeader(claimedInvoice.customer_company_number_snapshot) || null,
       customerVatNumber: customerVatNumber || null,
+      customerXdId: cleanHeader(claimedInvoice.customer_xd_id_snapshot) || null,
+      customerReference: cleanHeader(claimedInvoice.customer_ref) || null,
+      loadId: cleanHeader(claimedInvoice.load_id) || null,
+      orderedAt: cleanHeader(claimedInvoice.ordered_at) || null,
+      leftAt: cleanHeader(claimedInvoice.left_at) || null,
+      deliveryNotes: cleanTemplateText(claimedInvoice.delivery_notes, 500) || null,
       pickupLocation: claimedInvoice.pickup_location as string | null,
       pickupDateTime: pdfContext.pickupDateTime ?? claimedInvoice.pickup_datetime as string | null,
       deliveryLocation: claimedInvoice.delivery_location as string | null,
-      deliveryDateTime: pdfContext.deliveryDateTime ?? claimedInvoice.delivery_datetime as string | null,
-      recipientName: pdfContext.recipientName,
-      cargoDescription: pdfContext.cargoDescription,
-      vehicleDescription: pdfContext.vehicleDescription,
+      deliveryDateTime: pdfContext.deliveryDateTime || cleanHeader(claimedInvoice.delivered_at) || cleanHeader(claimedInvoice.delivery_datetime) || null,
+      recipientName: pdfContext.recipientName || cleanHeader(claimedInvoice.delivery_recipient) || cleanHeader(claimedInvoice.recipient_name) || null,
+      cargoDescription: pdfContext.cargoDescription || cleanHeader(claimedInvoice.cargo_summary) || null,
+      vehicleDescription: pdfContext.vehicleDescription || ([cleanHeader(claimedInvoice.vehicle_type), cleanHeader(claimedInvoice.vehicle_registration)].filter(Boolean).join(' · ') || null),
       serviceDescription: cleanServiceDescription(claimedInvoice.service_description),
       bankAccountName: pdfContext.bankAccountName,
       bankSortCode: pdfContext.bankSortCode,
