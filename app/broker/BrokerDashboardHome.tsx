@@ -194,7 +194,7 @@ export default function BrokerDashboardHome() {
         actions={
           <>
             <ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>
-            <ActionButton tone="secondary" onClick={() => router.push('/broker/compare-quotes')}>Compare Quotes</ActionButton>
+            <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>Compare Quotes</ActionButton>
           </>
         }
       />
@@ -234,7 +234,7 @@ export default function BrokerDashboardHome() {
               <strong key="priority">Quotes requiring action</strong>,
               quotesUnavailable ? 'Unavailable' : metrics.awaitingAward.length,
               'Loads with submitted carrier quotes awaiting a broker decision.',
-              <ActionButton key="action" tone="warning" onClick={() => router.push('/broker/compare-quotes')}>Compare quotes</ActionButton>,
+              <ActionButton key="action" tone="warning" onClick={() => router.push('/broker/bids')}>Compare quotes</ActionButton>,
             ],
             [
               <strong key="priority">Awarded</strong>,
@@ -273,7 +273,7 @@ export default function BrokerDashboardHome() {
       <Panel
         title="Quote decisions requiring action"
         description="Loads with live carrier quotes remain directly actionable below the broker queue."
-        actions={<ActionButton tone="warning" onClick={() => router.push('/broker/compare-quotes')}>Compare all</ActionButton>}
+        actions={<ActionButton tone="warning" onClick={() => router.push('/broker/bids')}>Compare all</ActionButton>}
         style={{ marginTop: '12px' }}
       >
         <DataTable
@@ -297,7 +297,7 @@ export default function BrokerDashboardHome() {
               budget > 0 ? money(budget) : '—',
               best > 0 ? money(best) : '—',
               best > 0 && budget > 0 ? money(budget - best) : '—',
-              <ActionButton key="decision" tone="success" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>
+              <ActionButton key="decision" tone="success" onClick={() => router.push(`/broker/bids?job=${job.id}`)}>
                 Compare &amp; award
               </ActionButton>,
             ];
@@ -385,7 +385,7 @@ export default function BrokerDashboardHome() {
             <QuickActionGrid
               actions={[
                 { key: 'post', label: 'Post customer load', onClick: () => router.push('/broker/post-load') },
-                { key: 'compare', label: 'Compare carrier quotes', onClick: () => router.push('/broker/compare-quotes') },
+                { key: 'compare', label: 'Compare carrier quotes', onClick: () => router.push('/broker/bids') },
                 { key: 'network', label: 'Carrier network', onClick: () => router.push('/broker/carrier-network') },
                 { key: 'disputes', label: 'Disputes', onClick: () => router.push('/broker/disputes') },
                 { key: 'invoices', label: 'Customer invoices', onClick: () => router.push('/broker/customer-invoices') },
