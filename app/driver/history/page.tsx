@@ -351,7 +351,37 @@ export default function JobHistoryPage() {
     if (fetchError) {
       setError('Diary records could not be loaded. Please refresh and try again.'); setJobs([]); setLoading(false); return;
     }
-    const normalized = ((data ?? []) as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>).map((job) => ({ ...job, companies: normalizeCompany(job.companies) }));
+    let normalized = ((data ?? []) as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>).map((job) => ({ ...job, companies: normalizeCompany(job.companies) }));
+
+    // The direct assigned-job query can legitimately lose the related company
+    // name under client RLS. Recover only the business-facing member name from
+    // the authenticated member-profile contract so Diary cards never degrade
+    // to a misleading "Member not supplied" when company_id is known.
+    const missingCompanyIds = [...new Set(normalized.filter((job) => !job.companies?.name && job.company_id).map((job) => job.company_id))];
+    if (missingCompanyIds.length) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (token) {
+        const memberPairs = await Promise.all(missingCompanyIds.map(async (companyId) => {
+          try {
+            const response = await fetch(`/api/member-profile/${encodeURIComponent(companyId)}`, {
+              headers: { Authorization: `Bearer ${token}` },
+              cache: 'no-store',
+            });
+            if (!response.ok) return [companyId, null] as const;
+            const payload = await response.json().catch(() => ({})) as { member?: { name?: string | null } };
+            return [companyId, payload.member?.name?.trim() || null] as const;
+          } catch {
+            return [companyId, null] as const;
+          }
+        }));
+        const memberNameByCompany = new Map(memberPairs.filter((pair): pair is readonly [string, string] => Boolean(pair[1])));
+        normalized = normalized.map((job) => job.companies?.name
+          ? job
+          : { ...job, companies: memberNameByCompany.get(job.company_id) ? { name: memberNameByCompany.get(job.company_id) as string } : null });
+      }
+    }
+
     setJobs(normalized);
     const jobIds = normalized.map((job) => job.id);
     if (!jobIds.length) {

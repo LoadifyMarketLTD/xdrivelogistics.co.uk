@@ -186,7 +186,7 @@ export default function AvailableLoadsPage() {
   const [dateFromFilter, setDateFromFilter] = useState('');
   const [dateToFilter, setDateToFilter] = useState('');
   const [memberFilter, setMemberFilter] = useState('');
-  const [regionFilter, setRegionFilter] = useState<RegionFilter>('any');
+  const [regionFilter, setRegionFilter] = useState<RegionFilter>('uk_roi');
   const [postedWithinFilter, setPostedWithinFilter] = useState<PostedWithinFilter>('any');
   const [jobTimingFilter, setJobTimingFilter] = useState<JobTimingFilter>('any');
   const [loadTypeFilter, setLoadTypeFilter] = useState<LoadTypeFilter>('all');
@@ -227,7 +227,7 @@ export default function AvailableLoadsPage() {
       setVehicleFilter(saved.vehicleFilter ?? 'any'); setPickupFilter(saved.pickupFilter ?? ''); setDeliveryFilter(saved.deliveryFilter ?? '');
       setFromRadius(saved.fromRadius ?? 10); setToRadius(saved.toRadius ?? 30); setBodyFilter(saved.bodyFilter ?? ''); setJobDescriptionFilters(saved.jobDescriptionFilters ?? []);
       setCargoFilter(saved.cargoFilter ?? ''); setWeightMinFilter(saved.weightMinFilter ?? ''); setDateFromFilter(saved.dateFromFilter ?? '');
-      setDateToFilter(saved.dateToFilter ?? ''); setMemberFilter(saved.memberFilter ?? ''); setRegionFilter(saved.regionFilter ?? 'any');
+      setDateToFilter(saved.dateToFilter ?? ''); setMemberFilter(saved.memberFilter ?? ''); setRegionFilter(saved.regionFilter === 'euro' ? 'euro' : 'uk_roi');
       setPostedWithinFilter(saved.postedWithinFilter ?? 'any'); setJobTimingFilter(saved.jobTimingFilter ?? 'any'); setLoadTypeFilter(saved.loadTypeFilter ?? 'all'); setSortBy(saved.sortBy ?? 'date_desc'); setSaveAsDefault(true);
     } catch { window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); }
   }, []);
@@ -325,7 +325,7 @@ export default function AvailableLoadsPage() {
   };
   const clearFilters = () => {
     setVehicleFilter('any'); setPickupFilter(''); setDeliveryFilter(''); setFromRadius(10); setToRadius(30); setBodyFilter(''); setJobDescriptionFilters([]); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter(''); setServerMatchIds(null);
-    setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
+    setRegionFilter('uk_roi'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
   const handleBidSubmit = async (loadId: string) => {
     if (!bidAmount || bidLoading) return;

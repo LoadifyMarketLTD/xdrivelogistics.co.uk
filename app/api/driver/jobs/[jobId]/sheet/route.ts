@@ -87,10 +87,31 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ? supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('company_id', driver.companyId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle()
     : supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('bidder_driver_id', driver.driverId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle();
 
-  // Driver assignment is not, by itself, an invoice visibility grant. Driver
-  // finance remains governed by its canonical invoice access contract rather
-  // than being bypassed through this service-role enrichment endpoint.
-  const invoicePromise = Promise.resolve({ data: [], error: null });
+  // Reuse the same finance visibility rule as /api/driver/finance/invoices:
+  // owners/admins may see the company invoice register; ordinary fleet drivers
+  // only see invoices they created. Assignment alone is not an invoice grant.
+  const { data: membershipRow, error: membershipError } = driver.companyId
+    ? await supabaseAdmin
+      .from('company_memberships')
+      .select('role_in_company')
+      .eq('company_id', driver.companyId)
+      .eq('user_id', driver.userId)
+      .eq('status', 'active')
+      .maybeSingle()
+    : { data: null, error: null };
+  const membershipRole = String(membershipRow?.role_in_company ?? '').toLowerCase();
+  const canManageFinance = membershipRole === 'owner' || membershipRole === 'admin';
+  let invoiceQuery = driver.companyId
+    ? supabaseAdmin
+      .from('invoices')
+      .select('id, invoice_number, status, payment_status, amount, currency, due_date')
+      .eq('company_id', driver.companyId)
+      .eq('job_id', jobId)
+      .order('created_at', { ascending: false })
+      .limit(10)
+    : null;
+  if (invoiceQuery && !canManageFinance) invoiceQuery = invoiceQuery.eq('created_by', driver.userId);
+  const invoicePromise = invoiceQuery ?? Promise.resolve({ data: [], error: null });
 
   const [companyResult, posterProfileResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult] = await Promise.all([
     originCompanyId ? supabaseAdmin.from('companies').select('*').eq('id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -270,6 +291,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         || documentsResult.error
         || vehicleResult.error
         || driverResult.error
+        || membershipError
       ),
       unavailable: {
         bodyType: vehicleId && text(vehicle.body_type) ? null : 'No verified job-level allocated vehicle body-type value is available for this job.',

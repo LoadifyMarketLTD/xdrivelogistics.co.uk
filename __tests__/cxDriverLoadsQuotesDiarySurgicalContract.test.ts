@@ -15,6 +15,8 @@ describe('CX surgical parity for Driver Loads, Quotes and Diary', () => {
     expect(loads).toContain('router.push(`/driver/loads/${load.id}`)');
     expect(loads).toContain("fetch('/api/driver/bids'");
     expect(loads).toContain('Interactive Freight Radar Map');
+    expect(loads).toContain("useState<RegionFilter>('uk_roi')");
+    expect(loads).toContain("setRegionFilter('uk_roi')");
   });
 
   it('matches the CX quote register order and action semantics', () => {
