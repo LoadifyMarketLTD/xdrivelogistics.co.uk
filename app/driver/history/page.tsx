@@ -10,12 +10,14 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { DriverJobSheetPanel } from '../../components/workspace/DriverJobSheetPanel';
 
 type CompanyRelation = { name: string } | Array<{ name: string }> | null;
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
 type DateRange = 'any' | 'today' | '7d' | '30d';
 type ArchiveFilter = 'all' | 'active' | 'closed';
 type HistoryFilter = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'awaiting_feedback' | 'recent_feedback';
+type DiaryViewMode = 'list' | 'split';
 type DetailTab = 'pod' | 'order' | 'notes' | 'history' | 'documents' | 'invoice';
 type StatusHistoryEntry = { status?: string | null; timestamp?: string | null; at?: string | null };
 
@@ -308,6 +310,8 @@ export default function JobHistoryPage() {
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(25);
   const [page, setPage] = useState(1);
+  const [viewMode, setViewMode] = useState<DiaryViewMode>('list');
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [detailTabs, setDetailTabs] = useState<Record<string, DetailTab>>({});
   const [invoicePreview, setInvoicePreview] = useState<{ id: string; number: string | null } | null>(null);
@@ -448,6 +452,11 @@ export default function JobHistoryPage() {
   const safePage = Math.min(page, totalPages);
   const visibleJobs = visibleFiltered.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
   useEffect(() => { setPage(1); }, [statusFilter, appliedSearch, itemsPerPage]);
+  useEffect(() => {
+    if (viewMode !== 'split') return;
+    if (selectedJobId && visibleJobs.some((job) => job.id === selectedJobId)) return;
+    setSelectedJobId(visibleJobs[0]?.id ?? null);
+  }, [selectedJobId, viewMode, visibleJobs]);
 
   const allExpanded = visibleJobs.length > 0 && visibleJobs.every((job) => expandedIds.has(job.id));
   const toggleExpandAll = () => {
@@ -491,12 +500,27 @@ export default function JobHistoryPage() {
             <div className="diary-head diary-head-cx">
               <span>{visibleFiltered.length} booking{visibleFiltered.length === 1 ? '' : 's'} · showing {visibleJobs.length}</span>
               <span className="driver-diary-summary-actions">
-                <button type="button" onClick={toggleExpandAll} disabled={!visibleJobs.length}>{allExpanded ? 'Collapse all' : 'Expand all'}</button>
+                <span role="group" aria-label="Diary view mode" className="driver-diary-view-toggle"><button type="button" aria-pressed={viewMode === 'list'} data-active={viewMode === 'list' ? 'true' : 'false'} onClick={() => setViewMode('list')}>List View</button><button type="button" aria-pressed={viewMode === 'split'} data-active={viewMode === 'split' ? 'true' : 'false'} onClick={() => setViewMode('split')}>Split View</button></span>
+                {viewMode === 'list' && <button type="button" onClick={toggleExpandAll} disabled={!visibleJobs.length}>{allExpanded ? 'Collapse all' : 'Expand all'}</button>}
                 <label>Per page:<select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
               </span>
             </div>
 
-            {loading ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : (
+            {loading ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : viewMode === 'split' ? (
+              <div className="driver-diary-split-view">
+                <div className="driver-diary-split-list" aria-label="Diary split booking list">
+                  {visibleJobs.map((job) => {
+                    const selected = selectedJobId === job.id;
+                    const currentStatus = effectiveStatus(job);
+                    const expired = isDerivedExpired(job);
+                    return <button key={job.id} type="button" aria-pressed={selected} data-active={selected ? 'true' : 'false'} onClick={() => setSelectedJobId(job.id)} className="driver-diary-split-item"><strong>{formatExecutionAddress(job.pickup_location, job.pickup_postcode)} → {formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</strong><span>#{job.id.slice(0, 8).toUpperCase()} · Pickup {fmtDate(job.pickup_datetime ?? job.collection_window_start)}</span><span>{expired ? 'Expired' : (STATUS_LABELS[currentStatus] ?? human(currentStatus))} · {job.companies?.name ?? 'Member not supplied'}</span></button>;
+                  })}
+                </div>
+                <section className="driver-diary-split-detail" aria-label="Selected Diary booking detail">
+                  {selectedJobId ? <DriverJobSheetPanel jobId={selectedJobId} /> : <EmptyState compact title="Select a booking" description="Choose a booking from the list to inspect the complete assigned job sheet." />}
+                </section>
+              </div>
+            ) : (
               <div className="diary-bookings">
                 {visibleJobs.map((job) => {
                   const expanded = expandedIds.has(job.id); const reviews = reviewsByJob[job.id] ?? [];

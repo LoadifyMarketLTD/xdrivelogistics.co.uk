@@ -1821,3 +1821,74 @@
     grid-template-columns:repeat(3,1fr);
   }
 }
+
+/* CX parity: Driver Diary list/split inspection mode. */
+.xdrive-driver-workspace .driver-diary-view-toggle {
+  display: inline-flex;
+  gap: 3px;
+  align-items: center;
+}
+.xdrive-driver-workspace .driver-diary-view-toggle button {
+  min-height: 26px;
+  border: 1px solid #bcc7d3;
+  background: #fff;
+  color: #5d6978;
+  padding: 0 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.xdrive-driver-workspace .driver-diary-view-toggle button[data-active='true'] {
+  background: #eef4ff;
+  color: #0b2f6b;
+  border-color: #8fb0d9;
+}
+.xdrive-driver-workspace .driver-diary-split-view {
+  display: grid;
+  grid-template-columns: minmax(330px, .78fr) minmax(520px, 1.22fr);
+  gap: 8px;
+  align-items: start;
+}
+.xdrive-driver-workspace .driver-diary-split-list {
+  display: grid;
+  gap: 5px;
+}
+.xdrive-driver-workspace .driver-diary-split-item {
+  width: 100%;
+  border: 1px solid #c9d2dd;
+  background: #fff;
+  text-align: left;
+  padding: 8px 9px;
+  cursor: pointer;
+}
+.xdrive-driver-workspace .driver-diary-split-item[data-active='true'] {
+  border-color: #1d57d8;
+  box-shadow: inset 3px 0 0 #1d57d8;
+  background: #f7faff;
+}
+.xdrive-driver-workspace .driver-diary-split-item strong,
+.xdrive-driver-workspace .driver-diary-split-item span {
+  display: block;
+}
+.xdrive-driver-workspace .driver-diary-split-item strong {
+  font-size: 12px;
+  color: #23344b;
+  line-height: 16px;
+}
+.xdrive-driver-workspace .driver-diary-split-item span {
+  margin-top: 2px;
+  font-size: 10.5px;
+  color: #667587;
+  line-height: 14px;
+}
+.xdrive-driver-workspace .driver-diary-split-detail {
+  min-width: 0;
+  background: #fff;
+  border: 1px solid #c9d2dd;
+  padding: 8px;
+}
+@media (max-width: 1100px) {
+  .xdrive-driver-workspace .driver-diary-split-view {
+    grid-template-columns: 1fr;
+  }
+}
