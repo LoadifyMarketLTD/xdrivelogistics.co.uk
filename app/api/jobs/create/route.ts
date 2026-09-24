@@ -10,6 +10,7 @@ import {
 import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFlags';
 import { operationalError } from '../../_lib/operationalError';
 import { calculateJobRouteMetrics } from '../../_lib/jobRouteMetrics';
+import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../_lib/stripeCommercialReadiness';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
@@ -144,6 +145,29 @@ export async function POST(request: NextRequest) {
   }
   if (!membership) return respond(403, { error: 'You cannot post loads for this company workspace.' });
 
+  if (input.publish) {
+    let stripeReadiness;
+    try {
+      stripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, input.companyId);
+    } catch (error) {
+      return operationalError({
+        status: 503,
+        message: 'Stripe commercial readiness could not be verified. Please try again.',
+        context: `jobs.create.stripe-readiness.company:${input.companyId}`,
+        cause: error,
+        retryable: true,
+      });
+    }
+    if (!stripeReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+    }
+    if (!stripeReadiness.ready) {
+      return respond(409, stripeCommercialReadinessPayload(
+        'Complete and activate your company Stripe account before publishing transport work.'
+      ));
+    }
+  }
+
   let directInviteTarget: { id: string; name: string | null } | null = null;
   if (input.directInviteCompanyId) {
     if (!input.publish) {
@@ -170,6 +194,27 @@ export async function POST(request: NextRequest) {
       return respond(409, { error: 'The selected Direct Booking carrier is no longer active.' });
     }
     directInviteTarget = { id: String(target.id), name: typeof target.name === 'string' ? target.name : null };
+
+    let targetStripeReadiness;
+    try {
+      targetStripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, directInviteTarget.id);
+    } catch (error) {
+      return operationalError({
+        status: 503,
+        message: 'The selected carrier payment readiness could not be verified. Please try again.',
+        context: `jobs.create.direct-target-stripe:${directInviteTarget.id}`,
+        cause: error,
+        retryable: true,
+      });
+    }
+    if (!targetStripeReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+    }
+    if (!targetStripeReadiness.ready) {
+      return respond(409, stripeCommercialReadinessPayload(
+        'The selected carrier must complete and activate Stripe before it can receive a Direct Booking.'
+      ));
+    }
   }
 
   let exchangeAutoExpireHours = 72;
