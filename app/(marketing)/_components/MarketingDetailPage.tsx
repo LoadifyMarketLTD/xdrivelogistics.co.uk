@@ -83,16 +83,16 @@ function SectionGrid({ sections, mode }: { sections: DetailSection[]; mode: Visu
       {sections.map((section, index) => (
         <article
           key={section.title}
-          className="relative flex min-h-[330px] flex-col overflow-hidden rounded-[24px] border border-[#1B3D6B] bg-gradient-to-br from-[#163568] to-[#102B55] p-7 text-white shadow-[0_18px_45px_rgba(7,27,60,0.12)] lg:p-8"
+          className="relative flex min-h-[330px] flex-col overflow-hidden rounded-[24px] border border-[#DDE5EF] bg-white p-7 text-[#102447] shadow-[0_18px_45px_rgba(7,27,60,0.08)] lg:p-8"
         >
-          <div className="absolute right-6 top-4 text-7xl font-black leading-none text-[#46689F]">0{index + 1}</div>
+          <div className="absolute right-6 top-4 text-7xl font-black leading-none text-[#DCE5F0]">0{index + 1}</div>
           <p className="relative text-[0.7rem] font-black uppercase tracking-[0.17em] text-[#F5A300]">{modeLabel[mode]} · 0{index + 1}</p>
-          <h2 className="relative mt-4 text-3xl font-black tracking-tight text-white">{section.title}</h2>
-          <p className="relative mt-4 max-w-xl font-semibold leading-7 text-white/70">{section.copy}</p>
+          <h2 className="relative mt-4 text-3xl font-black tracking-tight text-[#102447]">{section.title}</h2>
+          <p className="relative mt-4 max-w-xl font-semibold leading-7 text-[#60758F]">{section.copy}</p>
           {section.points?.length ? (
-            <div className="relative mt-7 grid gap-3 border-t border-white/10 pt-5">
+            <div className="relative mt-7 grid gap-3 border-t border-[#E7EDF4] pt-5">
               {section.points.map(point => (
-                <div key={point} className="flex items-start gap-3 text-sm font-bold text-white/82">
+                <div key={point} className="flex items-start gap-3 text-sm font-bold text-[#405978]">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#F5A300]" />
                   {point}
                 </div>
@@ -152,19 +152,19 @@ export function MarketingDetailPage({
       </header>
 
       <main>
-        <section className="bg-gradient-to-br from-[#163568] to-[#102B55] px-5 py-16 text-white sm:px-8 lg:py-20">
+        <section className="border-b border-[#DDE5EF] bg-white px-5 py-16 text-[#102447] sm:px-8 lg:py-20">
           <div className="mx-auto max-w-[1240px]">
             <div className="flex flex-col items-start gap-2">
               <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">Early Access · First 3 Months Free</p>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{kicker}</p>
             </div>
-            <h1 className="mt-5 max-w-[980px] text-[3.2rem] font-black leading-[0.96] tracking-tight text-white sm:text-[4.6rem] lg:text-[5.15rem]">{title}</h1>
-            <p className="mt-7 max-w-3xl text-lg font-semibold leading-8 text-white/78">{intro}</p>
+            <h1 className="mt-5 max-w-[980px] text-[3.2rem] font-black leading-[0.96] tracking-tight text-[#102447] sm:text-[4.6rem] lg:text-[5.15rem]">{title}</h1>
+            <p className="mt-7 max-w-3xl text-lg font-semibold leading-8 text-[#60758F]">{intro}</p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link href={primaryHref} className="inline-flex items-center gap-2 rounded-lg bg-[#F5A300] px-6 py-3.5 text-sm font-black text-[#102B55]">{primaryLabel}<ArrowRight className="h-4 w-4" /></Link>
-              <Link href={secondaryHref} className="rounded-lg border border-white/15 bg-white/[0.04] px-6 py-3.5 text-sm font-black text-white">{secondaryLabel}</Link>
+              <Link href={primaryHref} className="inline-flex items-center gap-2 rounded-lg bg-[#F5A300] px-6 py-3.5 text-sm font-black text-[#102447]">{primaryLabel}<ArrowRight className="h-4 w-4" /></Link>
+              <Link href={secondaryHref} className="rounded-lg border border-[#C9D5E4] bg-[#F7F9FC] px-6 py-3.5 text-sm font-black text-[#163568]">{secondaryLabel}</Link>
             </div>
-            <div className="mt-6 flex flex-wrap gap-5 text-sm font-black text-white/78"><span>✓ No XDrive commission</span><span>✓ No booking fee</span><span>✓ Monthly rolling after trial</span></div>
+            <div className="mt-6 flex flex-wrap gap-5 text-sm font-black text-[#405978]"><span>✓ No XDrive commission</span><span>✓ No booking fee</span><span>✓ Monthly rolling after trial</span></div>
             <SocialShareBar pageTitle={title} />
           </div>
         </section>
