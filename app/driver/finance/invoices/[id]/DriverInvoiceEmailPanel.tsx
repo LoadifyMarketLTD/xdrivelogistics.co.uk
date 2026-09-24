@@ -2,6 +2,7 @@
 
 import { useMemo, useState, type CSSProperties } from 'react';
 import { supabase } from '../../../../../lib/supabaseClient';
+import { DEFAULT_INVOICE_EMAIL_MESSAGE, DEFAULT_INVOICE_EMAIL_SUBJECT, INVOICE_EMAIL_TOKENS } from '../../../../../lib/invoiceEmailTemplate';
 
 type InvoiceEmailContext = {
   invoiceNumber: string;
@@ -13,25 +14,6 @@ type InvoiceEmailContext = {
   currency: string;
   status: string;
 };
-
-const DEFAULT_SUBJECT = 'Invoice from [[My company]] - Load: [[Load ID]]';
-const DEFAULT_MESSAGE = `Dear [[Customer company]],
-
-I am attaching Invoice [[Invoice number]] for Load [[Load ID]].
-
-Details:
-Kindly note that a charge of £25.00 per week will apply to invoices that are more than 7 days overdue.
-
-Invoice: [[Invoice number]]
-Date: [[Invoice date]]
-Amount Due: [[Currency symbol]][[Gross total]]
-Load: [[Load ID]]
-Supplier: [[My company]]
-
-Please let us know if you have any questions.
-
-All the best,
-[[My company]]`;
 
 const fieldStyle: CSSProperties = {
   width: '100%',
@@ -92,10 +74,10 @@ export default function DriverInvoiceEmailPanel({
   onSent: () => Promise<void>;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
-  const [subject, setSubject] = useState(DEFAULT_SUBJECT);
-  const [message, setMessage] = useState(DEFAULT_MESSAGE);
-  const [draftSubject, setDraftSubject] = useState(DEFAULT_SUBJECT);
-  const [draftMessage, setDraftMessage] = useState(DEFAULT_MESSAGE);
+  const [subject, setSubject] = useState(DEFAULT_INVOICE_EMAIL_SUBJECT);
+  const [message, setMessage] = useState(DEFAULT_INVOICE_EMAIL_MESSAGE);
+  const [draftSubject, setDraftSubject] = useState(DEFAULT_INVOICE_EMAIL_SUBJECT);
+  const [draftMessage, setDraftMessage] = useState(DEFAULT_INVOICE_EMAIL_MESSAGE);
   const [sending, setSending] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState('');
@@ -103,10 +85,7 @@ export default function DriverInvoiceEmailPanel({
 
   const canSend = invoice.status === 'Draft' && Boolean(invoice.clientEmail?.trim());
   const recipient = invoice.clientEmail?.trim() || 'No customer email recorded';
-  const tokens = useMemo(
-    () => ['[[My company]]', '[[Customer company]]', '[[Invoice number]]', '[[Invoice date]]', '[[Currency symbol]]', '[[Gross total]]', '[[Load ID]]'],
-    [],
-  );
+  const tokens = useMemo(() => INVOICE_EMAIL_TOKENS.map((token) => `[[${token}]]`), []);
 
   const openEditor = () => {
     setDraftSubject(subject);
@@ -123,8 +102,8 @@ export default function DriverInvoiceEmailPanel({
   };
 
   const resetDraft = () => {
-    setDraftSubject(DEFAULT_SUBJECT);
-    setDraftMessage(DEFAULT_MESSAGE);
+    setDraftSubject(DEFAULT_INVOICE_EMAIL_SUBJECT);
+    setDraftMessage(DEFAULT_INVOICE_EMAIL_MESSAGE);
   };
 
   const previewInvoice = async () => {

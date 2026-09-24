@@ -15,13 +15,21 @@ type InvoicePdfInput = {
   issuerAddress?: string | null;
   issuerCompanyNumber?: string | null;
   issuerVatNumber?: string | null;
+  issuerXdId?: string | null;
   issuerEmail?: string | null;
   issuerPhone?: string | null;
   issuerWebsite?: string | null;
   clientName: string;
   clientAddress?: string | null;
   clientEmail?: string | null;
+  customerCompanyNumber?: string | null;
   customerVatNumber?: string | null;
+  customerXdId?: string | null;
+  customerReference?: string | null;
+  loadId?: string | null;
+  orderedAt?: string | null;
+  leftAt?: string | null;
+  deliveryNotes?: string | null;
   pickupLocation?: string | null;
   pickupDateTime?: string | null;
   deliveryLocation?: string | null;
@@ -206,6 +214,10 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   }
   if (input.issuerVatNumber && vatTreatment !== 'not_registered') {
     page.drawText(`UK VAT # ${pdfText(input.issuerVatNumber, '')}`.slice(0, 70), { x: margin, y: issuerY, size: 8.7, font: regular, color: dark });
+    issuerY -= 12;
+  }
+  if (input.issuerXdId) {
+    page.drawText(`XDrive ID ${pdfText(input.issuerXdId, '')}`.slice(0, 70), { x: margin, y: issuerY, size: 8.7, font: regular, color: dark });
     issuerY -= 17;
   }
   if (input.issuerEmail) {
@@ -226,9 +238,13 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const metaW = 154;
   const metaH = 73;
   page.drawRectangle({ x: metaX, y: metaY, width: metaW, height: metaH, color: softHeader, borderColor: line, borderWidth: 0.55 });
+  const referenceValue = [
+    pdfText(input.jobReference, ''),
+    input.loadId ? pdfText(input.loadId, '') : '',
+  ].filter(Boolean).join(' / ') || 'Not set';
   const metaRows: Array<[string, string]> = [
     ['DATE', formatDate(input.invoiceDate)],
-    ['JOB REF', pdfText(input.jobReference, 'Not set')],
+    ['JOB / LOAD REF', referenceValue],
     ['INVOICE#', pdfText(input.invoiceNumber, 'Invoice')],
   ];
   metaRows.forEach(([label, value], index) => {
@@ -241,9 +257,9 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   });
 
   const billX = 315;
-  const billY = 649;
+  const billY = 620;
   const billW = 244;
-  const billH = 87;
+  const billH = 116;
   page.drawRectangle({ x: billX, y: billY, width: billW, height: billH, color: softHeader, borderColor: line, borderWidth: 0.55 });
   page.drawText('Invoice to:', { x: billX + 14, y: billY + 65, size: 8.5, font: bold, color: dark });
   page.drawText(pdfText(input.clientName, 'Customer').slice(0, 52), { x: billX + 14, y: billY + 47, size: 11.2, font: bold, color: dark });
@@ -254,6 +270,19 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   }
   if (input.clientEmail) {
     page.drawText(pdfText(input.clientEmail, '').slice(0, 55), { x: billX + 14, y: billTextY, size: 8.1, font: regular, color: dark });
+    billTextY -= 10;
+  }
+  const customerIdentity = [
+    input.customerXdId ? `XDrive ID ${pdfText(input.customerXdId, '')}` : '',
+    input.customerCompanyNumber ? `Co. ${pdfText(input.customerCompanyNumber, '')}` : '',
+    input.customerVatNumber ? `VAT ${pdfText(input.customerVatNumber, '')}` : '',
+  ].filter(Boolean).join(' · ');
+  if (customerIdentity) {
+    page.drawText(customerIdentity.slice(0, 70), { x: billX + 14, y: billTextY, size: 7.2, font: regular, color: grey });
+    billTextY -= 9;
+  }
+  if (input.customerReference) {
+    page.drawText(`Customer Ref: ${pdfText(input.customerReference, '')}`.slice(0, 70), { x: billX + 14, y: billTextY, size: 7.2, font: regular, color: grey });
   }
 
   // ---------------------------------------------------------------------------
@@ -314,8 +343,8 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     rowHeight: 29,
     firstLabel: 'Location',
     firstValue: pdfText(input.pickupLocation, 'Collection location not provided'),
-    firstRight: pdfText(input.cargoDescription, ''),
-    secondLabel: 'Cargo Details',
+    firstRight: [input.orderedAt ? `Ordered ${formatDate(input.orderedAt)}` : '', pdfText(input.cargoDescription, '')].filter(Boolean).join(' · '),
+    secondLabel: 'Pickup time',
     secondValue: formatDateTime(input.pickupDateTime),
     secondRight: pdfText(input.vehicleDescription || input.serviceDescription, 'Transport service'),
   });
@@ -332,7 +361,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     firstRight: formatDateTime(input.deliveryDateTime),
     secondLabel: 'Recipient',
     secondValue: pdfText(input.recipientName, 'Not recorded'),
-    secondRight: '',
+    secondRight: [input.leftAt ? `Left at: ${pdfText(input.leftAt, '')}` : '', input.deliveryNotes ? `Notes: ${pdfText(input.deliveryNotes, '')}` : ''].filter(Boolean).join(' · '),
   });
 
   // ---------------------------------------------------------------------------
