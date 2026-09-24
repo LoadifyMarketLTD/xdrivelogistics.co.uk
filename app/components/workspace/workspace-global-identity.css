@@ -1,0 +1,84 @@
+/* XDrive global workspace identity contract.
+ * Shared across Driver, Carrier/Admin, Fleet, Broker and Customer surfaces.
+ * Role-specific pages may change data and permitted actions, never the core
+ * visual language: palette, typography, density, borders, controls and panels.
+ */
+.xdrive-workspace-measured,
+.xdrive-driver-workspace,
+.xdrive-operational-top-workspace {
+  --xw-navy: #0b2f6b;
+  --xw-blue: #1d57d8;
+  --xw-orange: #f5a300;
+  --xw-ink: #263548;
+  --xw-muted: #6e7a89;
+  --xw-line: #d2d9e2;
+  --xw-line-soft: #e9edf2;
+  --xw-page: #f4f5f7;
+  --xw-panel: #ffffff;
+  --xw-success: #1c7c48;
+  --xw-danger: #bb3934;
+  color: var(--xw-ink);
+  background: var(--xw-page);
+  font-family: "Segoe UI", Arial, sans-serif;
+}
+
+.xdrive-workspace-measured *,
+.xdrive-driver-workspace *,
+.xdrive-operational-top-workspace * { box-sizing: border-box; }
+
+.xdrive-workspace-measured button,
+.xdrive-workspace-measured input,
+.xdrive-workspace-measured select,
+.xdrive-workspace-measured textarea {
+  font-family: inherit;
+}
+
+.xdrive-workspace-measured :where(.xdrive-card,.panel,.card,section[data-workspace-panel="true"]) {
+  background: var(--xw-panel);
+  border-color: var(--xw-line);
+  border-radius: 2px;
+}
+
+.xdrive-workspace-measured :where(table) {
+  border-color: var(--xw-line);
+}
+
+.xdrive-workspace-measured :where(th) {
+  background: #f2f4f7;
+  color: #596578;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.xdrive-workspace-measured :where(td) {
+  color: #354255;
+  border-color: var(--xw-line-soft);
+}
+
+.xdrive-workspace-measured :where(input,select,textarea) {
+  border-color: #bac5d1;
+  border-radius: 2px;
+  background: #fff;
+  color: var(--xw-ink);
+}
+
+.xdrive-workspace-measured :where(button) {
+  border-radius: 2px;
+}
+
+.xdrive-workspace-measured :where(a,[role="link"]) {
+  color: #1557a5;
+}
+
+/* Every workspace uses the same active-navigation signature. */
+.xdrive-workspace-measured :where([aria-current="page"],[data-active="true"]) {
+  --xw-active-accent: var(--xw-orange);
+}
+
+/* Keep role differences semantic, not cosmetic. */
+.xdrive-workspace-measured[data-workspace-role],
+.xdrive-workspace-measured [data-workspace-role] {
+  --workspace-role-accent: var(--xw-navy);
+}

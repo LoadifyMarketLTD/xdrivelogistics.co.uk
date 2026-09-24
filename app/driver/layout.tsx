@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import ProtectedRoute from '../components/ProtectedRoute';
 import DriverTopWorkspaceShell from './_components/DriverTopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
+import '../components/workspace/workspace-global-identity.css';
 import './driver-operational.css';
 import './driver-cx-loads-convergence.css';
 import './driver-master.css';
