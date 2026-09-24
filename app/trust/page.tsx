@@ -25,5 +25,6 @@ export default function TrustPage() {
     secondaryLabel="View Product Status"
     secondaryHref="/product-status"
     darkBand={{ title: 'Trust built around clear records and responsibilities.', copy: 'XDrive keeps onboarding evidence, operational records and member responsibilities clear throughout the transport workflow.' }}
+    heroMap
   />;
 }
