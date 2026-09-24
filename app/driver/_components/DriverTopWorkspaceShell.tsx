@@ -28,11 +28,11 @@ const DRIVER_SETTINGS_MENU = [
   { label: 'Overview', href: '/driver/settings?section=overview' },
   { label: 'My Profile', href: '/driver/settings?section=profile' },
   { label: 'Company Profile', href: '/driver/settings?section=company' },
-  { label: 'Drivers / Staff', href: '/driver/profile' },
+  { label: 'Drivers / Staff', href: '/driver/drivers-vehicles' },
   { label: 'Vehicles / Assets', href: '/driver/vehicles' },
   { label: 'Documents', href: '/driver/documents' },
   { label: 'Billing & Membership', href: '/settings/billing' },
-  { label: 'Settings', href: '/driver/notifications' },
+  { label: 'Notifications & Alerts', href: '/driver/notifications' },
   { label: 'Security', href: '/driver/settings?section=security' },
   { label: 'Audit / Event Log', href: '/driver/event-log' },
   { label: 'Support', href: '/help' },
@@ -164,7 +164,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
               </div>
             )}
           </div>
-          <button type="button" className="avatar account-toggle" onClick={() => router.push('/driver/account')} aria-label="Open account">{(companyName || 'DR').slice(0, 2).toUpperCase()}</button>
+          <button type="button" className="avatar account-toggle" onClick={() => router.push('/driver/settings?section=profile')} aria-label="Open profile settings">{(companyName || 'DR').slice(0, 2).toUpperCase()}</button>
         </div>
       </header>
       <main className="app driver-prototype-app" style={{ background: workspaceTheme.page }}>{children}</main>

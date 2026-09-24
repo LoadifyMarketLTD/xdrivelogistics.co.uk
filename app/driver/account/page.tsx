@@ -1,3 +1,5 @@
-'use client';
+﻿import { redirect } from 'next/navigation';
 
-export { default } from '../profile/page';
+export default function DriverAccountRedirect() {
+  redirect('/driver/settings?section=overview');
+}
