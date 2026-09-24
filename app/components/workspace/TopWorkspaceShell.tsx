@@ -200,7 +200,7 @@ function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
       { id: 'customer-post-load', label: 'Post Load', href: '/customer/post-load', icon: '+' },
       { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: '■' },
       { id: 'customer-quotes', label: 'Quotes', href: '/customer/quotes', icon: '▣' },
-      { id: 'customer-awards', label: 'Awards', href: '/customer/awards', icon: '✓' },
+      { id: 'customer-bookings', label: 'Bookings', href: '/customer/bookings', icon: '✓' },
     ] },
     { id: 'customer-delivery', label: 'Delivery', items: [
       { id: 'customer-deliveries', label: 'Deliveries', href: '/customer/deliveries', icon: '■' },

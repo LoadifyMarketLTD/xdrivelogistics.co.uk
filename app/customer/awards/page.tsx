@@ -1,7 +1,5 @@
-'use client';
+import { redirect } from 'next/navigation';
 
-import { CustomerAwardsOperationalPage } from '../CustomerOperationalPages';
-
-export default function Page() {
-  return <CustomerAwardsOperationalPage />;
+export default function CustomerAwardsCompatibilityPage() {
+  redirect('/customer/bookings');
 }

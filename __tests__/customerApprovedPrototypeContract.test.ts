@@ -8,7 +8,7 @@ describe('Customer approved prototype contract', () => {
   const dashboard = read('app/customer/CustomerDashboardHome.tsx');
 
   it('uses the dedicated Customer prototype navigation', () => {
-    for (const label of ['Customer Dashboard','Post Load','My Loads','Quotes','Awards','Deliveries','POD & Documents','Updates','Invoices','Team','Settings']) expect(shell).toContain(`label: '${label}'`);
+    for (const label of ['Customer Dashboard','Post Load','My Loads','Quotes','Bookings','Deliveries','POD & Documents','Updates','Invoices','Team','Settings']) expect(shell).toContain(`label: '${label}'`);
     expect(shell).toContain("if (role === 'customer') return composeCustomerPrototypeNav()");
   });
 
