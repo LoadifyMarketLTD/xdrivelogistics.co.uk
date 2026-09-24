@@ -133,7 +133,7 @@ export function MarketingDetailPage({
   const mode = getVisualMode(kicker);
 
   return (
-    <div className="min-h-screen bg-[#F4F6FA] text-[#102447]">
+    <div className="marketing-editorial min-h-screen bg-[#F4F6FA] text-[#102447]">
       <header className="sticky top-0 z-50 border-b border-[#DDE5EF] bg-white/95 text-[#163568] backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
           <Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link>
