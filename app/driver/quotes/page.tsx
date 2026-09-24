@@ -360,7 +360,7 @@ export default function MyQuotesPage() {
             <div className="filter"><span className="label">Pickup Time Within</span><select className="select" value={filters.pickupWithin} onChange={(event) => setFilters((current) => ({ ...current, pickupWithin: event.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
             <div className="filter"><span className="label">Delivery Time Within</span><select className="select" value={filters.deliveryWithin} onChange={(event) => setFilters((current) => ({ ...current, deliveryWithin: event.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
             <div className="filter"><span className="label">Load ID / Ref</span><input className="input" value={filters.loadRef} onChange={(event) => setFilters((current) => ({ ...current, loadRef: event.target.value }))} placeholder="Load ID / reference" /></div>
-            <div className="filter"><span className="label">Member / Company</span><input className="input" value={filters.bookedBy} onChange={(event) => setFilters((current) => ({ ...current, bookedBy: event.target.value }))} placeholder="Name / XD member ID" /></div>
+            <div className="filter"><span className="label">Booked by</span><input className="input" value={filters.bookedBy} onChange={(event) => setFilters((current) => ({ ...current, bookedBy: event.target.value }))} placeholder="Member / company / XD ID" /></div>
           </aside>
           <main className="main">
             <div className="head"><div><h1>Quotes</h1><p>Submitted offers, counter-offers, awards and quote outcomes</p></div></div>
@@ -372,9 +372,9 @@ export default function MyQuotesPage() {
             </div>
             <div className="quote-tabs">
               <button type="button" className={activeTab === 'received' ? 'active' : ''} onClick={() => setActiveTab('received')}>Received <span>{counts.received}</span></button>
+              <button type="button" className={activeTab === 'archived' ? 'active' : ''} onClick={() => setActiveTab('archived')}>Archived <span>{counts.archived}</span></button>
               <button type="button" className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted <span>{counts.submitted}</span></button>
               <button type="button" className={activeTab === 'unsuccessful' ? 'active' : ''} onClick={() => setActiveTab('unsuccessful')}>Unsuccessful <span>{counts.unsuccessful}</span></button>
-              <button type="button" className={activeTab === 'archived' ? 'active' : ''} onClick={() => setActiveTab('archived')}>Archived <span>{counts.archived}</span></button>
             </div>
             {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {activeTab} quotes found.</span></div> : (
               <div className="quote-entries quote-register">
@@ -400,9 +400,25 @@ export default function MyQuotesPage() {
                     </div>
                     <div className="quote-sheet-footer">
                       <button type="button" className="quote-expand" onClick={() => setExpandedIds((previous) => { const next = new Set(previous); if(next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })}>{expanded ? '⌃' : '⌄'}</button>
-                      <button type="button" className="quote-primary-action" onClick={() => view.access === 'assigned' ? router.push(`/driver/jobs/${bid.job_id}`) : router.push(`/driver/loads/${bid.job_id}`)}>View Quote</button>
+                      <button
+                        type="button"
+                        className="quote-primary-action"
+                        onClick={() => {
+                          if (view.access === 'assigned') {
+                            router.push(`/driver/jobs/${bid.job_id}`);
+                            return;
+                          }
+                          if (view.access === 'marketplace') {
+                            router.push(`/driver/loads/${bid.job_id}`);
+                            return;
+                          }
+                          setExpandedIds((previous) => new Set(previous).add(bid.id));
+                        }}
+                      >
+                        View Details
+                      </button>
                       <span className="quote-id">{bid.job_id.slice(0,8).toUpperCase()}</span><span className="quote-spacer" />
-                      {bid.direction === 'outgoing' && bid.status === 'submitted' && <button type="button" className="text-action" onClick={() => void handleWithdrawBid(bid.id)}>Withdraw</button>}
+                      {bid.direction === 'outgoing' && bid.status === 'submitted' && <button type="button" className="text-action quote-cancel-action" onClick={() => void handleWithdrawBid(bid.id)}>Cancel Quote</button>}
                       <span className="quote-member-identity">{counterpartName}</span>
                     </div>
                   </article>;

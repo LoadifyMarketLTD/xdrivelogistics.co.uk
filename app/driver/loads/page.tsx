@@ -394,7 +394,7 @@ export default function AvailableLoadsPage() {
             </div>
             <div className="load-result-head">
               <div><b>Search Loads Results</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
-              <div className="load-view-switch"><button type="button" className="active">List View</button></div>
+              <div className="load-view-switch"><button type="button" className="active">List View</button><button type="button" onClick={() => router.push('/driver/freight-vision')}>Interactive Freight Radar Map</button></div>
               <button type="button" className="text-action" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }}>{expandAll ? 'Collapse all visible loads' : 'Expand all visible loads'}</button>
               <label className="load-head-page-size">Items <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
               <span className="load-head-count">{filteredLoads.length ? `1-${Math.min(visibleCount, filteredLoads.length)} of ${filteredLoads.length}` : '0 of 0'}</span>

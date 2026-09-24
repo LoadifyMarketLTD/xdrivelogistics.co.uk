@@ -15,8 +15,7 @@ type CompanyRelation = { name: string } | Array<{ name: string }> | null;
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
 type DateRange = 'any' | 'today' | '7d' | '30d';
 type ArchiveFilter = 'all' | 'active' | 'closed';
-type FeedbackMode = 'all' | 'awaiting' | 'recent';
-type HistoryFilter = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'feedback';
+type HistoryFilter = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'awaiting_feedback' | 'recent_feedback';
 type DetailTab = 'pod' | 'order' | 'notes' | 'history' | 'documents' | 'invoice';
 type StatusHistoryEntry = { status?: string | null; timestamp?: string | null; at?: string | null };
 
@@ -164,7 +163,7 @@ const EMPTY_SEARCH: SearchFilters = { dateRange: 'any', pickupWithin: 'any', del
 const FILTERS: Array<{ id: HistoryFilter; label: string }> = [
   { id: 'all', label: 'All' }, { id: 'unallocated', label: 'Unallocated' }, { id: 'allocated', label: 'Allocated' },
   { id: 'in_progress', label: 'In Progress' }, { id: 'completed', label: 'Completed' }, { id: 'cancelled', label: 'Cancelled' },
-  { id: 'expired', label: 'Expired' }, { id: 'feedback', label: 'Feedback' },
+  { id: 'expired', label: 'Expired' }, { id: 'awaiting_feedback', label: 'Awaiting Feedback' }, { id: 'recent_feedback', label: 'Recent Feedback' },
 ];
 const DETAIL_TABS: Array<{ id: DetailTab; label: string }> = [
   { id: 'pod', label: 'POD' }, { id: 'order', label: 'Order' }, { id: 'notes', label: 'Notes' },
@@ -250,13 +249,10 @@ function hasRecentFeedback(job: HistoryJob, reviews: ReviewRow[]) {
 }
 function isAwaitingFeedback(job: HistoryJob, reviews: ReviewRow[]) { return jobStage(job) === 'completed' && !hasRecentFeedback(job, reviews); }
 function isClosedRecord(job: HistoryJob) { const stage = jobStage(job); return stage === 'completed' || stage === 'cancelled' || stage === 'expired'; }
-function feedbackMatches(job: HistoryJob, reviews: ReviewRow[], mode: FeedbackMode) {
-  const awaiting = isAwaitingFeedback(job, reviews); const recent = hasRecentFeedback(job, reviews);
-  return mode === 'awaiting' ? awaiting : mode === 'recent' ? recent : awaiting || recent;
-}
-function filterMatches(job: HistoryJob, filter: HistoryFilter, reviews: ReviewRow[], feedbackMode: FeedbackMode = 'all') {
+function filterMatches(job: HistoryJob, filter: HistoryFilter, reviews: ReviewRow[]) {
   if (filter === 'all') return true;
-  if (filter === 'feedback') return feedbackMatches(job, reviews, feedbackMode);
+  if (filter === 'awaiting_feedback') return isAwaitingFeedback(job, reviews);
+  if (filter === 'recent_feedback') return hasRecentFeedback(job, reviews);
   const stage = jobStage(job);
   if (filter === 'unallocated') return stage === 'open' || stage === 'awarded';
   if (filter === 'allocated') return stage === 'allocated';
@@ -306,7 +302,6 @@ export default function JobHistoryPage() {
   const [error, setError] = useState('');
   const [detailWarning, setDetailWarning] = useState('');
   const [statusFilter, setStatusFilter] = useState<HistoryFilter>('all');
-  const [feedbackMode, setFeedbackMode] = useState<FeedbackMode>('all');
   const [search, setSearch] = useState<SearchFilters>(EMPTY_SEARCH);
   const [appliedSearch, setAppliedSearch] = useState<SearchFilters>(EMPTY_SEARCH);
   const [itemsPerPage, setItemsPerPage] = useState(25);
@@ -390,11 +385,11 @@ export default function JobHistoryPage() {
     if (memberNeedle && !(job.companies?.name ?? '').toLowerCase().includes(memberNeedle)) return false;
     return true;
   }), [appliedSearch, jobs]);
-  const visibleFiltered = useMemo(() => searchedJobs.filter((job) => filterMatches(job, statusFilter, reviewsByJob[job.id] ?? [], feedbackMode)), [feedbackMode, reviewsByJob, searchedJobs, statusFilter]);
+  const visibleFiltered = useMemo(() => searchedJobs.filter((job) => filterMatches(job, statusFilter, reviewsByJob[job.id] ?? [])), [reviewsByJob, searchedJobs, statusFilter]);
   const totalPages = Math.max(1, Math.ceil(visibleFiltered.length / itemsPerPage));
   const safePage = Math.min(page, totalPages);
   const visibleJobs = visibleFiltered.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
-  useEffect(() => { setPage(1); }, [statusFilter, feedbackMode, appliedSearch, itemsPerPage]);
+  useEffect(() => { setPage(1); }, [statusFilter, appliedSearch, itemsPerPage]);
 
   const allExpanded = visibleJobs.length > 0 && visibleJobs.every((job) => expandedIds.has(job.id));
   const toggleExpandAll = () => {
@@ -415,6 +410,7 @@ export default function JobHistoryPage() {
         <div className="filter"><span className="label">Member Name / ID</span><input value={search.memberName} onChange={(e) => setSearch((current) => ({ ...current, memberName: e.target.value }))} placeholder="Company name" /></div>
         <div className="filter"><span className="label">Archived</span><select value={search.archive} onChange={(e) => setSearch((current) => ({ ...current, archive: e.target.value as ArchiveFilter }))}><option value="all">All records</option><option value="active">Active register</option><option value="closed">Closed records</option></select></div>
         <div className="driver-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={() => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); }}>Clear</ActionButton></div>
+        <ActionButton tone="secondary" onClick={() => router.push('/driver/directory')}>Contacts</ActionButton>
         <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Payment Report</ActionButton>
       </div>
     </aside>
@@ -429,12 +425,11 @@ export default function JobHistoryPage() {
           {filterRail}
           <main className="main diary-main">
             <div className="diary-tabs" role="tablist" aria-label="Diary states">
-              {FILTERS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [], 'all')).length}</span></button>)}
+              {FILTERS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [])).length}</span></button>)}
             </div>
             <div className="diary-head diary-head-cx">
               <span>{visibleFiltered.length} booking{visibleFiltered.length === 1 ? '' : 's'} · showing {visibleJobs.length}</span>
               <span className="driver-diary-summary-actions">
-                {statusFilter === 'feedback' && <label>Feedback:<select value={feedbackMode} onChange={(e) => setFeedbackMode(e.target.value as FeedbackMode)}><option value="all">All feedback</option><option value="awaiting">Awaiting feedback</option><option value="recent">Recent feedback</option></select></label>}
                 <button type="button" onClick={toggleExpandAll} disabled={!visibleJobs.length}>{allExpanded ? 'Collapse all' : 'Expand all'}</button>
                 <label>Per page:<select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
               </span>
