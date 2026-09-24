@@ -54,14 +54,14 @@ export default function HelpPage() {
         </div>
       </header>
       <main>
-        <section className="bg-white px-5 py-20 sm:px-8 lg:py-28">
+        <section className="bg-white px-5 pb-8 pt-8 sm:px-8 sm:pb-10 sm:pt-10 lg:pb-10 lg:pt-12">
           <div className="mx-auto max-w-[1240px]">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">Help & FAQ</p>
-            <h1 className="mt-5 max-w-4xl text-[3.2rem] font-black leading-[0.96] tracking-tight text-[#0A234F] sm:text-[4.6rem]">Clear answers before you join XDrive.</h1>
-            <p className="mt-7 max-w-3xl text-lg font-semibold leading-8 text-[#516987]">Membership, quoting, job ownership, POD, payments, verification and platform responsibilities — explained in plain language.</p>
+            <h1 className="mt-3 max-w-4xl text-[3.2rem] font-black leading-[0.96] tracking-tight text-[#0A234F] sm:text-[4.6rem]">Clear answers before you join XDrive.</h1>
+            <p className="mt-4 max-w-3xl text-lg font-semibold leading-8 text-[#516987]">Membership, quoting, job ownership, POD, payments, verification and platform responsibilities — explained in plain language.</p>
           </div>
         </section>
-        <section className="px-5 py-16 sm:px-8 lg:py-20">
+        <section className="px-5 pb-10 pt-4 sm:px-8 sm:pb-12 sm:pt-5 lg:pb-14 lg:pt-6">
           <div className="mx-auto grid max-w-[1240px] gap-4 md:grid-cols-2">
             {faqs.map((item, index) => (
               <details key={item.q} className="group rounded-2xl border border-[#E2E8F1] bg-white p-5 shadow-[0_12px_34px_rgba(8,38,86,0.05)]">
