@@ -116,7 +116,7 @@ export function MarketingDetailPage({
   secondaryHref = '/login',
   activeNavHref,
   darkBand,
-  heroMap = false,
+  heroMap = true,
 }: {
   kicker: string;
   title: string;
@@ -156,60 +156,44 @@ export function MarketingDetailPage({
       <main>
         <section className="relative overflow-hidden border-b border-[#DDE5EF] bg-white px-5 py-16 text-[#102447] sm:px-8 lg:py-20">
           {heroMap ? (
-            <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[58%] lg:block" aria-hidden="true">
-              <div className="absolute inset-0 bg-gradient-to-r from-white via-white/70 to-white/5" />
-              <svg viewBox="0 0 760 520" className="h-full w-full opacity-[0.42]" role="presentation">
+            <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[58%] overflow-hidden lg:block" aria-hidden="true">
+              <div
+                className="absolute inset-0 bg-cover bg-center"
+                style={{ backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/0/08/United_Kingdom_satellite_image.png')" }}
+              />
+              <div className="absolute inset-0 bg-[linear-gradient(90deg,#FFFFFF_0%,rgba(255,255,255,0.96)_10%,rgba(255,255,255,0.62)_34%,rgba(255,255,255,0.16)_67%,rgba(255,255,255,0.02)_100%)]" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(10,35,79,0.08))]" />
+              <svg viewBox="0 0 760 520" className="absolute inset-0 h-full w-full" role="presentation">
                 <defs>
-                  <linearGradient id="mapSea" x1="0" y1="0" x2="1" y2="1">
-                    <stop offset="0%" stopColor="#EAF5FB" />
-                    <stop offset="100%" stopColor="#D9ECF7" />
-                  </linearGradient>
-                  <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
-                    <feGaussianBlur stdDeviation="4" />
+                  <filter id="routeGlow" x="-30%" y="-30%" width="160%" height="160%">
+                    <feGaussianBlur stdDeviation="3.5" result="blur" />
+                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
                   </filter>
                 </defs>
-                <rect width="760" height="520" fill="url(#mapSea)" />
-                <g fill="none" stroke="#B9D0DF" strokeWidth="1.2" opacity="0.8">
-                  <path d="M40 84 C170 40 250 72 350 52 S570 30 730 72" />
-                  <path d="M10 150 C160 120 270 130 420 112 S620 95 760 130" />
-                  <path d="M0 235 C170 210 280 222 430 198 S640 190 760 210" />
-                  <path d="M20 322 C150 290 300 310 440 288 S620 270 760 300" />
-                  <path d="M30 412 C180 372 300 392 430 370 S620 350 750 385" />
+                <g fill="none" stroke="#F5A300" strokeWidth="3.4" strokeLinecap="round" filter="url(#routeGlow)" opacity="0.92">
+                  <path d="M454 86 C472 130 480 170 464 214 C450 250 458 286 486 322 C507 349 514 383 502 420" />
+                  <path d="M464 214 C520 218 558 244 586 284" />
+                  <path d="M486 322 C432 334 394 356 366 392" />
+                  <path d="M486 322 C542 337 590 362 626 400" />
                 </g>
-                <g fill="#F7FAFC" stroke="#C7D8E4" strokeWidth="1.2">
-                  <path d="M345 58 C325 82 318 112 333 136 C347 160 346 188 328 213 C310 238 315 262 339 278 C365 296 363 326 345 350 C326 377 337 405 363 424 C391 444 421 431 432 405 C444 380 439 353 453 329 C470 300 465 270 446 247 C427 225 425 202 441 178 C458 153 455 124 438 101 C421 77 386 53 345 58 Z" />
-                  <path d="M305 171 C287 190 282 216 295 233 C309 250 306 271 292 287 C278 304 284 328 301 337 C315 344 327 337 332 324 C338 309 328 291 337 278 C346 264 340 244 330 232 C319 219 321 201 329 188 C337 176 322 160 305 171 Z" />
-                  <path d="M391 30 C405 25 417 34 415 47 C413 59 399 63 390 54 C382 47 382 34 391 30 Z" />
-                </g>
-                <g fill="none" stroke="#F5A300" strokeWidth="3.2" strokeLinecap="round">
-                  <path d="M378 106 C396 140 395 176 379 212 C365 242 370 278 392 305 C413 331 414 367 393 398" />
-                  <path d="M379 212 C420 220 451 245 468 279" />
-                  <path d="M392 305 C355 315 330 337 316 365" />
-                  <path d="M392 305 C430 324 456 349 472 384" />
-                </g>
-                <g fill="#F5A300" stroke="white" strokeWidth="5">
-                  <circle cx="378" cy="106" r="8" />
-                  <circle cx="379" cy="212" r="8" />
-                  <circle cx="392" cy="305" r="8" />
-                  <circle cx="393" cy="398" r="8" />
-                  <circle cx="468" cy="279" r="8" />
-                  <circle cx="316" cy="365" r="8" />
-                  <circle cx="472" cy="384" r="8" />
-                </g>
-                <g fill="#0A234F" fontSize="14" fontWeight="700">
-                  <text x="396" y="110">Glasgow</text>
-                  <text x="398" y="216">Manchester</text>
-                  <text x="410" y="309">Birmingham</text>
-                  <text x="410" y="404">London</text>
-                  <text x="486" y="283">Leeds</text>
-                  <text x="245" y="370">Bristol</text>
-                  <text x="490" y="390">Felixstowe</text>
+                <g fill="#F5A300" stroke="#FFFFFF" strokeWidth="5">
+                  <circle cx="454" cy="86" r="8" /><circle cx="464" cy="214" r="8" /><circle cx="486" cy="322" r="8" />
+                  <circle cx="502" cy="420" r="8" /><circle cx="586" cy="284" r="8" /><circle cx="366" cy="392" r="8" /><circle cx="626" cy="400" r="8" />
                 </g>
               </svg>
-              <div className="absolute bottom-8 right-10 rounded-xl border border-[#DDE5EF] bg-white/90 px-4 py-3 shadow-[0_12px_34px_rgba(8,38,86,0.10)] backdrop-blur">
-                <p className="text-[0.65rem] font-black uppercase tracking-[0.16em] text-[#F5A300]">UK transport network</p>
-                <p className="mt-1 text-xs font-bold text-[#405978]">Illustrative route view</p>
+              <div className="absolute right-[16%] top-[15%] rounded-xl border border-white/80 bg-white/90 px-4 py-3 shadow-[0_14px_36px_rgba(7,27,60,0.18)] backdrop-blur-md">
+                <p className="text-xs font-black text-[#0A234F]">Glasgow</p><p className="mt-0.5 text-[0.68rem] font-bold text-[#60758F]">Network hub</p>
               </div>
+              <div className="absolute right-[10%] top-[41%] rounded-xl border border-white/80 bg-white/90 px-4 py-3 shadow-[0_14px_36px_rgba(7,27,60,0.18)] backdrop-blur-md">
+                <p className="text-xs font-black text-[#0A234F]">Leeds</p><p className="mt-0.5 text-[0.68rem] font-bold text-[#60758F]">Transport network</p>
+              </div>
+              <div className="absolute right-[32%] top-[45%] rounded-xl border border-white/80 bg-white/90 px-4 py-3 shadow-[0_14px_36px_rgba(7,27,60,0.18)] backdrop-blur-md">
+                <p className="text-xs font-black text-[#0A234F]">Manchester</p><p className="mt-0.5 text-[0.68rem] font-bold text-[#60758F]">Network hub</p>
+              </div>
+              <div className="absolute right-[18%] bottom-[17%] rounded-xl border border-white/80 bg-white/90 px-4 py-3 shadow-[0_14px_36px_rgba(7,27,60,0.18)] backdrop-blur-md">
+                <p className="text-xs font-black text-[#0A234F]">London</p><p className="mt-0.5 text-[0.68rem] font-bold text-[#60758F]">Transport network</p>
+              </div>
+              <div className="absolute bottom-5 right-6 text-[0.6rem] font-bold text-white/80 drop-shadow">Satellite imagery: NASA/GSFC · public domain</div>
             </div>
           ) : null}
           <div className="relative mx-auto max-w-[1240px]">
@@ -217,8 +201,8 @@ export function MarketingDetailPage({
               <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">Early Access · First 3 Months Free</p>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{kicker}</p>
             </div>
-            <h1 className="mt-5 max-w-[980px] text-[3.2rem] font-black leading-[0.96] tracking-tight text-[#102447] sm:text-[4.6rem] lg:text-[5.15rem]">{title}</h1>
-            <p className="mt-7 max-w-3xl text-lg font-semibold leading-8 text-[#60758F]">{intro}</p>
+            <h1 className={`mt-5 max-w-[980px] text-[3.2rem] font-black leading-[0.96] tracking-tight text-[#102447] sm:text-[4.6rem] lg:text-[5.15rem] ${heroMap ? 'lg:max-w-[690px]' : ''}`}>{title}</h1>
+            <p className={`mt-7 max-w-3xl text-lg font-semibold leading-8 text-[#60758F] ${heroMap ? 'lg:max-w-[650px]' : ''}`}>{intro}</p>
             <div className="mt-9 flex flex-wrap gap-3">
               <Link href={primaryHref} className="inline-flex items-center gap-2 rounded-lg bg-[#F5A300] px-6 py-3.5 text-sm font-black text-[#102447]">{primaryLabel}<ArrowRight className="h-4 w-4" /></Link>
               <Link href={secondaryHref} className="rounded-lg border border-[#C9D5E4] bg-[#F7F9FC] px-6 py-3.5 text-sm font-black text-[#163568]">{secondaryLabel}</Link>
