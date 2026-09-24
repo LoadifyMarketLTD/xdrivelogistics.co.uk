@@ -24,6 +24,7 @@ type NearbyPosition = {
   has_tail_lift?: boolean | null;
   available_until?: string | null;
   recorded_at?: string | null;
+  distance_miles?: number | null;
 };
 
 type NearbyResponse = { positions?: NearbyPosition[]; error?: string };
@@ -51,11 +52,13 @@ export default function DriverNearbyPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [nearPostcode, setNearPostcode] = useState('');
+  const [nearRadius, setNearRadius] = useState('100');
   const [vehicle, setVehicle] = useState('all');
   const [view, setView] = useState<'map' | 'list'>('map');
   const [audience, setAudience] = useState<'all' | 'drivers' | 'other'>('all');
 
-  const loadNearby = useCallback(async () => {
+  const loadNearby = useCallback(async (postcode = '', radiusMiles = 100) => {
     setLoading(true);
     setError('');
     const { data: sessionData } = await supabase.auth.getSession();
@@ -68,7 +71,10 @@ export default function DriverNearbyPage() {
     }
 
     try {
-      const response = await fetch('/api/availability/nearby', {
+      const params = new URLSearchParams();
+      if (postcode.trim()) params.set('postcode', postcode.trim());
+      params.set('radiusMiles', String(Math.min(300, Math.max(1, Number(radiusMiles) || 100))));
+      const response = await fetch(`/api/availability/nearby?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
@@ -128,8 +134,8 @@ export default function DriverNearbyPage() {
         <div className="subbar">
           <span className="crumb">Workspace &nbsp;/&nbsp; <b>Live Availability</b></span>
           <div className="sub-actions">
-            <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); setAudience('all'); }}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => void loadNearby()} disabled={loading}>{loading ? 'Refreshing…' : 'Search'}</button>
+            <button type="button" className="btn" onClick={() => { setSearch(''); setNearPostcode(''); setNearRadius('100'); setVehicle('all'); setAudience('all'); void loadNearby(); }}>Clear</button>
+            <button type="button" className="btn primary" onClick={() => void loadNearby(nearPostcode, Number(nearRadius))} disabled={loading}>{loading ? 'Searching…' : 'Find Nearest'}</button>
           </div>
         </div>
 
@@ -138,6 +144,8 @@ export default function DriverNearbyPage() {
             <div className="left-title">Search Panel</div>
             <div className="filter"><span className="label">Mode</span><div className="avail-mode"><button type="button" className="active">Live</button><button type="button" onClick={() => router.push('/driver/returns')}>Future</button></div></div>
             <div className="filter"><span className="label">Scope</span><div className="input" style={{ display: 'flex', alignItems: 'center' }}>UK Exchange</div></div>
+            <div className="filter"><span className="label">Near postcode / outcode</span><input className="input" value={nearPostcode} onChange={(event) => setNearPostcode(event.target.value)} placeholder="e.g. BB1 or BB1 1AA" /></div>
+            <div className="filter"><span className="label">Radius</span><select className="select" value={nearRadius} onChange={(event) => setNearRadius(event.target.value)}><option value="10">10 miles</option><option value="25">25 miles</option><option value="50">50 miles</option><option value="100">100 miles</option><option value="150">150 miles</option><option value="300">300 miles</option></select></div>
             <div className="filter"><span className="label">Member / Vehicle</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, member ID or vehicle" /></div>
             <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="all">Any vehicle</option>{vehicleOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}</select></div>
             <div className="filter"><span className="label">Groups</span><label className="check"><input type="checkbox" checked readOnly />Exchange visible</label></div>
@@ -166,7 +174,7 @@ export default function DriverNearbyPage() {
                         return <tr key={`${position.company_id ?? 'member'}:${position.vehicle_type ?? 'vehicle'}:${position.recorded_at ?? index}`} className="avail-row">
                           <td><b>{position.company_id ? <MemberIdentityLink companyId={position.company_id}>{position.member_name ?? 'Exchange member'}</MemberIdentityLink> : position.member_name ?? 'Exchange member'}</b><span className="meta">{position.member_code ? `Member ID ${position.member_code}` : position.member_type ?? 'Trading member'}</span></td>
                           <td>{vehicleLabel(position.vehicle_type)}<span className="meta">{position.payload_kg != null ? `${position.payload_kg} kg` : 'Capacity not published'}{position.pallets_capacity != null ? ` · ${position.pallets_capacity} pallets` : ''}</span></td>
-                          <td><span className="link">Privacy-rounded area</span></td>
+                          <td><span className="link">Privacy-rounded area</span>{position.distance_miles != null && <span className="meta">{position.distance_miles.toFixed(1)} miles from search</span>}</td>
                           <td>Not published</td>
                           <td>{fresh.label}</td>
                           <td>—</td>

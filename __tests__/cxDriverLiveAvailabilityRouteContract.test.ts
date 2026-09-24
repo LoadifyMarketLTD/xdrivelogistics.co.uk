@@ -22,7 +22,7 @@ describe('CX-informed Driver Live Availability route contract', () => {
   });
 
   it('keeps the CX-style exchange surface wired to real exchange-visible positions, map/list views and future journeys', () => {
-    expect(nearby).toContain("fetch('/api/availability/nearby'");
+    expect(nearby).toContain('/api/availability/nearby');
     expect(nearby).toContain("position.scope === 'exchange'");
     expect(nearby).toContain('Map View');
     expect(nearby).toContain('List View');
