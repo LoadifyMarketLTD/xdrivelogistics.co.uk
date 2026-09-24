@@ -8,7 +8,7 @@ const read = (relativePath: string) =>
 const legalUi = read('app/components/workspace/LegalAgreementsPage.tsx');
 const legalRoute = read('app/api/account/legal-agreements/route.ts');
 const remediationMigration = read('supabase/migrations/20260905183500_registration_legal_initial_remediation.sql');
-const customerAccount = read('app/components/workspace/CustomerCompanySettingsPage.tsx');
+const customerSettings = read('app/components/workspace/RoleSettingsWorkspace.tsx');
 const brokerAccount = read('app/broker/account/page.tsx');
 const driverAccountNav = read('app/driver/_components/AccountSectionNav.tsx');
 const fleetSettingsLayout = read('app/admin/settings/layout.tsx');
@@ -59,7 +59,7 @@ describe('Legal & Agreements account UI contract', () => {
     for (const route of protectedWorkspaceRoutes) {
       expect(fs.existsSync(path.join(process.cwd(), route))).toBe(true);
     }
-    expect(customerAccount).toContain('/customer/account/legal-agreements');
+    expect(customerSettings).toContain("legal: '/customer/account/legal-agreements'");
     expect(brokerAccount).toContain('/broker/account/legal-agreements');
     expect(driverAccountNav).toContain('/driver/account/legal-agreements');
     expect(fleetSettingsLayout).toContain('/admin/settings/legal-agreements');

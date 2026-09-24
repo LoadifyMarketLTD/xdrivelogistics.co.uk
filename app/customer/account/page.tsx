@@ -1,7 +1,5 @@
-'use client';
-
-import CustomerCompanySettingsPage from '../../components/workspace/CustomerCompanySettingsPage';
+import { redirect } from 'next/navigation';
 
 export default function CustomerAccountPage() {
-  return <CustomerCompanySettingsPage />;
+  redirect('/customer/settings?section=company');
 }

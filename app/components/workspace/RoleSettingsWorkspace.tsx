@@ -127,11 +127,12 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
   const canManageBilling = canManageCompanyOperations;
 
   useEffect(() => {
-    if (role !== 'owner' && role !== 'driver') return;
     const requested = searchParams.get('section');
-    if (requested === 'overview' || requested === 'profile' || requested === 'company' || requested === 'security') {
+    if (requested === 'overview' || requested === 'profile' || requested === 'security') {
       setSection(requested);
+      return;
     }
+    if (requested === 'company' && role !== 'driver') setSection('company');
   }, [role, searchParams]);
 
   const load = useCallback(async () => {
