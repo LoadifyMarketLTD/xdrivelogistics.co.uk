@@ -133,7 +133,7 @@ export function MemberDirectoryPage({
   const [specialistService, setSpecialistService] = useState('');
   const [tailLiftOnly, setTailLiftOnly] = useState(false);
   const [capabilityFilters, setCapabilityFilters] = useState<string[]>([]);
-  const [profileCompanyId, setProfileCompanyId] = useState<string | null>(null);
+  const [profileTarget, setProfileTarget] = useState<{ companyId?: string; driverId?: string } | null>(null);
   const [messageTarget, setMessageTarget] = useState<{ companyId: string; name: string } | null>(null);
   const [deliveryMin, setDeliveryMin] = useState('');
   const [paymentMin, setPaymentMin] = useState('');
@@ -396,14 +396,14 @@ export function MemberDirectoryPage({
                     <tbody>
                       {driverDirectoryCompanies.map((company) => (
                         <tr key={company.companyId} className="dir-row">
-                          <td><button type="button" className="dir-member-link"><b><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></b><span className="meta">{company.memberId ?? 'Member ID not supplied'}</span></button></td>
+                          <td><div className="dir-member-link"><b><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></b><span className="meta">{company.memberId ?? 'Member ID not supplied'}</span></div></td>
                           <td>{[company.city, company.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi` : ''}</span></td>
                           <td>{company.memberType}</td>
                           <td>{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Not supplied'}<span className="meta">{company.specialistServices?.length ? company.specialistServices.join(', ') : 'No specialist service declared'}</span></td>
                           <td>{company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}<span className="meta">{company.deliveryReliability.evidenceCount} timed delivery record(s)</span></td>
                           <td>{company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`}<span className="meta">{company.paymentReliability.evidenceCount} due/settlement record(s)</span></td>
                           <td><StatusBadge value="Not advertised" /></td>
-                          <td><button type="button" className="rowbtn blue" onClick={() => setProfileCompanyId(company.companyId)}>Profile</button>{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId, company.name)}>Chat</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book</button>}</td>
+                          <td><button type="button" className="rowbtn blue" onClick={() => setProfileTarget({ companyId: company.companyId })}>Profile</button>{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId, company.name)}>Chat</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book</button>}</td>
                         </tr>
                       ))}
                       {driverDirectoryCompanies.length === 0 && <tr><td colSpan={8}><EmptyState compact title="No companies match these filters" /></td></tr>}
@@ -426,7 +426,7 @@ export function MemberDirectoryPage({
                           <td>{driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}<span className="meta">Company-level delivery evidence</span></td>
                           <td>{driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`}<span className="meta">Company-level payment evidence</span></td>
                           <td><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} /></td>
-                          <td>{driver.companyId && <button type="button" className="rowbtn blue" onClick={() => setProfileCompanyId(driver.companyId)}>Profile</button>}{driver.companyId && messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(driver.companyId as string, driver.companyName)}>Chat</button>}{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(driver.companyId as string)}>Book</button>}</td>
+                          <td>{driver.companyId && <button type="button" className="rowbtn blue" onClick={() => setProfileTarget({ companyId: driver.companyId as string, driverId: driver.driverId })}>Profile</button>}{driver.companyId && messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(driver.companyId as string, driver.companyName)}>Chat</button>}{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(driver.companyId as string)}>Book</button>}</td>
                         </tr>
                       ))}
                       {driverDirectoryDrivers.length === 0 && <tr><td colSpan={8}><EmptyState compact title="No drivers match these filters" /></td></tr>}
@@ -440,7 +440,7 @@ export function MemberDirectoryPage({
             {privacy && <div className="footer">{privacy}</div>}
           </main>
         </div>
-        {profileCompanyId && <MemberProfileOverlay companyId={profileCompanyId} onClose={() => setProfileCompanyId(null)} />}
+        {profileTarget && <MemberProfileOverlay companyId={profileTarget.companyId} driverId={profileTarget.driverId} onClose={() => setProfileTarget(null)} />}
         {messageTarget && <DirectoryMemberMessenger companyId={messageTarget.companyId} companyName={messageTarget.name} onClose={() => setMessageTarget(null)} />}
       </section>
     );
@@ -496,7 +496,7 @@ export function MemberDirectoryPage({
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE / CAPABILITY</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Fleet capability not supplied'}{company.specialistServices?.length ? ` · ${company.specialistServices.join(', ')}` : ''}{company.maxPallets != null ? ` · up to ${company.maxPallets} pallets` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DELIVERY / PAYMENT RELIABILITY</div><strong>Delivery {company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">{company.deliveryReliability.evidenceCount} timed delivery record(s) · Payment {company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`} from {company.paymentReliability.evidenceCount} due/settlement record(s){company.paymentReliability.overdueOpen ? ` · ${company.paymentReliability.overdueOpen} overdue open` : ''}</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId, company.name)}>Messages</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setProfileTarget({ companyId: company.companyId })}>Profile</ActionButton><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId, company.name)}>Messages</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}</div></div>
                   </div>
                 </article>
               ))}
@@ -511,7 +511,7 @@ export function MemberDirectoryPage({
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[driver.city, driver.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">Broad member/company location only{driver.distanceMiles != null ? ` · ${driver.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">VEHICLE / CAPABILITY</div><strong>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}</strong><div className="driver-cell-secondary">{driver.hasTailLift ? 'Tail lift · ' : ''}{driver.palletsCapacity != null ? `${driver.palletsCapacity} pallets · ` : ''}{driver.specialistServices?.length ? driver.specialistServices.join(', ') : 'No specialist service declared'} · no live coordinates exposed</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">COMPANY RELIABILITY</div><strong>Delivery {driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">Payment {driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`} · evidence is company-level and truth-derived</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY / ACTION</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} />{driver.companyId && messagesRoute ? <div style={{ marginTop: 6 }}><ActionButton tone="secondary" onClick={() => openMemberMessages(driver.companyId as string, driver.companyName)}>Messages</ActionButton></div> : null}{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) ? <div style={{ marginTop: 6 }}><ActionButton tone="success" onClick={() => openDirectBooking(driver.companyId as string)}>Book Direct</ActionButton></div> : null}</div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY / ACTION</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} /><div style={{ marginTop: 6, display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setProfileTarget({ companyId: driver.companyId ?? undefined, driverId: driver.driverId })}>Profile</ActionButton>{driver.companyId && messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(driver.companyId as string, driver.companyName)}>Messages</ActionButton> : null}{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) ? <ActionButton tone="success" onClick={() => openDirectBooking(driver.companyId as string)}>Book Direct</ActionButton> : null}</div></div>
                   </div>
                 </article>
               ))}
@@ -520,6 +520,7 @@ export function MemberDirectoryPage({
           )}
         </main>
       </div>
+      {profileTarget && <MemberProfileOverlay companyId={profileTarget.companyId} driverId={profileTarget.driverId} onClose={() => setProfileTarget(null)} />}
     </div>
   );
 }
