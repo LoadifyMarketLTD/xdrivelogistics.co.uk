@@ -3,12 +3,13 @@
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useAuth } from '../../components/AuthContext';
 import { getNotificationsRoute, resolveActionCentreRole } from '../../components/workspace/actionCentreConfig';
 import { workspaceTheme } from '../../components/workspace/WorkspaceUI';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
+import { hasWorkspaceCapability, resolveWorkspaceRole } from '../../../lib/workspaceRole';
 
 const DRIVER_PRIMARY_NAV = [
   { id: 'dashboard', label: 'Dashboard', href: '/driver' },
@@ -42,12 +43,33 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
-  const role = user?.ownerDriverWorkspace ? 'owner_driver' as const : 'driver' as const;
+  const workspaceRole = resolveWorkspaceRole(user);
+  const driverActionRole = workspaceRole === 'owner_driver' ? 'owner_driver' as const : 'driver' as const;
+  const canPostLoads = hasWorkspaceCapability(workspaceRole, 'loads.create');
+  const canManageDrivers = hasWorkspaceCapability(workspaceRole, 'drivers.manage');
+  const canManageVehicles = hasWorkspaceCapability(workspaceRole, 'vehicles.manage');
+  const canManageBilling = hasWorkspaceCapability(workspaceRole, 'billing.manage');
+  const canViewCompanyProfile = ['owner_driver', 'company_owner', 'company_admin'].includes(workspaceRole);
+  const primaryNav = useMemo(() => DRIVER_PRIMARY_NAV.filter((item) => {
+    if (item.id === 'drivers') return canManageDrivers;
+    if (item.id === 'fleet') return canManageVehicles;
+    if (item.id === 'finance') return hasWorkspaceCapability(workspaceRole, 'invoices.carrier.manage');
+    if (item.id === 'directory' || item.id === 'loads' || item.id === 'quotes') return hasWorkspaceCapability(workspaceRole, 'loads.view.marketplace');
+    if (item.id === 'vision') return hasWorkspaceCapability(workspaceRole, 'jobs.track');
+    return true;
+  }), [canManageDrivers, canManageVehicles, workspaceRole]);
+  const settingsMenu = useMemo(() => DRIVER_SETTINGS_MENU.filter((item) => {
+    if (item.label === 'Company Profile') return canViewCompanyProfile;
+    if (item.label === 'Drivers / Staff') return canManageDrivers;
+    if (item.label === 'Vehicles / Assets') return canManageVehicles;
+    if (item.label === 'Billing & Membership') return canManageBilling;
+    return true;
+  }), [canManageBilling, canManageDrivers, canManageVehicles, canViewCompanyProfile]);
   const [companyName, setCompanyName] = useState('Driver Account');
   const [unreadCount, setUnreadCount] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  const actionRole = resolveActionCentreRole(role);
+  const actionRole = resolveActionCentreRole(driverActionRole);
   const notificationsHref = getNotificationsRoute(actionRole);
 
   useEffect(() => {
@@ -126,10 +148,10 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
             <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={160} height={44} priority />
           </button>
         </div>
-        <button type="button" className="cta post" onClick={() => router.push('/driver/post-load')}>POST LOAD</button>
-        <button type="button" className="cta direct" onClick={() => router.push('/driver/directory')}>BOOK DIRECT</button>
+        {canPostLoads && <button type="button" className="cta post" onClick={() => router.push('/driver/post-load')}>POST LOAD</button>}
+        {canPostLoads && <button type="button" className="cta direct" onClick={() => router.push('/driver/directory')}>BOOK DIRECT</button>}
         <nav className="main-nav" aria-label="Driver workspace navigation">
-          {DRIVER_PRIMARY_NAV.map((item) => {
+          {primaryNav.map((item) => {
             const active = isActive(item.href);
             return <button key={item.id} type="button" className={active ? 'active' : ''} onClick={() => router.push(item.href)} aria-current={active ? 'page' : undefined}>{item.label}</button>;
           })}
@@ -148,7 +170,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
             </button>
             {settingsOpen && (
               <div className="driver-settings-menu__panel" role="menu" aria-label="Driver settings">
-                {DRIVER_SETTINGS_MENU.map((item) => (
+                {settingsMenu.map((item) => (
                   <button
                     key={item.label}
                     type="button"

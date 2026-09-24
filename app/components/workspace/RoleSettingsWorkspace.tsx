@@ -112,7 +112,9 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const canEditCompany = membershipRole === 'owner' || membershipRole === 'admin';
+  // CX-style role boundary: only the account owner/sole trader edits the canonical company profile.
+  // Company admins retain day-to-day operational management but company identity remains view-only.
+  const canEditCompany = membershipRole === 'owner';
 
   useEffect(() => {
     if (role !== 'owner') return;

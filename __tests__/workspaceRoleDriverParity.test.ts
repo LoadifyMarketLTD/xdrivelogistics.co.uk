@@ -23,18 +23,19 @@ describe('driver parity across dual identity contexts', () => {
     expect(adminWithDriverWorkspaceRole).toBe('company_admin');
   });
 
-  it('returns identical driver workspace capabilities for driver and owner_driver personas', () => {
+  it('keeps driver execution parity while owner_driver adds sole-trader business controls', () => {
     const driverCaps = getCapabilitiesForRole('driver', { workspaceRole: 'driver' });
     const ownerDriverCaps = getCapabilitiesForRole('driver', { workspaceRole: 'owner_driver' });
 
-    expect(driverCaps).toEqual(ownerDriverCaps);
-    expect(driverCaps.canViewExchangeLoads).toBe(true);
-    expect(driverCaps.canQuoteLoads).toBe(true);
-    expect(driverCaps.canExecuteJobs).toBe(true);
-    expect(driverCaps.canManageOwnVehicle).toBe(true);
-    expect(driverCaps.canUploadPod).toBe(true);
-    expect(driverCaps.canViewInvoices).toBe(true);
-    expect(driverCaps.canUseReturnJourneys).toBe(true);
+    for (const capabilities of [driverCaps, ownerDriverCaps]) {
+      expect(capabilities.canViewExchangeLoads).toBe(true);
+      expect(capabilities.canQuoteLoads).toBe(true);
+      expect(capabilities.canExecuteJobs).toBe(true);
+      expect(capabilities.canManageOwnVehicle).toBe(true);
+      expect(capabilities.canUploadPod).toBe(true);
+      expect(capabilities.canViewInvoices).toBe(true);
+      expect(capabilities.canUseReturnJourneys).toBe(true);
+    }
   });
 
   it('keeps Driver navigation parity while exposing owner-only billing to owner_driver', () => {
