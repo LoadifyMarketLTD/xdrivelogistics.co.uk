@@ -3,10 +3,12 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
+import { useAuth } from '../../components/AuthContext';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { supabase } from '../../../lib/supabaseClient';
 import { StatusBadge } from '../../components/workspace/WorkspaceUI';
 import LiveAvailabilityMap from '../_components/LiveAvailabilityMap';
+import { hasWorkspaceCapability, resolveWorkspaceRole } from '../../../lib/workspaceRole';
 
 type NearbyPosition = {
   company_id: string | null;
@@ -42,6 +44,9 @@ const vehicleLabel = (value: string | null | undefined) => value
 
 export default function DriverNearbyPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const workspaceRole = resolveWorkspaceRole(user);
+  const canBookDirect = hasWorkspaceCapability(workspaceRole, 'loads.create');
   const [positions, setPositions] = useState<NearbyPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -145,7 +150,7 @@ export default function DriverNearbyPage() {
               <div className="avail-audience"><button type="button" className={audience === 'all' ? 'active' : ''} onClick={() => setAudience('all')}>All</button><button type="button" className={audience === 'drivers' ? 'active' : ''} onClick={() => setAudience('drivers')}>Drivers & Sub-contractors</button><button type="button" className={audience === 'other' ? 'active' : ''} onClick={() => setAudience('other')}>Other Members</button></div>
               <button type="button" className="text-action" disabled={!visible.length} onClick={() => { const first = visible[0]; if (first) openApproximateArea(first); }}>Open first visible area</button>
             </div>
-            <div className="toolbar"><b>Live Availability</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button></div>
+            <div className="toolbar"><b>Live Availability</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/availability')}>My Availability</button><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button></div>
             <div className={`availgrid ${view === 'map' ? 'map-only' : 'list-only'}`}>
               <div id="availMap" className="map availmap">
                 <div className="mapnote">Privacy-rounded exchange availability. Exact driver coordinates remain protected.</div>
@@ -166,7 +171,7 @@ export default function DriverNearbyPage() {
                           <td>{fresh.label}</td>
                           <td>—</td>
                           <td><StatusBadge value="Available" tone="green" /></td>
-                          <td><button type="button" className="rowbtn blue" onClick={() => openApproximateArea(position)}>View Map</button></td>
+                          <td><div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><button type="button" className="rowbtn blue" onClick={() => openApproximateArea(position)}>View Map</button>{position.company_id ? <button type="button" className="rowbtn" onClick={() => router.push(`/driver/messages?companyId=${encodeURIComponent(position.company_id as string)}`)}>Message</button> : null}{position.company_id && canBookDirect ? <button type="button" className="rowbtn green" onClick={() => router.push(`/driver/post-load?directCarrier=${encodeURIComponent(position.company_id as string)}`)}>Book Direct</button> : null}</div></td>
                         </tr>;
                       })}
                     </tbody>

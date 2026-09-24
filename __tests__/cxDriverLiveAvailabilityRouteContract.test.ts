@@ -28,5 +28,10 @@ describe('CX-informed Driver Live Availability route contract', () => {
     expect(nearby).toContain('List View');
     expect(nearby).toContain("router.push('/driver/returns')");
     expect(nearby).toContain('LiveAvailabilityMap');
+    expect(nearby).toContain('My Availability');
+    expect(nearby).toContain('Message');
+    expect(nearby).toContain('Book Direct');
+    expect(nearby).toContain("hasWorkspaceCapability(workspaceRole, 'loads.create')");
+    expect(nearby).toContain('/driver/post-load?directCarrier=');
   });
 });
