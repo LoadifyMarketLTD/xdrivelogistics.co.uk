@@ -18,6 +18,7 @@ import {
   quoteSafeRequirementFlags,
 } from '../../driver/_lib/marketplacePublic';
 import { vehicleMatchesMarketplaceSizeRange } from '../../../../lib/vehicleSizeRange';
+import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../_lib/stripeCommercialReadiness';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -659,6 +660,29 @@ export async function POST(request: NextRequest) {
   const blocked = authResponse(auth, `marketplace.company.${input.action}`);
   if (blocked) return blocked;
   if (auth.kind !== 'ok') return respond(403, { error: 'You do not have access to this company marketplace.' });
+
+  if (input.action === 'submit_bid') {
+    let stripeReadiness;
+    try {
+      stripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, input.companyId);
+    } catch (error) {
+      return operationalError({
+        status: 503,
+        message: 'Stripe commercial readiness could not be verified. Please try again.',
+        context: `marketplace.company.stripe-readiness.company:${input.companyId}`,
+        cause: error,
+        retryable: true,
+      });
+    }
+    if (!stripeReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+    }
+    if (!stripeReadiness.ready) {
+      return respond(409, stripeCommercialReadinessPayload(
+        'Complete and activate your company Stripe account before quoting for transport work.'
+      ));
+    }
+  }
 
   if (input.action === 'withdraw_bid') {
     const { data: bid, error: bidError } = await supabaseAdmin
