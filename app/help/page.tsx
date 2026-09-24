@@ -11,21 +11,17 @@ export const metadata: Metadata = {
 };
 
 const faqs = [
-  { q: 'What is XDrive?', a: 'XDrive is a UK courier and freight exchange platform operated by XDrive Logistics Ltd. It connects customers and brokers posting transport work with owner drivers and carriers who can quote for that work. Awarded jobs continue into dispatch, status updates, POD and finance-ready records.' },
-  { q: 'Who operates the platform?', a: 'The platform is operated by XDrive Logistics Ltd, company number 13171804, registered in England and Wales.' },
+  { q: 'What is XDrive?', a: 'XDrive is a UK courier and freight exchange platform operated by XDrive Logistics Ltd, company number 13171804. It connects customers and brokers posting transport work with owner drivers and carriers who can quote for that work, then continue awarded jobs through dispatch, status updates, POD and finance-ready records.' },
   { q: 'Who can join?', a: 'Current early access is designed for customers and shippers, transport brokers, owner drivers and fleet operators. Applications may be reviewed before full access is enabled.' },
   { q: 'How does the 3-month free period work?', a: 'Eligible standard launch memberships include three months of platform access before paid membership begins. The plan, renewal amount and billing date are shown before any paid subscription is activated.' },
   { q: 'Does XDrive charge commission on jobs?', a: 'Under the current launch membership model, XDrive does not take a percentage commission from the transport price and does not add an XDrive booking fee. Membership charges are separate from the commercial price agreed for transport work.' },
-  { q: 'Who pays for the transport job?', a: 'The parties to the transport job remain responsible for the agreed transport charges and payment terms between them. XDrive does not currently hold client funds as part of the platform model.' },
-  { q: 'Is XDrive an escrow or banking service?', a: 'No. The current platform model does not make XDrive an escrow provider, bank or insurer. Transport payment obligations remain between the contracting parties unless XDrive expressly agrees a separate service.' },
+  { q: 'Who pays for the transport job?', a: 'The parties to the transport job remain responsible for the agreed transport charges and payment terms between them. XDrive does not currently hold client funds or operate as an escrow or banking service under the platform model.' },
   { q: 'How are jobs posted and awarded?', a: 'Customers and brokers can post job requirements, carriers and owner drivers can submit quotes, and the poster can compare and award the job. The awarded job then becomes the operational record used for dispatch and completion.' },
   { q: 'What happens after a job is awarded?', a: 'The job can move through driver allocation, collection, in-transit updates, delivery and proof of delivery without creating a separate disconnected record.' },
   { q: 'What is POD?', a: 'Proof of Delivery (POD) is delivery evidence attached to the job record, such as confirmation details, timestamps and supported delivery evidence captured through the XDrive workflow.' },
-  { q: 'How does XDrive handle verification?', a: 'XDrive can require members to provide identity, company, vehicle or insurance documents relevant to their role and can record review status and expiry information. XDrive does not publicly claim biometric facial verification or automatic insurer-database validation unless a specific verified integration is expressly identified.' },
+  { q: 'How does XDrive handle verification?', a: 'XDrive can require identity, company, vehicle or insurance documents relevant to a member role and can record review status and expiry information. Public Product Status pages distinguish current capability from planned functionality.' },
   { q: 'Does XDrive perform every transport job?', a: 'No. XDrive normally operates as the platform intermediary. A transport job is performed by the carrier or owner driver who accepts it unless XDrive Logistics Ltd expressly contracts separately to provide or arrange the transport service itself.' },
-  { q: 'How can I tell what is available now versus planned?', a: 'XDrive is in controlled early access. Public pages describe the current launch scope; capabilities that are only planned should not be treated as available unless XDrive expressly marks them as available.' },
-  { q: 'Can I cancel my membership?', a: 'The standard launch membership is intended to be monthly rolling after the free period. Cancellation mechanics, effective dates and any plan-specific conditions are described in the Membership & Subscription Terms and are also shown in the billing flow.' },
-  { q: 'Are prices inclusive of VAT?', a: 'Published membership prices are shown before applicable VAT unless the pricing page expressly states otherwise. VAT is added where legally applicable.' },
+  { q: 'What happens after the free period?', a: 'Standard launch membership is intended to be monthly rolling after the free period. Cancellation mechanics and billing details are shown in the Membership & Subscription Terms and billing flow. Published membership prices are shown before applicable VAT unless stated otherwise.' },
   { q: 'Where can I get help or raise a complaint?', a: 'Use the Contact page for general help and the Complaints & Disputes page for formal complaints, billing issues, platform conduct or dispute escalation.' },
 ] as const;
 
@@ -66,11 +62,11 @@ export default function HelpPage() {
           </div>
         </section>
         <section className="px-5 py-16 sm:px-8 lg:py-20">
-          <div className="mx-auto grid max-w-[1000px] gap-4">
+          <div className="mx-auto grid max-w-[1240px] gap-4 md:grid-cols-2">
             {faqs.map((item, index) => (
-              <details key={item.q} className="group rounded-2xl border border-[#E2E8F1] bg-white p-6 shadow-[0_12px_34px_rgba(8,38,86,0.05)]">
-                <summary className="cursor-pointer list-none text-lg font-black text-[#0A234F] [&::-webkit-details-marker]:hidden"><span className="mr-3 text-[#F5A300]">{String(index + 1).padStart(2,'0')}</span>{item.q}</summary>
-                <p className="mt-4 pl-9 font-semibold leading-7 text-[#60758F]">{item.a}</p>
+              <details key={item.q} className="group rounded-2xl border border-[#E2E8F1] bg-white p-5 shadow-[0_12px_34px_rgba(8,38,86,0.05)]">
+                <summary className="cursor-pointer list-none text-base font-black leading-6 text-[#0A234F] [&::-webkit-details-marker]:hidden"><span className="mr-3 text-[#F5A300]">{String(index + 1).padStart(2,'0')}</span>{item.q}</summary>
+                <p className="mt-3 pl-9 text-sm font-semibold leading-6 text-[#60758F]">{item.a}</p>
               </details>
             ))}
           </div>
