@@ -54,11 +54,17 @@ export default function HelpPage() {
         </div>
       </header>
       <main>
-        <section className="bg-white px-5 pb-8 pt-8 sm:px-8 sm:pb-10 sm:pt-10 lg:pb-10 lg:pt-12">
-          <div className="mx-auto max-w-[1240px]">
+        <section className="relative overflow-hidden border-b border-[#E2E8F1] bg-white px-5 pb-8 pt-8 sm:px-8 sm:pb-10 sm:pt-10 lg:pb-10 lg:pt-12">
+          <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[48%] overflow-hidden lg:block" aria-hidden="true">
+            <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/0/08/United_Kingdom_satellite_image.png')" }} />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,#FFFFFF_0%,rgba(255,255,255,0.96)_18%,rgba(255,255,255,0.60)_48%,rgba(255,255,255,0.10)_100%)]" />
+            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08),rgba(10,35,79,0.08))]" />
+            <div className="absolute right-[12%] top-[28%] rounded-xl border border-white/80 bg-white/90 px-4 py-3 shadow-[0_14px_36px_rgba(7,27,60,0.16)] backdrop-blur-md"><p className="text-xs font-black text-[#0A234F]">Help across the network</p><p className="mt-0.5 text-[0.68rem] font-bold text-[#60758F]">Membership · jobs · POD · billing</p></div>
+          </div>
+          <div className="relative mx-auto max-w-[1240px]">
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">Help & FAQ</p>
-            <h1 className="mt-3 max-w-4xl text-[3.2rem] font-black leading-[0.96] tracking-tight text-[#0A234F] sm:text-[4.6rem]">Clear answers before you join XDrive.</h1>
-            <p className="mt-4 max-w-3xl text-lg font-semibold leading-8 text-[#516987]">Membership, quoting, job ownership, POD, payments, verification and platform responsibilities — explained in plain language.</p>
+            <h1 className="mt-3 max-w-[760px] text-[3.2rem] font-black leading-[0.96] tracking-tight text-[#0A234F] sm:text-[4.6rem]">Clear answers before you join XDrive.</h1>
+            <p className="mt-4 max-w-[660px] text-lg font-semibold leading-8 text-[#516987]">Membership, quoting, job ownership, POD, payments, verification and platform responsibilities — explained in plain language.</p>
           </div>
         </section>
         <section className="px-5 pb-10 pt-4 sm:px-8 sm:pb-12 sm:pt-5 lg:pb-14 lg:pt-6">
