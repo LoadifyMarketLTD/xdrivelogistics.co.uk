@@ -103,7 +103,7 @@ const blankCompany = {
 const blankProfile = { fullName: '', phone: '' };
 const textOrNull = (value: string) => value.trim() || null;
 
-export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
+export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleMode; roleLabel?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -285,7 +285,7 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
   return (
     <PageFrame>
       <PageHeader
-        eyebrow={ROLE_LABEL[role]}
+        eyebrow={roleLabel ?? ROLE_LABEL[role]}
         title="Settings"
         description={role === 'driver' ? 'Personal profile, security, documents and workspace preferences for the signed-in driver.' : 'Company, profile, membership and workspace controls using the live XDrive account records.'}
         actions={
