@@ -54,7 +54,22 @@ export default function PricingPage() {
     </header>
 
     <main>
-      <section className="bg-gradient-to-br from-[#173B73] to-[#0E2D5A] px-5 py-16 text-white sm:px-8 lg:py-20"><div className="mx-auto max-w-[1240px]"><p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">XDrive Membership</p><h1 className="mt-5 max-w-5xl text-[3.2rem] font-black leading-[0.96] tracking-tight sm:text-[4.8rem]">Simple pricing. First 3 months free.</h1><p className="mt-7 max-w-3xl text-lg font-semibold leading-8 text-white/78">No XDrive commission on the value of your job. No XDrive booking fee. After your free period, continue on the plan that matches your operation.</p><div className="mt-6 rounded-[24px] border border-white/10 bg-white/[0.04] p-6 text-sm font-bold leading-6 text-white/70"><p>Standard launch plans are monthly rolling after the free period. Public prices shown are exclusive of VAT unless expressly stated otherwise; VAT is added where legally applicable. There is no minimum paid term under the standard monthly launch model.</p><p className="mt-2">Enterprise pricing and launch terms are intentionally not published yet and will be agreed separately for 51+ vehicle or custom operations. See the <Link href="/subscription-terms" className="font-black text-[#F5A300] underline">Membership & Subscription Terms</Link> for renewal, cancellation and refund rules applying to standard memberships.</p></div><SocialShareBar pageTitle="XDrive Membership Pricing" /></div></section>
+      <section className="relative overflow-hidden border-b border-[#DDE5EF] bg-white px-5 py-16 text-[#102447] sm:px-8 lg:py-20">
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[56%] overflow-hidden lg:block" aria-hidden="true">
+          <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/0/08/United_Kingdom_satellite_image.png')" }} />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,#FFFFFF_0%,rgba(255,255,255,0.94)_16%,rgba(255,255,255,0.55)_42%,rgba(255,255,255,0.06)_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(10,35,79,0.12))]" />
+          <div className="absolute right-[16%] top-[24%] rounded-xl border border-white/80 bg-white/90 px-4 py-3 shadow-[0_14px_36px_rgba(7,27,60,0.18)] backdrop-blur-md"><p className="text-xs font-black text-[#0A234F]">UK-wide access</p><p className="mt-0.5 text-[0.68rem] font-bold text-[#60758F]">Membership by operation size</p></div>
+          <div className="absolute bottom-5 right-6 text-[0.6rem] font-bold text-white/80 drop-shadow">Satellite imagery: NASA/GSFC · public domain</div>
+        </div>
+        <div className="relative mx-auto max-w-[1240px]">
+          <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">XDrive Membership</p>
+          <h1 className="mt-5 max-w-[720px] text-[3.2rem] font-black leading-[0.96] tracking-tight text-[#102447] sm:text-[4.8rem]">Simple pricing. First 3 months free.</h1>
+          <p className="mt-7 max-w-[650px] text-lg font-semibold leading-8 text-[#60758F]">No XDrive commission on the value of your job. No XDrive booking fee. After your free period, continue on the plan that matches your operation.</p>
+          <div className="mt-6 max-w-[700px] rounded-[24px] border border-[#DDE5EF] bg-white/92 p-6 text-sm font-bold leading-6 text-[#405978] shadow-[0_18px_45px_rgba(7,27,60,0.07)] backdrop-blur"><p>Standard launch plans are monthly rolling after the free period. Public prices shown are exclusive of VAT unless expressly stated otherwise; VAT is added where legally applicable. There is no minimum paid term under the standard monthly launch model.</p><p className="mt-2">Enterprise pricing and launch terms are intentionally not published yet and will be agreed separately for 51+ vehicle or custom operations. See the <Link href="/subscription-terms" className="font-black text-[#0E3FA9] underline">Membership & Subscription Terms</Link> for renewal, cancellation and refund rules applying to standard memberships.</p></div>
+          <SocialShareBar pageTitle="XDrive Membership Pricing" />
+        </div>
+      </section>
 
       <section className="border-t border-[#DDE5EF] bg-gradient-to-b from-[#F8FAFD] to-[#EEF3F8] px-5 py-14 sm:px-8 lg:py-16">
         <div className="mx-auto grid max-w-[1440px] gap-5 md:grid-cols-2 xl:grid-cols-4">
