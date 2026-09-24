@@ -14,7 +14,13 @@ const SOURCE_FILE_EXT = /\.(tsx|ts|jsx|js)$/;
 const toPosix = (value) => value.split(path.sep).join('/');
 
 async function walk(dir) {
-  const entries = await fs.readdir(dir, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch (error) {
+    if (error?.code === 'ENOENT') return [];
+    throw error;
+  }
   const out = [];
   for (const entry of entries) {
     const next = path.join(dir, entry.name);
@@ -29,9 +35,10 @@ async function walk(dir) {
 
 function routeFromPageFile(filePath) {
   const rel = toPosix(path.relative(APP_DIR, filePath));
-  if (!rel.endsWith('/page.tsx')) return null;
-  const route = `/${rel.replace(/\/page\.tsx$/, '')}`.replace(/\/index$/, '').replace(/\/+/g, '/');
-  return route === '/page.tsx' || route === '/' ? '/' : route;
+  if (rel !== 'page.tsx' && !rel.endsWith('/page.tsx')) return null;
+  const routePath = rel === 'page.tsx' ? '' : rel.replace(/\/page\.tsx$/, '');
+  const route = `/${routePath}`.replace(/\/index$/, '').replace(/\/+/g, '/');
+  return route || '/';
 }
 
 function roleForSource(sourceFile, targetRoute = '') {
@@ -66,6 +73,7 @@ function extractEntries(filePath, content) {
   const entries = [];
   const push = (label, target, line, type) => {
     if (!target?.startsWith('/')) return;
+    if (target.startsWith('/api/') || target.includes('${')) return;
     if (ASSET_EXT.test(target)) return;
     entries.push({
       label: label?.trim() || `${type} ${target}`,
@@ -113,7 +121,7 @@ async function run() {
   const mobileFiles = (await walk(MOBILE_DIR)).filter((file) => SOURCE_FILE_EXT.test(file));
   const e2eFiles = (await walk(E2E_DIR)).filter((file) => SOURCE_FILE_EXT.test(file));
 
-  const pageFiles = appFiles.filter((file) => file.endsWith('/page.tsx'));
+  const pageFiles = appFiles.filter((file) => toPosix(file).endsWith('/page.tsx'));
   const routeToFile = new Map();
   const dynamicRoutes = [];
   for (const pageFile of pageFiles) {
@@ -159,7 +167,7 @@ async function run() {
   for (const item of extracted) {
     // Strip query string before route lookup so targets like /admin/drivers?driver=xxx
     // correctly resolve to the /admin/drivers page file.
-    const routeKey = item.currentTarget.split('?')[0];
+    const routeKey = item.currentTarget.split('?')[0].split('#')[0];
     let targetFile = routeToFile.get(routeKey) ?? null;
     let routeExists = Boolean(targetFile);
     if (!routeExists) {
