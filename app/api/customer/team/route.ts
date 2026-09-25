@@ -284,7 +284,20 @@ export async function PATCH(request: NextRequest) {
     }
     updatePayload.role_in_company = role;
   } else if (action === 'department') {
-    updatePayload.department_id = departmentId ?? null;
+    const { data: departmentUpdated, error: departmentError } = await admin
+      .rpc('assign_company_membership_department', {
+        p_company_id: companyId,
+        p_actor_user_id: user.id,
+        p_membership_id: membershipId,
+        p_department_id: departmentId ?? null,
+      })
+      .maybeSingle();
+    if (departmentError) {
+      if (departmentError.code === 'P0002') return json(404, { error: 'Membership not found.' });
+      if (departmentError.code === '42501') return json(403, { error: 'Department assignment is outside this company workspace.' });
+      return json(500, { error: 'Department assignment failed.' });
+    }
+    return json(200, { membership: departmentUpdated });
   } else if (action === 'suspend') {
     updatePayload.status = 'suspended';
   } else if (action === 'reactivate') {

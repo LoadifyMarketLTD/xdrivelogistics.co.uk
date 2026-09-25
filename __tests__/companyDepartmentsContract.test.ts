@@ -33,7 +33,7 @@ describe('company Departments model', () => {
   it('integrates department assignment into Customer and Broker team management', () => {
     expect(teamApi).toContain("action: z.enum(['role', 'department', 'suspend', 'reactivate', 'remove'])");
     expect(teamApi).toContain('departmentId: membership.department_id');
-    expect(teamApi).toContain('updatePayload.department_id = departmentId ?? null');
+    expect(teamApi).toContain(".rpc('assign_company_membership_department'");
     expect(customer).toContain("action: 'department'");
     expect(broker).toContain("action: 'department'");
     expect(customer).toContain("'Department'");
