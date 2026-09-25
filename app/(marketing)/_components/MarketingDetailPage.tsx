@@ -83,16 +83,19 @@ function SectionGrid({ sections, mode }: { sections: DetailSection[]; mode: Visu
       {sections.map((section, index) => (
         <article
           key={section.title}
-          className="relative flex min-h-[330px] flex-col overflow-hidden rounded-[24px] border border-[#1B3D6B] bg-gradient-to-br from-[#163568] to-[#102B55] p-7 text-white shadow-[0_18px_45px_rgba(7,27,60,0.12)] lg:p-8"
+          className="group relative flex min-h-[285px] flex-col overflow-hidden rounded-[28px] border border-[#D9E2EC] bg-white p-7 text-[#102447] shadow-[0_16px_42px_rgba(7,27,60,0.07)] transition duration-300 hover:-translate-y-1 hover:shadow-[0_22px_56px_rgba(7,27,60,0.11)] lg:p-8"
         >
-          <div className="absolute right-6 top-4 text-7xl font-black leading-none text-[#46689F]">0{index + 1}</div>
-          <p className="relative text-[0.7rem] font-black uppercase tracking-[0.17em] text-[#F5A300]">{modeLabel[mode]} · 0{index + 1}</p>
-          <h2 className="relative mt-4 text-3xl font-black tracking-tight text-white">{section.title}</h2>
-          <p className="relative mt-4 max-w-xl font-semibold leading-7 text-white/70">{section.copy}</p>
+          <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#F5A300] via-[#1D57D8] to-transparent opacity-80" />
+          <div className="flex items-center justify-between gap-4">
+            <p className="text-[0.68rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">{modeLabel[mode]}</p>
+            <span className="inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-[#DDE5EF] bg-[#F8FAFC] px-2 text-xs font-black text-[#60758F]">0{index + 1}</span>
+          </div>
+          <h2 className="mt-5 max-w-[92%] text-[2.15rem] tracking-tight text-[#102447]">{section.title}</h2>
+          <p className="mt-4 max-w-xl text-[0.98rem] font-semibold leading-7 text-[#60758F]">{section.copy}</p>
           {section.points?.length ? (
-            <div className="relative mt-7 grid gap-3 border-t border-white/10 pt-5">
+            <div className="mt-auto grid gap-3 border-t border-[#E7EDF4] pt-5">
               {section.points.map(point => (
-                <div key={point} className="flex items-start gap-3 text-sm font-bold text-white/82">
+                <div key={point} className="flex items-start gap-3 text-sm font-bold text-[#405978]">
                   <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-[#F5A300]" />
                   {point}
                 </div>
@@ -116,6 +119,7 @@ export function MarketingDetailPage({
   secondaryHref = '/login',
   activeNavHref,
   darkBand,
+  heroMap = true,
 }: {
   kicker: string;
   title: string;
@@ -127,11 +131,12 @@ export function MarketingDetailPage({
   secondaryHref?: string;
   activeNavHref?: string;
   darkBand?: { title: string; copy: string };
+  heroMap?: boolean;
 }) {
   const mode = getVisualMode(kicker);
 
   return (
-    <div className="min-h-screen bg-[#F4F6FA] text-[#102447]">
+    <div className="marketing-editorial min-h-screen bg-[#F4F6FA] text-[#102447]">
       <header className="sticky top-0 z-50 border-b border-[#DDE5EF] bg-white/95 text-[#163568] backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
           <Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link>
@@ -152,19 +157,54 @@ export function MarketingDetailPage({
       </header>
 
       <main>
-        <section className="bg-gradient-to-br from-[#163568] to-[#102B55] px-5 py-16 text-white sm:px-8 lg:py-20">
-          <div className="mx-auto max-w-[1240px]">
+        <section className="relative overflow-hidden border-b border-[#DDE5EF] bg-white px-5 py-16 text-[#102447] sm:px-8 lg:py-20">
+          {heroMap ? (
+            <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[56%] overflow-hidden lg:block" aria-hidden="true">
+              <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/0/08/United_Kingdom_satellite_image.png')" }} />
+              <div className="absolute inset-0 bg-[linear-gradient(90deg,#FFFFFF_0%,rgba(255,255,255,0.98)_12%,rgba(255,255,255,0.78)_30%,rgba(255,255,255,0.24)_58%,rgba(255,255,255,0.05)_100%)]" />
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(10,35,79,0.10))]" />
+              <svg viewBox="0 0 760 520" className="absolute inset-0 h-full w-full" role="presentation">
+                <defs>
+                  <filter id="routeGlow" x="-40%" y="-40%" width="180%" height="180%">
+                    <feGaussianBlur stdDeviation="2.2" result="blur" />
+                    <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+                  </filter>
+                </defs>
+                <g fill="none" stroke="#F5A300" strokeWidth="2.1" strokeLinecap="round" filter="url(#routeGlow)" opacity="0.78">
+                  <path d="M454 86 C472 130 480 170 464 214 C450 250 458 286 486 322 C507 349 514 383 502 420" />
+                  <path d="M464 214 C520 218 558 244 586 284" />
+                  <path d="M486 322 C432 334 394 356 366 392" />
+                  <path d="M486 322 C542 337 590 362 626 400" />
+                </g>
+                <g fill="#F5A300" stroke="#FFFFFF" strokeWidth="3">
+                  <circle cx="454" cy="86" r="5.5" /><circle cx="464" cy="214" r="5.5" /><circle cx="486" cy="322" r="5.5" />
+                  <circle cx="502" cy="420" r="5.5" /><circle cx="586" cy="284" r="5.5" /><circle cx="366" cy="392" r="5.5" /><circle cx="626" cy="400" r="5.5" />
+                </g>
+                <g fill="#FFFFFF" fontSize="12" fontWeight="700" style={{ textShadow: '0 1px 8px rgba(10,35,79,0.65)' }}>
+                  <text x="468" y="90">Glasgow</text>
+                  <text x="478" y="218">Manchester</text>
+                  <text x="500" y="326">Birmingham</text>
+                  <text x="516" y="424">London</text>
+                  <text x="600" y="288">Leeds</text>
+                  <text x="314" y="396">Bristol</text>
+                  <text x="640" y="404">Felixstowe</text>
+                </g>
+              </svg>
+              <div className="absolute bottom-5 right-6 text-[0.58rem] font-bold tracking-wide text-white/65 drop-shadow">SATELLITE IMAGERY · NASA/GSFC</div>
+            </div>
+          ) : null}
+          <div className="relative mx-auto max-w-[1240px]">
             <div className="flex flex-col items-start gap-2">
               <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">Early Access · First 3 Months Free</p>
               <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{kicker}</p>
             </div>
-            <h1 className="mt-5 max-w-[980px] text-[3.2rem] font-black leading-[0.96] tracking-tight text-white sm:text-[4.6rem] lg:text-[5.15rem]">{title}</h1>
-            <p className="mt-7 max-w-3xl text-lg font-semibold leading-8 text-white/78">{intro}</p>
+            <h1 className={`font-display mt-5 max-w-[980px] text-[3.05rem] leading-[1.01] tracking-[-0.035em] text-[#102447] sm:text-[4.45rem] lg:text-[4.9rem] ${heroMap ? 'lg:max-w-[700px]' : ''}`}>{title}</h1>
+            <p className={`mt-7 max-w-3xl text-lg font-semibold leading-8 text-[#60758F] ${heroMap ? 'lg:max-w-[650px]' : ''}`}>{intro}</p>
             <div className="mt-9 flex flex-wrap gap-3">
-              <Link href={primaryHref} className="inline-flex items-center gap-2 rounded-lg bg-[#F5A300] px-6 py-3.5 text-sm font-black text-[#102B55]">{primaryLabel}<ArrowRight className="h-4 w-4" /></Link>
-              <Link href={secondaryHref} className="rounded-lg border border-white/15 bg-white/[0.04] px-6 py-3.5 text-sm font-black text-white">{secondaryLabel}</Link>
+              <Link href={primaryHref} className="inline-flex items-center gap-2 rounded-lg bg-[#F5A300] px-6 py-3.5 text-sm font-black text-[#102447]">{primaryLabel}<ArrowRight className="h-4 w-4" /></Link>
+              <Link href={secondaryHref} className="rounded-lg border border-[#C9D5E4] bg-[#F7F9FC] px-6 py-3.5 text-sm font-black text-[#163568]">{secondaryLabel}</Link>
             </div>
-            <div className="mt-6 flex flex-wrap gap-5 text-sm font-black text-white/78"><span>✓ No XDrive commission</span><span>✓ No booking fee</span><span>✓ Monthly rolling after trial</span></div>
+            <div className="mt-6 flex flex-wrap gap-5 text-sm font-black text-[#405978]"><span>✓ No XDrive commission</span><span>✓ No booking fee</span><span>✓ Monthly rolling after trial</span></div>
             <SocialShareBar pageTitle={title} />
           </div>
         </section>
@@ -175,7 +215,7 @@ export function MarketingDetailPage({
           {darkBand ? (
             <div className="mx-auto mt-6 max-w-[1440px] rounded-[24px] border border-[#1B3D6B] bg-gradient-to-br from-[#163568] to-[#102B55] p-7 text-white shadow-[0_18px_45px_rgba(7,27,60,0.10)] lg:p-8">
               <p className="text-xs font-black uppercase tracking-[0.16em] text-[#F5A300]">XDrive Logistics</p>
-              <h2 className="mt-3 max-w-4xl text-3xl font-black tracking-tight sm:text-4xl">{darkBand.title}</h2>
+              <h2 className="font-display mt-3 max-w-4xl text-3xl tracking-tight sm:text-4xl">{darkBand.title}</h2>
               <p className="mt-4 max-w-3xl font-semibold leading-7 text-white/70">{darkBand.copy}</p>
             </div>
           ) : null}

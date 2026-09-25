@@ -456,3 +456,40 @@ html {
     padding: 0;
   }
 }
+
+
+/* XDrive public editorial typography — aligned with the approved Loadify Market hierarchy */
+.marketing-editorial {
+  --font-display: Georgia, Cambria, "Times New Roman", Times, serif;
+  --font-body: "Segoe UI", Arial, sans-serif;
+}
+
+.marketing-editorial h1,
+.marketing-editorial h2,
+.marketing-editorial h3,
+.marketing-editorial .font-display,
+.marketing-editorial .font-serif {
+  font-family: var(--font-display) !important;
+  font-weight: 400 !important;
+  letter-spacing: -0.03em !important;
+}
+
+.marketing-editorial h1 {
+  line-height: 1.02 !important;
+}
+
+.marketing-editorial h2,
+.marketing-editorial h3 {
+  line-height: 1.08 !important;
+}
+
+.marketing-editorial nav,
+.marketing-editorial button,
+.marketing-editorial [role="button"],
+.marketing-editorial label,
+.marketing-editorial input,
+.marketing-editorial select,
+.marketing-editorial textarea {
+  font-family: var(--font-body);
+  letter-spacing: normal;
+}
