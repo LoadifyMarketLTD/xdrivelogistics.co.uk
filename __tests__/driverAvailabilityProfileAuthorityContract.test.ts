@@ -25,4 +25,12 @@ describe('driver availability profile server authority', () => {
     expect(mobile).toContain("action === 'update_destination_preferences'");
     expect(mobile).toContain('destinationRadiusMiles');
   });
+
+  it('keeps web and native destination matching radius aligned with the 300-mile matcher range', () => {
+    for (const radius of [10, 20, 30, 50, 100, 200, 300]) {
+      expect(page).toContain(`<option value="${radius}">${radius}</option>`);
+    }
+    expect(api).toContain('[10, 20, 30, 50, 100, 200, 300].includes(radius)');
+    expect(mobile).toContain('[10, 20, 30, 50, 100, 200, 300].includes(radius)');
+  });
 });

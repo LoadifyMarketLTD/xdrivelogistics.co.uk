@@ -286,8 +286,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Destination priority must be true or false.' }, { status: 400 });
     }
     const radius = Number(body.destinationRadiusMiles);
-    if (!Number.isInteger(radius) || ![10, 20, 30].includes(radius)) {
-      return NextResponse.json({ error: 'Destination radius must be 10, 20 or 30 miles.' }, { status: 400 });
+    if (!Number.isInteger(radius) || ![10, 20, 30, 50, 100, 200, 300].includes(radius)) {
+      return NextResponse.json({ error: 'Destination radius must be 10, 20, 30, 50, 100, 200 or 300 miles.' }, { status: 400 });
     }
     const { data, error } = await supabaseAdmin!
       .from('drivers')
