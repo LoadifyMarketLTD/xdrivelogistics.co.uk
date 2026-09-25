@@ -421,45 +421,69 @@ export async function GET(request: NextRequest) {
   };
   if (!destinationMode) return respond(200, { jobs: rows.map((row) => baseJob(row)) });
 
-  const { data: currentJob, error: currentJobError } = await supabaseAdmin
-    .from('jobs')
-    .select('id,delivery_postcode,delivery_lat,delivery_lng,delivery_datetime,delivery_time_slot,status,updated_at')
-    .eq('assigned_driver_id', driver.driverId)
-    .in('status', ['allocated', 'accepted', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery', 'delivered'])
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
+  const [{ data: currentJob, error: currentJobError }, { data: declaredReturnJourney, error: returnJourneyError }] = await Promise.all([
+    supabaseAdmin
+      .from('jobs')
+      .select('id,delivery_postcode,delivery_lat,delivery_lng,delivery_datetime,delivery_time_slot,status,updated_at')
+      .eq('assigned_driver_id', driver.driverId)
+      .in('status', ['allocated', 'accepted', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery', 'delivered'])
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('return_journeys')
+      .select('id,from_postcode,to_postcode,available_from,available_to,status,created_at')
+      .eq('driver_id', driver.driverId)
+      .in('status', ['active', 'available'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
   if (currentJobError) return respond(500, { error: currentJobError.message });
-  if (!currentJob) {
+  if (returnJourneyError) return respond(500, { error: 'Return Journey matching state could not be loaded.' });
+
+  const currentJobEligible = currentJob
+    && ['in_transit', 'on_my_way_to_delivery', 'on_site_delivery', 'delivered'].includes(String(currentJob.status));
+  const returnJourneyValidUntil = jobTime(declaredReturnJourney?.available_to);
+  const declaredJourneyEligible = declaredReturnJourney
+    && Boolean(declaredReturnJourney.from_postcode)
+    && (returnJourneyValidUntil === null || returnJourneyValidUntil >= Date.now());
+
+  if (!currentJobEligible && !declaredJourneyEligible) {
     return respond(200, {
       jobs: rows.map((row) => baseJob(row)),
-      returnIq: { active: false, reason: 'No active delivery is assigned to this driver.' },
-    });
-  }
-  if (!['in_transit', 'on_my_way_to_delivery', 'on_site_delivery', 'delivered'].includes(String(currentJob.status))) {
-    return respond(200, {
-      jobs: rows.map((row) => baseJob(row)),
-      returnIq: { active: false, reason: 'Activates when the driver is on the way to delivery.' },
+      returnIq: {
+        active: false,
+        reason: currentJob
+          ? 'Activates when the driver is on the way to delivery or has a current Return Journey declaration.'
+          : 'No active delivery or current Return Journey declaration is available for matching.',
+      },
     });
   }
 
-  const geocoded = await postcodeCoordinates([currentJob.delivery_postcode, ...rows.map((row) => row.pickup_postcode)]);
-  const destination = validCoordinates(currentJob.delivery_lat, currentJob.delivery_lng)
-    ?? geocoded.get(postcodeKey(currentJob.delivery_postcode))
-    ?? null;
+  const matchingOriginPostcode = currentJobEligible
+    ? currentJob.delivery_postcode
+    : declaredReturnJourney?.from_postcode ?? null;
+  const geocoded = await postcodeCoordinates([matchingOriginPostcode, ...rows.map((row) => row.pickup_postcode)]);
+  const destination = currentJobEligible
+    ? validCoordinates(currentJob.delivery_lat, currentJob.delivery_lng) ?? geocoded.get(postcodeKey(matchingOriginPostcode)) ?? null
+    : geocoded.get(postcodeKey(matchingOriginPostcode)) ?? null;
   if (!destination) {
     return respond(200, {
       jobs: rows.map((row) => baseJob(row)),
       returnIq: {
         active: false,
-        currentJobReference: `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}`,
-        destinationArea: publicArea(currentJob.delivery_postcode),
-        reason: 'The delivery postcode could not be located yet.',
+        currentJobReference: currentJobEligible ? `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}` : null,
+        returnJourneyId: declaredJourneyEligible ? declaredReturnJourney.id : null,
+        destinationArea: publicArea(matchingOriginPostcode),
+        reason: 'The matching origin could not be located yet.',
       },
     });
   }
 
-  const availableAfter = currentJob.delivery_datetime || currentJob.delivery_time_slot || null;
+  const availableAfter = currentJobEligible
+    ? currentJob.delivery_datetime || currentJob.delivery_time_slot || null
+    : declaredReturnJourney?.available_from ?? null;
   const availableAfterMs = jobTime(availableAfter);
   const [driverAccess, companyAccess, vehicleAccess] = await Promise.all([
     supabaseAdmin.from('drivers')
@@ -486,8 +510,9 @@ export async function GET(request: NextRequest) {
       jobs: rows.map((row) => baseJob(row)),
       returnIq: {
         active: false,
-        currentJobReference: `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}`,
-        destinationArea: publicArea(currentJob.delivery_postcode),
+        currentJobReference: currentJobEligible ? `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}` : null,
+        returnJourneyId: declaredJourneyEligible ? declaredReturnJourney.id : null,
+        destinationArea: publicArea(matchingOriginPostcode),
         availableAfter,
         radiusMiles,
         reason: 'Destination priority is disabled in Driver Availability.',
@@ -556,8 +581,9 @@ export async function GET(request: NextRequest) {
     jobs: prioritizedJobs,
     returnIq: {
       active: true,
-      currentJobReference: `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}`,
-      destinationArea: publicArea(currentJob.delivery_postcode),
+      currentJobReference: currentJobEligible ? `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}` : null,
+      returnJourneyId: declaredJourneyEligible ? declaredReturnJourney.id : null,
+      destinationArea: publicArea(matchingOriginPostcode),
       availableAfter,
       radiusMiles,
     },
