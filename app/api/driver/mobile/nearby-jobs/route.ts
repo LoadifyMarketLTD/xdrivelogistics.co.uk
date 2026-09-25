@@ -458,18 +458,40 @@ export async function GET(request: NextRequest) {
 
   const availableAfter = currentJob.delivery_datetime || currentJob.delivery_time_slot || null;
   const availableAfterMs = jobTime(availableAfter);
-  const requestedRadius = Number(searchParams.get('radius'));
-  const radiusMiles = Number.isFinite(requestedRadius)
-    ? Math.min(300, Math.max(10, Math.round(requestedRadius)))
-    : 10;
-
   const [driverAccess, companyAccess, vehicleAccess] = await Promise.all([
-    supabaseAdmin.from('drivers').select('international_work_approved').eq('id', driver.driverId).maybeSingle(),
+    supabaseAdmin.from('drivers')
+      .select('international_work_approved,destination_priority_enabled,destination_radius_miles')
+      .eq('id', driver.driverId)
+      .maybeSingle(),
     driver.companyId
       ? supabaseAdmin.from('companies').select('international_work_approved').eq('id', driver.companyId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('vehicles').select('international_work_approved,type').eq('assigned_driver_id', driver.driverId).maybeSingle(),
   ]);
+  if (driverAccess.error) return respond(500, { error: 'Driver destination preferences could not be loaded.' });
+
+  const requestedRadiusText = searchParams.get('radius');
+  const requestedRadius = requestedRadiusText === null
+    ? Number(driverAccess.data?.destination_radius_miles ?? 10)
+    : Number(requestedRadiusText);
+  const radiusMiles = Number.isFinite(requestedRadius)
+    ? Math.min(300, Math.max(10, Math.round(requestedRadius)))
+    : 10;
+
+  if (driverAccess.data?.destination_priority_enabled === false) {
+    return respond(200, {
+      jobs: rows.map((row) => baseJob(row)),
+      returnIq: {
+        active: false,
+        currentJobReference: `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}`,
+        destinationArea: publicArea(currentJob.delivery_postcode),
+        availableAfter,
+        radiusMiles,
+        reason: 'Destination priority is disabled in Driver Availability.',
+      },
+    });
+  }
+
   const internationalApproved = driverAccess.data?.international_work_approved === true
     && companyAccess.data?.international_work_approved === true
     && vehicleAccess.data?.international_work_approved === true;

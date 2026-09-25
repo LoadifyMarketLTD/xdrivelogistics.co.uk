@@ -47,4 +47,11 @@ describe('CX-benchmark nearby jobs contract', () => {
     expect(source).toContain(".select('job_id,state')");
     expect(source).toContain('preferenceState: preferenceByJob.get(row.id) ?? null');
   });
+
+  it('uses the persisted Driver destination-priority profile for Return IQ defaults', () => {
+    expect(source).toContain("destination_priority_enabled,destination_radius_miles");
+    expect(source).toContain("Number(driverAccess.data?.destination_radius_miles ?? 10)");
+    expect(source).toContain("driverAccess.data?.destination_priority_enabled === false");
+    expect(source).toContain("Destination priority is disabled in Driver Availability.");
+  });
 });
