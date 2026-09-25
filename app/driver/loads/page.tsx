@@ -78,6 +78,7 @@ type SortMode = 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc';
 type RegionFilter = 'any' | 'uk_roi' | 'euro';
 type PostedWithinFilter = 'any' | '15m' | '30m' | '1h' | '2h' | '4h' | '8h' | '24h';
 type JobTimingFilter = 'any' | 'same_day_timed' | 'same_day_non_timed' | 'next_day_timed' | 'next_day_non_timed';
+type LoadTypeFilter = 'all' | 'on_demand' | 'regular_load' | 'daily_hire';
 type PageSize = 10 | 25 | 50;
 
 type SavedLoadFilters = {
@@ -92,6 +93,7 @@ type SavedLoadFilters = {
   regionFilter: RegionFilter;
   postedWithinFilter: PostedWithinFilter;
   jobTimingFilter: JobTimingFilter;
+  loadTypeFilter: LoadTypeFilter;
   sortBy: SortMode;
 };
 
@@ -139,6 +141,12 @@ function matchesTiming(load: MarketplaceLoad, filter: JobTimingFilter) {
   if (filter === 'next_day_timed') return relation === 'next_day' && timed;
   return relation === 'next_day' && !timed;
 }
+function loadType(load: MarketplaceLoad): Exclude<LoadTypeFilter, 'all'> {
+  const service = String(load.service_mode ?? '').toLowerCase();
+  if (service.includes('daily') || service.includes('hire')) return 'daily_hire';
+  if (service.includes('regular')) return 'regular_load';
+  return 'on_demand';
+}
 function isEuroLoad(load: MarketplaceLoad) {
   const pickup = String(load.pickup_country_code ?? 'GB').toUpperCase(); const delivery = String(load.delivery_country_code ?? 'GB').toUpperCase();
   return !['GB', 'IE'].includes(pickup) || !['GB', 'IE'].includes(delivery);
@@ -173,6 +181,7 @@ export default function AvailableLoadsPage() {
   const [regionFilter, setRegionFilter] = useState<RegionFilter>('any');
   const [postedWithinFilter, setPostedWithinFilter] = useState<PostedWithinFilter>('any');
   const [jobTimingFilter, setJobTimingFilter] = useState<JobTimingFilter>('any');
+  const [loadTypeFilter, setLoadTypeFilter] = useState<LoadTypeFilter>('all');
   const [sortBy, setSortBy] = useState<SortMode>('date_desc');
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(25);
@@ -208,7 +217,7 @@ export default function AvailableLoadsPage() {
       setVehicleFilter(saved.vehicleFilter ?? 'any'); setPickupFilter(saved.pickupFilter ?? ''); setDeliveryFilter(saved.deliveryFilter ?? '');
       setCargoFilter(saved.cargoFilter ?? ''); setWeightMinFilter(saved.weightMinFilter ?? ''); setDateFromFilter(saved.dateFromFilter ?? '');
       setDateToFilter(saved.dateToFilter ?? ''); setMemberFilter(saved.memberFilter ?? ''); setRegionFilter(saved.regionFilter ?? 'any');
-      setPostedWithinFilter(saved.postedWithinFilter ?? 'any'); setJobTimingFilter(saved.jobTimingFilter ?? 'any'); setSortBy(saved.sortBy ?? 'date_desc'); setSaveAsDefault(true);
+      setPostedWithinFilter(saved.postedWithinFilter ?? 'any'); setJobTimingFilter(saved.jobTimingFilter ?? 'any'); setLoadTypeFilter(saved.loadTypeFilter ?? 'all'); setSortBy(saved.sortBy ?? 'date_desc'); setSaveAsDefault(true);
     } catch { window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); }
   }, []);
 
@@ -230,6 +239,7 @@ export default function AvailableLoadsPage() {
       if (!Number.isNaN(minWeight) && weightMinFilter.trim() && (load.weight_kg ?? 0) < minWeight) return false;
       if (regionFilter === 'uk_roi' && isEuroLoad(load)) return false;
       if (regionFilter === 'euro' && !isEuroLoad(load)) return false;
+      if (loadTypeFilter !== 'all' && loadType(load) !== loadTypeFilter) return false;
       if (!matchesTiming(load, jobTimingFilter)) return false;
       if (postedWindow != null) {
         if (!load.exchange_posted_at) return false;
@@ -249,14 +259,14 @@ export default function AvailableLoadsPage() {
       const priceA = a.budget_amount ?? 0; const priceB = b.budget_amount ?? 0;
       switch (sortBy) { case 'date_asc': return dateA - dateB; case 'price_desc': return priceB - priceA; case 'price_asc': return priceA - priceB; default: return dateB - dateA; }
     });
-  }, [cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loads, memberFilter, pickupFilter, postedWithinFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
+  }, [cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loadTypeFilter, loads, memberFilter, pickupFilter, postedWithinFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
 
-  useEffect(() => { setVisibleCount(pageSize); setExpandAll(false); }, [vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, sortBy, pageSize]);
-  const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, sortBy });
+  useEffect(() => { setVisibleCount(pageSize); setExpandAll(false); }, [vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
+  const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy });
   const applySearch = () => { setVisibleCount(pageSize); if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); };
   const clearFilters = () => {
     setVehicleFilter('any'); setPickupFilter(''); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
-    setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
+    setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
   const handleBidSubmit = async (loadId: string) => {
     if (!bidAmount || bidLoading) return;
@@ -318,7 +328,7 @@ export default function AvailableLoadsPage() {
             <div className="load-nav-unified">
               <div className="load-market-nav"><button type="button" className="active">Available Loads</button><button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button><button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button></div>
               <span className="load-nav-divider" aria-hidden="true" />
-              <div className="load-tabs"><button type="button" className="active">All Live</button><button type="button">On Demand</button><button type="button">Regular Load</button><button type="button">Daily Hire</button></div>
+              <div className="load-tabs"><button type="button" className={loadTypeFilter === 'all' ? 'active' : ''} onClick={() => setLoadTypeFilter('all')}>All Live</button><button type="button" className={loadTypeFilter === 'on_demand' ? 'active' : ''} onClick={() => setLoadTypeFilter('on_demand')}>On Demand</button><button type="button" className={loadTypeFilter === 'regular_load' ? 'active' : ''} onClick={() => setLoadTypeFilter('regular_load')}>Regular Load</button><button type="button" className={loadTypeFilter === 'daily_hire' ? 'active' : ''} onClick={() => setLoadTypeFilter('daily_hire')}>Daily Hire</button></div>
               <div className="load-posted">Show loads posted within last <select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">all</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
             </div>
             <div className="load-result-head">
