@@ -326,6 +326,15 @@ export async function POST(
   const companyName = cleanHeader(company.name);
   if (!companyName) return failDelivery(422, 'Invoice issuer company name is missing.');
 
+  const { data: companyEmailSettings, error: companyEmailSettingsError } = await supabaseAdmin
+    .from('company_settings')
+    .select('invoice_email_subject_template,invoice_email_message_template')
+    .eq('company_id', sender.companyId)
+    .maybeSingle();
+  if (companyEmailSettingsError) return failDelivery(500, 'Company invoice email defaults could not be loaded.');
+  const companySubjectTemplate = cleanTemplateText(companyEmailSettings?.invoice_email_subject_template, 500);
+  const companyMessageTemplate = cleanTemplateText(companyEmailSettings?.invoice_email_message_template, 10_000);
+
   const issuerVatNumber = cleanHeader(claimedInvoice.issuer_vat_number_snapshot)
     || cleanHeader(company.vat_number);
   const customerVatNumber = cleanHeader(claimedInvoice.customer_vat_number_snapshot);
@@ -355,11 +364,11 @@ export async function POST(
     'Load ID': jobReference,
   };
   const resolvedSubject = cleanHeader(replaceTemplateTokens(
-    requestedSubject || DEFAULT_INVOICE_EMAIL_SUBJECT,
+    requestedSubject || companySubjectTemplate || DEFAULT_INVOICE_EMAIL_SUBJECT,
     templateValues,
   ));
   const resolvedMessage = replaceTemplateTokens(
-    requestedMessage || DEFAULT_INVOICE_EMAIL_MESSAGE,
+    requestedMessage || companyMessageTemplate || DEFAULT_INVOICE_EMAIL_MESSAGE,
     templateValues,
   ).trim();
 

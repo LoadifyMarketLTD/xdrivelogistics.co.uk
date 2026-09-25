@@ -5,11 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
+import CompanyFinanceSettingsPanel from './CompanyFinanceSettingsPanel';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from './WorkspaceUI';
 import './role-settings-workspace.css';
 
 type RoleMode = 'customer' | 'broker' | 'driver' | 'owner' | 'fleet';
-type Section = 'overview' | 'profile' | 'company' | 'security';
+type Section = 'overview' | 'profile' | 'company' | 'finance' | 'security';
 
 type CompanyRow = {
   id: string;
@@ -121,11 +122,12 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
   const [success, setSuccess] = useState('');
 
   const canEditCompany = membershipRole === 'owner' || membershipRole === 'admin';
+  const canManageBilling = canEditCompany;
 
   useEffect(() => {
     if (role !== 'owner' && role !== 'driver') return;
     const requested = searchParams.get('section');
-    if (requested === 'overview' || requested === 'profile' || requested === 'company' || requested === 'security') {
+    if (requested === 'overview' || requested === 'profile' || requested === 'company' || requested === 'security' || (requested === 'finance' && role !== 'driver')) {
       setSection(requested);
     }
   }, [role, searchParams]);
@@ -270,12 +272,12 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     ...(role === 'fleet' ? [{ label: 'Drivers / Staff', action: () => router.push('/admin/drivers'), active: false }] : []),
     ...(routes.vehicles ? [{ label: 'Vehicles / Assets', action: () => router.push(routes.vehicles!), active: false }] : []),
     ...(routes.documents ? [{ label: 'Documents', action: () => router.push(routes.documents!), active: false }] : []),
-    ...(role === 'driver' ? [] : [{ label: 'Billing & Membership', action: () => router.push('/settings/billing'), active: false }]),
+    ...(role !== 'driver' && canManageBilling ? [{ label: 'Finance & Invoices', action: () => setSection('finance'), active: section === 'finance' }, { label: 'Billing & Membership', action: () => router.push('/settings/billing'), active: false }] : []),
     ...(routes.notifications ? [{ label: 'Settings', action: () => router.push(routes.notifications!), active: false }] : []),
     { label: 'Security', action: () => setSection('security'), active: section === 'security' },
     ...(routes.audit ? [{ label: 'Audit / Event Log', action: () => router.push(routes.audit!), active: false }] : []),
     { label: 'Support', action: () => router.push('/help'), active: false },
-  ], [role, router, routes.audit, routes.documents, routes.notifications, routes.team, routes.vehicles, section]);
+  ], [canManageBilling, role, router, routes.audit, routes.documents, routes.notifications, routes.team, routes.vehicles, section]);
 
   return (
     <PageFrame>
@@ -326,7 +328,8 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
                 </div>
                 <div className="role-settings-actions">
                   {role !== 'driver' && <ActionButton tone="secondary" onClick={() => setSection('company')}>Company Profile</ActionButton>}
-                  {role !== 'driver' && <ActionButton tone="secondary" onClick={() => router.push('/settings/billing')}>Membership & Billing</ActionButton>}
+                  {role !== 'driver' && canManageBilling && <ActionButton tone="secondary" onClick={() => setSection('finance')}>Finance & Invoices</ActionButton>}
+                  {role !== 'driver' && canManageBilling && <ActionButton tone="secondary" onClick={() => router.push('/settings/billing')}>Membership & Billing</ActionButton>}
                   {role === 'driver' && <ActionButton tone="secondary" onClick={() => setSection('profile')}>My Profile</ActionButton>}
                 </div>
               </Panel>
@@ -367,6 +370,8 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
                 <div><span>Your company role</span><strong>{membershipRole || 'Not verified'}</strong></div>
               </div>
             </Panel>
+          ) : section === 'finance' && canManageBilling ? (
+            <CompanyFinanceSettingsPanel companyId={company.id} companyName={companyDisplay} />
           ) : section === 'profile' ? (
             <Panel title="My Profile" description="Edit the personal profile attached to the signed-in XDrive account.">
               <div className="role-settings-form">
