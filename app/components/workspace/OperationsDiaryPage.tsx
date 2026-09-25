@@ -72,6 +72,7 @@ type DriverRow = {
 type ReviewRow = {
   id: string;
   job_id: string | null;
+  reviewer_company_id: string | null;
   rating: number | null;
   comment: string | null;
   created_at: string | null;
@@ -84,13 +85,14 @@ type SearchState = {
   reference: string;
   customer: string;
   driver: string;
+  bookedBy: string;
   pickupWindow: 'any' | 'morning' | 'afternoon' | 'evening';
   deliveryWindow: 'any' | 'morning' | 'afternoon' | 'evening';
   dateFrom: string;
   dateTo: string;
 };
 
-const EMPTY_SEARCH: SearchState = { scope: 'all', from: '', to: '', reference: '', customer: '', driver: '', pickupWindow: 'any', deliveryWindow: 'any', dateFrom: '', dateTo: '' };
+const EMPTY_SEARCH: SearchState = { scope: 'all', from: '', to: '', reference: '', customer: '', driver: '', bookedBy: '', pickupWindow: 'any', deliveryWindow: 'any', dateFrom: '', dateTo: '' };
 const TABS: Array<{ id: DiaryTab; label: string }> = [
   { id: 'all', label: 'All' },
   { id: 'unallocated', label: 'Unallocated' },
@@ -219,6 +221,12 @@ export default function OperationsDiaryPage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [detailTabByJob, setDetailTabByJob] = useState<Record<string, JobSheetTab>>({});
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
+  const [feedbackJobId, setFeedbackJobId] = useState<string | null>(null);
+  const [feedbackRating, setFeedbackRating] = useState(5);
+  const [feedbackComment, setFeedbackComment] = useState('');
+  const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const canLeaveCompanyFeedback = Boolean(user?.membershipRole && ['owner', 'admin', 'dispatcher'].includes(user.membershipRole));
 
   const load = useCallback(async () => {
     if (!companyId) { setJobs([]); setDrivers([]); setReviewsByJob({}); setLoading(false); return; }
@@ -237,8 +245,8 @@ export default function OperationsDiaryPage() {
         .order('display_name', { ascending: true }),
       supabase
         .from('reviews')
-        .select('id, job_id, rating, comment, created_at')
-        .eq('company_id', companyId)
+        .select('id, job_id, reviewer_company_id, rating, comment, created_at')
+        .eq('reviewer_company_id', companyId)
         .order('created_at', { ascending: false }),
     ]);
 
@@ -288,6 +296,8 @@ export default function OperationsDiaryPage() {
     const to = appliedSearch.to.trim().toLowerCase();
     const reference = appliedSearch.reference.trim().toLowerCase();
     const customer = appliedSearch.customer.trim().toLowerCase();
+    const memberDriver = appliedSearch.driver.trim().toLowerCase();
+    const bookedBy = appliedSearch.bookedBy.trim().toLowerCase();
     const fromDate = appliedSearch.dateFrom ? new Date(`${appliedSearch.dateFrom}T00:00:00`).getTime() : null;
     const toDate = appliedSearch.dateTo ? new Date(`${appliedSearch.dateTo}T23:59:59`).getTime() : null;
 
@@ -298,7 +308,25 @@ export default function OperationsDiaryPage() {
       .filter((job) => !to || `${job.delivery_location ?? ''} ${job.delivery_postcode ?? ''}`.toLowerCase().includes(to))
       .filter((job) => !reference || `${job.id} ${job.customer_reference ?? ''} ${job.booking_reference ?? ''}`.toLowerCase().includes(reference))
       .filter((job) => !customer || String(job.client_name ?? '').toLowerCase().includes(customer))
-      .filter((job) => !appliedSearch.driver || job.assigned_driver_id === appliedSearch.driver)
+      .filter((job) => {
+        if (!memberDriver) return true;
+        const detail = intelligence.jobDetailById.get(job.id);
+        const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
+        return [
+          job.assigned_driver_id,
+          driver?.display_name,
+          driver?.email,
+          detail?.ownerCompanyName,
+          detail?.awardedCompanyName,
+          detail?.executionCompanyName,
+        ].filter(Boolean).join(' ').toLowerCase().includes(memberDriver);
+      })
+      .filter((job) => {
+        if (!bookedBy) return true;
+        const detail = intelligence.jobDetailById.get(job.id);
+        return [detail?.createdByUserId, detail?.createdByName, detail?.createdByEmail]
+          .filter(Boolean).join(' ').toLowerCase().includes(bookedBy);
+      })
       .filter((job) => timeWindowMatches(job.pickup_datetime, appliedSearch.pickupWindow))
       .filter((job) => timeWindowMatches(job.delivery_datetime, appliedSearch.deliveryWindow))
       .filter((job) => {
@@ -310,7 +338,7 @@ export default function OperationsDiaryPage() {
         if (toDate && timestamp > toDate) return false;
         return true;
       });
-  }, [appliedSearch, companyId, jobs, reviewsByJob, tab]);
+  }, [appliedSearch, companyId, driverById, intelligence.jobDetailById, jobs, reviewsByJob, tab]);
 
   const counts = useMemo(() => Object.fromEntries(TABS.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [])).length])) as Record<DiaryTab, number>, [jobs, reviewsByJob]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
@@ -413,6 +441,40 @@ export default function OperationsDiaryPage() {
     }
   };
 
+  const openFeedback = (job: JobRow) => {
+    const existing = reviewsByJob[job.id]?.[0];
+    setFeedbackJobId(job.id);
+    setFeedbackRating(existing?.rating ?? 5);
+    setFeedbackComment(existing?.comment ?? '');
+    setError('');
+  };
+
+  const saveFeedback = async () => {
+    if (!feedbackJobId || !companyId) return;
+    setFeedbackSaving(true);
+    setError('');
+    setNotice('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Session expired.');
+      const response = await fetch(`/api/admin/jobs/${encodeURIComponent(feedbackJobId)}/feedback`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, rating: feedbackRating, comment: feedbackComment }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string; updated?: boolean };
+      if (!response.ok) throw new Error(payload.error || 'Company feedback could not be saved.');
+      setNotice(payload.updated ? 'Company feedback updated.' : 'Company feedback saved.');
+      setFeedbackJobId(null);
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Company feedback could not be saved.');
+    } finally {
+      setFeedbackSaving(false);
+    }
+  };
+
   const applySearch = () => {
     setAppliedSearch(search);
     if (saveAsDefault) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
@@ -441,7 +503,8 @@ export default function OperationsDiaryPage() {
             <label>DELIVERY TIME WITHIN<select value={search.deliveryWindow} onChange={(event) => setSearch((current) => ({ ...current, deliveryWindow: event.target.value as SearchState['deliveryWindow'] }))}><option value="any">Any</option><option value="morning">Morning</option><option value="afternoon">Afternoon</option><option value="evening">Evening</option></select></label>
             <label>LOAD ID / REF<input value={search.reference} onChange={(event) => setSearch((current) => ({ ...current, reference: event.target.value }))} placeholder="Job, customer or booking ref" /></label>
             <label>CUSTOMER NAME<input value={search.customer} onChange={(event) => setSearch((current) => ({ ...current, customer: event.target.value }))} placeholder="Customer name" /></label>
-            <label>MEMBER / DRIVER<select value={search.driver} onChange={(event) => setSearch((current) => ({ ...current, driver: event.target.value }))}><option value="">All drivers</option>{drivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.email ?? 'Driver'}</option>)}</select></label>
+            <label>MEMBER / DRIVER<input value={search.driver} onChange={(event) => setSearch((current) => ({ ...current, driver: event.target.value }))} placeholder="Member, driver or ID" /></label>
+            <label>BOOKED BY<input value={search.bookedBy} onChange={(event) => setSearch((current) => ({ ...current, bookedBy: event.target.value }))} placeholder="Name, email or user ID" /></label>
             <label>DATE FROM<input type="date" value={search.dateFrom} onChange={(event) => setSearch((current) => ({ ...current, dateFrom: event.target.value }))} /></label>
             <label>DATE TO<input type="date" value={search.dateTo} onChange={(event) => setSearch((current) => ({ ...current, dateTo: event.target.value }))} /></label>
             <div className="workspace-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={clearSearch}>Clear</ActionButton></div>
@@ -543,6 +606,7 @@ export default function OperationsDiaryPage() {
                 const agreedRate = moneyLabel(detail?.agreedRate, detail?.currency ?? 'GBP');
                 const bookedTo = detail?.awardedCompanyName ?? detail?.executionCompanyName ?? null;
                 const counterpartyPhone = job.company_id === companyId ? detail?.awardedCompanyPhone : detail?.ownerCompanyPhone;
+                const feedbackAvailable = Boolean(job.company_id === companyId && (job.awarded_carrier_company_id || (job.assigned_company_id && job.assigned_company_id !== companyId)) && ['completed', 'cancelled'].includes(stage));
                 return (
                   <article key={job.id} className="workspace-operational-row" data-state={status} style={{ overflow: 'hidden' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch' }}>
@@ -590,6 +654,7 @@ export default function OperationsDiaryPage() {
                       <ActionButton tone="secondary" onClick={() => router.push(`/admin/messages?jobId=${encodeURIComponent(job.id)}`)}>Message</ActionButton>
                       {job.company_id === companyId && <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${encodeURIComponent(job.id)}`)}>Edit</ActionButton>}
                       {job.company_id === companyId && !['completed', 'cancelled', 'expired'].includes(stage) && <ActionButton tone="danger" disabled={managingJobId === job.id} onClick={() => void cancelJob(job)}>{managingJobId === job.id ? 'Cancelling…' : 'Cancel'}</ActionButton>}
+                      {canLeaveCompanyFeedback && feedbackAvailable && <ActionButton tone="secondary" onClick={() => openFeedback(job)}>{reviewsByJob[job.id]?.length ? 'Edit Feedback' : 'Leave Feedback'}</ActionButton>}
                       {(['order','notes','history','documents','pod','invoice','replay'] as JobSheetTab[]).map((tabId) => <ActionButton key={tabId} tone={detailTabByJob[job.id] === tabId && open ? 'primary' : 'secondary'} onClick={() => openJobTab(job.id, tabId)}>{tabId === 'pod' ? 'POD' : tabId.charAt(0).toUpperCase() + tabId.slice(1)}</ActionButton>)}
                     </div>
                     {open && <CompanyJobSheetPanel jobId={job.id} mode="carrier" initialTab={detailTabByJob[job.id] ?? 'order'} />}
@@ -602,6 +667,17 @@ export default function OperationsDiaryPage() {
 
         </main>
       </div>
+
+      {feedbackJobId && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !feedbackSaving) setFeedbackJobId(null); }} style={{ position: 'fixed', inset: 0, zIndex: 1300, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(15, 23, 42, 0.48)' }}>
+        <section role="dialog" aria-modal="true" aria-labelledby="company-feedback-title" style={{ width: 'min(520px, calc(100vw - 32px))', overflow: 'hidden', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', boxShadow: '0 16px 48px rgba(15, 23, 42, 0.22)' }}>
+          <header style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f4f6f8' }}><strong id="company-feedback-title">Company feedback</strong><div style={{ marginTop: 2, color: '#64748b', fontSize: 11 }}>Rate the external carrier for this completed booking. One company review is kept per booking.</div></header>
+          <div style={{ padding: 12, display: 'grid', gap: 10 }}>
+            <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 800, color: '#334155' }}>RATING<select value={feedbackRating} onChange={(event) => setFeedbackRating(Number(event.target.value))} style={{ minHeight: 34, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px', background: '#fff' }}>{[5,4,3,2,1].map((rating) => <option key={rating} value={rating}>{rating} / 5</option>)}</select></label>
+            <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 800, color: '#334155' }}>COMMENT<textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value.slice(0, 2000))} rows={5} placeholder="Operational feedback about this booking" style={{ border: '1px solid #cbd5e1', borderRadius: 4, padding: 8, resize: 'vertical' }} /></label>
+          </div>
+          <footer style={{ padding: '8px 12px', display: 'flex', justifyContent: 'flex-end', gap: 6, borderTop: '1px solid #e2e8f0', background: '#f4f6f8' }}><ActionButton tone="secondary" disabled={feedbackSaving} onClick={() => setFeedbackJobId(null)}>Cancel</ActionButton><ActionButton tone="success" disabled={feedbackSaving} onClick={() => void saveFeedback()}>{feedbackSaving ? 'Saving…' : 'Save Feedback'}</ActionButton></footer>
+        </section>
+      </div>}
     </PageFrame>
   );
 }
