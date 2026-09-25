@@ -84,6 +84,8 @@ describe('Driver Smart Load Alerts contract', () => {
     expect(worker).toContain("event.payload.push_enabled === true");
     expect(worker).toContain("case 'load_alert': success = await handleLoadAlert(event); break;");
     expect(worker).toContain("event_type: 'load_alert'");
+    expect(worker).toContain("FIREBASE_SERVICE_ACCOUNT_JSON is not configured; requested push was not sent.");
+    expect(worker).toContain("return false;");
   });
 
   test('keeps catch-up matching recipient-scoped', () => {
