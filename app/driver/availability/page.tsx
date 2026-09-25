@@ -5,7 +5,6 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
-import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { ActionButton, AlertBanner, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
@@ -188,23 +187,51 @@ export default function AvailabilityPage() {
     setAvailability(next);
     setAvailabilitySaving(true);
     setError('');
-    const updateRes = await supabase.from('drivers').update({ availability_status: next }).eq('id', driverId);
-    if (updateRes.error) {
+    const auth = await getAuthHeader();
+    if (!auth) {
       setAvailability(previous);
-      setError(getMissingColumnFromError(updateRes.error, 'drivers') === 'availability_status' ? 'Live availability is not enabled in this database build.' : 'Availability could not be updated.');
-    } else setTimedSuccess(`Availability updated to ${AVAILABILITY_OPTIONS.find((option) => option.value === next)?.label ?? next}.`);
+      setError('Your session has expired. Sign in again to update availability.');
+      setAvailabilitySaving(false);
+      return;
+    }
+    const response = await fetch('/api/driver/availability-profile', {
+      method: 'PUT',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ availabilityStatus: next }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string; driver?: Partial<DriverRow> };
+    if (!response.ok) {
+      setAvailability(previous);
+      setError(payload.error || 'Availability could not be updated.');
+    } else {
+      setDriverRow((current) => current ? { ...current, availability_status: payload.driver?.availability_status ?? next } : current);
+      setTimedSuccess(`Availability updated to ${AVAILABILITY_OPTIONS.find((option) => option.value === next)?.label ?? next}.`);
+    }
     setAvailabilitySaving(false);
   };
 
   const saveMatchingProfile = async () => {
     if (!driverId || !isSupabaseConfigured || matchingSaving) return;
     const parsedRadius = Number.parseInt(destinationRadiusMiles, 10);
-    if (!Number.isFinite(parsedRadius) || parsedRadius < 1 || parsedRadius > 500) { setError('Destination radius must be between 1 and 500 miles.'); return; }
+    if (![10, 20, 30].includes(parsedRadius)) { setError('Destination radius must be 10, 20 or 30 miles.'); return; }
     setMatchingSaving(true);
     setError('');
-    const { error: saveError } = await supabase.from('drivers')
-      .update({ destination_priority_enabled: destinationPriority, destination_radius_miles: parsedRadius }).eq('id', driverId);
-    if (saveError) setError('Matching profile could not be saved.');
+    const auth = await getAuthHeader();
+    if (!auth) {
+      setError('Your session has expired. Sign in again to update matching preferences.');
+      setMatchingSaving(false);
+      return;
+    }
+    const response = await fetch('/api/driver/availability-profile', {
+      method: 'PUT',
+      headers: { Authorization: auth, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        destinationPriorityEnabled: destinationPriority,
+        destinationRadiusMiles: parsedRadius,
+      }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) setError(payload.error || 'Matching profile could not be saved.');
     else {
       setTimedSuccess('Matching profile updated.');
       setDriverRow((current) => current ? { ...current, destination_priority_enabled: destinationPriority, destination_radius_miles: parsedRadius } : current);
@@ -309,7 +336,7 @@ export default function AvailabilityPage() {
               <div className="driver-availability-panel__head"><div><strong>Working radius & matching</strong><span>Control how far XDrive should surface suitable work.</span></div><ActionButton tone="primary" onClick={() => void saveMatchingProfile()} disabled={loading || matchingSaving}>{matchingSaving ? 'Saving…' : 'Save'}</ActionButton></div>
               <div className="driver-availability-matching-row">
                 <label className="driver-availability-toggle"><input type="checkbox" checked={destinationPriority} onChange={(event) => setDestinationPriority(event.target.checked)} /><span><strong>Destination priority</strong><small>{destinationPriority ? 'Enabled' : 'Disabled'}</small></span></label>
-                <label className="driver-availability-field"><span>Radius</span><span className="driver-availability-input-suffix"><input type="number" min="1" max="500" value={destinationRadiusMiles} onChange={(event) => setDestinationRadiusMiles(event.target.value)} disabled={!destinationPriority} /><em>miles</em></span></label>
+                <label className="driver-availability-field"><span>Radius</span><span className="driver-availability-input-suffix"><select value={destinationRadiusMiles} onChange={(event) => setDestinationRadiusMiles(event.target.value)} disabled={!destinationPriority}><option value="10">10</option><option value="20">20</option><option value="30">30</option></select><em>miles</em></span></label>
               </div>
               <div className="driver-availability-readiness-strip">
                 <div><span>Driver type</span><strong>{humanize(driverRow?.driver_type)}</strong></div>

@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 
   const driverResult = await supabaseAdmin!
     .from('drivers')
-    .select('id,company_id,display_name,email,phone,status,app_access,driver_type,can_commercial_bid')
+    .select('id,company_id,display_name,email,phone,status,app_access,driver_type,can_commercial_bid,availability_status,future_position,future_position_date,destination_priority_enabled,destination_radius_miles,international_work_approved')
     .eq('id', context.driverId)
     .maybeSingle();
   if (driverResult.error || !driverResult.data) {
@@ -279,6 +279,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status });
     }
     return NextResponse.json({ ok: true });
+  }
+
+  if (action === 'update_destination_preferences') {
+    if (typeof body.destinationPriorityEnabled !== 'boolean') {
+      return NextResponse.json({ error: 'Destination priority must be true or false.' }, { status: 400 });
+    }
+    const radius = Number(body.destinationRadiusMiles);
+    if (!Number.isInteger(radius) || ![10, 20, 30].includes(radius)) {
+      return NextResponse.json({ error: 'Destination radius must be 10, 20 or 30 miles.' }, { status: 400 });
+    }
+    const { data, error } = await supabaseAdmin!
+      .from('drivers')
+      .update({
+        destination_priority_enabled: body.destinationPriorityEnabled,
+        destination_radius_miles: radius,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', context.driverId)
+      .eq('user_id', context.userId)
+      .eq('app_access', true)
+      .select('destination_priority_enabled,destination_radius_miles')
+      .maybeSingle();
+    if (error) return NextResponse.json({ error: 'Destination preferences could not be updated.' }, { status: 500 });
+    if (!data) return NextResponse.json({ error: 'Driver profile could not be updated.' }, { status: 409 });
+    return NextResponse.json({ ok: true, preferences: data });
   }
 
   if (action === 'set_job_preference') {
