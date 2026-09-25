@@ -68,14 +68,14 @@ export async function POST(request: NextRequest) {
   const auth = await requireDepartmentAdmin(request, parsed.data.companyId);
   if ('error' in auth) return auth.error;
   const { data, error } = await supabaseAdmin!
-    .from('company_departments')
-    .insert({
-      company_id: parsed.data.companyId,
-      name: parsed.data.name,
-      description: parsed.data.description?.trim() || null,
-      created_by: auth.userId,
+    .rpc('manage_company_department', {
+      p_company_id: parsed.data.companyId,
+      p_actor_user_id: auth.userId,
+      p_action: 'create',
+      p_department_id: null,
+      p_name: parsed.data.name,
+      p_description: parsed.data.description?.trim() || null,
     })
-    .select('id,name,description,created_at,updated_at')
     .single();
   if (error) return json(error.code === '23505' ? 409 : 500, { error: error.code === '23505' ? 'A department with this name already exists.' : 'Department could not be created.' });
   return json(201, { department: data });
@@ -87,15 +87,15 @@ export async function PATCH(request: NextRequest) {
   if (!parsed.success) return json(400, { error: 'Invalid department update.' });
   const auth = await requireDepartmentAdmin(request, parsed.data.companyId);
   if ('error' in auth) return auth.error;
-  const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (parsed.data.name !== undefined) update.name = parsed.data.name;
-  if (parsed.data.description !== undefined) update.description = parsed.data.description?.trim() || null;
   const { data, error } = await supabaseAdmin!
-    .from('company_departments')
-    .update(update)
-    .eq('id', parsed.data.departmentId)
-    .eq('company_id', parsed.data.companyId)
-    .select('id,name,description,created_at,updated_at')
+    .rpc('manage_company_department', {
+      p_company_id: parsed.data.companyId,
+      p_actor_user_id: auth.userId,
+      p_action: 'update',
+      p_department_id: parsed.data.departmentId,
+      p_name: parsed.data.name ?? null,
+      p_description: parsed.data.description ?? null,
+    })
     .maybeSingle();
   if (error) return json(error.code === '23505' ? 409 : 500, { error: error.code === '23505' ? 'A department with this name already exists.' : 'Department could not be updated.' });
   if (!data) return json(404, { error: 'Department not found.' });
@@ -108,18 +108,19 @@ export async function DELETE(request: NextRequest) {
   if (!parsed.success) return json(400, { error: 'Invalid department delete request.' });
   const auth = await requireDepartmentAdmin(request, parsed.data.companyId);
   if ('error' in auth) return auth.error;
-  const { count, error: countError } = await supabaseAdmin!
-    .from('company_memberships')
-    .select('*', { count: 'exact', head: true })
-    .eq('company_id', parsed.data.companyId)
-    .eq('department_id', parsed.data.departmentId);
-  if (countError) return json(500, { error: 'Department membership could not be checked.' });
-  if ((count ?? 0) > 0) return json(409, { error: 'Move members out of this department before deleting it.' });
   const { error } = await supabaseAdmin!
-    .from('company_departments')
-    .delete()
-    .eq('id', parsed.data.departmentId)
-    .eq('company_id', parsed.data.companyId);
-  if (error) return json(500, { error: 'Department could not be deleted.' });
+    .rpc('manage_company_department', {
+      p_company_id: parsed.data.companyId,
+      p_actor_user_id: auth.userId,
+      p_action: 'delete',
+      p_department_id: parsed.data.departmentId,
+      p_name: null,
+      p_description: null,
+    });
+  if (error) {
+    if (error.code === '23514') return json(409, { error: 'Move members out of this department before deleting it.' });
+    if (error.code === 'P0002') return json(404, { error: 'Department not found.' });
+    return json(500, { error: 'Department could not be deleted.' });
+  }
   return json(200, { deleted: true });
 }
