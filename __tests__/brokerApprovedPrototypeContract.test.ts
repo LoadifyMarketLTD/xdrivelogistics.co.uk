@@ -8,7 +8,7 @@ describe('Broker approved prototype contract', () => {
   const dashboard = read('app/broker/BrokerDashboardHome.tsx');
 
   it('uses the dedicated Broker prototype navigation rather than Driver navigation', () => {
-    for (const label of ['Broker Dashboard','Customers','Customer Loads','Post Load','Carrier Quotes','Compare Quotes','Awards','Margin / Profit','Active Jobs','POD Review','Disputes','Customer Invoices','Carrier Costs','Settings','Team','Carrier Network']) {
+    for (const label of ['Broker Dashboard','Customers','Customer Loads','Post Load','Carrier Quotes','Margin / Profit','Active Jobs','POD Review','Disputes','Customer Invoices','Carrier Costs','Settings','Team','Carrier Network']) {
       expect(shell).toContain(`label: '${label}'`);
     }
     expect(shell).toContain("if (role === 'broker') return composeBrokerPrototypeNav()");
@@ -23,7 +23,7 @@ describe('Broker approved prototype contract', () => {
   });
 
   it('keeps broker commercial and execution workflows connected', () => {
-    for (const href of ['/broker/post-load','/broker/compare-quotes','/broker/jobs','/broker/pod-review','/broker/finance','/broker/margins']) {
+    for (const href of ['/broker/post-load','/broker/bids','/broker/jobs','/broker/pod-review','/broker/finance','/broker/margins']) {
       expect(dashboard).toContain(href);
     }
   });

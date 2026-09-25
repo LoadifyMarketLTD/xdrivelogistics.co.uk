@@ -8,7 +8,7 @@ import { useAuth } from '../AuthContext';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from './WorkspaceUI';
 import './role-settings-workspace.css';
 
-type RoleMode = 'customer' | 'broker' | 'owner' | 'fleet';
+type RoleMode = 'customer' | 'broker' | 'driver' | 'owner' | 'fleet';
 type Section = 'overview' | 'profile' | 'company' | 'security';
 
 type CompanyRow = {
@@ -42,6 +42,7 @@ type ProfileRow = {
 const ROLE_LABEL: Record<RoleMode, string> = {
   customer: 'Customer / Shipper',
   broker: 'Broker',
+  driver: 'Driver',
   owner: 'Owner Driver',
   fleet: 'Fleet / Carrier',
 };
@@ -62,6 +63,13 @@ const routeMap: Record<RoleMode, {
     audit: '/customer/event-log',
     legal: '/customer/account/legal-agreements',
     finance: '/customer/invoices',
+  },
+  driver: {
+    documents: '/driver/documents',
+    notifications: '/driver/notifications',
+    audit: '/driver/event-log',
+    legal: '/driver/account/legal-agreements',
+    finance: '/driver/finance',
   },
   broker: {
     team: '/broker/team',
@@ -95,7 +103,7 @@ const blankCompany = {
 const blankProfile = { fullName: '', phone: '' };
 const textOrNull = (value: string) => value.trim() || null;
 
-export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
+export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleMode; roleLabel?: string }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { user } = useAuth();
@@ -115,7 +123,7 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
   const canEditCompany = membershipRole === 'owner' || membershipRole === 'admin';
 
   useEffect(() => {
-    if (role !== 'owner') return;
+    if (role !== 'owner' && role !== 'driver') return;
     const requested = searchParams.get('section');
     if (requested === 'overview' || requested === 'profile' || requested === 'company' || requested === 'security') {
       setSection(requested);
@@ -256,13 +264,13 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
   const nav = useMemo(() => [
     { label: 'Overview', action: () => setSection('overview'), active: section === 'overview' },
     { label: 'My Profile', action: () => setSection('profile'), active: section === 'profile' },
-    { label: 'Company Profile', action: () => setSection('company'), active: section === 'company' },
+    ...(role === 'driver' ? [] : [{ label: 'Company Profile', action: () => setSection('company'), active: section === 'company' }]),
     ...(routes.team ? [{ label: 'Users & Permissions', action: () => router.push(routes.team!), active: false }] : []),
     ...(role === 'owner' ? [{ label: 'Drivers / Staff', action: () => router.push('/driver/profile'), active: false }] : []),
     ...(role === 'fleet' ? [{ label: 'Drivers / Staff', action: () => router.push('/admin/drivers'), active: false }] : []),
     ...(routes.vehicles ? [{ label: 'Vehicles / Assets', action: () => router.push(routes.vehicles!), active: false }] : []),
     ...(routes.documents ? [{ label: 'Documents', action: () => router.push(routes.documents!), active: false }] : []),
-    { label: 'Billing & Membership', action: () => router.push('/settings/billing'), active: false },
+    ...(role === 'driver' ? [] : [{ label: 'Billing & Membership', action: () => router.push('/settings/billing'), active: false }]),
     ...(routes.notifications ? [{ label: 'Settings', action: () => router.push(routes.notifications!), active: false }] : []),
     { label: 'Security', action: () => setSection('security'), active: section === 'security' },
     ...(routes.audit ? [{ label: 'Audit / Event Log', action: () => router.push(routes.audit!), active: false }] : []),
@@ -272,7 +280,7 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
   return (
     <PageFrame>
       <PageHeader
-        eyebrow={ROLE_LABEL[role]}
+        eyebrow={roleLabel ?? ROLE_LABEL[role]}
         title="Settings"
         description="Company, profile, membership and workspace controls using the live XDrive account records."
         actions={
@@ -287,8 +295,8 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
-      <div className={role === 'owner' ? 'role-settings-layout role-settings-layout--topnav' : 'role-settings-layout'}>
-        {role !== 'owner' && (
+      <div className={role === 'owner' || role === 'driver' ? 'role-settings-layout role-settings-layout--topnav' : 'role-settings-layout'}>
+        {role !== 'owner' && role !== 'driver' && (
           <aside className="role-settings-nav">
             <div className="role-settings-company">
               <strong>{companyDisplay}</strong>
@@ -317,8 +325,9 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
                   <div><span>Operating base</span><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not recorded'}</strong></div>
                 </div>
                 <div className="role-settings-actions">
-                  <ActionButton tone="secondary" onClick={() => setSection('company')}>Company Profile</ActionButton>
-                  <ActionButton tone="secondary" onClick={() => router.push('/settings/billing')}>Membership & Billing</ActionButton>
+                  {role !== 'driver' && <ActionButton tone="secondary" onClick={() => setSection('company')}>Company Profile</ActionButton>}
+                  {role !== 'driver' && <ActionButton tone="secondary" onClick={() => router.push('/settings/billing')}>Membership & Billing</ActionButton>}
+                  {role === 'driver' && <ActionButton tone="secondary" onClick={() => setSection('profile')}>My Profile</ActionButton>}
                 </div>
               </Panel>
 
@@ -333,7 +342,7 @@ export default function RoleSettingsWorkspace({ role }: { role: RoleMode }) {
               <Panel title={profile?.full_name || user?.email || 'My account'} description="Profile and workspace administration.">
                 <div className="role-settings-links">
                   <button type="button" onClick={() => setSection('profile')}><strong>My Profile</strong><span>Personal account details.</span></button>
-                  <button type="button" onClick={() => setSection('company')}><strong>Company Profile</strong><span>Company identity and contact details.</span></button>
+                  {role !== 'driver' && <button type="button" onClick={() => setSection('company')}><strong>Company Profile</strong><span>Company identity and contact details.</span></button>}
                   {routes.documents && <button type="button" onClick={() => router.push(routes.documents!)}><strong>Documents</strong><span>Operational and compliance records.</span></button>}
                   {routes.audit && <button type="button" onClick={() => router.push(routes.audit!)}><strong>Audit / Event Log</strong><span>Search account and transport activity.</span></button>}
                 </div>
