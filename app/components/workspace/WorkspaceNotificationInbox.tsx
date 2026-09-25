@@ -10,6 +10,7 @@ import {
   resolveRoleScopedHref,
   type ActionCentreRole,
 } from './actionCentreConfig';
+import NotificationPreferencesPanel from './NotificationPreferencesPanel';
 import {
   ActionButton,
   AlertBanner,
@@ -88,6 +89,7 @@ export default function WorkspaceNotificationInbox({
   const [tab, setTab] = useState<InboxTab>('all');
   const [loading, setLoading] = useState(true);
   const [working, setWorking] = useState<string | null>(null);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -205,12 +207,14 @@ export default function WorkspaceNotificationInbox({
         description={description}
         actions={(
           <>
+            <ActionButton tone="secondary" onClick={() => setPreferencesOpen((current) => !current)}>{preferencesOpen ? 'Hide Preferences' : 'Preferences'}</ActionButton>
             <ActionButton tone="secondary" disabled={loading || working === 'all' || counts.unread === 0} onClick={() => void markAllRead()}>{working === 'all' ? 'Updating…' : 'Mark all read'}</ActionButton>
             <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
           </>
         )}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+      {preferencesOpen && <NotificationPreferencesPanel />}
 
       <div className="workspace-tab-strip" role="tablist" aria-label="Notification inbox filters" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
         {tabs.map((item) => (
