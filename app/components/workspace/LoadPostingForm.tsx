@@ -78,6 +78,22 @@ type StopFieldErrors = {
   address?: string;
 };
 
+type LoadClonePrefill = {
+  clientName: string; clientEmail: string; clientPhone: string;
+  pickupAddress: string; pickupPostcode: string; collectionContact: string; collectionPhone: string;
+  deliveryAddress: string; deliveryPostcode: string; deliveryContact: string; deliveryPhone: string;
+  vehicle: string; cargo: string; weight: string; pallets: string; itemCount: string; palletType: string; palletStackable: string;
+  length: string; width: string; height: string; cargoValue: string;
+  customerReference: string; purchaseOrder: string; bookingReference: string; customerPrice: string; targetCarrierCost: string;
+  tailLift: boolean; forklift: boolean; handball: boolean; deliveryTailLift: boolean; deliveryForklift: boolean; deliveryHandball: boolean;
+  adr: boolean; temperatureControlled: boolean; fragile: boolean; pumpTruck: boolean; twoPersonCrew: boolean; dedicatedVehicle: boolean; isFixedPrice: boolean;
+  collectionAccessRestrictions: string; deliveryAccessRestrictions: string; documentChecklist: string;
+  publicQuoteNotes: string; executionInstructions: string;
+  additionalStops: Array<Omit<AdditionalStop, 'id'>>;
+};
+
+type LoadClonePrefillResponse = { prefill?: LoadClonePrefill; notice?: string; error?: string };
+
 const createAdditionalStop = (): AdditionalStop => ({
   id: crypto.randomUUID(),
   type: 'delivery',
@@ -153,6 +169,9 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const directCarrierId = searchParams.get('directCarrier');
+  const sourceJobId = searchParams.get('sourceJob');
+  const sourceActionParam = searchParams.get('sourceAction');
+  const sourceAction = sourceActionParam === 'rebook' || sourceActionParam === 'repost' ? sourceActionParam : null;
   const idempotencyKeyRef = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -162,6 +181,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [postingCompany, setPostingCompany] = useState<{ id: string; name: string | null; memberId: string | null } | null>(null);
   const [directCarrier, setDirectCarrier] = useState<{ id: string; name: string; memberId: string | null } | null>(null);
   const [directCarrierError, setDirectCarrierError] = useState('');
+  const [cloneNotice, setCloneNotice] = useState('');
+  const [cloneLoading, setCloneLoading] = useState(false);
   const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
   const [form, setForm] = useState({
     clientName: '', clientEmail: '', clientPhone: '',
@@ -205,6 +226,40 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     void resolvePostingIdentity();
     return () => { cancelled = true; };
   }, [user?.companyId, user?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const resolveClonePrefill = async () => {
+      setCloneNotice('');
+      if (!sourceJobId || !sourceAction || !user?.id || !isSupabaseConfigured) return;
+      setCloneLoading(true);
+      try {
+        const companyId = await resolveActiveCompanyId({ userId: user.id, fallbackCompanyId: user.companyId ?? null });
+        if (!companyId) throw new Error('This account is not linked to a company.');
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        if (!token) throw new Error('Your session has expired. Please sign in again.');
+        const response = await fetch(`/api/admin/jobs/${encodeURIComponent(sourceJobId)}/clone-prefill?companyId=${encodeURIComponent(companyId)}&action=${sourceAction}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => ({})) as LoadClonePrefillResponse;
+        if (!response.ok || !payload.prefill) throw new Error(payload.error || 'The source booking could not be prepared.');
+        if (cancelled) return;
+        const { additionalStops: sourceStops, ...prefill } = payload.prefill;
+        setForm((current) => ({ ...current, ...prefill, pickupDate: '', pickupTime: '', deliveryDate: '', deliveryTime: '' }));
+        setAdditionalStops(sourceStops.map((stop) => ({ ...stop, id: crypto.randomUUID(), date: '', time: '' })));
+        idempotencyKeyRef.current = null;
+        setCloneNotice(payload.notice ?? 'Source booking details copied into a new load. Review the schedule and references before saving.');
+      } catch (reason) {
+        if (!cancelled) setError(reason instanceof Error ? reason.message : 'The source booking could not be prepared.');
+      } finally {
+        if (!cancelled) setCloneLoading(false);
+      }
+    };
+    void resolveClonePrefill();
+    return () => { cancelled = true; };
+  }, [sourceAction, sourceJobId, user?.companyId, user?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -310,6 +365,10 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const save = async (publish: boolean) => {
     setError('');
     setSuccess('');
+    if (cloneLoading) {
+      setError('Wait for the source booking details to finish loading before saving.');
+      return;
+    }
     setShowValidation(true);
 
     if (hasRequiredErrors || hasDimensionErrors) {
@@ -453,6 +512,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   return (
     <div className="xdrive-post-load-form">
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+      {cloneLoading && <AlertBanner tone="info">Preparing a new booking from the source record…</AlertBanner>}
+      {cloneNotice && <AlertBanner tone="info">{cloneNotice}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
       <Panel title="Posting identity & XDrive references" description="Platform ownership and the XDrive load reference are automatic. Customer-owned references remain optional inputs below.">
