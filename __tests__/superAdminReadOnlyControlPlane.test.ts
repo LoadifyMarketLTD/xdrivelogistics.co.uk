@@ -45,10 +45,10 @@ describe('Super Admin read-only control-plane promotion', () => {
     expect(shell).toContain("if (pathname.startsWith('/super-admin/cases')) return 'support';");
   });
 
-  test('read-only inspect and copy links retain the approved light control styling', () => {
-    const hardening = read('app/super-admin/super-admin-light-hardening.css');
-    expect(hardening).toContain('.super-admin-light-root .sa-button');
-    expect(hardening).toContain('border: 1px solid #E0E3E7');
-    expect(hardening).toContain('color: #1D57D8');
+  test('read-only inspect and copy links retain the approved enterprise v3 visual contract', () => {
+    const visual = read('app/super-admin/super-admin-visual-contract.css');
+    expect(visual).toContain('.super-admin-enterprise-root');
+    expect(visual).toContain('--sa-v3-blue: #1D57D8');
+    expect(visual).toContain('--sa-v3-border: #E5E7EB');
   });
 });

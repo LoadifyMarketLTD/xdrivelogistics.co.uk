@@ -33,13 +33,13 @@ export default function Page() {
       },
       {
         key: 'rating', label: 'Rating',
-        render: (row) => <strong style={{ color: Number(row.rating) <= 2 ? '#B42318' : Number(row.rating) <= 3 ? '#A15A00' : '#168553' }}>
+        render: (row) => <strong style={{ color: Number(row.rating) <= 2 ? '#B42318' : Number(row.rating) <= 3 ? '#9A6700' : '#168553' }}>
           {row.rating != null ? `${row.rating}/5` : '—'}
         </strong>,
       },
       {
         key: 'comment', label: 'Comment',
-        render: (row) => <span style={{ color: '#475569' }}>{row.comment ?? '—'}</span>,
+        render: (row) => <span style={{ color: '#667085' }}>{row.comment ?? '—'}</span>,
       },
       {
         key: 'created_at', label: 'Date',

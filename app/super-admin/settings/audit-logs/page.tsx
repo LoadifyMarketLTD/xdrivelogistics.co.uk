@@ -49,9 +49,9 @@ export default function Page() {
       },
       {
         key: 'transition', label: 'Status Change',
-        render: (row) => <span style={{ color: '#475569' }}>{row.old_status ?? '—'} → {row.new_status ?? '—'}</span>,
+        render: (row) => <span style={{ color: '#667085' }}>{row.old_status ?? '—'} → {row.new_status ?? '—'}</span>,
       },
-      { key: 'reason', label: 'Reason', render: (row) => <span style={{ color: '#475569' }}>{row.reason ?? '—'}</span> },
+      { key: 'reason', label: 'Reason', render: (row) => <span style={{ color: '#667085' }}>{row.reason ?? '—'}</span> },
     ]}
   />;
 }
