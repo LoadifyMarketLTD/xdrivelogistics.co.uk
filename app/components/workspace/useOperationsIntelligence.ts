@@ -45,6 +45,22 @@ export type OperationsJobDetail = {
   deliveryContactPhone: string | null;
   clientName: string | null;
   clientPhone: string | null;
+  ownerCompanyName: string | null;
+  ownerCompanyPhone: string | null;
+  awardedCompanyName: string | null;
+  awardedCompanyPhone: string | null;
+  executionCompanyName: string | null;
+  vehicleRegistration: string | null;
+  agreedRate: number | null;
+  currency: string | null;
+  paymentTerms: string | null;
+  driverNotes: string | null;
+  deliveryNotes: string | null;
+  leftAt: string | null;
+  deliveredAt: string | null;
+  completedAt: string | null;
+  receivedBy: string | null;
+  itemCount: number | null;
 };
 
 export type OperationsTrackingEvent = {
