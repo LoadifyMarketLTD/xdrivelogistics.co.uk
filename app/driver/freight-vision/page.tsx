@@ -57,6 +57,10 @@ export default function DriverFreightVisionPage() {
   }, [driverId]);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    const timer = window.setInterval(() => { void load(); }, 60_000);
+    return () => window.clearInterval(timer);
+  }, [load]);
 
   const liveJobs = useMemo(() => jobs.filter((job) => {
     const status = String(job.current_status ?? job.status ?? '').toLowerCase();
@@ -102,6 +106,7 @@ export default function DriverFreightVisionPage() {
               </div>
               <div className="vision-live-tabs"><button type="button" className="active">All In Progress</button></div>
               <button type="button" className="text-action spacer" disabled>Open Freight Vision in new window</button>
+              <span className="vision-auto-refresh">Auto refresh 60s</span>
               <button type="button" className="btn" onClick={() => void load()} disabled={loading}>Refresh</button>
             </div>
             <div className="vision-kpis">
