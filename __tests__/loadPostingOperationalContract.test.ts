@@ -108,6 +108,12 @@ describe('load posting operational contract', () => {
     expect(source.indexOf('publicQuoteNotes')).not.toBe(source.indexOf('executionInstructions'));
   });
 
+  it('persists canonical service mode for driver HOTSHOT / BACKLOAD posting', () => {
+    expect(createApi).toContain("serviceMode: z.enum(['asap_direct', 'timed_direct', 'coload_permitted', 'flexible', 'multi_drop'])");
+    expect(createApi).toContain('if (input.serviceMode) row.service_mode = input.serviceMode');
+    expect(createApi).toContain("input.serviceMode === 'coload_permitted'");
+  });
+
   it('keeps exact multi-drop stop details private while exposing only a safe stop count to pricing context', () => {
     expect(form).toContain('Exact stop details stay private before award.');
     expect(createApi).toContain('additionalStopCount: input.additionalStops.length');

@@ -30,6 +30,7 @@ const bodySchema = z.object({
   mode: z.enum(['broker', 'customer', 'admin']),
   jobStatus: z.enum(['draft', 'posted']).optional(),
   visibility: z.enum(['private', 'exchange']).optional(),
+  serviceMode: z.enum(['asap_direct', 'timed_direct', 'coload_permitted', 'flexible', 'multi_drop']).optional().nullable(),
   publish: z.boolean(),
   directInviteCompanyId: z.string().uuid().optional().nullable(),
   clientName: optionalText,
@@ -125,6 +126,9 @@ export async function POST(request: NextRequest) {
     });
   }
   const input = parsed.data;
+  if (input.serviceMode === 'coload_permitted' && input.pickupTimeSlot.trim().toUpperCase() === 'ASAP') {
+    return respond(400, { error: 'Backload / co-load jobs require a timed or flexible collection window, not ASAP.' });
+  }
 
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
@@ -420,6 +424,7 @@ export async function POST(request: NextRequest) {
         : null),
     updated_at: now,
   };
+  if (input.serviceMode) row.service_mode = input.serviceMode;
   if (idempotencyAvailable) row.creation_idempotency_key = input.idempotencyKey;
 
   let insertResult = await supabaseAdmin
