@@ -92,6 +92,13 @@ type SearchState = {
   dateTo: string;
 };
 
+type DiarySavedViewRow = {
+  id: string;
+  name: string;
+  filters: Partial<SearchState> | null;
+  updated_at: string | null;
+};
+
 const EMPTY_SEARCH: SearchState = { scope: 'all', from: '', to: '', reference: '', customer: '', driver: '', bookedBy: '', pickupWindow: 'any', deliveryWindow: 'any', dateFrom: '', dateTo: '' };
 const TABS: Array<{ id: DiaryTab; label: string }> = [
   { id: 'all', label: 'All' },
@@ -226,13 +233,16 @@ export default function OperationsDiaryPage() {
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [savedViews, setSavedViews] = useState<DiarySavedViewRow[]>([]);
+  const [selectedSavedViewId, setSelectedSavedViewId] = useState('');
+  const [savedViewName, setSavedViewName] = useState('');
   const canManageCompanyBookings = Boolean(user?.membershipRole && ['owner', 'admin', 'dispatcher'].includes(user.membershipRole));
   const canLeaveCompanyFeedback = canManageCompanyBookings;
 
   const load = useCallback(async () => {
-    if (!companyId) { setJobs([]); setDrivers([]); setReviewsByJob({}); setLoading(false); return; }
+    if (!companyId || !user?.id) { setJobs([]); setDrivers([]); setReviewsByJob({}); setSavedViews([]); setLoading(false); return; }
     setLoading(true); setError('');
-    const [jobsResult, driversResult, reviewsResult] = await Promise.all([
+    const [jobsResult, driversResult, reviewsResult, savedViewsResult] = await Promise.all([
       supabase
         .from('jobs')
         .select('id, company_id, assigned_company_id, awarded_carrier_company_id, assigned_driver_id, status, current_status, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, vehicle_type, requested_vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, job_distance_miles, distance_miles, pod_required, hard_copy_pod, special_requirements, access_restrictions, client_name, customer_reference, booking_reference, pod_generated, pod_generated_at, delivery_photos, updated_at, created_at')
@@ -249,6 +259,12 @@ export default function OperationsDiaryPage() {
         .select('id, job_id, reviewer_company_id, rating, comment, created_at')
         .eq('reviewer_company_id', companyId)
         .order('created_at', { ascending: false }),
+      supabase
+        .from('diary_saved_views')
+        .select('id, name, filters, updated_at')
+        .eq('company_id', companyId)
+        .eq('user_id', user.id)
+        .order('name', { ascending: true }),
     ]);
 
     if (jobsResult.error) {
@@ -275,8 +291,14 @@ export default function OperationsDiaryPage() {
       }
       setReviewsByJob(grouped);
     }
+    if (savedViewsResult.error) {
+      setSavedViews([]);
+      setNotice((current) => current || 'Saved Diary views are temporarily unavailable. Core Diary operations remain available.');
+    } else {
+      setSavedViews((savedViewsResult.data ?? []) as DiarySavedViewRow[]);
+    }
     setLoading(false);
-  }, [companyId]);
+  }, [companyId, user?.id]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -476,6 +498,61 @@ export default function OperationsDiaryPage() {
     }
   };
 
+  const applySavedView = (viewId: string) => {
+    setSelectedSavedViewId(viewId);
+    if (!viewId) return;
+    const view = savedViews.find((item) => item.id === viewId);
+    if (!view) return;
+    const restored = { ...EMPTY_SEARCH, ...(view.filters ?? {}) } as SearchState;
+    setSearch(restored);
+    setAppliedSearch(restored);
+    setNotice(`Saved view “${view.name}” applied.`);
+  };
+
+  const saveNamedView = async () => {
+    if (!companyId || !user?.id) return;
+    const name = savedViewName.trim();
+    if (!name) {
+      setError('Enter a name for the saved Diary view.');
+      return;
+    }
+    setError('');
+    const now = new Date().toISOString();
+    const { data, error: saveError } = await supabase
+      .from('diary_saved_views')
+      .upsert({ company_id: companyId, user_id: user.id, name, filters: search, updated_at: now }, { onConflict: 'company_id,user_id,name' })
+      .select('id, name, filters, updated_at')
+      .single();
+    if (saveError || !data) {
+      setError('Saved Diary view could not be stored.');
+      return;
+    }
+    const saved = data as DiarySavedViewRow;
+    setSavedViews((current) => [...current.filter((item) => item.id !== saved.id), saved].sort((a, b) => a.name.localeCompare(b.name)));
+    setSelectedSavedViewId(saved.id);
+    setSavedViewName('');
+    setNotice(`Saved view “${saved.name}” stored for your account.`);
+  };
+
+  const deleteSavedView = async () => {
+    if (!selectedSavedViewId || !companyId || !user?.id) return;
+    const selected = savedViews.find((item) => item.id === selectedSavedViewId);
+    if (!selected || !window.confirm(`Delete saved view “${selected.name}”?`)) return;
+    const { error: deleteError } = await supabase
+      .from('diary_saved_views')
+      .delete()
+      .eq('id', selectedSavedViewId)
+      .eq('company_id', companyId)
+      .eq('user_id', user.id);
+    if (deleteError) {
+      setError('Saved Diary view could not be deleted.');
+      return;
+    }
+    setSavedViews((current) => current.filter((item) => item.id !== selectedSavedViewId));
+    setSelectedSavedViewId('');
+    setNotice(`Saved view “${selected.name}” deleted.`);
+  };
+
   const applySearch = () => {
     setAppliedSearch(search);
     if (saveAsDefault) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
@@ -497,6 +574,9 @@ export default function OperationsDiaryPage() {
         <aside className="workspace-filter-rail" aria-label="Diary search filters">
           <div className="workspace-filter-rail__header">Search Panel</div>
           <div className="workspace-filter-rail__body">
+            <label>SAVED VIEWS<select value={selectedSavedViewId} onChange={(event) => applySavedView(event.target.value)}><option value="">Select saved view</option>{savedViews.map((view) => <option key={view.id} value={view.id}>{view.name}</option>)}</select></label>
+            <label>SAVE CURRENT VIEW<input value={savedViewName} onChange={(event) => setSavedViewName(event.target.value.slice(0, 80))} placeholder="e.g. Tomorrow unallocated" /></label>
+            <div className="workspace-filter-actions"><ActionButton tone="secondary" onClick={() => void saveNamedView()}>Save View</ActionButton><ActionButton tone="secondary" disabled={!selectedSavedViewId} onClick={() => void deleteSavedView()}>Delete</ActionButton></div>
             <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>BOOKING SCOPE</legend><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="all" checked={search.scope === 'all'} onChange={() => setSearch((current) => ({ ...current, scope: 'all' }))} /> All</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="subcontracted" checked={search.scope === 'subcontracted'} onChange={() => setSearch((current) => ({ ...current, scope: 'subcontracted' }))} /> Jobs Sub-contracted</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="ours" checked={search.scope === 'ours'} onChange={() => setSearch((current) => ({ ...current, scope: 'ours' }))} /> Our Bookings</label></fieldset>
             <label>FROM<input value={search.from} onChange={(event) => setSearch((current) => ({ ...current, from: event.target.value }))} placeholder="Pickup town / postcode" /></label>
             <label>TO<input value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Delivery town / postcode" /></label>
