@@ -213,7 +213,7 @@ export default function AvailabilityPage() {
   const saveMatchingProfile = async () => {
     if (!driverId || !isSupabaseConfigured || matchingSaving) return;
     const parsedRadius = Number.parseInt(destinationRadiusMiles, 10);
-    if (![10, 20, 30].includes(parsedRadius)) { setError('Destination radius must be 10, 20 or 30 miles.'); return; }
+    if (![10, 20, 30, 50, 100, 200, 300].includes(parsedRadius)) { setError('Destination radius must be 10, 20, 30, 50, 100, 200 or 300 miles.'); return; }
     setMatchingSaving(true);
     setError('');
     const auth = await getAuthHeader();
@@ -336,7 +336,7 @@ export default function AvailabilityPage() {
               <div className="driver-availability-panel__head"><div><strong>Working radius & matching</strong><span>Control how far XDrive should surface suitable work.</span></div><ActionButton tone="primary" onClick={() => void saveMatchingProfile()} disabled={loading || matchingSaving}>{matchingSaving ? 'Saving…' : 'Save'}</ActionButton></div>
               <div className="driver-availability-matching-row">
                 <label className="driver-availability-toggle"><input type="checkbox" checked={destinationPriority} onChange={(event) => setDestinationPriority(event.target.checked)} /><span><strong>Destination priority</strong><small>{destinationPriority ? 'Enabled' : 'Disabled'}</small></span></label>
-                <label className="driver-availability-field"><span>Radius</span><span className="driver-availability-input-suffix"><select value={destinationRadiusMiles} onChange={(event) => setDestinationRadiusMiles(event.target.value)} disabled={!destinationPriority}><option value="10">10</option><option value="20">20</option><option value="30">30</option></select><em>miles</em></span></label>
+                <label className="driver-availability-field"><span>Radius</span><span className="driver-availability-input-suffix"><select value={destinationRadiusMiles} onChange={(event) => setDestinationRadiusMiles(event.target.value)} disabled={!destinationPriority}><option value="10">10</option><option value="20">20</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="300">300</option></select><em>miles</em></span></label>
               </div>
               <div className="driver-availability-readiness-strip">
                 <div><span>Driver type</span><strong>{humanize(driverRow?.driver_type)}</strong></div>

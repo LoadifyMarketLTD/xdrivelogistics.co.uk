@@ -10,7 +10,7 @@ const json = (status: number, body: Record<string, unknown>) => NextResponse.jso
 
 function validRadius(value: unknown) {
   const radius = typeof value === 'number' ? value : Number(value);
-  return Number.isInteger(radius) && [10, 20, 30].includes(radius) ? radius : null;
+  return Number.isInteger(radius) && [10, 20, 30, 50, 100, 200, 300].includes(radius) ? radius : null;
 }
 
 export async function GET(request: NextRequest) {
@@ -62,7 +62,7 @@ export async function PUT(request: NextRequest) {
   if (body.destinationRadiusMiles !== undefined) {
     const radius = validRadius(body.destinationRadiusMiles);
     if (radius === null) {
-      return json(400, { error: 'Destination radius must be 10, 20 or 30 miles.' });
+      return json(400, { error: 'Destination radius must be 10, 20, 30, 50, 100, 200 or 300 miles.' });
     }
     updates.destination_radius_miles = radius;
   }
