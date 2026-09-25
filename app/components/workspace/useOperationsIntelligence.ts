@@ -61,6 +61,9 @@ export type OperationsJobDetail = {
   completedAt: string | null;
   receivedBy: string | null;
   itemCount: number | null;
+  createdByUserId: string | null;
+  createdByName: string | null;
+  createdByEmail: string | null;
 };
 
 export type OperationsTrackingEvent = {

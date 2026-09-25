@@ -69,6 +69,7 @@ export async function POST(
     company_id: job.company_id,
     job_id: jobId,
     reviewer_user_id: driver.userId,
+    reviewer_company_id: driver.companyId,
     reviewed_user_id: null,
     rating,
     comment: normalizeComment(body.comment) || null,

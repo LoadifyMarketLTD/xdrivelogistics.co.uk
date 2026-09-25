@@ -123,8 +123,9 @@ export async function GET(request: NextRequest) {
   const scopedJobIds = rawJobs.map((job) => text(job.id)).filter((value): value is string => Boolean(value));
   const companyIds = [...new Set(rawJobs.flatMap((job) => [text(job.company_id), text(job.awarded_carrier_company_id), text(job.assigned_company_id)]).filter((value): value is string => Boolean(value)))];
   const vehicleIds = [...new Set(rawJobs.map((job) => text(job.vehicle_id)).filter((value): value is string => Boolean(value)))];
+  const creatorUserIds = [...new Set(rawJobs.map((job) => text(job.created_by)).filter((value): value is string => Boolean(value)))];
 
-  const [journeyResult, trackingResult, agreementResult, companyResult, vehicleResult] = await Promise.all([
+  const [journeyResult, trackingResult, agreementResult, companyResult, vehicleResult, profileResult] = await Promise.all([
     driverIds.length
       ? supabaseAdmin
           .from('return_journeys')
@@ -155,6 +156,9 @@ export async function GET(request: NextRequest) {
       : Promise.resolve({ data: [], error: null }),
     vehicleIds.length
       ? supabaseAdmin.from('vehicles').select('id,reg_plate').in('id', vehicleIds)
+      : Promise.resolve({ data: [], error: null }),
+    creatorUserIds.length
+      ? supabaseAdmin.from('profiles').select('id,full_name,email').in('id', creatorUserIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
 
@@ -216,6 +220,13 @@ export async function GET(request: NextRequest) {
       if (id) vehicleById.set(id, row);
     }
   }
+  const profileById = new Map<string, Record<string, unknown>>();
+  if (!profileResult.error) {
+    for (const row of (profileResult.data ?? []) as Array<Record<string, unknown>>) {
+      const id = text(row.id);
+      if (id) profileById.set(id, row);
+    }
+  }
 
   const jobDetails = rawJobs.map((job) => {
     const jobId = text(job.id);
@@ -228,6 +239,8 @@ export async function GET(request: NextRequest) {
     const vehicleId = text(job.vehicle_id);
     const vehicle = vehicleId ? vehicleById.get(vehicleId) ?? null : null;
     const agreement = jobId ? agreementByJob.get(jobId) ?? null : null;
+    const createdByUserId = text(job.created_by);
+    const creatorProfile = createdByUserId ? profileById.get(createdByUserId) ?? null : null;
     const commercialVisible = canViewCommercial && (ownerCompanyId === companyId || awardedCompanyId === companyId);
     return {
       id: jobId,
@@ -259,6 +272,9 @@ export async function GET(request: NextRequest) {
       completedAt: text(job.completed_at),
       receivedBy: text(job.client_signature_name) ?? text(job.delivery_contact_name),
       itemCount: numberValue(job.no_of_items) ?? numberValue(job.items_count),
+      createdByUserId,
+      createdByName: text(creatorProfile?.full_name),
+      createdByEmail: text(creatorProfile?.email),
     };
   });
 
@@ -276,7 +292,7 @@ export async function GET(request: NextRequest) {
     vehicleAdvertising: advertisingResult.error ? 'unavailable' : 'available',
     returnJourneys: journeyResult.error ? 'unavailable' : 'available',
     jobDetails: jobsResult.error ? 'unavailable' : 'available',
-    commercialDetails: jobsResult.error || agreementResult.error || companyResult.error || vehicleResult.error ? 'unavailable' : 'available',
+    commercialDetails: jobsResult.error || agreementResult.error || companyResult.error || vehicleResult.error || profileResult.error ? 'unavailable' : 'available',
     trackingTimeline: trackingResult.error || jobsResult.error ? 'unavailable' : 'available',
   } as const;
 
