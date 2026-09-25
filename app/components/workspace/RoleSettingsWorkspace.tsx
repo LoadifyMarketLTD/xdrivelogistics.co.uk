@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
+import CompanyDepartmentsPanel from './CompanyDepartmentsPanel';
 import CompanyFinanceSettingsPanel from './CompanyFinanceSettingsPanel';
 import MfaSecurityPanel from './MfaSecurityPanel';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from './WorkspaceUI';
@@ -353,24 +354,27 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
               </Panel>
             </div>
           ) : section === 'company' ? (
-            <Panel title="Company Profile" description={canEditCompany ? 'Edit the live company record used by this workspace.' : 'Your current membership can view this company profile but cannot edit it.'}>
-              <div className="role-settings-form">
-                <label>Company name<input disabled={!canEditCompany} value={companyForm.name} onChange={(e) => setCompanyForm((v) => ({ ...v, name: e.target.value }))} /></label>
-                <label>Email<input disabled={!canEditCompany} type="email" value={companyForm.email} onChange={(e) => setCompanyForm((v) => ({ ...v, email: e.target.value }))} /></label>
-                <label>Phone<input disabled={!canEditCompany} value={companyForm.phone} onChange={(e) => setCompanyForm((v) => ({ ...v, phone: e.target.value }))} /></label>
-                <label>Address line 1<input disabled={!canEditCompany} value={companyForm.address1} onChange={(e) => setCompanyForm((v) => ({ ...v, address1: e.target.value }))} /></label>
-                <label>Address line 2<input disabled={!canEditCompany} value={companyForm.address2} onChange={(e) => setCompanyForm((v) => ({ ...v, address2: e.target.value }))} /></label>
-                <label>City<input disabled={!canEditCompany} value={companyForm.city} onChange={(e) => setCompanyForm((v) => ({ ...v, city: e.target.value }))} /></label>
-                <label>Postcode<input disabled={!canEditCompany} value={companyForm.postcode} onChange={(e) => setCompanyForm((v) => ({ ...v, postcode: e.target.value }))} /></label>
-                <label>Country<input disabled={!canEditCompany} value={companyForm.country} onChange={(e) => setCompanyForm((v) => ({ ...v, country: e.target.value }))} /></label>
-              </div>
-              <div className="role-settings-kv role-settings-kv--identity">
-                <div><span>Registered company number</span><strong>{company.company_number || 'Not recorded'}</strong></div>
-                <div><span>VAT number</span><strong>{company.vat_number || 'Not recorded'}</strong></div>
-                <div><span>Company type</span><strong>{company.company_type?.replace(/_/g, ' ') || 'Not recorded'}</strong></div>
-                <div><span>Your company role</span><strong>{membershipRole || 'Not verified'}</strong></div>
-              </div>
-            </Panel>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <Panel title="Company Profile" description={canEditCompany ? 'Edit the live company record used by this workspace.' : 'Your current membership can view this company profile but cannot edit it.'}>
+                <div className="role-settings-form">
+                  <label>Company name<input disabled={!canEditCompany} value={companyForm.name} onChange={(e) => setCompanyForm((v) => ({ ...v, name: e.target.value }))} /></label>
+                  <label>Email<input disabled={!canEditCompany} type="email" value={companyForm.email} onChange={(e) => setCompanyForm((v) => ({ ...v, email: e.target.value }))} /></label>
+                  <label>Phone<input disabled={!canEditCompany} value={companyForm.phone} onChange={(e) => setCompanyForm((v) => ({ ...v, phone: e.target.value }))} /></label>
+                  <label>Address line 1<input disabled={!canEditCompany} value={companyForm.address1} onChange={(e) => setCompanyForm((v) => ({ ...v, address1: e.target.value }))} /></label>
+                  <label>Address line 2<input disabled={!canEditCompany} value={companyForm.address2} onChange={(e) => setCompanyForm((v) => ({ ...v, address2: e.target.value }))} /></label>
+                  <label>City<input disabled={!canEditCompany} value={companyForm.city} onChange={(e) => setCompanyForm((v) => ({ ...v, city: e.target.value }))} /></label>
+                  <label>Postcode<input disabled={!canEditCompany} value={companyForm.postcode} onChange={(e) => setCompanyForm((v) => ({ ...v, postcode: e.target.value }))} /></label>
+                  <label>Country<input disabled={!canEditCompany} value={companyForm.country} onChange={(e) => setCompanyForm((v) => ({ ...v, country: e.target.value }))} /></label>
+                </div>
+                <div className="role-settings-kv role-settings-kv--identity">
+                  <div><span>Registered company number</span><strong>{company.company_number || 'Not recorded'}</strong></div>
+                  <div><span>VAT number</span><strong>{company.vat_number || 'Not recorded'}</strong></div>
+                  <div><span>Company type</span><strong>{company.company_type?.replace(/_/g, ' ') || 'Not recorded'}</strong></div>
+                  <div><span>Your company role</span><strong>{membershipRole || 'Not verified'}</strong></div>
+                </div>
+              </Panel>
+              {canEditCompany && <CompanyDepartmentsPanel companyId={company.id} />}
+            </div>
           ) : section === 'finance' && canManageBilling ? (
             <CompanyFinanceSettingsPanel companyId={company.id} companyName={companyDisplay} />
           ) : section === 'profile' ? (

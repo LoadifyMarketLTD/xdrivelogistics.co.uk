@@ -23,11 +23,15 @@ type TeamMember = {
   email: string | null;
   phone: string | null;
   role: 'owner' | 'admin' | 'dispatcher' | 'viewer';
+  departmentId: string | null;
+  departmentName: string | null;
   membershipStatus: 'invited' | 'active' | 'suspended';
   profileStatus: string | null;
   createdAt: string;
   isCurrentUser: boolean;
 };
+
+type DepartmentRow = { id: string; name: string; description: string | null };
 
 const ROLE_OPTIONS: Array<TeamMember['role']> = ['owner', 'admin', 'dispatcher', 'viewer'];
 
@@ -41,6 +45,7 @@ const formatDate = (value: string) =>
 export default function BrokerTeamPage() {
   const workspace = useCompanyWorkspaceData();
   const [members, setMembers] = useState<TeamMember[]>([]);
+  const [departments, setDepartments] = useState<DepartmentRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -48,6 +53,7 @@ export default function BrokerTeamPage() {
   const [pendingActionId, setPendingActionId] = useState<string | null>(null);
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviteRole, setInviteRole] = useState<'admin' | 'dispatcher' | 'viewer'>('viewer');
+  const [inviteDepartmentId, setInviteDepartmentId] = useState('');
 
   const getAuthHeader = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -80,6 +86,7 @@ export default function BrokerTeamPage() {
     });
     const payload = (await response.json().catch(() => ({}))) as {
       members?: TeamMember[];
+      departments?: DepartmentRow[];
       canManageTeam?: boolean;
       error?: string;
     };
@@ -87,9 +94,11 @@ export default function BrokerTeamPage() {
     if (!response.ok) {
       setError(payload.error ?? 'Unable to load the broker company team.');
       setMembers([]);
+      setDepartments([]);
       setCanManageTeam(false);
     } else {
       setMembers(Array.isArray(payload.members) ? payload.members : []);
+      setDepartments(Array.isArray(payload.departments) ? payload.departments : []);
       setCanManageTeam(Boolean(payload.canManageTeam));
     }
 
@@ -140,13 +149,14 @@ export default function BrokerTeamPage() {
     const response = await fetch('/api/customer/team', {
       method: 'POST',
       headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ companyId: workspace.companyId, email: inviteEmail.trim(), role: inviteRole }),
+      body: JSON.stringify({ companyId: workspace.companyId, email: inviteEmail.trim(), role: inviteRole, departmentId: inviteDepartmentId || null }),
     });
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
     if (!response.ok) {
       setError(payload.error ?? 'Unable to send invitation.');
     } else {
       setInviteEmail('');
+      setInviteDepartmentId('');
       setNotice('Invitation saved successfully.');
       await load();
     }
@@ -198,6 +208,10 @@ export default function BrokerTeamPage() {
               <option value="dispatcher">dispatcher</option>
               <option value="admin">admin</option>
             </select>
+            <select value={inviteDepartmentId} onChange={(event) => setInviteDepartmentId(event.target.value)} aria-label="Invite department" style={{ border: '1px solid #cbd5e1', borderRadius: '8px', padding: '0.5rem 0.65rem', fontSize: '0.78rem', background: '#fff' }}>
+              <option value="">No department</option>
+              {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+            </select>
             <ActionButton tone="primary" disabled={pendingActionId === 'invite'} onClick={() => void sendInvite()}>
               {pendingActionId === 'invite' ? 'Inviting…' : 'Invite member'}
             </ActionButton>
@@ -207,7 +221,7 @@ export default function BrokerTeamPage() {
 
       <Panel title="Broker team" description="Only memberships belonging to the active broker company are returned.">
         <DataTable
-          columns={['Member', 'Email', 'Role', 'Membership', 'Profile', 'Joined', 'Actions']}
+          columns={['Member', 'Email', 'Role', 'Department', 'Membership', 'Profile', 'Joined', 'Actions']}
           rows={members.map((member) => [
             <strong key="member">
               {member.fullName?.trim() || member.email || 'Broker team member'}
@@ -215,6 +229,12 @@ export default function BrokerTeamPage() {
             </strong>,
             member.email ?? 'Not recorded',
             member.role.replace(/_/g, ' '),
+            canManageTeam ? (
+              <select key="department" value={member.departmentId ?? ''} disabled={pendingActionId === member.id} onChange={(event) => { const departmentId = event.target.value || null; setPendingActionId(member.id); void runTeamAction({ membershipId: member.id, action: 'department', departmentId }, 'Department updated.').finally(() => setPendingActionId(null)); }} style={{ fontSize: '0.7rem' }}>
+                <option value="">No department</option>
+                {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+              </select>
+            ) : (member.departmentName ?? 'No department'),
             <StatusBadge key="membership" value={member.membershipStatus} />,
             <StatusBadge
               key="profile"
