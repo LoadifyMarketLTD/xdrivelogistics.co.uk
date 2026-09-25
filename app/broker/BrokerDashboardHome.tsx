@@ -75,6 +75,9 @@ export default function BrokerDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
   const [enquiryActions, setEnquiryActions] = useState<EnquiryActionState>({ loading: true, unavailable: false, count: 0 });
+  const [searchTerm, setSearchTerm] = useState('');
+  const [savedView, setSavedView] = useState<'default' | 'exceptions' | 'margin'>('default');
+  const [dateRange, setDateRange] = useState<'today' | '7d' | '30d'>('today');
 
   useEffect(() => {
     let active = true;
@@ -105,30 +108,68 @@ export default function BrokerDashboardHome() {
     return () => { active = false; };
   }, [data.companyId]);
 
+  const filteredJobs = useMemo(() => {
+    const query = normalise(searchTerm);
+    const now = Date.now();
+    const rangeStart = dateRange === 'today'
+      ? new Date(new Date().setHours(0, 0, 0, 0)).getTime()
+      : now - (dateRange === '7d' ? 7 : 30) * 86_400_000;
+
+    return data.jobs.filter((job) => {
+      const timestampValue = job.pickup_datetime ?? job.created_at;
+      const timestamp = timestampValue ? new Date(timestampValue).getTime() : Number.NaN;
+      if (Number.isFinite(timestamp) && timestamp < rangeStart) return false;
+
+      const haystack = [
+        job.id,
+        job.customer_reference,
+        job.client_name,
+        job.pickup_location,
+        job.pickup_postcode,
+        job.delivery_location,
+        job.delivery_postcode,
+        job.status,
+        job.current_status,
+      ].map(normalise).join(' ');
+      if (query && !haystack.includes(query)) return false;
+
+      if (savedView === 'exceptions') {
+        return exceptionStatuses.has(normalise(job.current_status ?? job.status));
+      }
+      if (savedView === 'margin') {
+        const budget = Number(job.budget_amount ?? 0);
+        const submitted = data.bids.filter((bid) => bid.job_id === job.id && bid.status === 'submitted');
+        if (!budget || submitted.length === 0) return false;
+        const bestCarrierQuote = Math.min(...submitted.map((bid) => Number(bid.bid_price_gbp ?? bid.amount ?? Number.POSITIVE_INFINITY)));
+        return Number.isFinite(bestCarrierQuote) && bestCarrierQuote >= budget;
+      }
+      return true;
+    });
+  }, [data.bids, data.jobs, dateRange, savedView, searchTerm]);
   const metrics = useMemo(() => {
     const now = Date.now();
     const submittedQuotes = data.bids.filter((bid) => bid.status === 'submitted');
     const acceptedQuotes = data.bids.filter((bid) => bid.status === 'accepted');
-    const awaitingAward = data.jobs.filter(
+    const awaitingAward = filteredJobs.filter(
       (job) =>
         classifyWorkspaceJobStage(job) === 'open' &&
         !job.awarded_carrier_company_id &&
         submittedQuotes.some((bid) => bid.job_id === job.id),
     );
-    const awardedJobs = data.jobs.filter((job) => {
+    const awardedJobs = filteredJobs.filter((job) => {
       const stage = classifyWorkspaceJobStage(job);
       return stage === 'awarded' || stage === 'allocated';
     });
-    const activeJobs = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'in_progress');
+    const activeJobs = filteredJobs.filter((job) => classifyWorkspaceJobStage(job) === 'in_progress');
     // The dashboard workspace feed exposes delivery_photos but not the complete
     // POD signature/recipient/document contract. Keep this signal explicitly
     // about missing delivery-photo evidence and direct users to POD review.
-    const deliveryEvidenceMissing = data.jobs.filter(
+    const deliveryEvidenceMissing = filteredJobs.filter(
       (job) =>
         classifyWorkspaceJobStage(job) === 'completed' &&
         (job.delivery_photos?.length ?? 0) === 0,
     );
-    const exceptions = data.jobs.filter((job) =>
+    const exceptions = filteredJobs.filter((job) =>
       exceptionStatuses.has(normalise(job.current_status ?? job.status)),
     );
 
@@ -156,7 +197,7 @@ export default function BrokerDashboardHome() {
     const grossMargin = revenue - carrierCost;
 
     return {
-      draftLoads: data.jobs.filter((job) => normalise(job.status) === 'draft').length,
+      draftLoads: filteredJobs.filter((job) => normalise(job.status) === 'draft').length,
       submittedQuotes,
       acceptedQuotes,
       awaitingAward,
@@ -176,7 +217,7 @@ export default function BrokerDashboardHome() {
       overdueValue: overdue.reduce((sum, invoice) => sum + invoiceNetAmount(invoice), 0),
       carrierSpend: carrierCost,
     };
-  }, [data]);
+  }, [data, filteredJobs]);
 
   const jobsUnavailable = unavailable(data, ['jobs']);
   const quotesUnavailable = unavailable(data, ['jobs', 'bids']);
@@ -202,14 +243,29 @@ export default function BrokerDashboardHome() {
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
       <OperationalToolbar>
-        <input aria-label="Search broker operations" type="search" placeholder="Search jobs, routes, refs" />
-        <select aria-label="Saved view" defaultValue="default"><option value="default">Default</option><option value="exceptions">Exceptions</option><option value="margin">Margin watch</option></select>
-        <select aria-label="Date range" defaultValue="today"><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select>
+        <input
+          aria-label="Search broker operations"
+          type="search"
+          placeholder="Search jobs, routes, refs"
+          value={searchTerm}
+          onChange={(event) => setSearchTerm(event.target.value)}
+        />
+        <select aria-label="Saved view" value={savedView} onChange={(event) => setSavedView(event.target.value as 'default' | 'exceptions' | 'margin')}>
+          <option value="default">Default</option>
+          <option value="exceptions">Exceptions</option>
+          <option value="margin">Margin watch</option>
+        </select>
+        <select aria-label="Date range" value={dateRange} onChange={(event) => setDateRange(event.target.value as 'today' | '7d' | '30d')}>
+          <option value="today">Today</option>
+          <option value="7d">Last 7 days</option>
+          <option value="30d">Last 30 days</option>
+        </select>
+        <ActionButton tone="secondary" onClick={() => { setSearchTerm(''); setSavedView('default'); setDateRange('today'); }}>Clear</ActionButton>
         <ActionButton tone="secondary" onClick={() => router.push('/broker/finance')}>Export / Finance</ActionButton>
       </OperationalToolbar>
 
       <ExchangeKpiStrip>
-        <KpiCard label="Open Loads" value={jobsUnavailable ? '—' : data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'open').length} tone="blue" />
+        <KpiCard label="Open Loads" value={jobsUnavailable ? '—' : filteredJobs.filter((job) => classifyWorkspaceJobStage(job) === 'open').length} tone="blue" />
         <KpiCard label="Quotes Received" value={quotesUnavailable ? '—' : metrics.submittedQuotes.length} tone="green" />
         <KpiCard label="Awaiting Award" value={quotesUnavailable ? '—' : metrics.awaitingAward.length} tone="orange" />
         <KpiCard label="Active Jobs" value={jobsUnavailable ? '—' : metrics.activeJobs.length} tone="blue" />
@@ -390,6 +446,8 @@ export default function BrokerDashboardHome() {
                 { key: 'disputes', label: 'Disputes', onClick: () => router.push('/broker/disputes') },
                 { key: 'invoices', label: 'Customer invoices', onClick: () => router.push('/broker/customer-invoices') },
                 { key: 'margins', label: 'Margin reporting', onClick: () => router.push('/broker/margins') },
+                { key: 'messages', label: 'Messages', onClick: () => router.push('/broker/messages') },
+                { key: 'event-log', label: 'Event Log', onClick: () => router.push('/broker/event-log') },
               ]}
             />
           </Panel>
