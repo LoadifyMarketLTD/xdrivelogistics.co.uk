@@ -158,6 +158,9 @@ export async function GET(request: NextRequest) {
 
   const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
+  if (!driver.canCommercialBid) {
+    return respond(403, { error: 'Commercial marketplace access is not enabled for this Driver account.' });
+  }
 
   const requestedId = new URL(request.url).searchParams.get('id')?.trim() || null;
   let query = supabaseAdmin

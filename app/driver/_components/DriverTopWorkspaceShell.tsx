@@ -25,18 +25,21 @@ const DRIVER_PRIMARY_NAV = [
 ] as const;
 
 const DRIVER_SETTINGS_MENU = [
-  { label: 'Overview', href: '/driver/settings?section=overview' },
-  { label: 'My Profile', href: '/driver/settings?section=profile' },
-  { label: 'Company Profile', href: '/driver/settings?section=company' },
-  { label: 'Drivers / Staff', href: '/driver/profile' },
-  { label: 'Vehicles / Assets', href: '/driver/vehicles' },
+  { label: 'Overview', href: '/driver/settings?section=overview', ownerOnly: true },
+  { label: 'My Profile', href: '/driver/profile' },
+  { label: 'Company Profile', href: '/driver/settings?section=company', ownerOnly: true },
+  { label: 'Drivers / Staff', href: '/driver/drivers-vehicles', ownerOnly: true },
+  { label: 'Vehicle', href: '/driver/vehicles' },
   { label: 'Documents', href: '/driver/documents' },
-  { label: 'Billing & Membership', href: '/settings/billing' },
-  { label: 'Settings', href: '/driver/notifications' },
-  { label: 'Security', href: '/driver/settings?section=security' },
+  { label: 'Billing & Membership', href: '/settings/billing', ownerOnly: true },
+  { label: 'Notifications', href: '/driver/notifications' },
+  { label: 'Security', href: '/driver/change-password' },
   { label: 'Audit / Event Log', href: '/driver/event-log' },
   { label: 'Support', href: '/help' },
 ] as const;
+
+const DRIVER_COMMERCIAL_NAV_IDS = new Set(['directory', 'availability', 'returns', 'loads', 'quotes']);
+const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['finance', 'drivers']);
 
 export default function DriverTopWorkspaceShell({ children }: { children: ReactNode }) {
   const router = useRouter();
@@ -49,6 +52,14 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
 
   const actionRole = resolveActionCentreRole(role);
   const notificationsHref = getNotificationsRoute(actionRole);
+  const commercialAccess = role === 'owner_driver' || user?.canCommercialBid === true;
+  const primaryNav = DRIVER_PRIMARY_NAV.filter((item) => {
+    if (role === 'owner_driver') return true;
+    if (DRIVER_OWNER_ONLY_NAV_IDS.has(item.id)) return false;
+    if (DRIVER_COMMERCIAL_NAV_IDS.has(item.id)) return commercialAccess;
+    return true;
+  });
+  const settingsMenu = DRIVER_SETTINGS_MENU.filter((item) => role === 'owner_driver' || !('ownerOnly' in item && item.ownerOnly === true));
 
   useEffect(() => {
     if (!user?.companyId || !isSupabaseConfigured) {
@@ -126,12 +137,13 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
             <Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={160} height={44} priority />
           </button>
         </div>
-        <button type="button" className="cta post" onClick={() => router.push('/driver/post-load')}>POST LOAD</button>
-        <button type="button" className="cta direct" onClick={() => router.push('/driver/directory')}>BOOK DIRECT</button>
+        {role === 'owner_driver' && <button type="button" className="cta post" onClick={() => router.push('/driver/post-load')}>POST LOAD</button>}
+        {commercialAccess && <button type="button" className="cta direct" onClick={() => router.push('/driver/directory')}>BOOK DIRECT</button>}
         <nav className="main-nav" aria-label="Driver workspace navigation">
-          {DRIVER_PRIMARY_NAV.map((item) => {
+          {primaryNav.map((item) => {
             const active = isActive(item.href);
-            return <button key={item.id} type="button" className={active ? 'active' : ''} onClick={() => router.push(item.href)} aria-current={active ? 'page' : undefined}>{item.label}</button>;
+            const label = role === 'driver' && item.id === 'fleet' ? 'Vehicle' : item.label;
+            return <button key={item.id} type="button" className={active ? 'active' : ''} onClick={() => router.push(item.href)} aria-current={active ? 'page' : undefined}>{label}</button>;
           })}
         </nav>
         <div className="top-tools">
@@ -148,7 +160,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
             </button>
             {settingsOpen && (
               <div className="driver-settings-menu__panel" role="menu" aria-label="Driver settings">
-                {DRIVER_SETTINGS_MENU.map((item) => (
+                {settingsMenu.map((item) => (
                   <button
                     key={item.label}
                     type="button"

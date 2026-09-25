@@ -378,7 +378,7 @@ describe('resolveWorkspacePermission — foundation security contract matrix', (
     expect(complianceMargin).toEqual({ allowed: false, reason: 'capability_not_permitted' });
   });
 
-  it('grants identical driver commercial routes for company and owner drivers with valid context', () => {
+  it('grants commercial routes only to authorised company drivers and owner drivers', () => {
     const employedDriver = resolveWorkspacePermission({
       companyType: 'standard',
       membershipStatus: 'active',
@@ -391,6 +391,7 @@ describe('resolveWorkspacePermission — foundation security contract matrix', (
       driverStatus: 'active',
       accountStatus: 'active',
       companyStatus: 'active',
+      canCommercialBid: true,
       pathname: '/driver/loads',
     });
     expect(employedDriver).toEqual({
@@ -420,7 +421,7 @@ describe('resolveWorkspacePermission — foundation security contract matrix', (
       activeWorkspace: 'owner_operator',
     });
 
-    const ownerOperatorFinanceForDriver = resolveWorkspacePermission({
+    const employedDriverFinance = resolveWorkspacePermission({
       companyType: 'standard',
       membershipStatus: 'active',
       membershipRole: 'driver',
@@ -432,13 +433,10 @@ describe('resolveWorkspacePermission — foundation security contract matrix', (
       driverStatus: 'active',
       accountStatus: 'active',
       companyStatus: 'active',
+      canCommercialBid: true,
       pathname: '/driver/finance',
     });
-    expect(ownerOperatorFinanceForDriver).toEqual({
-      allowed: true,
-      membershipRole: 'driver',
-      activeWorkspace: 'carrier_fleet',
-    });
+    expect(employedDriverFinance).toEqual({ allowed: false, reason: 'capability_not_permitted' });
   });
 
   it('denies cross-workspace commercial leakage', () => {
@@ -580,14 +578,10 @@ describe('resolveWorkspacePermission — foundation security contract matrix', (
       companyStatus: 'active',
       pathname: '/driver/loads',
     });
-    expect(employedDriverLoads).toEqual({
-      allowed: true,
-      membershipRole: 'driver',
-      activeWorkspace: 'carrier_fleet',
-    });
+    expect(employedDriverLoads).toEqual({ allowed: false, reason: 'commercial_bidding_disabled' });
   });
 
-  it('denies commercial quote submission only when bidding is disabled', () => {
+  it('denies all employed-driver commercial discovery when bidding is disabled', () => {
     const ownerWithoutProof = resolveWorkspacePermission({
       companyType: 'standard',
       membershipStatus: 'active',
@@ -603,11 +597,7 @@ describe('resolveWorkspacePermission — foundation security contract matrix', (
       canCommercialBid: false,
       pathname: '/driver/loads',
     });
-    expect(ownerWithoutProof).toEqual({
-      allowed: true,
-      membershipRole: 'driver',
-      activeWorkspace: 'carrier_fleet',
-    });
+    expect(ownerWithoutProof).toEqual({ allowed: false, reason: 'commercial_bidding_disabled' });
 
     const ownerDriverWorkspaceFalse = resolveWorkspacePermission({
       companyType: 'standard',

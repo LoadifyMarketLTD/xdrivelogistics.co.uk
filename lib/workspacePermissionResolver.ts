@@ -2,7 +2,7 @@ import { workspaceForRoute, type BusinessWorkspace } from './businessWorkspace';
 import { membershipHasCapability, resolveMembershipRole, type MembershipRole } from './membershipRole';
 import { resolveCompanyEnabledWorkspaces } from './activeWorkspace';
 import { workspaceHasCapability } from './businessWorkspace';
-import type { WorkspaceCapability, WorkspaceRole } from './workspaceRole';
+import { hasWorkspaceCapability, type WorkspaceCapability, type WorkspaceRole } from './workspaceRole';
 import {
   cleanPathname,
   getProtectedRouteRequirement,
@@ -77,7 +77,11 @@ const isDriverCommercialRoute = (pathname: string): boolean =>
   pathname === '/driver/finance' ||
   pathname.startsWith('/driver/finance/') ||
   pathname === '/driver/returns' ||
-  pathname.startsWith('/driver/returns/');
+  pathname.startsWith('/driver/returns/') ||
+  pathname === '/driver/directory' ||
+  pathname.startsWith('/driver/directory/') ||
+  pathname === '/driver/nearby' ||
+  pathname.startsWith('/driver/nearby/');
 
 /**
  * Compatibility fallback for existing protected pages that are live but not yet
@@ -187,11 +191,8 @@ export function resolveWorkspacePermission(
     }
   }
 
-  if (isDriverCommercialRoute(pathname)) {
-    const isQuoteRoute = pathname === '/driver/quotes' || pathname.startsWith('/driver/quotes/');
-    if (isQuoteRoute && input.canCommercialBid !== true) {
-      return { allowed: false, reason: 'commercial_bidding_disabled' };
-    }
+  if (isDriverCommercialRoute(pathname) && input.workspaceRole === 'driver' && input.canCommercialBid !== true) {
+    return { allowed: false, reason: 'commercial_bidding_disabled' };
   }
 
   const routeRequirement = getProtectedRouteRequirement(pathname);
@@ -245,23 +246,34 @@ export function resolveWorkspacePermission(
     return { allowed: false, reason: 'route_workspace_mismatch' };
   }
 
-  if (
-    input.requiredCapability &&
-    (!workspaceHasCapability(activeWorkspace, input.requiredCapability) ||
-      (!driverRoute && !membershipHasCapability(membershipRole, input.requiredCapability)))
-  ) {
-    return { allowed: false, reason: 'capability_not_permitted' };
+  if (input.requiredCapability) {
+    const allowed = driverRoute
+      ? Boolean(
+          input.workspaceRole &&
+          ['driver', 'owner_driver'].includes(input.workspaceRole) &&
+          hasWorkspaceCapability(input.workspaceRole, input.requiredCapability),
+        )
+      : workspaceHasCapability(activeWorkspace, input.requiredCapability) &&
+        membershipHasCapability(membershipRole, input.requiredCapability);
+    if (!allowed) {
+      return { allowed: false, reason: 'capability_not_permitted' };
+    }
   }
 
-  if (
-    routeRequirement.anyOf?.length &&
-    !routeRequirement.anyOf.some(
-      (capability) =>
-        workspaceHasCapability(activeWorkspace, capability) &&
-        (driverRoute || membershipHasCapability(membershipRole, capability)),
-    )
-  ) {
-    return { allowed: false, reason: 'capability_not_permitted' };
+  if (routeRequirement.anyOf?.length) {
+    const allowed = routeRequirement.anyOf.some((capability) =>
+      driverRoute
+        ? Boolean(
+            input.workspaceRole &&
+            ['driver', 'owner_driver'].includes(input.workspaceRole) &&
+            hasWorkspaceCapability(input.workspaceRole, capability),
+          )
+        : workspaceHasCapability(activeWorkspace, capability) &&
+          membershipHasCapability(membershipRole, capability),
+    );
+    if (!allowed) {
+      return { allowed: false, reason: 'capability_not_permitted' };
+    }
   }
 
   return { allowed: true, membershipRole, activeWorkspace };

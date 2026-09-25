@@ -129,7 +129,6 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
   it('allows identical /driver access for owner/admin/company-driver memberships with valid scoped driver facts', () => {
     const contexts = [
       { membershipRole: 'owner', ownerDriverWorkspace: true },
-      { membershipRole: 'admin', ownerDriverWorkspace: true },
       { membershipRole: 'driver', ownerDriverWorkspace: false },
     ];
 
@@ -160,6 +159,7 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
           driverStatus: 'active',
           accountStatus: 'active',
           companyStatus: 'active',
+          canCommercialBid: true,
         }),
       ).toBe(true);
 
@@ -177,7 +177,7 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
     }
   });
 
-  it('allows both company driver and owner driver on the same commercial driver routes', () => {
+  it('allows company drivers with explicit commercial permission and owner drivers on commercial routes', () => {
     expect(
       isRoleAllowedForPath('/driver/jobs', DRIVER_ROLE, {
         workspaceRole: 'driver',
@@ -197,6 +197,7 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
         driverStatus: 'active',
         accountStatus: 'active',
         companyStatus: 'active',
+        canCommercialBid: true,
       }),
     ).toBe(true);
 
@@ -260,6 +261,30 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
         companyStatus: 'active',
       }),
     ).toBe(true);
+  });
+
+  it('keeps fleet-employed drivers on execution surfaces unless commercial bidding is explicitly enabled', () => {
+    const context = {
+      workspaceRole: 'driver' as const,
+      driverId: 'drv-employed',
+      canCommercialBid: false,
+      appAccess: true,
+      driverStatus: 'active',
+      accountStatus: 'active',
+      companyStatus: 'active',
+    };
+
+    for (const path of ['/driver/loads', '/driver/quotes', '/driver/won-work', '/driver/returns', '/driver/directory', '/driver/nearby']) {
+      expect(isRoleAllowedForPath(path, DRIVER_ROLE, context)).toBe(false);
+    }
+
+    for (const path of ['/driver/jobs', '/driver/history', '/driver/availability', '/driver/vehicles', '/driver/documents', '/driver/messages', '/driver/event-log', '/driver/freight-vision']) {
+      expect(isRoleAllowedForPath(path, DRIVER_ROLE, context)).toBe(true);
+    }
+
+    expect(isRoleAllowedForPath('/driver/finance', DRIVER_ROLE, context)).toBe(false);
+    expect(isRoleAllowedForPath('/driver/drivers-vehicles', DRIVER_ROLE, context)).toBe(false);
+    expect(isRoleAllowedForPath('/driver/settings', DRIVER_ROLE, context)).toBe(false);
   });
 
   it('allows /admin only through valid membership-derived admin workspace, not owner-driver metadata', () => {

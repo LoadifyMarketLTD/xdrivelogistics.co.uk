@@ -35,4 +35,15 @@ describe('Driver Marketplace consolidation contract', () => {
     expect(mobileAuth).toContain('enforceActiveNativeDeviceBinding');
     expect(mobileAuth).toContain("request.headers.get('x-xdrive-installation-id')");
   });
+
+  it('fails closed on marketplace discovery when commercial bidding is explicitly revoked', () => {
+    const nearby = read('app/api/driver/mobile/nearby-jobs/route.ts');
+    const loads = read('app/api/driver/marketplace/loads/route.ts');
+    const search = read('app/api/driver/search-loads/route.ts');
+    for (const source of [nearby, loads, search]) {
+      expect(source).toContain('if (!driver.canCommercialBid)');
+      expect(source).toContain('Commercial marketplace access is not enabled for this Driver account.');
+      expect(source).toContain('403');
+    }
+  });
 });

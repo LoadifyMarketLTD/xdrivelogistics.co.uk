@@ -228,6 +228,9 @@ export async function GET(request: NextRequest) {
 
   const driver = await requireWebDriver(request);
   if (!isDriverContext(driver)) return driver;
+  if (!driver.canCommercialBid) {
+    return respond(403, { error: 'Commercial marketplace access is not enabled for this Driver account.' });
+  }
 
   const { searchParams } = new URL(request.url);
   const from = searchParams.get('from')?.trim() ?? '';
