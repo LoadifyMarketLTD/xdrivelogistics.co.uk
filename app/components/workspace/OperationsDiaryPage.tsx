@@ -330,6 +330,19 @@ export default function OperationsDiaryPage() {
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem('xdrive:operations-diary:default-search');
+      if (!stored) return;
+      const parsed = JSON.parse(stored) as Partial<SearchState>;
+      const restored = { ...EMPTY_SEARCH, ...parsed } as SearchState;
+      setSearch(restored);
+      setAppliedSearch(restored);
+      setSaveAsDefault(true);
+    } catch {
+      window.localStorage.removeItem('xdrive:operations-diary:default-search');
+    }
+  }, []);
+  useEffect(() => {
     if (!deepJob) return;
     setExpandedIds((current) => {
       const next = new Set(current);
