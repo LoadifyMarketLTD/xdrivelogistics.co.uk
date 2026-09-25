@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { supabase } from '../../../../../lib/supabaseClient';
 import { DEFAULT_INVOICE_EMAIL_MESSAGE, DEFAULT_INVOICE_EMAIL_SUBJECT, INVOICE_EMAIL_TOKENS } from '../../../../../lib/invoiceEmailTemplate';
 
@@ -74,16 +74,50 @@ export default function DriverInvoiceEmailPanel({
   onSent: () => Promise<void>;
 }) {
   const [editorOpen, setEditorOpen] = useState(false);
+  const [companySubjectDefault, setCompanySubjectDefault] = useState(DEFAULT_INVOICE_EMAIL_SUBJECT);
+  const [companyMessageDefault, setCompanyMessageDefault] = useState(DEFAULT_INVOICE_EMAIL_MESSAGE);
   const [subject, setSubject] = useState(DEFAULT_INVOICE_EMAIL_SUBJECT);
   const [message, setMessage] = useState(DEFAULT_INVOICE_EMAIL_MESSAGE);
   const [draftSubject, setDraftSubject] = useState(DEFAULT_INVOICE_EMAIL_SUBJECT);
   const [draftMessage, setDraftMessage] = useState(DEFAULT_INVOICE_EMAIL_MESSAGE);
+  const [templateReady, setTemplateReady] = useState(false);
   const [sending, setSending] = useState(false);
   const [previewing, setPreviewing] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
 
-  const canSend = invoice.status === 'Draft' && Boolean(invoice.clientEmail?.trim());
+  useEffect(() => {
+    let cancelled = false;
+    const loadCompanyTemplate = async () => {
+      setTemplateReady(false);
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      if (!token) {
+        if (!cancelled) setError('Your session has expired. Please sign in again.');
+        return;
+      }
+      const response = await fetch(`/api/driver/finance/invoices/${encodeURIComponent(invoiceId)}/email-defaults`, {
+        headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({})) as { subject?: string; message?: string; error?: string };
+      if (cancelled) return;
+      if (!response.ok || !payload.subject || !payload.message) {
+        setError(payload.error || 'Company invoice email defaults could not be loaded.');
+        return;
+      }
+      setCompanySubjectDefault(payload.subject);
+      setCompanyMessageDefault(payload.message);
+      setSubject(payload.subject);
+      setMessage(payload.message);
+      setDraftSubject(payload.subject);
+      setDraftMessage(payload.message);
+      setTemplateReady(true);
+    };
+    void loadCompanyTemplate();
+    return () => { cancelled = true; };
+  }, [invoiceId]);
+
+  const canSend = templateReady && invoice.status === 'Draft' && Boolean(invoice.clientEmail?.trim());
   const recipient = invoice.clientEmail?.trim() || 'No customer email recorded';
   const tokens = useMemo(() => INVOICE_EMAIL_TOKENS.map((token) => `[[${token}]]`), []);
 
@@ -102,8 +136,8 @@ export default function DriverInvoiceEmailPanel({
   };
 
   const resetDraft = () => {
-    setDraftSubject(DEFAULT_INVOICE_EMAIL_SUBJECT);
-    setDraftMessage(DEFAULT_INVOICE_EMAIL_MESSAGE);
+    setDraftSubject(companySubjectDefault);
+    setDraftMessage(companyMessageDefault);
   };
 
   const previewInvoice = async () => {
