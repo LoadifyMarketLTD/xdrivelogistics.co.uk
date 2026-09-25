@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from './DriverWorkspaceShell';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import NotificationPreferencesPanel from '../../components/workspace/NotificationPreferencesPanel';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type NotificationRow = {
@@ -64,6 +65,7 @@ export default function DriverNotificationRegister({
   const [tab, setTab] = useState<TabId>('all');
   const [loading, setLoading] = useState(true);
   const [workingId, setWorkingId] = useState<string | null>(null);
+  const [preferencesOpen, setPreferencesOpen] = useState(false);
   const [error, setError] = useState('');
 
   const loadMessages = useCallback(async () => {
@@ -188,12 +190,14 @@ export default function DriverNotificationRegister({
         subtitle={subtitle}
         headerActions={(
           <>
+            <ActionButton tone="secondary" onClick={() => setPreferencesOpen((current) => !current)}>{preferencesOpen ? 'Hide Preferences' : 'Preferences'}</ActionButton>
             <ActionButton tone="secondary" disabled={loading || workingId === 'all' || counts.unread === 0} onClick={() => void markAllRead()}>{workingId === 'all' ? 'Updating…' : 'Mark all read'}</ActionButton>
             <ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
           </>
         )}
       >
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+        {preferencesOpen && <NotificationPreferencesPanel driverMode />}
 
         <div className="driver-notification-register">
           <div className="driver-tab-strip" role="tablist" aria-label="Notification inbox filters">
