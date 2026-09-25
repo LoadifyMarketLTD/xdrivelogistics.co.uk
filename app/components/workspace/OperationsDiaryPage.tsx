@@ -674,6 +674,11 @@ export default function OperationsDiaryPage() {
     if (saveAsDefault) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
   };
   const clearSearch = () => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); };
+  const toggleDefaultSearch = (checked: boolean) => {
+    setSaveAsDefault(checked);
+    if (checked) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
+    else window.localStorage.removeItem('xdrive:operations-diary:default-search');
+  };
 
   return (
     <PageFrame>
@@ -706,7 +711,8 @@ export default function OperationsDiaryPage() {
             <label>BOOKED BY<input value={search.bookedBy} onChange={(event) => setSearch((current) => ({ ...current, bookedBy: event.target.value }))} placeholder="Name, email or user ID" /></label>
             <label>DATE FROM<input type="date" value={search.dateFrom} onChange={(event) => setSearch((current) => ({ ...current, dateFrom: event.target.value }))} /></label>
             <label>DATE TO<input type="date" value={search.dateTo} onChange={(event) => setSearch((current) => ({ ...current, dateTo: event.target.value }))} /></label>
-            <div className="workspace-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={clearSearch}>Clear</ActionButton></div>
+            <label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="checkbox" checked={saveAsDefault} onChange={(event) => toggleDefaultSearch(event.target.checked)} /> Save as Default</label>
+            <div className="workspace-filter-actions"><ActionButton tone="success" onClick={applySearch}>Search</ActionButton><ActionButton tone="secondary" onClick={clearSearch}>Clear</ActionButton></div>
           </div>
         </aside>
 
