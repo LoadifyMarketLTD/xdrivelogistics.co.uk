@@ -40,6 +40,10 @@ const submitRoute = readFileSync(
   resolve(process.cwd(), 'app/api/driver/finance/invoices/[id]/submit/route.ts'),
   'utf8',
 );
+const invoiceEmailTemplate = readFileSync(
+  resolve(process.cwd(), 'lib/invoiceEmailTemplate.ts'),
+  'utf8',
+);
 
 describe('XDrive financial payment-term contract', () => {
   it('exposes only Pay now, 14 days and 30 days as standard payment terms', () => {
@@ -112,7 +116,10 @@ describe('XDrive financial payment-term contract', () => {
   it('does not invent a weekly late-payment penalty in invoices or delivery emails', () => {
     expect(COMPANY_CONFIG.payment.lateFeeNote).toContain('statutory interest');
     expect(COMPANY_CONFIG.payment.lateFeeAmount).toContain('legally and contractually applicable');
-    expect(submitRoute).toContain('statutory interest and recovery-cost compensation where applicable');
+    expect(invoiceEmailTemplate).toContain('statutory interest and recovery-cost compensation where applicable');
+    expect(submitRoute).toContain('DEFAULT_INVOICE_EMAIL_MESSAGE');
+    expect(invoiceEmailTemplate).not.toContain('£25.00 per week');
+    expect(invoiceEmailTemplate).not.toContain('more than 7 days overdue');
     expect(submitRoute).not.toContain('£25.00 per week');
     expect(submitRoute).not.toContain('more than 7 days overdue');
   });
