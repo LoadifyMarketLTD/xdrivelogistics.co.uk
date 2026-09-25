@@ -54,47 +54,53 @@ export default function PricingPage() {
     </header>
 
     <main>
-      <section className="border-b border-[#DDE5EF] bg-white">
-        <div className="mx-auto grid max-w-[1600px] lg:grid-cols-[0.92fr_1.08fr]">
-          <div className="px-5 py-14 sm:px-8 lg:px-12 lg:py-16 xl:px-16">
+      <section className="relative overflow-hidden border-b border-[#DDE5EF] bg-white px-5 py-16 text-[#102447] sm:px-8 lg:py-20">
+        <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[56%] overflow-hidden lg:block" aria-hidden="true">
+          <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/0/08/United_Kingdom_satellite_image.png')" }} />
+          <div className="absolute inset-0 bg-[linear-gradient(90deg,#FFFFFF_0%,rgba(255,255,255,0.98)_12%,rgba(255,255,255,0.78)_30%,rgba(255,255,255,0.24)_58%,rgba(255,255,255,0.05)_100%)]" />
+          <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(10,35,79,0.10))]" />
+          <svg viewBox="0 0 760 520" className="absolute inset-0 h-full w-full" role="presentation">
+            <defs>
+              <filter id="pricingRouteGlow" x="-40%" y="-40%" width="180%" height="180%">
+                <feGaussianBlur stdDeviation="2.2" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+            <g fill="none" stroke="#F5A300" strokeWidth="2.1" strokeLinecap="round" filter="url(#pricingRouteGlow)" opacity="0.78">
+              <path d="M454 86 C472 130 480 170 464 214 C450 250 458 286 486 322 C507 349 514 383 502 420" />
+              <path d="M464 214 C520 218 558 244 586 284" />
+              <path d="M486 322 C432 334 394 356 366 392" />
+              <path d="M486 322 C542 337 590 362 626 400" />
+            </g>
+            <g fill="#F5A300" stroke="#FFFFFF" strokeWidth="3">
+              <circle cx="454" cy="86" r="5.5" /><circle cx="464" cy="214" r="5.5" /><circle cx="486" cy="322" r="5.5" />
+              <circle cx="502" cy="420" r="5.5" /><circle cx="586" cy="284" r="5.5" /><circle cx="366" cy="392" r="5.5" /><circle cx="626" cy="400" r="5.5" />
+            </g>
+            <g fill="#FFFFFF" fontSize="12" fontWeight="700" style={{ textShadow: '0 1px 8px rgba(10,35,79,0.65)' }}>
+              <text x="468" y="90">Glasgow</text>
+              <text x="478" y="218">Manchester</text>
+              <text x="500" y="326">Birmingham</text>
+              <text x="516" y="424">London</text>
+              <text x="600" y="288">Leeds</text>
+              <text x="314" y="396">Bristol</text>
+              <text x="640" y="404">Felixstowe</text>
+            </g>
+          </svg>
+          <div className="absolute bottom-5 right-6 text-[0.58rem] font-bold tracking-wide text-white/65 drop-shadow">SATELLITE IMAGERY · NASA/GSFC</div>
+        </div>
+        <div className="relative mx-auto max-w-[1240px]">
+          <div className="flex flex-col items-start gap-2">
+            <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">Early Access · First 3 Months Free</p>
             <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">XDrive Membership</p>
-            <h1 className="font-display mt-5 max-w-[680px] text-[3.15rem] leading-[1.01] tracking-[-0.035em] text-[#102447] sm:text-[4.7rem]">Simple pricing. First 3 months free.</h1>
-            <p className="mt-6 max-w-[640px] text-lg font-semibold leading-8 text-[#60758F]">No XDrive commission on the value of your job. No XDrive booking fee. After your free period, continue on the plan that matches your operation.</p>
-            <div className="mt-7 max-w-[680px] rounded-[24px] border border-[#DDE5EF] bg-[#F8FAFC] p-6 text-sm font-bold leading-6 text-[#405978] shadow-[0_14px_34px_rgba(7,27,60,0.06)]">
-              <p>Standard launch plans are monthly rolling after the free period. Public prices shown are exclusive of VAT unless expressly stated otherwise; VAT is added where legally applicable. There is no minimum paid term under the standard monthly launch model.</p>
-              <p className="mt-2">Enterprise pricing and launch terms are intentionally not published yet and will be agreed separately for 51+ vehicle or custom operations. See the <Link href="/subscription-terms" className="font-black text-[#0E3FA9] underline">Membership & Subscription Terms</Link> for renewal, cancellation and refund rules applying to standard memberships.</p>
-            </div>
-            <SocialShareBar pageTitle="XDrive Membership Pricing" />
           </div>
-
-          <div className="relative min-h-[520px] overflow-hidden lg:min-h-[640px]">
-            <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/0/08/United_Kingdom_satellite_image.png')" }} />
-            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(255,255,255,0.34)_0%,rgba(255,255,255,0.04)_26%,rgba(10,35,79,0.02)_100%)]" />
-            <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.03),rgba(10,35,79,0.12))]" />
-            <svg viewBox="0 0 760 520" className="absolute inset-0 h-full w-full" role="presentation" aria-hidden="true">
-              <defs>
-                <filter id="pricingRouteGlow" x="-40%" y="-40%" width="180%" height="180%">
-                  <feGaussianBlur stdDeviation="2" result="blur" />
-                  <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
-                </filter>
-              </defs>
-              <g fill="none" stroke="#F5A300" strokeWidth="2" strokeLinecap="round" filter="url(#pricingRouteGlow)" opacity="0.70">
-                <path d="M454 86 C472 130 480 170 464 214 C450 250 458 286 486 322 C507 349 514 383 502 420" />
-                <path d="M464 214 C520 218 558 244 586 284" />
-                <path d="M486 322 C432 334 394 356 366 392" />
-                <path d="M486 322 C542 337 590 362 626 400" />
-              </g>
-              <g fill="#F5A300" stroke="#FFFFFF" strokeWidth="3">
-                <circle cx="454" cy="86" r="5" /><circle cx="464" cy="214" r="5" /><circle cx="486" cy="322" r="5" />
-                <circle cx="502" cy="420" r="5" /><circle cx="586" cy="284" r="5" /><circle cx="366" cy="392" r="5" /><circle cx="626" cy="400" r="5" />
-              </g>
-              <g fill="#FFFFFF" fontSize="12" fontWeight="700" style={{ textShadow: '0 1px 8px rgba(10,35,79,0.75)' }}>
-                <text x="468" y="90">Glasgow</text><text x="478" y="218">Manchester</text><text x="500" y="326">Birmingham</text>
-                <text x="516" y="424">London</text><text x="600" y="288">Leeds</text><text x="314" y="396">Bristol</text><text x="640" y="404">Felixstowe</text>
-              </g>
-            </svg>
-            <div className="absolute bottom-5 right-6 text-[0.58rem] font-bold tracking-wide text-white/65 drop-shadow">SATELLITE IMAGERY · NASA/GSFC</div>
+          <h1 className="font-display mt-5 max-w-[700px] text-[3.05rem] leading-[1.01] tracking-[-0.035em] text-[#102447] sm:text-[4.45rem] lg:text-[4.9rem]">One platform. More transport opportunities. Less operational friction.</h1>
+          <p className="mt-7 max-w-[650px] text-lg font-semibold leading-8 text-[#60758F]">Post work, find loads, quote, award, dispatch, track, complete POD and keep the entire job lifecycle connected — whether you are a customer, broker, owner driver or fleet operator.</p>
+          <div className="mt-9 flex flex-wrap gap-3">
+            <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-[#F5A300] px-6 py-3.5 text-sm font-black text-[#102447]">Start 3 Months Free <ArrowRight className="h-4 w-4" /></Link>
+            <Link href="/platform" className="rounded-lg border border-[#C9D5E4] bg-[#F7F9FC] px-6 py-3.5 text-sm font-black text-[#163568]">Explore the Platform</Link>
           </div>
+          <div className="mt-6 flex flex-wrap gap-5 text-sm font-black text-[#405978]"><span>✓ No XDrive commission</span><span>✓ No booking fee</span><span>✓ Full job workflow</span><span>✓ Built for customers, brokers, couriers & fleets</span></div>
+          <SocialShareBar pageTitle="XDrive Membership Pricing" />
         </div>
       </section>
 
