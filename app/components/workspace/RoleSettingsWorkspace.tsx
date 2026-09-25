@@ -5,11 +5,14 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
+import CompanyDepartmentsPanel from './CompanyDepartmentsPanel';
+import CompanyFinanceSettingsPanel from './CompanyFinanceSettingsPanel';
+import MfaSecurityPanel from './MfaSecurityPanel';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from './WorkspaceUI';
 import './role-settings-workspace.css';
 
 type RoleMode = 'customer' | 'broker' | 'driver' | 'owner' | 'fleet';
-type Section = 'overview' | 'profile' | 'company' | 'security';
+type Section = 'overview' | 'profile' | 'company' | 'finance' | 'security';
 
 type CompanyRow = {
   id: string;
@@ -121,11 +124,12 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
   const [success, setSuccess] = useState('');
 
   const canEditCompany = membershipRole === 'owner' || membershipRole === 'admin';
+  const canManageBilling = canEditCompany;
 
   useEffect(() => {
     if (role !== 'owner' && role !== 'driver') return;
     const requested = searchParams.get('section');
-    if (requested === 'overview' || requested === 'profile' || requested === 'company' || requested === 'security') {
+    if (requested === 'overview' || requested === 'profile' || requested === 'company' || requested === 'security' || (requested === 'finance' && role !== 'driver')) {
       setSection(requested);
     }
   }, [role, searchParams]);
@@ -270,12 +274,12 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     ...(role === 'fleet' ? [{ label: 'Drivers / Staff', action: () => router.push('/admin/drivers'), active: false }] : []),
     ...(routes.vehicles ? [{ label: 'Vehicles / Assets', action: () => router.push(routes.vehicles!), active: false }] : []),
     ...(routes.documents ? [{ label: 'Documents', action: () => router.push(routes.documents!), active: false }] : []),
-    ...(role === 'driver' ? [] : [{ label: 'Billing & Membership', action: () => router.push('/settings/billing'), active: false }]),
+    ...(role !== 'driver' && canManageBilling ? [{ label: 'Finance & Invoices', action: () => setSection('finance'), active: section === 'finance' }, { label: 'Billing & Membership', action: () => router.push('/settings/billing'), active: false }] : []),
     ...(routes.notifications ? [{ label: 'Settings', action: () => router.push(routes.notifications!), active: false }] : []),
     { label: 'Security', action: () => setSection('security'), active: section === 'security' },
     ...(routes.audit ? [{ label: 'Audit / Event Log', action: () => router.push(routes.audit!), active: false }] : []),
     { label: 'Support', action: () => router.push('/help'), active: false },
-  ], [role, router, routes.audit, routes.documents, routes.notifications, routes.team, routes.vehicles, section]);
+  ], [canManageBilling, role, router, routes.audit, routes.documents, routes.notifications, routes.team, routes.vehicles, section]);
 
   return (
     <PageFrame>
@@ -326,7 +330,8 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
                 </div>
                 <div className="role-settings-actions">
                   {role !== 'driver' && <ActionButton tone="secondary" onClick={() => setSection('company')}>Company Profile</ActionButton>}
-                  {role !== 'driver' && <ActionButton tone="secondary" onClick={() => router.push('/settings/billing')}>Membership & Billing</ActionButton>}
+                  {role !== 'driver' && canManageBilling && <ActionButton tone="secondary" onClick={() => setSection('finance')}>Finance & Invoices</ActionButton>}
+                  {role !== 'driver' && canManageBilling && <ActionButton tone="secondary" onClick={() => router.push('/settings/billing')}>Membership & Billing</ActionButton>}
                   {role === 'driver' && <ActionButton tone="secondary" onClick={() => setSection('profile')}>My Profile</ActionButton>}
                 </div>
               </Panel>
@@ -349,24 +354,29 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
               </Panel>
             </div>
           ) : section === 'company' ? (
-            <Panel title="Company Profile" description={canEditCompany ? 'Edit the live company record used by this workspace.' : 'Your current membership can view this company profile but cannot edit it.'}>
-              <div className="role-settings-form">
-                <label>Company name<input disabled={!canEditCompany} value={companyForm.name} onChange={(e) => setCompanyForm((v) => ({ ...v, name: e.target.value }))} /></label>
-                <label>Email<input disabled={!canEditCompany} type="email" value={companyForm.email} onChange={(e) => setCompanyForm((v) => ({ ...v, email: e.target.value }))} /></label>
-                <label>Phone<input disabled={!canEditCompany} value={companyForm.phone} onChange={(e) => setCompanyForm((v) => ({ ...v, phone: e.target.value }))} /></label>
-                <label>Address line 1<input disabled={!canEditCompany} value={companyForm.address1} onChange={(e) => setCompanyForm((v) => ({ ...v, address1: e.target.value }))} /></label>
-                <label>Address line 2<input disabled={!canEditCompany} value={companyForm.address2} onChange={(e) => setCompanyForm((v) => ({ ...v, address2: e.target.value }))} /></label>
-                <label>City<input disabled={!canEditCompany} value={companyForm.city} onChange={(e) => setCompanyForm((v) => ({ ...v, city: e.target.value }))} /></label>
-                <label>Postcode<input disabled={!canEditCompany} value={companyForm.postcode} onChange={(e) => setCompanyForm((v) => ({ ...v, postcode: e.target.value }))} /></label>
-                <label>Country<input disabled={!canEditCompany} value={companyForm.country} onChange={(e) => setCompanyForm((v) => ({ ...v, country: e.target.value }))} /></label>
-              </div>
-              <div className="role-settings-kv role-settings-kv--identity">
-                <div><span>Registered company number</span><strong>{company.company_number || 'Not recorded'}</strong></div>
-                <div><span>VAT number</span><strong>{company.vat_number || 'Not recorded'}</strong></div>
-                <div><span>Company type</span><strong>{company.company_type?.replace(/_/g, ' ') || 'Not recorded'}</strong></div>
-                <div><span>Your company role</span><strong>{membershipRole || 'Not verified'}</strong></div>
-              </div>
-            </Panel>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <Panel title="Company Profile" description={canEditCompany ? 'Edit the live company record used by this workspace.' : 'Your current membership can view this company profile but cannot edit it.'}>
+                <div className="role-settings-form">
+                  <label>Company name<input disabled={!canEditCompany} value={companyForm.name} onChange={(e) => setCompanyForm((v) => ({ ...v, name: e.target.value }))} /></label>
+                  <label>Email<input disabled={!canEditCompany} type="email" value={companyForm.email} onChange={(e) => setCompanyForm((v) => ({ ...v, email: e.target.value }))} /></label>
+                  <label>Phone<input disabled={!canEditCompany} value={companyForm.phone} onChange={(e) => setCompanyForm((v) => ({ ...v, phone: e.target.value }))} /></label>
+                  <label>Address line 1<input disabled={!canEditCompany} value={companyForm.address1} onChange={(e) => setCompanyForm((v) => ({ ...v, address1: e.target.value }))} /></label>
+                  <label>Address line 2<input disabled={!canEditCompany} value={companyForm.address2} onChange={(e) => setCompanyForm((v) => ({ ...v, address2: e.target.value }))} /></label>
+                  <label>City<input disabled={!canEditCompany} value={companyForm.city} onChange={(e) => setCompanyForm((v) => ({ ...v, city: e.target.value }))} /></label>
+                  <label>Postcode<input disabled={!canEditCompany} value={companyForm.postcode} onChange={(e) => setCompanyForm((v) => ({ ...v, postcode: e.target.value }))} /></label>
+                  <label>Country<input disabled={!canEditCompany} value={companyForm.country} onChange={(e) => setCompanyForm((v) => ({ ...v, country: e.target.value }))} /></label>
+                </div>
+                <div className="role-settings-kv role-settings-kv--identity">
+                  <div><span>Registered company number</span><strong>{company.company_number || 'Not recorded'}</strong></div>
+                  <div><span>VAT number</span><strong>{company.vat_number || 'Not recorded'}</strong></div>
+                  <div><span>Company type</span><strong>{company.company_type?.replace(/_/g, ' ') || 'Not recorded'}</strong></div>
+                  <div><span>Your company role</span><strong>{membershipRole || 'Not verified'}</strong></div>
+                </div>
+              </Panel>
+              {canEditCompany && <CompanyDepartmentsPanel companyId={company.id} />}
+            </div>
+          ) : section === 'finance' && canManageBilling ? (
+            <CompanyFinanceSettingsPanel companyId={company.id} companyName={companyDisplay} />
           ) : section === 'profile' ? (
             <Panel title="My Profile" description="Edit the personal profile attached to the signed-in XDrive account.">
               <div className="role-settings-form">
@@ -377,15 +387,18 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
               </div>
             </Panel>
           ) : (
-            <Panel title="Security" description="Change the password for the currently signed-in XDrive account.">
-              <div className="role-settings-form role-settings-form--security">
-                <label>New password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></label>
-                <label>Confirm password<input type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} autoComplete="new-password" /></label>
-              </div>
-              <div className="role-settings-actions">
-                <ActionButton tone="primary" disabled={saving} onClick={() => void savePassword()}>{saving ? 'Updating…' : 'Update password'}</ActionButton>
-              </div>
-            </Panel>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <Panel title="Security" description="Change the password for the currently signed-in XDrive account.">
+                <div className="role-settings-form role-settings-form--security">
+                  <label>New password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></label>
+                  <label>Confirm password<input type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} autoComplete="new-password" /></label>
+                </div>
+                <div className="role-settings-actions">
+                  <ActionButton tone="primary" disabled={saving} onClick={() => void savePassword()}>{saving ? 'Updating…' : 'Update password'}</ActionButton>
+                </div>
+              </Panel>
+              <MfaSecurityPanel />
+            </div>
           )}
         </main>
       </div>

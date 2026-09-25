@@ -22,8 +22,9 @@ type LoadRow = {
   delivery_location: string | null; delivery_postcode: string | null; delivery_datetime: string | null; delivery_time_slot: string | null;
   vehicle_type: string | null; requested_vehicle_type: string | null; requested_vehicle_label: string | null; cargo_type: string | null; requested_cargo_label: string | null;
   pallets: number | null; weight_kg: number | string | null; budget_amount: number | string | null; currency: string | null; is_fixed_price: boolean | null;
+  payment_terms: string | null; hard_copy_pod: string | null;
   customer_reference: string | null; booking_reference: string | null; special_requirements: string | null; access_restrictions: string | null;
-  exchange_posted_at: string | null; exchange_visibility: string | null; direct_invite_company_id: string | null; posterName: string; posterMemberCode: string | null;
+  exchange_posted_at: string | null; exchange_visibility: string | null; direct_invite_company_id: string | null; posterName: string; posterMemberCode: string | null; posterPhone: string | null;
   pickupCoordinates: { lat: number; lng: number } | null; deliveryCoordinates: { lat: number; lng: number } | null;
   distanceFromSearchOriginMiles: number | null; distanceToSearchDestinationMiles: number | null; journeyDistanceMiles: number | null; jobDescription: string; loadType: string; myBid: BidRow | null;
 };
@@ -266,8 +267,9 @@ export default function CompanyMarketplaceExchange({
                     </section>
                     <section style={{ flex: '.9 1 210px', minWidth: 0, padding: '9px 10px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}><strong style={{ fontSize: 12 }}>{descriptionLabel(load.jobDescription)}</strong><span style={{ fontSize: 11, fontWeight: 800 }}>{vehicleLabel(load)}</span></div>
-                      <div style={{ fontSize: 11, marginTop: 4 }}>{load.posterName}{load.posterMemberCode ? <span style={{ color: '#64748b' }}> · ID {load.posterMemberCode}</span> : null}</div>
+                      <div style={{ fontSize: 11, marginTop: 4 }}>{load.posterName}{load.posterMemberCode ? <span style={{ color: '#64748b' }}> · ID {load.posterMemberCode}</span> : null}{load.posterPhone ? <a href={`tel:${load.posterPhone.replace(/\s+/g, '')}`} style={{ marginLeft: 6, color: '#1d57d8', fontWeight: 800, textDecoration: 'none' }}>{load.posterPhone}</a> : null}</div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 5, fontSize: 11 }}>{hasBudget ? <strong>{money(amount, load.currency || 'GBP')} {load.is_fixed_price ? 'fixed' : 'budget'}</strong> : <span style={{ color: '#64748b' }}>No published budget</span>}{load.myBid ? <StatusBadge value={load.myBid.status} /> : <span style={{ color: '#64748b' }}>Not quoted</span>}</div>
+                      <div style={{ color: '#64748b', fontSize: 10, marginTop: 3 }}>{load.payment_terms ? `Payment terms: ${load.payment_terms}` : 'Payment terms not supplied'}{load.hard_copy_pod ? ` · Hard-copy POD: ${load.hard_copy_pod}` : ''}</div>
                     </section>
                   </div>
                   {isExpanded && <div style={{ borderTop: '1px solid #dbe2ea', background: '#f8fafc', padding: '8px 10px' }}>

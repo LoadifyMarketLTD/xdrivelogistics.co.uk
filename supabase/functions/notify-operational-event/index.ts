@@ -132,6 +132,24 @@ async function getUserEmail(userId: string): Promise<{ email: string; name: stri
   };
 }
 
+const notificationEventClass = (eventType: string) => {
+  if (['load_alert', 'bid_accepted', 'bid_rejected', 'carrier_invited', 'carrier_accepted', 'carrier_rejected'].includes(eventType)) return 'marketplace';
+  if (['invoice_created', 'invoice_dispute', 'invoice_disputed', 'invoice_paid', 'payment_received'].includes(eventType)) return 'finance';
+  if (eventType.startsWith('onboarding_') || ['membership_invite', 'membership_changed'].includes(eventType)) return 'account';
+  return 'operational';
+};
+
+async function userEmailEnabled(userId: string, eventType: string): Promise<boolean> {
+  const { data, error } = await supabase
+    .from('user_notification_preferences')
+    .select('email_enabled')
+    .eq('user_id', userId)
+    .eq('event_class', notificationEventClass(eventType))
+    .maybeSingle();
+  if (error) throw error;
+  return data?.email_enabled ?? true;
+}
+
 async function sendEmail(
   to: string,
   subject: string,
@@ -214,6 +232,7 @@ async function sendDriverPush(
 
 async function emailCompanyOperators(
   companyId: string,
+  eventType: string,
   subject: string,
   htmlFor: (safeName: string) => string,
   eventId: string,
@@ -231,6 +250,7 @@ async function emailCompanyOperators(
   const results = await Promise.allSettled(
     members.map(async (member: { user_id: string | null }) => {
       if (!member.user_id) return true;
+      if (!await userEmailEnabled(member.user_id, eventType)) return true;
       const user = await getUserEmail(member.user_id);
       return user
         ? sendEmail(
@@ -250,16 +270,17 @@ async function handleJobAssigned(event: NotificationEvent) {
   if (!userId) return true;
   const user = await getUserEmail(userId);
   if (!user) return true;
+  const emailEnabled = await userEmailEnabled(userId, event.event_type);
   const jobIdRaw = String(event.payload.job_id ?? event.entity_id);
   const pickup = escapeHtml(event.payload.pickup_location ?? 'TBC');
   const delivery = escapeHtml(event.payload.delivery_location ?? 'TBC');
   const [emailOk, pushOk] = await Promise.all([
-    sendEmail(
+    emailEnabled ? sendEmail(
       user.email,
       'New Job Assigned - XDrive Logistics',
       `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(`/driver/jobs/${encodeURIComponent(jobIdRaw)}`))}">View job details</a></p><p>XDrive Logistics</p>`,
       notificationIdempotencyKey(event.id, userId),
-    ),
+    ) : true,
     sendDriverPush(
       userId,
       'New Job Assigned - XDrive Logistics',
@@ -277,6 +298,7 @@ async function handleJobAssigned(event: NotificationEvent) {
 async function handleBidAccepted(event: NotificationEvent) {
   const userId = typeof event.payload.bidder_user_id === 'string' ? event.payload.bidder_user_id : null;
   if (!userId) return true;
+  if (!await userEmailEnabled(userId, event.event_type)) return true;
   const user = await getUserEmail(userId);
   if (!user) return true;
   const amount = escapeHtml(event.payload.bid_price_gbp ?? event.payload.amount ?? event.payload.bid_amount ?? 'N/A');
@@ -299,6 +321,7 @@ async function handlePodUploaded(event: NotificationEvent) {
   const delivery = escapeHtml(event.payload.delivery_location ?? 'N/A');
   return emailCompanyOperators(
     companyId,
+    event.event_type,
     'Job Delivered - POD Ready',
     (name) => `<h2>Job delivered - POD available</h2><p>Hi ${name},</p><p>Job <strong>${jobId}</strong> has been marked delivered.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p>Sign in to review the proof of delivery.</p><p>XDrive Logistics</p>`,
     event.id,
@@ -309,7 +332,7 @@ async function handleLoadAlert(event: NotificationEvent) {
   const userId = event.recipient_user_id;
   if (!userId) return true;
 
-  const emailEnabled = event.payload.email_enabled === true;
+  const emailEnabled = event.payload.email_enabled === true && await userEmailEnabled(userId, event.event_type);
   const pushEnabled = event.payload.push_enabled === true;
   if (!emailEnabled && !pushEnabled) return true;
 
@@ -362,6 +385,7 @@ async function handleOnboardingInvite(event: NotificationEvent) {
     ? event.payload.recipient_user_id
     : event.recipient_user_id;
   if (!userId) return true;
+  if (!await userEmailEnabled(userId, event.event_type)) return true;
   const user = await getUserEmail(userId);
   if (!user) return true;
   const onboardingUrl = safeOnboardingUrl(event.payload.onboarding_url);
@@ -378,6 +402,7 @@ async function handleOnboardingDocumentsRequired(event: NotificationEvent) {
   const userId = event.recipient_user_id
     ?? (typeof event.payload.recipient_user_id === 'string' ? event.payload.recipient_user_id : null);
   if (!userId) return false;
+  if (!await userEmailEnabled(userId, event.event_type)) return true;
   const user = await getUserEmail(userId);
   if (!user) return false;
 
@@ -411,6 +436,7 @@ async function handleOnboardingDocumentsRequired(event: NotificationEvent) {
 async function handleOnboardingSubmitted(event: NotificationEvent) {
   const userId = event.recipient_user_id ?? (event.payload.recipient_user_id as string | undefined);
   if (!userId) return true;
+  if (!await userEmailEnabled(userId, event.event_type)) return true;
   const user = await getUserEmail(userId);
   if (!user) return true;
   const accountType = escapeHtml(String(event.payload.account_type ?? 'account').replaceAll('_', ' '));
@@ -426,6 +452,7 @@ async function handleOnboardingSubmitted(event: NotificationEvent) {
 async function handleOnboardingApproved(event: NotificationEvent) {
   const userId = event.recipient_user_id ?? (event.payload.recipient_user_id as string | undefined);
   if (!userId) return true;
+  if (!await userEmailEnabled(userId, event.event_type)) return true;
   const user = await getUserEmail(userId);
   if (!user) return true;
   return sendEmail(
@@ -440,6 +467,7 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
   const invoiceId = escapeHtml(event.payload.invoice_id ?? event.entity_id);
   const companyId = event.company_id ?? (event.payload.company_id as string | undefined);
   if (event.recipient_user_id) {
+    if (!await userEmailEnabled(event.recipient_user_id, event.event_type)) return true;
     const user = await getUserEmail(event.recipient_user_id);
     if (!user) return true;
     return sendEmail(
@@ -452,6 +480,7 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
   if (!companyId) return true;
   return emailCompanyOperators(
     companyId,
+    event.event_type,
     'Invoice disputed - XDrive Logistics',
     (name) => `<h2>Invoice disputed</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceId}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
     event.id,
@@ -462,6 +491,7 @@ async function handleInvoiceCreated(event: NotificationEvent) {
   const invoiceNumber = escapeHtml(event.payload.invoice_number ?? event.payload.invoice_id ?? event.entity_id);
   const companyId = event.company_id ?? (event.payload.company_id as string | undefined);
   if (event.recipient_user_id) {
+    if (!await userEmailEnabled(event.recipient_user_id, event.event_type)) return true;
     const user = await getUserEmail(event.recipient_user_id);
     if (!user) return true;
     return sendEmail(
@@ -474,6 +504,7 @@ async function handleInvoiceCreated(event: NotificationEvent) {
   if (!companyId) return true;
   return emailCompanyOperators(
     companyId,
+    event.event_type,
     'Invoice created - XDrive Logistics',
     (name) => `<h2>Invoice created</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
     event.id,

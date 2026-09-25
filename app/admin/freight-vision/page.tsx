@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import FleetPositionMap, { type FleetMapPoint } from '../fleet/FleetPositionMap';
 import { useCompanyWorkspaceData, type WorkspaceJob, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
 import { useOperationsIntelligence, type OperationsJobDetail } from '../../components/workspace/useOperationsIntelligence';
@@ -122,16 +122,20 @@ export default function FreightVisionPage() {
   const data = useCompanyWorkspaceData();
   const intelligence = useOperationsIntelligence(data.companyId);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetJobId = searchParams.get('jobId');
   const [pickupFilter, setPickupFilter] = useState('');
   const [deliveryFilter, setDeliveryFilter] = useState('');
   const [stateFilter, setStateFilter] = useState<'all' | TrackingState>('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
+  const refreshWorkspace = data.refresh;
+  const refreshIntelligence = intelligence.refresh;
 
   const refreshAll = useCallback(async () => {
-    await Promise.all([data.refresh(), intelligence.refresh()]);
-  }, [data.refresh, intelligence.refresh]);
+    await Promise.all([refreshWorkspace(), refreshIntelligence()]);
+  }, [refreshIntelligence, refreshWorkspace]);
 
   useEffect(() => {
     const interval = window.setInterval(() => { void refreshAll(); }, 60_000);
@@ -189,6 +193,18 @@ export default function FreightVisionPage() {
       stale: state === 'not_tracking',
     }];
   }), [filtered]);
+
+  useEffect(() => {
+    if (!targetJobId) return;
+    const target = rows.find((row) => row.job.id === targetJobId);
+    if (!target) return;
+    setPickupFilter('');
+    setDeliveryFilter('');
+    setStateFilter('all');
+    setStatusFilter('all');
+    setSelectedJobId(targetJobId);
+    setSelectedDriverId(target.driver?.id ?? null);
+  }, [rows, targetJobId]);
 
   const statuses = useMemo(() => [...new Set(activeJobs.map((job) => String(job.current_status ?? job.status ?? '').toLowerCase()).filter(Boolean))].sort(), [activeJobs]);
   const count = (state: TrackingState) => rows.filter((row) => row.state === state).length;
