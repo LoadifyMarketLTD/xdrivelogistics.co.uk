@@ -57,16 +57,12 @@ export default function PricingPage() {
       <section className="border-b border-[#DDE5EF] bg-white">
         <div className="mx-auto grid max-w-[1600px] lg:grid-cols-[0.92fr_1.08fr]">
           <div className="px-5 py-14 sm:px-8 lg:px-12 lg:py-16 xl:px-16">
-            <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">XDrive Membership</p>
-            <h1 className="font-display mt-5 max-w-[680px] text-[3.15rem] leading-[1.01] tracking-[-0.035em] text-[#102447] sm:text-[4.7rem]">Simple pricing. First 3 months free.</h1>
-            <p className="mt-6 max-w-[640px] text-lg font-semibold leading-8 text-[#60758F]">No XDrive commission on the value of your job. No XDrive booking fee. Start free, choose the plan that fits your operation, and keep the full transport workflow connected in one place.</p>
-            <div className="mt-8 grid max-w-[680px] gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-[#DDE5EF] bg-[#F8FAFC] p-4"><p className="text-sm font-black text-[#102447]">Find and win transport work</p><p className="mt-1 text-sm font-semibold leading-6 text-[#60758F]">Discover suitable loads, quote quickly and move awarded work into operations without breaking the workflow.</p></div>
-              <div className="rounded-2xl border border-[#DDE5EF] bg-[#F8FAFC] p-4"><p className="text-sm font-black text-[#102447]">Run jobs from one place</p><p className="mt-1 text-sm font-semibold leading-6 text-[#60758F]">Customers, brokers, fleets, owner drivers and drivers can work from the same job record from posting to POD.</p></div>
-              <div className="rounded-2xl border border-[#DDE5EF] bg-[#F8FAFC] p-4"><p className="text-sm font-black text-[#102447]">Keep more of each job</p><p className="mt-1 text-sm font-semibold leading-6 text-[#60758F]">No XDrive commission on job value and no XDrive booking fee under the current launch model.</p></div>
-              <div className="rounded-2xl border border-[#DDE5EF] bg-[#F8FAFC] p-4"><p className="text-sm font-black text-[#102447]">Try XDrive before you pay</p><p className="mt-1 text-sm font-semibold leading-6 text-[#60758F]">Eligible standard memberships start with three months free so teams can test the platform in real operations.</p></div>
-            </div>
-            <div className="mt-7 flex flex-wrap gap-3"><Link href="/register" className="inline-flex items-center gap-2 rounded-xl bg-[#0E3FA9] px-5 py-3 text-sm font-black text-white">Join XDrive Free <ArrowRight className="h-4 w-4" /></Link><Link href="/platform" className="inline-flex items-center rounded-xl border border-[#D8E1ED] bg-white px-5 py-3 text-sm font-black text-[#0E3FA9]">See how XDrive works</Link></div>
+            <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">Early Access · First 3 Months Free</p>
+            <p className="mt-2 text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">XDrive Membership</p>
+            <h1 className="font-display mt-5 max-w-[720px] text-[3.15rem] leading-[1.01] tracking-[-0.035em] text-[#102447] sm:text-[4.7rem]">One platform. More transport opportunities. Less operational friction.</h1>
+            <p className="mt-6 max-w-[660px] text-lg font-semibold leading-8 text-[#60758F]">Post work, find loads, quote, award, dispatch, track, complete POD and keep the entire job lifecycle connected — whether you are a customer, broker, owner driver or fleet operator.</p>
+            <div className="mt-8 flex flex-wrap gap-3"><Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-[#F5A300] px-6 py-3.5 text-sm font-black text-[#102447]">Start 3 Months Free <ArrowRight className="h-4 w-4" /></Link><Link href="/platform" className="inline-flex items-center rounded-lg border border-[#C9D5E4] bg-[#F7F9FC] px-6 py-3.5 text-sm font-black text-[#163568]">Explore the Platform</Link></div>
+            <div className="mt-6 flex flex-wrap gap-5 text-sm font-black text-[#405978]"><span>✓ No XDrive commission</span><span>✓ No booking fee</span><span>✓ Full job workflow</span><span>✓ Built for customers, brokers, couriers & fleets</span></div>
             <SocialShareBar pageTitle="XDrive Membership Pricing" />
           </div>
 
