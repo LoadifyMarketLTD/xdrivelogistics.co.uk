@@ -6,6 +6,7 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
 import CompanyFinanceSettingsPanel from './CompanyFinanceSettingsPanel';
+import MfaSecurityPanel from './MfaSecurityPanel';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from './WorkspaceUI';
 import './role-settings-workspace.css';
 
@@ -382,15 +383,18 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
               </div>
             </Panel>
           ) : (
-            <Panel title="Security" description="Change the password for the currently signed-in XDrive account.">
-              <div className="role-settings-form role-settings-form--security">
-                <label>New password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></label>
-                <label>Confirm password<input type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} autoComplete="new-password" /></label>
-              </div>
-              <div className="role-settings-actions">
-                <ActionButton tone="primary" disabled={saving} onClick={() => void savePassword()}>{saving ? 'Updating…' : 'Update password'}</ActionButton>
-              </div>
-            </Panel>
+            <div style={{ display: 'grid', gap: 10 }}>
+              <Panel title="Security" description="Change the password for the currently signed-in XDrive account.">
+                <div className="role-settings-form role-settings-form--security">
+                  <label>New password<input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="new-password" /></label>
+                  <label>Confirm password<input type="password" value={passwordConfirm} onChange={(e) => setPasswordConfirm(e.target.value)} autoComplete="new-password" /></label>
+                </div>
+                <div className="role-settings-actions">
+                  <ActionButton tone="primary" disabled={saving} onClick={() => void savePassword()}>{saving ? 'Updating…' : 'Update password'}</ActionButton>
+                </div>
+              </Panel>
+              <MfaSecurityPanel />
+            </div>
           )}
         </main>
       </div>
