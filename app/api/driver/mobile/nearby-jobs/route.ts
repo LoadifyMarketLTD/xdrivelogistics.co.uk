@@ -302,6 +302,9 @@ export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const driver = await requireDriver(request);
   if (!isDriverContext(driver)) return driver;
+  if (!driver.canCommercialBid) {
+    return respond(403, { error: 'Commercial marketplace access is not enabled for this Driver account.' });
+  }
 
   const { searchParams } = new URL(request.url);
   const search = searchParams.get('search')?.trim().toLowerCase() ?? '';

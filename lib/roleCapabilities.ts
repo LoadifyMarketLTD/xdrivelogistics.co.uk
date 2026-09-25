@@ -170,7 +170,11 @@ const isDriverCommercialRoute = (pathname: string) => {
     clean === '/driver/finance' ||
     clean.startsWith('/driver/finance/') ||
     clean === '/driver/returns' ||
-    clean.startsWith('/driver/returns/')
+    clean.startsWith('/driver/returns/') ||
+    clean === '/driver/directory' ||
+    clean.startsWith('/driver/directory/') ||
+    clean === '/driver/nearby' ||
+    clean.startsWith('/driver/nearby/')
   );
 };
 
@@ -300,6 +304,10 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/driver/post-load', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/settings', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
+  { prefix: '/driver/directory', workspace: 'owner_operator' },
+  { prefix: '/driver/nearby', workspace: 'owner_operator' },
+  { prefix: '/driver/freight-vision', workspace: 'owner_operator', anyOf: ['jobs.track'] },
+  { prefix: '/driver/drivers-vehicles', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/loads', workspace: 'owner_operator', anyOf: ['loads.view.marketplace'] },
   { prefix: '/driver/quotes', workspace: 'owner_operator', anyOf: ['quotes.submit'] },
   { prefix: '/driver/won-work', workspace: 'owner_operator', anyOf: ['jobs.view'] },
@@ -369,9 +377,8 @@ export const isCapabilityAllowedForPath = (
     if (!isExplicitActiveStatus(context.driverStatus)) return false;
     if (context.appAccess !== true) return false;
 
-    if (isDriverCommercialRoute(path)) {
-      const isQuoteRoute = path === '/driver/quotes' || path.startsWith('/driver/quotes/');
-      if (isQuoteRoute && context.canCommercialBid !== true) return false;
+    if (isDriverCommercialRoute(path) && workspaceRole === 'driver' && context.canCommercialBid !== true) {
+      return false;
     }
   } else if (pathMatches(path, '/admin')) {
     if (
