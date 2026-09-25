@@ -35,6 +35,7 @@ export async function PUT(request: NextRequest) {
   if (dateText) {
     const parsed = new Date(dateText);
     if (Number.isNaN(parsed.getTime())) return json(400, { error: 'Future-position date/time is invalid.' });
+    if (parsed.getTime() <= Date.now()) return json(400, { error: 'Future-position date/time must be in the future.' });
     futureDate = parsed.toISOString();
   }
 
