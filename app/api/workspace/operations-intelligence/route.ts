@@ -11,11 +11,6 @@ import { operationalError } from '../../_lib/operationalError';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const ACTIVE_STATUSES = new Set([
-  'awarded', 'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded',
-  'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery',
-]);
-
 const COMPANY_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const json = (status: number, payload: Record<string, unknown>) =>
@@ -33,9 +28,6 @@ const numberValue = (value: unknown) => {
   const parsed = Number(value);
   return value !== null && value !== undefined && value !== '' && Number.isFinite(parsed) ? parsed : null;
 };
-
-const statusOf = (job: Record<string, unknown>) =>
-  String(job.current_status ?? job.status ?? '').trim().toLowerCase();
 
 const fullPostcode = (value: unknown) => {
   const normalized = String(value ?? '').toUpperCase().replace(/[^A-Z0-9 ]+/g, ' ').replace(/\s+/g, ' ').trim();
@@ -109,6 +101,7 @@ export async function GET(request: NextRequest) {
     });
   }
   if (!membership) return json(403, { error: 'You do not have access to this company workspace.' });
+  const canViewCommercial = ['owner', 'admin', 'dispatcher'].includes(String(membership.role_in_company ?? '').toLowerCase());
 
   const [driverBaseResult, futureResult, advertisingResult, jobsResult] = await Promise.all([
     supabaseAdmin.from('drivers').select('id').eq('company_id', companyId).limit(500),
@@ -127,10 +120,11 @@ export async function GET(request: NextRequest) {
 
   const driverIds = (driverBaseResult.data ?? []).map((row) => String(row.id)).filter(Boolean);
   const rawJobs = jobsResult.error ? [] : (jobsResult.data ?? []) as Array<Record<string, unknown>>;
-  const activeJobs = rawJobs.filter((job) => ACTIVE_STATUSES.has(statusOf(job)));
-  const activeJobIds = activeJobs.map((job) => text(job.id)).filter((value): value is string => Boolean(value));
+  const scopedJobIds = rawJobs.map((job) => text(job.id)).filter((value): value is string => Boolean(value));
+  const companyIds = [...new Set(rawJobs.flatMap((job) => [text(job.company_id), text(job.awarded_carrier_company_id), text(job.assigned_company_id)]).filter((value): value is string => Boolean(value)))];
+  const vehicleIds = [...new Set(rawJobs.map((job) => text(job.vehicle_id)).filter((value): value is string => Boolean(value)))];
 
-  const [journeyResult, trackingResult] = await Promise.all([
+  const [journeyResult, trackingResult, agreementResult, companyResult, vehicleResult] = await Promise.all([
     driverIds.length
       ? supabaseAdmin
           .from('return_journeys')
@@ -140,13 +134,27 @@ export async function GET(request: NextRequest) {
           .order('available_from', { ascending: true })
           .limit(500)
       : Promise.resolve({ data: [], error: null }),
-    activeJobIds.length
+    scopedJobIds.length
       ? supabaseAdmin
           .from('job_tracking_events')
           .select('*')
-          .in('job_id', activeJobIds)
+          .in('job_id', scopedJobIds)
           .order('created_at', { ascending: false })
-          .limit(1000)
+          .limit(1500)
+      : Promise.resolve({ data: [], error: null }),
+    scopedJobIds.length
+      ? supabaseAdmin
+          .from('job_commercial_agreements')
+          .select('job_id,agreed_amount,payment_terms,currency,created_at')
+          .in('job_id', scopedJobIds)
+          .order('created_at', { ascending: false })
+          .limit(500)
+      : Promise.resolve({ data: [], error: null }),
+    companyIds.length
+      ? supabaseAdmin.from('companies').select('id,name,phone').in('id', companyIds)
+      : Promise.resolve({ data: [], error: null }),
+    vehicleIds.length
+      ? supabaseAdmin.from('vehicles').select('id,reg_plate').in('id', vehicleIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
 
@@ -187,21 +195,72 @@ export async function GET(request: NextRequest) {
     advertisingState: text(row.advertising_state) ?? 'none',
   }));
 
-  const jobDetails = activeJobs.map((job) => ({
-    id: text(job.id),
-    assignedDriverId: text(job.assigned_driver_id),
-    status: text(job.current_status) ?? text(job.status),
-    pickupTimeSlot: text(job.pickup_time_slot),
-    deliveryTimeSlot: text(job.delivery_time_slot),
-    pickupDateTime: text(job.pickup_datetime),
-    deliveryDateTime: text(job.delivery_datetime),
-    collectionContactName: text(job.collection_contact_name),
-    collectionContactPhone: text(job.collection_contact_phone),
-    deliveryContactName: text(job.delivery_contact_name),
-    deliveryContactPhone: text(job.delivery_contact_phone),
-    clientName: text(job.client_name),
-    clientPhone: text(job.client_phone),
-  }));
+  const agreementByJob = new Map<string, Record<string, unknown>>();
+  if (!agreementResult.error) {
+    for (const row of (agreementResult.data ?? []) as Array<Record<string, unknown>>) {
+      const jobId = text(row.job_id);
+      if (jobId && !agreementByJob.has(jobId)) agreementByJob.set(jobId, row);
+    }
+  }
+  const companyById = new Map<string, Record<string, unknown>>();
+  if (!companyResult.error) {
+    for (const row of (companyResult.data ?? []) as Array<Record<string, unknown>>) {
+      const id = text(row.id);
+      if (id) companyById.set(id, row);
+    }
+  }
+  const vehicleById = new Map<string, Record<string, unknown>>();
+  if (!vehicleResult.error) {
+    for (const row of (vehicleResult.data ?? []) as Array<Record<string, unknown>>) {
+      const id = text(row.id);
+      if (id) vehicleById.set(id, row);
+    }
+  }
+
+  const jobDetails = rawJobs.map((job) => {
+    const jobId = text(job.id);
+    const ownerCompanyId = text(job.company_id);
+    const awardedCompanyId = text(job.awarded_carrier_company_id);
+    const executionCompanyId = text(job.assigned_company_id);
+    const ownerCompany = ownerCompanyId ? companyById.get(ownerCompanyId) ?? null : null;
+    const awardedCompany = awardedCompanyId ? companyById.get(awardedCompanyId) ?? null : null;
+    const executionCompany = executionCompanyId ? companyById.get(executionCompanyId) ?? null : null;
+    const vehicleId = text(job.vehicle_id);
+    const vehicle = vehicleId ? vehicleById.get(vehicleId) ?? null : null;
+    const agreement = jobId ? agreementByJob.get(jobId) ?? null : null;
+    const commercialVisible = canViewCommercial && (ownerCompanyId === companyId || awardedCompanyId === companyId);
+    return {
+      id: jobId,
+      assignedDriverId: text(job.assigned_driver_id),
+      status: text(job.current_status) ?? text(job.status),
+      pickupTimeSlot: text(job.pickup_time_slot),
+      deliveryTimeSlot: text(job.delivery_time_slot),
+      pickupDateTime: text(job.pickup_datetime),
+      deliveryDateTime: text(job.delivery_datetime),
+      collectionContactName: text(job.collection_contact_name),
+      collectionContactPhone: text(job.collection_contact_phone),
+      deliveryContactName: text(job.delivery_contact_name),
+      deliveryContactPhone: text(job.delivery_contact_phone),
+      clientName: text(job.client_name),
+      clientPhone: text(job.client_phone),
+      ownerCompanyName: text(ownerCompany?.name),
+      ownerCompanyPhone: text(ownerCompany?.phone),
+      awardedCompanyName: text(awardedCompany?.name),
+      awardedCompanyPhone: text(awardedCompany?.phone),
+      executionCompanyName: text(executionCompany?.name),
+      vehicleRegistration: text(vehicle?.reg_plate),
+      agreedRate: commercialVisible ? numberValue(agreement?.agreed_amount) ?? numberValue(job.agreed_rate_gbp) ?? numberValue(job.agreed_rate) : null,
+      currency: commercialVisible ? text(agreement?.currency) ?? text(job.currency) ?? 'GBP' : null,
+      paymentTerms: commercialVisible ? text(agreement?.payment_terms) ?? text(job.payment_terms) : null,
+      driverNotes: text(job.driver_notes),
+      deliveryNotes: text(job.delivery_notes),
+      leftAt: text(job.left_at),
+      deliveredAt: text(job.delivered_at),
+      completedAt: text(job.completed_at),
+      receivedBy: text(job.client_signature_name) ?? text(job.delivery_contact_name),
+      itemCount: numberValue(job.no_of_items) ?? numberValue(job.items_count),
+    };
+  });
 
   const trackingEvents = trackingResult.error ? [] : ((trackingResult.data ?? []) as Array<Record<string, unknown>>).map((event) => ({
     id: text(event.id),
@@ -217,6 +276,7 @@ export async function GET(request: NextRequest) {
     vehicleAdvertising: advertisingResult.error ? 'unavailable' : 'available',
     returnJourneys: journeyResult.error ? 'unavailable' : 'available',
     jobDetails: jobsResult.error ? 'unavailable' : 'available',
+    commercialDetails: jobsResult.error || agreementResult.error || companyResult.error || vehicleResult.error ? 'unavailable' : 'available',
     trackingTimeline: trackingResult.error || jobsResult.error ? 'unavailable' : 'available',
   } as const;
 

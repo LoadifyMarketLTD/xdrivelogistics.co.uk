@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { classifyWorkspaceJobStage, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
+import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
 import {
   ActionButton,
   AlertBanner,
@@ -124,6 +125,23 @@ const dimensionsLabel = (job: JobRow) => {
   const values = [job.length_cm, job.width_cm, job.height_cm].map((value) => Number(value));
   return values.every((value) => Number.isFinite(value)) ? values.map((value) => value.toLocaleString('en-GB')).join(' × ') + ' cm' : null;
 };
+const moneyLabel = (value: number | null | undefined, currency = 'GBP') => {
+  if (value == null || !Number.isFinite(value)) return null;
+  try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value); }
+  catch { return `£${value.toFixed(2)}`; }
+};
+const MILESTONE_LABELS: Record<string, string> = {
+  on_my_way_to_pickup: 'On my way to pickup',
+  on_site_pickup: 'On site pickup',
+  loaded: 'Loaded',
+  on_my_way_to_delivery: 'On my way to delivery',
+  on_site_delivery: 'On site delivery',
+  delivered: 'Delivered',
+};
+const diaryMilestones = (events: OperationsTrackingEvent[]) => events
+  .filter((event) => Boolean(MILESTONE_LABELS[event.eventType]))
+  .filter((event, index, list) => list.findIndex((candidate) => candidate.eventType === event.eventType) === index)
+  .slice(0, 6);
 
 // Client-side account-state filter only. Full driver + canonical vehicle
 // operational eligibility is revalidated by the authorised allocation endpoint.
@@ -179,7 +197,9 @@ function stageTone(job: JobRow): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 
 export default function OperationsDiaryPage() {
   const { user } = useAuth();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const companyId = resolveActiveCompanyId(user);
+  const intelligence = useOperationsIntelligence(companyId);
   const deepJob = searchParams.get('job');
   const [jobs, setJobs] = useState<JobRow[]>([]);
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
@@ -194,6 +214,7 @@ export default function OperationsDiaryPage() {
   const [appliedSearch, setAppliedSearch] = useState<SearchState>(EMPTY_SEARCH);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set(deepJob ? [deepJob] : []));
   const [assigning, setAssigning] = useState<string | null>(null);
+  const [managingJobId, setManagingJobId] = useState<string | null>(null);
   const [driverSelections, setDriverSelections] = useState<Record<string, string>>({});
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -370,6 +391,42 @@ export default function OperationsDiaryPage() {
     } finally { setAssigning(null); }
   };
 
+  const cancelJob = async (job: JobRow) => {
+    if (!companyId || job.company_id !== companyId) {
+      setError('Only the load-owning company can cancel this booking.');
+      return;
+    }
+    const reason = window.prompt('Cancellation reason (optional; minimum 5 characters if supplied):', '')?.trim();
+    if (reason === undefined) return;
+    if (reason.length > 0 && reason.length < 5) {
+      setError('Cancellation reason must be at least 5 characters when supplied.');
+      return;
+    }
+    if (!window.confirm('Confirm cancellation for this booking? Awarded or assigned work may create a cancellation request instead of cancelling immediately.')) return;
+
+    setManagingJobId(job.id);
+    setError('');
+    setNotice('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Session expired.');
+      const response = await fetch(`/api/admin/jobs/${encodeURIComponent(job.id)}/manage`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'cancel', companyId, ...(reason ? { reason } : {}) }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string; cancellationRequested?: boolean };
+      if (!response.ok) throw new Error(payload.error || 'Booking cancellation failed.');
+      setNotice(payload.cancellationRequested ? 'Cancellation request submitted for the awarded / assigned booking.' : 'Booking cancelled successfully.');
+      await load();
+    } catch (reasonValue) {
+      setError(reasonValue instanceof Error ? reasonValue.message : 'Booking cancellation failed.');
+    } finally {
+      setManagingJobId(null);
+    }
+  };
+
   const applySearch = () => {
     setAppliedSearch(search);
     if (saveAsDefault) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
@@ -387,6 +444,7 @@ export default function OperationsDiaryPage() {
         eyebrow="Operations"
         title="Diary"
         description="Post-award bookings, allocation, evidence and authorised job records in one operating register."
+        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/finance/reports')}>Payment Report</ActionButton>}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
@@ -500,6 +558,11 @@ export default function OperationsDiaryPage() {
                 const cargo = job.requested_cargo_label || job.cargo_type?.replace(/_/g, ' ') || 'Cargo not supplied';
                 const requestedVehicle = job.requested_vehicle_label || job.requested_vehicle_type?.replace(/_/g, ' ') || job.vehicle_type?.replace(/_/g, ' ') || 'Vehicle not supplied';
                 const operationalNotes = [job.special_requirements, job.access_restrictions].filter(Boolean).join(' · ');
+                const detail = intelligence.jobDetailById.get(job.id) ?? null;
+                const milestones = diaryMilestones(intelligence.eventsByJob.get(job.id) ?? []);
+                const agreedRate = moneyLabel(detail?.agreedRate, detail?.currency ?? 'GBP');
+                const bookedTo = detail?.awardedCompanyName ?? detail?.executionCompanyName ?? null;
+                const counterpartyPhone = job.company_id === companyId ? detail?.awardedCompanyPhone : detail?.ownerCompanyPhone;
                 return (
                   <article key={job.id} className="workspace-operational-row" data-state={status} style={{ overflow: 'hidden' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch' }}>
@@ -518,8 +581,10 @@ export default function OperationsDiaryPage() {
                       </section>
                       <section style={{ flex: '.9 1 220px', minWidth: 0, padding: '9px 10px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}><StatusBadge value={status || stage} tone={stageTone(job)} /><strong style={{ fontSize: 11 }}>{requestedVehicle}</strong></div>
-                        <div style={{ marginTop: 5, fontSize: 11 }}><strong>{driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated')}</strong></div>
+                        <div style={{ marginTop: 5, fontSize: 11 }}><strong>{driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated')}</strong>{detail?.vehicleRegistration ? <span style={{ color: '#64748b' }}> · {detail.vehicleRegistration}</span> : null}</div>
                         <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>Load #{job.id.slice(0, 8).toUpperCase()} · {job.client_name ?? 'Customer not supplied'}</div>
+                        {detail?.ownerCompanyName && <div style={{ color: '#475569', fontSize: 10, marginTop: 3 }}>Posted by <strong>{detail.ownerCompanyName}</strong>{bookedTo ? <> · Booked to <strong>{bookedTo}</strong></> : null}{counterpartyPhone ? <> · <a href={`tel:${counterpartyPhone.replace(/\s+/g, '')}`} style={{ color: '#1d57d8', fontWeight: 800, textDecoration: 'none' }}>{counterpartyPhone}</a></> : null}</div>}
+                        {(agreedRate || detail?.paymentTerms) && <div style={{ color: '#475569', fontSize: 10, marginTop: 2 }}>{agreedRate ? <>Agreed rate <strong>{agreedRate}</strong></> : null}{agreedRate && detail?.paymentTerms ? ' · ' : ''}{detail?.paymentTerms ? <>Payment terms <strong>{detail.paymentTerms}</strong></> : null}</div>}
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>{job.pod_generated ? <StatusBadge value="POD generated" tone="green" /> : evidenceCount > 0 ? <StatusBadge value={String(evidenceCount) + ' evidence file(s)'} tone="blue" /> : job.pod_required ? <StatusBadge value="POD pending" tone="orange" /> : null}{isAwaitingFeedback(job, reviewsByJob[job.id] ?? []) && <StatusBadge value="Awaiting feedback" tone="orange" />}{hasRecentFeedback(reviewsByJob[job.id] ?? []) && <StatusBadge value="Recent feedback" tone="green" />}</div>
                       </section>
                     </div>
@@ -527,11 +592,24 @@ export default function OperationsDiaryPage() {
                       {job.booking_reference && <span>Booking: {job.booking_reference}</span>}
                       {job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
                       {job.hard_copy_pod && <span>Hard-copy POD: {job.hard_copy_pod}</span>}
+                      {detail?.itemCount != null && <span>Items: {detail.itemCount}</span>}
+                      {detail?.receivedBy && <span>Received by: {detail.receivedBy}</span>}
+                      {detail?.leftAt && <span>Left at: {detail.leftAt}</span>}
+                      {detail?.deliveredAt && <span>Delivered: {when(detail.deliveredAt)}</span>}
                       {operationalNotes && <span style={{ flex: '1 1 320px' }}><strong>Load notes:</strong> {operationalNotes}</span>}
                     </div>
+                    {(milestones.length > 0 || detail?.driverNotes || detail?.deliveryNotes) && <div className="workspace-record-meta" style={{ minHeight: 28, borderTop: '1px solid #edf2f7' }}>
+                      {milestones.map((milestone) => <span key={`${job.id}-${milestone.eventType}`}><strong>{MILESTONE_LABELS[milestone.eventType]}</strong> {when(milestone.createdAt)}</span>)}
+                      {detail?.driverNotes && <span style={{ flex: '1 1 260px' }}><strong>Driver notes:</strong> {detail.driverNotes}</span>}
+                      {detail?.deliveryNotes && <span style={{ flex: '1 1 260px' }}><strong>Delivery notes:</strong> {detail.deliveryNotes}</span>}
+                    </div>}
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', minHeight: 36, padding: '4px 8px', borderTop: '1px solid var(--ws-border)', background: '#fbfdff' }}>
                       <button type="button" onClick={() => toggleJob(job.id)} aria-label={open ? 'Collapse booking' : 'Expand booking'} style={{ width: 28, height: 26, border: '1px solid var(--ws-border)', borderRadius: 3, background: '#fff', cursor: 'pointer', fontWeight: 900 }}>{open ? '▴' : '▾'}</button>
                       {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}><option value="">Choose active driver</option>{activeAccountDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
+                      {!['completed', 'cancelled', 'expired'].includes(stage) && <ActionButton tone="secondary" onClick={() => router.push(`/admin/freight-vision?jobId=${encodeURIComponent(job.id)}`)}>Track</ActionButton>}
+                      <ActionButton tone="secondary" onClick={() => router.push(`/admin/messages?jobId=${encodeURIComponent(job.id)}`)}>Message</ActionButton>
+                      {job.company_id === companyId && <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${encodeURIComponent(job.id)}`)}>Edit</ActionButton>}
+                      {job.company_id === companyId && !['completed', 'cancelled', 'expired'].includes(stage) && <ActionButton tone="danger" disabled={managingJobId === job.id} onClick={() => void cancelJob(job)}>{managingJobId === job.id ? 'Cancelling…' : 'Cancel'}</ActionButton>}
                       {(['order','notes','history','documents','pod','invoice','replay'] as JobSheetTab[]).map((tabId) => <ActionButton key={tabId} tone={detailTabByJob[job.id] === tabId && open ? 'primary' : 'secondary'} onClick={() => openJobTab(job.id, tabId)}>{tabId === 'pod' ? 'POD' : tabId.charAt(0).toUpperCase() + tabId.slice(1)}</ActionButton>)}
                     </div>
                     {open && <CompanyJobSheetPanel jobId={job.id} mode="carrier" initialTab={detailTabByJob[job.id] ?? 'order'} />}
