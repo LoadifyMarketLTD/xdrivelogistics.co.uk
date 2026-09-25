@@ -38,7 +38,7 @@ type Summary = {
 
 const X = {
   navy: '#0B2F6B', blue: '#1D57D8', white: '#FFFFFF', charcoal: '#1A1F2B',
-  light: '#F4F6F8', border: '#D9E1EA', muted: '#64748B', danger: '#DC2626', success: '#15803D',
+  light: '#F4F6F8', border: '#E5E7EB', muted: '#667085', danger: '#D92D20', success: '#168553',
 } as const;
 
 export default function Page() {

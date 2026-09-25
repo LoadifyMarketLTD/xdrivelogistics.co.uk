@@ -343,7 +343,9 @@ function CommandCentre() {
         {loading ? [0, 1, 2, 3, 4].map((index) => <SuperAdminMetricCard key={index} label="Loading…" value="—" tone="neutral" />)
           : attentionList.length ? attentionList.map((indicator) => <SuperAdminMetricCard key={indicator.label} label={indicator.label} value={indicator.count === null ? '—' : indicator.count.toLocaleString()} note={indicator.note ?? indicator.severity} tone={severityTone(indicator.severity)} />)
             : ['Critical actions', 'Jobs at risk', 'Blocked accounts', 'Overdue invoices', 'Degraded services'].map((label) => <SuperAdminMetricCard key={label} label={label} value="—" note="Unavailable — not reported as healthy." tone="unavailable" />)}
-      </SuperAdminMetricGrid>      <SuperAdminSectionCard
+      </SuperAdminMetricGrid>
+
+      <SuperAdminSectionCard
         title="Operational queue"
         description={queue?.queueNote ?? 'Derived owner action queue from canonical source tables.'}
         actions={queue ? <SuperAdminStatusBadge label={queue.total === null ? 'Partial total' : `${queue.total} total`} tone={commandPartial ? 'warning' : 'info'} /> : undefined}
