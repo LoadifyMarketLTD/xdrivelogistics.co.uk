@@ -23,20 +23,26 @@ describe('driver parity across dual identity contexts', () => {
     expect(adminWithDriverWorkspaceRole).toBe('company_admin');
   });
 
-  it('returns identical driver workspace capabilities for driver and owner_driver personas', () => {
+  it('separates fleet-driver execution from owner-driver finance capabilities', () => {
     const driverCaps = getCapabilitiesForRole('driver', { workspaceRole: 'driver' });
     const ownerDriverCaps = getCapabilitiesForRole('driver', { workspaceRole: 'owner_driver' });
 
-    expect(driverCaps).toEqual(ownerDriverCaps);
     expect(driverCaps.canViewExchangeLoads).toBe(true);
     expect(driverCaps.canQuoteLoads).toBe(true);
     expect(driverCaps.canExecuteJobs).toBe(true);
     expect(driverCaps.canManageOwnVehicle).toBe(true);
     expect(driverCaps.canUploadPod).toBe(true);
-    expect(driverCaps.canViewInvoices).toBe(true);
+    expect(driverCaps.canViewInvoices).toBe(false);
     expect(driverCaps.canUseReturnJourneys).toBe(true);
-  });
 
+    expect(ownerDriverCaps.canViewExchangeLoads).toBe(true);
+    expect(ownerDriverCaps.canQuoteLoads).toBe(true);
+    expect(ownerDriverCaps.canExecuteJobs).toBe(true);
+    expect(ownerDriverCaps.canManageOwnVehicle).toBe(true);
+    expect(ownerDriverCaps.canUploadPod).toBe(true);
+    expect(ownerDriverCaps.canViewInvoices).toBe(true);
+    expect(ownerDriverCaps.canUseReturnJourneys).toBe(true);
+  });
   it('keeps Driver navigation parity while exposing owner-only billing to owner_driver', () => {
     const hrefs = (role: 'driver' | 'owner_driver') =>
       getVisibleWorkspaceNav(role)
@@ -47,7 +53,7 @@ describe('driver parity across dual identity contexts', () => {
       '/driver',
       '/driver/availability',
       '/driver/documents',
-      '/driver/finance',
+      '/driver/event-log',
       '/driver/history',
       '/driver/jobs',
       '/driver/loads',
@@ -59,6 +65,6 @@ describe('driver parity across dual identity contexts', () => {
       '/driver/won-work',
     ]);
     expect(hrefs('driver')).not.toContain('/settings/billing');
-    expect(hrefs('owner_driver')).toEqual([...hrefs('driver'), '/settings/billing'].sort());
+    expect(hrefs('owner_driver')).toEqual([...hrefs('driver'), '/driver/finance', '/settings/billing'].sort());
   });
 });

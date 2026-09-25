@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -447,12 +447,12 @@ export default function DriverDashboard() {
           <div className="driver-load-cell">
             <span className="driver-cell-label">From</span>
             <strong className="driver-cell-primary">{job.pickup_location ?? 'Collection TBC'}</strong>
-            <span className="driver-cell-secondary">{job.pickup_postcode ?? 'Postcode TBC'} · {fmtDate(job.pickup_datetime)}</span>
+            <span className="driver-cell-secondary">{job.pickup_postcode ?? 'Postcode TBC'} Â· {fmtDate(job.pickup_datetime)}</span>
           </div>
           <div className="driver-load-cell">
             <span className="driver-cell-label">To</span>
             <strong className="driver-cell-primary">{job.delivery_location ?? 'Delivery TBC'}</strong>
-            <span className="driver-cell-secondary">{job.delivery_postcode ?? 'Postcode TBC'} · {fmtDate(job.delivery_datetime)}</span>
+            <span className="driver-cell-secondary">{job.delivery_postcode ?? 'Postcode TBC'} Â· {fmtDate(job.delivery_datetime)}</span>
           </div>
           <div className="driver-load-cell">
             <span className="driver-cell-label">Vehicle</span>
@@ -493,7 +493,7 @@ export default function DriverDashboard() {
         <div className="driver-load-cell">
           <span className="driver-cell-label">Load</span>
           <strong className="driver-cell-primary">{vehicleLabel(load.requested_vehicle_label ?? load.requested_vehicle_type ?? load.vehicle_type)}</strong>
-          <span className="driver-cell-secondary">{load.pallets != null ? `${load.pallets} pallets` : 'Pallets TBC'} · {load.weight_kg != null ? `${load.weight_kg} kg` : 'Weight TBC'}</span>
+          <span className="driver-cell-secondary">{load.pallets != null ? `${load.pallets} pallets` : 'Pallets TBC'} Â· {load.weight_kg != null ? `${load.weight_kg} kg` : 'Weight TBC'}</span>
         </div>
         <div className="driver-load-cell">
           <span className="driver-cell-label">Commercial</span>
@@ -503,9 +503,9 @@ export default function DriverDashboard() {
       </div>
       <div className="driver-load-row__meta">
         <StatusBadge value="Vehicle type match" tone="blue" />
-        <span><strong>To Collection:</strong> {load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} mi${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available'}</span>
-        <span><strong>Job Distance:</strong> {load.distance_miles != null ? `${load.distance_miles.toFixed(1)} mi${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available'}</span>
-        <span>{load.member?.name ?? 'Marketplace member'}{load.member?.phone ? ` · ${load.member.phone}` : ''}</span>
+        <span><strong>To Collection:</strong> {load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} mi${load.pickup_eta_minutes != null ? ` Â· ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available'}</span>
+        <span><strong>Job Distance:</strong> {load.distance_miles != null ? `${load.distance_miles.toFixed(1)} mi${load.distance_minutes != null ? ` Â· ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available'}</span>
+        <span>{load.member?.name ?? 'Marketplace member'}{load.member?.phone ? ` Â· ${load.member.phone}` : ''}</span>
         <span>XDrive XDL-{load.id.slice(0, 8).toUpperCase()}</span>
         <div className="driver-row-actions">
           <ActionButton tone="success" onClick={() => router.push(`/driver/loads/${load.id}`)}>Open load</ActionButton>
@@ -526,7 +526,7 @@ export default function DriverDashboard() {
       : 'grey';
   const driverStatusValue = driverProfile?.status ? humanize(driverProfile.status) : 'Unavailable';
   const _assignedVehicleName = assignedVehicle
-    ? [vehicleLabel(assignedVehicle.type), assignedVehicle.reg_plate].filter(Boolean).join(' · ')
+    ? [vehicleLabel(assignedVehicle.type), assignedVehicle.reg_plate].filter(Boolean).join(' Â· ')
     : 'Not available';
 
   const dashboardBookings = recentBookings.filter((job) => job.id !== upcomingJobs[0]?.id).slice(0, 3);
@@ -586,7 +586,7 @@ export default function DriverDashboard() {
         <div className="driver-proto-next-action">
           <div><span>NEXT ACTION</span><strong>{currentAction.label}</strong><small>{currentAction.description}</small></div>
           <ActionButton tone="success" disabled={transitioningJobId === currentJob.id} onClick={() => void runCurrentAction()}>
-            {transitioningJobId === currentJob.id ? 'Saving…' : currentAction.label}
+            {transitioningJobId === currentJob.id ? 'Savingâ€¦' : currentAction.label}
           </ActionButton>
         </div>
       </>;
@@ -608,7 +608,19 @@ export default function DriverDashboard() {
 
   const compliantDocuments = Math.max(0, myDocuments.length - documentAlerts.length);
   const futurePositionPublished = driverProfile?.future_position ? 1 : 0;
-  return (
+  const ownerInvoices = ownerDriver ? data.invoices : [];
+  const ownerPaidInvoices = ownerInvoices.filter((invoice) =>
+    String(invoice.payment_status ?? invoice.status ?? '').toLowerCase() === 'paid'
+  );
+  const ownerOutstandingInvoices = ownerInvoices.filter((invoice) =>
+    String(invoice.payment_status ?? invoice.status ?? '').toLowerCase() !== 'paid'
+  );
+  const ownerOutstandingValue = ownerOutstandingInvoices.reduce(
+    (sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0),
+    0,
+  );
+
+  return (
     <div className="driver-reference-dashboard driver-prototype-dashboard driver-exact-prototype">
       <DriverWorkspaceShell
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
@@ -640,7 +652,7 @@ export default function DriverDashboard() {
             <span>Live jobs</span><strong>{liveJobs.length}</strong><small>Currently executing</small>
           </button>
           <button type="button" onClick={() => router.push('/driver/loads')}>
-            <span>Matching loads</span><strong>{contextWarnings.loads ? '—' : relevantLoads.length}</strong><small>{assignedVehicle ? vehicleLabel(assignedVehicle.type) : 'Active vehicle required'}</small>
+            <span>Matching loads</span><strong>{contextWarnings.loads ? 'â€”' : relevantLoads.length}</strong><small>{assignedVehicle ? vehicleLabel(assignedVehicle.type) : 'Active vehicle required'}. Full quote eligibility remains server-authoritative.</small>
           </button>
         </section>
 
@@ -685,7 +697,7 @@ export default function DriverDashboard() {
               <strong>Recent Bookings</strong>
               <span>Latest allocated and completed Driver work</span>
             </div>
-            <button type="button" className="text-action" onClick={() => router.push('/driver/history')}>Open Diary →</button>
+            <button type="button" className="text-action" onClick={() => router.push('/driver/history')}>Open Diary â†’</button>
           </div>
           <div className="driver-dashboard-register__body">
             {dashboardBookings.length === 0 ? (
@@ -696,13 +708,44 @@ export default function DriverDashboard() {
           </div>
         </section>
 
+        {ownerDriver ? (
+          <section className="driver-dashboard-readiness" aria-label="Owner driver commercial position">
+            <div className="driver-dashboard-register__head">
+              <div>
+                <strong>Owner Driver Commercial Position</strong>
+                <span>Invoices, payment exposure, business readiness and return capacity.</span>
+              </div>
+              <button type="button" className="text-action" onClick={() => router.push('/driver/finance')}>Open Finance</button>
+            </div>
+            <div className="driver-dashboard-readiness__grid">
+              <button type="button" onClick={() => router.push('/driver/finance')}>
+                <span>Invoice readiness</span><strong>{ownerInvoices.length} invoice{ownerInvoices.length === 1 ? '' : 's'}</strong><small>Owner-driver finance register</small>
+              </button>
+              <button type="button" onClick={() => router.push('/driver/finance')}>
+                <span>Outstanding</span><strong>{money(ownerOutstandingValue)}</strong><small>{ownerOutstandingInvoices.length} awaiting payment</small>
+              </button>
+              <button type="button" onClick={() => router.push('/driver/finance')}>
+                <span>Paid</span><strong>{ownerPaidInvoices.length}</strong><small>Paid invoice records</small>
+              </button>
+              <button type="button" onClick={() => router.push('/settings/billing')}>
+                <span>Business account</span><strong>{driverProfile?.status ?? 'Account active'}</strong><small>Membership & billing</small>
+              </button>
+              <button type="button" onClick={() => router.push('/driver/returns')}>
+                <span>Return capacity</span><strong>{driverProfile?.future_position ?? 'Not advertised'}</strong><small>Return Journeys & future position</small>
+              </button>
+              <button type="button" onClick={() => router.push('/driver/messages')}>
+                <span>Commercial contacts</span><strong>Messages</strong><small>Open job and network conversations</small>
+              </button>
+            </div>
+          </section>
+        ) : null}
         <section className="driver-dashboard-readiness">
           <div className="driver-dashboard-register__head">
             <div>
               <strong>Driver & Vehicle Readiness</strong>
               <span>Operational status in one compact register</span>
             </div>
-            <button type="button" className="text-action" onClick={() => router.push('/driver/documents')}>Documents →</button>
+            <button type="button" className="text-action" onClick={() => router.push('/driver/documents')}>Documents â†’</button>
           </div>
           <div className="driver-dashboard-readiness__grid">
             <button type="button" onClick={() => router.push('/driver/availability')}>

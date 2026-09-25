@@ -67,6 +67,9 @@ export async function GET(request: NextRequest) {
     return respond(500, { error: reason instanceof Error ? reason.message : 'Finance access could not be verified.' });
   }
   if (!driver) return respond(401, { error: 'Unauthorized.' });
+  if (!driver.canManageFinance) {
+    return respond(403, { error: 'Owner-driver or company admin access is required to view invoices.' });
+  }
 
   const { searchParams } = new URL(request.url);
   // `status` is retained as a compatibility alias for existing callers. It is
@@ -75,7 +78,7 @@ export async function GET(request: NextRequest) {
   const paymentStatusFilter = searchParams.get('payment_status');
   const limit = Math.min(Number(searchParams.get('limit') ?? 100) || 100, 500);
 
-  let query = supabaseAdmin
+  const query = supabaseAdmin
     .from('invoices')
     .select(
       'id, invoice_number, job_ref, job_id, invoice_date, due_date, status, payment_status, client_name, amount, net_amount, vat_amount, currency, submitted_at, approved_at, disputed_at, paid_at, created_at, updated_at'
@@ -84,11 +87,6 @@ export async function GET(request: NextRequest) {
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  // Owners/admins manage the whole company register. Fleet drivers retain their
-  // previous creator-scoped view and cannot browse another driver's invoices.
-  if (!driver.canManageFinance) {
-    query = query.eq('created_by', driver.userId);
-  }
 
   const { data, error } = await query;
   if (error) return respond(500, { error: error.message });

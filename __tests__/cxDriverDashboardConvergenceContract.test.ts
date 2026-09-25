@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 
 describe('Driver CX convergence contract', () => {
@@ -8,27 +8,23 @@ describe('Driver CX convergence contract', () => {
   const layout = fs.readFileSync(path.join(process.cwd(), 'app/driver/layout.tsx'), 'utf8');
 
   it('keeps current execution and the canonical next action as the primary driver workflow', () => {
-    expect(page).toContain('Operational workboard');
+    expect(page).toContain('My Work');
     expect(page).toContain('NEXT ACTION');
     expect(page).toContain('NEXT_DRIVER_ACTIONS');
     expect(page).toContain("supabase.rpc('driver_update_job_status_atomic'");
   });
 
-  it('uses the exact served prototype hierarchy without the old duplicated desktop rail', () => {
-    for (const marker of ['Today at a glance', 'Matching Loads', 'Commercial position', 'Performance & evidence', 'Driver workflow', 'Latest bookings']) {
+  it('uses the current operational register hierarchy without restoring the retired prototype copy', () => {
+    for (const marker of ['My Work', 'Recent Bookings', 'Driver & Vehicle Readiness', 'Matching loads', 'Needs attention']) {
       expect(page).toContain(marker);
     }
-    expect(page).not.toContain('<span>Status & availability</span>');
-    expect(page).not.toContain('<span>Canonical active vehicle</span>');
-    expect(page).not.toContain('<span>Journey & position</span>');
-    expect(exactCss).toContain('.xd2-hero');
-    expect(exactCss).toContain('.xd2-kpis');
-    expect(page).toContain('xd2-workboard');
-    expect(exactCss).toContain('.xd2-primary-grid');
-    expect(exactCss).toContain('.xd2-secondary-grid');
+    expect(page).not.toContain('Today at a glance');
+    expect(page).not.toContain('Operational workboard');
+    expect(page).toContain('driver-dashboard-register');
+    expect(page).toContain('driver-dashboard-statusbar');
   });
 
-  it('loads the literal prototype CSS after the existing Driver convergence layer', () => {
+  it('keeps the approved driver CSS layers loaded after the convergence layer', () => {
     expect(layout).toContain("import './driver-prototype-parity.css';");
     expect(layout).toContain("import './driver-dashboard-prototype-exact.css';");
     expect(exactCss).toContain('Exact Dashboard V2 visual layer copied from the prototype served on 127.0.0.1:17883');

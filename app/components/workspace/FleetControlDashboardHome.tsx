@@ -348,6 +348,17 @@ export default function FleetControlDashboardHome() {
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
       {intelligence.error ? <AlertBanner>{intelligence.error}</AlertBanner> : null}
+      <OperationalCard
+        title="Connected workspace"
+        subtitle="Finance, live network visibility, messaging and audit tools used alongside daily fleet control."
+      >
+        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/invoices')}>Finance</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/freight-vision')}>Freight Vision</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/messages')}>Messages</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/event-log')}>Event Log</ActionButton>
+        </div>
+      </OperationalCard>
 
       <OperationalSignalStrip
         ariaLabel="Fleet operational signals"

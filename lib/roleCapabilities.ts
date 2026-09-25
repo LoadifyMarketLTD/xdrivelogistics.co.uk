@@ -255,6 +255,8 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/broker/awards', workspace: 'broker', anyOf: ['quotes.award'] },
   { prefix: '/broker/jobs', workspace: 'broker', anyOf: ['jobs.track'] },
   { prefix: '/broker/diary', workspace: 'broker', anyOf: ['jobs.track'] },
+  { prefix: '/broker/messages', workspace: 'broker' },
+  { prefix: '/broker/event-log', workspace: 'broker', anyOf: ['jobs.view'] },
   { prefix: '/broker/pod-review', workspace: 'broker', anyOf: ['jobs.review_pod'] },
   { prefix: '/broker/finance', workspace: 'broker', anyOf: ['margins.view', 'invoices.customer.manage', 'invoices.carrier.manage'] },
   { prefix: '/broker/margins', workspace: 'broker', anyOf: ['margins.view'] },
@@ -400,7 +402,7 @@ export const isCapabilityAllowedForPath = (
 
   const isDriverRoute = pathMatches(path, '/driver');
   return requirement.anyOf.some((capability) =>
-    isDriverRoute
+    isDriverRoute && workspaceRole === 'driver'
       ? hasDriverCapability(capability)
       : hasWorkspaceCapability(workspaceRole, capability)
   );
