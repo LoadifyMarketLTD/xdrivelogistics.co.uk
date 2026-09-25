@@ -90,7 +90,7 @@ export async function GET(
   const invoice = previewer.invoice;
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
-    .select('name, address_line1, address_line2, city, postcode, company_number, vat_number')
+    .select('name, address_line1, address_line2, city, postcode, company_number, vat_number, xd_id')
     .eq('id', previewer.companyId)
     .maybeSingle();
   if (companyError) return respond(500, { error: companyError.message });
@@ -149,22 +149,30 @@ export async function GET(
       dueDate: cleanText(invoice.due_date, new Date().toISOString().slice(0, 10)),
       issuerName: companyName,
       issuerAddress,
-      issuerCompanyNumber: company.company_number as string | null,
+      issuerCompanyNumber: cleanText(invoice.issuer_company_number_snapshot) || company.company_number as string | null,
       issuerVatNumber,
+      issuerXdId: cleanText(invoice.issuer_xd_id_snapshot) || cleanText(company.xd_id) || null,
       issuerEmail: pdfContext.issuerEmail,
       issuerPhone: pdfContext.issuerPhone,
       issuerWebsite: 'www.xdrivelogistics.co.uk',
       clientName: cleanText(invoice.client_name, 'Customer'),
       clientAddress: invoice.client_address as string | null,
       clientEmail: invoice.client_email as string | null,
+      customerCompanyNumber: cleanText(invoice.customer_company_number_snapshot) || null,
       customerVatNumber,
+      customerXdId: cleanText(invoice.customer_xd_id_snapshot) || null,
+      customerReference: cleanText(invoice.customer_ref) || null,
+      loadId: cleanText(invoice.load_id) || null,
+      orderedAt: cleanText(invoice.ordered_at) || null,
+      leftAt: cleanText(invoice.left_at) || null,
+      deliveryNotes: cleanText(invoice.delivery_notes) || null,
       pickupLocation: invoice.pickup_location as string | null,
       pickupDateTime: pdfContext.pickupDateTime ?? invoice.pickup_datetime as string | null,
       deliveryLocation: invoice.delivery_location as string | null,
-      deliveryDateTime: pdfContext.deliveryDateTime ?? invoice.delivery_datetime as string | null,
-      recipientName: pdfContext.recipientName,
-      cargoDescription: pdfContext.cargoDescription,
-      vehicleDescription: pdfContext.vehicleDescription,
+      deliveryDateTime: pdfContext.deliveryDateTime || cleanText(invoice.delivered_at) || cleanText(invoice.delivery_datetime) || null,
+      recipientName: pdfContext.recipientName || cleanText(invoice.delivery_recipient) || cleanText(invoice.recipient_name) || null,
+      cargoDescription: pdfContext.cargoDescription || cleanText(invoice.cargo_summary) || null,
+      vehicleDescription: pdfContext.vehicleDescription || ([cleanText(invoice.vehicle_type), cleanText(invoice.vehicle_registration)].filter(Boolean).join(' · ') || null),
       serviceDescription: cleanServiceDescription(invoice.service_description),
       bankAccountName: pdfContext.bankAccountName,
       bankSortCode: pdfContext.bankSortCode,

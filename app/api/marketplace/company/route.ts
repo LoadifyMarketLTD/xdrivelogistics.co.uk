@@ -74,6 +74,8 @@ type SearchLoadRow = Record<string, unknown> & {
   budget_amount: number | string | null;
   currency: string | null;
   is_fixed_price: boolean | null;
+  payment_terms: string | null;
+  hard_copy_pod: string | null;
   load_details: string | null;
   special_requirements: string | null;
   service_mode: string | null;
@@ -107,7 +109,7 @@ const SEARCH_SELECT = [
   'pickup_country_code', 'delivery_country_code',
   'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label',
   'cargo_type', 'requested_cargo_label', 'pallets', 'weight_kg',
-  'budget_amount', 'currency', 'is_fixed_price',
+  'budget_amount', 'currency', 'is_fixed_price', 'payment_terms', 'hard_copy_pod',
   'load_details', 'special_requirements',
   'collection_tail_lift_required', 'collection_forklift_available', 'collection_handball_required',
   'delivery_tail_lift_required', 'delivery_forklift_available', 'delivery_handball_required',
@@ -348,6 +350,8 @@ function publicSearchProjection(
     budget_amount: proposedPriceAmount(row.budget_amount),
     currency: marketplaceText(row.currency) ?? 'GBP',
     is_fixed_price: row.is_fixed_price === true,
+    payment_terms: marketplaceText(row.payment_terms),
+    hard_copy_pod: marketplaceText(row.hard_copy_pod),
     customer_reference: null,
     booking_reference: null,
     load_details: publicQuoteNotes(row.load_details),

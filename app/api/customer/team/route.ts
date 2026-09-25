@@ -17,13 +17,15 @@ const inviteSchema = z.object({
   companyId: z.string().uuid(),
   email: z.string().email(),
   role: z.enum(['admin', 'dispatcher', 'viewer']).default('viewer'),
+  departmentId: z.string().uuid().nullable().optional(),
 });
 
 const updateSchema = z.object({
   companyId: z.string().uuid(),
   membershipId: z.string().uuid(),
-  action: z.enum(['role', 'suspend', 'reactivate', 'remove']),
+  action: z.enum(['role', 'department', 'suspend', 'reactivate', 'remove']),
   role: z.enum(ROLE_VALUES).optional(),
+  departmentId: z.string().uuid().nullable().optional(),
 });
 
 const resolveCaller = async (request: NextRequest) => {
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
 
   const { data: memberships, error: membershipsError } = await admin
     .from('company_memberships')
-    .select('id, user_id, invited_email, role_in_company, status, created_at')
+    .select('id, user_id, invited_email, role_in_company, status, department_id, created_at')
     .eq('company_id', companyId)
     .order('created_at', { ascending: true })
     .limit(250);
@@ -123,8 +125,17 @@ export async function GET(request: NextRequest) {
   );
   const emailByUserId = new Map(emailEntries);
 
+  const { data: departments, error: departmentsError } = await admin
+    .from('company_departments')
+    .select('id,name,description')
+    .eq('company_id', companyId)
+    .order('name', { ascending: true });
+  if (departmentsError) return json(500, { error: departmentsError.message });
+  const departmentById = new Map((departments ?? []).map((department) => [department.id, department.name] as const));
+
   return json(200, {
     canManageTeam: userCanManage(callerMembership.role_in_company),
+    departments: departments ?? [],
     members: membershipRows.map((membership) => {
       const profile = membership.user_id
         ? profileByUserId.get(membership.user_id)
@@ -140,6 +151,8 @@ export async function GET(request: NextRequest) {
         email: membership.invited_email ?? accountEmail,
         phone: profile?.phone ?? null,
         role: membership.role_in_company,
+        departmentId: membership.department_id ?? null,
+        departmentName: membership.department_id ? departmentById.get(membership.department_id) ?? null : null,
         membershipStatus: membership.status,
         profileStatus: profile?.status ?? null,
         createdAt: membership.created_at,
@@ -182,12 +195,13 @@ export async function POST(request: NextRequest) {
         company_id: companyId,
         invited_email: invitedEmail,
         role_in_company: role,
+        department_id: parsed.data.departmentId ?? null,
         status: 'invited',
         user_id: null,
       },
       { onConflict: 'company_id,invited_email' }
     )
-    .select('id, invited_email, role_in_company, status, created_at')
+    .select('id, invited_email, role_in_company, department_id, status, created_at')
     .maybeSingle();
 
   if (insertError) return json(500, { error: insertError.message });
@@ -212,7 +226,7 @@ export async function PATCH(request: NextRequest) {
     return json(400, { error: 'Validation failed.', details: parsed.error.flatten() });
   }
 
-  const { companyId, membershipId, action, role } = parsed.data;
+  const { companyId, membershipId, action, role, departmentId } = parsed.data;
 
   const callerMembership = await getCallerMembership(companyId, user.id);
   if (!callerMembership || callerMembership.status !== 'active' || !userCanManage(callerMembership.role_in_company)) {
@@ -228,7 +242,7 @@ export async function PATCH(request: NextRequest) {
 
   if (membershipError) return json(500, { error: membershipError.message });
   if (!membership) return json(404, { error: 'Membership not found.' });
-  if (membership.user_id === user.id) return json(400, { error: 'You cannot change your own membership here.' });
+  if (membership.user_id === user.id && action !== 'department') return json(400, { error: 'You cannot change your own role or membership status here.' });
 
   const callerRole = String(callerMembership.role_in_company ?? '');
   const targetRole = String(membership.role_in_company ?? '');
@@ -269,6 +283,21 @@ export async function PATCH(request: NextRequest) {
       return json(403, { error: 'Only owner can assign owner role.' });
     }
     updatePayload.role_in_company = role;
+  } else if (action === 'department') {
+    const { data: departmentUpdated, error: departmentError } = await admin
+      .rpc('assign_company_membership_department', {
+        p_company_id: companyId,
+        p_actor_user_id: user.id,
+        p_membership_id: membershipId,
+        p_department_id: departmentId ?? null,
+      })
+      .maybeSingle();
+    if (departmentError) {
+      if (departmentError.code === 'P0002') return json(404, { error: 'Membership not found.' });
+      if (departmentError.code === '42501') return json(403, { error: 'Department assignment is outside this company workspace.' });
+      return json(500, { error: 'Department assignment failed.' });
+    }
+    return json(200, { membership: departmentUpdated });
   } else if (action === 'suspend') {
     updatePayload.status = 'suspended';
   } else if (action === 'reactivate') {
@@ -280,7 +309,7 @@ export async function PATCH(request: NextRequest) {
     .update(updatePayload)
     .eq('id', membershipId)
     .eq('company_id', companyId)
-    .select('id, user_id, invited_email, role_in_company, status, created_at')
+    .select('id, user_id, invited_email, role_in_company, status, department_id, created_at')
     .maybeSingle();
 
   if (updateError) return json(500, { error: updateError.message });

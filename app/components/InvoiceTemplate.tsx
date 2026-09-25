@@ -163,6 +163,7 @@ export default function InvoiceTemplate({
             <div><span style={label}>Vehicle</span><strong style={{ display: 'block', marginTop: 3 }}>{[invoice.vehicleType, invoice.vehicleRegistration].filter(Boolean).join(' · ') || 'Not supplied'}</strong></div>
             <div><span style={label}>Cargo</span><strong style={{ display: 'block', marginTop: 3 }}>{invoice.cargoSummary || (invoice.noOfItems ? `${invoice.noOfItems} item(s)` : 'Not supplied')}</strong></div>
           </div>
+          {invoice.orderedAt && <div style={{ ...muted, marginTop: 8 }}><strong style={{ color: '#344054' }}>Ordered:</strong> {fmtDate(invoice.orderedAt, true)}</div>}
         </section>
 
         <section className="invoice-no-break" style={{ ...section, background: '#f8fafc' }}>
