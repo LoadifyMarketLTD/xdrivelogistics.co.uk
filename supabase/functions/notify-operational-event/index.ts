@@ -185,9 +185,14 @@ async function sendDriverPush(
   body: string,
   data: Record<string, string>,
 ): Promise<boolean> {
-  // Push is additive. Existing email/inbox delivery must keep working before a
-  // Firebase project is configured, so missing Firebase credentials are neutral.
-  if (!firebaseServiceAccount) return true;
+  // If a notification explicitly requests push, missing Firebase credentials
+  // are a delivery failure, not a successful no-op. The queue must remain
+  // retryable until push transport is configured instead of falsely marking the
+  // event sent.
+  if (!firebaseServiceAccount) {
+    console.error('[notify] FIREBASE_SERVICE_ACCOUNT_JSON is not configured; requested push was not sent.');
+    return false;
+  }
 
   const { data: deviceData, error } = await supabase.rpc('active_driver_push_devices_for_user', {
     p_user_id: userId,
