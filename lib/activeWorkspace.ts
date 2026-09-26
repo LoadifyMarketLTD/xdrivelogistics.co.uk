@@ -131,6 +131,7 @@ export function resolveActiveCompanyContext(
     activeWorkspace?: BusinessWorkspace | null;
     targetWorkspace?: BusinessWorkspace | null;
     targetPathname?: string | null;
+    identityRole?: string | null;
     /** Domain-supplied enabled workspace set (not a DB column). Overrides company_type derivation. */
     enabledWorkspaces?: readonly BusinessWorkspace[] | null;
   } = {},
@@ -139,8 +140,13 @@ export function resolveActiveCompanyContext(
     return { ok: false, error: 'no_memberships' };
   }
 
-  const { preferredCompanyId, activeWorkspace, targetWorkspace, targetPathname, enabledWorkspaces: explicitEnabledWorkspaces } = options;
+  const { preferredCompanyId, activeWorkspace, targetWorkspace, targetPathname, identityRole, enabledWorkspaces: explicitEnabledWorkspaces } = options;
   const routeWorkspace = targetPathname ? workspaceForRoute(targetPathname) : null;
+  const normalizedIdentityRole = (identityRole ?? '').trim().toLowerCase();
+  const identityWorkspace: BusinessWorkspace | null =
+    normalizedIdentityRole === 'customer' ? 'shipper' :
+    normalizedIdentityRole === 'broker' ? 'broker' :
+    null;
   const isDriverSurfaceRoute =
     (targetPathname?.split('?')[0]?.split('#')[0] ?? '') === '/driver' ||
     (targetPathname?.split('?')[0]?.split('#')[0] ?? '').startsWith('/driver/');
@@ -207,6 +213,7 @@ export function resolveActiveCompanyContext(
     companyType: company.company_type ?? null,
     enabledWorkspaces:
       explicitEnabledWorkspaces ??
+      (identityWorkspace ? [identityWorkspace] : null) ??
       (xdriveOwnerBrokerGrant ? ['carrier_fleet', 'broker'] : null),
   });
 
