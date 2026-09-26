@@ -42,6 +42,8 @@ const ENTITY_ROUTE_MAP: Record<ActionCentreRole, Partial<Record<string, string>>
     invoice: '/customer/invoices',
     load: '/customer/loads',
     document: '/customer/documents',
+    dispute: '/customer/disputes',
+    message: '/customer/messages',
   },
   driver: {
     job: '/driver/jobs',
@@ -75,7 +77,7 @@ const ADMIN_ONLY_ENTITY_TYPES = new Set([
 const ADMIN_ONLY_EVENT_PREFIXES = ['admin_', 'owner_', 'fraud_', 'compliance_'];
 
 const DRIVER_ALLOWED_ENTITY_TYPES = new Set(['job', 'quote', 'invoice', 'vehicle', 'document']);
-const CUSTOMER_ALLOWED_ENTITY_TYPES = new Set(['job', 'quote', 'invoice', 'load', 'document']);
+const CUSTOMER_ALLOWED_ENTITY_TYPES = new Set(['job', 'quote', 'invoice', 'load', 'document', 'dispute', 'message']);
 const BROKER_ALLOWED_ENTITY_TYPES = new Set(['job', 'quote', 'invoice', 'dispute', 'customer', 'load']);
 
 export function resolveActionCentreRole(role: WorkspaceRole): ActionCentreRole {

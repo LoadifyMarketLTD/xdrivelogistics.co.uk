@@ -42,16 +42,22 @@ describe('Action Centre role safety policy', () => {
     expect(isActionCentreEventVisibleToRole('broker', 'fraud_review_opened', 'fraud_case')).toBe(false);
     expect(isActionCentreEventVisibleToRole('customer', 'admin_membership_changed', 'membership')).toBe(false);
     expect(isActionCentreEventVisibleToRole('driver', 'owner_policy_update', 'platform')).toBe(false);
+    expect(isActionCentreEventVisibleToRole('customer', 'dispute_opened', 'dispute')).toBe(true);
+    expect(isActionCentreEventVisibleToRole('customer', 'message_received', 'message')).toBe(true);
   });
 
   it('allows operational entities per role and keeps CTA routes role-scoped', () => {
     const brokerHref = resolveRoleScopedHref('broker', 'job', 'evt-1');
     const customerHref = resolveRoleScopedHref('customer', 'invoice', 'evt-2');
     const driverHref = resolveRoleScopedHref('driver', 'vehicle', 'evt-3');
+    const disputeHref = resolveRoleScopedHref('customer', 'dispute', 'evt-4');
+    const messageHref = resolveRoleScopedHref('customer', 'message', 'evt-5');
 
     expect(brokerHref.startsWith(ACTION_CENTRE_ROLE_PREFIX.broker)).toBe(true);
     expect(customerHref.startsWith(ACTION_CENTRE_ROLE_PREFIX.customer)).toBe(true);
     expect(driverHref.startsWith(ACTION_CENTRE_ROLE_PREFIX.driver)).toBe(true);
+    expect(disputeHref).toBe('/customer/disputes');
+    expect(messageHref).toBe('/customer/messages');
 
     expect(brokerHref.startsWith('/admin/')).toBe(false);
     expect(customerHref.startsWith('/admin/')).toBe(false);

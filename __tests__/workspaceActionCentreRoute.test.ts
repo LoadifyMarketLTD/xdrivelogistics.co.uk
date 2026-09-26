@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock('../app/api/_lib/supabaseAdmin', () => ({
   getBearerToken: mocks.getBearerToken,
+  supabaseAdmin: null,
   supabaseValidator: {
     auth: {
       getUser: mocks.getUser,
