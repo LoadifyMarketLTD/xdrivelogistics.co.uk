@@ -521,7 +521,7 @@ export default function TopWorkspaceShell({
           {!CARRIER_NAV_ROLES.has(role) && (
             <div className="top-workspace-shell__identity">
               <span>{definition.label}</span>
-              <strong>{companyName}</strong>
+              {role !== 'customer' ? <strong>{companyName}</strong> : null}
             </div>
           )}
         </div>
