@@ -450,9 +450,19 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     return { kind: 'forbidden' };
   }
 
+  const fallbackPortalRole = mapAppRole(fallbackRole);
+  const profilePortalRole = mapAppRole(profile.role ?? null);
+  const portalIdentityRole =
+    fallbackPortalRole === 'broker' || fallbackPortalRole === 'customer'
+      ? fallbackPortalRole
+      : profilePortalRole === 'broker' || profilePortalRole === 'customer'
+        ? profilePortalRole
+        : null;
+
   const activeCompany = resolveActiveCompanyContext(memberships, {
     preferredCompanyId: profile.company_id ?? null,
     targetPathname: request.nextUrl.pathname,
+    identityRole: portalIdentityRole,
   });
   if (!activeCompany.ok) {
     return { kind: 'forbidden' };
