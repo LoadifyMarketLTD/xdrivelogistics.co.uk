@@ -92,10 +92,12 @@ export const getCapabilitiesForRole = (
   const workspaceRole = resolveRole(role, context);
   if (!workspaceRole) return NO_CAPABILITIES;
 
+  const driverCommercialAccess = workspaceRole !== 'driver' || context.canCommercialBid === true;
+
   return {
     canPostLoads: hasAny(workspaceRole, ['loads.create', 'loads.publish']),
-    canViewExchangeLoads: hasWorkspaceCapability(workspaceRole, 'loads.view.marketplace'),
-    canQuoteLoads: hasWorkspaceCapability(workspaceRole, 'quotes.submit'),
+    canViewExchangeLoads: driverCommercialAccess && hasWorkspaceCapability(workspaceRole, 'loads.view.marketplace'),
+    canQuoteLoads: driverCommercialAccess && hasWorkspaceCapability(workspaceRole, 'quotes.submit'),
     canReceiveQuotes: hasWorkspaceCapability(workspaceRole, 'quotes.receive'),
     canAwardJobs: hasWorkspaceCapability(workspaceRole, 'quotes.award'),
     canExecuteJobs: hasWorkspaceCapability(workspaceRole, 'jobs.execute'),
@@ -116,6 +118,7 @@ export const getCapabilitiesForRole = (
     ]),
     canRepostToExchange: hasWorkspaceCapability(workspaceRole, 'loads.publish'),
     canUseReturnJourneys:
+      driverCommercialAccess &&
       hasWorkspaceCapability(workspaceRole, 'jobs.track') &&
       hasWorkspaceCapability(workspaceRole, 'loads.view.marketplace'),
   };

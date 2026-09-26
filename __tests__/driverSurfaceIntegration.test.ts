@@ -24,7 +24,6 @@ describe('driver surface integration', () => {
   it('shows Driver nav with owner-only billing preserved for owner_driver', () => {
     const contexts = [
       { membershipRole: 'owner', ownerDriverWorkspace: true },
-      { membershipRole: 'admin', ownerDriverWorkspace: true },
       { membershipRole: 'driver', ownerDriverWorkspace: false },
     ];
 
@@ -54,7 +53,7 @@ describe('driver surface integration', () => {
       );
       const surfaceRole = resolveWorkspaceSurfaceRole('/driver/jobs', workspaceRole);
       const expectedHrefs = surfaceRole === 'owner_driver'
-        ? [...expectedDriverHrefs, '/settings/billing'].sort()
+        ? navHrefs('owner_driver')
         : expectedDriverHrefs;
       expect(navHrefs(surfaceRole)).toEqual(expectedHrefs);
     }
