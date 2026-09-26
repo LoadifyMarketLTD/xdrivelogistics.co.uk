@@ -65,7 +65,7 @@ async function resolvePreviewer(request: NextRequest, invoiceId: string) {
   if (membershipError) throw new Error(membershipError.message);
 
   const role = String(membership?.role_in_company ?? '').toLowerCase();
-  if (!['owner', 'admin', 'dispatcher', 'finance', 'driver'].includes(role)) return null;
+  if (!['owner', 'admin'].includes(role)) return null;
 
   return { companyId: invoice.company_id as string, invoice };
 }
