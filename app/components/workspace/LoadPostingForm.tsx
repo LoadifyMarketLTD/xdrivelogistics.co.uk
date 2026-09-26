@@ -7,6 +7,7 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
 import PostcodeAddressField from './PostcodeAddressField';
+import StripeSetupAction from './StripeSetupAction';
 import './load-posting-exchange.css';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
@@ -175,6 +176,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const idempotencyKeyRef = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [stripeSetupCompanyId, setStripeSetupCompanyId] = useState<string | null>(null);
   const [success, setSuccess] = useState('');
   const [showValidation, setShowValidation] = useState(false);
   const [clockNow, setClockNow] = useState<Date | null>(null);
@@ -252,7 +254,10 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         idempotencyKeyRef.current = null;
         setCloneNotice(payload.notice ?? 'Source booking details copied into a new load. Review the schedule and references before saving.');
       } catch (reason) {
-        if (!cancelled) setError(reason instanceof Error ? reason.message : 'The source booking could not be prepared.');
+        if (!cancelled) {
+          setStripeSetupCompanyId(null);
+          setError(reason instanceof Error ? reason.message : 'The source booking could not be prepared.');
+        }
       } finally {
         if (!cancelled) setCloneLoading(false);
       }
@@ -364,6 +369,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
 
   const save = async (publish: boolean) => {
     setError('');
+    setStripeSetupCompanyId(null);
     setSuccess('');
     if (cloneLoading) {
       setError('Wait for the source booking details to finish loading before saving.');
@@ -475,11 +481,17 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
 
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
+        code?: string;
+        setupCompanyId?: string;
         referenceId?: string;
         job?: { id: string };
         replayed?: boolean;
       } | null;
       if (!response.ok || !payload?.job?.id) {
+        // Only offer setup for the company that attempted this publication, never a carrier's account.
+        if (publish && payload?.code === 'STRIPE_COMMERCIAL_READINESS_REQUIRED' && payload.setupCompanyId === companyId) {
+          setStripeSetupCompanyId(companyId);
+        }
         const baseMessage = payload?.error ?? 'The load could not be saved.';
         throw new Error(payload?.referenceId ? `${baseMessage} Error reference: ${payload.referenceId}.` : baseMessage);
       }
@@ -511,7 +523,20 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
 
   return (
     <div className="xdrive-post-load-form">
-      {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+      {error && (
+        <AlertBanner tone="danger">
+          {error}
+          {stripeSetupCompanyId && (
+            <StripeSetupAction
+              companyId={stripeSetupCompanyId}
+              getAccessToken={async () => {
+                const { data } = await supabase.auth.getSession();
+                return data.session?.access_token ?? null;
+              }}
+            />
+          )}
+        </AlertBanner>
+      )}
       {cloneLoading && <AlertBanner tone="info">Preparing a new booking from the source record…</AlertBanner>}
       {cloneNotice && <AlertBanner tone="info">{cloneNotice}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
