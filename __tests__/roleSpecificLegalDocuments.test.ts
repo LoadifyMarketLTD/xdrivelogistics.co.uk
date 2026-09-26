@@ -1,6 +1,7 @@
 ﻿import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { buildControlledLegalDocument, CONTROLLED_LEGAL_VERSION } from '../lib/legal/controlledLegalDocuments';
 import { REGISTRATION_LEGAL_CONFIG } from '../lib/legal/registrationAgreements';
 import { ROLE_TRADING_TERMS } from '../lib/legal/roleTradingTerms';
 
@@ -16,7 +17,7 @@ describe('role-specific legal documents',()=>{
     const hrefs = routes.map(([code])=>ROLE_TRADING_TERMS[code].href);
     expect(new Set(hrefs).size).toBe(4);
     expect(hrefs.every((href)=>href.startsWith('/legal/') && href !== '/terms')).toBe(true);
-    expect(routes.every(([code])=>ROLE_TRADING_TERMS[code].version === '2026-09-26')).toBe(true);
+    expect(routes.every(([code])=>ROLE_TRADING_TERMS[code].version === CONTROLLED_LEGAL_VERSION)).toBe(true);
   });
 
   it('maps each registration role to its dedicated role-specific document',()=>{
@@ -32,6 +33,18 @@ describe('role-specific legal documents',()=>{
       expect(agreement?.version).toBe(ROLE_TRADING_TERMS[code].version);
       expect(agreement?.href).not.toBe('/terms');
     }
+  });
+
+  it('keeps the signed canonical documents materially role-specific',()=>{
+    const customer = buildControlledLegalDocument('customer_shipper_terms','en');
+    const broker = buildControlledLegalDocument('broker_terms','en');
+    const ownerDriver = buildControlledLegalDocument('owner_driver_terms','en');
+    const fleet = buildControlledLegalDocument('carrier_fleet_terms','en');
+    expect(customer.sections.some((section)=>section.body.includes('3 active transport commitments') && section.body.includes('£2,500'))).toBe(true);
+    expect(customer.sections.some((section)=>section.body.includes('Each time a transport buyer awards a quote'))).toBe(true);
+    expect(broker.sections.some((section)=>section.body.includes('broker') && section.body.includes('carrier payment obligation'))).toBe(true);
+    expect(ownerDriver.sections.some((section)=>section.body.includes('at least one collection photograph') && section.body.includes('up to 10'))).toBe(true);
+    expect(fleet.sections.some((section)=>section.body.includes('Subcontracting'))).toBe(true);
   });
 
   it('ships a route page for every role-specific document',()=>{

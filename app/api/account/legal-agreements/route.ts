@@ -92,6 +92,10 @@ const toAcceptanceSnapshot = (row: LegalAcceptanceRow): LegalAcceptanceSnapshot 
   registrationRole: row.registration_role,
   legalVersion: row.legal_version,
   agreements: normalizeAgreementSnapshots(row.agreements),
+  acceptanceLanguage: row.acceptance_language && LEGAL_LANGUAGES.includes(row.acceptance_language as LegalLanguage)
+    ? row.acceptance_language as LegalLanguage
+    : undefined,
+  privacyDocumentHash: row.privacy_document_hash,
 });
 
 const loadLegalContext = async (userId: string) => {

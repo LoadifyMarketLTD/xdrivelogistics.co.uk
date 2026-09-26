@@ -1,5 +1,6 @@
 import { type RoleTradingTermsCode } from './roleTradingTerms';
-import { CONTROLLED_LEGAL_ROUTES, CONTROLLED_LEGAL_VERSION, CONTROLLED_PRIVACY_VERSION } from './controlledLegalDocuments';
+import { CONTROLLED_LEGAL_ROUTES, CONTROLLED_LEGAL_VERSION, CONTROLLED_PRIVACY_VERSION, normalizeLegalLanguage } from './controlledLegalDocuments';
+import { getLocalizedRegistrationDeclarations } from './registrationDeclarations';
 
 export type RegistrationLegalRole =
   | 'customer_shipper'
@@ -135,5 +136,18 @@ export const REGISTRATION_LEGAL_CONFIG: Record<RegistrationLegalRole, Registrati
   },
 };
 
-export const getRegistrationLegalConfig = (role: RegistrationLegalRole) =>
-  REGISTRATION_LEGAL_CONFIG[role];
+export const getRegistrationLegalConfig = (role: RegistrationLegalRole, languageInput: unknown = 'en') => {
+  const base = REGISTRATION_LEGAL_CONFIG[role];
+  const language = normalizeLegalLanguage(languageInput);
+  const declarations = getLocalizedRegistrationDeclarations(role, language, {
+    authority: base.authorityDeclaration,
+    role: base.roleDeclaration,
+    privacy: base.privacyAcknowledgement,
+  });
+  return {
+    ...base,
+    authorityDeclaration: declarations.authority,
+    roleDeclaration: declarations.role,
+    privacyAcknowledgement: declarations.privacy,
+  };
+};

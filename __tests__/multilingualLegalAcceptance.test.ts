@@ -83,6 +83,22 @@ describe('multilingual controlled legal acceptance',()=>{
     expect(gate).toContain('?lang=${language}');
   });
 
+  it('includes the material transport-buyer controls in every controlled language',()=>{
+    for (const lang of LEGAL_LANGUAGES) {
+      const marketplace=buildControlledLegalDocument('marketplace_transport_terms',lang);
+      expect(marketplace.sections.some((section)=>section.body.includes('£2,500'))).toBe(true);
+      expect(marketplace.sections.some((section)=>section.body.includes('3 '))).toBe(true);
+      expect(marketplace.sections.length).toBeGreaterThanOrEqual(11);
+    }
+    const ro=buildCurrentLegalRequirement('customer_shipper','ro');
+    expect(ro.acceptanceStatement).toContain('Accept acordurile XDrive');
+    expect(ro.authorityStatement).toContain('Confirm că sunt autorizat');
+    expect(ro.privacyStatement).toContain('Politicii de Confidențialitate');
+    const roMarketplace=buildControlledLegalDocument('marketplace_transport_terms','ro');
+    expect(roMarketplace.sections.some((section)=>section.title.includes('Controale de risc și expunere'))).toBe(true);
+    expect(roMarketplace.sections.every((section)=>!section.title.includes('Transport buyer risk and exposure controls'))).toBe(true);
+  });
+
   it('renders every controlled language document deterministically',()=>{
     for (const lang of LEGAL_LANGUAGES) {
       const doc=buildControlledLegalDocument('carrier_fleet_terms',lang);

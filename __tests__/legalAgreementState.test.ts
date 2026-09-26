@@ -87,6 +87,29 @@ describe('legal agreement material re-acceptance state', () => {
     expect(fingerprint).not.toBe(requirement.requirementFingerprint);
   });
 
+  it('requires re-acceptance when an exact controlled-document hash changes under the same version', () => {
+    const requirement = buildCurrentLegalRequirement('customer_shipper', 'en');
+    const evidence = buildCurrentLegalEvidence('customer_shipper', '2026-09-26T12:00:00.000Z', 'en');
+    const tampered = {
+      ...evidence,
+      agreements: evidence.agreements.map((agreement, index) =>
+        index === 0 ? { ...agreement, documentHash: '0'.repeat(64) } : agreement,
+      ),
+    };
+
+    const evaluation = evaluateLegalAcceptance(requirement, tampered);
+    expect(evaluation.requiresReacceptance).toBe(true);
+    expect(evaluation.reasons).toContain(`agreement_document_changed:${evidence.agreements[0].code}`);
+  });
+
+  it('requires re-acceptance when the controlled acceptance language changes', () => {
+    const requirement = buildCurrentLegalRequirement('transport_broker', 'ro');
+    const evidence = buildCurrentLegalEvidence('transport_broker', '2026-09-26T12:00:00.000Z', 'en');
+    const evaluation = evaluateLegalAcceptance(requirement, evidence);
+    expect(evaluation.requiresReacceptance).toBe(true);
+    expect(evaluation.reasons).toContain('acceptance_language_changed');
+  });
+
   it('creates immutable evidence hashes from the full acceptance event', () => {
     const first = buildCurrentLegalEvidence('owner_operator', '2026-09-04T21:45:00.000Z');
     const second = buildCurrentLegalEvidence('owner_operator', '2026-09-04T21:46:00.000Z');

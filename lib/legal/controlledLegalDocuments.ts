@@ -23,7 +23,7 @@ export type ControlledLegalDocument = {
   sections: ControlledLegalSection[];
 };
 
-export const CONTROLLED_LEGAL_VERSION = '2026-09-26';
+export const CONTROLLED_LEGAL_VERSION = '2026-09-26-r2';
 export const CONTROLLED_PRIVACY_VERSION = '2026-09-26';
 
 export const LEGAL_LANGUAGE_LABELS: Record<LegalLanguage,string> = {
@@ -132,6 +132,78 @@ const privacyBodies: Record<LegalLanguage,string[]> = {
   pl:['XDrive przetwarza dane dotyczące tożsamości konta, kontaktów, firmy, urządzenia i bezpieczeństwa w celu tworzenia i ochrony kont oraz świadczenia usługi.','Operacje transportowe mogą obejmować kontakty odbioru i dostawy, lokalizacje, wiadomości, zdjęcia, podpisy, POD i inne dowody. Użytkownicy powinni przekazywać wyłącznie zgodne z prawem, prawidłowe i istotne dane osobowe.','XDrive może przekazywać niezbędne dane upoważnionym uczestnikom rezerwacji, dostawcom usług i organom, gdy jest to konieczne do działania usługi, ochrony użytkowników lub przestrzegania prawa.','Okres przechowywania zależy od rodzaju danych, obowiązków umownych i prawnych, potrzeb związanych ze sporami i bezpieczeństwem. Żądania dotyczące praw można składać za pomocą danych kontaktowych z publicznej Polityki prywatności.'],
 };
 
+const commercialClauses: Record<LegalLanguage, {
+  paymentAck: string;
+  buyerRisk: string;
+  amendmentsExtras: string;
+  collectionEvidence: string;
+  brokerRole: string;
+  carrierCompliance: string;
+  subcontracting: string;
+}> = {
+  en: {
+    paymentAck: 'Each time a transport buyer awards a quote, XDrive requires an authorised user to confirm that the buyer is ordering the transport service and is responsible for paying the awarded carrier under the accepted booking terms and due date. XDrive records that acknowledgement against the award with the acting user, time and applicable terms version.',
+    buyerRisk: 'When a business acts as transport buyer, XDrive may apply transport-buyer risk controls at Publish and Award. A new buyer is currently placed in restricted mode by default, with limits of up to 3 active transport commitments and £2,500 outstanding transport exposure unless an authorised Platform Owner reviews or overrides those limits. XDrive may prevent a new publication or award that would exceed the applicable limit. A restriction does not cancel or reduce payment obligations already accepted.',
+    amendmentsExtras: 'A material commercial change or additional charge must not overwrite the original agreement. Where the workflow requires counterparty approval, the proposed amendment becomes effective only after the required counterparty accepts it. Approved waiting time, handball, redelivery, additional stops or other extras are retained as traceable adjustments and may form a new version of the commercial agreement.',
+    collectionEvidence: 'XDrive may require verified collection and delivery evidence before a booking can progress. Before a job is marked Loaded, the platform may require a verified collection handover and at least one collection photograph, with up to 10 collection photographs linked to that handover. Evidence must relate to the actual booking and must not be fabricated, reused or materially altered to misrepresent performance.',
+    brokerRole: 'A broker must accurately disclose the commercial role in which it acts and must not represent a separate customer arrangement as if it changed the carrier-facing agreement. Where the broker is the transport buyer or ordering party, the broker remains responsible for the carrier payment obligation recorded for that booking.',
+    carrierCompliance: 'A performing carrier is responsible for using suitable lawful vehicles and personnel and for maintaining the licences, insurance, permissions and compliance documents legally required for the work it undertakes. Acceptance of a booking does not remove those obligations.',
+    subcontracting: 'Where subcontracting is permitted, the party arranging the subcontract must not misrepresent who will perform the work and must comply with the applicable disclosure, insurance and legal requirements. Subcontracting does not silently transfer or extinguish an existing contractual obligation unless the affected parties expressly agree through the applicable workflow.',
+  },
+  ro: {
+    paymentAck: 'De fiecare dată când un transport buyer atribuie o cotație, XDrive solicită unui utilizator autorizat să confirme că buyer-ul comandă serviciul de transport și este responsabil pentru plata transportatorului atribuit conform termenilor acceptați ai rezervării și scadenței. XDrive înregistrează această confirmare împreună cu atribuirea, utilizatorul care a acționat, momentul și versiunea aplicabilă a termenilor.',
+    buyerRisk: 'Atunci când o companie acționează ca transport buyer, XDrive poate aplica controale de risc la Publish și Award. Un buyer nou este plasat în prezent, implicit, în modul restricted, cu limite de până la 3 angajamente active de transport și £2,500 expunere restantă pentru transport, dacă un Platform Owner autorizat nu revizuiește sau modifică aceste limite. XDrive poate împiedica o publicare sau atribuire nouă care ar depăși limita aplicabilă. O restricție nu anulează și nu reduce obligațiile de plată deja acceptate.',
+    amendmentsExtras: 'O modificare comercială materială sau un cost suplimentar nu trebuie să suprascrie acordul inițial. Atunci când fluxul necesită aprobarea contrapărții, amendamentul propus produce efecte numai după acceptarea lui de către contrapartea necesară. Timpul de așteptare, handball, redelivery, opririle suplimentare sau alte extra-costuri aprobate sunt păstrate ca ajustări trasabile și pot forma o nouă versiune a acordului comercial.',
+    collectionEvidence: 'XDrive poate solicita dovezi verificate de colectare și livrare înainte ca rezervarea să poată avansa. Înainte ca un job să fie marcat Loaded, platforma poate solicita un handover de colectare verificat și cel puțin o fotografie de colectare, cu până la 10 fotografii de colectare asociate acelui handover. Dovezile trebuie să aparțină rezervării reale și nu pot fi fabricate, reutilizate sau modificate material pentru a denatura executarea.',
+    brokerRole: 'Un broker trebuie să declare corect rolul comercial în care acționează și nu trebuie să prezinte un aranjament separat cu clientul ca și cum ar modifica acordul față de transportator. Atunci când brokerul este transport buyer sau partea care comandă transportul, brokerul rămâne responsabil pentru obligația de plată către transportator înregistrată pentru acea rezervare.',
+    carrierCompliance: 'Transportatorul executant este responsabil pentru utilizarea unor vehicule și persoane adecvate și legale și pentru menținerea licențelor, asigurărilor, permisiunilor și documentelor de conformitate cerute legal pentru activitatea pe care o execută. Acceptarea unei rezervări nu înlătură aceste obligații.',
+    subcontracting: 'Atunci când subcontractarea este permisă, partea care o organizează nu trebuie să denatureze cine va executa transportul și trebuie să respecte cerințele aplicabile de informare, asigurare și legalitate. Subcontractarea nu transferă și nu stinge în mod implicit o obligație contractuală existentă decât dacă părțile afectate convin expres prin fluxul aplicabil.',
+  },
+  fr: {
+    paymentAck: 'Chaque fois qu’un acheteur de transport attribue un devis, XDrive exige qu’un utilisateur autorisé confirme que l’acheteur commande le service de transport et qu’il est responsable du paiement du transporteur retenu selon les conditions de réservation acceptées et la date d’échéance. XDrive enregistre cette confirmation avec l’attribution, l’utilisateur, l’heure et la version applicable des conditions.',
+    buyerRisk: 'Lorsqu’une entreprise agit comme acheteur de transport, XDrive peut appliquer des contrôles de risque au moment de la publication et de l’attribution. Un nouvel acheteur est actuellement placé par défaut en mode restreint, avec des limites allant jusqu’à 3 engagements de transport actifs et £2,500 d’exposition de transport impayée, sauf révision ou dérogation par un Platform Owner autorisé. XDrive peut empêcher une nouvelle publication ou attribution qui dépasserait la limite applicable. Une restriction n’annule ni ne réduit les obligations de paiement déjà acceptées.',
+    amendmentsExtras: 'Une modification commerciale substantielle ou un coût supplémentaire ne doit pas remplacer l’accord initial. Lorsque le processus exige l’approbation de la contrepartie, l’avenant proposé ne prend effet qu’après son acceptation par la contrepartie requise. Les temps d’attente, manutentions, nouvelles livraisons, arrêts supplémentaires ou autres extras approuvés restent des ajustements traçables et peuvent former une nouvelle version de l’accord commercial.',
+    collectionEvidence: 'XDrive peut exiger des preuves vérifiées d’enlèvement et de livraison avant qu’une réservation puisse progresser. Avant qu’un transport soit marqué Loaded, la plateforme peut exiger une remise d’enlèvement vérifiée et au moins une photo d’enlèvement, avec jusqu’à 10 photos liées à cette remise. Les preuves doivent concerner la réservation réelle et ne doivent pas être fabriquées, réutilisées ou matériellement modifiées pour dénaturer l’exécution.',
+    brokerRole: 'Un courtier doit déclarer avec exactitude le rôle commercial dans lequel il agit et ne doit pas présenter un arrangement séparé avec son client comme modifiant l’accord conclu avec le transporteur. Lorsque le courtier est l’acheteur du transport ou le donneur d’ordre, il demeure responsable de l’obligation de paiement du transporteur enregistrée pour la réservation.',
+    carrierCompliance: 'Le transporteur exécutant est responsable de l’utilisation de véhicules et de personnel adaptés et licites ainsi que du maintien des licences, assurances, autorisations et documents de conformité légalement requis pour le travail entrepris. L’acceptation d’une réservation ne supprime pas ces obligations.',
+    subcontracting: 'Lorsque la sous-traitance est autorisée, la partie qui l’organise ne doit pas dissimuler l’identité de l’exécutant et doit respecter les exigences applicables de divulgation, d’assurance et de droit. La sous-traitance ne transfère ni n’éteint silencieusement une obligation contractuelle existante sauf accord exprès des parties concernées dans le processus applicable.',
+  },
+  es: {
+    paymentAck: 'Cada vez que un comprador de transporte adjudica una cotización, XDrive exige que un usuario autorizado confirme que el comprador encarga el servicio de transporte y que es responsable de pagar al transportista adjudicado conforme a las condiciones aceptadas de la reserva y a la fecha de vencimiento. XDrive registra esta confirmación con la adjudicación, el usuario actuante, la hora y la versión aplicable de los términos.',
+    buyerRisk: 'Cuando una empresa actúa como comprador de transporte, XDrive puede aplicar controles de riesgo en Publish y Award. Actualmente, un comprador nuevo se sitúa por defecto en modo restringido, con límites de hasta 3 compromisos de transporte activos y £2,500 de exposición de transporte pendiente, salvo revisión o modificación por un Platform Owner autorizado. XDrive puede impedir una nueva publicación o adjudicación que supere el límite aplicable. Una restricción no cancela ni reduce obligaciones de pago ya aceptadas.',
+    amendmentsExtras: 'Un cambio comercial sustancial o un cargo adicional no debe sobrescribir el acuerdo original. Cuando el flujo requiera aprobación de la contraparte, la modificación propuesta solo entra en vigor después de que la contraparte necesaria la acepte. El tiempo de espera, manipulación, nueva entrega, paradas adicionales u otros extras aprobados se conservan como ajustes trazables y pueden formar una nueva versión del acuerdo comercial.',
+    collectionEvidence: 'XDrive puede exigir pruebas verificadas de recogida y entrega antes de que una reserva pueda avanzar. Antes de marcar un trabajo como Loaded, la plataforma puede exigir una entrega de recogida verificada y al menos una fotografía de recogida, con hasta 10 fotografías vinculadas a esa entrega. Las pruebas deben corresponder a la reserva real y no deben fabricarse, reutilizarse ni modificarse materialmente para falsear la ejecución.',
+    brokerRole: 'Un broker debe declarar correctamente el papel comercial en el que actúa y no debe presentar un acuerdo separado con su cliente como si modificara el acuerdo frente al transportista. Cuando el broker sea el comprador del transporte o la parte que lo encarga, seguirá siendo responsable de la obligación de pago al transportista registrada para esa reserva.',
+    carrierCompliance: 'El transportista ejecutante es responsable de utilizar vehículos y personal adecuados y legales y de mantener las licencias, seguros, permisos y documentos de cumplimiento exigidos legalmente para el trabajo que realiza. La aceptación de una reserva no elimina esas obligaciones.',
+    subcontracting: 'Cuando se permita la subcontratación, la parte que la organice no debe falsear quién realizará el trabajo y debe cumplir los requisitos aplicables de información, seguro y legalidad. La subcontratación no transfiere ni extingue silenciosamente una obligación contractual existente salvo acuerdo expreso de las partes afectadas mediante el flujo aplicable.',
+  },
+  pl: {
+    paymentAck: 'Za każdym razem, gdy nabywca transportu przyznaje zlecenie na podstawie wyceny, XDrive wymaga od upoważnionego użytkownika potwierdzenia, że nabywca zamawia usługę transportową i odpowiada za zapłatę wybranemu przewoźnikowi zgodnie z zaakceptowanymi warunkami rezerwacji i terminem płatności. XDrive zapisuje to potwierdzenie wraz z przyznaniem zlecenia, użytkownikiem, czasem i obowiązującą wersją warunków.',
+    buyerRisk: 'Gdy firma działa jako nabywca transportu, XDrive może stosować kontrole ryzyka na etapie Publish i Award. Nowy nabywca jest obecnie domyślnie objęty trybem restricted, z limitem do 3 aktywnych zobowiązań transportowych i £2,500 niespłaconej ekspozycji transportowej, chyba że upoważniony Platform Owner dokona przeglądu lub zmiany tych limitów. XDrive może zablokować nową publikację lub przyznanie zlecenia, które przekroczyłoby obowiązujący limit. Ograniczenie nie anuluje ani nie zmniejsza wcześniej zaakceptowanych obowiązków płatniczych.',
+    amendmentsExtras: 'Istotna zmiana handlowa lub dodatkowa opłata nie może nadpisywać pierwotnej umowy. Jeżeli proces wymaga akceptacji drugiej strony, proponowany aneks staje się skuteczny dopiero po wymaganej akceptacji. Zatwierdzony czas oczekiwania, ręczny przeładunek, ponowna dostawa, dodatkowe postoje lub inne dodatki pozostają możliwymi do prześledzenia korektami i mogą tworzyć nową wersję umowy handlowej.',
+    collectionEvidence: 'XDrive może wymagać zweryfikowanych dowodów odbioru i dostawy, zanim rezerwacja będzie mogła przejść dalej. Przed oznaczeniem zlecenia jako Loaded platforma może wymagać zweryfikowanego przekazania przy odbiorze i co najmniej jednego zdjęcia odbioru, przy czym z przekazaniem można powiązać do 10 zdjęć. Dowody muszą dotyczyć rzeczywistej rezerwacji i nie mogą być fałszowane, ponownie wykorzystywane ani istotnie zmieniane w celu zniekształcenia wykonania.',
+    brokerRole: 'Broker musi prawidłowo ujawnić rolę handlową, w jakiej działa, i nie może przedstawiać odrębnego uzgodnienia z klientem tak, jakby zmieniało ono umowę wobec przewoźnika. Jeżeli broker jest nabywcą transportu lub zleceniodawcą, pozostaje odpowiedzialny za obowiązek zapłaty przewoźnikowi zapisany dla danej rezerwacji.',
+    carrierCompliance: 'Przewoźnik wykonujący usługę odpowiada za użycie odpowiednich i zgodnych z prawem pojazdów oraz personelu, a także za utrzymanie licencji, ubezpieczeń, zezwoleń i dokumentów zgodności prawnie wymaganych do wykonywanej pracy. Akceptacja rezerwacji nie usuwa tych obowiązków.',
+    subcontracting: 'Jeżeli podwykonawstwo jest dozwolone, strona je organizująca nie może wprowadzać w błąd co do tego, kto wykona pracę, i musi spełniać obowiązujące wymagania informacyjne, ubezpieczeniowe i prawne. Podwykonawstwo nie przenosi ani nie wygasza po cichu istniejącego obowiązku umownego, chyba że zainteresowane strony wyraźnie uzgodnią to w odpowiednim procesie.',
+  },
+};
+
+const commercialHeadings: Record<LegalLanguage, {
+  paymentAck: string;
+  buyerRisk: string;
+  amendmentsExtras: string;
+  collectionEvidence: string;
+  brokerRole: string;
+  carrierCompliance: string;
+  subcontracting: string;
+}> = {
+  en: { paymentAck:'Per-award payment acknowledgement', buyerRisk:'Transport buyer risk and exposure controls', amendmentsExtras:'Amendments and approved extras', collectionEvidence:'Collection and delivery evidence', brokerRole:'Broker role and carrier-facing obligations', carrierCompliance:'Carrier compliance', subcontracting:'Subcontracting and onward performance' },
+  ro: { paymentAck:'Confirmarea obligației de plată la fiecare atribuire', buyerRisk:'Controale de risc și expunere pentru transport buyer', amendmentsExtras:'Amendamente și costuri suplimentare aprobate', collectionEvidence:'Dovezi de colectare și livrare', brokerRole:'Rolul brokerului și obligațiile față de transportator', carrierCompliance:'Conformitatea transportatorului', subcontracting:'Subcontractare și executare ulterioară' },
+  fr: { paymentAck:'Confirmation de l’obligation de paiement à chaque attribution', buyerRisk:'Contrôles de risque et d’exposition de l’acheteur de transport', amendmentsExtras:'Avenants et frais supplémentaires approuvés', collectionEvidence:'Preuves d’enlèvement et de livraison', brokerRole:'Rôle du courtier et obligations envers le transporteur', carrierCompliance:'Conformité du transporteur', subcontracting:'Sous-traitance et exécution ultérieure' },
+  es: { paymentAck:'Confirmación de la obligación de pago en cada adjudicación', buyerRisk:'Controles de riesgo y exposición del comprador de transporte', amendmentsExtras:'Modificaciones y extras aprobados', collectionEvidence:'Pruebas de recogida y entrega', brokerRole:'Papel del broker y obligaciones frente al transportista', carrierCompliance:'Cumplimiento del transportista', subcontracting:'Subcontratación y ejecución posterior' },
+  pl: { paymentAck:'Potwierdzenie obowiązku płatności przy każdym przyznaniu zlecenia', buyerRisk:'Kontrole ryzyka i ekspozycji nabywcy transportu', amendmentsExtras:'Aneksy i zatwierdzone dodatkowe opłaty', collectionEvidence:'Dowody odbioru i dostawy', brokerRole:'Rola brokera i obowiązki wobec przewoźnika', carrierCompliance:'Zgodność przewoźnika', subcontracting:'Podwykonawstwo i dalsza realizacja' },
+};
+
 export const normalizeLegalLanguage = (value: unknown): LegalLanguage =>
   typeof value === 'string' && (LEGAL_LANGUAGES as readonly string[]).includes(value) ? value as LegalLanguage : 'en';
 
@@ -154,6 +226,42 @@ export const buildControlledLegalDocument = (code: ControlledLegalDocumentCode, 
       {title:`6. ${h.evidence}`,body:s.evidence},
       {title:`7. ${h.law}`,body:s.law},
     ];
+
+    const c = commercialClauses[language];
+    const ch = commercialHeadings[language];
+    if (code === 'marketplace_transport_terms') {
+      sections.push(
+        { title: `8. ${ch.paymentAck}`, body: c.paymentAck },
+        { title: `9. ${ch.buyerRisk}`, body: c.buyerRisk },
+        { title: '10. Amendments and approved extras', body: c.amendmentsExtras },
+        { title: `11. ${ch.collectionEvidence}`, body: c.collectionEvidence },
+      );
+    } else if (code === 'customer_shipper_terms') {
+      sections.push(
+        { title: `8. ${ch.paymentAck}`, body: c.paymentAck },
+        { title: `9. ${ch.buyerRisk}`, body: c.buyerRisk },
+      );
+    } else if (code === 'broker_terms') {
+      sections.push(
+        { title: `8. ${ch.brokerRole}`, body: c.brokerRole },
+        { title: `9. ${ch.paymentAck}`, body: c.paymentAck },
+        { title: `10. ${ch.buyerRisk}`, body: c.buyerRisk },
+      );
+    } else if (code === 'owner_driver_terms') {
+      sections.push(
+        { title: '8. Carrier compliance', body: c.carrierCompliance },
+        { title: `9. ${ch.collectionEvidence}`, body: c.collectionEvidence },
+        { title: '10. Amendments and approved extras', body: c.amendmentsExtras },
+      );
+    } else if (code === 'carrier_fleet_terms') {
+      sections.push(
+        { title: '8. Carrier compliance', body: c.carrierCompliance },
+        { title: `9. ${ch.subcontracting}`, body: c.subcontracting },
+        { title: `10. ${ch.collectionEvidence}`, body: c.collectionEvidence },
+        { title: `11. ${ch.amendmentsExtras}`, body: c.amendmentsExtras },
+        { title: `12. ${ch.buyerRisk}`, body: c.buyerRisk },
+      );
+    }
   }
   return {
     code, language, canonicalLanguage:'en', version,

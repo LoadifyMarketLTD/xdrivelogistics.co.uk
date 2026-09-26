@@ -7,6 +7,7 @@ import {
   getRegistrationLegalConfig,
   type RegistrationLegalRole,
 } from '../../lib/legal/registrationAgreements';
+import { getAgreementAcceptanceLead, getTransportControlHeading, getTransportControlNotice } from '../../lib/legal/registrationDeclarations';
 
 export type RegistrationAgreementGateValue = {
   agreementsAccepted: boolean;
@@ -35,7 +36,10 @@ export const isRegistrationAgreementGateComplete = (value: RegistrationAgreement
   value.signerFullName.trim().length >= 2;
 
 export default function RegistrationAgreementGate({ role, value, onChange, language, onLanguageChange, disabled = false }: Props) {
-  const config = getRegistrationLegalConfig(role);
+  const config = getRegistrationLegalConfig(role, language);
+  const transportControlNotice = getTransportControlNotice(language);
+  const transportControlHeading = getTransportControlHeading(language);
+  const agreementAcceptanceLead = getAgreementAcceptanceLead(language);
 
   const set = <K extends keyof RegistrationAgreementGateValue>(key: K, nextValue: RegistrationAgreementGateValue[K]) => {
     onChange({ ...value, [key]: nextValue });
@@ -70,6 +74,11 @@ export default function RegistrationAgreementGate({ role, value, onChange, langu
             {LEGAL_LANGUAGES.map((item) => <option key={item} value={item}>{LEGAL_LANGUAGE_LABELS[item]}</option>)}
           </select>
         </label>
+        <div className="rounded-xl border border-[#F5D48A] bg-[#FFF8E8] px-3 py-3 text-[11px] font-semibold leading-5 text-[#5A4A24]">
+          <span className="mb-1 block font-black text-[#173B73]">{transportControlHeading}</span>
+          {transportControlNotice}
+        </div>
+
         <label className="flex items-start gap-3 rounded-xl border border-[#DDE5EF] bg-white p-3 text-xs font-semibold leading-5 text-[#526983]">
           <input
             type="checkbox"
@@ -79,7 +88,7 @@ export default function RegistrationAgreementGate({ role, value, onChange, langu
             className={CHECKBOX_CLASS}
           />
           <span>
-            I have read and agree to the agreements that apply to this account: {' '}
+            {agreementAcceptanceLead} {' '}
             {config.agreements.map((agreement, index) => (
               <span key={agreement.code}>
                 {index > 0 ? (index === config.agreements.length - 1 ? ' and ' : ', ') : null}

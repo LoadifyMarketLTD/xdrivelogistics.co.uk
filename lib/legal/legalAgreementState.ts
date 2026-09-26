@@ -14,6 +14,7 @@ import {
   type RegistrationAgreementCode,
   type RegistrationLegalRole,
 } from './registrationAgreements';
+import { getLocalizedAcceptanceStatement } from './registrationDeclarations';
 
 export type LegalAgreementSnapshot = {
   code: string;
@@ -27,6 +28,8 @@ export type LegalAcceptanceSnapshot = {
   registrationRole: string;
   legalVersion: string;
   agreements: LegalAgreementSnapshot[];
+  acceptanceLanguage?: LegalLanguage;
+  privacyDocumentHash?: string | null;
 };
 
 export type CurrentLegalRequirement = {
@@ -97,12 +100,12 @@ export const buildCurrentLegalRequirement = (
   languageInput: unknown = 'en',
 ): CurrentLegalRequirement => {
   const acceptanceLanguage = normalizeLegalLanguage(languageInput);
-  const config = getRegistrationLegalConfig(registrationRole);
+  const config = getRegistrationLegalConfig(registrationRole, acceptanceLanguage);
   const agreements = config.agreements.map((agreement) => ({ ...agreement, ...buildDocumentSnapshot(agreement.code, agreement.version, acceptanceLanguage) }));
   const privacyDocument = buildControlledLegalDocument('privacy_policy', acceptanceLanguage);
   if (privacyDocument.version !== PRIVACY_VERSION || privacyDocument.version !== CONTROLLED_PRIVACY_VERSION) throw new Error('Controlled privacy document version mismatch.');
   const privacyDocumentHash = sha256(privacyDocument);
-  const acceptanceStatement = `I agree to the XDrive agreements listed for my ${registrationRole} registration role in the selected language (${acceptanceLanguage}).`;
+  const acceptanceStatement = getLocalizedAcceptanceStatement(registrationRole, acceptanceLanguage);
   const requirementFingerprint = computeLegalRequirementFingerprint({ registrationRole, legalVersion: LEGAL_VERSION, acceptanceLanguage, agreements, privacyDocumentHash });
   return {
     registrationRole,
@@ -127,10 +130,19 @@ export const evaluateLegalAcceptance = (
   const reasons: string[] = [];
   if (acceptance.registrationRole !== requirement.registrationRole) reasons.push('registration_role_changed');
   if (acceptance.legalVersion !== requirement.legalVersion) reasons.push('legal_version_changed');
-  const acceptedVersions = new Map(acceptance.agreements.map((agreement) => [agreement.code, agreement.version]));
+  if (acceptance.acceptanceLanguage !== requirement.acceptanceLanguage) reasons.push('acceptance_language_changed');
+  if (acceptance.privacyDocumentHash !== requirement.privacyDocumentHash) reasons.push('privacy_document_changed');
+  const acceptedAgreements = new Map(acceptance.agreements.map((agreement) => [agreement.code, agreement]));
   for (const agreement of requirement.agreements) {
     if (!agreement.materialChangeRequiresReacceptance) continue;
-    if (acceptedVersions.get(agreement.code) !== agreement.version) reasons.push(`material_agreement_changed:${agreement.code}`);
+    const accepted = acceptedAgreements.get(agreement.code);
+    if (!accepted || accepted.version !== agreement.version) {
+      reasons.push(`material_agreement_changed:${agreement.code}`);
+      continue;
+    }
+    if (accepted.language !== agreement.language) reasons.push(`agreement_language_changed:${agreement.code}`);
+    if (accepted.translationVersion !== agreement.translationVersion) reasons.push(`agreement_translation_changed:${agreement.code}`);
+    if (accepted.documentHash !== agreement.documentHash) reasons.push(`agreement_document_changed:${agreement.code}`);
   }
   return { requiresReacceptance: reasons.length > 0, reasons };
 };
