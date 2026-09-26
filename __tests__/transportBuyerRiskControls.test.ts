@@ -7,7 +7,7 @@ const helper = readFileSync(join(process.cwd(),'app/api/_lib/transportBuyerRisk.
 const createApi = readFileSync(join(process.cwd(),'app/api/jobs/create/route.ts'),'utf8');
 const customerAward = readFileSync(join(process.cwd(),'app/api/customer/bids/[id]/award/route.ts'),'utf8');
 const adminAward = readFileSync(join(process.cwd(),'app/api/admin/bids/[id]/accept/route.ts'),'utf8');
-const ownerApi = readFileSync(join(process.cwd(),'app/api/super-admin/companies/[companyId]/buyer-risk/route.ts'),'utf8');
+const ownerApi = readFileSync(join(process.cwd(),'app/api/super-admin/companies/[id]/buyer-risk/route.ts'),'utf8');
 const ownerPage = readFileSync(join(process.cwd(),'app/super-admin/companies/buyer-risk/page.tsx'),'utf8');
 const ownerNav = readFileSync(join(process.cwd(),'app/super-admin/_components/SuperAdminWorkspaceShell.tsx'),'utf8');
 
@@ -24,6 +24,10 @@ describe('transport buyer exposure controls', () => {
     expect(migration).toContain('max_outstanding_exposure_gbp numeric(12,2) NOT NULL DEFAULT 2500');
     expect(migration).toContain('v_max_active integer := 3');
     expect(migration).toContain('v_max_exposure numeric(12,2) := 2500');
+  });
+
+  it('keeps an explicit restricted mode effective even for established buyers', () => {
+    expect(migration).toContain("WHEN v_control.risk_mode = 'restricted' THEN 'restricted'");
   });
 
   it('defines a new buyer from actual paid invoice history', () => {
@@ -71,6 +75,14 @@ describe('transport buyer exposure controls', () => {
     expect(adminAward).toContain('getTransportBuyerRiskSnapshot(supabaseAdmin, jobCompanyId, projectedAmount)');
     expect(customerAward).toContain("rpcError.hint ?? '') === 'TRANSPORT_BUYER_RISK_LIMIT'");
     expect(adminAward).toContain("rpcError.hint ?? '') === 'TRANSPORT_BUYER_RISK_LIMIT'");
+  });
+
+  it('persists blocked API prechecks outside the failing database transaction', () => {
+    expect(helper).toContain('logTransportBuyerRiskBlockedEvent');
+    expect(helper).toContain("source: 'api_precheck'");
+    expect(createApi).toContain("'publish_blocked'");
+    expect(customerAward).toContain("'award_blocked'");
+    expect(adminAward).toContain("'award_blocked'");
   });
 
   it('returns a structured risk payload with current and projected exposure', () => {

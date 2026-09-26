@@ -202,7 +202,7 @@ BEGIN
     'reason', btrim(NEW.reason),
     'change_summary', COALESCE(NEW.change_summary, '{}'::jsonb)
   );
-  NEW.effective_snapshot_hash := encode(digest(convert_to(v_payload::text, 'UTF8'), 'sha256'), 'hex');
+  NEW.effective_snapshot_hash := encode(extensions.digest(convert_to(v_payload::text, 'UTF8'), 'sha256'), 'hex');
   RETURN NEW;
 END;
 $$;

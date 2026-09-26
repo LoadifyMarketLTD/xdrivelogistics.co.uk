@@ -37,8 +37,8 @@ describe('role-specific legal documents',()=>{
   it('ships a route page for every role-specific document',()=>{
     for (const [code,file] of routes) {
       const source=readFileSync(join(process.cwd(),file),'utf8');
-      expect(source).toContain(`getRoleTradingTerms('${code}')`);
-      expect(source).toContain('RoleTradingTermsDocumentPage');
+      expect(source).toContain(`code="${code}"`);
+      expect(source).toContain('ControlledLegalDocumentPage');
     }
   });
 

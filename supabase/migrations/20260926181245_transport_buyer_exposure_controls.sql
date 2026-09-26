@@ -86,6 +86,7 @@ BEGIN
   v_effective_mode := CASE
     WHEN v_control.risk_mode = 'blocked' THEN 'blocked'
     WHEN v_control.risk_mode = 'cleared' THEN 'cleared'
+    WHEN v_control.risk_mode = 'restricted' THEN 'restricted'
     WHEN v_is_new_buyer THEN 'restricted'
     ELSE 'cleared'
   END;

@@ -7,7 +7,7 @@ import {
 } from '../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../_lib/platformFlags';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
-import { getTransportBuyerRiskSnapshot, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
+import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
 
 type Params = { params: Promise<{ id: string }> };
@@ -82,7 +82,10 @@ export async function POST(request: NextRequest, { params }: Params) {
   try {
     const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, job.company_id as string, projectedAmount);
     if (!risk.infrastructureAvailable || !risk.snapshot) return json(503, { error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
-    if (!risk.snapshot.allowed) return json(409, transportBuyerRiskBlockedPayload(risk.snapshot));
+    if (!risk.snapshot.allowed) {
+      await logTransportBuyerRiskBlockedEvent(supabaseAdmin, risk.snapshot, 'award_blocked', user.id, { operation: 'customer_award', bid_id: bidId, job_id: bid.job_id });
+      return json(409, transportBuyerRiskBlockedPayload(risk.snapshot));
+    }
   } catch {
     return json(503, { error: 'Transport buyer exposure could not be verified. Please try again.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
   }

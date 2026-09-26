@@ -1,4 +1,4 @@
-﻿BEGIN;
+BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -157,7 +157,7 @@ BEGIN
       'currency', NEW.currency, 'payment_terms', NEW.payment_terms, 'payment_due_days', NEW.payment_due_days,
       'pod_required', NEW.pod_required, 'accepted_at', NEW.accepted_at)
   );
-  NEW.contract_snapshot_hash := encode(digest(convert_to(v_hash_payload::text, 'UTF8'), 'sha256'), 'hex');
+  NEW.contract_snapshot_hash := encode(extensions.digest(convert_to(v_hash_payload::text, 'UTF8'), 'sha256'), 'hex');
 
   RETURN NEW;
 END;

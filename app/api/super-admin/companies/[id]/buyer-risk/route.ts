@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { supabaseAdmin, isSupabaseAdminConfigured } from '../../../../_lib/supabaseAdmin';
@@ -15,7 +15,7 @@ const reviewSchema = z.object({
   reason: z.string().trim().min(5).max(2000),
 });
 
-type Params = { params: Promise<{ companyId: string }> };
+type Params = { params: Promise<{ id: string }> };
 
 async function companyExists(companyId: string) {
   const { data, error } = await supabaseAdmin!.from('companies').select('id,name,status,created_at').eq('id', companyId).maybeSingle();
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest, { params }: Params) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
-  const { companyId } = await params;
+  const { id: companyId } = await params;
   const companyResult = await companyExists(companyId);
   if (companyResult.error) return respond(500, { error: companyResult.error.message });
   if (!companyResult.company) return respond(404, { error: 'Company not found.' });
@@ -50,7 +50,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
-  const { companyId } = await params;
+  const { id: companyId } = await params;
   const companyResult = await companyExists(companyId);
   if (companyResult.error) return respond(500, { error: companyResult.error.message });
   if (!companyResult.company) return respond(404, { error: 'Company not found.' });

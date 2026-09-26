@@ -40,6 +40,26 @@ export async function getTransportBuyerRiskSnapshot(
   return { snapshot: raw as TransportBuyerRiskSnapshot, infrastructureAvailable: true, error: null };
 }
 
+export async function logTransportBuyerRiskBlockedEvent(
+  admin: SupabaseClient,
+  snapshot: TransportBuyerRiskSnapshot,
+  eventType: 'publish_blocked' | 'award_blocked',
+  actorUserId: string | null,
+  metadata: Record<string, unknown> = {},
+): Promise<void> {
+  const { error } = await admin.from('transport_buyer_risk_events').insert({
+    company_id: snapshot.company_id,
+    actor_user_id: actorUserId,
+    event_type: eventType,
+    active_commitments: snapshot.active_commitments,
+    outstanding_exposure_gbp: snapshot.outstanding_exposure_gbp,
+    projected_exposure_gbp: snapshot.projected_exposure_gbp,
+    reason: snapshot.reason,
+    metadata: { ...snapshot, ...metadata, source: 'api_precheck' },
+  });
+  if (error) throw error;
+}
+
 export const transportBuyerRiskBlockedPayload = (snapshot: TransportBuyerRiskSnapshot) => ({
   error: snapshot.reason ?? 'Transport buyer risk limit prevents new transport commitments.',
   code: 'TRANSPORT_BUYER_RISK_LIMIT',

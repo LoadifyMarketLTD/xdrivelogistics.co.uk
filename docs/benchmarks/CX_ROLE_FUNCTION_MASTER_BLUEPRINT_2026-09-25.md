@@ -917,3 +917,38 @@ Everything else is subject to functional audit.
 15. Full multi-role E2E regression
 
 Each item remains OPEN until it passes the Definition of DONE.
+
+## 17. Contract Protection Layer — implementation closeout 26 September 2026
+
+The Contract Protection Layer is now part of the canonical XDrive functional benchmark. It applies to Customer/Shipper, Broker, Carrier/Fleet acting as transport buyer, Carrier/Fleet acting as performing carrier, Owner Driver and subcontracting flows.
+
+### 17.1 Implemented and verified controls
+
+1. **Commercial Agreement Snapshot** — full buyer/supplier/job/commercial identity snapshot with SHA-256 integrity hash.
+2. **Award separated from Carrier Acceptance** — Award creates a pending booking offer only; agreement formation occurs only after explicit carrier acceptance.
+3. **Buyer Payment Obligation acknowledgement** — mandatory per Award and persisted with version/timestamp/actor.
+4. **Role-specific legal documents** — Customer/Shipper, Broker, Owner Driver and Carrier/Fleet controlled terms.
+5. **Controlled legal languages** — English, Romanian, French, Spanish and Polish.
+6. **Acceptance snapshot integrity** — language, translation version and exact document hash stored with acceptance evidence.
+7. **Electronic signing** — typed legal name + explicit declarations bound to evidence hash and exact documents.
+8. **My Agreements signed PDF** — private signed package with SHA-256, user-scoped short-lived download URL and integrity metadata.
+9. **Commercial amendments** — immutable versioned amendment chain; accepted amendments project through `job_commercial_agreements_effective`.
+10. **Execution extras** — submitted extras immutable; approved extras become accepted commercial amendments with their own snapshot/hash/version.
+11. **Multiple collection evidence** — canonical `pickup_photos[]`, 1–10 verified photos, verified handover required before Loaded; legacy single-photo pointer retained only for compatibility.
+12. **Unified Booking Detail** — Agreement / Route / Progress / Evidence / POD / Invoice / Payment / Dispute / Event Log.
+13. **Transport Buyer exposure controls** — new-buyer commitment/exposure limits enforced at publish and Award boundaries with Platform Owner audited override.
+14. **E2E evidence discipline** — real-schema rollback smoke covers Customer→Carrier, Broker→Carrier and Carrier→Subcontractor; amendments and disputes are included; multilingual PDF signing is executed for all five languages. Browser-authenticated evidence remains BLOCKED until protected credentials/session are available.
+
+### 17.2 Fresh validation status
+
+- **PASS:** Customer→Carrier DB contractual flow, real XDrive schema + rollback.
+- **PASS:** Broker→Carrier DB contractual flow, real XDrive schema + rollback.
+- **PASS:** Carrier→Subcontractor DB contractual flow, real XDrive schema + rollback.
+- **PASS:** amendment v2 integrity and effective projection.
+- **PASS:** dispute persistence in the same E2E transaction.
+- **PASS:** EN/RO/FR/ES/PL signed-PDF generation, document integrity and signature binding.
+- **BLOCKED:** authenticated browser E2E. Fresh Playwright master run reached the credential/mutation guards on Chromium + Mobile Safari and completed with **10 explicit skips, 0 failures** because no E2E passwords or approved production-mutation opt-in are present.
+
+Canonical evidence: `docs/e2e/CONTRACT_PROTECTION_E2E_EVIDENCE_2026-09-26.md`.
+
+**Rule:** DB/runtime PASS does not upgrade the browser gate. Browser-authenticated flows become PASS only after fresh authenticated execution with evidence.

@@ -1,4 +1,4 @@
-﻿BEGIN;
+BEGIN;
 
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
@@ -225,7 +225,7 @@ BEGIN
     'minutes', v_extra.minutes,
     'submitted_at', v_extra.created_at
   );
-  v_snapshot_hash := encode(digest(convert_to(v_snapshot::text, 'UTF8'), 'sha256'), 'hex');
+  v_snapshot_hash := encode(extensions.digest(convert_to(v_snapshot::text, 'UTF8'), 'sha256'), 'hex');
   v_next_amount := round(v_agreement.agreed_amount + v_extra.amount_gbp, 2);
 
   INSERT INTO public.job_commercial_agreement_amendments (

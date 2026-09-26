@@ -7,7 +7,7 @@ import {
 } from '../../../../_lib/supabaseAdmin';
 import { hasBidDecisionRole } from '../../_lib/ownerRoles';
 import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
-import { getTransportBuyerRiskSnapshot, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
+import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -87,7 +87,10 @@ export async function POST(request: NextRequest, { params }: Params) {
   try {
     const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, jobCompanyId, projectedAmount);
     if (!risk.infrastructureAvailable || !risk.snapshot) return NextResponse.json({ error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' }, { status: 503 });
-    if (!risk.snapshot.allowed) return NextResponse.json(transportBuyerRiskBlockedPayload(risk.snapshot), { status: 409 });
+    if (!risk.snapshot.allowed) {
+      await logTransportBuyerRiskBlockedEvent(supabaseAdmin, risk.snapshot, 'award_blocked', user.id, { operation: 'admin_award', bid_id: bidId });
+      return NextResponse.json(transportBuyerRiskBlockedPayload(risk.snapshot), { status: 409 });
+    }
   } catch {
     return NextResponse.json({ error: 'Transport buyer exposure could not be verified. Please try again.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' }, { status: 503 });
   }
