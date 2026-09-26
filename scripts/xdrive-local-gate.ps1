@@ -1,5 +1,5 @@
 param(
-  [string]$RepoUrl = 'https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk.git',
+  [string]$RepoUrl = 'https://github.com/XDriveLogisticsLtd/xdrivelogistics.co.uk.git',
   [string]$Root = "$env:USERPROFILE\Desktop\XDrive-Local",
   [string]$Ref = 'main',
   [switch]$SkipInstall,

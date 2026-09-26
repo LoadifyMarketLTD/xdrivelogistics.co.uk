@@ -13,7 +13,7 @@ Incorporated: 1 February 2021
 
 ## Repository namespace
 
-The GitHub namespace **LoadifyMarketLTD** is a technical account / repository namespace used to host and administer source-code repositories.
+The GitHub namespace **XDriveLogisticsLtd** is a technical account / repository namespace used to host and administer source-code repositories.
 
 It is **not** a separate legal company and must not be interpreted as the legal owner, operator or contracting entity for the XDrive Logistics or Loadify Market platforms.
 
@@ -23,8 +23,8 @@ For repository, funding, accounting, valuation and IP-evidence purposes, the can
 
 The principal repositories are:
 
-- XDrive Logistics platform: `LoadifyMarketLTD/xdrivelogistics.co.uk`
-- Loadify Market platform: `LoadifyMarketLTD/loadifymarket.co.uk`
+- XDrive Logistics platform: `XDriveLogisticsLtd/xdrivelogistics.co.uk`
+- Loadify Market platform: `XDriveLogisticsLtd/loadifymarket.co.uk`
 
 The repository paths above describe the current GitHub hosting location only. They do not change the legal entity identified above.
 
@@ -46,6 +46,6 @@ No repository namespace should be used as a substitute for this legal-entity rec
 
 ## Canonical interpretation
 
-When documentation uses the GitHub path `LoadifyMarketLTD/...`, interpret **LoadifyMarketLTD** as the technical GitHub namespace only.
+When documentation uses the GitHub path `XDriveLogisticsLtd/...`, interpret **XDriveLogisticsLtd** as the technical GitHub namespace only.
 
 The canonical UK legal entity remains **XDrive Logistics Ltd (Company No. 13171804)**.

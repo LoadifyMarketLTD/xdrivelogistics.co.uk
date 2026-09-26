@@ -7,7 +7,7 @@
 
 ### XDrive Logistics Platform
 
-Repository: `LoadifyMarketLTD/xdrivelogistics.co.uk`  
+Repository: `XDriveLogisticsLtd/xdrivelogistics.co.uk`  
 Canonical legal entity: XDrive Logistics Ltd  
 Primary language: TypeScript  
 Snapshot SHA: `c247ac48586548fb5e3187ebd2f19d0110098cc6`
@@ -66,10 +66,10 @@ Snapshot SHA: `c247ac48586548fb5e3187ebd2f19d0110098cc6`
 
 ## Supporting repositories
 
-### `LoadifyMarketLTD/xdrivelogistics`
+### `XDriveLogisticsLtd/xdrivelogistics`
 Approx. 109 files. Supporting / legacy XDrive material. Requires overlap analysis before separate valuation.
 
-### `LoadifyMarketLTD/app.xdrivelogistics.co.uk`
+### `XDriveLogisticsLtd/app.xdrivelogistics.co.uk`
 Private repository. Approx. 149 files. Separate application surface with mobile-oriented React components. Requires overlap analysis before separate valuation.
 
 ## Current limitations / valuation flags
