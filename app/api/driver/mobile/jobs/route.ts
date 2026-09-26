@@ -129,6 +129,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const scope = searchParams.get('scope') || 'active';
+  const compact = searchParams.get('compact') === '1';
   const limit = Math.min(Math.max(Number(searchParams.get('limit') ?? 100) || 100, 1), 250);
   const statusList = driverJobStatusesForScope(scope);
   const completedHistory = scope === 'completed';
@@ -174,18 +175,22 @@ export async function GET(request: NextRequest) {
 
   let podPresentationPartial = false;
   let pods = new Map<string, Record<string, unknown> | null>();
-  try {
-    pods = await buildSignedPodPresentations(rows, driver.companyId);
-  } catch {
-    podPresentationPartial = true;
+  if (!compact) {
+    try {
+      pods = await buildSignedPodPresentations(rows, driver.companyId);
+    } catch {
+      podPresentationPartial = true;
+    }
   }
 
   let attachmentPresentationPartial = false;
   let attachments = new Map<string, Array<Record<string, unknown>>>();
-  try {
-    attachments = await buildSignedJobAttachments(rows);
-  } catch {
-    attachmentPresentationPartial = true;
+  if (!compact) {
+    try {
+      attachments = await buildSignedJobAttachments(rows);
+    } catch {
+      attachmentPresentationPartial = true;
+    }
   }
 
   return respond(200, {
