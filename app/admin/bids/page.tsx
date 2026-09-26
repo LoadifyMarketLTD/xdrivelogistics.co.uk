@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
 
 //  Types
 
@@ -140,8 +141,9 @@ export default function BidsPage() {
     let identityByBidId = new Map<string, CarrierIdentity>();
     if (token) {
       const identityResponse = await fetch('/api/admin/bids/identities', {
-        headers: { Authorization: 'Bearer ' + token },
-      });
+        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: bookingPaymentObligationRequestBody,
+    });
       if (identityResponse.ok) {
         const identityJson = await identityResponse.json() as { identities?: CarrierIdentity[] };
         identityByBidId = new Map((identityJson.identities ?? []).map((identity) => [identity.bidId, identity]));
@@ -189,6 +191,7 @@ export default function BidsPage() {
   //  Accept bid
 
   const acceptBid = async (bidId: string) => {
+    if (!confirmBookingPaymentObligation()) return;
     setActionError('');
     setActionLoading(bidId);
     const token = await getAccessToken();
@@ -199,7 +202,8 @@ export default function BidsPage() {
     }
     const res = await fetch(`/api/admin/bids/${bidId}/accept`, {
       method: 'POST',
-      headers: { Authorization: 'Bearer ' + token },
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: bookingPaymentObligationRequestBody,
     });
     const json = await res.json() as { error?: string };
     if (!res.ok) {

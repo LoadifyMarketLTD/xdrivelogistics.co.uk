@@ -6,6 +6,7 @@ import {
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
 import { hasBidDecisionRole } from '../../_lib/ownerRoles';
+import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -31,6 +32,11 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   // ── 2. Resolve bid id ───────────────────────────────────────────────────────
+  const body = await request.json().catch(() => ({})) as { paymentObligationAcknowledged?: boolean };
+  if (body.paymentObligationAcknowledged !== true) {
+    return NextResponse.json({ error: 'You must explicitly acknowledge the transport buyer payment obligation before awarding this quote.', code: 'PAYMENT_OBLIGATION_ACK_REQUIRED' }, { status: 409 });
+  }
+
   const { id: bidId } = await params;
   if (!bidId) {
     return NextResponse.json({ error: 'Bad request — missing bid id.' }, { status: 400 });
@@ -82,6 +88,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     {
       p_bid_id: bidId,
       p_actor_user_id: user.id,
+      p_payment_obligation_acknowledged: true,
+      p_payment_obligation_terms_version: BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION,
     }
   );
 

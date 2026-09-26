@@ -1,8 +1,9 @@
-﻿'use client';
+'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
+import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
 import { useCompanyWorkspaceData, type WorkspaceBid } from '../../components/workspace/useCompanyWorkspaceData';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import {
@@ -125,11 +126,13 @@ export default function BrokerQuotesPage() {
   }), [data.bids]);
 
   const award = async (bidId: string) => {
+    if (!confirmBookingPaymentObligation()) return;
     setWorking(bidId); setMessage('');
     const { data: session } = await supabase.auth.getSession();
     const response = await fetch(`/api/customer/bids/${bidId}/award`, {
       method: 'POST',
-      headers: session.session?.access_token ? { Authorization: `Bearer ${session.session.access_token}` } : {},
+      headers: session.session?.access_token ? { Authorization: `Bearer ${session.session.access_token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' },
+      body: bookingPaymentObligationRequestBody,
     });
     const payload = await response.json().catch(() => ({})) as { error?: string };
     setWorking(null);

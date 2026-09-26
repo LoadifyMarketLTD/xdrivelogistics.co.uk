@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -7,6 +7,7 @@ import {
 } from '../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../_lib/platformFlags';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
+import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -31,6 +32,11 @@ export async function POST(request: NextRequest, { params }: Params) {
   const bidAcceptanceEnabled = await getFeatureFlag(supabaseAdmin, 'bid_acceptance_workflow');
   if (!bidAcceptanceEnabled) {
     return json(503, { error: 'Bid acceptance workflow is currently disabled.' });
+  }
+
+  const body = await request.json().catch(() => ({})) as { paymentObligationAcknowledged?: boolean };
+  if (body.paymentObligationAcknowledged !== true) {
+    return json(409, { error: 'You must explicitly acknowledge the transport buyer payment obligation before awarding this quote.', code: 'PAYMENT_OBLIGATION_ACK_REQUIRED' });
   }
 
   const { id: bidId } = await params;
@@ -100,6 +106,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     {
       p_bid_id: bidId,
       p_actor_user_id: user.id,
+      p_payment_obligation_acknowledged: true,
+      p_payment_obligation_terms_version: BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION,
     }
   );
 

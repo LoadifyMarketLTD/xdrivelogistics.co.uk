@@ -1,9 +1,10 @@
-﻿'use client';
+'use client';
 
 import { use, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { workspaceJobPresentationStatus } from '../../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../../lib/supabaseClient';
+import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../../lib/legal/paymentObligationClient';
 import JobLiveTrackingPanel from '../../../components/tracking/JobLiveTrackingPanel';
 import { CompanyJobSheetPanel } from '../../../components/workspace/CompanyJobSheetPanel';
 import DriverInstructionPanel from '../../../components/workspace/DriverInstructionPanel';
@@ -76,6 +77,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
   }, [id]);
 
   const award = async (bidId: string) => {
+    if (!confirmBookingPaymentObligation()) return;
     setWorking(bidId);
     setMessage('');
     try {
@@ -84,7 +86,8 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const response = await fetch(`/api/customer/bids/${bidId}/award`, {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: bookingPaymentObligationRequestBody,
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'The quote could not be awarded.');
