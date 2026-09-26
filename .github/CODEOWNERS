@@ -5,58 +5,58 @@
 # ──────────────────────────────────────────────────────────────────────────────
 # Global fallback — Platform Owner approves anything not matched below
 # ──────────────────────────────────────────────────────────────────────────────
-*                                   @LoadifyMarketLTD
+*                                   @XDriveLogisticsLtd
 
 # ──────────────────────────────────────────────────────────────────────────────
 # WEB — Next.js website and server API routes
 # ──────────────────────────────────────────────────────────────────────────────
-/app/                               @LoadifyMarketLTD
-/lib/                               @LoadifyMarketLTD
-/middleware.ts                      @LoadifyMarketLTD
-/public/                            @LoadifyMarketLTD
-/e2e/                               @LoadifyMarketLTD
-/__tests__/                         @LoadifyMarketLTD
-/next.config.mjs                    @LoadifyMarketLTD
-/tailwind.config.js                 @LoadifyMarketLTD
-/postcss.config.js                  @LoadifyMarketLTD
-/components.json                    @LoadifyMarketLTD
+/app/                               @XDriveLogisticsLtd
+/lib/                               @XDriveLogisticsLtd
+/middleware.ts                      @XDriveLogisticsLtd
+/public/                            @XDriveLogisticsLtd
+/e2e/                               @XDriveLogisticsLtd
+/__tests__/                         @XDriveLogisticsLtd
+/next.config.mjs                    @XDriveLogisticsLtd
+/tailwind.config.js                 @XDriveLogisticsLtd
+/postcss.config.js                  @XDriveLogisticsLtd
+/components.json                    @XDriveLogisticsLtd
 
 # ──────────────────────────────────────────────────────────────────────────────
 # EXPO_DRIVER — Expo React Native driver app
 # ──────────────────────────────────────────────────────────────────────────────
-/apps/driver-mobile/                @LoadifyMarketLTD
+/apps/driver-mobile/                @XDriveLogisticsLtd
 
 # ──────────────────────────────────────────────────────────────────────────────
 # ANDROID_NATIVE_DRIVER — Kotlin Android driver app
 # ──────────────────────────────────────────────────────────────────────────────
-/android-native/                    @LoadifyMarketLTD
+/android-native/                    @XDriveLogisticsLtd
 
 # ──────────────────────────────────────────────────────────────────────────────
 # SUPABASE — Database migrations, RLS, edge functions, tests
 # ──────────────────────────────────────────────────────────────────────────────
-/supabase/                          @LoadifyMarketLTD
-/database/                          @LoadifyMarketLTD
+/supabase/                          @XDriveLogisticsLtd
+/database/                          @XDriveLogisticsLtd
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Shared root infrastructure — requires cross-product justification
 # ──────────────────────────────────────────────────────────────────────────────
-/package.json                       @LoadifyMarketLTD
-/package-lock.json                  @LoadifyMarketLTD
-/tsconfig.json                      @LoadifyMarketLTD
-/vitest.config.ts                   @LoadifyMarketLTD
-/playwright.config.ts               @LoadifyMarketLTD
-/eslint.config.js                   @LoadifyMarketLTD
-/.eslintrc.json                     @LoadifyMarketLTD
-/.nvmrc                             @LoadifyMarketLTD
+/package.json                       @XDriveLogisticsLtd
+/package-lock.json                  @XDriveLogisticsLtd
+/tsconfig.json                      @XDriveLogisticsLtd
+/vitest.config.ts                   @XDriveLogisticsLtd
+/playwright.config.ts               @XDriveLogisticsLtd
+/eslint.config.js                   @XDriveLogisticsLtd
+/.eslintrc.json                     @XDriveLogisticsLtd
+/.nvmrc                             @XDriveLogisticsLtd
 
 # ──────────────────────────────────────────────────────────────────────────────
 # GitHub Actions — all workflow changes require Platform Owner approval
 # ──────────────────────────────────────────────────────────────────────────────
-/.github/                           @LoadifyMarketLTD
+/.github/                           @XDriveLogisticsLtd
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Documentation and governance
 # ──────────────────────────────────────────────────────────────────────────────
-/docs/                              @LoadifyMarketLTD
-/SECURITY.md                        @LoadifyMarketLTD
-/README.md                          @LoadifyMarketLTD
+/docs/                              @XDriveLogisticsLtd
+/SECURITY.md                        @XDriveLogisticsLtd
+/README.md                          @XDriveLogisticsLtd
