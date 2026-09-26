@@ -24,7 +24,7 @@ This is an **evidence pack**, not an independent monetary valuation. No asset va
 
 The canonical UK legal entity associated with the XDrive Logistics and Loadify Market technology assets is **XDrive Logistics Ltd (Company No. 13171804)**.
 
-The GitHub namespace `LoadifyMarketLTD` is a technical hosting namespace only. It is not a separate legal company and must not be treated as the legal owner or operator of the platforms.
+The GitHub namespace `XDriveLogisticsLtd` is a technical hosting namespace only. It is not a separate legal company and must not be treated as the legal owner or operator of the platforms.
 
 Repository-level ownership records are maintained in:
 
@@ -40,7 +40,7 @@ Formal chain-of-title must additionally review any contractor, employee, design,
 
 Primary repository:
 
-`LoadifyMarketLTD/xdrivelogistics.co.uk`
+`XDriveLogisticsLtd/xdrivelogistics.co.uk`
 
 Current verified snapshot:
 
@@ -92,7 +92,7 @@ The canonical transport lifecycle is documented in:
 
 Primary repository:
 
-`LoadifyMarketLTD/loadifymarket.co.uk`
+`XDriveLogisticsLtd/loadifymarket.co.uk`
 
 Current verified snapshot:
 
@@ -153,14 +153,14 @@ Current architecture is documented in:
 
 The following additional repositories are currently accessible and form supporting technical evidence:
 
-### `LoadifyMarketLTD/xdrivelogistics`
+### `XDriveLogisticsLtd/xdrivelogistics`
 
 - visibility: public;
 - approximately 109 files;
 - legacy / supporting XDrive web application material;
 - should not be double-counted as a separate full product valuation without code-overlap analysis.
 
-### `LoadifyMarketLTD/app.xdrivelogistics.co.uk`
+### `XDriveLogisticsLtd/app.xdrivelogistics.co.uk`
 
 - visibility: private;
 - approximately 149 files;
@@ -298,7 +298,7 @@ Recommended governance action:
 
 ### GitHub namespace
 
-`LoadifyMarketLTD` remains the technical account name.
+`XDriveLogisticsLtd` remains the technical account name.
 
 Repository documentation now explicitly records that the legal entity is XDrive Logistics Ltd. A future administrative namespace transfer/rename may improve consistency, but it should be executed only with a full integration-impact plan.
 
