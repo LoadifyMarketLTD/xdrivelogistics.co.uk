@@ -7,6 +7,7 @@ import {
 } from '../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../_lib/platformFlags';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
+import { getTransportBuyerRiskSnapshot, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
 
 type Params = { params: Promise<{ id: string }> };
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const { data: bid, error: bidError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, job_id, status, company_id')
+    .select('id, job_id, status, company_id, bid_price_gbp, amount')
     .eq('id', bidId)
     .maybeSingle();
 
@@ -75,6 +76,15 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
   if (!membership) {
     return json(403, { error: 'Forbidden - an active owner, admin or dispatcher of the job-owning company is required to award bids.' });
+  }
+
+  const projectedAmount = Number(bid.bid_price_gbp ?? bid.amount ?? 0);
+  try {
+    const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, job.company_id as string, projectedAmount);
+    if (!risk.infrastructureAvailable || !risk.snapshot) return json(503, { error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
+    if (!risk.snapshot.allowed) return json(409, transportBuyerRiskBlockedPayload(risk.snapshot));
+  } catch {
+    return json(503, { error: 'Transport buyer exposure could not be verified. Please try again.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
   }
 
   let payerStripeReadiness;
@@ -112,6 +122,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   );
 
   if (rpcError) {
+    if (String(rpcError.hint ?? '') === 'TRANSPORT_BUYER_RISK_LIMIT') return json(409, { error: rpcError.message, code: 'TRANSPORT_BUYER_RISK_LIMIT' });
     const status = rpcError.code === '42501' ? 403 : rpcError.code === '23514' ? 409 : 500;
     return json(status, { error: `Failed to award bid: ${rpcError.message}` });
   }

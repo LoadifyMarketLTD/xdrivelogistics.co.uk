@@ -7,6 +7,7 @@ import {
 } from '../../../../_lib/supabaseAdmin';
 import { hasBidDecisionRole } from '../../_lib/ownerRoles';
 import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
+import { getTransportBuyerRiskSnapshot, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   // ── 3. Pre-check caller role on owning company ──────────────────────────────
   const { data: bidJob, error: bidJobError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, jobs!inner(company_id)')
+    .select('id, bid_price_gbp, amount, jobs!inner(company_id)')
     .eq('id', bidId)
     .maybeSingle();
 
@@ -82,6 +83,15 @@ export async function POST(request: NextRequest, { params }: Params) {
     );
   }
 
+  const projectedAmount = Number((bidJob as { bid_price_gbp?: number | string | null; amount?: number | string | null }).bid_price_gbp ?? (bidJob as { amount?: number | string | null }).amount ?? 0);
+  try {
+    const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, jobCompanyId, projectedAmount);
+    if (!risk.infrastructureAvailable || !risk.snapshot) return NextResponse.json({ error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' }, { status: 503 });
+    if (!risk.snapshot.allowed) return NextResponse.json(transportBuyerRiskBlockedPayload(risk.snapshot), { status: 409 });
+  } catch {
+    return NextResponse.json({ error: 'Transport buyer exposure could not be verified. Please try again.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' }, { status: 503 });
+  }
+
   // ── 4. Atomic accept via database function ───────────────────────────────────
   const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
     'award_job_bid_pending_atomic',
@@ -94,6 +104,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   );
 
   if (rpcError) {
+    if (String(rpcError.hint ?? '') === 'TRANSPORT_BUYER_RISK_LIMIT') return NextResponse.json({ error: rpcError.message, code: 'TRANSPORT_BUYER_RISK_LIMIT' }, { status: 409 });
     return NextResponse.json(
       { error: `Failed to accept bid: ${rpcError.message}` },
       { status: 500 }

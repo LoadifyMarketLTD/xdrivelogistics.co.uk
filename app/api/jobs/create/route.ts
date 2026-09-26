@@ -11,6 +11,7 @@ import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFla
 import { operationalError } from '../../_lib/operationalError';
 import { calculateJobRouteMetrics } from '../../_lib/jobRouteMetrics';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../_lib/stripeCommercialReadiness';
+import { getTransportBuyerRiskSnapshot, transportBuyerRiskBlockedPayload } from '../../_lib/transportBuyerRisk';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
@@ -150,6 +151,14 @@ export async function POST(request: NextRequest) {
   if (!membership) return respond(403, { error: 'You cannot post loads for this company workspace.' });
 
   if (input.publish) {
+    try {
+      const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, input.companyId, 0);
+      if (!risk.infrastructureAvailable || !risk.snapshot) return respond(503, { error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
+      if (!risk.snapshot.allowed) return respond(409, transportBuyerRiskBlockedPayload(risk.snapshot));
+    } catch (error) {
+      return operationalError({ status: 503, message: 'Transport buyer exposure could not be verified. Please try again.', context: `jobs.create.buyer-risk.company:${input.companyId}`, cause: error, retryable: true });
+    }
+
     let stripeReadiness;
     try {
       stripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, input.companyId);
