@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 import { classifyWorkspaceJobStage, workspaceJobPresentationStatus } from '../../lib/jobs/workspaceJobStage';
@@ -60,6 +60,11 @@ export default function CustomerDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
   const bidderIdentity = useBidderIdentities(data.bids);
+  const [search, setSearch] = useState('');
+  const [savedView, setSavedView] = useState<'all' | 'needs_attention' | 'awaiting_quotes' | 'awaiting_award' | 'active' | 'completed'>('all');
+  const [dateRange, setDateRange] = useState<'all' | 'today' | '7d' | '30d'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'awarded' | 'allocated' | 'in_progress' | 'completed' | 'cancelled'>('all');
+  const [vehicleFilter, setVehicleFilter] = useState('all');
 
   const metrics = useMemo(() => {
     const now = Date.now();
@@ -123,6 +128,61 @@ export default function CustomerDashboardHome() {
     };
   }, [data]);
 
+  const vehicleOptions = useMemo(() => Array.from(new Set(
+    data.jobs
+      .map((job) => String(job.vehicle_type ?? '').trim())
+      .filter(Boolean),
+  )).sort((a, b) => a.localeCompare(b)), [data.jobs]);
+
+  const filteredJobs = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const awaitingAwardIds = new Set(metrics.awaitingAward.map((job) => job.id));
+    const delayedIds = new Set(metrics.delayed.map((job) => job.id));
+    const documentAlertIds = new Set(metrics.documentAlertJobs.map((job) => job.id));
+
+    const inDateRange = (value: string | null | undefined) => {
+      if (dateRange === 'all') return true;
+      if (!value) return false;
+      const timestamp = new Date(value).getTime();
+      if (!Number.isFinite(timestamp)) return false;
+      if (dateRange === 'today') return timestamp >= startOfToday && timestamp < startOfToday + 86_400_000;
+      const days = dateRange === '7d' ? 7 : 30;
+      return timestamp >= startOfToday - (days - 1) * 86_400_000;
+    };
+
+    return data.jobs
+      .filter((job) => {
+        if (!needle) return true;
+        const haystack = [
+          job.id,
+          `XDL-${job.id.slice(0, 8)}`,
+          job.booking_reference,
+          job.customer_reference,
+          job.pickup_postcode,
+          job.pickup_location,
+          job.delivery_postcode,
+          job.delivery_location,
+          job.vehicle_type,
+        ].filter(Boolean).join(' ').toLowerCase();
+        return haystack.includes(needle);
+      })
+      .filter((job) => vehicleFilter === 'all' || String(job.vehicle_type ?? '') === vehicleFilter)
+      .filter((job) => statusFilter === 'all' || classifyWorkspaceJobStage(job) === statusFilter)
+      .filter((job) => inDateRange(job.pickup_datetime))
+      .filter((job) => {
+        const stage = classifyWorkspaceJobStage(job);
+        if (savedView === 'all') return true;
+        if (savedView === 'needs_attention') return awaitingAwardIds.has(job.id) || delayedIds.has(job.id) || documentAlertIds.has(job.id);
+        if (savedView === 'awaiting_quotes') return stage === 'open' && !data.bids.some((bid) => bid.job_id === job.id && bid.status === 'submitted');
+        if (savedView === 'awaiting_award') return awaitingAwardIds.has(job.id);
+        if (savedView === 'active') return stage === 'in_progress';
+        return stage === 'completed';
+      })
+      .sort((a, b) => String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')));
+  }, [data.bids, data.jobs, dateRange, metrics.awaitingAward, metrics.delayed, metrics.documentAlertJobs, savedView, search, statusFilter, vehicleFilter]);
+
   const jobById = useMemo(() => new Map(data.jobs.map((job) => [job.id, job])), [data.jobs]);
 
   const bestQuoteForJob = (jobId: string) => {
@@ -136,7 +196,6 @@ export default function CustomerDashboardHome() {
   const submittedQuotesForJob = (jobId: string) =>
     data.bids.filter((bid) => bid.job_id === jobId && bid.status === 'submitted').length;
 
-  const actionLoads = metrics.awaitingAward.length ? metrics.awaitingAward : metrics.openLoads.slice(0, 8);
   const invoiceDataset = data.datasets.invoices;
   const invoiceDataState = invoiceDataset.availability !== 'available'
     ? 'Unavailable'
@@ -175,6 +234,18 @@ export default function CustomerDashboardHome() {
 
         <div className="customer-exchange-dashboard">
           <aside className="customer-exchange-left">
+            <section className="customer-dash-box customer-filter-box">
+              <div className="customer-dash-box__head"><strong>Search & filters</strong><span>{filteredJobs.length} result{filteredJobs.length === 1 ? '' : 's'}</span></div>
+              <div className="customer-dash-box__body customer-filter-stack">
+                <label className="customer-filter-field"><span>SEARCH</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="XDrive ID, ref, postcode, vehicle" /></label>
+                <label className="customer-filter-field"><span>SAVED VIEW</span><select value={savedView} onChange={(event) => setSavedView(event.target.value as typeof savedView)}><option value="all">All transport</option><option value="needs_attention">Needs attention</option><option value="awaiting_quotes">Awaiting quotes</option><option value="awaiting_award">Awaiting award</option><option value="active">Active deliveries</option><option value="completed">Completed</option></select></label>
+                <label className="customer-filter-field"><span>DATE RANGE</span><select value={dateRange} onChange={(event) => setDateRange(event.target.value as typeof dateRange)}><option value="all">All dates</option><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select></label>
+                <label className="customer-filter-field"><span>STATUS</span><select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All statuses</option><option value="open">Open</option><option value="awarded">Awarded</option><option value="allocated">Allocated</option><option value="in_progress">In progress</option><option value="completed">Completed</option><option value="cancelled">Cancelled</option></select></label>
+                <label className="customer-filter-field"><span>VEHICLE</span><select value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="all">All vehicles</option>{vehicleOptions.map((vehicle) => <option key={vehicle} value={vehicle}>{vehicle.replaceAll('_', ' ')}</option>)}</select></label>
+                <ActionButton tone="secondary" onClick={() => { setSearch(''); setSavedView('all'); setDateRange('all'); setStatusFilter('all'); setVehicleFilter('all'); }}>Clear filters</ActionButton>
+              </div>
+            </section>
+
             <section className="customer-dash-box">
               <div className="customer-dash-box__head"><strong>Action Centre</strong><ActionButton tone="secondary" onClick={() => router.push('/customer/action-centre')}>View all</ActionButton></div>
               <div className="customer-dash-box__body"><div className="customer-attention-list">
@@ -195,8 +266,8 @@ export default function CustomerDashboardHome() {
 
           <main className="customer-exchange-main">
             <section className="customer-dash-box">
-              <div className="customer-dash-box__head"><strong>{metrics.awaitingAward.length ? 'Loads requiring a decision' : 'Open transport requests'}</strong><ActionButton tone="secondary" onClick={() => router.push(metrics.awaitingAward.length ? '/customer/quotes' : '/customer/loads')}>View all</ActionButton></div>
-              {actionLoads.length === 0 ? <div className="customer-empty"><EmptyState compact title="No open decisions" description="Post a load to request transport or review your existing bookings." /></div> : <div className="customer-dash-table-wrap"><table className="customer-dash-table"><thead><tr><th style={{ width: '34%' }}>Route</th><th style={{ width: '18%' }}>Pickup</th><th style={{ width: '10%' }}>Quotes</th><th style={{ width: '13%' }}>Best price</th><th style={{ width: '12%' }}>Status</th><th style={{ width: '13%' }}>Action</th></tr></thead><tbody>{actionLoads.slice(0, 8).map((job) => { const route = routeLabel(job); const bestQuote = bestQuoteForJob(job.id); const submittedCount = submittedQuotesForJob(job.id); return <tr key={job.id}><td><div className="customer-dash-table__route"><strong>{route.from} → {route.to}</strong><span>{loadReference(job)}</span></div></td><td>{when(job.pickup_datetime)}</td><td><strong>{submittedCount}</strong></td><td>{bestQuote ? <strong>{money(bestQuote)}</strong> : '—'}</td><td><StatusBadge value={workspaceJobPresentationStatus(job)} /></td><td><div className="customer-dash-table__actions"><ActionButton tone={submittedCount ? 'success' : 'secondary'} onClick={() => router.push(submittedCount ? '/customer/quotes' : `/customer/jobs/${job.id}`)}>{submittedCount ? 'Compare' : 'Open'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/customer/messages?jobId=${encodeURIComponent(job.id)}`)}>Message</ActionButton></div></td></tr>; })}</tbody></table></div>}
+              <div className="customer-dash-box__head"><strong>Transport control</strong><span>{filteredJobs.length} matching job{filteredJobs.length === 1 ? '' : 's'}</span><ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>Full load register</ActionButton></div>
+              {filteredJobs.length === 0 ? <div className="customer-empty"><EmptyState compact title="No transport matches these filters" description="Clear or adjust the search filters, or post a new load." /></div> : <div className="customer-dash-table-wrap"><table className="customer-dash-table customer-control-table"><thead><tr><th style={{ width: '14%' }}>Reference</th><th style={{ width: '25%' }}>Route</th><th style={{ width: '16%' }}>Pickup</th><th style={{ width: '13%' }}>Vehicle</th><th style={{ width: '12%' }}>Quotes</th><th style={{ width: '10%' }}>Status</th><th style={{ width: '10%' }}>Action</th></tr></thead><tbody>{filteredJobs.slice(0, 12).map((job) => { const route = routeLabel(job); const bestQuote = bestQuoteForJob(job.id); const submittedCount = submittedQuotesForJob(job.id); const stage = classifyWorkspaceJobStage(job); const action = submittedCount > 0 && stage === 'open' ? { label: 'Compare', href: '/customer/quotes', tone: 'success' as const } : stage === 'in_progress' ? { label: 'Track', href: `/customer/jobs/${job.id}`, tone: 'secondary' as const } : stage === 'completed' && job.pod_generated ? { label: 'POD', href: `/customer/jobs/${job.id}`, tone: 'secondary' as const } : { label: 'Open', href: `/customer/jobs/${job.id}`, tone: 'secondary' as const }; return <tr key={job.id}><td><div className="customer-dash-table__route"><strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong><span>{job.customer_reference ?? job.booking_reference ?? 'No customer ref'}</span></div></td><td><div className="customer-dash-table__route"><strong>{route.from} → {route.to}</strong><span>{loadReference(job)}</span></div></td><td>{when(job.pickup_datetime)}</td><td>{String(job.vehicle_type ?? 'Not specified').replaceAll('_', ' ')}</td><td><div className="customer-dash-table__route"><strong>{submittedCount}</strong><span>{bestQuote ? `Best ${money(bestQuote)}` : 'No live price'}</span></div></td><td><StatusBadge value={workspaceJobPresentationStatus(job)} tone={metrics.delayed.includes(job) ? 'red' : undefined} /></td><td><div className="customer-dash-table__actions"><ActionButton tone={action.tone} onClick={() => router.push(action.href)}>{action.label}</ActionButton></div></td></tr>; })}</tbody></table></div>}
             </section>
 
             <section className="customer-dash-box">

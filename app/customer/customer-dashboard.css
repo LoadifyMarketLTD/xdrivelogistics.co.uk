@@ -323,6 +323,53 @@
   padding: 12px;
 }
 
+.customer-filter-stack {
+  display: grid;
+  gap: 8px;
+}
+
+.customer-filter-field {
+  display: grid;
+  gap: 4px;
+}
+
+.customer-filter-field > span {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.customer-filter-field input,
+.customer-filter-field select {
+  width: 100%;
+  min-width: 0;
+  height: 32px;
+  padding: 0 9px;
+  border: 1px solid #cfd8e6;
+  border-radius: 3px;
+  background: #fff;
+  color: #1a1f2b;
+  font: inherit;
+  font-size: 11px;
+}
+
+.customer-filter-field input:focus,
+.customer-filter-field select:focus {
+  outline: 2px solid #dbeafe;
+  outline-offset: 0;
+  border-color: #1d57d8;
+}
+
+.customer-control-table {
+  min-width: 900px;
+}
+
+.customer-control-table td {
+  height: 48px;
+}
+
 @media (max-width: 1280px) {
   .customer-dash-metrics {
     grid-template-columns: repeat(3, minmax(0, 1fr));
