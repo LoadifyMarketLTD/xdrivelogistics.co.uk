@@ -55,6 +55,36 @@ describe('resolveActiveCompanyContext', () => {
     ).toEqual({ ok: false, error: 'workspace_not_enabled' });
   });
 
+  it('lets a customer identity use the shipper workspace inside a standard company', () => {
+    const rows = [membership({ company_id: 'co-1', role_in_company: 'admin' })];
+    const result = resolveActiveCompanyContext(rows, {
+      identityRole: 'customer',
+      targetPathname: '/customer/loads',
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.context.enabledWorkspaces).toEqual(['shipper']);
+      expect(result.context.activeWorkspace).toBe('shipper');
+    }
+  });
+
+  it('lets a broker identity use the broker workspace inside a standard company without opening customer routes', () => {
+    const rows = [membership({ company_id: 'co-1', role_in_company: 'admin' })];
+    const brokerResult = resolveActiveCompanyContext(rows, {
+      identityRole: 'broker',
+      targetPathname: '/broker/loads',
+    });
+    expect(brokerResult.ok).toBe(true);
+    if (brokerResult.ok) {
+      expect(brokerResult.context.enabledWorkspaces).toEqual(['broker']);
+      expect(brokerResult.context.activeWorkspace).toBe('broker');
+    }
+    expect(resolveActiveCompanyContext(rows, {
+      identityRole: 'broker',
+      targetPathname: '/customer/loads',
+    })).toEqual({ ok: false, error: 'workspace_not_enabled' });
+  });
+
   it('fails closed for multiple active memberships even when preferredCompanyId is supplied', () => {
     const rows = [
       membership({
