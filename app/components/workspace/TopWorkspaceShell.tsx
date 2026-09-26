@@ -193,7 +193,10 @@ function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
 
 function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
   return [
-    { id: 'customer-home', label: 'Customer', items: [{ id: 'customer-dashboard', label: 'Customer Dashboard', href: '/customer', icon: '⌂' }] },
+    { id: 'customer-home', label: 'Customer', items: [
+      { id: 'customer-dashboard', label: 'Customer Dashboard', href: '/customer', icon: '⌂' },
+      { id: 'customer-action-centre', label: 'Action Centre', href: '/customer/action-centre', icon: '!' },
+    ] },
     { id: 'customer-loads', label: 'Loads', items: [
       { id: 'customer-post-load', label: 'Post Load', href: '/customer/post-load', icon: '+' },
       { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: '■' },

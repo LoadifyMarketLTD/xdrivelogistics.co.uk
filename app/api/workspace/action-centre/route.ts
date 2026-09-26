@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, supabaseValidator } from '../../_lib/supabaseAdmin';
+import { getBearerToken, supabaseAdmin, supabaseValidator } from '../../_lib/supabaseAdmin';
 import { resolveWorkspaceRole, type WorkspaceRole } from '../../../../lib/workspaceRole';
 import {
   getActionCentreRoute,
@@ -106,16 +106,49 @@ export async function GET(request: NextRequest) {
     global: { headers: { Authorization: 'Bearer ' + token } },
   });
 
-  const { data, error } = await client
+  const { data: userEvents, error: userEventsError } = await client
     .from('notification_events')
-    .select('id,event_type,entity_type,status,created_at')
+    .select('id,event_type,entity_type,entity_id,status,created_at')
     .eq('recipient_user_id', authData.user.id)
     .order('created_at', { ascending: false })
     .limit(limit);
 
-  if (error) return json(500, { error: 'Unable to load action centre.' });
+  if (userEventsError) return json(500, { error: 'Unable to load action centre.' });
 
-  const items = (data ?? [])
+  let companyEvents: Array<Record<string, unknown>> = [];
+  if (supabaseAdmin) {
+    const { data: memberships, error: membershipError } = await supabaseAdmin
+      .from('company_memberships')
+      .select('company_id')
+      .eq('user_id', authData.user.id)
+      .eq('status', 'active');
+
+    if (membershipError) return json(500, { error: 'Unable to verify action centre company scope.' });
+
+    const companyIds = [...new Set((memberships ?? [])
+      .map((row) => typeof row.company_id === 'string' ? row.company_id : null)
+      .filter((value): value is string => Boolean(value)))];
+
+    if (companyIds.length) {
+      const { data: scopedEvents, error: scopedEventsError } = await supabaseAdmin
+        .from('notification_events')
+        .select('id,event_type,entity_type,entity_id,status,created_at')
+        .in('company_id', companyIds)
+        .is('recipient_user_id', null)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (scopedEventsError) return json(500, { error: 'Unable to load company action centre events.' });
+      companyEvents = (scopedEvents ?? []) as Array<Record<string, unknown>>;
+    }
+  }
+
+  const combinedEvents = [...(userEvents ?? []), ...companyEvents]
+    .filter((row, index, all) => all.findIndex((candidate) => candidate.id === row.id) === index)
+    .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
+    .slice(0, limit);
+
+  const items = combinedEvents
     .filter((row) =>
       isActionCentreEventVisibleToRole(
         role,
@@ -124,7 +157,7 @@ export async function GET(request: NextRequest) {
       ),
     )
     .map((row, index) => {
-      const eventId = typeof row.id === 'string' ? row.id : null;
+      const eventId = typeof row.entity_id === 'string' ? row.entity_id : typeof row.id === 'string' ? row.id : null;
       const entityType = typeof row.entity_type === 'string' ? row.entity_type : null;
       const ctaHref = resolveRoleScopedHref(role, entityType, eventId);
       return {

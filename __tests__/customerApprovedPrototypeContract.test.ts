@@ -8,7 +8,7 @@ describe('Customer approved prototype contract', () => {
   const dashboard = read('app/customer/CustomerDashboardHome.tsx');
 
   it('uses the dedicated Customer prototype navigation', () => {
-    for (const label of ['Customer Dashboard','Post Load','My Loads','Quotes','Bookings','Deliveries','POD & Documents','Updates','Invoices','Team','Settings']) expect(shell).toContain(`label: '${label}'`);
+    for (const label of ['Customer Dashboard','Action Centre','Post Load','My Loads','Quotes','Bookings','Deliveries','POD & Documents','Updates','Invoices','Team','Settings']) expect(shell).toContain(`label: '${label}'`);
     expect(shell).toContain("if (role === 'customer') return composeCustomerPrototypeNav()");
   });
 
@@ -20,6 +20,12 @@ describe('Customer approved prototype contract', () => {
   });
 
   it('keeps real customer transport workflows connected', () => {
-    for (const href of ['/customer/post-load','/customer/loads','/customer/quotes','/customer/bookings','/customer/tracking','/customer/invoices']) expect(dashboard).toContain(href);
+    for (const href of ['/customer/post-load','/customer/action-centre','/customer/loads','/customer/quotes','/customer/bookings','/customer/tracking','/customer/invoices','/customer/disputes']) expect(dashboard).toContain(href);
+  });
+
+  it('keeps dashboard attention metrics operational rather than historical or premature', () => {
+    expect(dashboard).toContain('metricState(bidsDataset, metrics.submittedQuotes.length)');
+    expect(dashboard).toContain("stage === 'completed' && job.pod_required === true");
+    expect(dashboard).toContain('No delivery photos available');
   });
 });
