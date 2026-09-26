@@ -1,3 +1,5 @@
+import { ROLE_TRADING_TERMS, type RoleTradingTermsCode } from './roleTradingTerms';
+
 export type RegistrationLegalRole =
   | 'customer_shipper'
   | 'transport_broker'
@@ -60,18 +62,19 @@ const MARKETPLACE_TERMS: RegistrationAgreementDefinition = {
 };
 
 const roleTerm = (
-  code: RegistrationAgreementCode,
+  code: RoleTradingTermsCode,
   label: string,
-): RegistrationAgreementDefinition => ({
-  code,
-  label,
-  // Until dedicated role-term routes receive final legal review, role obligations
-  // resolve to the canonical Platform Terms rather than a non-existent document.
-  href: '/terms',
-  version: '2026-09-01',
-  required: true,
-  materialChangeRequiresReacceptance: true,
-});
+): RegistrationAgreementDefinition => {
+  const document = ROLE_TRADING_TERMS[code];
+  return {
+    code,
+    label,
+    href: document.href,
+    version: document.version,
+    required: true,
+    materialChangeRequiresReacceptance: true,
+  };
+};
 
 export const REGISTRATION_LEGAL_CONFIG: Record<RegistrationLegalRole, RegistrationRoleLegalConfig> = {
   customer_shipper: {
