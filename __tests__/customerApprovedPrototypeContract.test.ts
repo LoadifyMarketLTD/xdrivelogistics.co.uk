@@ -40,6 +40,15 @@ describe('Customer clean workspace contract', () => {
     expect(dashboard).toContain('Recent transport');
   });
 
+  it('mirrors the driver lifecycle in customer-facing language and actions', () => {
+    for (const label of ['Driver assigned','Driver accepted','Driver en route to collection','Driver at collection','Goods collected','In transit','Driver at delivery','Delivered']) {
+      expect(dashboard).toContain(label);
+    }
+    for (const action of ['Track','View booking','View POD']) expect(dashboard).toContain(action);
+    expect(dashboard).toContain("classifyWorkspaceJobStage(job)");
+    expect(dashboard).toContain('customerJobPriority');
+  });
+
   it('does not render the customer company name beside the workspace label', () => {
     expect(shell).toContain("role !== 'customer' ? <strong>{companyName}</strong> : null");
   });

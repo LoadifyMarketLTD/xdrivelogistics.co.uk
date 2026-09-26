@@ -42,6 +42,47 @@ const metricState = <T,>(dataset: WorkspaceDatasetState<T>, value: number) => {
   return value;
 };
 
+const customerLifecycleLabel = (job: Parameters<typeof workspaceJobPresentationStatus>[0]) => {
+  const status = workspaceJobPresentationStatus(job);
+  switch (status) {
+    case 'awarded': return 'Carrier awarded';
+    case 'allocated': return 'Driver assigned';
+    case 'accepted': return 'Driver accepted';
+    case 'on_my_way': return 'Driver en route to collection';
+    case 'on_site_pickup': return 'Driver at collection';
+    case 'loaded': return 'Goods collected';
+    case 'in_transit': return 'In transit';
+    case 'on_site_delivery': return 'Driver at delivery';
+    case 'delivered': return 'Delivered';
+    case 'completed': return 'Completed';
+    case 'invoiced': return 'Invoice available';
+    case 'paid': return 'Paid';
+    case 'posted': return 'Open for quotes';
+    case 'quoted': return 'Quotes received';
+    case 'draft': return 'Draft';
+    case 'cancelled': return 'Cancelled';
+    default: return status.replaceAll('_', ' ');
+  }
+};
+
+const customerJobAction = (job: Parameters<typeof workspaceJobPresentationStatus>[0]) => {
+  const stage = classifyWorkspaceJobStage(job);
+  if (stage === 'in_progress') return { label: 'Track', href: '/customer/tracking' };
+  if (stage === 'allocated' || stage === 'awarded') return { label: 'View booking', href: '/customer/bookings' };
+  if (stage === 'completed') return { label: 'View POD', href: '/customer/bookings' };
+  return { label: 'Open', href: '/customer/loads' };
+};
+
+const customerJobPriority = (job: Parameters<typeof workspaceJobPresentationStatus>[0]) => {
+  const stage = classifyWorkspaceJobStage(job);
+  if (stage === 'in_progress') return 0;
+  if (stage === 'allocated') return 1;
+  if (stage === 'awarded') return 2;
+  if (stage === 'open') return 3;
+  if (stage === 'completed') return 4;
+  return 5;
+};
+
 export default function CustomerDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
@@ -67,9 +108,11 @@ export default function CustomerDashboardHome() {
     );
 
     const recentJobs = [...data.jobs]
-      .sort((a, b) =>
-        String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')),
-      )
+      .sort((a, b) => {
+        const priority = customerJobPriority(a) - customerJobPriority(b);
+        if (priority !== 0) return priority;
+        return String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? ''));
+      })
       .slice(0, 8);
 
     return {
@@ -260,7 +303,8 @@ export default function CustomerDashboardHome() {
                   <tbody>
                     {metrics.recentJobs.map((job) => {
                       const route = routeLabel(job);
-                      const status = workspaceJobPresentationStatus(job);
+                      const status = customerLifecycleLabel(job);
+                      const action = customerJobAction(job);
                       return (
                         <tr key={job.id}>
                           <td>
@@ -273,8 +317,11 @@ export default function CustomerDashboardHome() {
                           <td>{when(job.pickup_datetime)}</td>
                           <td><StatusBadge value={status} /></td>
                           <td>
-                            <ActionButton tone="secondary" onClick={() => router.push(`/customer/loads/${job.id}`)}>
-                              Open
+                            <ActionButton
+                              tone="secondary"
+                              onClick={() => router.push(`${action.href}${action.href.includes('?') ? '&' : '?'}job=${job.id}`)}
+                            >
+                              {action.label}
                             </ActionButton>
                           </td>
                         </tr>
