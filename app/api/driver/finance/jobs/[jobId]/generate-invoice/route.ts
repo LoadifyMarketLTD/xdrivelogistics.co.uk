@@ -151,7 +151,7 @@ export async function POST(
 
   if (marketplace) {
     const { data: agreement, error: agreementError } = await supabaseAdmin
-      .from('job_commercial_agreements')
+      .from('job_commercial_agreements_effective')
       .select('id, buyer_company_id, supplier_company_id, agreed_amount, currency, vat_rate, vat_amount, agreed_gross_amount, payment_terms, payment_due_days')
       .eq('job_id', jobId)
       .eq('supplier_company_id', actor.companyId)

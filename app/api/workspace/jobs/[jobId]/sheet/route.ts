@@ -201,7 +201,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     executionCompanyId ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type').eq('id', executionCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type').eq('id', viewerCompanyId).maybeSingle(),
     supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    supabaseAdmin.from('job_commercial_agreements').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('job_commercial_agreements_effective').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     assignedDriverId ? supabaseAdmin.from('drivers').select('id, display_name, user_id').eq('id', assignedDriverId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     assignedVehicleId ? supabaseAdmin.from('vehicles').select('id, reg_plate, type, make, model, body_type, payload_kg, pallets_capacity, has_tail_lift').eq('id', assignedVehicleId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('job_stops')

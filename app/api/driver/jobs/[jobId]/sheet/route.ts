@@ -96,7 +96,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     originCompanyId ? supabaseAdmin.from('companies').select('*').eq('id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     postedByUserId ? supabaseAdmin.from('profiles').select('xd_id').eq('user_id', postedByUserId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     acceptedBidPromise,
-    supabaseAdmin.from('job_commercial_agreements').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('job_commercial_agreements_effective').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     supabaseAdmin.from('job_tracking_events').select('*').eq('job_id', jobId).order('created_at', { ascending: true }).limit(250),
     invoicePromise,
     supabaseAdmin.from('job_documents').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(100),
