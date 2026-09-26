@@ -1,5 +1,5 @@
 {
-  "name": "my-app",
+  "name": "xdrive-logistics-platform",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -105,5 +105,8 @@
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vitest": "^4.1.10"
-  }
+  },
+  "description": "XDrive Logistics Ltd UK logistics technology platform",
+  "author": "XDrive Logistics Ltd",
+  "license": "UNLICENSED"
 }
