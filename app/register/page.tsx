@@ -15,7 +15,7 @@ import {
 import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react';
 import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
 import { normalizeProfileRoleForStorage } from '../../lib/authRole';
-import { getRegistrationLegalConfig } from '../../lib/legal/registrationAgreements';
+import { getRegistrationLegalConfig, LEGAL_VERSION } from '../../lib/legal/registrationAgreements';
 import type { LegalLanguage } from '../../lib/legal/controlledLegalDocuments';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import RegistrationAgreementGate, {
@@ -177,7 +177,7 @@ export default function RegisterPage() {
       const signupConfig = getSignupConfig(role);
       const storedRole = normalizeProfileRoleForStorage(signupConfig.appRole) ?? 'customer';
       const acceptedAt = new Date().toISOString();
-      const legalConfig = getRegistrationLegalConfig(role);
+      const legalConfig = getRegistrationLegalConfig(role, legalLanguage);
       const agreementVersions = Object.fromEntries(legalConfig.agreements.map((agreement) => [agreement.code, agreement.version]));
       const agreementCodes = legalConfig.agreements.map((agreement) => agreement.code);
       const { data, error: signUpError } = await supabase.auth.signUp({
@@ -193,7 +193,7 @@ export default function RegisterPage() {
             owner_driver_workspace: signupConfig.ownerDriverWorkspace,
             selected_membership_plan: selectedPlan || null,
             terms_accepted_at: acceptedAt,
-            terms_version: '2026-09-26',
+            terms_version: LEGAL_VERSION,
             legal_agreement_codes: agreementCodes,
             legal_agreement_versions: agreementVersions,
             legal_authority_confirmed_at: acceptedAt,
