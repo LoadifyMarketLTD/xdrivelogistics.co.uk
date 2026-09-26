@@ -16,12 +16,15 @@ describe('Driver finance endpoint role boundary', () => {
     expect(helper).toContain("role !== 'owner' && role !== 'admin'");
   });
 
-  it('protects direct invoice detail, dispute, document and payment-history endpoints', () => {
+  it('protects direct owner-driver invoice endpoints with the canonical finance authority helper', () => {
     const routes = [
       'app/api/driver/finance/invoices/[id]/route.ts',
       'app/api/driver/finance/invoices/[id]/disputes/route.ts',
       'app/api/driver/finance/invoices/[id]/documents/route.ts',
       'app/api/driver/finance/invoices/[id]/payment-history/route.ts',
+      'app/api/driver/finance/invoices/[id]/draft/route.ts',
+      'app/api/driver/finance/invoices/[id]/email-defaults/route.ts',
+      'app/api/driver/finance/invoices/[id]/submit/route.ts',
     ];
     for (const route of routes) {
       const source = read(route);
