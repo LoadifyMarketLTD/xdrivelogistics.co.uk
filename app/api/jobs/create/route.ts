@@ -166,9 +166,12 @@ export async function POST(request: NextRequest) {
       return respond(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
     }
     if (!stripeReadiness.ready) {
-      return respond(409, stripeCommercialReadinessPayload(
-        'Complete and activate your company Stripe account before publishing transport work.'
-      ));
+      return respond(409, {
+        ...stripeCommercialReadinessPayload(
+          'Complete and activate your company Stripe account before publishing transport work.'
+        ),
+        setupCompanyId: input.companyId,
+      });
     }
   }
 
