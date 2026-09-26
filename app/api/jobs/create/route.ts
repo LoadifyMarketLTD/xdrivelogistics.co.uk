@@ -10,7 +10,6 @@ import {
 import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFlags';
 import { operationalError } from '../../_lib/operationalError';
 import { calculateJobRouteMetrics } from '../../_lib/jobRouteMetrics';
-import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../_lib/stripeCommercialReadiness';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
@@ -149,32 +148,6 @@ export async function POST(request: NextRequest) {
   }
   if (!membership) return respond(403, { error: 'You cannot post loads for this company workspace.' });
 
-  if (input.publish) {
-    let stripeReadiness;
-    try {
-      stripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, input.companyId);
-    } catch (error) {
-      return operationalError({
-        status: 503,
-        message: 'Stripe commercial readiness could not be verified. Please try again.',
-        context: `jobs.create.stripe-readiness.company:${input.companyId}`,
-        cause: error,
-        retryable: true,
-      });
-    }
-    if (!stripeReadiness.infrastructureAvailable) {
-      return respond(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
-    }
-    if (!stripeReadiness.ready) {
-      return respond(409, {
-        ...stripeCommercialReadinessPayload(
-          'Complete and activate your company Stripe account before publishing transport work.'
-        ),
-        setupCompanyId: input.companyId,
-      });
-    }
-  }
-
   let directInviteTarget: { id: string; name: string | null } | null = null;
   if (input.directInviteCompanyId) {
     if (!input.publish) {
@@ -202,30 +175,10 @@ export async function POST(request: NextRequest) {
     }
     directInviteTarget = { id: String(target.id), name: typeof target.name === 'string' ? target.name : null };
 
-    let targetStripeReadiness;
-    try {
-      targetStripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, directInviteTarget.id);
-    } catch (error) {
-      return operationalError({
-        status: 503,
-        message: 'The selected carrier payment readiness could not be verified. Please try again.',
-        context: `jobs.create.direct-target-stripe:${directInviteTarget.id}`,
-        cause: error,
-        retryable: true,
-      });
-    }
-    if (!targetStripeReadiness.infrastructureAvailable) {
-      return respond(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
-    }
-    if (!targetStripeReadiness.ready) {
-      return respond(409, stripeCommercialReadinessPayload(
-        'The selected carrier must complete and activate Stripe before it can receive a Direct Booking.'
-      ));
-    }
   }
 
   let exchangeAutoExpireHours = 72;
-  if (input.publish) {
+  if (input.publish && !directInviteTarget) {
     const flags = await getFeatureFlags(supabaseAdmin, ['exchange_marketplace']);
     if (!flags.get('exchange_marketplace')) {
       return respond(503, { error: 'The exchange marketplace is currently disabled. You can save this job as a draft.' });
@@ -234,7 +187,9 @@ export async function POST(request: NextRequest) {
     exchangeAutoExpireHours = await getGlobalSettingNumber(supabaseAdmin, 'exchange_auto_expire_hours');
   }
 
-  const complianceBlockPosting = await getGlobalSettingBoolean(supabaseAdmin, 'compliance_block_posting');
+  const complianceBlockPosting = input.publish
+    ? await getGlobalSettingBoolean(supabaseAdmin, 'compliance_block_posting')
+    : false;
   if (complianceBlockPosting) {
     const { data: company, error: companyError } = await supabaseAdmin
       .from('companies')
@@ -288,6 +243,62 @@ export async function POST(request: NextRequest) {
     return null;
   };
 
+  const ensureCreationEvent = async (job: { id: string; status: unknown }) => {
+    const eventType = String(job.status) === 'draft'
+      ? 'load_draft_saved'
+      : directInviteTarget
+        ? 'direct_booking_sent'
+        : 'load_published';
+    const { data: existingEvent, error: existingEventError } = await adminClient
+      .from('job_tracking_events')
+      .select('id')
+      .eq('job_id', job.id)
+      .eq('event_type', eventType)
+      .eq('created_by', authData.user.id)
+      .limit(1)
+      .maybeSingle();
+    if (existingEventError) {
+      return operationalError({
+        status: 503,
+        message: 'The load was saved, but its audit event could not be verified. Please retry.',
+        context: `jobs.create.audit-check.job:${job.id}`,
+        cause: existingEventError,
+        retryable: true,
+      });
+    }
+    if (existingEvent) return null;
+
+    const eventTime = new Date().toISOString();
+    const { error: eventError } = await adminClient.from('job_tracking_events').insert({
+      job_id: job.id,
+      load_id: job.id,
+      event_type: eventType,
+      event_time: eventTime,
+      user_id: authData.user.id,
+      created_by: authData.user.id,
+      message: eventType === 'load_draft_saved'
+        ? 'Load draft saved.'
+        : eventType === 'direct_booking_sent'
+          ? 'Direct Booking sent to the selected carrier.'
+          : 'Load published to the carrier marketplace.',
+      meta: {
+        company_id: input.companyId,
+        source: input.mode,
+        visibility: directInviteTarget ? 'direct' : (input.publish ? 'exchange' : 'private'),
+      },
+    });
+    if (eventError) {
+      return operationalError({
+        status: 503,
+        message: 'The load was saved, but its audit event could not be recorded. Please retry.',
+        context: `jobs.create.audit-insert.job:${job.id}`,
+        cause: eventError,
+        retryable: true,
+      });
+    }
+    return null;
+  };
+
   let idempotencyAvailable = true;
   const existingResult = await supabaseAdmin
     .from('jobs')
@@ -312,6 +323,8 @@ export async function POST(request: NextRequest) {
   if (existingResult.data) {
     const replayBlock = await verifyMultiDropReplay(existingResult.data);
     if (replayBlock) return replayBlock;
+    const auditBlock = await ensureCreationEvent(existingResult.data);
+    if (auditBlock) return auditBlock;
     return respond(200, { job: existingResult.data, replayed: true, idempotencyProtected: true });
   }
 
@@ -574,6 +587,9 @@ export async function POST(request: NextRequest) {
       createdJob = publishedJob;
     }
   }
+
+  const auditBlock = await ensureCreationEvent(createdJob);
+  if (auditBlock) return auditBlock;
 
   return respond(201, {
     job: createdJob,

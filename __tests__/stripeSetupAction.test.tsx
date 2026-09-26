@@ -114,20 +114,16 @@ describe('direct company Stripe setup action', () => {
   });
 });
 
-describe('Post Load Stripe recovery wiring', () => {
+describe('Post Load direct-party payment boundary', () => {
   const form = read('app/components/workspace/LoadPostingForm.tsx');
   const createJob = read('app/api/jobs/create/route.ts');
-  it('offers setup only for the company blocked by this publish attempt', () => {
-    expect(form).toContain("publish && payload?.code === 'STRIPE_COMMERCIAL_READINESS_REQUIRED' && payload.setupCompanyId === companyId");
-    expect(form).toContain('companyId={stripeSetupCompanyId}');
-    expect(form).toContain('setStripeSetupCompanyId(null)');
+  it('does not expose Stripe setup as a prerequisite for posting transport work', () => {
+    expect(form).not.toContain('StripeSetupAction');
+    expect(form).not.toContain('stripeSetupCompanyId');
+    expect(createJob).not.toContain('getStripeCommercialReadiness');
+    expect(createJob).not.toContain('setupCompanyId: input.companyId');
   });
-  it('marks only the posting-company failure as recoverable by this user', () => {
-    expect(createJob.match(/setupCompanyId: input.companyId/g)).toHaveLength(1);
-    const directCarrierFailure = createJob.split('if (!targetStripeReadiness.ready)')[1].split('let exchangeAutoExpireHours')[0];
-    expect(directCarrierFailure).not.toContain('setupCompanyId');
-  });
-  it('keeps owner/admin restrictions and avoids automatic publication or form navigation', () => {
+  it('keeps owner/admin Stripe onboarding separate from Post Load and avoids automatic publication or form navigation', () => {
     const onboarding = read('app/api/payments/connect/onboarding/route.ts');
     expect(onboarding).toContain("new Set(['owner', 'admin'])");
     const action = read('lib/startStripeCompanyOnboarding.ts');

@@ -72,13 +72,12 @@ describe('load posting operational contract', () => {
     expect(form).toContain("'#dc2626'");
   });
 
-  it('uses only future half-hour booking slots instead of arbitrary native time input', () => {
-    expect(form).toContain('const HALF_HOUR_SLOTS = Array.from({ length: 48 }');
-    expect(form).toContain("/^(\\d{2}):(00|30)$/");
+  it('uses only future 15-minute booking slots instead of arbitrary native time input', () => {
+    expect(form).toContain('const QUARTER_HOUR_SLOTS = Array.from({ length: 96 }');
+    expect(form).toContain("/^(\\d{2}):(00|15|30|45)$/");
     expect(form).toContain('minutes * 60 > currentSeconds');
-    expect(form).toContain('Choose a future 30-minute slot');
+    expect(form).toContain('Choose a future 15-minute slot');
     expect(form).toContain('No future times remain today — choose tomorrow.');
-    expect(form).not.toContain('30-minute slots only.');
     expect(form).toContain('min={minDate}');
     expect(form).not.toContain('type="time"');
   });
@@ -119,6 +118,37 @@ describe('load posting operational contract', () => {
     expect(createApi).toContain('additionalStopCount: input.additionalStops.length');
     expect(createApi).toContain(".from('job_stops')");
     expect(createApi).not.toContain('additionalStops: input.additionalStops');
+  });
+
+  it('persists real customer job attachments through private storage and server-authorised metadata', () => {
+    expect(form).toContain('Attach job documents');
+    expect(form).toContain('type="file"');
+    expect(form).toContain('multiple');
+    expect(form).toContain("storage.from('load-documents').upload");
+    expect(form).toContain('/documents');
+    expect(form).toContain('MAX_DOCUMENT_FILES = 12');
+    expect(form).toContain('MAX_DOCUMENT_BYTES = 20 * 1024 * 1024');
+  });
+
+  it('does not gate posting transport work on Stripe in the direct-party payment model', () => {
+    expect(createApi).not.toContain('getStripeCommercialReadiness');
+    expect(createApi).not.toContain('stripeCommercialReadinessPayload');
+    expect(form).not.toContain('StripeSetupAction');
+  });
+
+  it('records an idempotent creation event for Customer Event Log history', () => {
+    expect(createApi).toContain("from('job_tracking_events')");
+    expect(createApi).toContain("'load_draft_saved'");
+    expect(createApi).toContain("'load_published'");
+    expect(createApi).toContain("'direct_booking_sent'");
+    expect(createApi).toContain('ensureCreationEvent(existingResult.data)');
+    expect(createApi).toContain('ensureCreationEvent(createdJob)');
+  });
+
+  it('keeps draft saves independent from publish-only compliance and direct booking independent from exchange availability', () => {
+    expect(createApi).toContain('if (input.publish && !directInviteTarget)');
+    expect(createApi).toContain('const complianceBlockPosting = input.publish');
+    expect(createApi).toContain("? await getGlobalSettingBoolean(supabaseAdmin, 'compliance_block_posting')");
   });
 
   it('does not claim unsupported POD-entry controls are part of the current Post Load form contract', () => {
