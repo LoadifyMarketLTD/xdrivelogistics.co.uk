@@ -802,7 +802,7 @@ export default function OperationsDiaryPage() {
                 })}
               </div>
               <section className="workspace-panel" aria-label="Diary split booking detail" style={{ minWidth: 0 }}>
-                {selectedJobId ? <CompanyJobSheetPanel jobId={selectedJobId} mode="carrier" initialTab={detailTabByJob[selectedJobId] ?? 'order'} /> : <EmptyState compact title="Select a booking" description="Choose a booking from the list to inspect its authorised operational detail." />}
+                {selectedJobId ? <CompanyJobSheetPanel jobId={selectedJobId} mode="carrier" initialTab={detailTabByJob[selectedJobId] ?? 'agreement'} /> : <EmptyState compact title="Select a booking" description="Choose a booking from the list to inspect its authorised operational detail." />}
               </section>
             </div>
           ) : (
@@ -880,9 +880,9 @@ export default function OperationsDiaryPage() {
                       {canManageCompanyBookings && job.company_id === companyId && ['completed', 'cancelled', 'expired'].includes(stage) && <ActionButton tone="secondary" onClick={() => router.push(`/admin/post-load?sourceJob=${encodeURIComponent(job.id)}&sourceAction=rebook`)}>Re-book</ActionButton>}
                       {canManageCompanyBookings && job.company_id === companyId && ['cancelled', 'expired'].includes(stage) && <ActionButton tone="secondary" onClick={() => router.push(`/admin/post-load?sourceJob=${encodeURIComponent(job.id)}&sourceAction=repost`)}>Re-post</ActionButton>}
                       {canLeaveCompanyFeedback && feedbackAvailable && <ActionButton tone="secondary" onClick={() => openFeedback(job)}>{reviewsByJob[job.id]?.length ? 'Edit Feedback' : 'Leave Feedback'}</ActionButton>}
-                      {(['order','notes','history','documents','pod','invoice','replay'] as JobSheetTab[]).map((tabId) => <ActionButton key={tabId} tone={detailTabByJob[job.id] === tabId && open ? 'primary' : 'secondary'} onClick={() => openJobTab(job.id, tabId)}>{tabId === 'pod' ? 'POD' : tabId.charAt(0).toUpperCase() + tabId.slice(1)}</ActionButton>)}
+                      {(['agreement','route','progress','evidence','pod','invoice','payment','dispute','event-log'] as JobSheetTab[]).map((tabId) => <ActionButton key={tabId} tone={detailTabByJob[job.id] === tabId && open ? 'primary' : 'secondary'} onClick={() => openJobTab(job.id, tabId)}>{tabId === 'pod' ? 'POD' : tabId === 'event-log' ? 'Event Log' : tabId.charAt(0).toUpperCase() + tabId.slice(1)}</ActionButton>)}
                     </div>
-                    {open && <CompanyJobSheetPanel jobId={job.id} mode="carrier" initialTab={detailTabByJob[job.id] ?? 'order'} />}
+                    {open && <CompanyJobSheetPanel jobId={job.id} mode="carrier" initialTab={detailTabByJob[job.id] ?? 'agreement'} />}
                   </article>
                 );
               })}
