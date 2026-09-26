@@ -1,29 +1,20 @@
--- Security hardening for PostGIS metadata exposed through the public schema.
+-- Security hardening for PostGIS metadata.
 --
--- Context:
--- - Existing production has PostGIS installed in public and therefore exposes
---   public.spatial_ref_sys through the Data API schema.
--- - Fresh repository replay must reconstruct that production dependency before
---   later geography-based driver location migrations execute.
--- - XDrive must preserve PostGIS until the legacy geography dependency on
---   driver_locations.location is migrated safely.
--- - On Supabase-hosted production, spatial_ref_sys can be extension-owned by
---   supabase_admin while normal migrations execute as postgres. PostgreSQL
---   correctly rejects owner-only ALTER TABLE / CREATE POLICY operations in
---   that case.
+-- Historical production originally had PostGIS in public. Supabase Support
+-- relocated the managed extension to extensions on 26 September 2026.
+-- Fresh repository replay must therefore install PostGIS in extensions while
+-- remaining compatible with older databases that still have it in public.
 --
 -- This migration is intentionally non-destructive and owner-aware:
--- - it installs PostGIS in public only when absent;
--- - it does not drop or relocate an existing PostGIS installation;
--- - it does not modify spatial_ref_sys data;
--- - when the migration role owns (or is a member of the owning role), it
---   removes client-side write access, preserves SELECT, and enables read-only
---   RLS;
--- - when the table is owned by a Supabase-managed role that the migration role
---   cannot act as, it emits a NOTICE and leaves the extension-owned object
---   untouched instead of blocking unrelated XDrive forward migrations.
+-- - it installs PostGIS in extensions only when absent;
+-- - it never relocates or drops an existing PostGIS installation;
+-- - it never modifies spatial_ref_sys data;
+-- - public-schema hardening is applied only when spatial_ref_sys is actually
+--   exposed in public;
+-- - extensions.spatial_ref_sys is left under Supabase-managed ownership.
 
-CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA public;
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA extensions;
 
 DO $$
 DECLARE
@@ -37,14 +28,26 @@ BEGIN
   JOIN pg_namespace n ON n.oid = e.extnamespace
   WHERE e.extname = 'postgis';
 
-  IF v_postgis_schema IS DISTINCT FROM 'public' THEN
+  IF v_postgis_schema NOT IN ('public', 'extensions') THEN
     RAISE EXCEPTION
-      'PostGIS must be installed in public to match the hosted XDrive spatial contract; found schema %.',
+      'Unexpected PostGIS schema %; expected public or extensions.',
       COALESCE(v_postgis_schema::text, '<missing>');
   END IF;
 
+  IF v_postgis_schema = 'extensions' THEN
+    IF to_regclass('extensions.spatial_ref_sys') IS NULL THEN
+      RAISE EXCEPTION
+        'PostGIS is installed in extensions but extensions.spatial_ref_sys is missing.';
+    END IF;
+
+    RAISE NOTICE
+      'PostGIS is isolated in extensions; public spatial_ref_sys hardening is not required.';
+    RETURN;
+  END IF;
+
   IF to_regclass('public.spatial_ref_sys') IS NULL THEN
-    RAISE EXCEPTION 'PostGIS is installed but public.spatial_ref_sys is missing.';
+    RAISE EXCEPTION
+      'PostGIS is installed in public but public.spatial_ref_sys is missing.';
   END IF;
 
   SELECT pg_get_userbyid(c.relowner)
