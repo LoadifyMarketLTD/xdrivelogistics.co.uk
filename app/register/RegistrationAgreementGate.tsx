@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
+import { LEGAL_LANGUAGE_LABELS, LEGAL_LANGUAGES, type LegalLanguage } from '../../lib/legal/controlledLegalDocuments';
 import {
   getRegistrationLegalConfig,
   type RegistrationLegalRole,
@@ -18,6 +19,8 @@ type Props = {
   role: RegistrationLegalRole;
   value: RegistrationAgreementGateValue;
   onChange: (value: RegistrationAgreementGateValue) => void;
+  language: LegalLanguage;
+  onLanguageChange: (language: LegalLanguage) => void;
   disabled?: boolean;
 };
 
@@ -29,7 +32,7 @@ export const isRegistrationAgreementGateComplete = (value: RegistrationAgreement
   value.roleDeclarationConfirmed &&
   value.privacyAcknowledged;
 
-export default function RegistrationAgreementGate({ role, value, onChange, disabled = false }: Props) {
+export default function RegistrationAgreementGate({ role, value, onChange, language, onLanguageChange, disabled = false }: Props) {
   const config = getRegistrationLegalConfig(role);
 
   const set = (key: keyof RegistrationAgreementGateValue, checked: boolean) => {
@@ -53,6 +56,12 @@ export default function RegistrationAgreementGate({ role, value, onChange, disab
       </div>
 
       <div className="space-y-3 p-4">
+        <label className="block rounded-xl border border-[#DDE5EF] bg-white p-3 text-xs font-semibold text-[#526983]">
+          <span className="mb-2 block font-black text-[#173B73]">Legal document language</span>
+          <select value={language} onChange={(event) => onLanguageChange(event.target.value as LegalLanguage)} disabled={disabled} className="w-full rounded-lg border border-[#D8E1EC] bg-white px-3 py-2 font-bold text-[#173B73]">
+            {LEGAL_LANGUAGES.map((item) => <option key={item} value={item}>{LEGAL_LANGUAGE_LABELS[item]}</option>)}
+          </select>
+        </label>
         <label className="flex items-start gap-3 rounded-xl border border-[#DDE5EF] bg-white p-3 text-xs font-semibold leading-5 text-[#526983]">
           <input
             type="checkbox"
@@ -66,7 +75,7 @@ export default function RegistrationAgreementGate({ role, value, onChange, disab
             {config.agreements.map((agreement, index) => (
               <span key={agreement.code}>
                 {index > 0 ? (index === config.agreements.length - 1 ? ' and ' : ', ') : null}
-                <Link href={agreement.href} target="_blank" className="font-black text-[#173B73] underline underline-offset-2">
+                <Link href={`${agreement.href}?lang=${language}`} target="_blank" className="font-black text-[#173B73] underline underline-offset-2">
                   {agreement.label}
                 </Link>
               </span>
@@ -106,7 +115,7 @@ export default function RegistrationAgreementGate({ role, value, onChange, disab
           />
           <span>
             {config.privacyAcknowledgement} {' '}
-            <Link href="/privacy" target="_blank" className="font-black text-[#173B73] underline underline-offset-2">
+            <Link href={`/legal/privacy?lang=${language}`} target="_blank" className="font-black text-[#173B73] underline underline-offset-2">
               Read Privacy Policy
             </Link>.
           </span>

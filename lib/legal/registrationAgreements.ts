@@ -1,4 +1,5 @@
-import { ROLE_TRADING_TERMS, type RoleTradingTermsCode } from './roleTradingTerms';
+import { type RoleTradingTermsCode } from './roleTradingTerms';
+import { CONTROLLED_LEGAL_ROUTES, CONTROLLED_LEGAL_VERSION, CONTROLLED_PRIVACY_VERSION } from './controlledLegalDocuments';
 
 export type RegistrationLegalRole =
   | 'customer_shipper'
@@ -31,14 +32,14 @@ export type RegistrationRoleLegalConfig = {
   privacyAcknowledgement: string;
 };
 
-export const LEGAL_VERSION = '2026-09-04';
-export const PRIVACY_VERSION = '2026-09-01';
+export const LEGAL_VERSION = CONTROLLED_LEGAL_VERSION;
+export const PRIVACY_VERSION = CONTROLLED_PRIVACY_VERSION;
 
 const PLATFORM_TERMS: RegistrationAgreementDefinition = {
   code: 'platform_terms',
   label: 'XDrive Platform Terms',
-  href: '/terms',
-  version: '2026-09-01',
+  href: CONTROLLED_LEGAL_ROUTES.platform_terms,
+  version: CONTROLLED_LEGAL_VERSION,
   required: true,
   materialChangeRequiresReacceptance: true,
 };
@@ -46,8 +47,8 @@ const PLATFORM_TERMS: RegistrationAgreementDefinition = {
 const MEMBERSHIP_TERMS: RegistrationAgreementDefinition = {
   code: 'membership_subscription_terms',
   label: 'Membership & Subscription Terms',
-  href: '/subscription-terms',
-  version: '2026-09-01',
+  href: CONTROLLED_LEGAL_ROUTES.membership_subscription_terms,
+  version: CONTROLLED_LEGAL_VERSION,
   required: true,
   materialChangeRequiresReacceptance: true,
 };
@@ -55,8 +56,8 @@ const MEMBERSHIP_TERMS: RegistrationAgreementDefinition = {
 const MARKETPLACE_TERMS: RegistrationAgreementDefinition = {
   code: 'marketplace_transport_terms',
   label: 'Marketplace & Transport Trading Terms',
-  href: '/terms',
-  version: '2026-09-01',
+  href: CONTROLLED_LEGAL_ROUTES.marketplace_transport_terms,
+  version: CONTROLLED_LEGAL_VERSION,
   required: true,
   materialChangeRequiresReacceptance: true,
 };
@@ -65,12 +66,11 @@ const roleTerm = (
   code: RoleTradingTermsCode,
   label: string,
 ): RegistrationAgreementDefinition => {
-  const document = ROLE_TRADING_TERMS[code];
   return {
     code,
     label,
-    href: document.href,
-    version: document.version,
+    href: CONTROLLED_LEGAL_ROUTES[code],
+    version: CONTROLLED_LEGAL_VERSION,
     required: true,
     materialChangeRequiresReacceptance: true,
   };

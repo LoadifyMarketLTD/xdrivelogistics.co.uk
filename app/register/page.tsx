@@ -16,6 +16,7 @@ import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 're
 import { getAuthCallbackEmailRedirectTo } from '../../lib/authFlow';
 import { normalizeProfileRoleForStorage } from '../../lib/authRole';
 import { getRegistrationLegalConfig } from '../../lib/legal/registrationAgreements';
+import type { LegalLanguage } from '../../lib/legal/controlledLegalDocuments';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import RegistrationAgreementGate, {
   isRegistrationAgreementGateComplete,
@@ -123,6 +124,7 @@ export default function RegisterPage() {
   const [role, setRole] = useState<RegisterRole>('customer_shipper');
   const [selectedPlan, setSelectedPlan] = useState('customer-shipper');
   const [legalGate, setLegalGate] = useState<RegistrationAgreementGateValue>(EMPTY_LEGAL_GATE);
+  const [legalLanguage, setLegalLanguage] = useState<LegalLanguage>('en');
   const [message, setMessage] = useState('');
   const [warning, setWarning] = useState('');
   const [error, setError] = useState('');
@@ -152,6 +154,7 @@ export default function RegisterPage() {
     setRole(nextRole);
     setSelectedPlan(ROLE_UI[nextRole].defaultPlan);
     setLegalGate(EMPTY_LEGAL_GATE);
+    setLegalLanguage('en');
     setError('');
   };
 
@@ -189,13 +192,14 @@ export default function RegisterPage() {
             owner_driver_workspace: signupConfig.ownerDriverWorkspace,
             selected_membership_plan: selectedPlan || null,
             terms_accepted_at: acceptedAt,
-            terms_version: '2026-09-01',
+            terms_version: '2026-09-26',
             legal_agreement_codes: agreementCodes,
             legal_agreement_versions: agreementVersions,
             legal_authority_confirmed_at: acceptedAt,
             legal_role_declaration_confirmed_at: acceptedAt,
             privacy_acknowledged_at: acceptedAt,
-            privacy_version: '2026-09-01',
+            privacy_version: '2026-09-26',
+            legal_acceptance_language: legalLanguage,
           },
         },
       });
@@ -347,7 +351,7 @@ export default function RegisterPage() {
 
                 <div className="mt-3 flex items-start gap-2 rounded-xl border border-[#DDE5EF] bg-[#F8FAFD] p-3 text-xs font-semibold leading-5 text-[#566D88]"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#F5A300]" /><p>{role === 'fleet_operator' ? 'Carrier/Fleet creates the company workspace first; drivers are invited into that company.' : role === 'owner_operator' ? 'Owner Drivers receive their own operations workspace and map internally to the driver role.' : 'Your account direction determines the onboarding path and workspace created after registration.'}</p></div>
 
-                <RegistrationAgreementGate role={role} value={legalGate} onChange={setLegalGate} disabled={loading} />
+                <RegistrationAgreementGate role={role} value={legalGate} onChange={setLegalGate} language={legalLanguage} onLanguageChange={(language) => { setLegalLanguage(language); setLegalGate(EMPTY_LEGAL_GATE); }} disabled={loading} />
 
                 {error ? <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-bold text-red-700">{error}</div> : null}
                 {message ? <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-700">{message}</div> : null}

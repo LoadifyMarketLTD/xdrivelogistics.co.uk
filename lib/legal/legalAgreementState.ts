@@ -1,16 +1,26 @@
 import { createHash } from 'node:crypto';
 
 import {
+  buildControlledLegalDocument,
+  CONTROLLED_PRIVACY_VERSION,
+  normalizeLegalLanguage,
+  type LegalLanguage,
+} from './controlledLegalDocuments';
+import {
   getRegistrationLegalConfig,
   LEGAL_VERSION,
   PRIVACY_VERSION,
   type RegistrationAgreementDefinition,
+  type RegistrationAgreementCode,
   type RegistrationLegalRole,
 } from './registrationAgreements';
 
 export type LegalAgreementSnapshot = {
   code: string;
   version: string;
+  language?: LegalLanguage;
+  translationVersion?: string;
+  documentHash?: string;
 };
 
 export type LegalAcceptanceSnapshot = {
@@ -23,7 +33,9 @@ export type CurrentLegalRequirement = {
   registrationRole: RegistrationLegalRole;
   legalVersion: string;
   privacyVersion: string;
-  agreements: RegistrationAgreementDefinition[];
+  acceptanceLanguage: LegalLanguage;
+  agreements: Array<RegistrationAgreementDefinition & { language: LegalLanguage; translationVersion: string; documentHash: string }>;
+  privacyDocumentHash: string;
   acceptanceStatement: string;
   authorityStatement: string;
   roleStatement: string;
@@ -34,63 +46,76 @@ export type CurrentLegalRequirement = {
 export type CurrentLegalEvidence = {
   registrationRole: RegistrationLegalRole;
   legalVersion: string;
-  agreements: LegalAgreementSnapshot[];
+  agreements: Required<Pick<LegalAgreementSnapshot,'code'|'version'|'language'|'translationVersion'|'documentHash'>>[];
+  acceptanceLanguage: LegalLanguage;
   acceptanceStatement: string;
   authorityStatement: string;
   roleStatement: string;
   privacyStatement: string;
   privacyVersion: string;
+  privacyDocumentHash: string;
   acceptedAt: string;
   evidenceHash: string;
 };
 
-export type LegalAcceptanceEvaluation = {
-  requiresReacceptance: boolean;
-  reasons: string[];
-};
-
+export type LegalAcceptanceEvaluation = { requiresReacceptance: boolean; reasons: string[] };
 const canonicalJson = (value: unknown) => JSON.stringify(value);
+const sha256 = (value: unknown) => createHash('sha256').update(canonicalJson(value)).digest('hex');
+
+const buildDocumentSnapshot = (code: RegistrationAgreementCode, version: string, language: LegalLanguage) => {
+  const document = buildControlledLegalDocument(code as Parameters<typeof buildControlledLegalDocument>[0], language);
+  if (document.version !== version) throw new Error(`Controlled legal document version mismatch for ${code}.`);
+  return {
+    code,
+    version,
+    language,
+    translationVersion: document.translationVersion,
+    documentHash: sha256(document),
+  };
+};
 
 export const computeLegalRequirementFingerprint = (input: {
   registrationRole: RegistrationLegalRole;
   legalVersion: string;
-  agreements: RegistrationAgreementDefinition[];
+  acceptanceLanguage?: LegalLanguage;
+  agreements: CurrentLegalRequirement['agreements'];
+  privacyDocumentHash?: string;
 }) => {
-  const materialAgreements = input.agreements
-    .filter((agreement) => agreement.materialChangeRequiresReacceptance)
-    .map(({ code, version }) => ({ code, version }));
-
-  return createHash('sha256')
-    .update(
-      canonicalJson({
-        registrationRole: input.registrationRole,
-        legalVersion: input.legalVersion,
-        materialAgreements,
-      }),
-    )
-    .digest('hex');
+  const acceptanceLanguage = input.acceptanceLanguage ?? input.agreements[0]?.language ?? 'en';
+  const privacyDocumentHash = input.privacyDocumentHash ?? sha256(buildControlledLegalDocument('privacy_policy', acceptanceLanguage));
+  return createHash('sha256').update(canonicalJson({
+    registrationRole: input.registrationRole,
+    legalVersion: input.legalVersion,
+    acceptanceLanguage,
+    materialAgreements: input.agreements.filter((agreement) => agreement.materialChangeRequiresReacceptance).map(({ code, version, language, translationVersion, documentHash }) => ({ code, version, language, translationVersion, documentHash })),
+    privacyDocumentHash,
+  })).digest('hex');
 };
 
 export const buildCurrentLegalRequirement = (
   registrationRole: RegistrationLegalRole,
+  languageInput: unknown = 'en',
 ): CurrentLegalRequirement => {
+  const acceptanceLanguage = normalizeLegalLanguage(languageInput);
   const config = getRegistrationLegalConfig(registrationRole);
-  const acceptanceStatement = `I agree to the XDrive agreements listed for my ${registrationRole} registration role.`;
-
+  const agreements = config.agreements.map((agreement) => ({ ...agreement, ...buildDocumentSnapshot(agreement.code, agreement.version, acceptanceLanguage) }));
+  const privacyDocument = buildControlledLegalDocument('privacy_policy', acceptanceLanguage);
+  if (privacyDocument.version !== PRIVACY_VERSION || privacyDocument.version !== CONTROLLED_PRIVACY_VERSION) throw new Error('Controlled privacy document version mismatch.');
+  const privacyDocumentHash = sha256(privacyDocument);
+  const acceptanceStatement = `I agree to the XDrive agreements listed for my ${registrationRole} registration role in the selected language (${acceptanceLanguage}).`;
+  const requirementFingerprint = computeLegalRequirementFingerprint({ registrationRole, legalVersion: LEGAL_VERSION, acceptanceLanguage, agreements, privacyDocumentHash });
   return {
     registrationRole,
     legalVersion: LEGAL_VERSION,
     privacyVersion: PRIVACY_VERSION,
-    agreements: config.agreements,
+    acceptanceLanguage,
+    agreements,
+    privacyDocumentHash,
     acceptanceStatement,
     authorityStatement: config.authorityDeclaration,
     roleStatement: config.roleDeclaration,
     privacyStatement: config.privacyAcknowledgement,
-    requirementFingerprint: computeLegalRequirementFingerprint({
-      registrationRole,
-      legalVersion: LEGAL_VERSION,
-      agreements: config.agreements,
-    }),
+    requirementFingerprint,
   };
 };
 
@@ -98,36 +123,16 @@ export const evaluateLegalAcceptance = (
   requirement: CurrentLegalRequirement,
   acceptance: LegalAcceptanceSnapshot | null | undefined,
 ): LegalAcceptanceEvaluation => {
-  if (!acceptance) {
-    return {
-      requiresReacceptance: true,
-      reasons: ['missing_acceptance'],
-    };
-  }
-
+  if (!acceptance) return { requiresReacceptance: true, reasons: ['missing_acceptance'] };
   const reasons: string[] = [];
-  if (acceptance.registrationRole !== requirement.registrationRole) {
-    reasons.push('registration_role_changed');
-  }
-  if (acceptance.legalVersion !== requirement.legalVersion) {
-    reasons.push('legal_version_changed');
-  }
-
-  const acceptedVersions = new Map(
-    acceptance.agreements.map((agreement) => [agreement.code, agreement.version]),
-  );
-
+  if (acceptance.registrationRole !== requirement.registrationRole) reasons.push('registration_role_changed');
+  if (acceptance.legalVersion !== requirement.legalVersion) reasons.push('legal_version_changed');
+  const acceptedVersions = new Map(acceptance.agreements.map((agreement) => [agreement.code, agreement.version]));
   for (const agreement of requirement.agreements) {
     if (!agreement.materialChangeRequiresReacceptance) continue;
-    if (acceptedVersions.get(agreement.code) !== agreement.version) {
-      reasons.push(`material_agreement_changed:${agreement.code}`);
-    }
+    if (acceptedVersions.get(agreement.code) !== agreement.version) reasons.push(`material_agreement_changed:${agreement.code}`);
   }
-
-  return {
-    requiresReacceptance: reasons.length > 0,
-    reasons,
-  };
+  return { requiresReacceptance: reasons.length > 0, reasons };
 };
 
 export const findCurrentLegalAcceptanceIndex = (
@@ -138,31 +143,35 @@ export const findCurrentLegalAcceptanceIndex = (
 export const buildCurrentLegalEvidence = (
   registrationRole: RegistrationLegalRole,
   acceptedAt: string,
+  languageInput: unknown = 'en',
 ): CurrentLegalEvidence => {
-  const requirement = buildCurrentLegalRequirement(registrationRole);
-  const agreements = requirement.agreements.map(({ code, version }) => ({ code, version }));
-  const canonical = canonicalJson({
+  const requirement = buildCurrentLegalRequirement(registrationRole, languageInput);
+  const agreements = requirement.agreements.map(({ code, version, language, translationVersion, documentHash }) => ({ code, version, language, translationVersion, documentHash }));
+  const canonical = {
     registrationRole,
     legalVersion: requirement.legalVersion,
     agreements,
+    acceptanceLanguage: requirement.acceptanceLanguage,
     acceptanceStatement: requirement.acceptanceStatement,
     authorityStatement: requirement.authorityStatement,
     roleStatement: requirement.roleStatement,
     privacyStatement: requirement.privacyStatement,
     privacyVersion: requirement.privacyVersion,
+    privacyDocumentHash: requirement.privacyDocumentHash,
     acceptedAt,
-  });
-
+  };
   return {
     registrationRole,
     legalVersion: requirement.legalVersion,
     agreements,
+    acceptanceLanguage: requirement.acceptanceLanguage,
     acceptanceStatement: requirement.acceptanceStatement,
     authorityStatement: requirement.authorityStatement,
     roleStatement: requirement.roleStatement,
     privacyStatement: requirement.privacyStatement,
     privacyVersion: requirement.privacyVersion,
+    privacyDocumentHash: requirement.privacyDocumentHash,
     acceptedAt,
-    evidenceHash: createHash('sha256').update(canonical).digest('hex'),
+    evidenceHash: sha256(canonical),
   };
 };

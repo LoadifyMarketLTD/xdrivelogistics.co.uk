@@ -1,15 +1,8 @@
-import type { Metadata } from 'next';
-import RoleTradingTermsDocumentPage from '../../components/legal/RoleTradingTermsDocumentPage';
-import { getRoleTradingTerms } from '../../../lib/legal/roleTradingTerms';
+import ControlledLegalDocumentPage from '../../components/legal/ControlledLegalDocumentPage';
 
-const document = getRoleTradingTerms('carrier_fleet_terms');
+type Props = { searchParams: Promise<{ lang?: string }> };
 
-export const metadata: Metadata = {
-  title: 'Carrier / Fleet Trading Terms | XDrive Logistics',
-  description: 'Role-specific trading terms for carrier and fleet businesses using XDrive.',
-  alternates: { canonical: document.href },
-};
-
-export default function Page() {
-  return <RoleTradingTermsDocumentPage document={document} />;
+export default async function Page({ searchParams }: Props) {
+  const { lang } = await searchParams;
+  return <ControlledLegalDocumentPage code="carrier_fleet_terms" lang={lang} />;
 }

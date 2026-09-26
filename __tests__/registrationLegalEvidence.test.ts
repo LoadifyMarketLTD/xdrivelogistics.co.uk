@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getRegistrationLegalConfig, LEGAL_VERSION } from '../lib/legal/registrationAgreements';
+import { getRegistrationLegalConfig, LEGAL_VERSION, PRIVACY_VERSION } from '../lib/legal/registrationAgreements';
 import {
   buildRegistrationLegalEvidence,
   hasModernRegistrationLegalMetadata,
@@ -20,7 +20,8 @@ const validMetadata = (role: 'customer_shipper' | 'transport_broker' | 'owner_op
     legal_authority_confirmed_at: acceptedAt,
     legal_role_declaration_confirmed_at: acceptedAt,
     privacy_acknowledged_at: acceptedAt,
-    privacy_version: '2026-09-01',
+    privacy_version: PRIVACY_VERSION,
+    legal_acceptance_language: 'en',
   };
 };
 
@@ -38,9 +39,10 @@ describe('registration legal evidence', () => {
     expect(evidence?.registrationRole).toBe(role);
     expect(evidence?.legalVersion).toBe(LEGAL_VERSION);
     expect(evidence?.evidenceHash).toMatch(/^[0-9a-f]{64}$/);
-    expect(evidence?.agreements).toEqual(
-      getRegistrationLegalConfig(role).agreements.map(({ code, version }) => ({ code, version })),
+    expect(evidence?.agreements.map(({ code, version, language }) => ({ code, version, language }))).toEqual(
+      getRegistrationLegalConfig(role).agreements.map(({ code, version }) => ({ code, version, language: 'en' })),
     );
+    expect(evidence?.agreements.every((agreement) => /^[0-9a-f]{64}$/.test(agreement.documentHash))).toBe(true);
   });
 
   it('rejects tampered agreement versions', () => {

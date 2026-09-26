@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
+import { LEGAL_LANGUAGE_LABELS, LEGAL_LANGUAGES, type LegalLanguage } from '../../../lib/legal/controlledLegalDocuments';
 import {
   ActionButton,
   AlertBanner,
@@ -25,8 +26,10 @@ type AcceptanceHistoryRow = {
   id: string;
   registrationRole: string;
   legalVersion: string;
-  agreements: Array<{ code: string; version: string }>;
+  agreements: Array<{ code: string; version: string; language?: string; translationVersion?: string; documentHash?: string }>;
   privacyVersion: string;
+  acceptanceLanguage: string;
+  privacyDocumentHash: string | null;
   acceptedAt: string;
   source: string;
   evidenceHash: string;
@@ -39,6 +42,8 @@ type LegalReadModel = {
     registrationRole: string;
     legalVersion: string;
     privacyVersion: string;
+    acceptanceLanguage: LegalLanguage;
+    privacyDocumentHash: string;
     agreements: AgreementDefinition[];
     acceptanceStatement: string;
     authorityStatement: string;
@@ -96,6 +101,7 @@ export default function LegalAgreementsPage({
   const [roleDeclarationConfirmed, setRoleDeclarationConfirmed] = useState(false);
   const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
   const [initialEvidenceRemediationConfirmed, setInitialEvidenceRemediationConfirmed] = useState(false);
+  const [legalLanguage, setLegalLanguage] = useState<LegalLanguage>('en');
 
   const resetConfirmations = () => {
     setAgreementsAccepted(false);
@@ -118,7 +124,7 @@ export default function LegalAgreementsPage({
     setError('');
     try {
       const token = await getAccessToken();
-      const response = await fetch('/api/account/legal-agreements', {
+      const response = await fetch(`/api/account/legal-agreements?language=${legalLanguage}`, {
         method: 'GET',
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
@@ -133,7 +139,7 @@ export default function LegalAgreementsPage({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [legalLanguage]);
 
   useEffect(() => {
     void load();
@@ -176,6 +182,7 @@ export default function LegalAgreementsPage({
           roleDeclarationConfirmed: true,
           privacyAcknowledged: true,
           initialEvidenceRemediationConfirmed: isInitialRemediation ? true : undefined,
+          language: legalLanguage,
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string; code?: string; acceptanceMode?: string };
@@ -231,11 +238,18 @@ export default function LegalAgreementsPage({
                 <span style={{ fontSize: 11, color: '#64748b' }}>Legal gate {model.currentRequirement.legalVersion}</span>
               </div>
 
+              <label style={{ display: 'grid', gap: 4, maxWidth: 280, fontSize: 10, color: '#64748b' }}>
+                <strong style={{ color: '#0f172a' }}>Legal document language</strong>
+                <select value={legalLanguage} onChange={(event) => { setLegalLanguage(event.target.value as LegalLanguage); resetConfirmations(); }} style={{ border: '1px solid #dbe3ee', borderRadius: 4, padding: '7px 8px', background: '#fff', color: '#0f172a', fontWeight: 700 }}>
+                  {LEGAL_LANGUAGES.map((item) => <option key={item} value={item}>{LEGAL_LANGUAGE_LABELS[item]}</option>)}
+                </select>
+              </label>
+
               <div style={{ display: 'grid', gap: 6 }}>
                 {model.currentRequirement.agreements.map((agreement) => (
                   <div key={agreement.code} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, padding: '8px 10px', border: '1px solid #dbe3ee', borderRadius: 4, background: '#fff' }}>
                     <div style={{ minWidth: 0 }}>
-                      <a href={agreement.href} target="_blank" rel="noreferrer" style={{ color: '#0b3f9c', fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>{agreement.label}</a>
+                      <a href={`${agreement.href}?lang=${legalLanguage}`} target="_blank" rel="noreferrer" style={{ color: '#0b3f9c', fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>{agreement.label}</a>
                       <div style={{ color: '#64748b', fontSize: 10, lineHeight: '14px', marginTop: 2 }}>{agreement.code.replace(/_/g, ' ')}</div>
                     </div>
                     <div style={{ textAlign: 'right', fontSize: 10, color: '#475569' }}>
@@ -329,7 +343,7 @@ export default function LegalAgreementsPage({
                       {record.agreements.map((agreement) => (
                         <div key={`${record.id}-${agreement.code}`} style={{ fontSize: 10, color: '#475569' }}>
                           <strong style={{ color: '#0f172a' }}>{agreementLabelByCode.get(agreement.code) ?? agreement.code.replace(/_/g, ' ')}</strong>
-                          <span> · v{agreement.version}</span>
+                          <span> · v{agreement.version}{agreement.language ? ` · ${agreement.language}` : ''}</span>
                         </div>
                       ))}
                     </div>
@@ -338,6 +352,7 @@ export default function LegalAgreementsPage({
                       <span>Event: <strong style={{ color: '#334155' }}>{record.source.replace(/_/g, ' ')}</strong></span>
                       <span>Legal gate: <strong style={{ color: '#334155' }}>{record.legalVersion}</strong></span>
                       <span>Privacy: <strong style={{ color: '#334155' }}>{record.privacyVersion}</strong></span>
+                      <span>Language: <strong style={{ color: '#334155' }}>{record.acceptanceLanguage}</strong></span>
                       <span>Evidence ID: <code style={{ color: '#334155' }}>{record.id}</code></span>
                       <span>Evidence hash: <code style={{ color: '#334155' }}>{record.evidenceHash.slice(0, 16)}…</code></span>
                     </div>
