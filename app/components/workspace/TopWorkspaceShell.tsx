@@ -201,12 +201,21 @@ function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
       { id: 'customer-post-load', label: 'Post Load', href: '/customer/post-load', icon: '+' },
       { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: '■' },
       { id: 'customer-quotes', label: 'Quotes', href: '/customer/quotes', icon: '▣' },
+      { id: 'customer-awards', label: 'Awards', href: '/customer/awards', icon: '✓' },
       { id: 'customer-bookings', label: 'Bookings', href: '/customer/bookings', icon: '✓' },
     ] },
     { id: 'customer-delivery', label: 'Delivery', items: [
       { id: 'customer-deliveries', label: 'Deliveries', href: '/customer/deliveries', icon: '■' },
+      { id: 'customer-tracking', label: 'Tracking', href: '/customer/tracking', icon: '⌖' },
       { id: 'customer-pod-docs', label: 'POD & Documents', href: '/customer/documents', icon: '▤' },
+      { id: 'customer-diary', label: 'Diary', href: '/customer/diary', icon: '□' },
       { id: 'customer-updates', label: 'Updates', href: '/customer/updates', icon: '●' },
+    ] },
+    { id: 'customer-collaboration', label: 'Collaboration', items: [
+      { id: 'customer-network', label: 'Network', href: '/customer/network', icon: '○' },
+      { id: 'customer-messages', label: 'Messages', href: '/customer/messages', icon: '◫' },
+      { id: 'customer-disputes', label: 'Disputes', href: '/customer/disputes', icon: '!' },
+      { id: 'customer-event-log', label: 'Event Log', href: '/customer/event-log', icon: '≡' },
     ] },
     { id: 'customer-finance', label: 'Finance', items: [{ id: 'customer-invoices', label: 'Invoices', href: '/customer/invoices', icon: '£' }] },
     { id: 'customer-administration', label: 'Administration', items: [
