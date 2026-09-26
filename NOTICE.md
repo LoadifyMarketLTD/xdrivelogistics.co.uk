@@ -1,6 +1,6 @@
 # Proprietary Technology Notice
 
-Copyright © 2021-2026 XDrive Logistics Ltd. All rights reserved.
+Copyright © XDrive Logistics Ltd. All rights reserved.
 
 ## Legal owner / operator
 
