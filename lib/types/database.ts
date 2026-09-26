@@ -274,6 +274,18 @@ export interface DbJob {
   job_distance_minutes: number | null;
   distance_to_pickup_miles: number | null;
   collection_photo_url: string | null;
+  pickup_photos: string[] | null;
+  collection_handover: {
+    version?: number;
+    capturedAt?: string;
+    itemCount?: number | null;
+    packaging?: string | null;
+    weightKg?: number | null;
+    etaMinutes?: number | null;
+    notes?: string | null;
+    photoPaths?: string[];
+    documentPaths?: string[];
+  } | null;
   delivery_photos: string[] | null;
   delivery_signature_data: string | null;
   status_history: Array<{ status: string; timestamp: string; note?: string }> | null;

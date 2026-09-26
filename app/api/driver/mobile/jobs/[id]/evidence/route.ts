@@ -76,6 +76,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (loadError) return respond(500, { error: loadError.message });
   if (!job) return respond(404, { error: 'Job not found.' });
 
+  const existingCollectionPhotos = Array.isArray(job.pickup_photos)
+    ? job.pickup_photos.filter((value): value is string => typeof value === 'string' && value.length > 0)
+    : [];
+  if (kind === 'collection' && !stopId && category === 'photos' && existingCollectionPhotos.length >= 10) {
+    return respond(409, { error: 'A maximum of 10 collection photos can be attached to one job.' });
+  }
+
   if (stopId) {
     const { data: stop, error: stopError } = await supabaseAdmin
       .from('job_stops')
@@ -116,14 +123,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // Collection documents and stop-specific evidence remain staged until the
   // handover snapshot is persisted and validated by its server endpoint.
   if (kind === 'collection' && !stopId && category === 'photos') {
-    const existingPhotos = Array.isArray(job.pickup_photos)
-      ? job.pickup_photos.filter((value): value is string => typeof value === 'string')
-      : [];
     const { data: updated, error } = await supabaseAdmin
       .from('jobs')
       .update({
-        collection_photo_url: storagePath,
-        pickup_photos: [...new Set([...existingPhotos, storagePath])],
+        collection_photo_url: existingCollectionPhotos[0] ?? storagePath,
+        pickup_photos: [...new Set([...existingCollectionPhotos, storagePath])],
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)

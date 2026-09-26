@@ -130,7 +130,7 @@ export default function JobDetailPage() {
 
         const { data, error } = await supabase
           .from('jobs')
-          .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, assigned_driver_id, job_distance_miles, collection_photo_url, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
+          .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, assigned_driver_id, job_distance_miles, collection_photo_url, pickup_photos, delivery_photos, delivery_signature_data, status_history, client_signature_name, created_at, updated_at, exchange_visibility')
           .eq('id', jobId)
           .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
           .single();
@@ -180,9 +180,11 @@ export default function JobDetailPage() {
               ? (row.status_history as Array<{ status: string; timestamp: string }>)
               : undefined,
             pod: (() => {
-              const pickupPhotos = typeof row.collection_photo_url === 'string' && row.collection_photo_url.length > 0
-                ? [row.collection_photo_url]
-                : [];
+              const pickupPhotos = Array.isArray(row.pickup_photos)
+                ? (row.pickup_photos as unknown[]).filter((photo): photo is string => typeof photo === 'string' && photo.length > 0)
+                : typeof row.collection_photo_url === 'string' && row.collection_photo_url.length > 0
+                  ? [row.collection_photo_url]
+                  : [];
               const deliveryPhotos = Array.isArray(row.delivery_photos)
                 ? (row.delivery_photos as string[]).filter((photo) => typeof photo === 'string' && photo.length > 0)
                 : [];

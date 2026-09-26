@@ -151,12 +151,13 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [notes, setNotes] = useState('');
-  const [collectionPhoto, setCollectionPhoto] = useState<string | null>(null);
+  const [collectionPhotos, setCollectionPhotos] = useState<string[]>([]);
   const [deliveryPhotos, setDeliveryPhotos] = useState<string[]>([]);
   const [recipientName, setRecipientName] = useState('');
   const [signing, setSigning] = useState(false);
   const signatureRef = useRef<HTMLCanvasElement>(null);
-  const collectionInput = useRef<HTMLInputElement>(null);
+  const collectionCameraInput = useRef<HTMLInputElement>(null);
+  const collectionGalleryInput = useRef<HTMLInputElement>(null);
   const deliveryInput = useRef<HTMLInputElement>(null);
 
   const authHeader = useCallback(async () => {
@@ -180,7 +181,12 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     const row = data as DbJob;
     setJob(row);
     setNotes(row.driver_notes ?? '');
-    setCollectionPhoto(row.collection_photo_url ?? null);
+    const pickupPhotos = Array.isArray(row.pickup_photos)
+      ? row.pickup_photos.filter((value): value is string => typeof value === 'string' && value.length > 0)
+      : row.collection_photo_url
+        ? [row.collection_photo_url]
+        : [];
+    setCollectionPhotos([...new Set(pickupPhotos)].slice(0, 10));
     setDeliveryPhotos(Array.isArray(row.delivery_photos) ? row.delivery_photos : []);
     setRecipientName(row.client_signature_name ?? '');
 
@@ -210,15 +216,47 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     return path;
   };
 
-  const selectCollectionPhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setWorking(true); setError('');
-    try { setCollectionPhoto(await uploadImage(file, 'collection')); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Collection photo upload failed.'); }
-    finally { setWorking(false); }
+  const uploadCollectionEvidence = async (file: File) => {
+    if (!['image/jpeg', 'image/png'].includes(file.type)) throw new Error('Collection photos must be JPEG or PNG images.');
+    if (file.size > 10 * 1024 * 1024) throw new Error('Each collection photo must be 10 MB or smaller.');
+    const auth = await authHeader();
+    if (!auth) throw new Error('Your XDrive session is not available. Please sign in again.');
+    const extension = file.type === 'image/png' ? 'png' : 'jpg';
+    const objectName = `collection-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const response = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(jobId)}/evidence`, {
+      method: 'POST',
+      headers: {
+        Authorization: auth,
+        'Content-Type': file.type,
+        'x-xdrive-evidence-kind': 'collection',
+        'x-xdrive-evidence-category': 'photos',
+        'x-xdrive-evidence-name': objectName,
+      },
+      body: file,
+    });
+    const payload = await response.json().catch(() => ({})) as { storagePath?: string; error?: string };
+    if (!response.ok || !payload.storagePath) throw new Error(payload.error || 'Collection photo upload failed.');
+    return payload.storagePath;
   };
 
+  const selectCollectionPhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
+    if (!files.length) return;
+    const remaining = Math.max(0, 10 - collectionPhotos.length);
+    if (remaining === 0) { setError('A maximum of 10 collection photos can be attached.'); return; }
+    if (files.length > remaining) { setError(`You can add up to ${remaining} more collection photo${remaining === 1 ? '' : 's'}.`); return; }
+    setWorking(true); setError(''); setMessage('');
+    try {
+      const uploaded: string[] = [];
+      for (const file of files) uploaded.push(await uploadCollectionEvidence(file));
+      setCollectionPhotos((current) => [...new Set([...current, ...uploaded])].slice(0, 10));
+      setMessage(`${uploaded.length} collection photo${uploaded.length === 1 ? '' : 's'} added.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Collection photo upload failed.');
+      await loadJob();
+    } finally { setWorking(false); }
+  };
   const selectDeliveryPhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
     if (!files.length) return;
@@ -273,10 +311,29 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     setWorking(true); setError(''); setMessage('');
     const fields: Record<string, unknown> = {};
     if (nextStatus === 'loaded') {
-      if (!collectionPhoto) { setError('A loading photo is required before the job can be marked loaded.'); setWorking(false); return; }
-      fields.p_collection_photo_url = collectionPhoto;
-    }
-    if (nextStatus === 'delivered') {
+      if (!collectionPhotos.length) { setError('At least one collection photo is required before the job can be marked loaded.'); setWorking(false); return; }
+      const auth = await authHeader();
+      if (!auth) { setError('Your XDrive session is not available. Please sign in again.'); setWorking(false); return; }
+      const handoverResponse = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(job.id)}/handover`, {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoPaths: collectionPhotos, notes: notes.trim() || undefined }),
+      });
+      const handoverPayload = await handoverResponse.json().catch(() => ({})) as { error?: string };
+      if (!handoverResponse.ok) { setError(handoverPayload.error || 'Collection handover could not be saved.'); setWorking(false); return; }
+
+      const loadedResponse = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(job.id)}/loaded`, {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ driverNotes: notes.trim() || null }),
+      });
+      const loadedPayload = await loadedResponse.json().catch(() => ({})) as { error?: string };
+      if (!loadedResponse.ok) { setError(loadedPayload.error || 'Job could not be marked loaded.'); setWorking(false); return; }
+      setMessage('Job updated: Loaded.');
+      await loadJob();
+      setWorking(false);
+      return;
+    }    if (nextStatus === 'delivered') {
       const signature = signatureData();
       if (!deliveryPhotos.length) { setError('At least one delivery photo is required.'); setWorking(false); return; }
       if (!recipientName.trim()) { setError('Recipient name is required.'); setWorking(false); return; }
@@ -444,8 +501,18 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
           {loadSections.map((section) => <Panel key={section.title} title={section.title}><div className="driver-detail-grid">{section.items.map((item) => <div className="driver-detail-item" key={`${section.title}-${item.label}`}><span>{item.label}</span><strong>{item.value}</strong></div>)}</div></Panel>)}
 
-          {(currentStatus === 'on_site_pickup' || currentStatus === 'loaded') && <Panel title="Collection evidence" description="A loading image is mandatory before confirming loaded."><input ref={collectionInput} type="file" accept="image/*" capture="environment" hidden onChange={selectCollectionPhoto} /><div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}><StatusBadge value={collectionPhoto ? 'Photo ready' : 'Photo required'} tone={collectionPhoto ? 'green' : 'orange'} /><ActionButton tone="secondary" disabled={working} onClick={() => collectionInput.current?.click()}>{collectionPhoto ? 'Replace loading photo' : 'Take loading photo'}</ActionButton></div></Panel>}
-
+          {(currentStatus === 'on_site_pickup' || currentStatus === 'loaded') && (
+            <Panel title="Collection evidence" description="Attach 1–10 verified loading photos. Take a photo or select several saved images in one action.">
+              <input ref={collectionCameraInput} type="file" accept="image/jpeg,image/png" capture="environment" hidden onChange={selectCollectionPhotos} />
+              <input ref={collectionGalleryInput} type="file" accept="image/jpeg,image/png" multiple hidden onChange={selectCollectionPhotos} />
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                <StatusBadge value={collectionPhotos.length ? `${collectionPhotos.length} photo${collectionPhotos.length === 1 ? '' : 's'} ready` : 'Photo required'} tone={collectionPhotos.length ? 'green' : 'orange'} />
+                <ActionButton tone="secondary" disabled={working || collectionPhotos.length >= 10} onClick={() => collectionCameraInput.current?.click()}>Take photo</ActionButton>
+                <ActionButton tone="secondary" disabled={working || collectionPhotos.length >= 10} onClick={() => collectionGalleryInput.current?.click()}>Add photos</ActionButton>
+              </div>
+              {collectionPhotos.length > 0 && <div style={{ marginTop: 6, color: '#64748b', fontSize: 11 }}>Verified collection evidence: {collectionPhotos.length}/10 photos.</div>}
+            </Panel>
+          )}
           {currentStatus === 'on_site_delivery' && <Panel title="Delivery evidence" description="Photo, recipient name and signature are all required."><input ref={deliveryInput} type="file" accept="image/*" capture="environment" multiple hidden onChange={selectDeliveryPhotos} /><div style={{ display: 'grid', gap: 7 }}><ActionButton tone="secondary" disabled={working} onClick={() => deliveryInput.current?.click()}>Add delivery photos ({deliveryPhotos.length})</ActionButton><input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} /><canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} /><ActionButton tone="secondary" onClick={clearSignature}>Clear signature</ActionButton></div></Panel>}
         </div>
 
