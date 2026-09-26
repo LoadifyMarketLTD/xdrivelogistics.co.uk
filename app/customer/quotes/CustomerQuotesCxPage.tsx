@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -251,7 +251,7 @@ export default function CustomerQuotesCxPage() {
     setWorking(null);
     if (!response.ok) { setMessage(payload.error ?? 'Unable to award quote.'); return; }
     setCandidate(null);
-    setMessage('Carrier quote awarded successfully.');
+    setMessage('Booking offer sent - awaiting carrier acceptance.');
     await data.refresh();
   };
 

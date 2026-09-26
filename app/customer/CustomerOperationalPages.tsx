@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -227,7 +227,7 @@ export function CustomerQuotesOperationalPage() {
     const payload = await response.json().catch(() => ({})) as { error?: string };
     setWorking(null);
     if (!response.ok) { setMessage(payload.error ?? 'Unable to award quote.'); return; }
-    setMessage('Carrier quote awarded successfully.');
+    setMessage('Booking offer sent - awaiting carrier acceptance.');
     await data.refresh();
   };
 

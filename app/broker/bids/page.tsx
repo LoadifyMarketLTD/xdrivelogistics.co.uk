@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -134,7 +134,7 @@ export default function BrokerQuotesPage() {
     const payload = await response.json().catch(() => ({})) as { error?: string };
     setWorking(null);
     if (!response.ok) { setMessage(payload.error || 'Unable to award this carrier quote.'); return; }
-    setMessage('Carrier quote awarded successfully.');
+    setMessage('Booking offer sent - awaiting carrier acceptance.');
     await data.refresh();
   };
 

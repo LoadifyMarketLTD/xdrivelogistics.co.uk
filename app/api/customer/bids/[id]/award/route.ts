@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+﻿import { NextRequest, NextResponse } from 'next/server';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -96,7 +96,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
-    'accept_job_bid_atomic',
+    'award_job_bid_pending_atomic',
     {
       p_bid_id: bidId,
       p_actor_user_id: user.id,
@@ -119,6 +119,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     success: true,
     bidId: result.bid_id,
     jobId: result.job_id,
-    awardedCarrierCompanyId: result.awarded_carrier_company_id,
+    bookingOfferId: result.booking_offer_id,
+    carrierCompanyId: result.carrier_company_id,
+    status: result.status,
   });
 }

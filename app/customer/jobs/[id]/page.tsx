@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { use, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -88,7 +88,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'The quote could not be awarded.');
-      setMessage('Carrier quote awarded successfully.');
+      setMessage('Booking offer sent - awaiting carrier acceptance.');
       setDeleteArmed(false);
       await data.refresh();
     } catch (reason) {
