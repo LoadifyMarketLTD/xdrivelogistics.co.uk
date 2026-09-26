@@ -112,7 +112,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   else ownerCompany = companyIdentityResult.data as { name: string | null; xd_id: string | null } | null;
   if (posterIdentityResult.error) companyPresentationPartial = true;
   else posterMemberId = String(posterIdentityResult.data?.xd_id ?? '') || null;
-  const [commercial, stopsResult, instructionsResult] = await Promise.all([
+  const [commercial, stopsResult, instructionsResult, invoiceResult] = await Promise.all([
     loadDriverAgreedRates(supabaseAdmin, [row]),
     supabaseAdmin
       .from('job_stops')
@@ -126,6 +126,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .eq('event_type', 'driver_instruction_added')
       .order('event_time', { ascending: true })
       .limit(200),
+    supabaseAdmin
+      .from('invoices')
+      .select('id, invoice_number, status')
+      .eq('job_id', id)
+      .eq('company_id', driver.companyId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   let podPresentationPartial = false;
@@ -149,6 +157,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const agreedRate = commercial.rates.get(row.id) ?? null;
   const multiDropPartial = Boolean(stopsResult.error);
   const driverInstructionsPartial = Boolean(instructionsResult.error);
+  const invoicePresentationPartial = Boolean(invoiceResult.error);
+  const existingInvoice = invoiceResult.error || !invoiceResult.data
+    ? null
+    : {
+        id: String(invoiceResult.data.id ?? ''),
+        invoiceNumber: String(invoiceResult.data.invoice_number ?? ''),
+        status: String(invoiceResult.data.status ?? 'Draft'),
+      };
   const operational = buildJobOperationalPresentation(row);
   const persistentStops = stopsResult.error
     ? []
@@ -173,12 +189,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       price: toMoney(agreedRate),
       agreedRateAmount: agreedRate,
       budgetAmount: agreedRate,
+      invoice: existingInvoice,
     },
     commercialRatePartial: commercial.partial,
     multiDropPartial,
     driverInstructionsPartial,
     podPresentationPartial,
     attachmentPresentationPartial,
+    invoicePresentationPartial,
     companyPresentationPartial,
   });
 }
