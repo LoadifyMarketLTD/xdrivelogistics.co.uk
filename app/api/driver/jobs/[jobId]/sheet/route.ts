@@ -92,7 +92,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   // than being bypassed through this service-role enrichment endpoint.
   const invoicePromise = Promise.resolve({ data: [], error: null });
 
-  const [companyResult, posterProfileResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult] = await Promise.all([
+  const [companyResult, posterProfileResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult, extrasResult] = await Promise.all([
     originCompanyId ? supabaseAdmin.from('companies').select('*').eq('id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     postedByUserId ? supabaseAdmin.from('profiles').select('xd_id').eq('user_id', postedByUserId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     acceptedBidPromise,
@@ -104,6 +104,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       ? supabaseAdmin.from('vehicles').select('*').eq('id', vehicleId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('drivers').select('*').eq('id', driver.driverId).maybeSingle(),
+    supabaseAdmin.from('driver_job_extras').select('id,extra_type,description,amount_gbp,minutes,status,reviewed_at,review_note,contractual_amendment_id,contractual_snapshot_hash,contractual_snapshot_version,created_at').eq('job_id', jobId).order('created_at', { ascending: false }),
   ]);
 
   const company = (companyResult.data ?? {}) as Record<string, unknown>;
@@ -169,6 +170,20 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       : podRequired === false
         ? 'Not required'
         : 'Not supplied');
+  const contractualExtras = extrasResult.error ? [] : ((extrasResult.data ?? []) as Record<string, unknown>[]).map((entry) => ({
+    id: text(entry.id),
+    type: text(entry.extra_type),
+    description: text(entry.description),
+    amountGbp: numberValue(entry.amount_gbp),
+    minutes: numberValue(entry.minutes),
+    status: text(entry.status),
+    reviewedAt: text(entry.reviewed_at),
+    reviewNote: text(entry.review_note),
+    contractualAmendmentId: text(entry.contractual_amendment_id),
+    contractualSnapshotHash: text(entry.contractual_snapshot_hash),
+    contractualSnapshotVersion: numberValue(entry.contractual_snapshot_version),
+    createdAt: text(entry.created_at),
+  }));
   const deliveryPhotos = Array.isArray(job.delivery_photos) ? job.delivery_photos : [];
   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : [];
 
@@ -260,6 +275,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       timeline,
       documents,
       invoices,
+      extras: contractualExtras,
       partial: Boolean(
         companyResult.error
         || posterProfileResult.error
@@ -270,10 +286,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         || documentsResult.error
         || vehicleResult.error
         || driverResult.error
+        || extrasResult.error
       ),
       unavailable: {
         bodyType: vehicleId && text(vehicle.body_type) ? null : 'No verified job-level allocated vehicle body-type value is available for this job.',
-        extras: 'No immutable waiting/loading/cancellation extras snapshot is exposed by the current verified data contract.',
+        extras: extrasResult.error ? 'Contractual execution extras are temporarily unavailable.' : null,
         bookingFooter: 'No historical booking-footer snapshot is exposed by the current verified data contract.',
       },
     },

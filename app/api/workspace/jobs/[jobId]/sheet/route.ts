@@ -195,6 +195,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     documentsResult,
     invoicesResult,
     viewerMembersResult,
+    extrasResult,
   ] = await Promise.all([
     supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type').eq('id', ownerCompanyId).maybeSingle(),
     awardedCompanyId ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type').eq('id', awardedCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -214,6 +215,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     viewerIsExternalExecutor
       ? supabaseAdmin.from('company_memberships').select('user_id').eq('company_id', viewerCompanyId)
       : Promise.resolve({ data: [], error: null }),
+    supabaseAdmin.from('driver_job_extras').select('id,driver_id,supplier_company_id,extra_type,description,amount_gbp,minutes,status,reviewed_at,review_note,decision_company_id,contractual_amendment_id,contractual_snapshot_hash,contractual_snapshot_version,invoice_item_id,created_at').eq('job_id', jobId).order('created_at', { ascending: false }),
   ]);
 
   const ownerCompany = (ownerCompanyResult.data ?? {}) as Record<string, unknown>;
@@ -304,6 +306,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     fileName: text(entry.file_name),
     filePath: text(entry.file_path) ?? text(entry.file_url),
     createdAt: text(entry.created_at) ?? text(entry.uploaded_at),
+  }));
+
+  const contractualExtras = extrasResult.error ? [] : ((extrasResult.data ?? []) as Record<string, unknown>[]).map((entry) => ({
+    id: text(entry.id),
+    driverId: text(entry.driver_id),
+    supplierCompanyId: text(entry.supplier_company_id),
+    type: text(entry.extra_type),
+    description: text(entry.description),
+    amountGbp: numberValue(entry.amount_gbp),
+    minutes: numberValue(entry.minutes),
+    status: text(entry.status),
+    reviewedAt: text(entry.reviewed_at),
+    reviewNote: text(entry.review_note),
+    decisionCompanyId: text(entry.decision_company_id),
+    contractualAmendmentId: text(entry.contractual_amendment_id),
+    contractualSnapshotHash: text(entry.contractual_snapshot_hash),
+    contractualSnapshotVersion: numberValue(entry.contractual_snapshot_version),
+    invoiceItemId: text(entry.invoice_item_id),
+    createdAt: text(entry.created_at),
   }));
 
   const invoices = invoicesResult.error ? [] : ((invoicesResult.data ?? []) as Record<string, unknown>[])
@@ -433,6 +454,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       timeline,
       documents,
       invoices,
+      extras: contractualExtras,
       partial: Boolean(
         ownerCompanyResult.error
         || carrierCompanyResult.error
@@ -448,11 +470,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         || documentsResult.error
         || invoicesResult.error
         || viewerMembersResult.error
+        || extrasResult.error
       ),
       unavailable: {
         bodyType: assignedVehicleId && text(vehicle.body_type) ? null : 'No verified allocated vehicle body-type value is available for this job.',
         bookingFooter: 'No immutable historical booking-footer snapshot is exposed by the current verified data contract.',
-        extras: 'No immutable waiting/loading/cancellation extras snapshot is exposed by the current verified data contract.',
+        extras: extrasResult.error ? 'Contractual execution extras are temporarily unavailable.' : null,
         documents: viewerIsExternalExecutor
           ? 'External execution view exposes only job documents historically attributable to that company membership or its assigned driver; owner-only uploads remain restricted.'
           : null,
