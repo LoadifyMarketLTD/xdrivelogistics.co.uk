@@ -33,6 +33,12 @@ type AcceptanceHistoryRow = {
   acceptedAt: string;
   source: string;
   evidenceHash: string;
+  signerFullName: string | null;
+  signatureMethod: string | null;
+  signaturePayloadHash: string | null;
+  signedPdfAvailable: boolean;
+  signedPdfHash: string | null;
+  signedPdfCreatedAt: string | null;
   createdAt: string;
   status: 'current' | 'superseded';
 };
@@ -102,6 +108,8 @@ export default function LegalAgreementsPage({
   const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
   const [initialEvidenceRemediationConfirmed, setInitialEvidenceRemediationConfirmed] = useState(false);
   const [legalLanguage, setLegalLanguage] = useState<LegalLanguage>('en');
+  const [signerFullName, setSignerFullName] = useState('');
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const resetConfirmations = () => {
     setAgreementsAccepted(false);
@@ -159,8 +167,29 @@ export default function LegalAgreementsPage({
       authorityConfirmed &&
       roleDeclarationConfirmed &&
       privacyAcknowledged &&
+      signerFullName.trim().length >= 2 &&
       (!isInitialRemediation || initialEvidenceRemediationConfirmed),
   );
+
+  const downloadSignedAgreement = async (record: AcceptanceHistoryRow) => {
+    if (!record.signedPdfAvailable) return;
+    setDownloadingId(record.id);
+    setError('');
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(`/api/account/legal-agreements/${record.id}/signed-document`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!response.ok || !payload.url) throw new Error(payload.error || 'Signed agreement could not be downloaded.');
+      window.location.assign(payload.url);
+    } catch (downloadError) {
+      setError(downloadError instanceof Error ? downloadError.message : 'Signed agreement could not be downloaded.');
+    } finally {
+      setDownloadingId(null);
+    }
+  };
 
   const submitAcceptance = async () => {
     if (!model || !canAccept) return;
@@ -183,6 +212,7 @@ export default function LegalAgreementsPage({
           privacyAcknowledged: true,
           initialEvidenceRemediationConfirmed: isInitialRemediation ? true : undefined,
           language: legalLanguage,
+          signerFullName: signerFullName.trim(),
         }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string; code?: string; acceptanceMode?: string };
@@ -276,7 +306,25 @@ export default function LegalAgreementsPage({
                   </div>
                 )}
 
+                <label style={{ display: 'grid', gap: 4, maxWidth: 420, fontSize: 11, color: '#334155' }}>
+
+
+                  <strong style={{ color: '#0f172a' }}>Full legal name of signer</strong>
+
+
+                  <input type="text" value={signerFullName} onChange={(event) => setSignerFullName(event.target.value)} maxLength={120} autoComplete="name" placeholder="Enter your full legal name" style={{ border: '1px solid #dbe3ee', borderRadius: 4, padding: '8px 9px', background: '#fff', color: '#0f172a', fontWeight: 700 }} />
+
+
+                  <span style={{ color: '#64748b', fontSize: 10 }}>Typing your full name and completing the confirmations below forms your electronic signature.</span>
+
+
+                </label>
+
+
+
                 <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+
+
                   <input type="checkbox" checked={agreementsAccepted} onChange={(event) => setAgreementsAccepted(event.target.checked)} />
                   <span>{model.currentRequirement.acceptanceStatement}</span>
                 </label>
@@ -355,7 +403,16 @@ export default function LegalAgreementsPage({
                       <span>Language: <strong style={{ color: '#334155' }}>{record.acceptanceLanguage}</strong></span>
                       <span>Evidence ID: <code style={{ color: '#334155' }}>{record.id}</code></span>
                       <span>Evidence hash: <code style={{ color: '#334155' }}>{record.evidenceHash.slice(0, 16)}…</code></span>
+                      {record.signerFullName ? <span>Signed by: <strong style={{ color: '#334155' }}>{record.signerFullName}</strong></span> : null}
+                      {record.signedPdfHash ? <span>PDF hash: <code style={{ color: '#334155' }}>{record.signedPdfHash.slice(0, 16)}…</code></span> : null}
                     </div>
+                    {record.signedPdfAvailable ? (
+                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <ActionButton tone="secondary" disabled={downloadingId === record.id} onClick={() => void downloadSignedAgreement(record)}>
+                          {downloadingId === record.id ? 'Preparing PDF…' : 'Download signed PDF'}
+                        </ActionButton>
+                      </div>
+                    ) : null}
                   </article>
                 ))}
               </div>

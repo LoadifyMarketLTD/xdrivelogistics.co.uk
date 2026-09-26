@@ -50,6 +50,7 @@ const EMPTY_LEGAL_GATE: RegistrationAgreementGateValue = {
   authorityConfirmed: false,
   roleDeclarationConfirmed: false,
   privacyAcknowledged: false,
+  signerFullName: '',
 };
 
 const SIGNUP_ROLE_CONFIG: Record<Exclude<RegisterRole, 'owner_operator'>, SignupConfig> = {
@@ -200,6 +201,7 @@ export default function RegisterPage() {
             privacy_acknowledged_at: acceptedAt,
             privacy_version: '2026-09-26',
             legal_acceptance_language: legalLanguage,
+            legal_signer_full_name: legalGate.signerFullName.trim(),
           },
         },
       });

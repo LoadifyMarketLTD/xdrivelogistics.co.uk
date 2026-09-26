@@ -1,4 +1,4 @@
-﻿import { readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildControlledLegalDocument, CONTROLLED_LEGAL_VERSION, LEGAL_LANGUAGES } from '../lib/legal/controlledLegalDocuments';
@@ -9,6 +9,7 @@ import { buildRegistrationLegalEvidence } from '../lib/legal/registrationEvidenc
 const migration = readFileSync(join(process.cwd(),'supabase/migrations/20260926144804_multilingual_legal_acceptance_snapshot.sql'),'utf8');
 const accountApi = readFileSync(join(process.cwd(),'app/api/account/legal-agreements/route.ts'),'utf8');
 const gate = readFileSync(join(process.cwd(),'app/register/RegistrationAgreementGate.tsx'),'utf8');
+const signedPersistence = readFileSync(join(process.cwd(),'lib/legal/persistSignedLegalAcceptance.ts'),'utf8');
 
 describe('multilingual controlled legal acceptance',()=>{
   it('supports exactly the five controlled legal languages',()=>{
@@ -75,8 +76,9 @@ describe('multilingual controlled legal acceptance',()=>{
 
   it('requires language in reacceptance API and exposes language selector in registration UI',()=>{
     expect(accountApi).toContain('language: z.enum(LEGAL_LANGUAGES)');
-    expect(accountApi).toContain('acceptance_language: evidence.acceptanceLanguage');
-    expect(accountApi).toContain('privacy_document_hash: evidence.privacyDocumentHash');
+    expect(accountApi).toContain('persistSignedLegalAcceptance');
+    expect(signedPersistence).toContain('acceptance_language: input.evidence.acceptanceLanguage');
+    expect(signedPersistence).toContain('privacy_document_hash: input.evidence.privacyDocumentHash');
     expect(gate).toContain('LEGAL_LANGUAGES.map');
     expect(gate).toContain('?lang=${language}');
   });

@@ -13,6 +13,7 @@ export type RegistrationAgreementGateValue = {
   authorityConfirmed: boolean;
   roleDeclarationConfirmed: boolean;
   privacyAcknowledged: boolean;
+  signerFullName: string;
 };
 
 type Props = {
@@ -30,13 +31,14 @@ export const isRegistrationAgreementGateComplete = (value: RegistrationAgreement
   value.agreementsAccepted &&
   value.authorityConfirmed &&
   value.roleDeclarationConfirmed &&
-  value.privacyAcknowledged;
+  value.privacyAcknowledged &&
+  value.signerFullName.trim().length >= 2;
 
 export default function RegistrationAgreementGate({ role, value, onChange, language, onLanguageChange, disabled = false }: Props) {
   const config = getRegistrationLegalConfig(role);
 
-  const set = (key: keyof RegistrationAgreementGateValue, checked: boolean) => {
-    onChange({ ...value, [key]: checked });
+  const set = <K extends keyof RegistrationAgreementGateValue>(key: K, nextValue: RegistrationAgreementGateValue[K]) => {
+    onChange({ ...value, [key]: nextValue });
   };
 
   return (
@@ -56,6 +58,12 @@ export default function RegistrationAgreementGate({ role, value, onChange, langu
       </div>
 
       <div className="space-y-3 p-4">
+        <label className="block rounded-xl border border-[#DDE5EF] bg-white p-3 text-xs font-semibold text-[#526983]">
+          <span className="mb-2 block font-black text-[#173B73]">Full legal name of signer</span>
+          <input type="text" value={value.signerFullName} onChange={(event) => set('signerFullName', event.target.value)} disabled={disabled} maxLength={120} autoComplete="name" className="w-full rounded-lg border border-[#D8E1EC] bg-white px-3 py-2 font-bold text-[#173B73]" placeholder="Enter your full legal name" />
+          <span className="mt-2 block text-[11px] leading-4 text-[#71849A]">Typing your full name and completing the confirmations below forms your electronic signature for this agreement package.</span>
+        </label>
+
         <label className="block rounded-xl border border-[#DDE5EF] bg-white p-3 text-xs font-semibold text-[#526983]">
           <span className="mb-2 block font-black text-[#173B73]">Legal document language</span>
           <select value={language} onChange={(event) => onLanguageChange(event.target.value as LegalLanguage)} disabled={disabled} className="w-full rounded-lg border border-[#D8E1EC] bg-white px-3 py-2 font-bold text-[#173B73]">
