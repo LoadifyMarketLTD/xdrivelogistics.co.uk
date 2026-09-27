@@ -86,10 +86,11 @@ function baseHref(href: string) {
   return href.split('?')[0] ?? href;
 }
 
-function isActivePath(pathname: string, href: string, homeHref: string) {
-  const target = baseHref(href);
-  if (target === homeHref) return pathname === target;
-  return pathname === target || pathname.startsWith(`${target}/`);
+function activeHrefForPath(pathname: string, definition: WorkspaceDefinition) {
+  return definition.nav
+    .flatMap((group) => group.items.map((item) => baseHref(item.href)))
+    .filter((target) => target === definition.homeHref ? pathname === target : pathname === target || pathname.startsWith(`${target}/`))
+    .sort((a, b) => b.length - a.length)[0] ?? null;
 }
 
 export default function SuperAdminSidebar({
@@ -99,6 +100,7 @@ export default function SuperAdminSidebar({
   mobileOpen,
   onNavigate,
 }: Props) {
+  const activeHref = activeHrefForPath(pathname, definition);
   return (
     <aside
       className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ''} ${mobileOpen ? styles.sidebarMobileOpen : ''}`}
@@ -113,13 +115,13 @@ export default function SuperAdminSidebar({
       </Link>
       <nav className={styles.sidebarScroll}>
         {definition.nav.map((group) => {
-          const groupActive = group.items.some((item) => isActivePath(pathname, item.href, definition.homeHref));
+          const groupActive = group.items.some((item) => baseHref(item.href) === activeHref);
           return (
             <section key={group.id} className={styles.sidebarGroup} data-active={groupActive ? 'true' : 'false'}>
               <div className={styles.sidebarGroupLabel}>{group.label}</div>
               <div className={styles.sidebarGroupItems}>
                 {group.items.map((item) => {
-                  const active = isActivePath(pathname, item.href, definition.homeHref);
+                  const active = baseHref(item.href) === activeHref;
                   const Icon = ICONS[item.id] ?? Activity;
                   return (
                     <Link

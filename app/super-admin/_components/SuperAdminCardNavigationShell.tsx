@@ -63,11 +63,13 @@ export default function SuperAdminCardNavigationShell({
     [definition.nav],
   );
 
-  const currentTarget = useMemo(() => navigationTargets.find((item) => {
-    const [target] = item.href.split('?');
-    if (target === definition.homeHref) return pathname === target;
-    return pathname === target || pathname.startsWith(`${target}/`);
-  }), [definition.homeHref, navigationTargets, pathname]);
+  const currentTarget = useMemo(() => navigationTargets
+    .filter((item) => {
+      const [target] = item.href.split('?');
+      if (target === definition.homeHref) return pathname === target;
+      return pathname === target || pathname.startsWith(`${target}/`);
+    })
+    .sort((a, b) => (b.href.split('?')[0]?.length ?? 0) - (a.href.split('?')[0]?.length ?? 0))[0], [definition.homeHref, navigationTargets, pathname]);
 
   const fallbackGroup = routeGroupFallback(pathname);
   const currentGroup = useMemo(
