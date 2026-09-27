@@ -14,6 +14,8 @@ describe('public funnel hardening', () => {
   const marketing = read('app/(marketing)/_components/MarketingDetailPage.tsx');
 
   it('applies middleware CSP to homepage, auth and onboarding routes', () => {
+    expect(middleware).toContain("const styleSrc = `'self' 'unsafe-inline'`");
+    expect(middleware).not.toContain("script-src 'self' 'unsafe-inline'");
     for (const route of [
       "'/'",
       "'/login/:path*'",

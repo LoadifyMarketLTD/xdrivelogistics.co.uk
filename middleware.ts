@@ -577,7 +577,11 @@ function buildCspHeader(nonce: string): string {
   const scriptSrc = isDev
     ? `'self' 'nonce-${nonce}' 'unsafe-eval' https://*.supabase.co https://*.netlify.app`
     : `'self' 'nonce-${nonce}' https://*.supabase.co https://*.netlify.app`;
-  const styleSrc = isDev ? `'self' 'unsafe-inline'` : `'self'`;
+  // The current UI still relies on React style attributes in several public and
+  // authenticated surfaces. Blocking inline styles makes the rendered page unusable.
+  // Keep script execution nonce-protected, but allow inline CSS until those style
+  // attributes are fully migrated to classes/CSS modules.
+  const styleSrc = `'self' 'unsafe-inline'`;
   return [
     "default-src 'self'",
     `script-src ${scriptSrc}`,
