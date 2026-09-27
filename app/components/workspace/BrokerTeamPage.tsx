@@ -25,7 +25,7 @@ type TeamMember = {
   role: 'owner' | 'admin' | 'dispatcher' | 'viewer';
   departmentId: string | null;
   departmentName: string | null;
-  membershipStatus: 'invited' | 'active' | 'suspended';
+  membershipStatus: 'invited' | 'active' | 'disabled';
   profileStatus: string | null;
   createdAt: string;
   isCurrentUser: boolean;
@@ -149,7 +149,7 @@ export default function BrokerTeamPage() {
     const response = await fetch('/api/customer/team', {
       method: 'POST',
       headers: { Authorization: authHeader, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ companyId: workspace.companyId, email: inviteEmail.trim(), role: inviteRole, departmentId: inviteDepartmentId || null }),
+      body: JSON.stringify({ companyId: workspace.companyId, email: inviteEmail.trim(), role: inviteRole, workspace: 'broker', departmentId: inviteDepartmentId || null }),
     });
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
     if (!response.ok) {
@@ -157,7 +157,7 @@ export default function BrokerTeamPage() {
     } else {
       setInviteEmail('');
       setInviteDepartmentId('');
-      setNotice('Invitation saved successfully.');
+      setNotice('Invitation email sent successfully.');
       await load();
     }
     setPendingActionId(null);
@@ -263,7 +263,7 @@ export default function BrokerTeamPage() {
                       <option key={roleOption} value={roleOption}>{roleOption}</option>
                     ))}
                   </select>
-                  {member.membershipStatus === 'suspended' ? (
+                  {member.membershipStatus === 'disabled' ? (
                     <button
                       type="button"
                       disabled={pendingActionId === member.id}
@@ -286,12 +286,12 @@ export default function BrokerTeamPage() {
                         setPendingActionId(member.id);
                         void runTeamAction(
                           { membershipId: member.id, action: 'suspend' },
-                          'Member suspended.'
+                          'Member disabled.'
                         ).finally(() => setPendingActionId(null));
                       }}
                       style={{ fontSize: '0.68rem' }}
                     >
-                      Suspend
+                      Disable
                     </button>
                   )}
                 </div>

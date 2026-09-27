@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
+import { normalizeProfileRoleForStorage } from '../../../../lib/authRole';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -17,6 +19,7 @@ const inviteSchema = z.object({
   companyId: z.string().uuid(),
   email: z.string().email(),
   role: z.enum(['admin', 'dispatcher', 'viewer']).default('viewer'),
+  workspace: z.enum(['customer', 'broker']),
   departmentId: z.string().uuid().nullable().optional(),
 });
 
@@ -67,6 +70,23 @@ const getCallerMembership = async (
 
 const userCanManage = (role: string | null | undefined) =>
   ACTIVE_MANAGEMENT_ROLES.includes((role ?? '') as (typeof ACTIVE_MANAGEMENT_ROLES)[number]);
+
+const findAuthUserByEmail = async (email: string) => {
+  if (!supabaseAdmin) return null;
+  let page = 1;
+  const perPage = 1000;
+  while (true) {
+    const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
+    if (error || !data) return null;
+    const user = data.users.find((candidate) => candidate.email?.toLowerCase() === email);
+    if (user) return user;
+    if (data.users.length < perPage) return null;
+    page += 1;
+  }
+};
+
+const expectedWorkspaceProfileRole = (workspace: 'customer' | 'broker') =>
+  normalizeProfileRoleForStorage(workspace) ?? workspace;
 
 export async function GET(request: NextRequest) {
   const resolved = await resolveCaller(request);
@@ -187,26 +207,135 @@ export async function POST(request: NextRequest) {
 
   const invitedEmail = parsed.data.email.trim().toLowerCase();
   const role = parsed.data.role;
+  const workspace = parsed.data.workspace;
+  const targetProfileRole = expectedWorkspaceProfileRole(workspace);
 
-  const { data: inserted, error: insertError } = await admin
+  const { data: callerProfile, error: callerProfileError } = await admin
+    .from('profiles')
+    .select('role')
+    .eq('user_id', user.id)
+    .maybeSingle();
+  if (callerProfileError) return json(500, { error: 'Caller workspace identity could not be verified.' });
+  const callerProfileRole = String(callerProfile?.role ?? '').trim().toLowerCase();
+  if (callerProfileRole !== workspace && callerProfileRole !== 'owner') {
+    return json(403, { error: 'This team invitation does not match your active workspace.' });
+  }
+
+  if (parsed.data.departmentId) {
+    const { data: department, error: departmentError } = await admin
+      .from('company_departments')
+      .select('id')
+      .eq('id', parsed.data.departmentId)
+      .eq('company_id', companyId)
+      .maybeSingle();
+    if (departmentError) return json(500, { error: 'Department could not be verified.' });
+    if (!department) return json(400, { error: 'Department does not belong to this company.' });
+  }
+
+  let targetUser = await findAuthUserByEmail(invitedEmail);
+  const existingAuthUser = Boolean(targetUser);
+  const delivery: 'auth_invite' | 'magic_link' = existingAuthUser ? 'magic_link' : 'auth_invite';
+
+  if (!targetUser) {
+    const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(invitedEmail, {
+      redirectTo: `${getResetPasswordEmailRedirectTo()}?type=team-invite&workspace=${workspace}`,
+      data: { requested_workspace: workspace },
+    });
+    if (inviteError || !inviteData.user) {
+      return json(503, { error: inviteError?.message ?? 'Invitation email could not be sent.' });
+    }
+    targetUser = inviteData.user;
+  }
+
+  const { data: existingActiveMembership, error: activeMembershipError } = await admin
     .from('company_memberships')
-    .upsert(
-      {
+    .select('id, company_id, status')
+    .eq('user_id', targetUser.id)
+    .eq('status', 'active')
+    .maybeSingle();
+  if (activeMembershipError) return json(500, { error: 'Existing membership could not be verified.' });
+  if (existingActiveMembership?.company_id && existingActiveMembership.company_id !== companyId) {
+    return json(409, { error: 'This account already belongs to another active company workspace.' });
+  }
+  if (existingActiveMembership?.company_id === companyId) {
+    return json(409, { error: 'This account is already an active member of this company.' });
+  }
+
+  const { data: existingProfile, error: profileLookupError } = await admin
+    .from('profiles')
+    .select('role, company_id, status')
+    .eq('user_id', targetUser.id)
+    .maybeSingle();
+  if (profileLookupError) return json(500, { error: 'Invitee profile could not be verified.' });
+  const existingProfileRole = String(existingProfile?.role ?? '').trim().toLowerCase();
+  if (existingProfileRole && existingProfileRole !== targetProfileRole) {
+    return json(409, { error: 'This account already has a different platform workspace identity.' });
+  }
+  if (existingProfile?.company_id && existingProfile.company_id !== companyId) {
+    return json(409, { error: 'This account is already bound to another company identity.' });
+  }
+
+  if (existingAuthUser) {
+    const { error: magicLinkError } = await admin.auth.signInWithOtp({
+      email: invitedEmail,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${getResetPasswordEmailRedirectTo()}?type=team-invite&workspace=${workspace}`,
+      },
+    });
+    if (magicLinkError) return json(503, { error: 'Existing account invitation email could not be sent.' });
+  }
+
+  const { error: metadataError } = await admin.auth.admin.updateUserById(targetUser.id, {
+    app_metadata: { ...(targetUser.app_metadata ?? {}), role: targetProfileRole },
+  });
+  if (metadataError) return json(500, { error: 'Invitee authority metadata could not be initialized.' });
+
+  const { error: profileError } = await admin
+    .from('profiles')
+    .upsert({
+      user_id: targetUser.id,
+      role: targetProfileRole,
+      status: 'active',
+      company_id: companyId,
+      is_driver: false,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' });
+  if (profileError) return json(500, { error: 'Invitee profile could not be initialized.' });
+
+  const { data: existingInvitation } = await admin
+    .from('company_memberships')
+    .select('id')
+    .eq('company_id', companyId)
+    .eq('invited_email', invitedEmail)
+    .eq('status', 'invited')
+    .maybeSingle();
+
+  const membershipWrite = existingInvitation?.id
+    ? admin.from('company_memberships').update({
+        user_id: targetUser.id,
+        role_in_company: role,
+        department_id: parsed.data.departmentId ?? null,
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      }).eq('id', existingInvitation.id)
+    : admin.from('company_memberships').upsert({
         company_id: companyId,
+        user_id: targetUser.id,
         invited_email: invitedEmail,
         role_in_company: role,
         department_id: parsed.data.departmentId ?? null,
-        status: 'invited',
-        user_id: null,
-      },
-      { onConflict: 'company_id,invited_email' }
-    )
-    .select('id, invited_email, role_in_company, department_id, status, created_at')
+        status: 'active',
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'company_id,user_id' });
+
+  const { data: inserted, error: insertError } = await membershipWrite
+    .select('id, user_id, invited_email, role_in_company, department_id, status, created_at')
     .maybeSingle();
 
   if (insertError) return json(500, { error: insertError.message });
 
-  return json(201, { invitation: inserted });
+  return json(201, { invitation: inserted, delivery });
 }
 
 export async function PATCH(request: NextRequest) {
@@ -299,7 +428,7 @@ export async function PATCH(request: NextRequest) {
     }
     return json(200, { membership: departmentUpdated });
   } else if (action === 'suspend') {
-    updatePayload.status = 'suspended';
+    updatePayload.status = 'disabled';
   } else if (action === 'reactivate') {
     updatePayload.status = 'active';
   }
