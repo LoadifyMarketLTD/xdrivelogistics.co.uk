@@ -24,6 +24,9 @@ type CompanyRow = {
   vat_number: string | null;
   email: string | null;
   phone: string | null;
+  website: string | null;
+  description: string | null;
+  international_work_approved: boolean | null;
   address_line1: string | null;
   address_line2: string | null;
   city: string | null;
@@ -133,7 +136,7 @@ const routeMap: Record<RoleMode, {
 };
 
 const blankCompany = {
-  name: '', email: '', phone: '', address1: '', address2: '', city: '', postcode: '', country: 'United Kingdom',
+  name: '', email: '', phone: '', website: '', description: '', address1: '', address2: '', city: '', postcode: '', country: 'United Kingdom',
 };
 const blankProfile = { fullName: '', phone: '' };
 const textOrNull = (value: string) => value.trim() || null;
@@ -194,7 +197,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     const [companyResult, profileResult, roleResult] = await Promise.all([
       supabase
         .from('companies')
-        .select('id,name,legal_name,trading_name,company_number,xd_id,vat_number,email,phone,address_line1,address_line2,city,postcode,country,status,company_type')
+        .select('id,name,legal_name,trading_name,company_number,xd_id,vat_number,email,phone,website,description,international_work_approved,address_line1,address_line2,city,postcode,country,status,company_type')
         .eq('id', companyId)
         .maybeSingle(),
       supabase
@@ -219,6 +222,8 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
         name: companyRow.name ?? companyRow.trading_name ?? companyRow.legal_name ?? '',
         email: companyRow.email ?? '',
         phone: companyRow.phone ?? '',
+        website: companyRow.website ?? '',
+        description: companyRow.description ?? '',
         address1: companyRow.address_line1 ?? '',
         address2: companyRow.address_line2 ?? '',
         city: companyRow.city ?? '',
@@ -247,6 +252,8 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
         name: companyForm.name.trim(),
         email: textOrNull(companyForm.email),
         phone: textOrNull(companyForm.phone),
+        website: textOrNull(companyForm.website),
+        description: textOrNull(companyForm.description),
         address_line1: textOrNull(companyForm.address1),
         address_line2: textOrNull(companyForm.address2),
         city: textOrNull(companyForm.city),
@@ -402,6 +409,8 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
                   <label>Company name<input disabled={!canEditCompany} value={companyForm.name} onChange={(e) => setCompanyForm((v) => ({ ...v, name: e.target.value }))} /></label>
                   <label>Email<input disabled={!canEditCompany} type="email" value={companyForm.email} onChange={(e) => setCompanyForm((v) => ({ ...v, email: e.target.value }))} /></label>
                   <label>Phone<input disabled={!canEditCompany} value={companyForm.phone} onChange={(e) => setCompanyForm((v) => ({ ...v, phone: e.target.value }))} /></label>
+                  <label>Website<input disabled={!canEditCompany} type="url" value={companyForm.website} onChange={(e) => setCompanyForm((v) => ({ ...v, website: e.target.value }))} placeholder="https://example.co.uk" /></label>
+                  <label style={{ gridColumn: '1 / -1' }}>Company description<textarea disabled={!canEditCompany} value={companyForm.description} onChange={(e) => setCompanyForm((v) => ({ ...v, description: e.target.value }))} rows={3} placeholder="Describe your transport operation and services." /></label>
                   <label>Address line 1<input disabled={!canEditCompany} value={companyForm.address1} onChange={(e) => setCompanyForm((v) => ({ ...v, address1: e.target.value }))} /></label>
                   <label>Address line 2<input disabled={!canEditCompany} value={companyForm.address2} onChange={(e) => setCompanyForm((v) => ({ ...v, address2: e.target.value }))} /></label>
                   <label>City<input disabled={!canEditCompany} value={companyForm.city} onChange={(e) => setCompanyForm((v) => ({ ...v, city: e.target.value }))} /></label>
@@ -412,6 +421,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
                   <div><span>Registered company number</span><strong>{company.company_number || 'Not recorded'}</strong></div>
                   <div><span>VAT number</span><strong>{company.vat_number || 'Not recorded'}</strong></div>
                   <div><span>Company type</span><strong>{company.company_type?.replace(/_/g, ' ') || 'Not recorded'}</strong></div>
+                  <div><span>International work approval</span><strong>{company.international_work_approved === true ? 'Approved' : 'Not approved / not recorded'}</strong></div>
                   <div><span>Your company role</span><strong>{membershipRole || 'Not verified'}</strong></div>
                 </div>
               </Panel>
