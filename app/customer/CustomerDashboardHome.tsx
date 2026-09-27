@@ -106,6 +106,13 @@ export default function CustomerDashboardHome() {
     const completedWithPod = data.jobs.filter(
       (job) => classifyWorkspaceJobStage(job) === 'completed' && job.pod_generated === true,
     );
+    const documentAlertJobs = data.jobs.filter((job) => {
+      const stage = classifyWorkspaceJobStage(job);
+      const podMissing = stage === 'completed' && job.pod_required === true && job.pod_generated !== true;
+      const deliveryEvidenceMissing = stage === 'completed' && job.has_delivery_evidence === false;
+      const podRejected = String(job.broker_pod_review_status ?? '').trim().toLowerCase() === 'rejected';
+      return podMissing || deliveryEvidenceMissing || podRejected;
+    });
 
     const recentJobs = [...data.jobs]
       .sort((a, b) => {
@@ -122,6 +129,7 @@ export default function CustomerDashboardHome() {
       unpaidInvoices,
       delayed,
       completedWithPod,
+      documentAlertJobs,
       recentJobs,
       unpaidValue: unpaidInvoices.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
     };
@@ -130,6 +138,12 @@ export default function CustomerDashboardHome() {
   const jobsDataset = data.datasets.jobs;
   const bidsDataset = data.datasets.bids;
   const invoicesDataset = data.datasets.invoices;
+  const attentionUnavailable = [jobsDataset, bidsDataset, invoicesDataset].some(
+    (dataset) => dataset.availability !== 'available',
+  );
+  const attentionPartial = !attentionUnavailable && [jobsDataset, bidsDataset, invoicesDataset].some(
+    (dataset) => dataset.partialData || dataset.limitedData,
+  );
 
   const attentionItems = [
     {
@@ -147,9 +161,20 @@ export default function CustomerDashboardHome() {
       show: metrics.delayed.length > 0,
     },
     {
+      label: 'Document alerts',
+      detail: 'Review completed work with missing or rejected POD and delivery evidence.',
+      count: metricState(jobsDataset, metrics.documentAlertJobs.length),
+      route: '/customer/bookings',
+      show: metrics.documentAlertJobs.length > 0,
+    },
+    {
       label: 'Outstanding invoices',
       detail: 'Review invoices that still need payment or reconciliation.',
-      count: invoicesDataset.availability === 'available' ? money(metrics.unpaidValue) : '—',
+      count: invoicesDataset.availability !== 'available'
+        ? '—'
+        : invoicesDataset.partialData || invoicesDataset.limitedData
+          ? 'Partial'
+          : money(metrics.unpaidValue),
       route: '/customer/invoices',
       show: metrics.unpaidInvoices.length > 0,
     },
@@ -177,7 +202,11 @@ export default function CustomerDashboardHome() {
         {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
         {invoicesDataset.availability !== 'available' ? (
           <AlertBanner tone="warning">
-            Invoice data is currently unavailable. Financial totals are hidden until the data source is available.
+            Invoice data unavailable. Financial totals are hidden until the data source is available.
+          </AlertBanner>
+        ) : invoicesDataset.partialData || invoicesDataset.limitedData ? (
+          <AlertBanner tone="warning">
+            Invoice data is partial. Exact financial totals are hidden until the complete dataset is available.
           </AlertBanner>
         ) : null}
 
@@ -215,7 +244,11 @@ export default function CustomerDashboardHome() {
           >
             <span>Outstanding invoices</span>
             <strong>{metricState(invoicesDataset, metrics.unpaidInvoices.length)}</strong>
-            <small>{invoicesDataset.availability === 'available' ? money(metrics.unpaidValue) : 'Financial data unavailable'}</small>
+            <small>{invoicesDataset.availability !== 'available'
+              ? 'Financial data unavailable'
+              : invoicesDataset.partialData || invoicesDataset.limitedData
+                ? 'Financial total partial'
+                : money(metrics.unpaidValue)}</small>
           </button>
         </div>
 
@@ -245,6 +278,16 @@ export default function CustomerDashboardHome() {
                     </button>
                   ))}
                 </div>
+              ) : attentionUnavailable ? (
+                <EmptyState
+                  title="Attention data unavailable"
+                  description="The dashboard cannot confirm that there are no customer actions until loads, quotes and invoices are available."
+                />
+              ) : attentionPartial ? (
+                <EmptyState
+                  title="Attention data is partial"
+                  description="The visible records are incomplete, so the dashboard does not claim that there are no customer actions."
+                />
               ) : (
                 <EmptyState
                   title="Nothing needs attention"
@@ -311,12 +354,20 @@ export default function CustomerDashboardHome() {
                           <td>{when(job.pickup_datetime)}</td>
                           <td><StatusBadge value={status} /></td>
                           <td>
-                            <ActionButton
-                              tone="secondary"
-                              onClick={() => router.push(`${action.href}${action.href.includes('?') ? '&' : '?'}job=${job.id}`)}
-                            >
-                              {action.label}
-                            </ActionButton>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              <ActionButton
+                                tone="secondary"
+                                onClick={() => router.push(`${action.href}${action.href.includes('?') ? '&' : '?'}job=${job.id}`)}
+                              >
+                                {action.label}
+                              </ActionButton>
+                              <ActionButton
+                                tone="secondary"
+                                onClick={() => router.push(`/customer/messages?jobId=${encodeURIComponent(job.id)}`)}
+                              >
+                                Message
+                              </ActionButton>
+                            </div>
                           </td>
                         </tr>
                       );
@@ -324,11 +375,21 @@ export default function CustomerDashboardHome() {
                   </tbody>
                 </table>
               </div>
+            ) : jobsDataset.availability !== 'available' ? (
+              <EmptyState
+                title="Transport data unavailable"
+                description="Recent transport cannot be confirmed until the jobs source is available."
+              />
+            ) : jobsDataset.partialData || jobsDataset.limitedData ? (
+              <EmptyState
+                title="Transport data is partial"
+                description="The visible jobs dataset is incomplete, so the dashboard does not claim that there is no transport yet."
+              />
             ) : (
               <EmptyState
                 title="No transport yet"
                 description="Post your first load when you are ready to request carrier quotes."
-                />
+              />
             )}
           </div>
         </section>
@@ -341,6 +402,7 @@ export default function CustomerDashboardHome() {
             Invoices <span>{metricState(invoicesDataset, metrics.unpaidInvoices.length)}</span>
           </button>
           <button type="button" onClick={() => router.push('/customer/messages')}>Messages</button>
+          <button type="button" onClick={() => router.push('/customer/disputes')}>Disputes</button>
           <button type="button" onClick={() => router.push('/customer/event-log')}>Event Log</button>
         </div>
       </div>
