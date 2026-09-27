@@ -81,6 +81,15 @@ describe('MASTER CONTRACT FINAL v3 — enterprise shell', () => {
     expect(css).toContain('.mobileBackdrop');
   });
 
+  it('keeps the desktop sidebar continuous for the full viewport while page content scrolls', () => {
+    expect(css).toContain('position: fixed;');
+    expect(css).toContain('inset: 0 auto 0 0;');
+    expect(css).toContain('height: 100dvh;');
+    expect(css).toContain('width: var(--sa-v3-sidebar);');
+    expect(css).toContain('grid-column: 2;');
+    expect(css).toContain('width: var(--sa-v3-sidebar-collapsed);');
+  });
+
   it('keeps global search, Action Centre, Platform Overview and owner sign-out reachable', () => {
     expect(topbar).toContain("router.push(`/super-admin/search?q=${encodeURIComponent(query)}`)");
     expect(topbar).toContain('href="/super-admin/action-centre"');

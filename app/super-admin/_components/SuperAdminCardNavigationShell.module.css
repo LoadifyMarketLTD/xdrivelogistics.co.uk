@@ -25,14 +25,16 @@
 }
 
 .shellBody {
+  grid-column: 2;
   min-width: 0;
   min-height: 100vh;
 }
 .sidebar {
-  position: sticky;
-  top: 0;
+  position: fixed;
+  inset: 0 auto 0 0;
   z-index: 220;
-  height: 100vh;
+  width: var(--sa-v3-sidebar);
+  height: 100dvh;
   min-width: 0;
   overflow: hidden;
   display: flex;
@@ -140,6 +142,10 @@
   color: var(--sa-v3-navy);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.16);
 }
+.sidebarCollapsed {
+  width: var(--sa-v3-sidebar-collapsed);
+}
+
 .sidebarCollapsed .sidebarBrand {
   justify-content: center;
   padding-inline: 12px;
@@ -549,6 +555,10 @@
   .shell,
   .shellCollapsed {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shellBody {
+    grid-column: 1;
   }
 
   .sidebar,
