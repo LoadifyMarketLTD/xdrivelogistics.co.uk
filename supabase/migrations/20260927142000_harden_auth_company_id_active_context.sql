@@ -24,11 +24,7 @@ AS $function$
     AND cm.status::text = 'active'
     AND c.status::text = 'active'
     AND COALESCE(p.status::text, '') = 'active'
-    AND (
-      p.company_id IS NULL
-      OR p.company_id = cm.company_id
-    )
-  ORDER BY cm.updated_at DESC NULLS LAST, cm.created_at DESC NULLS LAST
+    AND p.company_id = cm.company_id
   LIMIT 1;
 $function$;
 
