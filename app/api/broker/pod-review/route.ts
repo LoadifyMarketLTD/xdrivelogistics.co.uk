@@ -24,10 +24,11 @@ async function resolveCallerMembership(
   if (authErr || !user) return null;
   const { data: membership } = await supabaseAdmin
     .from('company_memberships')
-    .select('id')
+    .select('id, role_in_company')
     .eq('company_id', companyId)
     .eq('user_id', user.id)
     .eq('status', 'active')
+    .in('role_in_company', ['owner', 'admin', 'dispatcher'])
     .limit(1)
     .maybeSingle();
   if (!membership?.id) return null;
@@ -64,7 +65,7 @@ export async function PATCH(request: NextRequest) {
   }
 
   const caller = await resolveCallerMembership(request, companyId);
-  if (!caller) return json(403, { error: 'Forbidden — active broker membership required.' });
+  if (!caller) return json(403, { error: 'Forbidden — an active broker owner, admin or dispatcher is required.' });
 
   // Verify job belongs to this broker's company
   const { data: job, error: jobErr } = await supabaseAdmin

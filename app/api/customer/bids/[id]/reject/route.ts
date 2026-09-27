@@ -60,21 +60,20 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   if (jobError || !job) return json(404, { error: 'Job not found.' });
 
-  // Caller must be the job creator OR an active member of the owning company
-  const isCreator = job.created_by === user.id;
-  if (!isCreator) {
-    const { data: membership } = await supabaseAdmin
-      .from('company_memberships')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('company_id', job.company_id as string)
-      .eq('status', 'active')
-      .limit(1)
-      .maybeSingle();
+  // Keep quote rejection on the same commercial authority boundary as Award
+  // and quote messaging. Creator identity alone does not grant company authority.
+  const { data: membership, error: membershipError } = await supabaseAdmin
+    .from('company_memberships')
+    .select('id, role_in_company')
+    .eq('user_id', user.id)
+    .eq('company_id', job.company_id as string)
+    .eq('status', 'active')
+    .in('role_in_company', ['owner', 'admin', 'dispatcher'])
+    .maybeSingle();
 
-    if (!membership?.id) {
-      return json(403, { error: 'Forbidden - you are not authorised to reject bids for this job.' });
-    }
+  if (membershipError) return json(500, { error: 'Reject permission could not be verified.' });
+  if (!membership?.id) {
+    return json(403, { error: 'Forbidden - an active owner, admin or dispatcher of the job-owning company is required to reject bids.' });
   }
 
   // Update bid status to rejected

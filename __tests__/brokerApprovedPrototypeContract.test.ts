@@ -14,7 +14,8 @@ describe('Broker cleaned workspace contract', () => {
     }
     expect(roles).toContain("primaryAction: { label: 'Post Load', href: '/broker/post-load', capability: 'loads.create' }");
     expect(shell).not.toContain("id: 'broker-post-load'");
-    expect(shell).toContain("if (role === 'broker') return composeBrokerPrototypeNav()");
+    expect(shell).toContain("if (role === 'broker') {");
+    expect(shell).toContain('filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user)');
   });
 
   it('keeps only four primary Broker signals on the dashboard', () => {

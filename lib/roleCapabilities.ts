@@ -79,8 +79,74 @@ const resolveRole = (
   return resolveWorkspaceRole(user);
 };
 
-const hasAny = (role: WorkspaceRole, capabilities: WorkspaceCapability[]) =>
-  capabilities.some((capability) => hasWorkspaceCapability(role, capability));
+const CUSTOMER_DISPATCHER_CAPABILITIES = new Set<WorkspaceCapability>([
+  'loads.create',
+  'loads.publish',
+  'loads.view.own',
+  'quotes.receive',
+  'quotes.compare',
+  'quotes.award',
+  'jobs.view',
+  'jobs.track',
+  'jobs.review_pod',
+]);
+
+const BROKER_DISPATCHER_CAPABILITIES = new Set<WorkspaceCapability>([
+  'loads.create',
+  'loads.publish',
+  'loads.view.own',
+  'quotes.receive',
+  'quotes.compare',
+  'quotes.award',
+  'jobs.view',
+  'jobs.track',
+  'jobs.review_pod',
+]);
+
+const CUSTOMER_BROKER_VIEWER_CAPABILITIES = new Set<WorkspaceCapability>([
+  'loads.view.own',
+  'quotes.receive',
+  'jobs.view',
+  'jobs.track',
+]);
+
+export const hasWorkspaceCapabilityForContext = (
+  workspaceRole: WorkspaceRole,
+  capability: WorkspaceCapability,
+  context: RouteAccessContext = {},
+): boolean => {
+  if (workspaceRole !== 'customer' && workspaceRole !== 'broker') {
+    return hasWorkspaceCapability(workspaceRole, capability);
+  }
+
+  const membershipRole = context.membershipRole?.trim().toLowerCase() ?? '';
+  // Legacy standalone Customer/Broker accounts have no membership role. Preserve
+  // their canonical workspace until they are migrated to company membership.
+  if (!membershipRole || membershipRole === 'owner' || membershipRole === 'admin') {
+    return hasWorkspaceCapability(workspaceRole, capability);
+  }
+
+  if (membershipRole === 'dispatcher') {
+    const allowed = workspaceRole === 'customer'
+      ? CUSTOMER_DISPATCHER_CAPABILITIES
+      : BROKER_DISPATCHER_CAPABILITIES;
+    return allowed.has(capability) && hasWorkspaceCapability(workspaceRole, capability);
+  }
+
+  if (membershipRole === 'viewer' || membershipRole === 'member') {
+    return CUSTOMER_BROKER_VIEWER_CAPABILITIES.has(capability)
+      && hasWorkspaceCapability(workspaceRole, capability);
+  }
+
+  // Unknown Customer/Broker company subroles fail closed.
+  return false;
+};
+
+const hasAny = (
+  role: WorkspaceRole,
+  capabilities: WorkspaceCapability[],
+  context: RouteAccessContext,
+) => capabilities.some((capability) => hasWorkspaceCapabilityForContext(role, capability, context));
 
 const hasDriverCapability = (capability: WorkspaceCapability) =>
   DRIVER_WORKSPACE_CAPABILITIES.includes(capability);
@@ -95,32 +161,34 @@ export const getCapabilitiesForRole = (
   const driverCommercialAccess = workspaceRole !== 'driver' || context.canCommercialBid === true;
 
   return {
-    canPostLoads: hasAny(workspaceRole, ['loads.create', 'loads.publish']),
-    canViewExchangeLoads: driverCommercialAccess && hasWorkspaceCapability(workspaceRole, 'loads.view.marketplace'),
-    canQuoteLoads: driverCommercialAccess && hasWorkspaceCapability(workspaceRole, 'quotes.submit'),
-    canReceiveQuotes: hasWorkspaceCapability(workspaceRole, 'quotes.receive'),
-    canAwardJobs: hasWorkspaceCapability(workspaceRole, 'quotes.award'),
-    canExecuteJobs: hasWorkspaceCapability(workspaceRole, 'jobs.execute'),
-    canAllocateDrivers: hasWorkspaceCapability(workspaceRole, 'jobs.allocate'),
+    canPostLoads: hasAny(workspaceRole, ['loads.create', 'loads.publish'], context),
+    canViewExchangeLoads:
+      driverCommercialAccess && hasWorkspaceCapabilityForContext(workspaceRole, 'loads.view.marketplace', context),
+    canQuoteLoads:
+      driverCommercialAccess && hasWorkspaceCapabilityForContext(workspaceRole, 'quotes.submit', context),
+    canReceiveQuotes: hasWorkspaceCapabilityForContext(workspaceRole, 'quotes.receive', context),
+    canAwardJobs: hasWorkspaceCapabilityForContext(workspaceRole, 'quotes.award', context),
+    canExecuteJobs: hasWorkspaceCapabilityForContext(workspaceRole, 'jobs.execute', context),
+    canAllocateDrivers: hasWorkspaceCapabilityForContext(workspaceRole, 'jobs.allocate', context),
     canManageFleet: hasAny(workspaceRole, [
       'drivers.manage',
       'vehicles.manage',
       'fleet.positions.view',
       'fleet.maintenance.manage',
-    ]),
-    canManageCompanyUsers: hasWorkspaceCapability(workspaceRole, 'company.members.manage'),
+    ], context),
+    canManageCompanyUsers: hasWorkspaceCapabilityForContext(workspaceRole, 'company.members.manage', context),
     canManageOwnVehicle:
-      workspaceRole === 'owner_driver' || hasWorkspaceCapability(workspaceRole, 'vehicles.manage'),
-    canUploadPod: hasAny(workspaceRole, ['jobs.execute', 'jobs.review_pod']),
+      workspaceRole === 'owner_driver' || hasWorkspaceCapabilityForContext(workspaceRole, 'vehicles.manage', context),
+    canUploadPod: hasAny(workspaceRole, ['jobs.execute', 'jobs.review_pod'], context),
     canViewInvoices: hasAny(workspaceRole, [
       'invoices.customer.manage',
       'invoices.carrier.manage',
-    ]),
-    canRepostToExchange: hasWorkspaceCapability(workspaceRole, 'loads.publish'),
+    ], context),
+    canRepostToExchange: hasWorkspaceCapabilityForContext(workspaceRole, 'loads.publish', context),
     canUseReturnJourneys:
       driverCommercialAccess &&
-      hasWorkspaceCapability(workspaceRole, 'jobs.track') &&
-      hasWorkspaceCapability(workspaceRole, 'loads.view.marketplace'),
+      hasWorkspaceCapabilityForContext(workspaceRole, 'jobs.track', context) &&
+      hasWorkspaceCapabilityForContext(workspaceRole, 'loads.view.marketplace', context),
   };
 };
 
@@ -294,8 +362,8 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer/jobs', workspace: 'shipper', anyOf: ['jobs.view'] },
   { prefix: '/customer/documents', workspace: 'shipper', anyOf: ['jobs.review_pod'] },
   { prefix: '/customer/invoices', workspace: 'shipper', anyOf: ['invoices.customer.manage'] },
-  // Team is currently a read-only company roster. Reuse settings access rather
-  // than granting the customer role the broader company.members.manage ability.
+  // Team is an administrative surface; Customer/Broker membership subroles are
+  // narrowed by hasWorkspaceCapabilityForContext before this capability passes.
   { prefix: '/customer/team', workspace: 'shipper', anyOf: ['settings.manage'] },
   { prefix: '/customer/updates', workspace: 'shipper' },
   { prefix: '/customer/notifications', workspace: 'shipper' },
@@ -414,6 +482,6 @@ export const isCapabilityAllowedForPath = (
   return requirement.anyOf.some((capability) =>
     isDriverRoute && workspaceRole === 'driver'
       ? hasDriverCapability(capability)
-      : hasWorkspaceCapability(workspaceRole, capability)
+      : hasWorkspaceCapabilityForContext(workspaceRole, capability, context)
   );
 };

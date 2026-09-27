@@ -14,7 +14,8 @@ describe('Customer clean workspace contract', () => {
     }
     expect(roles).toContain("primaryAction: { label: 'Post Load', href: '/customer/post-load', capability: 'loads.create' }");
     expect(shell).not.toContain("id: 'customer-post-load'");
-    expect(shell).toContain("if (role === 'customer') return composeCustomerPrototypeNav()");
+    expect(shell).toContain("if (role === 'customer') {");
+    expect(shell).toContain('filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user)');
   });
 
   it('keeps only the four primary customer signals at the top', () => {
