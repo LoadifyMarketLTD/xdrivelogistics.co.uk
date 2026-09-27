@@ -438,6 +438,47 @@ async function handleOnboardingDocumentsRequired(event: NotificationEvent) {
   );
 }
 
+async function handleOnboardingCompletionRequired(event: NotificationEvent) {
+  const userId = event.recipient_user_id
+    ?? (typeof event.payload.recipient_user_id === 'string' ? event.payload.recipient_user_id : null);
+  if (!userId) return false;
+  if (!await userEmailEnabled(userId, event.event_type)) return true;
+  const user = await getUserEmail(userId);
+  if (!user) return false;
+
+  const fields = Array.isArray(event.payload.missing_fields)
+    ? event.payload.missing_fields.map((value) => String(value).trim()).filter(Boolean)
+    : [];
+  const documents = Array.isArray(event.payload.missing_documents)
+    ? event.payload.missing_documents.map((value) => String(value).trim()).filter(Boolean)
+    : [];
+  if (!fields.length && !documents.length) {
+    console.error(`[notify] Onboarding completion event ${event.id} has no missing requirements payload.`);
+    return false;
+  }
+
+  const reminder = event.event_type === 'onboarding_completion_reminder';
+  const onboardingUrl = safeOnboardingUrl(event.payload.onboarding_url);
+  const reason = typeof event.payload.reason === 'string' && event.payload.reason.trim()
+    ? `<p><strong>Message from XDrive:</strong> ${escapeHtml(event.payload.reason)}</p>`
+    : '';
+  const fieldList = fields.length
+    ? `<p><strong>Information still required:</strong></p><ul>${fields.map((item) => `<li style="margin:6px 0">${escapeHtml(item)}</li>`).join('')}</ul>`
+    : '';
+  const documentList = documents.length
+    ? `<p><strong>Documents still required:</strong></p><ul>${documents.map((item) => `<li style="margin:6px 0">${escapeHtml(item)}</li>`).join('')}</ul>`
+    : '';
+
+  return sendEmail(
+    user.email,
+    reminder
+      ? 'Reminder: complete your XDrive onboarding'
+      : 'Action required: complete your XDrive onboarding',
+    `<h2>${reminder ? 'Your XDrive onboarding is still incomplete' : 'Please complete your XDrive onboarding'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your previous progress has been saved. XDrive now checks the current onboarding requirements and only asks you to complete the items that are still missing.</p>${fieldList}${documentList}${reason}<p><a href="${escapeHtml(onboardingUrl)}" style="display:inline-block;padding:11px 18px;background:#1d57d8;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Resume onboarding</a></p><p>You do not need to start again. Existing valid information and uploaded documents remain attached to your application.</p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
+  );
+}
+
 async function handleOnboardingSubmitted(event: NotificationEvent) {
   const userId = event.recipient_user_id ?? (event.payload.recipient_user_id as string | undefined);
   if (!userId) return true;
@@ -538,6 +579,10 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       case 'onboarding_documents_required':
       case 'onboarding_documents_reminder':
         success = await handleOnboardingDocumentsRequired(event);
+        break;
+      case 'onboarding_completion_required':
+      case 'onboarding_completion_reminder':
+        success = await handleOnboardingCompletionRequired(event);
         break;
       case 'onboarding_submitted': success = await handleOnboardingSubmitted(event); break;
       case 'onboarding_approved': success = await handleOnboardingApproved(event); break;
