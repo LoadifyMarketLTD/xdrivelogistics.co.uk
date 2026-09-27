@@ -147,6 +147,7 @@ export default function FleetResourcesPage() {
         <button type="button" aria-current="page" style={resourceTabStyle(true)}>Resources</button>
         <button type="button" onClick={() => router.push('/admin/fleet/drivers')} style={resourceTabStyle(false)}>Drivers</button>
         <button type="button" onClick={() => router.push('/admin/fleet/vehicles')} style={resourceTabStyle(false)}>Vehicles</button>
+        <button type="button" onClick={() => router.push('/admin/fleet/positions')} style={resourceTabStyle(false)}>Vehicle Tracking</button>
         <button type="button" onClick={() => router.push('/admin/live-availability')} style={resourceTabStyle(false)}>Live Availability</button>
         <button type="button" onClick={() => router.push('/admin/fleet/returns')} style={resourceTabStyle(false)}>Return Journeys</button>
       </div>
@@ -183,6 +184,40 @@ export default function FleetResourcesPage() {
             <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Drivers</ActionButton>{row.vehicle ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : row.vehicles.length > 1 ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : null}{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
           ])}
           empty={<EmptyState title="No fleet resources match the current filters" />}
+        />
+      </Panel>
+
+      <Panel title="Company Vehicles" description="CX-style company vehicle register with capacity, assignment, tracking and evidence access in one operational table." style={{ marginTop: 12 }}>
+        <DataTable
+          columns={['Vehicle', 'Size / type', 'Year', 'Max payload', 'Assigned driver', 'Tracking', 'Documents', 'Actions']}
+          rows={data.vehicles.map((vehicle) => {
+            const assignedDriver = vehicle.assigned_driver_id ? data.drivers.find((driver) => driver.id === vehicle.assigned_driver_id) ?? null : null;
+            const latestLocation = vehicle.assigned_driver_id ? latestLocations.get(vehicle.assigned_driver_id) ?? null : null;
+            const locationTime = latestLocation?.recorded_at ?? latestLocation?.updated_at ?? null;
+            const locationMs = locationTime ? new Date(locationTime).getTime() : Number.NaN;
+            const trackingState = !latestLocation
+              ? 'Not tracked'
+              : !Number.isFinite(locationMs) || Date.now() - locationMs > 20 * 60_000
+                ? 'Stale'
+                : 'Live';
+            const vehicleDocuments = data.vehicleDocuments.filter((document) => document.vehicle_id === vehicle.id);
+            const documentState = vehicleDocuments.length
+              ? `${vehicleDocuments.length} recorded`
+              : 'No documents';
+            const vehicleLabel = [vehicle.make, vehicle.model].filter(Boolean).join(' ') || vehicle.reg_plate || 'Vehicle';
+            const capacity = vehicle.payload_kg != null ? `${Math.round(vehicle.payload_kg)} kg` : 'Not recorded';
+            return [
+              <div key="vehicle"><strong style={{ display: 'block' }}>{vehicleLabel}</strong><span style={{ color: '#64748b' }}>{vehicle.reg_plate ?? 'No registration'}</span></div>,
+              <div key="type"><span style={{ display: 'block' }}>{vehicle.type?.replaceAll('_', ' ') ?? 'Not recorded'}</span>{vehicle.has_tail_lift ? <span style={{ color: '#64748b' }}>Tail lift</span> : null}</div>,
+              vehicle.manufacture_year ?? '—',
+              capacity,
+              assignedDriver?.display_name ?? assignedDriver?.email ?? 'Unassigned',
+              <div key="tracking"><StatusBadge value={trackingState} tone={trackingState === 'Live' ? 'green' : trackingState === 'Stale' ? 'orange' : 'grey'} />{locationTime ? <span style={{ display: 'block', marginTop: 3, color: '#64748b' }}>{when(locationTime)}</span> : null}</div>,
+              <StatusBadge key="documents" value={documentState} tone={vehicleDocuments.length ? 'blue' : 'orange'} />,
+              <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/event-log')}>Event Log</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>Documents</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Edit</ActionButton></div>,
+            ];
+          })}
+          empty={<EmptyState title={vehiclesAvailable ? 'No company vehicles recorded' : 'Vehicle data unavailable'} description={vehiclesAvailable ? 'Add company vehicles to build the operational fleet register.' : 'The vehicle source could not be confirmed.'} />}
         />
       </Panel>
 
