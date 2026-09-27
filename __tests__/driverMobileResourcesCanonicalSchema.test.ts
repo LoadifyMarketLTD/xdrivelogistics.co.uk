@@ -8,7 +8,8 @@ describe('driver mobile resources canonical schema contract', () => {
   );
 
   it('reads canonical driver identity columns only', () => {
-    expect(source).toContain(".select('id,company_id,display_name,email,phone,status,app_access,driver_type,can_commercial_bid')");
+    expect(source).toContain(".select('id,company_id,display_name,email,phone,status,app_access,driver_type,can_commercial_bid,");
+    for (const field of ['availability_status','future_position','future_position_date','destination_priority_enabled','destination_radius_miles','international_work_approved']) expect(source).toContain(field);
     expect(source).not.toContain('display_name,full_name,name');
     expect(source).not.toContain('driver.full_name');
     expect(source).not.toContain('driver.name');

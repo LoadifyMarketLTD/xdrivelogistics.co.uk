@@ -1,0 +1,83 @@
+﻿__tests__/companyDepartmentAuditContract.test.ts:19:    expect(departmentsApi).toContain(".rpc('manage_company_department'");
+__tests__/companyDepartmentAuditContract.test.ts:26:    expect(teamApi).toContain(".rpc('assign_company_membership_department'");
+__tests__/companyDepartmentsContract.test.ts:36:    expect(teamApi).toContain(".rpc('assign_company_membership_department'");
+__tests__/customerAccountEditBoundary.test.ts:17:    expect(source).toContain("supabase.rpc('active_company_membership_role'");
+__tests__/cxCarrierReturnJourneyManagementContract.test.ts:26:    expect(route).toContain(".rpc('replace_driver_return_journey_canonical'");
+__tests__/cxDriverDashboardConvergenceContract.test.ts:14:    expect(page).toContain("supabase.rpc('driver_update_job_status_atomic'");
+__tests__/cxVsXdriveDriverReturnJourneyAtomicContract.test.ts:21:    expect(route).toContain(".rpc('replace_driver_return_journey_canonical'");
+__tests__/dashboardServerAuthorityRemediation.test.ts:61:    expect(ownerRoute).toContain("client.rpc('delete_unbid_exchange_job_atomic'");
+__tests__/driverDashboardPrototypeRouteAudit.test.ts:57:    expect(page).toContain("supabase.rpc('driver_update_job_status_atomic'");
+__tests__/driverLoadAlertsContract.test.ts:95:    expect(api).toContain("supabaseAdmin.rpc('fn_enqueue_driver_load_alerts_for_user', { p_user_id: driver.userId })");
+__tests__/driverMobileDeviceBoundServerContract.test.ts:31:    expect(statusRoute).toContain("scoped.rpc('driver_update_job_status_atomic'");
+__tests__/driverPrototypeMigrationContract.test.ts:56:    expect(dashboard).toContain("supabase.rpc('driver_update_job_status_atomic'");
+__tests__/jobOwnerMutationContract.test.ts:24:    expect(route).not.toContain("client.rpc('update_unbid_exchange_job_atomic'");
+__tests__/jobOwnerMutationContract.test.ts:49:    expect(route).toContain("client.rpc('delete_unbid_exchange_job_atomic'");
+__tests__/liveTrackingCxParityContract.test.ts:56:    expect(trafficEta).toContain("admin.rpc('reserve_tracking_provider_request'");
+__tests__/notificationRetryLeaseContract.test.ts:60:    expect(edge).toContain("supabase.rpc('claim_notification_events'");
+__tests__/superAdminControlPlaneCompleteness.test.ts:172:    expect(companyGovernanceRoute).toContain(".rpc('set_company_status_governance'");
+__tests__/superAdminDocumentRequestBackend.test.ts:44:    expect(route).toContain('supabaseAdmin.rpc(');
+__tests__/superAdminDocumentRequestBackend.test.ts:46:    expect(route).toContain("supabaseAdmin.rpc('owner_request_onboarding_documents'");
+__tests__/superAdminFinanceReconciliationSafe.test.ts:73:    expect(route).toContain("supabaseAdmin.rpc('owner_reconcile_invoice_payment_status'");
+__tests__/superAdminNotificationRetryGovernance.test.ts:51:    expect(patch).toContain("supabaseAdmin.rpc('owner_retry_notification_event'");
+__tests__/superAdminPlatformCaseCentre.test.ts:53:    expect(listRoute).toContain("supabaseAdmin.rpc('owner_create_platform_case'");
+__tests__/superAdminPlatformCaseCentre.test.ts:54:    expect(detailRoute).toContain("supabaseAdmin.rpc('owner_mutate_platform_case'");
+__tests__/superAdminPlatformPodReview.test.ts:65:    expect(route).toContain("supabaseAdmin.rpc('owner_review_job_pod'");
+__tests__/xdrivePaymentTermsContract.test.ts:112:    expect(extensionRoute).toContain("supabaseAdmin.rpc('extend_invoice_due_date_special'");
+app/admin/invoices/[id]/page.tsx:289:      const { data } = await supabase.rpc('next_invoice_number', { p_company_id: companyId });
+app/admin/invoices/new/page.tsx:139:      const { data } = await supabase.rpc('next_invoice_number', { p_company_id: companyId });
+app/admin/quotes/page.tsx:58:    const { data: bootstrappedId } = await supabase.rpc('bootstrap_company_membership');
+app/admin/quotes/page.tsx:63:    const { data: rpcId } = await supabase.rpc('get_or_create_company_for_user');
+app/api/_lib/autoGenerateMarketplaceInvoice.ts:122:  const { data: generatedNumber, error: generatedNumberError } = await supabase.rpc('next_invoice_number', {
+app/api/admin/bids/[id]/accept/route.ts:80:  const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+app/api/admin/documents/route.ts:93:  return supabaseAdmin!.rpc('register_duplicate_document_fraud_case', {
+app/api/admin/documents/route.ts:324:    const ensured = await supabaseAdmin.rpc('ensure_company_driver_onboarding', {
+app/api/admin/fleet/readiness/route.ts:128:      supabaseAdmin!.rpc('driver_operational_eligibility', { p_driver_id: driverId }),
+app/api/admin/fleet/readiness/route.ts:130:        ? supabaseAdmin!.rpc('get_missing_onboarding_documents', { p_application_id: applicationId })
+app/api/admin/invoices/[id]/extend-due-date/route.ts:42:  const { data, error } = await supabaseAdmin.rpc('extend_invoice_due_date_special', {
+app/api/admin/jobs/[id]/assign-driver/route.ts:32:  const { data, error } = await supabaseAdmin.rpc('assign_job_driver_atomic', {
+app/api/admin/jobs/[id]/manage/route.ts:95:    const result = await supabaseAdmin.rpc(rpcName, args);
+app/api/admin/return-journeys/route.ts:58:  const { error } = await supabaseAdmin.rpc('replace_driver_return_journey_canonical', {
+app/api/admin/vehicles/[id]/advertising/route.ts:59:  const { data, error } = await client.rpc('set_vehicle_advertising_state', {
+app/api/customer/bids/[id]/award/route.ts:98:  const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
+app/api/customer/team/route.ts:288:      .rpc('assign_company_membership_department', {
+app/api/driver/_lib/operationalEligibility.ts:225:    const { data: missingDocs, error: missingDocsError } = await supabaseAdmin.rpc(
+app/api/driver/finance/invoices/route.ts:216:  const { data: numberData, error: numberError } = await supabaseAdmin.rpc('next_invoice_number', {
+app/api/driver/finance/jobs/[jobId]/generate-invoice/route.ts:376:  const { data: generatedNumber, error: generatedNumberError } = await supabaseAdmin.rpc('next_invoice_number', {
+app/api/driver/load-alert-preferences/route.ts:177:    const replay = await supabaseAdmin.rpc('fn_enqueue_driver_load_alerts_for_user', { p_user_id: driver.userId });
+app/api/driver/mobile/device-session/route.ts:65:  const { error: registerError } = await supabaseAdmin!.rpc('register_driver_mobile_device_session', {
+app/api/driver/mobile/jobs/[id]/[action]/route.ts:139:  const { error: lifecycleError } = await scoped.rpc('driver_update_job_status_atomic', {
+app/api/driver/mobile/jobs/[id]/status/route.ts:53:  const { data, error } = await scoped.rpc('driver_update_job_status_atomic', {
+app/api/driver/mobile/resources/route.ts:267:    const { error } = await supabaseAdmin!.rpc('replace_driver_return_journey_canonical', {
+app/api/driver/return-journey/route.ts:93:  const { error } = await supabaseAdmin!.rpc('replace_driver_return_journey_canonical', {
+app/api/onboarding/_lib/handlers.ts:330:    const { data, error: submitError } = await supabaseAdmin.rpc('submit_onboarding_application', {
+app/api/onboarding/documents/route.ts:51:  const { data, error } = await supabaseAdmin!.rpc('register_duplicate_document_fraud_case', {
+app/api/onboarding/submit/individual-driver/route.ts:67:  const { error: submitError } = await supabaseAdmin.rpc('submit_individual_driver_onboarding', {
+app/api/settings/departments/route.ts:71:    .rpc('manage_company_department', {
+app/api/settings/departments/route.ts:91:    .rpc('manage_company_department', {
+app/api/settings/departments/route.ts:112:    .rpc('manage_company_department', {
+app/api/super-admin/cases/[caseId]/route.ts:72:  const { data, error } = await supabaseAdmin.rpc('owner_mutate_platform_case', {
+app/api/super-admin/cases/route.ts:123:  const { data, error } = await supabaseAdmin.rpc('owner_create_platform_case', {
+app/api/super-admin/companies/[id]/route.ts:82:    const { error: complianceError } = await supabaseAdmin.rpc('assert_company_compliance_ready', { p_company_id: companyId });
+app/api/super-admin/companies/[id]/route.ts:92:  const { data: mutationResult, error: mutationError } = await supabaseAdmin.rpc('set_company_status_governance', {
+app/api/super-admin/compliance/documents/route.ts:481:  const { data: result, error: reviewError } = await supabaseAdmin.rpc('owner_review_compliance_document', {
+app/api/super-admin/compliance/fraud-cases/route.ts:180:  const { data: decisionResult, error: decisionError } = await supabaseAdmin.rpc(
+app/api/super-admin/finance/invoices/[invoiceId]/reconcile/route.ts:120:  const { data, error } = await supabaseAdmin.rpc('owner_reconcile_invoice_payment_status', {
+app/api/super-admin/inspect/company/[entityId]/360/route.ts:159:    const missing = await supabaseAdmin.rpc('get_missing_onboarding_documents', { p_application_id: latestOnboarding.id });
+app/api/super-admin/marketplace/[id]/route.ts:53:  const { data: mutationResult, error: mutationError } = await supabaseAdmin.rpc('apply_marketplace_governance_action', {
+app/api/super-admin/onboarding/[id]/request-documents/route.ts:40:  const { data: missingRows, error: missingError } = await supabaseAdmin.rpc(
+app/api/super-admin/onboarding/[id]/request-documents/route.ts:108:  const { data, error } = await supabaseAdmin.rpc('owner_request_onboarding_documents', {
+app/api/super-admin/onboarding/[id]/route.ts:51:  const { data: reviewResult, error: reviewError } = await supabaseAdmin.rpc('review_onboarding_application_atomic', {
+app/api/super-admin/onboarding/route.ts:77:    const { data: rawMissing, error: missingError } = await admin.rpc('get_missing_onboarding_documents', { p_application_id: applicationId });
+app/api/super-admin/platform/route.ts:271:  const { data, error } = await supabaseAdmin.rpc('owner_retry_notification_event', {
+app/api/super-admin/pod/[jobId]/route.ts:133:  const { data, error } = await supabaseAdmin.rpc('owner_review_job_pod', {
+app/api/super-admin/support/route.ts:152:  const { data: mutationResult, error: mutationError } = await supabaseAdmin.rpc('owner_update_support_ticket_with_audit', {
+app/api/workspace/jobs/[jobId]/owner/route.ts:204:  const deleted = await client.rpc('delete_unbid_exchange_job_atomic', {
+app/components/workspace/CustomerCompanySettingsPage.tsx:115:        ? supabase.rpc('active_company_membership_role', {
+app/components/workspace/DriverJobExecutionPage.tsx:288:    const { error: transitionError } = await supabase.rpc('driver_update_job_status_atomic', {
+app/components/workspace/RoleSettingsWorkspace.tsx:164:      supabase.rpc('active_company_membership_role', { p_company_id: companyId, p_user_id: user.id }),
+app/driver/page.tsx:423:    const { error } = await supabase.rpc('driver_update_job_status_atomic', {
+lib/authSession.ts:338:      await supabase.rpc('bootstrap_owner_driver_workspace');
+lib/authSession.ts:359:    const { data: provisionedCompanyId, error: provisionError } = await supabase.rpc('get_or_create_company_for_user');
+lib/authSession.ts:377:    const { data: bootstrappedId } = await supabase.rpc('bootstrap_company_membership');
+lib/server/companyRegistration.ts:131:  const { data, error } = await supabase.rpc('register_validated_company_atomic', {
+lib/tracking/trafficEta.ts:65:  const { data, error } = await admin.rpc('reserve_tracking_provider_request', {

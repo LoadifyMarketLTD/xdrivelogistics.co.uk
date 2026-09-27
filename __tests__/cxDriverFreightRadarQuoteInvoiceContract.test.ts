@@ -11,6 +11,7 @@ describe('CX-close Driver marketplace radar / quote / invoice contract', () => {
   const quoteModal = read('app/driver/_components/MarketplaceQuoteModal.tsx');
   const invoicePreview = read('app/driver/_components/DriverInvoicePreviewModal.tsx');
   const invoiceRoute = read('app/api/driver/finance/invoices/[id]/preview/route.ts');
+  const financeAccess = read('app/api/driver/finance/_lib/financeAccess.ts');
   const css = read('app/driver/driver-cx-loads-convergence.css');
 
   it('keeps list and Interactive Freight Radar Map as two presentations of the same advanced search results', () => {
@@ -69,7 +70,8 @@ describe('CX-close Driver marketplace radar / quote / invoice contract', () => {
     expect(invoicePreview).toContain('URL.createObjectURL(blob)');
     expect(invoicePreview).toContain('URL.revokeObjectURL(objectUrl)');
     expect(invoicePreview).toContain('Return to Diary');
-    expect(invoiceRoute).toContain("'owner', 'admin', 'dispatcher', 'finance', 'driver'");
+    expect(invoiceRoute).toContain('requireDriverFinanceAccess(request)');
+    expect(financeAccess).toContain("role !== 'owner' && role !== 'admin'");
     expect(invoiceRoute).toContain("'Content-Type': 'application/pdf'");
     expect(invoiceRoute).toContain("'Content-Disposition': `inline;");
   });

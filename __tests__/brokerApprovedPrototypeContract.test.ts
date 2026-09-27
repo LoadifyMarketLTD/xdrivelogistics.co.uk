@@ -5,13 +5,15 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 
 describe('Broker approved prototype contract', () => {
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
+  const workspaceRole = read('lib/workspaceRole.ts');
   const dashboard = read('app/broker/BrokerDashboardHome.tsx');
 
   it('uses the dedicated Broker prototype navigation rather than Driver navigation', () => {
     for (const label of ['Broker Dashboard','Customers','Customer Loads','Post Load','Carrier Quotes','Margin / Profit','Active Jobs','POD Review','Disputes','Customer Invoices','Carrier Costs','Settings','Team','Carrier Network']) {
       expect(shell).toContain(`label: '${label}'`);
     }
-    expect(shell).toContain("if (role === 'broker') return composeBrokerPrototypeNav()");
+    expect(shell).toContain("if (role === 'broker') return reconcilePrototypeNav(composeBrokerPrototypeNav(), base, 'broker-more')");
+    for (const href of ['/broker/enquiries','/broker/diary','/broker/messages','/broker/event-log']) expect(workspaceRole).toContain(href);
   });
 
   it('keeps the approved six Broker KPI strip backed by live workspace data', () => {

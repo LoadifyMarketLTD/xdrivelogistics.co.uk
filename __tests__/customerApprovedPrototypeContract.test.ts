@@ -5,11 +5,13 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 
 describe('Customer approved prototype contract', () => {
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
+  const workspaceRole = read('lib/workspaceRole.ts');
   const dashboard = read('app/customer/CustomerDashboardHome.tsx');
 
   it('uses the dedicated Customer prototype navigation', () => {
     for (const label of ['Customer Dashboard','Action Centre','Post Load','My Loads','Quotes','Bookings','Deliveries','POD & Documents','Updates','Invoices','Team','Settings']) expect(shell).toContain(`label: '${label}'`);
-    expect(shell).toContain("if (role === 'customer') return composeCustomerPrototypeNav()");
+    expect(shell).toContain("if (role === 'customer') return reconcilePrototypeNav(composeCustomerPrototypeNav(), base, 'customer-more')");
+    for (const href of ['/customer/tracking','/customer/diary','/customer/messages','/customer/event-log','/customer/network','/customer/disputes']) expect(workspaceRole).toContain(href);
   });
 
   it('keeps the six Customer decision and delivery signals at the top', () => {

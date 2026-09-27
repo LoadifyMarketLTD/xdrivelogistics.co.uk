@@ -25,8 +25,10 @@ describe('PR #357 approved visual baseline', () => {
   it('keeps Driver navigation aligned to the approved full prototype order', () => {
     for (const item of [
       "label: 'Dashboard', href: '/driver'",
+      "label: 'My Jobs', href: '/driver/jobs'",
+      "label: 'Availability', href: '/driver/availability'",
+      'label: "Who\'s Nearby", href: \'/driver/nearby\'',
       "label: 'Directory', href: '/driver/directory'",
-      "label: 'Live Availability', href: '/driver/nearby'",
       "label: 'My Fleet', href: '/driver/vehicles'",
       "label: 'Return Journeys', href: '/driver/returns'",
       "label: 'Loads', href: '/driver/loads'",
@@ -43,26 +45,21 @@ describe('PR #357 approved visual baseline', () => {
     expect(toolsIndex).toBeGreaterThan(navIndex);
   });
 
-  it('keeps the approved dense Driver dashboard structure', () => {
+  it('keeps the approved compact Driver operations baseline', () => {
     for (const marker of [
       'driver-prototype-dashboard',
-      'Today at a glance',
-      'Operational workboard',
-      'Matching Loads',
-      'Commercial position',
-      'Performance & evidence',
-      'Driver workflow',
-      'Latest bookings',
-      'NEXT ACTION',
+      'driver-dashboard-statusbar',
+      'driver-dashboard-register',
+      'driver-dashboard-tabs',
+      'driver-dashboard-readiness',
+      'My Work',
+      'Recent Bookings',
+      'Driver & Vehicle Readiness',
     ]) expect(driverDashboard).toContain(marker);
 
-    for (const stale of [
-      'Status & availability',
-      '<span>Canonical active vehicle</span>',
-      'Journey & position',
-      'Quote activity',
-      'Compliance & document alerts',
-    ]) expect(driverDashboard).not.toContain(stale);
+    for (const stale of ['xd2-hero','xd2-kpis','xd2-primary-grid','xd2-secondary-grid','xd2-finance','xd2-bottom-grid']) {
+      expect(driverDashboard).not.toContain(stale);
+    }
   });
 
   it('keeps the Customer transport-control dashboard structure', () => {

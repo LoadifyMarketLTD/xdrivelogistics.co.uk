@@ -5,10 +5,12 @@ const settingsPage = fs.readFileSync(path.join(process.cwd(), 'app/admin/setting
 const roleSettings = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/RoleSettingsWorkspace.tsx'), 'utf8');
 const inboxPage = fs.readFileSync(path.join(process.cwd(), 'app/admin/notifications/page.tsx'), 'utf8');
 const inbox = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/WorkspaceNotificationInbox.tsx'), 'utf8');
+const preferences = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/NotificationPreferencesPanel.tsx'), 'utf8');
 
 describe('current company settings and notification routing contract', () => {
   it('delegates fleet settings to the canonical role settings workspace', () => {
-    expect(settingsPage).toContain('<RoleSettingsWorkspace role="fleet" />');
+    expect(settingsPage).toContain('<RoleSettingsWorkspace role={settingsRole} roleLabel={roleLabel} />');
+    expect(settingsPage).toContain(": 'fleet' as const");
     expect(roleSettings).toContain("notifications: '/admin/notifications'");
   });
 
@@ -25,8 +27,10 @@ describe('current company settings and notification routing contract', () => {
     expect(roleSettings).not.toContain('notify_email_bid_received');
   });
 
-  it('keeps granular alert-generation rules explicitly separate from the inbox', () => {
-    expect(inbox).toContain('CX-style matching preferences and alert generation remain a separate backend parity item');
+  it('keeps notification channel preferences recipient-scoped and separate from Driver Load Alert push rules', () => {
+    expect(inbox).toContain('<NotificationPreferencesPanel />');
+    expect(preferences).toContain("from('user_notification_preferences')");
+    expect(preferences).toContain('Load Alert push notifications are managed separately');
   });
 
   it('does not couple settings or notifications to Super Admin', () => {

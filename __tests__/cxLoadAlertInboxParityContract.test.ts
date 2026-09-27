@@ -5,6 +5,7 @@ const shared = fs.readFileSync(path.join(process.cwd(), 'app/components/workspac
 const driver = fs.readFileSync(path.join(process.cwd(), 'app/driver/_components/DriverNotificationRegister.tsx'), 'utf8');
 const sharedApi = fs.readFileSync(path.join(process.cwd(), 'app/api/workspace/notifications/route.ts'), 'utf8');
 const driverApi = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/notifications/route.ts'), 'utf8');
+const preferences = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/NotificationPreferencesPanel.tsx'), 'utf8');
 
 describe('CX-close load alert inbox parity', () => {
   for (const source of [shared, driver]) {
@@ -18,9 +19,11 @@ describe('CX-close load alert inbox parity', () => {
     });
   }
 
-  it('does not claim alert generation/preferences are complete when the backend contract is not yet present', () => {
-    expect(shared).toContain('separate backend parity item');
-    expect(driver).toContain('separate backend parity item');
+  it('uses recipient-scoped inbox/email preferences while keeping Driver Load Alert push preferences separate', () => {
+    expect(shared).toContain('<NotificationPreferencesPanel />');
+    expect(driver).toContain('<NotificationPreferencesPanel driverMode />');
+    expect(preferences).toContain("from('user_notification_preferences')");
+    expect(preferences).toContain('Load Alert push notifications are managed separately');
   });
 
   it('keeps recipient scoping on both inboxes', () => {

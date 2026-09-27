@@ -35,7 +35,10 @@ describe('Driver finance endpoint role boundary', () => {
 
   it('does not let a regular driver preview company invoices', () => {
     const preview = read('app/api/driver/finance/invoices/[id]/preview/route.ts');
-    expect(preview).toContain("if (!['owner', 'admin'].includes(role)) return null");
+    const financeAccess = read('app/api/driver/finance/_lib/financeAccess.ts');
+    expect(preview).toContain('requireDriverFinanceAccess(request)');
+    expect(financeAccess).toContain("role !== 'owner' && role !== 'admin'");
+    expect(financeAccess).toContain("driver.status !== 'active' || driver.app_access !== true");
     expect(preview).not.toContain("'driver'].includes(role)");
   });
 });

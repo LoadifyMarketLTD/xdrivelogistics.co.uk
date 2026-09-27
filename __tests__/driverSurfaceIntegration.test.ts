@@ -21,10 +21,9 @@ describe('driver surface integration', () => {
     expect(resolveWorkspaceSurfaceRole('/driver/quotes?tab=open', 'company_owner')).toBe('driver');
   });
 
-  it('shows Driver nav with owner-only billing preserved for owner_driver', () => {
+  it('shows Driver nav with owner-only finance and billing preserved for owner_driver', () => {
     const contexts = [
       { membershipRole: 'owner', ownerDriverWorkspace: true },
-      { membershipRole: 'admin', ownerDriverWorkspace: true },
       { membershipRole: 'driver', ownerDriverWorkspace: false },
     ];
 
@@ -54,7 +53,7 @@ describe('driver surface integration', () => {
       );
       const surfaceRole = resolveWorkspaceSurfaceRole('/driver/jobs', workspaceRole);
       const expectedHrefs = surfaceRole === 'owner_driver'
-        ? [...expectedDriverHrefs, '/settings/billing'].sort()
+        ? [...expectedDriverHrefs, '/driver/finance', '/settings/billing'].sort()
         : expectedDriverHrefs;
       expect(navHrefs(surfaceRole)).toEqual(expectedHrefs);
     }

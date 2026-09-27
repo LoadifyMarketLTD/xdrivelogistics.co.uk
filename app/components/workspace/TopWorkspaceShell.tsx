@@ -162,6 +162,16 @@ function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
   return more.length ? [...primary, { id: 'fleet-more', label: 'More', items: more }] : primary;
 }
 
+function reconcilePrototypeNav(
+  prototype: WorkspaceNavGroup[],
+  canonical: WorkspaceNavGroup[],
+  moreId: string,
+): WorkspaceNavGroup[] {
+  const seen = new Set(prototype.flatMap((group) => group.items.map((item) => item.href)));
+  const missing = canonical.flatMap((group) => group.items).filter((item) => !seen.has(item.href));
+  return missing.length ? [...prototype, { id: moreId, label: 'More', items: missing }] : prototype;
+}
+
 function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
   return [
     { id: 'broker-home', label: 'Broker', items: [{ id: 'broker-dashboard', label: 'Broker Dashboard', href: '/broker', icon: '⌂' }] },
@@ -353,8 +363,8 @@ export default function TopWorkspaceShell({
       }
     }
 
-    if (role === 'broker') return composeBrokerPrototypeNav();
-    if (role === 'customer') return composeCustomerPrototypeNav();
+    if (role === 'broker') return reconcilePrototypeNav(composeBrokerPrototypeNav(), base, 'broker-more');
+    if (role === 'customer') return reconcilePrototypeNav(composeCustomerPrototypeNav(), base, 'customer-more');
     if (CARRIER_NAV_ROLES.has(role)) base = composeCarrierPrimaryNav(base);
     else if (role === 'fleet_manager') base = composeFleetPrimaryNav(base);
 

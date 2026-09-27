@@ -10,8 +10,8 @@ describe('approved prototype Driver primary navigation', () => {
   const messages = read('app/driver/messages/page.tsx');
 
   it('uses the complete prototype first-class module order', () => {
-    for (const label of ['Directory','Live Availability','My Fleet','Return Journeys','Loads','Quotes','Diary','Freight Vision','Finance','Drivers & Vehicles']) {
-      expect(shell).toContain(`label: '${label}'`);
+    for (const label of ['My Jobs','Availability',"Who's Nearby",'Directory','My Fleet','Return Journeys','Loads','Quotes','Diary','Freight Vision','Finance','Drivers & Vehicles']) {
+      expect(shell.includes(`label: '${label}'`) || shell.includes(`label: \"${label}\"`)).toBe(true);
     }
   });
 

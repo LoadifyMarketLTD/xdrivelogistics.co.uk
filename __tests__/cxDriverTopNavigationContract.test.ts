@@ -8,17 +8,19 @@ const notificationsApi = fs.readFileSync(path.join(process.cwd(), 'app/api/drive
 
 describe('approved prototype Driver top navigation', () => {
   it('uses the complete approved prototype module order', () => {
-    const labels = ['Dashboard','Directory','Live Availability','My Fleet','Return Journeys','Loads','Quotes','Diary','Freight Vision','Finance','Drivers & Vehicles'];
+    const labels = ['Dashboard','My Jobs','Availability',"Who's Nearby",'Directory','My Fleet','Return Journeys','Loads','Quotes','Diary','Freight Vision','Finance','Drivers & Vehicles'];
     let previous = -1;
     for (const label of labels) {
-      const current = shell.indexOf(`label: '${label}'`);
+      const singleQuoted = shell.indexOf(`label: '${label}'`);
+      const doubleQuoted = shell.indexOf(`label: \"${label}\"`);
+      const current = Math.max(singleQuoted, doubleQuoted);
       expect(current).toBeGreaterThan(previous);
       previous = current;
     }
   });
 
   it('maps prototype modules to real Driver routes', () => {
-    for (const href of ['/driver','/driver/directory','/driver/nearby','/driver/vehicles','/driver/returns','/driver/loads','/driver/quotes','/driver/history','/driver/freight-vision','/driver/finance','/driver/drivers-vehicles']) {
+    for (const href of ['/driver','/driver/jobs','/driver/availability','/driver/nearby','/driver/directory','/driver/vehicles','/driver/returns','/driver/loads','/driver/quotes','/driver/history','/driver/freight-vision','/driver/finance','/driver/drivers-vehicles']) {
       expect(shell).toContain(`href: '${href}'`);
     }
   });
@@ -33,13 +35,13 @@ describe('approved prototype Driver top navigation', () => {
   });
 
   it('moves the existing settings functions into the top Settings button', () => {
-    for (const label of ['Overview','My Profile','Company Profile','Drivers / Staff','Vehicles / Assets','Documents','Billing & Membership','Settings','Security','Audit / Event Log','Support']) {
-      expect(shell).toContain(`label: '${label}'`);
+    for (const label of ['Overview','My Profile','Company Profile','Drivers / Staff','Vehicle','Documents','Billing & Membership','Notifications','Security','Audit / Event Log','Support']) {
+      expect(shell.includes(`label: '${label}'`) || shell.includes(`label: \"${label}\"`)).toBe(true);
     }
     expect(shell).toContain('driver-settings-menu');
     expect(shell).toContain('driver-settings-menu__panel');
     expect(shell).toContain("'/driver/settings?section=overview'");
-    expect(shell).toContain("'/driver/settings?section=security'");
+    expect(shell).toContain("'/driver/change-password'");
   });
 
   it('keeps real notification inbox counting', () => {

@@ -18,7 +18,9 @@ describe('Driver top workspace role boundary', () => {
 
   it('shows commercial discovery controls only to owner drivers or explicitly authorised company drivers', () => {
     expect(shell).toContain("const commercialAccess = role === 'owner_driver' || user?.canCommercialBid === true");
-    expect(shell).toContain("const DRIVER_COMMERCIAL_NAV_IDS = new Set(['directory', 'availability', 'returns', 'loads', 'quotes'])");
+    expect(shell).toContain("const DRIVER_COMMERCIAL_NAV_IDS = new Set(['directory', 'nearby', 'returns', 'loads', 'quotes'])");
+    expect(shell).toContain("{ id: 'availability', label: 'Availability', href: '/driver/availability' }");
+    expect(shell).toContain("{ id: 'nearby', label: \"Who's Nearby\", href: '/driver/nearby' }");
     expect(shell).toContain("{commercialAccess && <button type=\"button\" className=\"cta direct\"");
   });
 

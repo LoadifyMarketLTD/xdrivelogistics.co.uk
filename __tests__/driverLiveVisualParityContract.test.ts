@@ -7,8 +7,8 @@ const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), rela
 describe('live Driver approved prototype parity contract', () => {
   it('keeps the full prototype information architecture visible', () => {
     const shell = read('app/driver/_components/DriverTopWorkspaceShell.tsx');
-    for (const label of ['Dashboard','Directory','Live Availability','My Fleet','Return Journeys','Loads','Quotes','Diary','Freight Vision','Finance','Drivers & Vehicles']) {
-      expect(shell).toContain(`label: '${label}'`);
+    for (const label of ['Dashboard','My Jobs','Availability',"Who's Nearby",'Directory','My Fleet','Return Journeys','Loads','Quotes','Diary','Freight Vision','Finance','Drivers & Vehicles']) {
+      expect(shell.includes(`label: '${label}'`) || shell.includes(`label: \"${label}\"`)).toBe(true);
     }
     expect(shell).not.toContain('global-rail');
     expect(shell).toContain('topbar');

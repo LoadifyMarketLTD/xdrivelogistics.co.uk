@@ -12,8 +12,10 @@ import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 
 const DRIVER_PRIMARY_NAV = [
   { id: 'dashboard', label: 'Dashboard', href: '/driver' },
+  { id: 'jobs', label: 'My Jobs', href: '/driver/jobs' },
+  { id: 'availability', label: 'Availability', href: '/driver/availability' },
+  { id: 'nearby', label: "Who's Nearby", href: '/driver/nearby' },
   { id: 'directory', label: 'Directory', href: '/driver/directory' },
-  { id: 'availability', label: 'Live Availability', href: '/driver/nearby' },
   { id: 'fleet', label: 'My Fleet', href: '/driver/vehicles' },
   { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
   { id: 'loads', label: 'Loads', href: '/driver/loads' },
@@ -38,7 +40,7 @@ const DRIVER_SETTINGS_MENU = [
   { label: 'Support', href: '/help' },
 ] as const;
 
-const DRIVER_COMMERCIAL_NAV_IDS = new Set(['directory', 'availability', 'returns', 'loads', 'quotes']);
+const DRIVER_COMMERCIAL_NAV_IDS = new Set(['directory', 'nearby', 'returns', 'loads', 'quotes']);
 const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['finance', 'drivers']);
 
 export default function DriverTopWorkspaceShell({ children }: { children: ReactNode }) {

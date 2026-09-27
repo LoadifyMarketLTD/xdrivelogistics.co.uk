@@ -4,6 +4,7 @@ import path from 'node:path';
 const submit = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/finance/invoices/[id]/submit/route.ts'), 'utf8');
 const defaultsApi = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/finance/invoices/[id]/email-defaults/route.ts'), 'utf8');
 const panel = fs.readFileSync(path.join(process.cwd(), 'app/driver/finance/invoices/[id]/DriverInvoiceEmailPanel.tsx'), 'utf8');
+const financeAccess = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/finance/_lib/financeAccess.ts'), 'utf8');
 const template = fs.readFileSync(path.join(process.cwd(), 'lib/invoiceEmailTemplate.ts'), 'utf8');
 
 describe('company-level invoice email defaults', () => {
@@ -14,7 +15,8 @@ describe('company-level invoice email defaults', () => {
   });
 
   it('loads the saved company default for authorised invoice senders', () => {
-    expect(defaultsApi).toContain("senderRoles = new Set(['owner', 'admin', 'dispatcher', 'finance'])");
+    expect(defaultsApi).toContain('requireDriverFinanceAccess(request)');
+    expect(financeAccess).toContain("role !== 'owner' && role !== 'admin'");
     expect(panel).toContain('/email-defaults`');
     expect(panel).toContain('setCompanySubjectDefault(payload.subject)');
     expect(panel).toContain('setCompanyMessageDefault(payload.message)');
