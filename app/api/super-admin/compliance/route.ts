@@ -13,6 +13,7 @@ type SourceRow = {
   id: string;
   driver_id?: string | null;
   vehicle_id?: string | null;
+  company_id?: string | null;
   doc_type: string;
   status: string;
   expiry_date: string | null;
@@ -51,6 +52,24 @@ const applyDocumentTypeFilter = <T extends { ilike: (column: string, pattern: st
   return query;
 };
 
+const applyCompanyDocumentFilter = <
+  T extends {
+    in: (column: string, values: string[]) => T;
+    eq: (column: string, value: string) => T;
+  },
+>(query: T, section: string) => {
+  if (section === 'insurance') {
+    return query.in('doc_type', [
+      'public_liability',
+      'goods_in_transit',
+      'vehicle_insurance',
+      'motor_fleet_insurance',
+    ]);
+  }
+  if (section === 'operator-licences') return query.eq('doc_type', 'operator_licence');
+  return query;
+};
+
 const updateDocumentSchema = z.object({
   section: z.literal('documents'),
   entityType: z.enum(['driver', 'vehicle']),
@@ -77,21 +96,33 @@ export async function GET(request: NextRequest) {
       .from('vehicle_documents')
       .select('id, vehicle_id, doc_type, status, expiry_date, issued_date, created_at', { count: 'exact' })
       .order('created_at', { ascending: false });
+    let companyQuery = supabaseAdmin
+      .from('company_documents')
+      .select('id, company_id, doc_type, status, expiry_date, issued_date, created_at', { count: 'exact' })
+      .order('created_at', { ascending: false });
     driverQuery = applyDocumentTypeFilter(driverQuery, section);
     vehicleQuery = applyDocumentTypeFilter(vehicleQuery, section);
+    companyQuery = applyCompanyDocumentFilter(companyQuery, section);
 
-    const [driverResult, vehicleResult] = await Promise.all([
+    const [driverResult, vehicleResult, companyDocumentResult] = await Promise.all([
       driverQuery.range(0, required - 1),
       vehicleQuery.range(0, required - 1),
+      companyQuery.range(0, required - 1),
     ]);
     if (driverResult.error) return respond(500, { error: driverResult.error.message });
     if (vehicleResult.error) return respond(500, { error: vehicleResult.error.message });
-    if (typeof driverResult.count !== 'number' || typeof vehicleResult.count !== 'number') {
+    if (companyDocumentResult.error) return respond(500, { error: companyDocumentResult.error.message });
+    if (
+      typeof driverResult.count !== 'number'
+      || typeof vehicleResult.count !== 'number'
+      || typeof companyDocumentResult.count !== 'number'
+    ) {
       return respond(500, { error: 'Compliance document sources returned incomplete exact counts.' });
     }
 
     const driverDocs = (driverResult.data ?? []) as SourceRow[];
     const vehicleDocs = (vehicleResult.data ?? []) as SourceRow[];
+    const companyDocs = (companyDocumentResult.data ?? []) as SourceRow[];
     const driverIds = Array.from(new Set(driverDocs.map((row) => row.driver_id).filter((id): id is string => Boolean(id))));
     const vehicleIds = Array.from(new Set(vehicleDocs.map((row) => row.vehicle_id).filter((id): id is string => Boolean(id))));
     const [driversResult, vehiclesResult] = await Promise.all([
@@ -106,7 +137,8 @@ export async function GET(request: NextRequest) {
     const companyIds = Array.from(new Set([
       ...Array.from(driverById.values()).map((row) => row.company_id),
       ...Array.from(vehicleById.values()).map((row) => row.company_id),
-    ].filter(Boolean)));
+      ...companyDocs.map((row) => row.company_id ?? null),
+    ].filter((id): id is string => Boolean(id))));
     const companyResult = await companyNameMap(companyIds);
     if (companyResult.error) return respond(500, { error: companyResult.error });
 
@@ -142,9 +174,25 @@ export async function GET(request: NextRequest) {
           is_expired: row.expiry_date ? row.expiry_date < today : false,
         };
       }),
+      ...companyDocs.map((row) => {
+        const companyId = row.company_id ?? '';
+        const companyName = companyId ? companyResult.map.get(companyId) ?? 'Unknown company' : 'Unknown company';
+        return {
+          id: row.id,
+          entity_type: 'company',
+          entity_name: companyName,
+          company_name: companyName,
+          doc_type: row.doc_type,
+          status: row.status,
+          expiry_date: row.expiry_date,
+          issued_date: row.issued_date ?? null,
+          created_at: row.created_at,
+          is_expired: row.expiry_date ? row.expiry_date < today : false,
+        };
+      }),
     ].sort((a, b) => b.created_at.localeCompare(a.created_at)).slice(offset, offset + limit);
 
-    const total = driverResult.count + vehicleResult.count;
+    const total = driverResult.count + vehicleResult.count + companyDocumentResult.count;
     return respond(200, {
       section,
       rows,

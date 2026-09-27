@@ -135,8 +135,8 @@ That meant visual Fleet Manager parity did not equal authoritative end-to-end Fl
 - Extended relevant operational APIs to the dedicated Fleet operator boundary.
 - Kept commercial booking ownership actions separated from Fleet Manager.
 
-### Production step pending
-Migration `20260927110000_fleet_manager_persisted_role_foundation.sql` must be applied after merge and then production constraints/RPC/RLS must be re-verified.
+### Production status
+Migration `20260927110000_fleet_manager_persisted_role_foundation.sql` is applied in Production. The live company membership constraint now includes `fleet_manager`; allocation, vehicle advertising and all five Fleet Diary policies include the role; Fleet Manager invitation acceptance is service-role-only and supports `company_staff + fleet_manager`. No real Fleet Manager membership exists yet, so authenticated provisioning/login E2E remains open and must not be represented as certified.
 
 ---
 
