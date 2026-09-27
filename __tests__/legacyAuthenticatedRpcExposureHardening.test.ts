@@ -7,7 +7,7 @@ const migration = fs.readFileSync(
     'supabase/migrations/20260927124500_revoke_unused_legacy_authenticated_rpcs.sql',
   ),
   'utf8',
-);
+).replace(/\r\n/g, '\n');
 
 describe('legacy authenticated RPC exposure hardening', () => {
   it('removes direct signed-in execution from unused SECURITY DEFINER helpers', () => {
