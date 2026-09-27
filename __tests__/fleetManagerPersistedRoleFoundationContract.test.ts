@@ -18,7 +18,7 @@ const read = (relative: string) =>
   fs.readFileSync(path.join(process.cwd(), relative), 'utf8');
 
 describe('Fleet Manager persisted role foundation', () => {
-  const migration = read('supabase/migrations/20260926180000_fleet_manager_persisted_role_foundation.sql');
+  const migration = read('supabase/migrations/20260927110000_fleet_manager_persisted_role_foundation.sql');
   const managerApi = read('app/api/admin/fleet/managers/route.ts');
   const fleetOperator = read('app/api/admin/_lib/requireCompanyFleetOperator.ts');
 

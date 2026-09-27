@@ -7,7 +7,10 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../_lib/supabaseAdmin';
-import { getResetPasswordEmailRedirectTo } from '../../../../../lib/authFlow';
+import {
+  getAuthCallbackEmailRedirectTo,
+  getResetPasswordEmailRedirectTo,
+} from '../../../../../lib/authFlow';
 import { normalizeProfileRoleForStorage } from '../../../../../lib/authRole';
 
 const OWNER_ADMIN_ROLES = ['owner', 'admin'] as const;
@@ -22,7 +25,9 @@ const createSchema = z.object({
 });
 
 async function resolveOwnerAdmin(request: NextRequest, companyId: string) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return { response: json(503, { error: 'Fleet Manager administration is unavailable.' }) };
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return { response: json(503, { error: 'Fleet Manager administration is unavailable.' }) };
+  }
 
   const token = getBearerToken(request);
   if (!token) return { response: json(401, { error: 'Unauthorized.' }) };
@@ -40,13 +45,17 @@ async function resolveOwnerAdmin(request: NextRequest, companyId: string) {
     .in('role_in_company', [...OWNER_ADMIN_ROLES])
     .maybeSingle();
 
-  if (membershipError) return { response: json(500, { error: 'Fleet Manager authority could not be verified.' }) };
-  if (!membership) return { response: json(403, { error: 'Only company owners and admins can manage Fleet Managers.' }) };
+  if (membershipError) {
+    return { response: json(500, { error: 'Fleet Manager authority could not be verified.' }) };
+  }
+  if (!membership) {
+    return { response: json(403, { error: 'Only company owners and admins can manage Fleet Managers.' }) };
+  }
 
   return { userId: authData.user.id, companyId };
 }
 
-async function findAuthUserIdByEmail(email: string) {
+async function findAuthUserByEmail(email: string) {
   if (!supabaseAdmin) return null;
   let page = 1;
   const perPage = 1000;
@@ -54,7 +63,7 @@ async function findAuthUserIdByEmail(email: string) {
     const { data, error } = await supabaseAdmin.auth.admin.listUsers({ page, perPage });
     if (error || !data) return null;
     const match = data.users.find((user) => user.email?.toLowerCase() === email);
-    if (match) return match.id;
+    if (match) return match;
     if (data.users.length < perPage) return null;
     page += 1;
   }
@@ -62,7 +71,9 @@ async function findAuthUserIdByEmail(email: string) {
 
 export async function GET(request: NextRequest) {
   const companyId = new URL(request.url).searchParams.get('companyId')?.trim() ?? '';
-  if (!z.string().uuid().safeParse(companyId).success) return json(400, { error: 'Valid companyId is required.' });
+  if (!z.string().uuid().safeParse(companyId).success) {
+    return json(400, { error: 'Valid companyId is required.' });
+  }
 
   const access = await resolveOwnerAdmin(request, companyId);
   if ('response' in access) return access.response;
@@ -90,74 +101,157 @@ export async function POST(request: NextRequest) {
   if ('response' in access) return access.response;
 
   const email = parsed.data.email;
-  let userId: string | null = null;
-  let inviteSent = false;
+  let targetUser = await findAuthUserByEmail(email);
+  const existingAuthUser = Boolean(targetUser);
+  const delivery: 'auth_invite' | 'magic_link' = existingAuthUser ? 'magic_link' : 'auth_invite';
 
-  const { data: invitedData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
-    redirectTo: `${getResetPasswordEmailRedirectTo()}?type=invite`,
-    data: {
-      role: 'company_staff',
-      requested_role: 'fleet_manager',
-      workspace_role: 'fleet_manager',
-    },
-  });
-
-  if (!inviteError && invitedData.user) {
-    userId = invitedData.user.id;
-    inviteSent = true;
-  } else {
-    const message = String(inviteError?.message ?? '').toLowerCase();
-    const alreadyExists =
-      message.includes('already registered') ||
-      message.includes('already been registered') ||
-      message.includes('user already exists') ||
-      (inviteError as { code?: string } | null)?.code === 'email_exists';
-
-    if (!alreadyExists) {
-      return json(400, { error: inviteError?.message ?? 'Fleet Manager invite could not be sent.' });
+  if (!targetUser) {
+    const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(email, {
+      redirectTo: `${getResetPasswordEmailRedirectTo()}?flow=team-invite&workspace=fleet_manager`,
+      data: {
+        role: 'company_staff',
+        requested_role: 'fleet_manager',
+        workspace_role: 'fleet_manager',
+        invitation_kind: 'company_team',
+      },
+    });
+    if (inviteError || !inviteData.user) {
+      return json(503, { error: inviteError?.message ?? 'Fleet Manager invitation email could not be sent.' });
     }
-    userId = await findAuthUserIdByEmail(email);
+    targetUser = inviteData.user;
   }
 
-  if (!userId) return json(500, { error: 'Fleet Manager account could not be resolved.' });
+  const { data: activeMemberships, error: activeMembershipError } = await supabaseAdmin
+    .from('company_memberships')
+    .select('id,company_id,role_in_company,status')
+    .eq('user_id', targetUser.id)
+    .eq('status', 'active')
+    .limit(2);
+  if (activeMembershipError) {
+    return json(500, { error: 'Existing Fleet Manager membership could not be verified.' });
+  }
+  const activeMembership = (activeMemberships ?? [])[0];
+  if (activeMembership?.company_id && activeMembership.company_id !== access.companyId) {
+    return json(409, { error: 'This account already belongs to another active company workspace.' });
+  }
+  if (activeMembership?.company_id === access.companyId) {
+    return json(409, { error: 'This account is already an active member of this company.' });
+  }
 
-  const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
-    user_metadata: {
-      role: 'company_staff',
-      requested_role: 'fleet_manager',
-      workspace_role: 'fleet_manager',
-    },
+  const { data: pendingMemberships, error: pendingMembershipError } = await supabaseAdmin
+    .from('company_memberships')
+    .select('id,company_id,role_in_company,status')
+    .eq('user_id', targetUser.id)
+    .eq('status', 'invited')
+    .limit(2);
+  if (pendingMembershipError) {
+    return json(500, { error: 'Pending Fleet Manager invitations could not be verified.' });
+  }
+  const conflictingInvitation = (pendingMemberships ?? []).find(
+    (membership) => membership.company_id !== access.companyId
+  );
+  if (conflictingInvitation) {
+    return json(409, { error: 'This account already has a pending invitation for another company workspace.' });
+  }
+  const conflictingSameCompanyRole = (pendingMemberships ?? []).find(
+    (membership) =>
+      membership.company_id === access.companyId
+      && String(membership.role_in_company ?? '').trim().toLowerCase() !== 'fleet_manager'
+  );
+  if (conflictingSameCompanyRole) {
+    return json(409, { error: 'This account already has a pending invitation for a different company role.' });
+  }
+
+  const { data: existingProfile, error: profileLookupError } = await supabaseAdmin
+    .from('profiles')
+    .select('role,company_id,status')
+    .eq('user_id', targetUser.id)
+    .maybeSingle();
+  if (profileLookupError) return json(500, { error: 'Fleet Manager profile could not be verified.' });
+  const profileRole = String(existingProfile?.role ?? '').trim().toLowerCase();
+  if (profileRole && profileRole !== 'company_staff') {
+    return json(409, { error: 'This account already has a different platform workspace identity.' });
+  }
+  if (String(existingProfile?.status ?? '').trim().toLowerCase() === 'active') {
+    return json(409, { error: 'This account already has an active platform profile and cannot be reprovisioned by invitation.' });
+  }
+  if (existingProfile?.company_id && existingProfile.company_id !== access.companyId) {
+    return json(409, { error: 'This account is already bound to another company identity.' });
+  }
+
+  if (existingAuthUser) {
+    const { error: magicLinkError } = await supabaseAdmin.auth.signInWithOtp({
+      email,
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${getAuthCallbackEmailRedirectTo()}?flow=team-invite&workspace=fleet_manager`,
+      },
+    });
+    if (magicLinkError) {
+      return json(503, { error: 'Existing Fleet Manager invitation email could not be sent.' });
+    }
+  }
+
+  const { error: metadataError } = await supabaseAdmin.auth.admin.updateUserById(targetUser.id, {
     app_metadata: {
+      ...(targetUser.app_metadata ?? {}),
       role: 'company_staff',
       workspace_role: 'fleet_manager',
     },
   });
-  if (metadataError) return json(400, { error: metadataError.message });
+  if (metadataError) {
+    return json(500, { error: 'Fleet Manager authority metadata could not be initialized.' });
+  }
 
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
     .upsert({
-      user_id: userId,
+      user_id: targetUser.id,
       full_name: parsed.data.displayName,
       phone: parsed.data.phone?.trim() || null,
       role: normalizeProfileRoleForStorage('company_staff') ?? 'company_staff',
-      status: 'active',
+      status: 'pending',
       company_id: access.companyId,
       is_driver: false,
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' });
-  if (profileError) return json(500, { error: `Fleet Manager profile could not be saved: ${profileError.message}` });
+  if (profileError) {
+    return json(500, { error: `Fleet Manager profile could not be saved: ${profileError.message}` });
+  }
 
-  const { data: manager, error: membershipError } = await supabaseAdmin
+  const { data: existingInvitation, error: existingInvitationError } = await supabaseAdmin
     .from('company_memberships')
-    .upsert({
-      company_id: access.companyId,
-      user_id: userId,
-      invited_email: email,
-      role_in_company: 'fleet_manager',
-      status: 'active',
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'company_id,user_id' })
+    .select('id')
+    .eq('company_id', access.companyId)
+    .eq('user_id', targetUser.id)
+    .eq('status', 'invited')
+    .maybeSingle();
+  if (existingInvitationError) {
+    return json(500, { error: 'Existing Fleet Manager invitation could not be verified.' });
+  }
+
+  const membershipWrite = existingInvitation?.id
+    ? supabaseAdmin
+        .from('company_memberships')
+        .update({
+          invited_email: email,
+          role_in_company: 'fleet_manager',
+          status: 'invited',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', existingInvitation.id)
+    : supabaseAdmin
+        .from('company_memberships')
+        .upsert({
+          company_id: access.companyId,
+          user_id: targetUser.id,
+          invited_email: email,
+          role_in_company: 'fleet_manager',
+          status: 'invited',
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'company_id,user_id' });
+
+  const { data: manager, error: membershipError } = await membershipWrite
     .select('id,user_id,invited_email,role_in_company,status,created_at,updated_at')
     .maybeSingle();
 
@@ -165,5 +259,5 @@ export async function POST(request: NextRequest) {
     return json(500, { error: `Fleet Manager membership could not be saved: ${membershipError.message}` });
   }
 
-  return json(201, { manager, inviteSent });
+  return json(201, { manager, inviteSent: true, delivery });
 }

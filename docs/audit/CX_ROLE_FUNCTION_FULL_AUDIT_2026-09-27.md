@@ -1,23 +1,23 @@
 # XDrive Logistics — CX Role & Function Full Audit
 
-**Audit date:** 27 September 2026  
-**Canonical blueprint:** `docs/benchmarks/CX_ROLE_FUNCTION_MASTER_BLUEPRINT_2026-09-25.md`  
-**Scope:** Customer, Broker, Carrier / Company, Fleet Manager, Owner Driver, Fleet Employed Driver, Driver Base, cross-role marketplace / matching / tracking / POD / invoice / messaging, database security and production readiness.  
+**Audit date:** 27 September 2026
+**Canonical blueprint:** `docs/benchmarks/CX_ROLE_FUNCTION_MASTER_BLUEPRINT_2026-09-25.md`
+**Scope:** Customer, Broker, Carrier / Company, Fleet Manager, Owner Driver, Fleet Employed Driver, Driver Base, cross-role marketplace / matching / tracking / POD / invoice / messaging, database security and production readiness.
 **Benchmark rule:** Courier Exchange functional direction, excluding SmartPay / escrow / platform-held settlement by explicit XDrive product decision.
 
 ## Executive status
 
 This audit does **not** certify production launch completion yet.
 
-Verified automated baseline after remediation:
+Current verification baseline for the Fleet Manager rebase on the live `main` lineage:
 
-- **81 / 81 automated audit checks PASS**
-- **330 / 330 Vitest files PASS**
-- **2067 / 2067 tests PASS**
-- TypeScript: **PASS, 0 errors**
-- ESLint: **PASS, 0 warnings/errors**
-- Production Next.js build: **PASS, exit 0**
-- `git diff --check`: **PASS**
+- Fleet Manager targeted contract suite after invitation-flow reconciliation: **88 / 88 tests PASS**.
+- TypeScript: **PASS, 0 errors** on the rebased Fleet Manager tree.
+- Targeted ESLint for Fleet Manager/API/RBAC changes: **PASS**.
+- Current `main` full Vitest baseline is **not green**: **41 failed / 2059 passed** tests across **24 failed / 315 passed** test files.
+- The rebased Fleet Manager tree improves that baseline to **26 failed / 2085 passed** tests across **15 failed / 326 passed** test files.
+- The remaining full-suite failures are primarily historical Driver/Customer/Broker prototype contracts already failing on current `main`; they are not counted as Fleet Manager PASS evidence.
+- Production Next.js build on the final rebased tree: **PASS, exit 0**. Live Fleet Manager E2E still requires post-migration verification.
 
 The audit found and repaired real role-boundary, availability, matching, notification, encoding, test-contract and Fleet Manager persistence defects. Remaining blockers are listed below and must not be represented as closed until live/manual evidence exists.
 
@@ -136,7 +136,7 @@ That meant visual Fleet Manager parity did not equal authoritative end-to-end Fl
 - Kept commercial booking ownership actions separated from Fleet Manager.
 
 ### Production step pending
-Migration `20260926180000_fleet_manager_persisted_role_foundation.sql` must be applied after merge and then production constraints/RPC/RLS must be re-verified.
+Migration `20260927110000_fleet_manager_persisted_role_foundation.sql` must be applied after merge and then production constraints/RPC/RLS must be re-verified.
 
 ---
 

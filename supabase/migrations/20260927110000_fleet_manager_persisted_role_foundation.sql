@@ -217,7 +217,7 @@ DECLARE
   v_updated_count integer := 0;
 BEGIN
   IF v_actor_user_id IS NULL THEN
-    RAISE EXCEPTION 'Forbidden â€” auth.uid() is required for this RPC.'
+    RAISE EXCEPTION 'Forbidden - auth.uid() is required for this RPC.'
       USING ERRCODE = '42501';
   END IF;
 
@@ -278,7 +278,7 @@ BEGIN
   END IF;
 
   IF NOT v_can_manage THEN
-    RAISE EXCEPTION 'Forbidden â€” you cannot change this vehicle advertising state.'
+    RAISE EXCEPTION 'Forbidden - you cannot change this vehicle advertising state.'
       USING ERRCODE = '42501';
   END IF;
 
