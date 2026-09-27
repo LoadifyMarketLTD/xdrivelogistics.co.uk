@@ -97,7 +97,7 @@ export default function BrokerLoadsPage() {
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Customer loads" title="Loads" description="Scan customer transport requests, quote activity and operational state from one broker board." actions={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>} />
+      <PageHeader eyebrow="Customer loads" title="Loads" description="Scan customer transport requests, quote activity and operational state from one broker board." />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <div className="workspace-board-layout">
@@ -119,7 +119,7 @@ export default function BrokerLoadsPage() {
           </div>
 
           {rows.length === 0 ? (
-            <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}><EmptyState compact title="No matching loads" description="Adjust the filters or post a new customer load." action={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>} /></div>
+            <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}><EmptyState compact title="No matching loads" description="Adjust the filters or use Post Load from the workspace header." /></div>
           ) : (
             <div className="workspace-record-list">
               {rows.map((job) => {

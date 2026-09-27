@@ -164,9 +164,6 @@ export default function CustomerDashboardHome() {
           description="See what needs your attention, manage current loads and follow active deliveries."
           actions={
             <>
-              <ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>
-                + Post Load
-              </ActionButton>
               <ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>
                 My Loads
               </ActionButton>
@@ -263,9 +260,6 @@ export default function CustomerDashboardHome() {
             </div>
             <div className="customer-dash-box__body">
               <div className="customer-action-grid">
-                <ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>
-                  Post Load
-                </ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>
                   My Loads
                 </ActionButton>
@@ -334,8 +328,7 @@ export default function CustomerDashboardHome() {
               <EmptyState
                 title="No transport yet"
                 description="Post your first load when you are ready to request carrier quotes."
-                action={<ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>Post Load</ActionButton>}
-              />
+                />
             )}
           </div>
         </section>

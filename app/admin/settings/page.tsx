@@ -16,7 +16,17 @@ export default function SettingsPage() {
         ? 'broker' as const
         : workspaceRole === 'customer'
           ? 'customer' as const
-          : 'fleet' as const;
+          : workspaceRole === 'company_owner' || workspaceRole === 'company_admin' || workspaceRole === 'carrier_admin'
+            ? 'carrier' as const
+            : workspaceRole === 'fleet_manager'
+              ? 'fleet' as const
+              : workspaceRole === 'dispatcher'
+                ? 'dispatcher' as const
+                : workspaceRole === 'finance'
+                  ? 'finance' as const
+                  : workspaceRole === 'compliance'
+                    ? 'compliance' as const
+                    : 'viewer' as const;
   const roleLabel = WORKSPACE_DEFINITIONS[workspaceRole].label;
 
   return (

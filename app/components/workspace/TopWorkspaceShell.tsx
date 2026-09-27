@@ -173,7 +173,6 @@ function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
     { id: 'broker-customers-loads', label: 'Customers & Loads', items: [
       { id: 'broker-customers', label: 'Customers', href: '/broker/customers', icon: '○' },
       { id: 'broker-customer-loads', label: 'Customer Loads', href: '/broker/loads', icon: '■' },
-      { id: 'broker-post-load', label: 'Post Load', href: '/broker/post-load', icon: '+' },
     ] },
     { id: 'broker-commercial', label: 'Commercial', items: [
       { id: 'broker-carrier-quotes', label: 'Carrier Quotes', href: '/broker/bids', icon: '▣' },
@@ -243,7 +242,6 @@ function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
       { id: 'customer-action-centre', label: 'Action Centre', href: '/customer/action-centre', icon: '!' },
     ] },
     { id: 'customer-loads', label: 'Loads', items: [
-      { id: 'customer-post-load', label: 'Post Load', href: '/customer/post-load', icon: '+' },
       { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: '■' },
       { id: 'customer-quotes', label: 'Quotes', href: '/customer/quotes', icon: '▣' },
       { id: 'customer-awards', label: 'Awards', href: '/customer/awards', icon: '✓' },

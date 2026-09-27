@@ -71,7 +71,6 @@ export default function BrokerCustomersPage() {
         eyebrow="Broker customers"
         title="Customers"
         description="Customer relationships derived from broker-managed transport activity. Active means execution has actually started, not merely awarded or allocated."
-        actions={<ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Create Load</ActionButton>}
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
@@ -114,7 +113,6 @@ export default function BrokerCustomersPage() {
                         </div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 6 }}>
                           <ActionButton tone="secondary" onClick={() => router.push(`/broker/loads?customer=${encodeURIComponent(customer.name)}`)}>View loads</ActionButton>
-                          <ActionButton tone="secondary" onClick={() => router.push('/broker/post-load')}>New load</ActionButton>
                         </div>
                       </div>
                     )}

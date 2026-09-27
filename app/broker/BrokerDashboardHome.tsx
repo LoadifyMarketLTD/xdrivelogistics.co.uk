@@ -174,9 +174,6 @@ export default function BrokerDashboardHome() {
           description="Manage customer loads, carrier decisions, live execution and commercial position from one clear workflow."
           actions={
             <>
-              <ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>
-                Post Load
-              </ActionButton>
               <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>
                 Compare Quotes
               </ActionButton>
@@ -255,7 +252,6 @@ export default function BrokerDashboardHome() {
             </div>
             <div className="broker-clean-box__body">
               <div className="broker-clean-actions">
-                <ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/broker/enquiries')}>Enquiries</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>Carrier Quotes</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/broker/pod-review')}>POD Review</ActionButton>

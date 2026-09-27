@@ -5,12 +5,15 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 
 describe('Customer clean workspace contract', () => {
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
+  const roles = read('lib/workspaceRole.ts');
   const dashboard = read('app/customer/CustomerDashboardHome.tsx');
 
   it('keeps the complete Customer navigation available without duplicating it in the dashboard', () => {
-    for (const label of ['Customer Dashboard','Action Centre','Post Load','My Loads','Quotes','Awards','Bookings','Deliveries','Tracking','POD & Documents','Diary','Updates','Network','Messages','Disputes','Event Log','Invoices','Team','Settings']) {
+    for (const label of ['Customer Dashboard','Action Centre','My Loads','Quotes','Awards','Bookings','Deliveries','Tracking','POD & Documents','Diary','Updates','Network','Messages','Disputes','Event Log','Invoices','Team','Settings']) {
       expect(shell).toContain(`label: '${label}'`);
     }
+    expect(roles).toContain("primaryAction: { label: 'Post Load', href: '/customer/post-load', capability: 'loads.create' }");
+    expect(shell).not.toContain("id: 'customer-post-load'");
     expect(shell).toContain("if (role === 'customer') {");
     expect(shell).toContain('filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user)');
   });
@@ -27,9 +30,11 @@ describe('Customer clean workspace contract', () => {
   });
 
   it('keeps the essential customer workflows one click away', () => {
-    for (const href of ['/customer/post-load','/customer/action-centre','/customer/loads','/customer/quotes','/customer/bookings','/customer/tracking','/customer/invoices']) {
+    expect(roles).toContain("href: '/customer/post-load'");
+    for (const href of ['/customer/action-centre','/customer/loads','/customer/quotes','/customer/bookings','/customer/tracking','/customer/invoices']) {
       expect(dashboard).toContain(href);
     }
+    expect(dashboard).not.toContain("router.push('/customer/post-load')");
   });
 
   it('removes the duplicated dense dashboard modules', () => {
