@@ -12,6 +12,7 @@ describe('public funnel hardening', () => {
   const broker = read('app/onboarding/_components/BrokerOnboarding.tsx');
   const generic = read('app/onboarding/[token]/page.tsx');
   const marketing = read('app/(marketing)/_components/MarketingDetailPage.tsx');
+  const nextConfig = read('next.config.mjs');
 
   it('applies middleware CSP to homepage, auth and onboarding routes', () => {
     expect(middleware).toContain("const styleSrc = `'self' 'unsafe-inline'`");
@@ -77,6 +78,12 @@ describe('public funnel hardening', () => {
     expect(generic).toContain('const nextFormData = { ...formData, [markerKey]: data.path ??');
     expect(generic).toContain("currentStep: 'document_upload'");
     expect(generic).toContain('calculateOnboardingProgress');
+  });
+
+  it('serves metadata in the initial head for Lighthouse and HTML-limited bots', () => {
+    expect(nextConfig).toContain('htmlLimitedBots:');
+    expect(nextConfig).toContain('Chrome-Lighthouse');
+    expect(nextConfig).toContain('Lighthouse');
   });
 
   it('uses local marketing imagery and provides a mobile navigation', () => {
