@@ -17,6 +17,7 @@ describe('public funnel hardening', () => {
   const loginLayout = read('app/login/layout.tsx');
   const registerLayout = read('app/register/layout.tsx');
   const onboardingLayout = read('app/onboarding/layout.tsx');
+  const rootLayout = read('app/layout.tsx');
 
   it('applies middleware CSP to homepage, auth and onboarding routes', () => {
     expect(middleware).toContain("const styleSrc = `'self' 'unsafe-inline'`");
@@ -82,6 +83,12 @@ describe('public funnel hardening', () => {
     expect(generic).toContain('const nextFormData = { ...formData, [markerKey]: data.path ??');
     expect(generic).toContain("currentStep: 'document_upload'");
     expect(generic).toContain('calculateOnboardingProgress');
+  });
+
+  it('attaches the middleware nonce to structured-data scripts', () => {
+    expect(rootLayout).toContain("import { headers } from 'next/headers'");
+    expect(rootLayout).toContain("const nonce = (await headers()).get('x-nonce') ?? undefined");
+    expect(rootLayout).toContain('nonce={nonce}');
   });
 
   it('renders public and account-entry routes at request time for nonce-based CSP', () => {
