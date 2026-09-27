@@ -76,6 +76,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'support-disputes', label: 'Support Disputes', href: '/super-admin/support/disputes' },
     ] },
     { id: 'platform', label: 'Platform', items: [
+      { id: 'platform-overview', label: 'Platform Overview', href: '/super-admin/platform' },
       { id: 'users-access', label: 'Users & Access', href: '/super-admin/users' },
       { id: 'roles-permissions', label: 'Roles & Permissions', href: '/super-admin/settings/roles-permissions' },
       { id: 'notifications', label: 'Notifications', href: '/super-admin/notifications' },

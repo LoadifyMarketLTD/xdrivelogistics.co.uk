@@ -69,9 +69,10 @@ function OwnerMenu() {
       </button>
       {open ? (
         <div className={styles.ownerMenu} role="menu">
-          <Link href="/super-admin" role="menuitem">Command Centre</Link>
-          <Link href="/super-admin/directory" role="menuitem">Explore all areas</Link>
-          <Link href="/super-admin/platform" role="menuitem">Platform Overview</Link>
+          <div className={styles.ownerMenuIdentity} role="presentation">
+            <strong>Platform Owner</strong>
+            <span>Authenticated platform-control session</span>
+          </div>
           <Link href="/auth/sign-out" role="menuitem" className={styles.ownerMenuDanger}>Sign out</Link>
         </div>
       ) : null}

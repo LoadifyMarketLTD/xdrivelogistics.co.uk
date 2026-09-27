@@ -314,6 +314,26 @@
   background: #FFFFFF;
   box-shadow: 0 14px 34px rgba(11, 47, 107, 0.16);
 }
+.ownerMenuIdentity {
+  display: grid;
+  gap: 3px;
+  padding: 10px 10px 12px;
+  margin-bottom: 6px;
+  border-bottom: 1px solid var(--sa-v3-border);
+}
+
+.ownerMenuIdentity strong {
+  color: var(--sa-v3-navy);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.ownerMenuIdentity span {
+  color: var(--sa-v3-muted);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
 .ownerMenu a {
   min-height: 38px;
   display: flex;
@@ -332,48 +352,6 @@
 
 .ownerMenuDanger {
   color: #D92D20 !important;
-}
-
-.contextBar {
-  margin: 18px 22px 0;
-  padding: 16px 18px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  border: 1px solid var(--sa-v3-border);
-  border-radius: var(--sa-v3-radius);
-  background: #FFFFFF;
-  box-shadow: var(--sa-v3-shadow);
-}
-
-.contextCopy {
-  min-width: 0;
-}
-
-.contextCopy > span {
-  display: block;
-  color: var(--sa-v3-blue);
-  font-size: 11px;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.contextCopy > strong {
-  display: block;
-  margin-top: 5px;
-  color: var(--sa-v3-text);
-  font-size: 18px;
-  font-weight: 800;
-  line-height: 1.2;
-}
-
-.contextCopy > p {
-  margin: 5px 0 0;
-  color: var(--sa-v3-muted);
-  font-size: 13px;
-  line-height: 1.45;
 }
 
 .main {
@@ -617,15 +595,10 @@
     width: min(440px, 58vw);
   }
 
-  .contextBar,
   .directoryPage,
   .platformPage {
     margin-left: 0;
     margin-right: 0;
-  }
-
-  .contextBar {
-    margin: 14px 14px 0;
   }
 
   .directoryPage,
@@ -668,13 +641,5 @@
   .areaGrid,
   .platformGrid {
     grid-template-columns: minmax(0, 1fr);
-  }
-
-  .contextBar {
-    align-items: flex-start;
-  }
-
-  .contextCopy > strong {
-    font-size: 16px;
   }
 }
