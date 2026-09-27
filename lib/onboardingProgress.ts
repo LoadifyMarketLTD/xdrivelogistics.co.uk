@@ -4,7 +4,7 @@ import {
   type CanonicalOnboardingAccountType,
 } from './onboardingContract';
 
-const REQUIRED_FIELDS: Record<CanonicalOnboardingAccountType, readonly string[]> = {
+export const REQUIRED_ONBOARDING_FIELDS: Record<CanonicalOnboardingAccountType, readonly string[]> = {
   customer_shipper: ['full_name', 'contact_email'],
   broker_shipper: [
     'company_name',
@@ -41,26 +41,90 @@ const REQUIRED_FIELDS: Record<CanonicalOnboardingAccountType, readonly string[]>
   company_driver: ['full_name', 'address', 'phone', 'email'],
 };
 
+const FIELD_LABELS: Record<string, string> = {
+  full_name: 'Full name',
+  contact_email: 'Contact email',
+  company_name: 'Company name',
+  trading_name: 'Trading name',
+  company_number: 'Companies House number',
+  billing_address: 'Billing address',
+  trading_address: 'Trading address',
+  contact_person: 'Contact person',
+  finance_contact: 'Finance contact',
+  contact_phone: 'Contact phone',
+  legal_company_name: 'Legal company name',
+  registered_address: 'Registered address',
+  compliance_contact: 'Compliance contact',
+  transport_contact: 'Transport contact',
+  dob: 'Date of birth',
+  address: 'Address',
+  phone: 'Phone',
+  email: 'Email',
+  right_to_work_status: 'Right to work status',
+  registration: 'Vehicle registration',
+  make: 'Vehicle make',
+  model: 'Vehicle model',
+};
+
 const hasValue = (value: unknown) =>
   typeof value === 'string'
     ? value.trim().length > 0
     : typeof value === 'number' || typeof value === 'boolean';
 
+export type OnboardingRecoveryAssessment = {
+  canonicalAccountType: CanonicalOnboardingAccountType | null;
+  progress: number;
+  complete: boolean;
+  missingFields: Array<{ key: string; label: string }>;
+  missingDocuments: Array<{ type: string; label: string }>;
+};
+
+export function assessOnboardingRecovery(
+  accountType: string | null | undefined,
+  payload: Record<string, unknown>,
+): OnboardingRecoveryAssessment {
+  const canonical = normalizeCanonicalOnboardingAccountType(accountType);
+  if (!canonical) {
+    return {
+      canonicalAccountType: null,
+      progress: 5,
+      complete: false,
+      missingFields: [],
+      missingDocuments: [],
+    };
+  }
+
+  const requiredFields = REQUIRED_ONBOARDING_FIELDS[canonical];
+  const missingFields = requiredFields
+    .filter((key) => !hasValue(payload[key]))
+    .map((key) => ({ key, label: FIELD_LABELS[key] ?? key.replace(/_/g, ' ') }));
+
+  const requiredDocuments = getRequiredOnboardingDocuments(canonical);
+  const missingDocuments = requiredDocuments
+    .filter((doc) => !hasValue(payload[`doc_${doc.type}`]))
+    .map((doc) => ({ type: doc.type, label: doc.label }));
+
+  const completeFields = requiredFields.length - missingFields.length;
+  const fieldRatio = requiredFields.length > 0 ? completeFields / requiredFields.length : 1;
+  const completeDocuments = requiredDocuments.length - missingDocuments.length;
+  const documentRatio = requiredDocuments.length > 0 ? completeDocuments / requiredDocuments.length : 1;
+  const documentWeight = requiredDocuments.length > 0 ? 20 : 0;
+  const fieldWeight = requiredDocuments.length > 0 ? 70 : 90;
+  const weighted = 5 + fieldRatio * fieldWeight + documentRatio * documentWeight;
+  const progress = Math.min(95, Math.max(5, Math.round(weighted)));
+
+  return {
+    canonicalAccountType: canonical,
+    progress,
+    complete: missingFields.length === 0 && missingDocuments.length === 0,
+    missingFields,
+    missingDocuments,
+  };
+}
+
 export function calculateOnboardingProgress(
   accountType: string | null | undefined,
   payload: Record<string, unknown>,
 ): number {
-  const canonical = normalizeCanonicalOnboardingAccountType(accountType);
-  if (!canonical) return 5;
-
-  const requiredFields = REQUIRED_FIELDS[canonical];
-  const completeFields = requiredFields.filter((key) => hasValue(payload[key])).length;
-  const fieldRatio = requiredFields.length > 0 ? completeFields / requiredFields.length : 1;
-
-  const requiredDocuments = getRequiredOnboardingDocuments(canonical);
-  const completeDocuments = requiredDocuments.filter((doc) => hasValue(payload[`doc_${doc.type}`])).length;
-  const documentRatio = requiredDocuments.length > 0 ? completeDocuments / requiredDocuments.length : 1;
-
-  const weighted = 5 + fieldRatio * 70 + documentRatio * 20;
-  return Math.min(95, Math.max(5, Math.round(weighted)));
+  return assessOnboardingRecovery(accountType, payload).progress;
 }

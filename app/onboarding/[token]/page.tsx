@@ -8,7 +8,7 @@ import {
   normalizeCanonicalOnboardingAccountType,
   type PersistedOnboardingAccountType,
 } from '../../../lib/onboardingContract';
-import { calculateOnboardingProgress } from '../../../lib/onboardingProgress';
+import { assessOnboardingRecovery, calculateOnboardingProgress } from '../../../lib/onboardingProgress';
 
 type Application = {
   id: string;
@@ -412,6 +412,7 @@ export default function OnboardingTokenPage() {
   }
 
   const normalizedCurrentPayload = normalizedPayload();
+  const recoveryAssessment = assessOnboardingRecovery(canonicalAccountType, normalizedCurrentPayload);
   const calculatedProgress = calculateOnboardingProgress(canonicalAccountType, normalizedCurrentPayload);
   const progress = application.status === 'under_review' || application.status === 'approved'
     ? 100
@@ -427,6 +428,27 @@ export default function OnboardingTokenPage() {
       <p style={{ color: '#4B5563' }}>{contract.description}</p>
       <p>Status: <strong>{application.status}</strong></p>
       <p>Current step: <strong>{application.current_step}</strong></p>
+
+      {!recoveryAssessment.complete && application.status !== 'approved' && (
+        <section style={{ margin: '1rem 0 1.25rem', padding: '1rem', border: '1px solid #F5A300', borderRadius: 10, background: '#FFF9E8' }}>
+          <h2 style={{ margin: '0 0 0.5rem', color: '#0B2F6B', fontSize: '1.05rem' }}>Complete your XDrive onboarding</h2>
+          <p style={{ margin: '0 0 0.75rem', color: '#4B5563' }}>
+            Your previous progress has been saved. XDrive now checks the current onboarding requirements and only asks you to complete the items that are still missing.
+          </p>
+          {recoveryAssessment.missingFields.length > 0 && (
+            <div style={{ marginBottom: '0.65rem' }}>
+              <strong>Information still required:</strong>{' '}
+              {recoveryAssessment.missingFields.map((item) => item.label).join(', ')}.
+            </div>
+          )}
+          {recoveryAssessment.missingDocuments.length > 0 && (
+            <div>
+              <strong>Documents still required:</strong>{' '}
+              {recoveryAssessment.missingDocuments.map((item) => item.label).join(', ')}.
+            </div>
+          )}
+        </section>
+      )}
 
       <div style={{ background: '#E5E7EB', borderRadius: 8, overflow: 'hidden', marginBottom: '1rem' }}>
         <div style={{ width: `${progress}%`, height: 10, background: '#2563EB' }} />
@@ -513,6 +535,7 @@ export default function OnboardingTokenPage() {
             saving ||
             application.status === 'approved' ||
             (requiresVerifiedCompany && !application.company_id) ||
+            recoveryAssessment.missingFields.length > 0 ||
             missingRequiredDocuments.length > 0
           }
           style={{ padding: '0.75rem 1rem', borderRadius: 6, border: 'none', background: '#1D4ED8', color: '#fff', cursor: 'pointer' }}

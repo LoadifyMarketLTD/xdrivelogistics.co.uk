@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { Field, PageLayout } from './BaseUi';
 import { getOnboardingContract } from '../../../lib/onboardingContract';
-import { calculateOnboardingProgress } from '../../../lib/onboardingProgress';
+import { assessOnboardingRecovery, calculateOnboardingProgress } from '../../../lib/onboardingProgress';
 
 type Application = {
   id: string;
@@ -264,6 +264,7 @@ export function BrokerOnboarding({ token }: { token: string }) {
 
   const progressPayload: Record<string, unknown> = { ...formData };
   uploadedDocuments.forEach((docType) => { progressPayload[`doc_${docType}`] = true; });
+  const recoveryAssessment = assessOnboardingRecovery('broker_shipper', progressPayload);
   const calculatedProgress = calculateOnboardingProgress('broker_shipper', progressPayload);
   const progress = application.status === 'under_review' || application.status === 'approved'
     ? 100
@@ -284,9 +285,25 @@ export function BrokerOnboarding({ token }: { token: string }) {
       submitDisabled={
         application.status === 'approved' ||
         !application.company_id ||
+        recoveryAssessment.missingFields.length > 0 ||
         requiredDocumentTypes.some((docType) => !uploadedDocuments.has(docType))
       }
     >
+      {!recoveryAssessment.complete && application.status !== 'approved' && (
+        <section style={{ marginBottom: '1.25rem', padding: '1rem', border: '1px solid #F5A300', borderRadius: 10, background: '#FFF9E8' }}>
+          <h2 style={{ margin: '0 0 0.5rem', color: '#0B2F6B', fontSize: '1.05rem' }}>Complete your XDrive onboarding</h2>
+          <p style={{ margin: '0 0 0.75rem', color: '#4B5563' }}>
+            Your previous progress has been saved. Complete only the information and documents that are still required under the current onboarding rules.
+          </p>
+          {recoveryAssessment.missingFields.length > 0 && (
+            <div><strong>Information still required:</strong> {recoveryAssessment.missingFields.map((item) => item.label).join(', ')}.</div>
+          )}
+          {recoveryAssessment.missingDocuments.length > 0 && (
+            <div style={{ marginTop: '0.45rem' }}><strong>Documents still required:</strong> {recoveryAssessment.missingDocuments.map((item) => item.label).join(', ')}.</div>
+          )}
+        </section>
+      )}
+
       <section>
         <h2>Broker / Shipper Details</h2>
         <Field label="Company Name" value={formData.company_name} onChange={(v) => setFormData((prev) => ({ ...prev, company_name: v }))} />

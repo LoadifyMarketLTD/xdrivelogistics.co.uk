@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { calculateOnboardingProgress } from '../lib/onboardingProgress';
+import { assessOnboardingRecovery, calculateOnboardingProgress } from '../lib/onboardingProgress';
 
 const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), relative), 'utf8');
 
@@ -18,6 +18,7 @@ describe('public funnel hardening', () => {
   const registerLayout = read('app/register/layout.tsx');
   const onboardingLayout = read('app/onboarding/layout.tsx');
   const rootLayout = read('app/layout.tsx');
+  const onboardingSession = read('app/api/onboarding/session/route.ts');
 
   it('applies middleware CSP to homepage, auth and onboarding routes', () => {
     expect(middleware).toContain("const styleSrc = `'self' 'unsafe-inline'`");
@@ -110,8 +111,16 @@ describe('public funnel hardening', () => {
     expect(marketing).toContain('Sign In');
   });
 
+  it('restores legacy uploaded documents and exposes canonical recovery requirements', () => {
+    expect(onboardingSession).toContain(".from('driver_identity_documents')");
+    expect(onboardingSession).toContain(".from('company_documents')");
+    expect(onboardingSession).toContain('assessOnboardingRecovery(accountType, payload)');
+    expect(generic).toContain('Complete your XDrive onboarding');
+    expect(generic).toContain('recoveryAssessment.missingFields.length > 0');
+  });
+
   it('calculates progress from actual required fields and documents', () => {
-    expect(calculateOnboardingProgress('customer_shipper', {})).toBe(25);
+    expect(calculateOnboardingProgress('customer_shipper', {})).toBe(5);
     expect(calculateOnboardingProgress('customer_shipper', {
       full_name: 'Alex Driver',
       contact_email: 'alex@example.test',
@@ -131,5 +140,18 @@ describe('public funnel hardening', () => {
       doc_public_liability: 'uploaded',
     });
     expect(brokerProgress).toBe(95);
+
+    const ownerRecovery = assessOnboardingRecovery('owner_driver', {
+      full_name: 'Paul Driver',
+      dob: '1980-06-26',
+      address: '1 Test Street',
+      phone: '07000000000',
+      email: 'paul@example.test',
+      right_to_work_status: 'british_citizen',
+      doc_proof_of_address: 'stored/path.jpg',
+    });
+    expect(ownerRecovery.complete).toBe(false);
+    expect(ownerRecovery.missingFields.map((item) => item.key)).toEqual(['registration', 'make', 'model']);
+    expect(ownerRecovery.missingDocuments.map((item) => item.type)).toEqual(['driving_licence', 'right_to_work']);
   });
 });
