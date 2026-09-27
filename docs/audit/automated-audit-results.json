@@ -1,8 +1,8 @@
 {
-  "runDate": "2026-08-01T18:11:46.530Z",
-  "totalPass": 77,
+  "runDate": "2026-09-27T00:14:32.368Z",
+  "totalPass": 81,
   "totalFail": 0,
-  "totalManual": 4,
+  "totalManual": 0,
   "sections": [
     {
       "title": "DB-01 — Migration Integrity",
@@ -30,7 +30,7 @@
         {
           "id": "DB-01-05",
           "pass": true,
-          "note": "Total migration files: 191"
+          "note": "Total migration files: 389"
         }
       ]
     },
@@ -349,23 +349,23 @@
       "results": [
         {
           "id": "PR-03-05-jobs",
-          "pass": null,
-          "note": "Realtime for \"jobs\" must be verified in Supabase dashboard (no migration evidence)"
+          "pass": true,
+          "note": "Realtime/publication reference found for \"jobs\" (verify in Supabase dashboard)"
         },
         {
           "id": "PR-03-05-job_bids",
-          "pass": null,
-          "note": "Realtime for \"job_bids\" must be verified in Supabase dashboard (no migration evidence)"
+          "pass": true,
+          "note": "Realtime/publication reference found for \"job_bids\" (verify in Supabase dashboard)"
         },
         {
           "id": "PR-03-05-driver_locations",
-          "pass": null,
-          "note": "Realtime for \"driver_locations\" must be verified in Supabase dashboard (no migration evidence)"
+          "pass": true,
+          "note": "Realtime/publication reference found for \"driver_locations\" (verify in Supabase dashboard)"
         },
         {
           "id": "PR-03-05-notifications",
-          "pass": null,
-          "note": "Realtime for \"notifications\" must be verified in Supabase dashboard (no migration evidence)"
+          "pass": true,
+          "note": "Realtime/publication reference found for \"notifications\" (verify in Supabase dashboard)"
         }
       ]
     },
@@ -470,7 +470,7 @@
         {
           "id": "UNIT-TESTS",
           "pass": true,
-          "note": "All unit tests passed\nilter decoding\u001b[2m > \u001b[22mpreserves URLSearchParams decoding for \"customer=ACME%2BLogistics\"\u001b[32m 0\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m __tests__/brokerWorkspaceCustomerFilter.test.ts\u001b[2m > \u001b[22mbroker customer filter decoding\u001b[2m > \u001b[22mpreserves URLSearchParams decoding for \"customer=ACME%252BLogistics\"\u001b[32m 0\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m40 passed\u001b[39m\u001b[22m\u001b[90m (40)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m459 passed\u001b[39m\u001b[22m\u001b[90m (459)\u001b[39m\n\u001b[2m   Start at \u001b[22m 18:11:42\n\u001b[2m   Duration \u001b[22m 3.88s\u001b[2m (transform 1.42s, setup 0ms, import 3.28s, tests 912ms, environment 6ms)\u001b[22m\n\n"
+          "note": "All unit tests passed\n no profile update\n\u001b[22m\u001b[39m[Shared UI Context] authoritative query failed {\n  profile: \u001b[1mnull\u001b[22m,\n  memberships: \u001b[1mnull\u001b[22m,\n  drivers: \u001b[32m'legacy query also failed'\u001b[39m,\n  userId: \u001b[32m'user-1'\u001b[39m\n}\n\n\u001b[90mstderr\u001b[2m | __tests__/identityComplianceRoutes.test.ts\u001b[2m > \u001b[22m\u001b[2midentity compliance route hardening\u001b[2m > \u001b[22m\u001b[2mmaps atomic fraud decision conflicts to deterministic 409 responses\n\u001b[22m\u001b[39m[fraud-review] governance action failed {\n  code: \u001b[32m'23505'\u001b[39m,\n  message: \u001b[32m'Fraud review case is already finalised as confirmed.'\u001b[39m,\n  details: \u001b[90mundefined\u001b[39m\n}\n\n"
         }
       ]
     }

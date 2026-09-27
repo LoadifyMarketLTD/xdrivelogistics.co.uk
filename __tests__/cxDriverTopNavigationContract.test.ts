@@ -33,13 +33,13 @@ describe('approved prototype Driver top navigation', () => {
   });
 
   it('moves the existing settings functions into the top Settings button', () => {
-    for (const label of ['Overview','My Profile','Company Profile','Drivers / Staff','Vehicles / Assets','Documents','Billing & Membership','Settings','Security','Audit / Event Log','Support']) {
+    for (const label of ['Overview','My Profile','Company Profile','Drivers / Staff','Vehicle','Documents','Billing & Membership','Notifications','Security','Audit / Event Log','Support']) {
       expect(shell).toContain(`label: '${label}'`);
     }
     expect(shell).toContain('driver-settings-menu');
     expect(shell).toContain('driver-settings-menu__panel');
     expect(shell).toContain("'/driver/settings?section=overview'");
-    expect(shell).toContain("'/driver/settings?section=security'");
+    expect(shell).toContain("'/driver/change-password'");
   });
 
   it('keeps real notification inbox counting', () => {

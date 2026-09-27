@@ -7,7 +7,6 @@ const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), rela
 describe('Driver Dashboard prototype and route audit', () => {
   const topShell = read('app/driver/_components/DriverTopWorkspaceShell.tsx');
   const page = read('app/driver/page.tsx');
-  const css = read('app/driver/driver-dashboard-prototype-exact.css');
 
   it('keeps Dashboard as the first Driver navbar destination and routes it to /driver', () => {
     const dashboard = "{ id: 'dashboard', label: 'Dashboard', href: '/driver' }";
@@ -17,21 +16,16 @@ describe('Driver Dashboard prototype and route audit', () => {
     expect(topShell.indexOf(dashboard)).toBeLessThan(topShell.indexOf(directory));
   });
 
-  it('uses the literal 17883 Dashboard V2 structure', () => {
-    for (const marker of ['xd2-hero', 'xd2-kpis', 'xd2-primary-grid', 'xd2-workboard', 'xd2-readiness', 'xd2-secondary-grid', 'xd2-finance', 'xd2-bottom-grid']) {
+  it('uses the current operational Driver dashboard register', () => {
+    for (const marker of ['driver-dashboard-statusbar', 'driver-dashboard-register', 'driver-dashboard-readiness']) {
       expect(page).toContain(marker);
     }
-    expect(page).toContain('Today at a glance');
-    expect(page).toContain('Operational workboard');
-    expect(page).toContain('Commercial position');
-    expect(page).toContain('Performance & evidence');
-    expect(page).toContain('Driver workflow');
-    expect(page).toContain('Latest bookings');
-    expect(page).not.toContain('<span>Quote activity</span>');
-    expect(page).not.toContain('<span>Recent completed work</span>');
-    expect(page).not.toContain('<span>Status & availability</span>');
-    expect(page).not.toContain('<span>Canonical active vehicle</span>');
-    expect(page).not.toContain('<span>Journey & position</span>');
+    expect(page).toContain('My Work');
+    expect(page).toContain('Recent Bookings');
+    expect(page).toContain('Driver & Vehicle Readiness');
+    expect(page).toContain('Owner Driver Commercial Position');
+    expect(page).not.toContain('Today at a glance');
+    expect(page).not.toContain('Operational workboard');
   });
 
   it('keeps dashboard shortcuts on real Driver routes', () => {
@@ -47,10 +41,9 @@ describe('Driver Dashboard prototype and route audit', () => {
     expect(page.toLowerCase()).not.toContain('my fleet');
   });
 
-  it('keeps the approved six-card command strip and functional workboard tabs', () => {
-    expect(css).toContain('.xd2-kpis');
-    expect(css).toContain('.xd2-kpi');
-    for (const label of ['Needs Attention', 'Upcoming Work', 'Live Jobs', 'Matching Loads', 'Document Alerts', 'Exceptions']) {
+  it('keeps the six-card operational status bar and functional work tabs', () => {
+    expect(page).toContain('driver-dashboard-statusbar');
+    for (const label of ['Availability', 'Active vehicle', 'Needs attention', 'Upcoming work', 'Live jobs', 'Matching loads']) {
       expect(page).toContain(label);
     }
     for (const tab of ['Needs attention', 'Upcoming', 'Live jobs', 'Documents', 'Exceptions', 'All work']) {

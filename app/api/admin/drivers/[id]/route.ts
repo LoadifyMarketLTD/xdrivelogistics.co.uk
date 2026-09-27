@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
-import { isCompanyAdminContext, requireCompanyAdmin } from '../../_lib/requireCompanyAdmin';
+import { isCompanyFleetOperatorContext, requireCompanyFleetOperator } from '../../_lib/requireCompanyFleetOperator';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store, max-age=0' } });
@@ -15,8 +15,8 @@ export async function DELETE(
   }
 
   const companyId = new URL(request.url).searchParams.get('companyId')?.trim() ?? '';
-  const admin = await requireCompanyAdmin(request, companyId);
-  if (!isCompanyAdminContext(admin)) return admin;
+  const admin = await requireCompanyFleetOperator(request, companyId);
+  if (!isCompanyFleetOperatorContext(admin)) return admin;
 
   const { id } = await context.params;
   const driverId = id?.trim();

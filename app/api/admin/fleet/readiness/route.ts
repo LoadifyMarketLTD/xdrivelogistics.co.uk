@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
-import { isCompanyAdminContext, requireCompanyAdmin } from '../../_lib/requireCompanyAdmin';
+import { isCompanyFleetOperatorContext, requireCompanyFleetOperator } from '../../_lib/requireCompanyFleetOperator';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -50,8 +50,8 @@ export async function GET(request: NextRequest) {
   }
 
   const companyId = text(new URL(request.url).searchParams.get('companyId'), 80);
-  const admin = await requireCompanyAdmin(request, companyId);
-  if (!isCompanyAdminContext(admin)) return admin;
+  const admin = await requireCompanyFleetOperator(request, companyId);
+  if (!isCompanyFleetOperatorContext(admin)) return admin;
 
   const [driverResult, vehicleResult] = await Promise.all([
     supabaseAdmin

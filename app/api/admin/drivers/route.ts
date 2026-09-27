@@ -4,7 +4,7 @@ import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValid
 import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
 import { logRuntimeProof } from '../../../../lib/runtimeProof';
 
-const ADMIN_ROLES = new Set(['owner', 'admin', 'dispatcher']);
+const ADMIN_ROLES = new Set(['owner', 'admin', 'fleet_manager', 'dispatcher']);
 
 type SendDriverPasswordSetupPayload = {
   companyId?: string;
