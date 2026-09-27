@@ -268,8 +268,10 @@
   color: var(--sa-v3-navy);
   background: #FFFFFF;
   text-decoration: none;
+  font: inherit;
   font-size: 13px;
   font-weight: 700;
+  cursor: pointer;
 }
 .topbarActionLink svg {
   color: var(--sa-v3-orange);

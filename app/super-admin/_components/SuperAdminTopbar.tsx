@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   AlertTriangle, Bell, ChevronDown, CircleUserRound, Menu,
-  PanelLeftClose, PanelLeftOpen, Search,
+  PanelLeftClose, PanelLeftOpen, RefreshCw, Search,
 } from 'lucide-react';
 import styles from './SuperAdminCardNavigationShell.module.css';
 
@@ -80,6 +80,9 @@ function OwnerMenu() {
 }
 
 export default function SuperAdminTopbar({ collapsed, mobileOpen, onToggleSidebar, onToggleMobile }: Props) {
+  const pathname = usePathname();
+  const showLiveRefresh = pathname === '/super-admin/operations/control-centre';
+
   return (
     <header className={styles.topbar}>
       <div className={styles.topbarLeft}>
@@ -104,6 +107,16 @@ export default function SuperAdminTopbar({ collapsed, mobileOpen, onToggleSideba
       </div>
 
       <div className={styles.topbarActions}>
+        {showLiveRefresh ? (
+          <button
+            type="button"
+            className={styles.topbarActionLink}
+            onClick={() => window.dispatchEvent(new Event('xdrive-super-admin-refresh-live-data'))}
+          >
+            <RefreshCw size={18} aria-hidden="true" />
+            <span>Refresh Live Data</span>
+          </button>
+        ) : null}
         <Link href="/super-admin/action-centre" className={styles.topbarActionLink}>
           <AlertTriangle size={18} aria-hidden="true" />
           <span>Action Centre</span>
