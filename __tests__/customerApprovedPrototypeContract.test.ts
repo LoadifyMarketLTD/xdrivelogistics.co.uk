@@ -11,7 +11,8 @@ describe('Customer clean workspace contract', () => {
     for (const label of ['Customer Dashboard','Action Centre','Post Load','My Loads','Quotes','Awards','Bookings','Deliveries','Tracking','POD & Documents','Diary','Updates','Network','Messages','Disputes','Event Log','Invoices','Team','Settings']) {
       expect(shell).toContain(`label: '${label}'`);
     }
-    expect(shell).toContain("if (role === 'customer') return composeCustomerPrototypeNav()");
+    expect(shell).toContain("if (role === 'customer') {");
+    expect(shell).toContain('filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user)');
   });
 
   it('keeps only the four primary customer signals at the top', () => {

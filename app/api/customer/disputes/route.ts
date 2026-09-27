@@ -40,6 +40,7 @@ async function resolveCustomerContext(request: NextRequest) {
   return {
     userId: authData.user.id,
     companyId: membership.company_id as string,
+    membershipRole: String(membership.role_in_company ?? '').toLowerCase(),
   } as const;
 }
 
@@ -72,6 +73,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const context = await resolveCustomerContext(request);
   if ('error' in context) return context.error;
+  if (!['owner', 'admin', 'dispatcher'].includes(context.membershipRole)) {
+    return json(403, { error: 'An active owner, admin or dispatcher is required to raise a dispute.' });
+  }
 
   const body = await request.json().catch(() => null);
   const parsed = createSchema.safeParse(body);

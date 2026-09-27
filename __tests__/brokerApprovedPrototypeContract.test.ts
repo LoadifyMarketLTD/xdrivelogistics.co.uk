@@ -11,7 +11,8 @@ describe('Broker cleaned workspace contract', () => {
     for (const label of ['Broker Dashboard','Action Centre','Enquiries','Customers','Customer Loads','Post Load','Carrier Quotes','Compare Quotes','Awards','Margin / Profit','Active Jobs','Diary','POD Review','Disputes','Messages','Event Log','Carrier Network','Finance','Customer Invoices','Carrier Costs','Team','Settings']) {
       expect(shell).toContain(`label: '${label}'`);
     }
-    expect(shell).toContain("if (role === 'broker') return composeBrokerPrototypeNav()");
+    expect(shell).toContain("if (role === 'broker') {");
+    expect(shell).toContain('filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user)');
   });
 
   it('keeps only four primary Broker signals on the dashboard', () => {

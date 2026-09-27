@@ -17,6 +17,7 @@ import {
   type WorkspaceNavItem,
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
+import { isCapabilityAllowedForPath } from '../../../lib/roleCapabilities';
 import {
   getActionCentreRoute,
   getNotificationsRoute,
@@ -203,6 +204,38 @@ function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
   ];
 }
 
+function filterWorkspaceNavByAccess(
+  groups: WorkspaceNavGroup[],
+  role: WorkspaceRole,
+  user: ReturnType<typeof useAuth>['user'],
+): WorkspaceNavGroup[] {
+  if (!user) return groups;
+  const context = {
+    membershipId: user.membershipId,
+    membershipRole: user.membershipRole,
+    financeAccess: user.financeAccess,
+    rawRole: user.rawRole,
+    workspaceRole: role,
+    driverId: user.driverId,
+    canCommercialBid: user.canCommercialBid,
+    driverStatus: user.driverStatus,
+    appAccess: user.appAccess,
+    accountStatus: user.accountStatus,
+    companyStatus: user.companyStatus,
+    ownerDriverWorkspace: user.ownerDriverWorkspace,
+    ownerDriverExecutionMode: user.ownerDriverExecutionMode,
+    canAccessDriverMode: user.canAccessDriverMode,
+  };
+
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        isCapabilityAllowedForPath(item.href, user.role === 'guest' ? null : user.role, context)),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
 function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
   return [
     { id: 'customer-home', label: 'Customer', items: [
@@ -374,13 +407,17 @@ export default function TopWorkspaceShell({
       }
     }
 
-    if (role === 'broker') return composeBrokerPrototypeNav();
-    if (role === 'customer') return composeCustomerPrototypeNav();
+    if (role === 'broker') {
+      return filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user);
+    }
+    if (role === 'customer') {
+      return filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user);
+    }
     if (CARRIER_NAV_ROLES.has(role)) base = composeCarrierPrimaryNav(base);
     else if (role === 'fleet_manager') base = composeFleetPrimaryNav(base);
 
     return base;
-  }, [role]);
+  }, [role, user]);
   const [companyName, setCompanyName] = useState('XDrive Logistics');
   const [unreadCount, setUnreadCount] = useState(0);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
@@ -417,8 +454,11 @@ export default function TopWorkspaceShell({
   const primaryAction =
     !CARRIER_NAV_ROLES.has(role) &&
     definition.primaryAction &&
-    (!definition.primaryAction.capability ||
-      hasWorkspaceCapability(role, definition.primaryAction.capability))
+    (
+      (role === 'broker' || role === 'customer')
+        ? nav.some((group) => group.items.some((item) => item.href === definition.primaryAction?.href))
+        : (!definition.primaryAction.capability || hasWorkspaceCapability(role, definition.primaryAction.capability))
+    )
       ? definition.primaryAction
       : null;
   const showCarrierPostLoadAction =
