@@ -46,6 +46,14 @@ describe('Super Admin Operations and Fleet v3', () => {
     expect(operationsApi).toContain('telemetryFreshness');
     expect(fleetPositions).toContain('telemetry_freshness');
   });
+
+  it('scopes Tracking & ETA telemetry to the inspected job instead of the driver latest fix from another job', () => {
+    expect(operationsApi).toContain('loadLatestLocationsForJobs');
+    expect(operationsApi).toContain(".eq('job_id', job.id)");
+    expect(operationsApi).toContain(".eq('driver_id', job.assigned_driver_id)");
+    expect(operationsApi).toContain('trackingResult.map.get(job.id)');
+    expect(operationsApi).not.toContain('trackingResult.map.get(job.assigned_driver_id)');
+  });
   it('marks vehicle tracking health using telemetry freshness', () => {
     expect(governanceApi).toContain('telemetryFreshness');
     expect(vehicles).toContain("telemetry_freshness.state === 'stale'");

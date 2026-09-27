@@ -125,6 +125,28 @@ const loadLatestLocations = async (driverIds: string[]) => {
   };
 };
 
+const loadLatestLocationsForJobs = async (jobs: JobRow[]) => {
+  if (!supabaseAdmin) return { map: new Map<string, LatestLocationRow>(), error: 'Server auth is not configured.' };
+  const entries = await Promise.all(jobs.map(async (job) => {
+    if (!job.assigned_driver_id) return { jobId: job.id, data: null as LatestLocationRow | null, error: null as string | null };
+    const result = await supabaseAdmin!
+      .from('driver_locations')
+      .select('id,driver_id,job_id,vehicle_id,recorded_at,location,lat,lng,heading,speed_mph,source,source_provider')
+      .eq('job_id', job.id)
+      .eq('driver_id', job.assigned_driver_id)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return { jobId: job.id, data: result.data as LatestLocationRow | null, error: result.error?.message ?? null };
+  }));
+  const failed = entries.find((entry) => entry.error);
+  if (failed) return { map: new Map<string, LatestLocationRow>(), error: failed.error as string };
+  return {
+    map: new Map(entries.flatMap((entry) => entry.data ? [[entry.jobId, entry.data] as const] : [])),
+    error: null as string | null,
+  };
+};
+
 const withCompanyAndDriverMaps = async (jobs: JobRow[]) => {
   if (!supabaseAdmin) return { error: 'Server auth is not configured.' } as const;
   const companyIds = Array.from(new Set(jobs.flatMap((job) => [job.company_id, job.awarded_carrier_company_id]).filter((value): value is string => Boolean(value))));
@@ -321,7 +343,7 @@ export async function GET(request: NextRequest) {
   if ('error' in mappedResources) return respond(500, { error: mappedResources.error });
   const { companyNameById, driverById, bidCountByJobId } = mappedResources;
   const trackingResult = section === 'tracking-eta'
-    ? await loadLatestLocations(((jobs ?? []) as JobRow[]).map((job) => job.assigned_driver_id).filter((value): value is string => Boolean(value)))
+    ? await loadLatestLocationsForJobs((jobs ?? []) as JobRow[])
     : { map: new Map<string, LatestLocationRow>(), error: null as string | null };
   if (trackingResult.error) return respond(500, { error: trackingResult.error });
 
@@ -354,7 +376,7 @@ export async function GET(request: NextRequest) {
               : 'missing',
         } : {}),
         ...(section === 'tracking-eta' ? (() => {
-          const location = job.assigned_driver_id ? trackingResult.map.get(job.assigned_driver_id) ?? null : null;
+          const location = job.assigned_driver_id ? trackingResult.map.get(job.id) ?? null : null;
           const embedded = coordinatesFromLocation(location?.location);
           const lat = location?.lat ?? embedded.lat;
           const lng = location?.lng ?? embedded.lng;
