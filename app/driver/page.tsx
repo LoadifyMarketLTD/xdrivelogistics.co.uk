@@ -268,10 +268,22 @@ export default function DriverDashboard() {
     setTransitioningJobId(null);
   };
 
+  const jobsDataset = data.datasets.jobs;
+  const invoicesDataset = data.datasets.invoices;
+  const assignedWorkMetric = jobsDataset.availability !== 'available'
+    ? '—'
+    : jobsDataset.partialData || jobsDataset.limitedData
+      ? 'Partial'
+      : myJobs.length;
   const ownerInvoices = ownerDriver ? data.invoices : [];
   const ownerOutstandingInvoices = ownerInvoices.filter(
     (invoice) => String(invoice.payment_status ?? invoice.status ?? '').toLowerCase() !== 'paid',
   );
+  const ownerInvoiceMetric = invoicesDataset.availability !== 'available'
+    ? '—'
+    : invoicesDataset.partialData || invoicesDataset.limitedData
+      ? 'Partial'
+      : ownerOutstandingInvoices.length;
 
   const renderJobSummary = (job: (typeof myJobs)[number]) => {
     const status = workspaceJobPresentationStatus(job);
@@ -341,8 +353,12 @@ export default function DriverDashboard() {
           </button>
           <button type="button" onClick={() => router.push('/driver/jobs')}>
             <span>Assigned work</span>
-            <strong>{myJobs.length}</strong>
-            <small>{activeJobs.length} live · {upcomingJobs.length} upcoming</small>
+            <strong>{assignedWorkMetric}</strong>
+            <small>{jobsDataset.availability !== 'available'
+              ? 'Assignment data unavailable'
+              : jobsDataset.partialData || jobsDataset.limitedData
+                ? 'Assignment data partial'
+                : `${activeJobs.length} live · ${upcomingJobs.length} upcoming`}</small>
           </button>
         </section>
 
@@ -377,6 +393,18 @@ export default function DriverDashboard() {
                   </ActionButton>
                 </div>
               </>
+            ) : jobsDataset.availability !== 'available' ? (
+              <EmptyState
+                compact
+                title="Assignment data unavailable"
+                description="The dashboard cannot confirm that there is no current assignment until the jobs source is available."
+              />
+            ) : jobsDataset.partialData || jobsDataset.limitedData ? (
+              <EmptyState
+                compact
+                title="Assignment data is partial"
+                description="The visible jobs dataset is incomplete, so the dashboard does not claim that there is no current assignment."
+              />
             ) : (
               <EmptyState
                 compact
@@ -405,6 +433,10 @@ export default function DriverDashboard() {
                   </ActionButton>
                 </div>
               </>
+            ) : jobsDataset.availability !== 'available' ? (
+              <EmptyState compact title="Booking data unavailable" description="The next booking cannot be confirmed until the jobs source is available." />
+            ) : jobsDataset.partialData || jobsDataset.limitedData ? (
+              <EmptyState compact title="Booking data is partial" description="The visible jobs dataset is incomplete, so the dashboard does not claim that there is no next booking." />
             ) : (
               <EmptyState compact title="No next booking" description="No additional allocated work is scheduled." />
             )}
@@ -438,6 +470,38 @@ export default function DriverDashboard() {
           </div>
         </section>
 
+        {ownerDriver ? (
+          <section className="driver-dashboard-register">
+            <div className="driver-dashboard-register__head">
+              <div>
+                <strong>Owner Driver Commercial Position</strong>
+                <span>Business signals kept separate from employed-driver execution.</span>
+              </div>
+            </div>
+            <div className="driver-dashboard-readiness__grid">
+              <button type="button" onClick={() => router.push('/driver/finance')}>
+                <span>Invoice readiness</span>
+                <strong>{invoicesDataset.availability !== 'available'
+                  ? 'Unavailable'
+                  : invoicesDataset.partialData || invoicesDataset.limitedData
+                    ? 'Partial'
+                    : 'Ready'}</strong>
+                <small>Only complete finance data is presented as exact.</small>
+              </button>
+              <button type="button" onClick={() => router.push('/driver/finance')}>
+                <span>Outstanding</span>
+                <strong>{ownerInvoiceMetric}</strong>
+                <small>Owner-driver invoices requiring settlement.</small>
+              </button>
+              <button type="button" onClick={() => router.push('/driver/returns')}>
+                <span>Return capacity</span>
+                <strong>{profile?.future_position ?? 'Not published'}</strong>
+                <small>{profile?.future_position_date ? formatDate(profile.future_position_date) : 'No future destination published'}</small>
+              </button>
+            </div>
+          </section>
+        ) : null}
+
         {commercialAccess ? (
           <section className="driver-dashboard-register">
             <div className="driver-dashboard-register__head">
@@ -455,7 +519,7 @@ export default function DriverDashboard() {
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/returns')}>Return Journeys</ActionButton>
                 {ownerDriver ? (
                   <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>
-                    Invoices ({ownerOutstandingInvoices.length} outstanding)
+                    Invoices ({ownerInvoiceMetric})
                   </ActionButton>
                 ) : null}
               </div>

@@ -9,10 +9,12 @@ describe('approved prototype Driver primary navigation', () => {
   const diary = read('app/driver/history/page.tsx');
   const messages = read('app/driver/messages/page.tsx');
 
-  it('uses the complete prototype first-class module order', () => {
-    for (const label of ['Directory','Live Availability','My Fleet','Return Journeys','Loads','Quotes','Diary','Freight Vision','Finance','Drivers & Vehicles']) {
+  it('uses the canonical Owner Driver first-class modules', () => {
+    for (const label of ['Directory','Availability','Vehicle','Return Journeys','Loads','Quotes','Auto-match & Alerts','Diary','Freight Vision','Finance','Drivers & Vehicles']) {
       expect(shell).toContain(`label: '${label}'`);
     }
+    expect(shell).toContain("{ id: 'load-alerts', label: 'Auto-match & Alerts', href: '/driver/load-alerts' }");
+    expect(shell).toContain("const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['load-alerts', 'finance', 'drivers'])");
   });
 
   it('keeps Directory on the real shared member data source', () => {
