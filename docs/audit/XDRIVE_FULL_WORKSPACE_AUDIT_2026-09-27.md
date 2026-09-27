@@ -120,7 +120,7 @@ It pins the notification classifier search path, removes direct authenticated ex
 
 ## Authenticated live Customer evidence
 
-Opera briefly reconnected during the audit and the authenticated Customer account successfully loaded `https://www.xdrivelogistics.co.uk/customer/invoices` with the real Customer Workspace navigation, Accounts control and invoice register. This is direct evidence that the earlier blanket Customer 403 is no longer affecting that protected Customer subroute after PR #612. A direct `/customer` dashboard retest is still pending because the Browser Connector disconnected again during navigation.
+Opera reconnected during the audit and the authenticated Customer account successfully loaded both `https://www.xdrivelogistics.co.uk/customer` and `https://www.xdrivelogistics.co.uk/customer/invoices`. The direct Customer dashboard rendered the real Customer Workspace navigation, Post Load, Action Centre, My Loads, Tracking, Quotes, Bookings, POD & bookings, Invoices, Messages and Event Log surfaces. This is direct evidence that the earlier blanket Customer 403 is no longer affecting the protected Customer workspace after PR #612. Deeper non-mutating subroute traversal is still pending because the Browser Connector disconnected again during the next navigation sequence.
 
 ## Production schema / Contract Protection gap
 
