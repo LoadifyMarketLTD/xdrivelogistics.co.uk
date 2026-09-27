@@ -3,7 +3,7 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
 
--- Modernize the membership-role helper away from deprecated auth.role() while
+-- Modernize the membership-role helper to use the current JWT role claim while
 -- preserving caller scoping: normal users may only ask for their own role;
 -- service-role callers may inspect any user.
 CREATE OR REPLACE FUNCTION public.active_company_membership_role(
