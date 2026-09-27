@@ -104,10 +104,15 @@ describe('MASTER CONTRACT FINAL v3 — enterprise shell', () => {
 
   it('keeps product navigation in the sidebar and owner controls in the owner menu', () => {
     expect(topbar).toContain("router.push(`/super-admin/search?q=${encodeURIComponent(query)}`)");
-    expect(topbar).toContain('href="/super-admin/action-centre"');
+    expect(workspace).toContain("href: '/super-admin/action-centre'");
+    expect(workspace).toContain("href: '/super-admin/notifications'");
+    expect(topbar).not.toContain('href="/super-admin/action-centre"');
+    expect(topbar).not.toContain('href="/super-admin/notifications"');
     expect(workspace).toContain("label: 'Platform Overview', href: '/super-admin/platform'");
+    expect(topbar).toContain('user?.email');
+    expect(topbar).toContain('href="/super-admin/account"');
     expect(topbar).toContain('href="/auth/sign-out"');
-    expect(topbar).toContain('Authenticated platform-control session');
+    expect(topbar).not.toContain('Authenticated platform-control session');
     expect(topbar).not.toContain('href="/super-admin" role="menuitem">Command Centre</Link>');
     expect(topbar).not.toContain('href="/super-admin/directory" role="menuitem">Explore all areas</Link>');
     expect(topbar).not.toContain('href="/super-admin/platform" role="menuitem">Platform Overview</Link>');
