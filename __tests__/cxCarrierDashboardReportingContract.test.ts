@@ -6,8 +6,9 @@ const source = fs.readFileSync(path.join(process.cwd(), 'app/components/workspac
 describe('CX carrier dashboard reporting parity contract', () => {
   it('keeps recent carrier-awarded bookings visible at a glance', () => {
     expect(source).toContain('const latestBookings = useMemo');
-    expect(source).toContain('title="Latest bookings"');
-    expect(source).toContain("router.push(`/admin/jobs/${job.id}`)");
+    expect(source).toContain('title="Activity at a glance"');
+    expect(source).toContain("columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Evidence', 'Action']}");
+    expect(source).toContain("router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)");
   });
 
   it('maps CX reporting/accounting shortcuts to verified XDrive registers', () => {
