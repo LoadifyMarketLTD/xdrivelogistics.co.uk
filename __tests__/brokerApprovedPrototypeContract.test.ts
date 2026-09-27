@@ -5,12 +5,15 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 
 describe('Broker cleaned workspace contract', () => {
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
+  const roles = read('lib/workspaceRole.ts');
   const dashboard = read('app/broker/BrokerDashboardHome.tsx');
 
   it('exposes the complete Broker workflow navigation', () => {
-    for (const label of ['Broker Dashboard','Action Centre','Enquiries','Customers','Customer Loads','Post Load','Carrier Quotes','Compare Quotes','Awards','Margin / Profit','Active Jobs','Diary','POD Review','Disputes','Messages','Event Log','Carrier Network','Finance','Customer Invoices','Carrier Costs','Team','Settings']) {
+    for (const label of ['Broker Dashboard','Action Centre','Enquiries','Customers','Customer Loads','Carrier Quotes','Compare Quotes','Awards','Margin / Profit','Active Jobs','Diary','POD Review','Disputes','Messages','Event Log','Carrier Network','Finance','Customer Invoices','Carrier Costs','Team','Settings']) {
       expect(shell).toContain(`label: '${label}'`);
     }
+    expect(roles).toContain("primaryAction: { label: 'Post Load', href: '/broker/post-load', capability: 'loads.create' }");
+    expect(shell).not.toContain("id: 'broker-post-load'");
     expect(shell).toContain("if (role === 'broker') return composeBrokerPrototypeNav()");
   });
 
@@ -24,9 +27,11 @@ describe('Broker cleaned workspace contract', () => {
   });
 
   it('keeps broker commercial and execution workflows connected', () => {
-    for (const href of ['/broker/post-load','/broker/enquiries','/broker/bids','/broker/jobs','/broker/pod-review','/broker/customer-invoices','/broker/carrier-costs','/broker/margins']) {
+    expect(roles).toContain("href: '/broker/post-load'");
+    for (const href of ['/broker/enquiries','/broker/bids','/broker/jobs','/broker/pod-review','/broker/customer-invoices','/broker/carrier-costs','/broker/margins']) {
       expect(dashboard).toContain(href);
     }
+    expect(dashboard).not.toContain("router.push('/broker/post-load')");
   });
 
   it('mirrors the same driver lifecycle in Broker language', () => {

@@ -22,8 +22,9 @@ describe('Broker dashboard convergence contract', () => {
   });
 
   it('preserves operational routes', () => {
-    for (const route of ['/broker/post-load','/broker/bids','/broker/enquiries','/broker/pod-review','/broker/finance','/broker/margins','/broker/jobs']) {
+    for (const route of ['/broker/bids','/broker/enquiries','/broker/pod-review','/broker/finance','/broker/margins','/broker/jobs']) {
       expect(source).toContain(route);
     }
+    expect(source).not.toContain("router.push('/broker/post-load')");
   });
 });

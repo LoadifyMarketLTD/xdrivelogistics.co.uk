@@ -9,6 +9,7 @@ import { useAuth } from '../../components/AuthContext';
 import { getNotificationsRoute, resolveActionCentreRole } from '../../components/workspace/actionCentreConfig';
 import { workspaceTheme } from '../../components/workspace/WorkspaceUI';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 
 const DRIVER_PRIMARY_NAV = [
   { id: 'dashboard', label: 'Today', href: '/driver' },
@@ -47,8 +48,9 @@ const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['finance', 'drivers']);
 export default function DriverTopWorkspaceShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
-  const role = user?.ownerDriverWorkspace ? 'owner_driver' as const : 'driver' as const;
+  const { user, logout } = useAuth();
+  const resolvedRole = resolveWorkspaceRole(user);
+  const role = resolvedRole === 'owner_driver' ? 'owner_driver' as const : 'driver' as const;
   const [companyName, setCompanyName] = useState('Driver Account');
   const [unreadCount, setUnreadCount] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -178,6 +180,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
               </div>
             )}
           </div>
+          <button type="button" onClick={() => void logout()}>Sign out</button>
           <button type="button" className="avatar account-toggle" onClick={() => router.push('/driver/account')} aria-label="Open account">{(companyName || 'DR').slice(0, 2).toUpperCase()}</button>
         </div>
       </header>
