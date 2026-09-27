@@ -158,7 +158,7 @@ describe('active workspace dashboard degraded-state rendering', () => {
 
     const html = render(<CustomerDashboardHome />);
     expect(html).toContain('Invoice data unavailable');
-    expect(html).toContain('Unavailable');
+    expect(html).toContain('Financial data unavailable');
     expect(html).not.toContain('No outstanding invoices');
     expect(html).not.toContain('£0.00');
   });
@@ -187,7 +187,8 @@ describe('active workspace dashboard degraded-state rendering', () => {
     }));
 
     const html = render(<BrokerDashboardHome />);
-    expect(html).toContain('Unavailable');
+    expect(html).toContain('Quote decision data is partial');
+    expect(html).toContain('Partial');
   });
 
   it('renders broker quote-decision unavailability instead of a healthy empty queue', () => {
