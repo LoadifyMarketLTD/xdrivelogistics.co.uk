@@ -8,7 +8,9 @@ const inbox = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace
 
 describe('current company settings and notification routing contract', () => {
   it('delegates fleet settings to the canonical role settings workspace', () => {
-    expect(settingsPage).toContain('<RoleSettingsWorkspace role="fleet" />');
+    expect(settingsPage).toContain("const settingsRole = workspaceRole === 'owner_driver'");
+    expect(settingsPage).toContain(": 'fleet' as const");
+    expect(settingsPage).toContain('<RoleSettingsWorkspace role={settingsRole} roleLabel={roleLabel} />');
     expect(roleSettings).toContain("notifications: '/admin/notifications'");
   });
 
@@ -25,8 +27,10 @@ describe('current company settings and notification routing contract', () => {
     expect(roleSettings).not.toContain('notify_email_bid_received');
   });
 
-  it('keeps granular alert-generation rules explicitly separate from the inbox', () => {
-    expect(inbox).toContain('CX-style matching preferences and alert generation remain a separate backend parity item');
+  it('keeps notification preferences integrated with the recipient-scoped inbox', () => {
+    expect(inbox).toContain('<NotificationPreferencesPanel />');
+    expect(inbox).toContain('Matching preferences and alert generation are active');
+    expect(inbox).not.toContain('separate backend parity item');
   });
 
   it('does not couple settings or notifications to Super Admin', () => {

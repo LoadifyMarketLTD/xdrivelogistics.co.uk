@@ -37,7 +37,7 @@ const viewSchema = z.object({
 });
 
 const reviewSchema = viewSchema.extend({
-  action: z.enum(['approve', 'reject']),
+  action: z.enum(['approve', 'reject', 'request_update']),
   reason: z.string().trim().max(5000).optional(),
 });
 
@@ -477,6 +477,39 @@ export async function PATCH(request: NextRequest) {
 
   const parsed = reviewSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return respond(400, { error: 'Invalid document review request.' });
+
+  if (parsed.data.action === 'request_update') {
+    const reason = parsed.data.reason?.trim() ?? '';
+    if (!reason) return respond(400, { error: 'A reason is required when requesting a document update.' });
+
+    const { data: requestResult, error: requestError } = await supabaseAdmin.rpc(
+      'owner_request_compliance_document_update',
+      {
+        p_actor_user_id: owner.id,
+        p_document_family: parsed.data.documentFamily,
+        p_document_id: parsed.data.id,
+        p_reason: reason,
+      },
+    );
+
+    if (requestError) {
+      if (requestError.code === 'P0002') return respond(404, { error: 'Document not found.' });
+      if (requestError.code === '23514') return respond(422, { error: requestError.message });
+      return respond(500, { error: requestError.message });
+    }
+
+    const requestRow = Array.isArray(requestResult)
+      ? (requestResult[0] as DbRow | undefined)
+      : (requestResult as DbRow | null);
+
+    return respond(200, {
+      document: requestRow ?? null,
+      documentFamily: parsed.data.documentFamily,
+      status: text(requestRow?.new_status, 'rejected'),
+      updateRequested: true,
+      notificationCount: Number(requestRow?.notification_count ?? 0),
+    });
+  }
 
   const { data: result, error: reviewError } = await supabaseAdmin.rpc('owner_review_compliance_document', {
     p_actor_user_id: owner.id,

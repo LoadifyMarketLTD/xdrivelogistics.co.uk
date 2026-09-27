@@ -1,15 +1,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-describe("Driver Live Availability prototype contract", () => {
+describe("Driver Who's Nearby workspace contract", () => {
   const page = fs.readFileSync(path.join(process.cwd(), 'app/driver/nearby/page.tsx'), 'utf8');
   const shell = fs.readFileSync(path.join(process.cwd(), 'app/driver/_components/DriverTopWorkspaceShell.tsx'), 'utf8');
   const api = fs.readFileSync(path.join(process.cwd(), 'app/api/availability/nearby/route.ts'), 'utf8');
 
-  it('promotes Live Availability to the prototype navbar', () => {
-    expect(shell).toContain("label: 'Live Availability', href: '/driver/nearby'");
+  it("keeps Who's Nearby distinct from the Driver's own Availability workspace", () => {
+    expect(shell).toContain("label: 'Availability', href: '/driver/availability'");
+    expect(shell).toContain("label: \"Who's Nearby\", href: '/driver/nearby'");
     expect(page).toContain('driver-live-availability-prototype');
-    expect(page).toContain('Live Availability');
+    expect(page).toContain("Who's Nearby");
+    expect(page).toContain('exchange-visible nearby vehicle capacity');
   });
 
   it('uses the authorised nearby API and exchange scope only', () => {

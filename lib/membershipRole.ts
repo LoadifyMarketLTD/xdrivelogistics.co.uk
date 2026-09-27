@@ -1,8 +1,8 @@
 /**
  * Membership role contracts for company workspaces.
  *
- * DB enum (persisted): owner | admin | dispatcher | member | viewer
- * App/domain roles include planned identities not yet persisted: finance | compliance | driver
+ * DB-persisted company roles: owner | admin | fleet_manager | dispatcher | member | viewer
+ * App/domain roles also include planned identities not yet persisted: finance | compliance | driver
  */
 
 import type { WorkspaceCapability } from './workspaceRole';
@@ -11,6 +11,7 @@ import type { WorkspaceCapability } from './workspaceRole';
 export type MembershipRole =
   | 'owner'
   | 'admin'
+  | 'fleet_manager'
   | 'dispatcher'
   | 'finance'
   | 'compliance'
@@ -22,6 +23,7 @@ export type MembershipRole =
 export type PersistedCompanyRole =
   | 'owner'
   | 'admin'
+  | 'fleet_manager'
   | 'dispatcher'
   | 'member'
   | 'viewer';
@@ -29,6 +31,7 @@ export type PersistedCompanyRole =
 export const PERSISTED_COMPANY_ROLES: readonly PersistedCompanyRole[] = [
   'owner',
   'admin',
+  'fleet_manager',
   'dispatcher',
   'member',
   'viewer',
@@ -41,6 +44,7 @@ export const PERSISTED_COMPANY_ROLES: readonly PersistedCompanyRole[] = [
 export const MEMBERSHIP_ROLE_VALUES: readonly MembershipRole[] = [
   'owner',
   'admin',
+  'fleet_manager',
   'dispatcher',
   'finance',
   'compliance',
@@ -89,6 +93,19 @@ export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly Works
     'invoices.carrier.manage',
     'incidents.manage',
     'settings.manage',
+  ],
+  fleet_manager: [
+    'jobs.view',
+    'jobs.allocate',
+    'jobs.dispatch',
+    'jobs.track',
+    'drivers.manage',
+    'vehicles.manage',
+    'fleet.positions.view',
+    'fleet.maintenance.manage',
+    'documents.company.manage',
+    'invoices.carrier.manage',
+    'incidents.manage',
   ],
   dispatcher: [
     'jobs.view',

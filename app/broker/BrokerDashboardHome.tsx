@@ -140,12 +140,27 @@ export default function BrokerDashboardHome() {
   const jobsDataset = data.datasets.jobs;
   const bidsDataset = data.datasets.bids;
   const invoicesDataset = data.datasets.invoices;
+  const quoteDecisionUnavailable = jobsDataset.availability !== 'available' || bidsDataset.availability !== 'available';
+  const quoteDecisionPartial = !quoteDecisionUnavailable && (
+    jobsDataset.partialData || jobsDataset.limitedData || bidsDataset.partialData || bidsDataset.limitedData
+  );
+  const quoteDecisionMetric = quoteDecisionUnavailable
+    ? '—'
+    : quoteDecisionPartial
+      ? 'Partial'
+      : metrics.awaitingAward.length;
+  const attentionUnavailable = [jobsDataset, bidsDataset, invoicesDataset].some(
+    (dataset) => dataset.availability !== 'available',
+  );
+  const attentionPartial = !attentionUnavailable && [jobsDataset, bidsDataset, invoicesDataset].some(
+    (dataset) => dataset.partialData || dataset.limitedData,
+  );
 
   const attentionItems = [
     {
       label: 'Quotes awaiting decision',
       detail: 'Compare carrier quotes and award the customer load.',
-      value: metricState(bidsDataset, metrics.awaitingAward.length),
+      value: quoteDecisionMetric,
       route: '/broker/bids',
       show: metrics.awaitingAward.length > 0,
     },
@@ -185,6 +200,15 @@ export default function BrokerDashboardHome() {
         />
 
         {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
+        {quoteDecisionUnavailable ? (
+          <AlertBanner tone="warning">
+            Quote decision data unavailable. Award counts are hidden until both jobs and carrier quotes are available.
+          </AlertBanner>
+        ) : quoteDecisionPartial ? (
+          <AlertBanner tone="warning">
+            Quote decision data is partial. Exact award counts are hidden until the complete jobs and quotes datasets are available.
+          </AlertBanner>
+        ) : null}
 
         <div className="broker-clean-kpis" aria-label="Broker summary">
           <button type="button" onClick={() => router.push('/broker/loads')}>
@@ -194,7 +218,7 @@ export default function BrokerDashboardHome() {
           </button>
           <button type="button" onClick={() => router.push('/broker/bids')}>
             <span>Awaiting award</span>
-            <strong>{metricState(bidsDataset, metrics.awaitingAward.length)}</strong>
+            <strong>{quoteDecisionMetric}</strong>
             <small>Carrier quotes need a decision</small>
           </button>
           <button type="button" onClick={() => router.push('/broker/jobs')}>
@@ -233,6 +257,18 @@ export default function BrokerDashboardHome() {
                     </button>
                   ))}
                 </div>
+              ) : attentionUnavailable ? (
+                <EmptyState
+                  compact
+                  title={quoteDecisionUnavailable ? 'Quote decision data unavailable' : 'Attention data unavailable'}
+                  description="The broker dashboard cannot confirm that there are no decisions or interventions until jobs, quotes and invoices are available."
+                />
+              ) : attentionPartial ? (
+                <EmptyState
+                  compact
+                  title={quoteDecisionPartial ? 'Quote decision data is partial' : 'Attention data is partial'}
+                  description="The visible records are incomplete, so this dashboard does not claim that the attention queue is empty."
+                />
               ) : (
                 <EmptyState
                   compact
@@ -326,6 +362,18 @@ export default function BrokerDashboardHome() {
                   </tbody>
                 </table>
               </div>
+            ) : jobsDataset.availability !== 'available' ? (
+              <EmptyState
+                compact
+                title="Transport data unavailable"
+                description="Current transport cannot be confirmed until the jobs source is available."
+              />
+            ) : jobsDataset.partialData || jobsDataset.limitedData ? (
+              <EmptyState
+                compact
+                title="Transport data is partial"
+                description="The visible jobs dataset is incomplete, so the dashboard does not claim that there is no transport yet."
+              />
             ) : (
               <EmptyState
                 compact
@@ -348,7 +396,11 @@ export default function BrokerDashboardHome() {
             <button type="button" onClick={() => router.push('/broker/customer-invoices')}>
               <span>Awaiting customer payment</span>
               <strong>{metricState(invoicesDataset, metrics.outstandingRevenue.length)}</strong>
-              <small>{invoicesDataset.availability === 'available' ? money(metrics.outstandingRevenueValue) : 'Unavailable'}</small>
+              <small>{invoicesDataset.availability !== 'available'
+                ? 'Unavailable'
+                : invoicesDataset.partialData || invoicesDataset.limitedData
+                  ? 'Partial total'
+                  : money(metrics.outstandingRevenueValue)}</small>
             </button>
             <button type="button" onClick={() => router.push('/broker/carrier-costs')}>
               <span>Carrier costs</span>

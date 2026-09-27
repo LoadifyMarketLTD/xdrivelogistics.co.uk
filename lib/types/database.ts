@@ -1,4 +1,4 @@
-export type CompanyRole = 'owner' | 'admin' | 'dispatcher' | 'finance' | 'member' | 'viewer';
+export type CompanyRole = 'owner' | 'admin' | 'fleet_manager' | 'dispatcher' | 'finance' | 'member' | 'viewer';
 export type MembershipStatus = 'invited' | 'active' | 'suspended';
 export type DocStatus = 'pending' | 'approved' | 'rejected' | 'expired';
 export type JobStatus =
@@ -274,6 +274,7 @@ export interface DbJob {
   job_distance_minutes: number | null;
   distance_to_pickup_miles: number | null;
   collection_photo_url: string | null;
+  pickup_photos: string[] | null;
   delivery_photos: string[] | null;
   delivery_signature_data: string | null;
   status_history: Array<{ status: string; timestamp: string; note?: string }> | null;

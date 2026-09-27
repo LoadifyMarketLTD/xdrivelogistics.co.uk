@@ -108,7 +108,7 @@ export async function POST(
     .eq('company_id', operatingCompanyId)
     .eq('user_id', authData.user.id)
     .eq('status', 'active')
-    .in('role_in_company', ['owner', 'admin', 'dispatcher'])
+    .in('role_in_company', ['owner', 'admin', 'fleet_manager', 'dispatcher'])
     .maybeSingle();
   if (membershipError) return respond(500, { error: membershipError.message });
   if (!membership) return respond(403, { error: 'Only an operator of the executing company may update this job.' });
