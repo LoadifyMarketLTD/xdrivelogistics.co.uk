@@ -107,10 +107,12 @@ BEGIN
       AND policyname = 'jobs_update_creator_assign_any_member'
       AND cmd = 'UPDATE'
       AND 'authenticated' = ANY (roles)
-      AND COALESCE(qual, '') ILIKE '%status::text = ''active''%'
-      AND COALESCE(with_check, '') ILIKE '%status::text = ''active''%'
-      AND COALESCE(qual, '') NOT ILIKE '%status <> ''suspended''%'
-      AND COALESCE(with_check, '') NOT ILIKE '%status <> ''suspended''%'
+      AND regexp_replace(lower(COALESCE(qual, '')), '[[:space:]()]', '', 'g')
+            LIKE '%cm.status%=''active''%'
+      AND regexp_replace(lower(COALESCE(with_check, '')), '[[:space:]()]', '', 'g')
+            LIKE '%cm.status%=''active''%'
+      AND COALESCE(qual, '') NOT ILIKE '%suspended%'
+      AND COALESCE(with_check, '') NOT ILIKE '%suspended%'
   ) THEN
     RAISE EXCEPTION 'Creator-assignment UPDATE policy does not require active membership.';
   END IF;
