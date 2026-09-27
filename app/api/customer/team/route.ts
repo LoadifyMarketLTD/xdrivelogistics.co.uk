@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getResetPasswordEmailRedirectTo } from '../../../../lib/authFlow';
+import {
+  getAuthCallbackEmailRedirectTo,
+  getResetPasswordEmailRedirectTo,
+} from '../../../../lib/authFlow';
 import { normalizeProfileRoleForStorage } from '../../../../lib/authRole';
 import {
   getBearerToken,
@@ -238,8 +241,8 @@ export async function POST(request: NextRequest) {
 
   if (!targetUser) {
     const { data: inviteData, error: inviteError } = await admin.auth.admin.inviteUserByEmail(invitedEmail, {
-      redirectTo: `${getResetPasswordEmailRedirectTo()}?type=team-invite&workspace=${workspace}`,
-      data: { requested_workspace: workspace },
+      redirectTo: `${getResetPasswordEmailRedirectTo()}?flow=team-invite&workspace=${workspace}`,
+      data: { requested_workspace: workspace, invitation_kind: 'company_team' },
     });
     if (inviteError || !inviteData.user) {
       return json(503, { error: inviteError?.message ?? 'Invitation email could not be sent.' });
@@ -261,6 +264,20 @@ export async function POST(request: NextRequest) {
     return json(409, { error: 'This account is already an active member of this company.' });
   }
 
+  const { data: pendingMemberships, error: pendingMembershipsError } = await admin
+    .from('company_memberships')
+    .select('id, company_id, invited_email, status')
+    .eq('user_id', targetUser.id)
+    .eq('status', 'invited')
+    .limit(2);
+  if (pendingMembershipsError) return json(500, { error: 'Pending invitations could not be verified.' });
+  const conflictingPendingMembership = (pendingMemberships ?? []).find(
+    (membership) => membership.company_id !== companyId
+  );
+  if (conflictingPendingMembership) {
+    return json(409, { error: 'This account already has a pending invitation for another company workspace.' });
+  }
+
   const { data: existingProfile, error: profileLookupError } = await admin
     .from('profiles')
     .select('role, company_id, status')
@@ -280,7 +297,7 @@ export async function POST(request: NextRequest) {
       email: invitedEmail,
       options: {
         shouldCreateUser: false,
-        emailRedirectTo: `${getResetPasswordEmailRedirectTo()}?type=team-invite&workspace=${workspace}`,
+        emailRedirectTo: `${getAuthCallbackEmailRedirectTo()}?flow=team-invite&workspace=${workspace}`,
       },
     });
     if (magicLinkError) return json(503, { error: 'Existing account invitation email could not be sent.' });
@@ -296,7 +313,7 @@ export async function POST(request: NextRequest) {
     .upsert({
       user_id: targetUser.id,
       role: targetProfileRole,
-      status: 'active',
+      status: 'pending',
       company_id: companyId,
       is_driver: false,
       updated_at: new Date().toISOString(),
@@ -316,7 +333,7 @@ export async function POST(request: NextRequest) {
         user_id: targetUser.id,
         role_in_company: role,
         department_id: parsed.data.departmentId ?? null,
-        status: 'active',
+        status: 'invited',
         updated_at: new Date().toISOString(),
       }).eq('id', existingInvitation.id)
     : admin.from('company_memberships').upsert({
@@ -325,7 +342,7 @@ export async function POST(request: NextRequest) {
         invited_email: invitedEmail,
         role_in_company: role,
         department_id: parsed.data.departmentId ?? null,
-        status: 'active',
+        status: 'invited',
         updated_at: new Date().toISOString(),
       }, { onConflict: 'company_id,user_id' });
 

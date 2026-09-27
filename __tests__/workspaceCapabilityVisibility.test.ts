@@ -27,6 +27,8 @@ describe('visible workspace navigation', () => {
       '/customer/bookings',
       '/customer/tracking',
       '/customer/diary',
+      '/customer/messages',
+      '/customer/event-log',
       '/customer/network',
       '/customer/disputes',
       '/settings/billing',
