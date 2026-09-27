@@ -33,12 +33,11 @@ describe('Super Admin Platform Case Centre foundation', () => {
 
   it('routes Platform Owner Action Centre to the persistent case surface and Support context', () => {
     const actionCentre = readRepoFile('app/components/workspace/actionCentreConfig.ts');
-    const shell = readRepoFile('app/super-admin/_components/SuperAdminCardNavigationShell.tsx');
+    const workspaceShell = readRepoFile('app/super-admin/_components/SuperAdminWorkspaceShell.tsx');
     const alias = readRepoFile('app/super-admin/cases/page.tsx');
     expect(actionCentre).toContain("platform_owner: '/super-admin/action-centre'");
-    expect(shell).toContain("pathname.startsWith('/super-admin/cases')");
-    expect(actionCentre).toContain("platform_owner: '/super-admin/action-centre'");
-    expect(shell).toContain("if (pathname.startsWith('/super-admin/cases')) return 'support';");
+    expect(workspaceShell).toContain("{ id: 'action-centre', label: 'Action Centre', href: '/super-admin/action-centre' }");
+    expect(workspaceShell).toContain("{ id: 'support', label: 'Support', items:");
     expect(alias).toContain("redirect('/super-admin/action-centre')");
   });
 
