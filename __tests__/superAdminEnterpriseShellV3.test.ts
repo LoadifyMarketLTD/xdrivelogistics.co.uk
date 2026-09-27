@@ -104,7 +104,10 @@ describe('MASTER CONTRACT FINAL v3 — enterprise shell', () => {
 
   it('keeps product navigation in the sidebar and owner controls in the owner menu', () => {
     expect(topbar).toContain("router.push(`/super-admin/search?q=${encodeURIComponent(query)}`)");
-    expect(topbar).toContain('href="/super-admin/action-centre"');
+    expect(workspace).toContain("href: '/super-admin/action-centre'");
+    expect(workspace).toContain("href: '/super-admin/notifications'");
+    expect(topbar).not.toContain('href="/super-admin/action-centre"');
+    expect(topbar).not.toContain('href="/super-admin/notifications"');
     expect(workspace).toContain("label: 'Platform Overview', href: '/super-admin/platform'");
     expect(topbar).toContain('href="/auth/sign-out"');
     expect(topbar).toContain('Authenticated platform-control session');
