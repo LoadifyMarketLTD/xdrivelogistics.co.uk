@@ -38,7 +38,7 @@ Missing live credentials or browser control is recorded as **BLOCKED**, never PA
 ## Current verified baseline
 
 - Navigation inventory: **158 discovered navigation hrefs; 0 missing page routes**.
-- Full unit/contract suite after reconciliation: **332/332 test files PASS; 2072/2072 tests PASS**.
+- Full unit/contract suite after reconciliation: **333/333 test files PASS; 2075/2075 tests PASS**.
 - TypeScript: **PASS**.
 - Targeted ESLint for modified workspace/runtime code: **PASS**.
 - Production Next.js build: **PASS**; 172/172 static pages generated during build.
@@ -140,6 +140,20 @@ No checked orphan relationships were found for:
 Identity consistency checks also returned no active-driver/profile company mismatch and no approved-onboarding/profile company mismatch in the checks performed.
 
 Six profile/company relationships lacked an active membership but currently correspond to invited membership states; these remain lifecycle-review items rather than automatically classified defects.
+
+## P0 membership-helper authorization finding — NOT YET APPLIED
+
+Production `is_company_member`, `is_company_admin`, `is_company_operator` and `is_company_non_driver` currently accept any membership whose status is not `suspended`. That includes `invited` memberships. These helpers are referenced by a large number of RLS policies covering companies, memberships, drivers, vehicles, jobs, documents, invoices, payments, messages, reviews and related operational tables.
+
+The live data check found six non-active memberships, including five `owner / invited` memberships. Under the current helper semantics, an invited owner can satisfy owner/admin/member-style RLS predicates before membership activation.
+
+A forward-only repair is prepared locally:
+
+`supabase/migrations/20260927011514_harden_active_membership_helpers.sql`
+
+It restores the original active-membership contract (`status = 'active'`), also requires the company itself to be active, pins helper search paths, and removes anonymous/PUBLIC execution while preserving authenticated/service-role RLS evaluation. Dedicated contract tests are PASS.
+
+**Production mutation status:** NOT APPLIED. This is a P0 authorization closeout item.
 
 ## Supabase advisor findings requiring classification
 
