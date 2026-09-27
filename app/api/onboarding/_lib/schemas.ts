@@ -114,11 +114,42 @@ export const companyDriverPayloadSchema = driverIdentityRecordSchema.superRefine
 export const individualDriverPayloadSchema = companyDriverPayloadSchema;
 
 // Owner-driver applications are reviewed by compliance after submission.
-// The API must preserve every field/document marker and must not block a real
-// applicant because a free-text vehicle or immigration field uses a different
-// format. Database submission remains authenticated and company-scoped.
+// Preserve extra metadata/document markers while enforcing the minimum identity
+// and vehicle fields required to create a meaningful application.
 const ownerDriverRecordSchema = z.record(z.string(), z.unknown());
-export const ownerDriverPayloadSchema = ownerDriverRecordSchema;
+export const ownerDriverPayloadSchema = ownerDriverRecordSchema.superRefine((payload, context) => {
+  for (const key of ['full_name', 'dob', 'address', 'phone', 'email', 'right_to_work_status', 'registration', 'make', 'model']) {
+    const value = payload[key];
+    if (typeof value !== 'string' || !value.trim()) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: [key],
+        message: `${key.replace(/_/g, ' ')} is required.`,
+      });
+    }
+  }
+
+  const email = payload.email;
+  if (typeof email === 'string' && email.trim() && !z.string().email().safeParse(email.trim()).success) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['email'], message: 'A valid email is required.' });
+  }
+
+  const dob = payload.dob;
+  if (typeof dob === 'string' && dob.trim() && normalizeDateOnly(dob) === null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['dob'], message: 'Enter a valid date of birth.' });
+  }
+
+  const rightToWork = typeof payload.right_to_work_status === 'string'
+    ? payload.right_to_work_status.trim().toLowerCase()
+    : '';
+  if (rightToWork === 'other' || rightToWork === 'unknown') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['right_to_work_status'],
+      message: 'Select the applicant right-to-work status explicitly.',
+    });
+  }
+});
 
 export const customerPatchSchema = onboardingPatchBaseSchema.extend({
   payload: customerPayloadSchema.partial().optional(),

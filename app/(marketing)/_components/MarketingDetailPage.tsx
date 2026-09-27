@@ -152,7 +152,19 @@ export function MarketingDetailPage({
             ))}
             <Link href="/login" className="transition hover:text-[#0E3FA9]">Sign In</Link>
           </nav>
-          <Link href="/register" className="rounded-lg bg-[#163568] px-5 py-2.5 text-sm font-black text-white shadow-[0_10px_24px_rgba(22,53,104,0.14)]">Start 3 Months Free</Link>
+          <Link href="/register" className="hidden rounded-lg bg-[#163568] px-5 py-2.5 text-sm font-black text-white shadow-[0_10px_24px_rgba(22,53,104,0.14)] lg:inline-flex">Start 3 Months Free</Link>
+          <details className="relative lg:hidden">
+            <summary className="cursor-pointer list-none rounded-lg border border-[#C9D5E4] bg-white px-4 py-2.5 text-sm font-black text-[#163568]">Menu</summary>
+            <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(82vw,320px)] rounded-2xl border border-[#DDE5EF] bg-white p-3 shadow-[0_18px_48px_rgba(7,27,60,0.16)]">
+              <nav className="grid gap-1 text-sm font-black text-[#163568]">
+                {nav.map(([label, href]) => (
+                  <Link key={href} href={href} className="rounded-lg px-3 py-2.5 hover:bg-[#F4F6FA] hover:text-[#0E3FA9]">{label}</Link>
+                ))}
+                <Link href="/login" className="rounded-lg px-3 py-2.5 hover:bg-[#F4F6FA] hover:text-[#0E3FA9]">Sign In</Link>
+                <Link href="/register" className="mt-1 rounded-lg bg-[#163568] px-3 py-2.5 text-center text-white">Start 3 Months Free</Link>
+              </nav>
+            </div>
+          </details>
         </div>
       </header>
 
@@ -160,7 +172,7 @@ export function MarketingDetailPage({
         <section className="relative overflow-hidden border-b border-[#DDE5EF] bg-white px-5 py-16 text-[#102447] sm:px-8 lg:py-20">
           {heroMap ? (
             <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[56%] overflow-hidden lg:block" aria-hidden="true">
-              <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/0/08/United_Kingdom_satellite_image.png')" }} />
+              <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url('/uk-satellite-map.png')" }} />
               <div className="absolute inset-0 bg-[linear-gradient(90deg,#FFFFFF_0%,rgba(255,255,255,0.98)_12%,rgba(255,255,255,0.78)_30%,rgba(255,255,255,0.24)_58%,rgba(255,255,255,0.05)_100%)]" />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(10,35,79,0.10))]" />
               <svg viewBox="0 0 760 520" className="absolute inset-0 h-full w-full" role="presentation">

@@ -708,6 +708,14 @@ export async function middleware(request: NextRequest) {
 export const config = {
   runtime: 'nodejs',
   matcher: [
+    '/',
+    '/login/:path*',
+    '/register/:path*',
+    '/onboarding/:path*',
+    '/auth/:path*',
+    '/pending-approval/:path*',
+    '/forbidden/:path*',
+    '/reset-password/:path*',
     '/super-admin/:path*',
     '/broker/:path*',
     '/admin/:path*',

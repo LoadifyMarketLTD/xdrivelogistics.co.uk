@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { Field, PageLayout } from './BaseUi';
+import { getOnboardingContract } from '../../../lib/onboardingContract';
+import { calculateOnboardingProgress } from '../../../lib/onboardingProgress';
 
 type Application = {
   id: string;
@@ -11,6 +13,7 @@ type Application = {
   status: string;
   current_step: string;
   completion_percentage: number;
+  company_id?: string | null;
   payload: Record<string, unknown>;
 };
 
@@ -48,6 +51,11 @@ export function BrokerOnboarding({ token }: { token: string }) {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [verifyingCompany, setVerifyingCompany] = useState(false);
+  const [uploadedDocuments, setUploadedDocuments] = useState<Set<string>>(new Set());
+  const onboardingContract = getOnboardingContract('broker_shipper');
+  const documentRequirements = onboardingContract?.documents ?? [];
+  const requiredDocumentTypes = documentRequirements.filter((doc) => doc.requirement === 'required').map((doc) => doc.type);
 
   const authHeaders = async (): Promise<Record<string, string>> => {
     const {
@@ -73,8 +81,13 @@ export function BrokerOnboarding({ token }: { token: string }) {
       }
 
       setApplication(data.application);
-      const payload = (data.application?.payload ?? {}) as Partial<BrokerPayload>;
+      const payload = (data.application?.payload ?? {}) as Partial<BrokerPayload> & Record<string, unknown>;
       setFormData({ ...defaultPayload, ...payload });
+      setUploadedDocuments(new Set(
+        Object.keys(payload)
+          .filter((key) => key.startsWith('doc_') && Boolean(payload[key]))
+          .map((key) => key.slice(4)),
+      ));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load onboarding session.');
     } finally {
@@ -117,6 +130,88 @@ export function BrokerOnboarding({ token }: { token: string }) {
     }
   };
 
+  const verifyCompany = async () => {
+    setVerifyingCompany(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const headers = await authHeaders();
+      const res = await fetch('/api/onboarding/company-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ companyNumber: formData.company_number }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? 'Company verification failed.');
+        return;
+      }
+
+      setApplication((previous) => previous ? { ...previous, company_id: data.companyId } : previous);
+      setFormData((previous) => ({
+        ...previous,
+        company_number: data.companyNumber ?? previous.company_number,
+        company_name: data.registeredName ?? previous.company_name,
+      }));
+      setMessage(`Companies House verified: ${data.registeredName}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Company verification failed.');
+    } finally {
+      setVerifyingCompany(false);
+    }
+  };
+
+  const uploadDocument = async (docType: string, file: File) => {
+    setSaving(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const headers = await authHeaders();
+      const upload = new FormData();
+      upload.set('docType', docType);
+      upload.set('file', file);
+
+      const res = await fetch('/api/onboarding/documents', {
+        method: 'POST',
+        headers,
+        body: upload,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? 'Document upload failed.');
+        return;
+      }
+
+      const markerKey = `doc_${docType}`;
+      const nextPayload = { ...formData, [markerKey]: data.path ?? 'uploaded' };
+      const persist = await fetch('/api/onboarding/broker/session', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({
+          currentStep: 'document_upload',
+          completionPercentage: Math.max(Number(application?.completion_percentage ?? 0), 80),
+          status: 'in_progress',
+          payload: nextPayload,
+        }),
+      });
+      const persisted = await persist.json();
+      if (!persist.ok) {
+        setError(persisted.error ?? 'Document uploaded but onboarding progress could not be saved.');
+        return;
+      }
+
+      setApplication(persisted.application);
+      setUploadedDocuments((previous) => new Set(previous).add(docType));
+      setMessage(`Uploaded ${docType.replace(/_/g, ' ')}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Document upload failed.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const submitOnboarding = async () => {
     setSaving(true);
     setError('');
@@ -129,7 +224,7 @@ export function BrokerOnboarding({ token }: { token: string }) {
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({
           currentStep: 'review_summary',
-          completionPercentage: 100,
+          completionPercentage: 95,
           payload: formData,
         }),
       });
@@ -167,7 +262,12 @@ export function BrokerOnboarding({ token }: { token: string }) {
     );
   }
 
-  const progress = Number(application.completion_percentage ?? 0);
+  const progressPayload: Record<string, unknown> = { ...formData };
+  uploadedDocuments.forEach((docType) => { progressPayload[`doc_${docType}`] = true; });
+  const calculatedProgress = calculateOnboardingProgress('broker_shipper', progressPayload);
+  const progress = application.status === 'under_review' || application.status === 'approved'
+    ? 100
+    : calculatedProgress;
 
   return (
     <PageLayout
@@ -178,10 +278,14 @@ export function BrokerOnboarding({ token }: { token: string }) {
       error={error}
       message={message}
       saving={saving}
-      onSave={() => void saveProgress(application.current_step || 'document_upload', Math.max(progress, 60))}
+      onSave={() => void saveProgress(application.current_step || 'document_upload', calculatedProgress)}
       onSubmit={() => void submitOnboarding()}
       backToLogin={() => router.push('/login')}
-      submitDisabled={application.status === 'approved'}
+      submitDisabled={
+        application.status === 'approved' ||
+        !application.company_id ||
+        requiredDocumentTypes.some((docType) => !uploadedDocuments.has(docType))
+      }
     >
       <section>
         <h2>Broker / Shipper Details</h2>
@@ -195,6 +299,53 @@ export function BrokerOnboarding({ token }: { token: string }) {
         <Field label="Finance Contact" value={formData.finance_contact} onChange={(v) => setFormData((prev) => ({ ...prev, finance_contact: v }))} />
         <Field label="Email" type="email" value={formData.contact_email} onChange={(v) => setFormData((prev) => ({ ...prev, contact_email: v }))} />
         <Field label="Phone" value={formData.contact_phone} onChange={(v) => setFormData((prev) => ({ ...prev, contact_phone: v }))} />
+      </section>
+
+      <section style={{ marginTop: '1.5rem' }}>
+        <h2>Company Verification</h2>
+        <p style={{ color: '#4B5563' }}>
+          Verify the Companies House record before uploading company compliance documents.
+        </p>
+        {application.company_id ? (
+          <p style={{ color: '#166534', fontWeight: 600 }}>Companies House company verified.</p>
+        ) : (
+          <button
+            type="button"
+            onClick={() => void verifyCompany()}
+            disabled={verifyingCompany || !formData.company_number.trim()}
+            style={{ padding: '0.7rem 1rem', borderRadius: 6, border: '1px solid #CBD5E1', cursor: 'pointer' }}
+          >
+            {verifyingCompany ? 'Verifying...' : 'Verify Company'}
+          </button>
+        )}
+      </section>
+
+      <section style={{ marginTop: '1.5rem' }}>
+        <h2>Company Documents</h2>
+        {!application.company_id ? (
+          <p style={{ color: '#92400E' }}>Verify the company before uploading documents.</p>
+        ) : (
+          documentRequirements.map((doc) => (
+            <div key={doc.type} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', alignItems: 'center', marginBottom: '0.9rem' }}>
+              <div>
+                <div style={{ fontWeight: 600 }}>{doc.label}</div>
+                <div style={{ fontSize: '0.82rem', color: doc.requirement === 'required' ? '#B91C1C' : '#64748B' }}>
+                  {uploadedDocuments.has(doc.type) ? 'Uploaded' : doc.requirement === 'required' ? 'Required' : 'Conditional'}
+                  {!uploadedDocuments.has(doc.type) && doc.condition ? ` — ${doc.condition}` : ''}
+                </div>
+              </div>
+              <input
+                type="file"
+                accept="application/pdf,image/jpeg,image/png,image/webp"
+                disabled={saving}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) void uploadDocument(doc.type, file);
+                }}
+              />
+            </div>
+          ))
+        )}
       </section>
 
     </PageLayout>
