@@ -106,7 +106,7 @@ export function LandingPage() {
           <div className="relative mx-auto grid max-w-[1240px] gap-14 lg:grid-cols-[0.86fr_1.14fr] lg:items-center">
             <div>
               <div className="inline-flex rounded-full border border-[#F1D89F] bg-[#FFF7E5] px-4 py-2 text-xs font-black uppercase tracking-[0.13em] text-[#8A6100]">Early Access · 3 Months Free</div>
-              <p className="mt-7 text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">Courier & Freight Exchange Platform</p>
+              <p className="mt-7 text-xs font-black uppercase tracking-[0.18em] text-[#8A6100]">Courier & Freight Exchange Platform</p>
               <h1 className="mt-4 text-[3.2rem] font-black leading-[0.94] tracking-tight text-[#071B3C] sm:text-[4.6rem] lg:text-[5.2rem]">Transport operations, connected from quote to POD.</h1>
               <p className="mt-7 max-w-2xl text-lg font-semibold leading-8 text-[#48617D]">XDrive brings brokers, customers, carriers and owner drivers into one connected transport workflow — where work can be posted, quoted, awarded, dispatched, tracked and completed without breaking the chain.</p>
               <div className="mt-9 flex flex-wrap gap-3"><Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-[#0E3FA9] px-6 py-3.5 text-sm font-black text-white">Start 3 Months Free <ArrowRight className="h-4 w-4" /></Link><Link href="/platform" className="rounded-lg border border-[#D8E1ED] bg-white px-6 py-3.5 text-sm font-black text-[#0E3FA9]">Explore XDrive</Link></div>
