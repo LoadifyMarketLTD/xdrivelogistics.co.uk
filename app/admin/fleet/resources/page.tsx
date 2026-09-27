@@ -44,6 +44,9 @@ export default function FleetResourcesPage() {
   const [futureWorking, setFutureWorking] = useState(false);
   const [futureError, setFutureError] = useState('');
   const [futureNotice, setFutureNotice] = useState('');
+  const [vehicleWorkingId, setVehicleWorkingId] = useState<string | null>(null);
+  const [vehicleError, setVehicleError] = useState('');
+  const [vehicleNotice, setVehicleNotice] = useState('');
 
   const refreshAll = async () => {
     await Promise.all([data.refresh(), intelligence.refresh()]);
@@ -97,6 +100,63 @@ export default function FleetResourcesPage() {
       setFutureError(reason instanceof Error ? reason.message : 'Future position could not be updated.');
     } finally {
       setFutureWorking(false);
+    }
+  };
+
+  const updateVehicleAdvertising = async (vehicleId: string, state: 'none' | 'exchange' | 'partner') => {
+    setVehicleWorkingId(vehicleId);
+    setVehicleError('');
+    setVehicleNotice('');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setVehicleError('Your session has expired. Sign in again.');
+      setVehicleWorkingId(null);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/admin/vehicles/${encodeURIComponent(vehicleId)}/advertising`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ state, reason: 'Updated from Fleet resources', metadata: { source: 'fleet_resources' } }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Vehicle advertising state could not be updated.');
+      setVehicleNotice(`Vehicle advertising set to ${state}.`);
+      await intelligence.refresh();
+    } catch (reason) {
+      setVehicleError(reason instanceof Error ? reason.message : 'Vehicle advertising state could not be updated.');
+    } finally {
+      setVehicleWorkingId(null);
+    }
+  };
+
+  const updateNotifyWhenTracked = async (vehicleId: string, notifyWhenTracked: boolean) => {
+    if (!data.companyId) return;
+    setVehicleWorkingId(vehicleId);
+    setVehicleError('');
+    setVehicleNotice('');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setVehicleError('Your session has expired. Sign in again.');
+      setVehicleWorkingId(null);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/admin/vehicles/${encodeURIComponent(vehicleId)}/tracking-preferences`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: data.companyId, notifyWhenTracked }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Tracking notification preference could not be updated.');
+      setVehicleNotice(notifyWhenTracked ? 'Tracking notification enabled.' : 'Tracking notification disabled.');
+      await data.refresh();
+    } catch (reason) {
+      setVehicleError(reason instanceof Error ? reason.message : 'Tracking notification preference could not be updated.');
+    } finally {
+      setVehicleWorkingId(null);
     }
   };
 
@@ -222,6 +282,8 @@ export default function FleetResourcesPage() {
       {intelligence.error && <AlertBanner tone="warning">{intelligence.error}</AlertBanner>}
       {futureError && <AlertBanner tone="danger">{futureError}</AlertBanner>}
       {futureNotice && <AlertBanner tone="success">{futureNotice}</AlertBanner>}
+      {vehicleError && <AlertBanner tone="danger">{vehicleError}</AlertBanner>}
+      {vehicleNotice && <AlertBanner tone="success">{vehicleNotice}</AlertBanner>}
       {intelligence.partial && (
         <AlertBanner tone="warning">Some future-position, return-journey, advertising or timeline metadata is temporarily unavailable. Core fleet and tracking data remains visible.</AlertBanner>
       )}
@@ -268,7 +330,7 @@ export default function FleetResourcesPage() {
 
       <Panel title="Company Vehicles" description="CX-style company vehicle register with capacity, assignment, tracking and evidence access in one operational table." style={{ marginTop: 12 }}>
         <DataTable
-          columns={['Vehicle', 'Size / type', 'Year', 'Max payload', 'Assigned driver', 'Tracking', 'Documents', 'Actions']}
+          columns={['Vehicle', 'Size / type', 'Year', 'Max payload', 'Assigned driver', 'Tracking', 'Advertising', 'Notify when tracked', 'Documents', 'Actions']}
           rows={data.vehicles.map((vehicle) => {
             const assignedDriver = vehicle.assigned_driver_id ? data.drivers.find((driver) => driver.id === vehicle.assigned_driver_id) ?? null : null;
             const latestLocation = vehicle.assigned_driver_id ? latestLocations.get(vehicle.assigned_driver_id) ?? null : null;
@@ -285,6 +347,8 @@ export default function FleetResourcesPage() {
               : 'No documents';
             const vehicleLabel = [vehicle.make, vehicle.model].filter(Boolean).join(' ') || vehicle.reg_plate || 'Vehicle';
             const capacity = vehicle.payload_kg != null ? `${Math.round(vehicle.payload_kg)} kg` : 'Not recorded';
+            const advertisingState = intelligence.advertisingByVehicle.get(vehicle.id) ?? 'none';
+            const vehicleWorking = vehicleWorkingId === vehicle.id;
             return [
               <div key="vehicle"><strong style={{ display: 'block' }}>{vehicleLabel}</strong><span style={{ color: '#64748b' }}>{vehicle.reg_plate ?? 'No registration'}</span></div>,
               <div key="type"><span style={{ display: 'block' }}>{vehicle.type?.replaceAll('_', ' ') ?? 'Not recorded'}</span>{vehicle.has_tail_lift ? <span style={{ color: '#64748b' }}>Tail lift</span> : null}</div>,
@@ -292,6 +356,8 @@ export default function FleetResourcesPage() {
               capacity,
               assignedDriver?.display_name ?? assignedDriver?.email ?? 'Unassigned',
               <div key="tracking"><StatusBadge value={trackingState} tone={trackingState === 'Live' ? 'green' : trackingState === 'Stale' ? 'orange' : 'grey'} />{locationTime ? <span style={{ display: 'block', marginTop: 3, color: '#64748b' }}>{when(locationTime)}</span> : null}</div>,
+              <select key="advertising" aria-label={`Advertising state for ${vehicleLabel}`} value={advertisingState} disabled={vehicleWorking} onChange={(event) => void updateVehicleAdvertising(vehicle.id, event.target.value as 'none' | 'exchange' | 'partner')} style={{ ...inputStyle, minWidth: 105 }}><option value="none">None</option><option value="exchange">Exchange</option><option value="partner">Partner</option></select>,
+              <label key="notify" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, whiteSpace: 'nowrap' }}><input type="checkbox" checked={vehicle.notify_when_tracked === true} disabled={vehicleWorking} onChange={(event) => void updateNotifyWhenTracked(vehicle.id, event.target.checked)} /> Notify</label>,
               <StatusBadge key="documents" value={documentState} tone={vehicleDocuments.length ? 'blue' : 'orange'} />,
               <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/event-log')}>Event Log</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>Documents</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Edit</ActionButton></div>,
             ];

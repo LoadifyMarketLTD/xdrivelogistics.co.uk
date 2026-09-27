@@ -36,7 +36,7 @@ describe('CX Drivers & Vehicles consolidated access contract', () => {
 
   it('keeps a CX-style Company Vehicles register in the consolidated workspace', () => {
     expect(source).toContain('title="Company Vehicles"');
-    expect(source).toContain("columns={['Vehicle', 'Size / type', 'Year', 'Max payload', 'Assigned driver', 'Tracking', 'Documents', 'Actions']}");
+    expect(source).toContain("columns={['Vehicle', 'Size / type', 'Year', 'Max payload', 'Assigned driver', 'Tracking', 'Advertising', 'Notify when tracked', 'Documents', 'Actions']}");
     expect(source).toContain('vehicle.manufacture_year');
     expect(source).toContain('vehicle.payload_kg');
     expect(source).toContain("router.push('/admin/event-log')");

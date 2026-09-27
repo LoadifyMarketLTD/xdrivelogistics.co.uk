@@ -123,6 +123,7 @@ export type WorkspaceVehicle = {
   manufacture_year?: number | null;
   payload_kg?: number | null;
   has_tail_lift?: boolean | null;
+  notify_when_tracked?: boolean | null;
   assigned_driver_id?: string | null;
 };
 
@@ -865,7 +866,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     if (requested.has('vehicles')) {
       const vehiclesRes = await supabase
         .from('vehicles')
-        .select('id, reg_plate, type, make, model, manufacture_year, payload_kg, has_tail_lift, assigned_driver_id')
+        .select('id, reg_plate, type, make, model, manufacture_year, payload_kg, has_tail_lift, notify_when_tracked, assigned_driver_id')
         .eq('company_id', companyId)
         .order('created_at', { ascending: false })
         .limit(500);
