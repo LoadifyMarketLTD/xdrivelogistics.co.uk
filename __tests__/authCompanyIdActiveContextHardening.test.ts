@@ -20,7 +20,8 @@ describe('auth_company_id active company context hardening', () => {
   });
 
   it('does not trust profiles.company_id as standalone authority', () => {
-    expect(migration).toContain('p.company_id = cm.company_id');
+    expect(migration).toContain('AND p.company_id = cm.company_id');
+    expect(migration).not.toContain('p.company_id IS NULL');
     expect(migration).not.toContain('SELECT company_id::uuid\n    FROM public.profiles');
   });
 
