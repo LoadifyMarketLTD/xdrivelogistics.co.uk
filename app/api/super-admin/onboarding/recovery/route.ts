@@ -25,6 +25,27 @@ export async function GET(request: NextRequest) {
 
   if (error) return json(500, { error: error.message });
 
+  const applicationIds = (applications ?? []).map((application) => application.id);
+  const latestRecoveryEventByApplication = new Map<string, { event_type: string; created_at: string }>();
+  if (applicationIds.length > 0) {
+    const { data: recoveryEvents, error: recoveryEventsError } = await supabaseAdmin
+      .from('notification_events')
+      .select('entity_id, event_type, created_at')
+      .eq('entity_type', 'onboarding_application')
+      .in('entity_id', applicationIds)
+      .in('event_type', ['onboarding_completion_required', 'onboarding_reminder'])
+      .order('created_at', { ascending: false });
+    if (recoveryEventsError) return json(500, { error: recoveryEventsError.message });
+    for (const event of recoveryEvents ?? []) {
+      if (!latestRecoveryEventByApplication.has(event.entity_id)) {
+        latestRecoveryEventByApplication.set(event.entity_id, {
+          event_type: event.event_type,
+          created_at: event.created_at,
+        });
+      }
+    }
+  }
+
   const rows = await Promise.all((applications ?? []).map(async (application) => {
     const payload = asPayload(application.payload);
     const contract = getOnboardingContract(application.account_type);
@@ -57,7 +78,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const recovery = assessOnboardingRecovery(application.account_type, payload);
+    const recovery = assessOnboardingRecovery(application.account_type, payload, { companyId: application.company_id });
     const payloadName = typeof payload.full_name === 'string'
       ? payload.full_name
       : typeof payload.contact_person === 'string'
@@ -72,6 +93,13 @@ export async function GET(request: NextRequest) {
     const inactiveDays = lastActivityAt
       ? Math.max(0, Math.floor((Date.now() - new Date(lastActivityAt).getTime()) / (24 * 60 * 60 * 1000)))
       : null;
+    const latestRecoveryEvent = latestRecoveryEventByApplication.get(application.id) ?? null;
+    const elapsedSinceRecoveryMs = latestRecoveryEvent
+      ? Date.now() - new Date(latestRecoveryEvent.created_at).getTime()
+      : null;
+    const reminderEligible = typeof elapsedSinceRecoveryMs === 'number'
+      && Number.isFinite(elapsedSinceRecoveryMs)
+      && elapsedSinceRecoveryMs >= 7 * 24 * 60 * 60 * 1000;
 
     return {
       id: application.id,
@@ -88,7 +116,11 @@ export async function GET(request: NextRequest) {
       inactive_days: inactiveDays,
       missing_fields: recovery.missingFields,
       missing_documents: recovery.missingDocuments,
+      blocking_reasons: recovery.blockingReasons,
       recovery_required: !recovery.complete,
+      last_recovery_event_type: latestRecoveryEvent?.event_type ?? null,
+      last_recovery_event_at: latestRecoveryEvent?.created_at ?? null,
+      reminder_eligible: reminderEligible,
     };
   }));
 

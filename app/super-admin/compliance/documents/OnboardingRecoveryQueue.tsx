@@ -18,7 +18,11 @@ type RecoveryRow = {
   inactive_days: number | null;
   missing_fields: Array<{ key: string; label: string }>;
   missing_documents: Array<{ type: string; label: string }>;
+  blocking_reasons: string[];
   recovery_required: boolean;
+  last_recovery_event_type: string | null;
+  last_recovery_event_at: string | null;
+  reminder_eligible: boolean;
 };
 
 type Summary = {
@@ -37,6 +41,7 @@ export default function OnboardingRecoveryQueue() {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingRow, setPendingRow] = useState<RecoveryRow | null>(null);
+  const [pendingReminder, setPendingReminder] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,7 +76,7 @@ export default function OnboardingRecoveryQueue() {
     void load();
   }, [load]);
 
-  const sendRecovery = async (row: RecoveryRow, reason: string) => {
+  const sendRecovery = async (row: RecoveryRow, reason: string, reminder: boolean) => {
     setBusyId(row.id);
     setError(null);
     try {
@@ -83,7 +88,7 @@ export default function OnboardingRecoveryQueue() {
       const response = await fetch(`/api/super-admin/onboarding/${row.id}/request-completion`, {
         method: 'POST',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason, reminder: false }),
+        body: JSON.stringify({ reason, reminder }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) {
@@ -138,6 +143,9 @@ export default function OnboardingRecoveryQueue() {
                   ...row.missing_fields.map((item) => item.label),
                   ...row.missing_documents.map((item) => item.label),
                 ];
+                const hasRecoveryRequest = Boolean(row.last_recovery_event_at);
+                const reminderLocked = hasRecoveryRequest && !row.reminder_eligible;
+                const actionIsReminder = hasRecoveryRequest && row.reminder_eligible;
                 return (
                   <tr key={row.id} style={{ borderBottom: '1px solid #E5E7EB', verticalAlign: 'top' }}>
                     <td style={{ padding: '9px 10px' }}>
@@ -155,7 +163,7 @@ export default function OnboardingRecoveryQueue() {
                       )}
                     </td>
                     <td style={{ padding: '9px 10px', maxWidth: 360 }}>
-                      {requirements.length > 0 ? requirements.join(', ') : 'No canonical requirements missing'}
+                      {requirements.length > 0 ? requirements.join(', ') : row.blocking_reasons.join(' ') || 'No canonical requirements missing'}
                     </td>
                     <td style={{ padding: '9px 10px' }}>
                       {typeof row.inactive_days === 'number' ? `${row.inactive_days} days ago` : '—'}
@@ -163,11 +171,14 @@ export default function OnboardingRecoveryQueue() {
                     <td style={{ padding: '9px 10px' }}>
                       <button
                         type="button"
-                        disabled={busy || !row.recovery_required}
-                        onClick={() => setPendingRow(row)}
+                        disabled={busy || !row.recovery_required || reminderLocked}
+                        onClick={() => {
+                          setPendingReminder(actionIsReminder);
+                          setPendingRow(row);
+                        }}
                         style={{ fontSize: 10, fontWeight: 800 }}
                       >
-                        Send completion request
+                        {reminderLocked ? 'Reminder available after 7 days' : actionIsReminder ? 'Send reminder' : 'Send completion request'}
                       </button>
                     </td>
                   </tr>
@@ -180,19 +191,24 @@ export default function OnboardingRecoveryQueue() {
 
       <ActionConfirmModal
         open={pendingRow !== null}
-        title="Send onboarding completion request"
+        title={pendingReminder ? 'Send onboarding reminder' : 'Send onboarding completion request'}
         description={pendingRow ? <>Email <strong>{pendingRow.applicant_name}</strong> with the exact information and documents still required. Existing progress will be preserved.</> : null}
-        confirmLabel="Queue completion request"
+        confirmLabel={pendingReminder ? 'Queue reminder' : 'Queue completion request'}
         reasonRequired
         reasonLabel="Message to applicant"
         reasonPlaceholder="Explain that XDrive has updated onboarding requirements and their existing progress has been preserved…"
         submitting={busyId !== null}
-        onCancel={() => setPendingRow(null)}
+        onCancel={() => {
+          setPendingRow(null);
+          setPendingReminder(false);
+        }}
         onConfirm={(reason) => {
           if (!pendingRow) return;
           const row = pendingRow;
+          const reminder = pendingReminder;
           setPendingRow(null);
-          void sendRecovery(row, reason);
+          setPendingReminder(false);
+          void sendRecovery(row, reason, reminder);
         }}
       />
     </section>

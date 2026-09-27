@@ -86,7 +86,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const recovery = assessOnboardingRecovery(accountType, payload);
+  const recovery = assessOnboardingRecovery(accountType, payload, { companyId: app.company_id });
 
   return json(200, {
     application: {

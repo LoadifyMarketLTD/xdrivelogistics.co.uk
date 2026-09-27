@@ -412,14 +412,34 @@ export default function OnboardingTokenPage() {
   }
 
   const normalizedCurrentPayload = normalizedPayload();
-  const recoveryAssessment = assessOnboardingRecovery(canonicalAccountType, normalizedCurrentPayload);
-  const calculatedProgress = calculateOnboardingProgress(canonicalAccountType, normalizedCurrentPayload);
+  const recoveryAssessment = assessOnboardingRecovery(canonicalAccountType, normalizedCurrentPayload, { companyId: application.company_id });
+  const calculatedProgress = calculateOnboardingProgress(canonicalAccountType, normalizedCurrentPayload, { companyId: application.company_id });
   const progress = application.status === 'under_review' || application.status === 'approved'
     ? 100
     : calculatedProgress;
   const requiresVerifiedCompany = canonicalAccountType === 'broker_shipper' || canonicalAccountType === 'fleet_courier';
   const missingRequiredDocuments = onboardingDocuments.filter(
     (doc) => doc.requirement === 'required' && !formData[`doc_${doc.type}`],
+  );
+  const isRecoveryResume = token === 'resume';
+  const visibleDocuments = isRecoveryResume
+    ? onboardingDocuments.filter((doc) => recoveryAssessment.missingDocuments.some((item) => item.type === doc.type))
+    : onboardingDocuments;
+
+  const renderRecoveryMissingFields = () => (
+    <section>
+      <h2>Information still required</h2>
+      {recoveryAssessment.missingFields.length === 0 ? (
+        <p style={{ color: '#166534', fontWeight: 600 }}>No required profile information is missing.</p>
+      ) : recoveryAssessment.missingFields.map((item) => (
+        <Field
+          key={item.key}
+          label={item.label}
+          value={formData[item.key] ?? ''}
+          onChange={(value) => updateField(item.key, value)}
+        />
+      ))}
+    </section>
   );
 
   return (
@@ -447,6 +467,11 @@ export default function OnboardingTokenPage() {
               {recoveryAssessment.missingDocuments.map((item) => item.label).join(', ')}.
             </div>
           )}
+          {recoveryAssessment.blockingReasons.length > 0 && (
+            <div style={{ marginTop: '0.65rem' }}>
+              <strong>Blocking reasons:</strong> {recoveryAssessment.blockingReasons.join(' ')}
+            </div>
+          )}
         </section>
       )}
 
@@ -455,13 +480,17 @@ export default function OnboardingTokenPage() {
       </div>
       <p style={{ marginTop: 0 }}>{progress.toFixed(0)}% complete</p>
 
-      {canonicalAccountType === 'customer_shipper' && renderCustomerShipper()}
-      {canonicalAccountType === 'broker_shipper' && renderBrokerShipper()}
-      {canonicalAccountType === 'fleet_courier' && renderFleetCourier()}
-      {canonicalAccountType === 'owner_driver' && renderOwnerDriver()}
-      {canonicalAccountType === 'company_driver' && renderCompanyDriver()}
+      {isRecoveryResume ? renderRecoveryMissingFields() : (
+        <>
+          {canonicalAccountType === 'customer_shipper' && renderCustomerShipper()}
+          {canonicalAccountType === 'broker_shipper' && renderBrokerShipper()}
+          {canonicalAccountType === 'fleet_courier' && renderFleetCourier()}
+          {canonicalAccountType === 'owner_driver' && renderOwnerDriver()}
+          {canonicalAccountType === 'company_driver' && renderCompanyDriver()}
+        </>
+      )}
 
-      {requiresVerifiedCompany && (
+      {requiresVerifiedCompany && (!isRecoveryResume || !application.company_id) && (
         <section style={{ marginTop: '2rem' }}>
           <h2>Company Verification</h2>
           {application.company_id ? (
@@ -482,13 +511,13 @@ export default function OnboardingTokenPage() {
         </section>
       )}
 
-      {onboardingDocuments.length > 0 && (
+      {visibleDocuments.length > 0 && (
         <section style={{ marginTop: '2rem' }}>
           <h2>Document Upload</h2>
           <p style={{ color: '#4B5563' }}>
             Required documents block activation until approved. Conditional documents are requested only when they apply to the person, vehicle or business.
           </p>
-          {onboardingDocuments.map((doc) => (
+          {visibleDocuments.map((doc) => (
             <div key={doc.type} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.9rem', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 600 }}>{doc.label}</div>
@@ -511,12 +540,14 @@ export default function OnboardingTokenPage() {
         </section>
       )}
 
-      <section style={{ marginTop: '2rem' }}>
-        <h2>Review Summary</h2>
-        <pre style={{ background: '#F3F4F6', padding: '1rem', borderRadius: 8, fontSize: 12, overflow: 'auto' }}>
-          {JSON.stringify(formData, null, 2)}
-        </pre>
-      </section>
+      {!isRecoveryResume && (
+        <section style={{ marginTop: '2rem' }}>
+          <h2>Review Summary</h2>
+          <pre style={{ background: '#F3F4F6', padding: '1rem', borderRadius: 8, fontSize: 12, overflow: 'auto' }}>
+            {JSON.stringify(formData, null, 2)}
+          </pre>
+        </section>
+      )}
 
       {error && <p style={{ color: '#B91C1C' }}>{error}</p>}
       {message && <p style={{ color: '#166534' }}>{message}</p>}

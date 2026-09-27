@@ -264,8 +264,8 @@ export function BrokerOnboarding({ token }: { token: string }) {
 
   const progressPayload: Record<string, unknown> = { ...formData };
   uploadedDocuments.forEach((docType) => { progressPayload[`doc_${docType}`] = true; });
-  const recoveryAssessment = assessOnboardingRecovery('broker_shipper', progressPayload);
-  const calculatedProgress = calculateOnboardingProgress('broker_shipper', progressPayload);
+  const recoveryAssessment = assessOnboardingRecovery('broker_shipper', progressPayload, { companyId: application.company_id });
+  const calculatedProgress = calculateOnboardingProgress('broker_shipper', progressPayload, { companyId: application.company_id });
   const progress = application.status === 'under_review' || application.status === 'approved'
     ? 100
     : calculatedProgress;

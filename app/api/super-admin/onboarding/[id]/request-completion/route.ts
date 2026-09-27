@@ -21,12 +21,13 @@ const asPayload = (value: unknown): Record<string, unknown> =>
 async function buildRecovery(application: {
   id: string;
   account_type: string;
+  company_id?: string | null;
   payload: unknown;
 }) {
   if (!supabaseAdmin) return null;
   const payload = asPayload(application.payload);
   const contract = getOnboardingContract(application.account_type);
-  if (!contract) return { payload, recovery: assessOnboardingRecovery(application.account_type, payload) };
+  if (!contract) return { payload, recovery: assessOnboardingRecovery(application.account_type, payload, { companyId: application.company_id }) };
 
   const identityTypes = contract.documents.filter((doc) => doc.family === 'identity').map((doc) => doc.type);
   const companyTypes = contract.documents.filter((doc) => doc.family === 'company').map((doc) => doc.type);
@@ -55,7 +56,7 @@ async function buildRecovery(application: {
     }
   }
 
-  return { payload, recovery: assessOnboardingRecovery(application.account_type, payload) };
+  return { payload, recovery: assessOnboardingRecovery(application.account_type, payload, { companyId: application.company_id }) };
 }
 
 export async function GET(
@@ -141,7 +142,7 @@ export async function POST(
     return json(409, { error: 'No missing onboarding requirements remain for this application.' });
   }
 
-  const eventType = parsed.data.reminder ? 'onboarding_completion_reminder' : 'onboarding_completion_required';
+  const eventType = parsed.data.reminder ? 'onboarding_reminder' : 'onboarding_completion_required';
 
   if (parsed.data.reminder) {
     const { data: previous } = await supabaseAdmin
@@ -149,7 +150,7 @@ export async function POST(
       .select('id, created_at')
       .eq('entity_type', 'onboarding_application')
       .eq('entity_id', application.id)
-      .in('event_type', ['onboarding_completion_required', 'onboarding_completion_reminder'])
+      .in('event_type', ['onboarding_completion_required', 'onboarding_reminder'])
       .order('created_at', { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -180,6 +181,7 @@ export async function POST(
         account_type: application.account_type,
         missing_fields: missingFields,
         missing_documents: missingDocuments,
+        blocking_reasons: derived.recovery.blockingReasons,
         canonical_progress: derived.recovery.progress,
         reason: parsed.data.reason,
         onboarding_url: '/onboarding/resume',
@@ -205,7 +207,7 @@ export async function POST(
       action_type: eventType,
       old_status: application.status,
       new_status: application.status,
-      reason: `${parsed.data.reason} | missing_fields=${JSON.stringify(missingFields)} | missing_documents=${JSON.stringify(missingDocuments)}`,
+      reason: `${parsed.data.reason} | missing_fields=${JSON.stringify(missingFields)} | missing_documents=${JSON.stringify(missingDocuments)} | blocking_reasons=${JSON.stringify(derived.recovery.blockingReasons)}`,
     });
 
   if (auditError) return json(500, { error: 'Recovery notification queued but audit logging failed.' });

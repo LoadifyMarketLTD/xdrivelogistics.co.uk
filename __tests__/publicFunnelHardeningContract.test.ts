@@ -114,7 +114,7 @@ describe('public funnel hardening', () => {
   it('restores legacy uploaded documents and exposes canonical recovery requirements', () => {
     expect(onboardingSession).toContain(".from('driver_identity_documents')");
     expect(onboardingSession).toContain(".from('company_documents')");
-    expect(onboardingSession).toContain('assessOnboardingRecovery(accountType, payload)');
+    expect(onboardingSession).toContain('assessOnboardingRecovery(accountType, payload, { companyId: app.company_id })');
     expect(generic).toContain('Complete your XDrive onboarding');
     expect(generic).toContain('recoveryAssessment.missingFields.length > 0');
   });
@@ -153,5 +153,23 @@ describe('public funnel hardening', () => {
     expect(ownerRecovery.complete).toBe(false);
     expect(ownerRecovery.missingFields.map((item) => item.key)).toEqual(['registration', 'make', 'model']);
     expect(ownerRecovery.missingDocuments.map((item) => item.type)).toEqual(['driving_licence', 'right_to_work']);
+    expect(ownerRecovery.blockingReasons).toHaveLength(2);
+
+    const fleetRecovery = assessOnboardingRecovery('fleet_courier', {
+      legal_company_name: 'HNR Express Solutions Ltd',
+      trading_name: 'HNR Express Solutions',
+      company_number: '12345678',
+      registered_address: '1 Test Street',
+      trading_address: '1 Test Street',
+      contact_person: 'Sean Kisby',
+      compliance_contact: 'Sean Kisby',
+      transport_contact: 'Sean Kisby',
+      doc_company_registration: 'stored/company.pdf',
+      doc_public_liability: 'stored/public-liability.pdf',
+      doc_goods_in_transit: 'stored/git.pdf',
+      doc_vehicle_insurance: 'stored/motor.pdf',
+    }, { companyId: null });
+    expect(fleetRecovery.complete).toBe(false);
+    expect(fleetRecovery.blockingReasons).toContain('Companies House verification is required before onboarding can be submitted.');
   });
 });

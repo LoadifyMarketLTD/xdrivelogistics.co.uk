@@ -77,11 +77,13 @@ export type OnboardingRecoveryAssessment = {
   complete: boolean;
   missingFields: Array<{ key: string; label: string }>;
   missingDocuments: Array<{ type: string; label: string }>;
+  blockingReasons: string[];
 };
 
 export function assessOnboardingRecovery(
   accountType: string | null | undefined,
   payload: Record<string, unknown>,
+  context?: { companyId?: string | null },
 ): OnboardingRecoveryAssessment {
   const canonical = normalizeCanonicalOnboardingAccountType(accountType);
   if (!canonical) {
@@ -91,6 +93,7 @@ export function assessOnboardingRecovery(
       complete: false,
       missingFields: [],
       missingDocuments: [],
+      blockingReasons: ['Unsupported onboarding account type.'],
     };
   }
 
@@ -112,19 +115,33 @@ export function assessOnboardingRecovery(
   const fieldWeight = requiredDocuments.length > 0 ? 70 : 90;
   const weighted = 5 + fieldRatio * fieldWeight + documentRatio * documentWeight;
   const progress = Math.min(95, Math.max(5, Math.round(weighted)));
+  const requiresVerifiedCompany = canonical === 'broker_shipper' || canonical === 'fleet_courier';
+  const blockingReasons = [
+    ...(missingFields.length > 0
+      ? [`Missing required information: ${missingFields.map((item) => item.label).join(', ')}.`]
+      : []),
+    ...(missingDocuments.length > 0
+      ? [`Missing required documents: ${missingDocuments.map((item) => item.label).join(', ')}.`]
+      : []),
+    ...(requiresVerifiedCompany && !context?.companyId
+      ? ['Companies House verification is required before onboarding can be submitted.']
+      : []),
+  ];
 
   return {
     canonicalAccountType: canonical,
     progress,
-    complete: missingFields.length === 0 && missingDocuments.length === 0,
+    complete: blockingReasons.length === 0,
     missingFields,
     missingDocuments,
+    blockingReasons,
   };
 }
 
 export function calculateOnboardingProgress(
   accountType: string | null | undefined,
   payload: Record<string, unknown>,
+  context?: { companyId?: string | null },
 ): number {
-  return assessOnboardingRecovery(accountType, payload).progress;
+  return assessOnboardingRecovery(accountType, payload, context).progress;
 }

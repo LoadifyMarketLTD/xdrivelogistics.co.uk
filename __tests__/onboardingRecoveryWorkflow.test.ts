@@ -10,7 +10,7 @@ describe('Onboarding recovery workflow', () => {
     expect(route).toContain(".from('driver_identity_documents')");
     expect(route).toContain(".from('company_documents')");
     expect(route).toContain("'onboarding_completion_required'");
-    expect(route).toContain("'onboarding_completion_reminder'");
+    expect(route).toContain("'onboarding_reminder'");
     expect(route).toContain("onboarding_url: '/onboarding/resume'");
   });
 
@@ -27,8 +27,11 @@ describe('Onboarding recovery workflow', () => {
     const page = readRepoFile('app/super-admin/compliance/documents/page.tsx');
     expect(api).toContain(".in('status', ['invited', 'draft', 'in_progress', 'request_changes'])");
     expect(api).toContain('canonical_completion_percentage');
+    expect(api).toContain('blocking_reasons');
+    expect(api).toContain('reminder_eligible');
     expect(queue).toContain('Onboarding recovery queue');
     expect(queue).toContain('Send completion request');
+    expect(queue).toContain('Send reminder');
     expect(page).toContain('<OnboardingRecoveryQueue />');
   });
 
@@ -36,9 +39,10 @@ describe('Onboarding recovery workflow', () => {
     const worker = readRepoFile('supabase/functions/notify-operational-event/index.ts');
     expect(worker).toContain('handleOnboardingCompletionRequired');
     expect(worker).toContain("case 'onboarding_completion_required'");
-    expect(worker).toContain("case 'onboarding_completion_reminder'");
+    expect(worker).toContain("case 'onboarding_reminder'");
     expect(worker).toContain('event.payload.missing_fields');
     expect(worker).toContain('event.payload.missing_documents');
+    expect(worker).toContain('event.payload.blocking_reasons');
     expect(worker).toContain('Resume onboarding');
     expect(worker).toContain('You do not need to start again');
   });
