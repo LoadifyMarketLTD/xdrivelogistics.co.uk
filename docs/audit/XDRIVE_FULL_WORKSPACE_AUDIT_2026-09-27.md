@@ -38,7 +38,7 @@ Missing live credentials or browser control is recorded as **BLOCKED**, never PA
 ## Current verified baseline
 
 - Navigation inventory: **158 discovered navigation hrefs; 0 missing page routes**.
-- Full unit/contract suite after reconciliation: **333/333 test files PASS; 2075/2075 tests PASS**.
+- Full unit/contract suite after reconciliation: **334/334 test files PASS; 2078/2078 tests PASS**.
 - TypeScript: **PASS**.
 - Targeted ESLint for modified workspace/runtime code: **PASS**.
 - Production Next.js build: **PASS**; 172/172 static pages generated during build.
@@ -87,6 +87,26 @@ Several failing tests described retired prototypes or old business rules rather 
 - Post Load Stripe-readiness requirement, which contradicts the direct-party Post Load contract;
 - outdated notification preference placeholders after `user_notification_preferences` became real;
 - outdated Super Admin map palette assertions.
+
+### 6. Customer/Broker Team invitation contract was not functional
+
+**Cause:** both Customer Team and Broker Team used `POST /api/customer/team`, but the route attempted an upsert with `onConflict: 'company_id,invited_email'` even though Production has no unique constraint/index on that pair. The route also only persisted an `invited` membership row; it did not send an Auth invitation or bind the invitation to a real Auth user.
+
+A second Production drift existed in the same flow: Team UI/API used membership status `suspended`, while the live canonical `company_memberships_status_check` allows `active | invited | disabled`.
+
+**Repair in audit branch:**
+
+- Customer and Broker now identify the requested workspace explicitly to the shared Team API.
+- The server verifies that the caller's authoritative profile workspace matches that request (Platform Owner remains the explicit cross-workspace exception).
+- New accounts receive a Supabase Auth email invitation.
+- Existing compatible accounts receive a non-creating email magic link.
+- Existing active membership in another company and conflicting profile/company identity fail closed.
+- Membership persistence uses the real `(company_id,user_id)` unique contract.
+- Optional Department assignment is verified against the same company before write.
+- Customer/Broker membership disable/reactivate now uses the live canonical `disabled ↔ active` vocabulary.
+- A dedicated Team invitation contract test is PASS.
+
+This repair is code-only at this stage and has **not** been exercised as a mutating Production E2E invitation.
 
 ## P0 production database finding — NOT YET APPLIED
 
