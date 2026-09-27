@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   AlertTriangle, Bell, ChevronDown, CircleUserRound, Menu,
-  PanelLeftClose, PanelLeftOpen, Search,
+  PanelLeftClose, PanelLeftOpen, RefreshCw, Search,
 } from 'lucide-react';
 import styles from './SuperAdminCardNavigationShell.module.css';
 
@@ -69,9 +69,10 @@ function OwnerMenu() {
       </button>
       {open ? (
         <div className={styles.ownerMenu} role="menu">
-          <Link href="/super-admin" role="menuitem">Command Centre</Link>
-          <Link href="/super-admin/directory" role="menuitem">Explore all areas</Link>
-          <Link href="/super-admin/platform" role="menuitem">Platform Overview</Link>
+          <div className={styles.ownerMenuIdentity} role="presentation">
+            <strong>Platform Owner</strong>
+            <span>Authenticated platform-control session</span>
+          </div>
           <Link href="/auth/sign-out" role="menuitem" className={styles.ownerMenuDanger}>Sign out</Link>
         </div>
       ) : null}
@@ -80,6 +81,9 @@ function OwnerMenu() {
 }
 
 export default function SuperAdminTopbar({ collapsed, mobileOpen, onToggleSidebar, onToggleMobile }: Props) {
+  const pathname = usePathname();
+  const showLiveRefresh = pathname === '/super-admin/operations/control-centre';
+
   return (
     <header className={styles.topbar}>
       <div className={styles.topbarLeft}>
@@ -104,6 +108,16 @@ export default function SuperAdminTopbar({ collapsed, mobileOpen, onToggleSideba
       </div>
 
       <div className={styles.topbarActions}>
+        {showLiveRefresh ? (
+          <button
+            type="button"
+            className={styles.topbarActionLink}
+            onClick={() => window.dispatchEvent(new Event('xdrive-super-admin-refresh-live-data'))}
+          >
+            <RefreshCw size={18} aria-hidden="true" />
+            <span>Refresh Live Data</span>
+          </button>
+        ) : null}
         <Link href="/super-admin/action-centre" className={styles.topbarActionLink}>
           <AlertTriangle size={18} aria-hidden="true" />
           <span>Action Centre</span>

@@ -42,7 +42,9 @@ describe('Super Admin read-only control-plane promotion', () => {
     expect(workspace).toContain("href: '/super-admin/search'");
     expect(workspace).toContain("label: 'Action Centre'");
     expect(workspace).toContain("href: '/super-admin/action-centre'");
-    expect(shell).toContain("if (pathname.startsWith('/super-admin/cases')) return 'support';");
+    expect(shell).not.toContain('GROUP_DESCRIPTIONS');
+    expect(shell).not.toContain('routeGroupFallback');
+    expect(shell).not.toContain('showContextBar');
   });
 
   test('read-only inspect and copy links retain the approved enterprise v3 visual contract', () => {

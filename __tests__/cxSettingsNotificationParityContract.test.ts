@@ -9,7 +9,8 @@ const inbox = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace
 describe('current company settings and notification routing contract', () => {
   it('delegates fleet settings to the canonical role settings workspace', () => {
     expect(settingsPage).toContain("const settingsRole = workspaceRole === 'owner_driver'");
-    expect(settingsPage).toContain(": 'fleet' as const");
+    expect(settingsPage).toContain("workspaceRole === 'fleet_manager'");
+    expect(settingsPage).toContain("? 'fleet' as const");
     expect(settingsPage).toContain('<RoleSettingsWorkspace role={settingsRole} roleLabel={roleLabel} />');
     expect(roleSettings).toContain("notifications: '/admin/notifications'");
   });
