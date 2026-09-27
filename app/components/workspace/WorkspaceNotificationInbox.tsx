@@ -231,7 +231,7 @@ export default function WorkspaceNotificationInbox({
       {loading ? (
         <div className="workspace-panel"><EmptyState compact title="Loading notifications…" /></div>
       ) : visible.length === 0 ? (
-        <div className="workspace-panel"><EmptyState title={tab === 'load_alerts' ? 'No load alerts in this view' : 'No notifications in this view'} description={tab === 'load_alerts' ? 'CX-style matching preferences and alert generation remain a separate backend parity item; this tab displays real alert records when they exist.' : undefined} /></div>
+        <div className="workspace-panel"><EmptyState title={tab === 'load_alerts' ? 'No load alerts in this view' : 'No notifications in this view'} description={tab === 'load_alerts' ? 'Matching preferences and alert generation are active; this tab displays real load-alert records delivered to this account.' : undefined} /></div>
       ) : (
         <div className="workspace-record-list">
           {visible.map((row) => (

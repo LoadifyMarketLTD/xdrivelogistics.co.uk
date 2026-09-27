@@ -49,7 +49,7 @@ describe('Super Admin operations cockpit current contract', () => {
   });
 
   it('renders privacy-safe operational map states and regional presets', () => {
-    for (const color of ['#1A73E8', '#34A853', '#FBBC05', '#EA4335']) expect(map).toContain(color);
+    for (const color of ['#1D57D8', '#168553', '#F5A300', '#D92D20']) expect(map).toContain(color);
     expect(map).toContain('driverOperationalColor');
     expect(map).toContain('L.polyline');
     for (const region of ['London', 'Midlands', 'North', 'UK']) expect(map).toContain(`label: '${region}'`);

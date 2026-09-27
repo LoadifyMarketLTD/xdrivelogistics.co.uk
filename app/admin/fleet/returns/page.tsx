@@ -97,7 +97,7 @@ export default function CompanyReturnJourneysPage() {
   const [editAvailableTo, setEditAvailableTo] = useState('');
   const [editVehicleType, setEditVehicleType] = useState('');
   const [editNotes, setEditNotes] = useState('');
-  const canManageReturnJourneys = ['owner', 'admin', 'dispatcher'].includes(String(user?.membershipRole ?? '').toLowerCase());
+  const canManageReturnJourneys = ['owner', 'admin', 'fleet_manager', 'dispatcher'].includes(String(user?.membershipRole ?? '').toLowerCase());
 
   const loadJourneys = useCallback(async () => {
     if (!isSupabaseConfigured || !workspace.companyId) {

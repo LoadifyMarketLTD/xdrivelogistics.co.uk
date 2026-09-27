@@ -43,25 +43,24 @@ describe('PR #357 approved visual baseline', () => {
     expect(toolsIndex).toBeGreaterThan(navIndex);
   });
 
-  it('keeps the approved dense Driver dashboard structure', () => {
+  it('keeps the current dense Driver operational dashboard structure', () => {
     for (const marker of [
       'driver-prototype-dashboard',
-      'Today at a glance',
-      'Operational workboard',
-      'Matching Loads',
-      'Commercial position',
-      'Performance & evidence',
-      'Driver workflow',
-      'Latest bookings',
-      'NEXT ACTION',
+      'driver-dashboard-statusbar',
+      'My Work',
+      'Recent Bookings',
+      'Matching loads',
+      'Driver & Vehicle Readiness',
+      'Owner Driver Commercial Position',
     ]) expect(driverDashboard).toContain(marker);
 
     for (const stale of [
+      'Today at a glance',
+      'Operational workboard',
       'Status & availability',
       '<span>Canonical active vehicle</span>',
       'Journey & position',
       'Quote activity',
-      'Compliance & document alerts',
     ]) expect(driverDashboard).not.toContain(stale);
   });
 

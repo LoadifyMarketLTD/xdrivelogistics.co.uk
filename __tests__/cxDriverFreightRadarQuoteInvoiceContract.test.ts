@@ -69,7 +69,7 @@ describe('CX-close Driver marketplace radar / quote / invoice contract', () => {
     expect(invoicePreview).toContain('URL.createObjectURL(blob)');
     expect(invoicePreview).toContain('URL.revokeObjectURL(objectUrl)');
     expect(invoicePreview).toContain('Return to Diary');
-    expect(invoiceRoute).toContain("'owner', 'admin', 'dispatcher', 'finance', 'driver'");
+    expect(invoiceRoute).toContain("if (!['owner', 'admin'].includes(role)) return null");
     expect(invoiceRoute).toContain("'Content-Type': 'application/pdf'");
     expect(invoiceRoute).toContain("'Content-Disposition': `inline;");
   });

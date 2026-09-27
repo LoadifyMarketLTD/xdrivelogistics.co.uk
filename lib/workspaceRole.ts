@@ -117,7 +117,7 @@ export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined)
 
   if (appRole === 'driver' || rawRole === 'driver' || rawRole === 'company_driver' || rawRole === 'solo_driver') return 'driver';
 
-  if (rawRole === 'fleet_operator' || rawRole === 'fleet_manager' || rawRole === 'fleet_admin') return 'fleet_manager';
+  if (rawRole === 'fleet_operator' || rawRole === 'fleet_manager' || rawRole === 'fleet_admin' || membershipRole === 'fleet_manager') return 'fleet_manager';
   if (rawRole === 'dispatcher' || rawRole === 'operations_controller' || membershipRole === 'dispatcher') return 'dispatcher';
   if (rawRole === 'finance' || rawRole === 'accounting' || rawRole === 'accountant' || membershipRole === 'finance') return 'finance';
   if (rawRole === 'compliance' || rawRole === 'compliance_manager' || membershipRole === 'compliance') return 'compliance';
@@ -200,7 +200,7 @@ const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
   carrier_admin: new Set<WorkspaceCapability>(CARRIER_COMMERCIAL),
   broker: new Set<WorkspaceCapability>(['company.manage', 'billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'documents.company.manage', 'invoices.customer.manage', 'invoices.carrier.manage', 'margins.view', 'incidents.manage', 'settings.manage']),
   customer: new Set<WorkspaceCapability>(['billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'invoices.customer.manage', 'settings.manage']),
-  fleet_manager: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'documents.company.manage', 'invoices.carrier.manage', 'incidents.manage', 'settings.manage']),
+  fleet_manager: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'documents.company.manage', 'invoices.carrier.manage', 'incidents.manage']),
   dispatcher: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'incidents.manage']),
   driver: new Set<WorkspaceCapability>(DRIVER_WORKSPACE_CAPABILITIES),
   owner_driver: new Set<WorkspaceCapability>([...DRIVER_WORKSPACE_CAPABILITIES, 'invoices.carrier.manage', 'billing.manage']),
@@ -222,7 +222,7 @@ const carrierNav: WorkspaceNavGroup[] = [
   { id: 'carrier-freight-vision', label: 'Freight Vision', items: [{ id: 'freight-vision', label: 'Freight Vision', href: '/admin/freight-vision', icon: '◎', capability: 'jobs.track' }] },
   { id: 'carrier-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/admin/exchange-quotes', icon: '◫', capability: 'quotes.submit' }] },
   { id: 'carrier-jobs', label: 'Jobs', items: [{ id: 'jobs', label: 'Jobs', href: '/admin/jobs', icon: '▣', capability: 'jobs.view' }] },
-  { id: 'carrier-fleet', label: 'Fleet', items: [{ id: 'fleet', label: 'Fleet', href: '/admin/fleet', icon: '◎', capability: 'fleet.positions.view' }] },
+  { id: 'carrier-fleet', label: 'Fleet', items: [{ id: 'fleet', label: 'Fleet', href: '/admin/fleet', icon: '◎', capability: 'fleet.positions.view' }, { id: 'fleet-managers', label: 'Fleet Managers', href: '/admin/fleet/managers', icon: '◉', capability: 'company.members.manage' }] },
   { id: 'carrier-returns', label: 'Returns', items: [{ id: 'returns', label: 'Returns', href: '/admin/fleet/returns', icon: '↩' }] },
   { id: 'carrier-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' }] },
   { id: 'carrier-messages', label: 'Messages', items: [{ id: 'messages', label: 'Messages', href: '/admin/messages', icon: '◫' }] },
@@ -279,17 +279,21 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     nav: [
       { id: 'fleet-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/admin/fleet', icon: '⌂' }] },
       { id: 'fleet-jobs', label: 'Jobs', items: [{ id: 'jobs', label: 'Jobs', href: '/admin/fleet/jobs', icon: '▣', capability: 'jobs.view' }] },
+      { id: 'fleet-assignments', label: 'Assignments', items: [{ id: 'assignments', label: 'Assignments', href: '/admin/fleet/assignments', icon: '⇄', capability: 'jobs.allocate' }] },
       { id: 'fleet-drivers', label: 'Drivers', items: [{ id: 'drivers', label: 'Drivers', href: '/admin/fleet/drivers', icon: '◉', capability: 'drivers.manage' }] },
       { id: 'fleet-vehicles', label: 'Vehicles', items: [{ id: 'vehicles', label: 'Vehicles', href: '/admin/fleet/vehicles', icon: '▰', capability: 'vehicles.manage' }] },
       { id: 'fleet-availability', label: 'Availability', items: [{ id: 'availability', label: 'Availability', href: '/admin/fleet/availability', icon: '◷', capability: 'drivers.manage' }] },
+      { id: 'fleet-future', label: 'Future Availability', items: [{ id: 'future-availability', label: 'Future Availability', href: '/admin/fleet/future-availability', icon: '↗', capability: 'drivers.manage' }] },
+      { id: 'fleet-positions', label: 'Live Positions', items: [{ id: 'positions', label: 'Live Positions', href: '/admin/fleet/positions', icon: '⌖', capability: 'fleet.positions.view' }] },
       { id: 'fleet-returns', label: 'Returns', items: [{ id: 'returns', label: 'Returns', href: '/admin/fleet/returns', icon: '↩' }] },
+      { id: 'fleet-maintenance', label: 'Maintenance', items: [{ id: 'maintenance', label: 'Maintenance', href: '/admin/fleet/maintenance', icon: '⚒', capability: 'fleet.maintenance.manage' }] },
+      { id: 'fleet-exceptions', label: 'Exceptions', items: [{ id: 'exceptions', label: 'Exceptions', href: '/admin/incidents', icon: '!', capability: 'incidents.manage' }] },
       { id: 'fleet-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' }] },
       { id: 'fleet-freight-vision', label: 'Freight Vision', items: [{ id: 'freight-vision', label: 'Freight Vision', href: '/admin/freight-vision', icon: '◎', capability: 'jobs.track' }] },
       { id: 'fleet-messages', label: 'Messages', items: [{ id: 'messages', label: 'Messages', href: '/admin/messages', icon: '◫' }] },
       { id: 'fleet-event-log', label: 'Event Log', items: [{ id: 'event-log', label: 'Event Log', href: '/admin/event-log', icon: '≡', capability: 'jobs.view' }] },
       { id: 'fleet-finance', label: 'Finance', items: [{ id: 'finance', label: 'Finance', href: '/admin/invoices', icon: '£', capability: 'invoices.carrier.manage' }] },
       { id: 'fleet-compliance', label: 'Compliance', items: [{ id: 'compliance', label: 'Compliance', href: '/admin/fleet/compliance', icon: '✓', capability: 'documents.company.manage' }] },
-      { id: 'fleet-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/admin/settings', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },
   dispatcher: {

@@ -128,7 +128,7 @@ describe('auth session application membership roles', () => {
     harness.reset();
   });
 
-  for (const role of ['finance', 'compliance', 'driver'] as const) {
+  for (const role of ['fleet_manager', 'finance', 'compliance', 'driver'] as const) {
     it(`preserves ${role} as an application-domain membership identity`, async () => {
       harness.setRole(role);
 
@@ -143,6 +143,21 @@ describe('auth session application membership roles', () => {
       expect(result.user?.membershipRole).toBe(role);
     });
   }
+
+  it('gives Fleet Manager limited operational finance visibility without owner finance authority', async () => {
+    harness.setRole('fleet_manager');
+
+    const result = await resolveAuthenticatedUser({
+      id: 'user-1',
+      email: 'user@example.com',
+      app_metadata: {},
+    });
+
+    expect(result.reason).toBeNull();
+    expect(result.user?.membershipRole).toBe('fleet_manager');
+    expect(result.user?.workspaceRole).toBe('fleet_manager');
+    expect(result.user?.financeAccess).toBe('limited');
+  });
 
   it('fails closed for an unknown membership identity', async () => {
     harness.setRole('invented_privileged_role');
