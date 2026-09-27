@@ -98,7 +98,6 @@ function CustomerOperationalRow({
 
 export function CustomerLoadsOperationalPage() {
   const data = useCompanyWorkspaceData();
-  const router = useRouter();
   const [tab, setTab] = useState<'all' | 'draft' | 'open' | 'awaiting_award' | 'awarded' | 'allocated' | 'in_progress' | 'completed' | 'cancelled'>('all');
   const [reference, setReference] = useState('');
   const [pickup, setPickup] = useState('');
@@ -158,7 +157,7 @@ export function CustomerLoadsOperationalPage() {
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Customer transport" title="Loads" description="One dense operational register from draft and quote activity through award, allocation, execution and delivery." actions={<><ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton><ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>Post Load</ActionButton></>} />
+      <PageHeader eyebrow="Customer transport" title="Loads" description="One dense operational register from draft and quote activity through award, allocation, execution and delivery." actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>} />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
 
       <div className="workspace-board-layout">
