@@ -7,7 +7,7 @@
 .loginShell {
   min-height: 100svh;
   display: grid;
-  grid-template-columns: minmax(0, 1.3fr) minmax(420px, 0.7fr);
+  grid-template-columns: minmax(0, 7fr) minmax(420px, 3fr);
 }
 
 .loginHero {
