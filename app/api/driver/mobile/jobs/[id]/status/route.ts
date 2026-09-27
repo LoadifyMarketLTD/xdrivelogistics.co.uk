@@ -6,6 +6,7 @@ import { getFeatureFlag } from '../../../../../_lib/platformFlags';
 import { isDriverContext, requireDriver, respond } from '../../../_lib';
 
 const ALLOWED_STATUS = new Set([
+  'accepted',
   'on_my_way',
   'on_site_pickup',
   'loaded',
