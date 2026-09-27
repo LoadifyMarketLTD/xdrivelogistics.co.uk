@@ -207,8 +207,8 @@ export function MarketingDetailPage({
           ) : null}
           <div className="relative mx-auto max-w-[1240px]">
             <div className="flex flex-col items-start gap-2">
-              <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">Early Access · First 3 Months Free</p>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{kicker}</p>
+              <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-[#8A6100]">Early Access · First 3 Months Free</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8A6100]">{kicker}</p>
             </div>
             <h1 className={`font-display mt-5 max-w-[980px] text-[3.05rem] leading-[1.01] tracking-[-0.035em] text-[#102447] sm:text-[4.45rem] lg:text-[4.9rem] ${heroMap ? 'lg:max-w-[700px]' : ''}`}>{title}</h1>
             <p className={`mt-7 max-w-3xl text-lg font-semibold leading-8 text-[#60758F] ${heroMap ? 'lg:max-w-[650px]' : ''}`}>{intro}</p>
