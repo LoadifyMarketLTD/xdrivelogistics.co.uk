@@ -18,9 +18,11 @@ describe('CX-close load alert inbox parity', () => {
     });
   }
 
-  it('does not claim alert generation/preferences are complete when the backend contract is not yet present', () => {
-    expect(shared).toContain('separate backend parity item');
-    expect(driver).toContain('separate backend parity item');
+  it('exposes real notification preferences without the retired backend-parity caveat', () => {
+    expect(shared).toContain('<NotificationPreferencesPanel />');
+    expect(driver).toContain('<NotificationPreferencesPanel driverMode />');
+    expect(shared).not.toContain('separate backend parity item');
+    expect(driver).not.toContain('separate backend parity item');
   });
 
   it('keeps recipient scoping on both inboxes', () => {

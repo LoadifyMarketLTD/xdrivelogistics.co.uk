@@ -322,17 +322,33 @@ export async function POST(request: NextRequest) {
     };
   } else if (accountType === 'broker_shipper') {
     const parsedDocType = parsedBrokerDocType!;
+    if (!app.company_id) {
+      await cleanupUploadedObject();
+      return json(409, { error: 'Broker onboarding must be bound to a company workspace before uploading documents.' });
+    }
+
     const { data: company, error: companyError } = await supabaseAdmin
       .from('companies')
       .select('id')
-      .eq('created_by', authData.user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .eq('id', app.company_id)
       .maybeSingle();
 
     if (companyError || !company?.id) {
       await cleanupUploadedObject();
-      return json(409, { error: companyError?.message ?? 'Company workspace must exist before uploading broker documents.' });
+      return json(409, { error: companyError?.message ?? 'Bound broker company workspace could not be found.' });
+    }
+
+    const { data: membership, error: membershipError } = await supabaseAdmin
+      .from('company_memberships')
+      .select('id')
+      .eq('company_id', company.id)
+      .eq('user_id', authData.user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (membershipError || !membership?.id) {
+      await cleanupUploadedObject();
+      return json(403, { error: membershipError?.message ?? 'Active company membership is required to upload broker documents.' });
     }
 
     const { data: document, error: documentError } = await supabaseAdmin

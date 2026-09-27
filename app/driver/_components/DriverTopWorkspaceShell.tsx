@@ -9,16 +9,21 @@ import { useAuth } from '../../components/AuthContext';
 import { getNotificationsRoute, resolveActionCentreRole } from '../../components/workspace/actionCentreConfig';
 import { workspaceTheme } from '../../components/workspace/WorkspaceUI';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 
 const DRIVER_PRIMARY_NAV = [
-  { id: 'dashboard', label: 'Dashboard', href: '/driver' },
+  { id: 'dashboard', label: 'Today', href: '/driver' },
+  { id: 'jobs', label: 'My Jobs', href: '/driver/jobs' },
+  { id: 'diary', label: 'Diary', href: '/driver/history' },
+  { id: 'availability', label: 'Availability', href: '/driver/availability' },
+  { id: 'vehicle', label: 'Vehicle', href: '/driver/vehicles' },
   { id: 'directory', label: 'Directory', href: '/driver/directory' },
-  { id: 'availability', label: 'Live Availability', href: '/driver/nearby' },
-  { id: 'fleet', label: 'My Fleet', href: '/driver/vehicles' },
+  { id: 'nearby', label: "Who's Nearby", href: '/driver/nearby' },
   { id: 'returns', label: 'Return Journeys', href: '/driver/returns' },
   { id: 'loads', label: 'Loads', href: '/driver/loads' },
   { id: 'quotes', label: 'Quotes', href: '/driver/quotes' },
-  { id: 'diary', label: 'Diary', href: '/driver/history' },
+  { id: 'won-work', label: 'Won Work', href: '/driver/won-work' },
+  { id: 'load-alerts', label: 'Auto-match & Alerts', href: '/driver/load-alerts' },
   { id: 'vision', label: 'Freight Vision', href: '/driver/freight-vision' },
   { id: 'finance', label: 'Finance', href: '/driver/finance' },
   { id: 'drivers', label: 'Drivers & Vehicles', href: '/driver/drivers-vehicles' },
@@ -38,14 +43,15 @@ const DRIVER_SETTINGS_MENU = [
   { label: 'Support', href: '/help' },
 ] as const;
 
-const DRIVER_COMMERCIAL_NAV_IDS = new Set(['directory', 'availability', 'returns', 'loads', 'quotes']);
-const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['finance', 'drivers']);
+const DRIVER_COMMERCIAL_NAV_IDS = new Set(['directory', 'nearby', 'returns', 'loads', 'quotes', 'won-work', 'vision']);
+const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['load-alerts', 'finance', 'drivers']);
 
 export default function DriverTopWorkspaceShell({ children }: { children: ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user } = useAuth();
-  const role = user?.ownerDriverWorkspace ? 'owner_driver' as const : 'driver' as const;
+  const { user, logout } = useAuth();
+  const resolvedRole = resolveWorkspaceRole(user);
+  const role = resolvedRole === 'owner_driver' ? 'owner_driver' as const : 'driver' as const;
   const [companyName, setCompanyName] = useState('Driver Account');
   const [unreadCount, setUnreadCount] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -142,8 +148,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
         <nav className="main-nav" aria-label="Driver workspace navigation">
           {primaryNav.map((item) => {
             const active = isActive(item.href);
-            const label = role === 'driver' && item.id === 'fleet' ? 'Vehicle' : item.label;
-            return <button key={item.id} type="button" className={active ? 'active' : ''} onClick={() => router.push(item.href)} aria-current={active ? 'page' : undefined}>{label}</button>;
+            return <button key={item.id} type="button" className={active ? 'active' : ''} onClick={() => router.push(item.href)} aria-current={active ? 'page' : undefined}>{item.label}</button>;
           })}
         </nav>
         <div className="top-tools">
@@ -176,6 +181,7 @@ export default function DriverTopWorkspaceShell({ children }: { children: ReactN
               </div>
             )}
           </div>
+          <button type="button" onClick={() => void logout()}>Sign out</button>
           <button type="button" className="avatar account-toggle" onClick={() => router.push('/driver/account')} aria-label="Open account">{(companyName || 'DR').slice(0, 2).toUpperCase()}</button>
         </div>
       </header>

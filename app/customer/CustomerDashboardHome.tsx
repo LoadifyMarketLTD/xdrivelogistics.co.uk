@@ -9,8 +9,6 @@ import {
   useCompanyWorkspaceData,
   type WorkspaceDatasetState,
 } from '../components/workspace/useCompanyWorkspaceData';
-import { MemberIdentityLink } from '../components/workspace/MemberProfile';
-import { useBidderIdentities } from '../components/workspace/useBidderIdentities';
 import {
   ActionButton,
   AlertBanner,
@@ -38,44 +36,76 @@ const routeLabel = (job: {
   to: job.delivery_postcode ?? job.delivery_location ?? 'Delivery',
 });
 
-const loadReference = (job: { id: string; client_name?: string | null }) =>
-  job.client_name?.trim() || `Load ${job.id.slice(0, 8).toUpperCase()}`;
-
 const metricState = <T,>(dataset: WorkspaceDatasetState<T>, value: number) => {
   if (dataset.availability !== 'available') return '—';
   if (dataset.partialData || dataset.limitedData) return 'Partial';
   return value;
 };
 
-const combinedMetricState = (
-  datasets: Array<{ availability: string; partialData: boolean; limitedData: boolean }>,
-  value: number,
-) => {
-  if (datasets.some((dataset) => dataset.availability !== 'available')) return '—';
-  if (datasets.some((dataset) => dataset.partialData || dataset.limitedData)) return 'Partial';
-  return value;
+const customerLifecycleLabel = (job: Parameters<typeof workspaceJobPresentationStatus>[0]) => {
+  const status = workspaceJobPresentationStatus(job);
+  switch (status) {
+    case 'awarded': return 'Carrier awarded';
+    case 'allocated': return 'Driver assigned';
+    case 'accepted': return 'Driver accepted';
+    case 'on_my_way': return 'Driver en route to collection';
+    case 'on_site_pickup': return 'Driver at collection';
+    case 'loaded': return 'Goods collected';
+    case 'in_transit': return 'In transit';
+    case 'on_site_delivery': return 'Driver at delivery';
+    case 'delivered': return 'Delivered';
+    case 'completed': return 'Completed';
+    case 'invoiced': return 'Invoice available';
+    case 'paid': return 'Paid';
+    case 'posted': return 'Open for quotes';
+    case 'quoted': return 'Quotes received';
+    case 'draft': return 'Draft';
+    case 'cancelled': return 'Cancelled';
+    default: return status.replaceAll('_', ' ');
+  }
+};
+
+const customerJobAction = (job: Parameters<typeof workspaceJobPresentationStatus>[0]) => {
+  const stage = classifyWorkspaceJobStage(job);
+  if (stage === 'in_progress') return { label: 'Track', href: '/customer/tracking' };
+  if (stage === 'allocated' || stage === 'awarded') return { label: 'View booking', href: '/customer/bookings' };
+  if (stage === 'completed') return { label: 'View POD', href: '/customer/bookings' };
+  return { label: 'Open', href: '/customer/loads' };
+};
+
+const customerJobPriority = (job: Parameters<typeof workspaceJobPresentationStatus>[0]) => {
+  const stage = classifyWorkspaceJobStage(job);
+  if (stage === 'in_progress') return 0;
+  if (stage === 'allocated') return 1;
+  if (stage === 'awarded') return 2;
+  if (stage === 'open') return 3;
+  if (stage === 'completed') return 4;
+  return 5;
 };
 
 export default function CustomerDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
-  const bidderIdentity = useBidderIdentities(data.bids);
 
   const metrics = useMemo(() => {
-    const now = Date.now();
-    const quoteHistory = data.bids.filter((bid) => ['submitted', 'accepted', 'rejected'].includes(bid.status));
-    const submittedQuotes = quoteHistory.filter((bid) => bid.status === 'submitted');
-    const awaitingAward = data.jobs.filter((job) =>
-      classifyWorkspaceJobStage(job) === 'open'
-      && submittedQuotes.some((bid) => bid.job_id === job.id)
+    const openLoads = data.jobs.filter(
+      (job) => classifyWorkspaceJobStage(job) === 'open' && String(job.status).toLowerCase() !== 'draft',
     );
+    const submittedQuotes = data.bids.filter((bid) => bid.status === 'submitted');
     const activeDeliveries = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'in_progress');
-    const delayed = activeDeliveries.filter((job) =>
-      Boolean(job.delivery_datetime)
-      && new Date(job.delivery_datetime as string).getTime() < now
+    const customerInvoices = data.invoices.filter((invoice) =>
+      isCustomerVisibleWorkspaceInvoice(invoice, data.companyId),
     );
-    const deliveryPhotoJobs = data.jobs.filter((job) => (job.delivery_photos?.length ?? 0) > 0);
-    const podReadyJobs = data.jobs.filter((job) => job.pod_generated === true);
+    const unpaidInvoices = customerInvoices.filter(
+      (invoice) => invoice.payment_status !== 'paid' && !['paid', 'Paid'].includes(invoice.status),
+    );
+    const delayed = activeDeliveries.filter((job) => {
+      if (!job.delivery_datetime) return false;
+      return new Date(job.delivery_datetime).getTime() < Date.now();
+    });
+    const completedWithPod = data.jobs.filter(
+      (job) => classifyWorkspaceJobStage(job) === 'completed' && job.pod_generated === true,
+    );
     const documentAlertJobs = data.jobs.filter((job) => {
       const stage = classifyWorkspaceJobStage(job);
       const podMissing = stage === 'completed' && job.pod_required === true && job.pod_generated !== true;
@@ -83,137 +113,297 @@ export default function CustomerDashboardHome() {
       const podRejected = String(job.broker_pod_review_status ?? '').trim().toLowerCase() === 'rejected';
       return podMissing || deliveryEvidenceMissing || podRejected;
     });
-    const customerInvoices = data.invoices.filter((invoice) =>
-      isCustomerVisibleWorkspaceInvoice(invoice, data.companyId),
-    );
-    const unpaidInvoices = customerInvoices.filter((invoice) =>
-      invoice.payment_status !== 'paid' && !['paid', 'Paid'].includes(invoice.status)
-    );
-    const dueSoonInvoices = unpaidInvoices.filter((invoice) => {
-      if (!invoice.due_date) return false;
-      const dueAt = new Date(invoice.due_date).getTime();
-      return Number.isFinite(dueAt) && dueAt >= now && dueAt <= now + 7 * 86_400_000;
-    });
-    const openLoads = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'open' && String(job.status).toLowerCase() !== 'draft');
-    const draftLoads = data.jobs.filter((job) => String(job.status).toLowerCase() === 'draft');
-    const awardedLoads = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'awarded');
-    const allocatedLoads = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'allocated');
-    const recentQuotes = [...quoteHistory]
-      .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
+
+    const recentJobs = [...data.jobs]
+      .sort((a, b) => {
+        const priority = customerJobPriority(a) - customerJobPriority(b);
+        if (priority !== 0) return priority;
+        return String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? ''));
+      })
       .slice(0, 8);
 
     return {
-      quoteHistory,
-      submittedQuotes,
-      awaitingAward,
-      activeDeliveries,
-      delayed,
-      deliveryPhotoJobs,
-      podReadyJobs,
-      documentAlertJobs,
-      customerInvoices,
-      unpaidInvoices,
-      dueSoonInvoices,
       openLoads,
-      draftLoads,
-      awardedLoads,
-      allocatedLoads,
-      recentQuotes,
+      submittedQuotes,
+      activeDeliveries,
+      unpaidInvoices,
+      delayed,
+      completedWithPod,
+      documentAlertJobs,
+      recentJobs,
       unpaidValue: unpaidInvoices.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
     };
   }, [data]);
 
-  const jobById = useMemo(() => new Map(data.jobs.map((job) => [job.id, job])), [data.jobs]);
-
-  const bestQuoteForJob = (jobId: string) => {
-    const prices = data.bids
-      .filter((bid) => bid.job_id === jobId && bid.status === 'submitted')
-      .map((bid) => Number(bid.bid_price_gbp ?? bid.amount ?? 0))
-      .filter((price) => price > 0);
-    return prices.length ? Math.min(...prices) : null;
-  };
-
-  const submittedQuotesForJob = (jobId: string) =>
-    data.bids.filter((bid) => bid.job_id === jobId && bid.status === 'submitted').length;
-
-  const actionLoads = metrics.awaitingAward.length ? metrics.awaitingAward : metrics.openLoads.slice(0, 8);
-  const invoiceDataset = data.datasets.invoices;
-  const invoiceDataState = invoiceDataset.availability !== 'available'
-    ? 'Unavailable'
-    : invoiceDataset.partialData || invoiceDataset.limitedData
-      ? 'Partial'
-      : null;
-  const invoiceCount = (value: number) => invoiceDataState ?? String(value);
-  const invoiceAmount = (value: number) => invoiceDataState ?? money(value);
   const jobsDataset = data.datasets.jobs;
   const bidsDataset = data.datasets.bids;
-  const awaitingAwardMetric = combinedMetricState([jobsDataset, bidsDataset], metrics.awaitingAward.length);
+  const invoicesDataset = data.datasets.invoices;
+  const attentionUnavailable = [jobsDataset, bidsDataset, invoicesDataset].some(
+    (dataset) => dataset.availability !== 'available',
+  );
+  const attentionPartial = !attentionUnavailable && [jobsDataset, bidsDataset, invoicesDataset].some(
+    (dataset) => dataset.partialData || dataset.limitedData,
+  );
+
+  const attentionItems = [
+    {
+      label: 'Quotes to review',
+      detail: 'Compare carrier offers and decide who gets the work.',
+      count: metricState(bidsDataset, metrics.submittedQuotes.length),
+      route: '/customer/quotes',
+      show: metrics.submittedQuotes.length > 0,
+    },
+    {
+      label: 'Delivery exceptions',
+      detail: 'Check deliveries that are past their recorded delivery time.',
+      count: metricState(jobsDataset, metrics.delayed.length),
+      route: '/customer/tracking',
+      show: metrics.delayed.length > 0,
+    },
+    {
+      label: 'Document alerts',
+      detail: 'Review completed work with missing or rejected POD and delivery evidence.',
+      count: metricState(jobsDataset, metrics.documentAlertJobs.length),
+      route: '/customer/bookings',
+      show: metrics.documentAlertJobs.length > 0,
+    },
+    {
+      label: 'Outstanding invoices',
+      detail: 'Review invoices that still need payment or reconciliation.',
+      count: invoicesDataset.availability !== 'available'
+        ? '—'
+        : invoicesDataset.partialData || invoicesDataset.limitedData
+          ? 'Partial'
+          : money(metrics.unpaidValue),
+      route: '/customer/invoices',
+      show: metrics.unpaidInvoices.length > 0,
+    },
+  ].filter((item) => item.show);
 
   return (
     <PageFrame>
       <div className="customer-operational-page">
         <PageHeader
           eyebrow="Customer workspace"
-          title="Transport Control"
-          description="Post transport, compare carrier quotes, award work, monitor live bookings and collect POD and invoices from one operational screen."
-          actions={<><ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>+ Post Load</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/action-centre')}>Action Centre</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/tracking')}>Tracking</ActionButton></>}
+          title="Transport overview"
+          description="See what needs your attention, manage current loads and follow active deliveries."
+          actions={
+            <>
+              <ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>
+                My Loads
+              </ActionButton>
+              <ActionButton tone="secondary" onClick={() => router.push('/customer/tracking')}>
+                Tracking
+              </ActionButton>
+            </>
+          }
         />
 
         {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
-        {bidderIdentity.error ? <AlertBanner tone="warning">{bidderIdentity.error}</AlertBanner> : null}
-        {invoiceDataset.availability !== 'available' ? <AlertBanner tone="warning">Invoice data unavailable. Financial totals are not shown as zero.</AlertBanner> : null}
-        {invoiceDataset.availability === 'available' && (invoiceDataset.partialData || invoiceDataset.limitedData) ? <AlertBanner tone="warning">Invoice data is partial. Financial totals are marked Partial rather than presented as complete.</AlertBanner> : null}
+        {invoicesDataset.availability !== 'available' ? (
+          <AlertBanner tone="warning">
+            Invoice data unavailable. Financial totals are hidden until the data source is available.
+          </AlertBanner>
+        ) : invoicesDataset.partialData || invoicesDataset.limitedData ? (
+          <AlertBanner tone="warning">
+            Invoice data is partial. Exact financial totals are hidden until the complete dataset is available.
+          </AlertBanner>
+        ) : null}
 
         <div className="customer-dash-metrics" aria-label="Customer transport summary">
-          <button className="customer-dash-metric" type="button" onClick={() => router.push('/customer/loads')}><span>Open loads</span><strong>{metricState(jobsDataset, metrics.openLoads.length)}</strong><small>Waiting for carrier response</small></button>
-          <button className="customer-dash-metric" data-tone="purple" type="button" onClick={() => router.push('/customer/quotes')}><span>Quotes received</span><strong>{metricState(bidsDataset, metrics.submittedQuotes.length)}</strong><small>Awaiting customer review</small></button>
-          <button className="customer-dash-metric" data-tone="orange" type="button" onClick={() => router.push('/customer/quotes')}><span>Awaiting award</span><strong>{awaitingAwardMetric}</strong><small>Customer decision needed</small></button>
-          <button className="customer-dash-metric" data-tone="green" type="button" onClick={() => router.push('/customer/tracking')}><span>Active deliveries</span><strong>{metricState(jobsDataset, metrics.activeDeliveries.length)}</strong><small>Execution currently moving</small></button>
-          <button className="customer-dash-metric" data-tone={metrics.delayed.length ? 'red' : 'green'} type="button" onClick={() => router.push('/customer/tracking')}><span>Delayed</span><strong>{metricState(jobsDataset, metrics.delayed.length)}</strong><small>Past recorded delivery time</small></button>
-          <button className="customer-dash-metric" data-tone="navy" type="button" onClick={() => router.push('/customer/bookings')}><span>POD ready</span><strong>{metricState(jobsDataset, metrics.podReadyJobs.length)}</strong><small>Proof of delivery available</small></button>
+          <button className="customer-dash-metric" type="button" onClick={() => router.push('/customer/loads')}>
+            <span>Open loads</span>
+            <strong>{metricState(jobsDataset, metrics.openLoads.length)}</strong>
+            <small>Waiting for carrier response</small>
+          </button>
+          <button
+            className="customer-dash-metric"
+            data-tone="purple"
+            type="button"
+            onClick={() => router.push('/customer/quotes')}
+          >
+            <span>Quotes to review</span>
+            <strong>{metricState(bidsDataset, metrics.submittedQuotes.length)}</strong>
+            <small>Carrier offers awaiting you</small>
+          </button>
+          <button
+            className="customer-dash-metric"
+            data-tone="green"
+            type="button"
+            onClick={() => router.push('/customer/tracking')}
+          >
+            <span>Active deliveries</span>
+            <strong>{metricState(jobsDataset, metrics.activeDeliveries.length)}</strong>
+            <small>Transport currently moving</small>
+          </button>
+          <button
+            className="customer-dash-metric"
+            data-tone="navy"
+            type="button"
+            onClick={() => router.push('/customer/invoices')}
+          >
+            <span>Outstanding invoices</span>
+            <strong>{metricState(invoicesDataset, metrics.unpaidInvoices.length)}</strong>
+            <small>{invoicesDataset.availability !== 'available'
+              ? 'Financial data unavailable'
+              : invoicesDataset.partialData || invoicesDataset.limitedData
+                ? 'Financial total partial'
+                : money(metrics.unpaidValue)}</small>
+          </button>
         </div>
 
-        <div className="customer-exchange-dashboard">
-          <aside className="customer-exchange-left">
-            <section className="customer-dash-box">
-              <div className="customer-dash-box__head"><strong>Action Centre</strong><ActionButton tone="secondary" onClick={() => router.push('/customer/action-centre')}>View all</ActionButton></div>
-              <div className="customer-dash-box__body"><div className="customer-attention-list">
-                <button className="customer-attention-row" data-tone="orange" type="button" onClick={() => router.push('/customer/quotes')}><span className="customer-attention-row__copy"><strong>Quotes awaiting decision</strong><span>Compare carrier price and member profile</span></span><span className="customer-attention-row__count">{metrics.awaitingAward.length}</span></button>
-                <button className="customer-attention-row" data-tone="red" type="button" onClick={() => router.push('/customer/tracking')}><span className="customer-attention-row__copy"><strong>Delivery exceptions</strong><span>Past recorded delivery time</span></span><span className="customer-attention-row__count">{metrics.delayed.length}</span></button>
-                <button className="customer-attention-row" data-tone="green" type="button" onClick={() => router.push('/customer/bookings')}><span className="customer-attention-row__copy"><strong>Delivery photo evidence</strong><span>Photos available for review; open the booking for full POD state</span></span><span className="customer-attention-row__count">{metrics.deliveryPhotoJobs.length}</span></button>
-                <button className="customer-attention-row" type="button" onClick={() => router.push('/customer/bookings')}><span className="customer-attention-row__copy"><strong>Document alerts</strong><span>Open Bookings for job documents and POD evidence</span></span><span className="customer-attention-row__count">{metricState(jobsDataset, metrics.documentAlertJobs.length)}</span></button>
-                <button className="customer-attention-row" type="button" onClick={() => router.push('/customer/invoices')}><span className="customer-attention-row__copy"><strong>Invoices due soon</strong><span>Due within the next 7 days</span></span><span className="customer-attention-row__count">{invoiceCount(metrics.dueSoonInvoices.length)}</span></button><button className="customer-attention-row" type="button" onClick={() => router.push('/customer/disputes')}><span className="customer-attention-row__copy"><strong>Disputes & issues</strong><span>Review operational disputes and escalation records</span></span><span className="customer-attention-row__count">Review</span></button>
-              </div></div>
-            </section>
-
-            <section className="customer-dash-box"><div className="customer-dash-box__head"><strong>Create & manage transport</strong></div><div className="customer-dash-box__body"><div className="customer-action-grid"><ActionButton tone="warning" onClick={() => router.push('/customer/post-load')}>Post Load</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>Loads</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/quotes')}>Compare Quotes</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>Bookings</ActionButton></div></div></section>
-
-            <section className="customer-dash-box"><div className="customer-dash-box__head"><strong>Commercial & documents</strong></div><div className="customer-dash-box__body"><div className="customer-dash-summary"><div className="customer-dash-summary__row"><span>Draft loads</span><strong>{metrics.draftLoads.length}</strong></div><div className="customer-dash-summary__row"><span>Awarded to carrier</span><strong>{metrics.awardedLoads.length}</strong></div><div className="customer-dash-summary__row"><span>Driver + vehicle allocated</span><strong>{metrics.allocatedLoads.length}</strong></div><div className="customer-dash-summary__row"><span>Outstanding invoices</span><strong>{invoiceCount(metrics.unpaidInvoices.length)}</strong></div><div className="customer-dash-summary__row"><span>Outstanding value</span><strong>{invoiceAmount(metrics.unpaidValue)}</strong></div></div><div className="customer-action-grid" style={{ marginTop: '8px' }}><ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>POD / Order</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/invoices')}>Invoices</ActionButton></div></div></section>
-
-            <section className="customer-dash-box"><div className="customer-dash-box__head"><strong>Workspace shortcuts</strong></div><div className="customer-dash-box__body"><div className="customer-action-grid"><ActionButton tone="secondary" onClick={() => router.push('/customer/diary')}>Diary</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/network')}>Companies</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/messages')}>Messages</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/event-log')}>Event Log</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/account')}>Account</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/customer/tracking')}>Tracking</ActionButton></div></div></section>
-          </aside>
-
-          <main className="customer-exchange-main">
-            <section className="customer-dash-box">
-              <div className="customer-dash-box__head"><strong>{metrics.awaitingAward.length ? 'Loads requiring a decision' : 'Open transport requests'}</strong><ActionButton tone="secondary" onClick={() => router.push(metrics.awaitingAward.length ? '/customer/quotes' : '/customer/loads')}>View all</ActionButton></div>
-              {actionLoads.length === 0 ? <div className="customer-empty"><EmptyState compact title="No open decisions" description="Post a load to request transport or review your existing bookings." /></div> : <div className="customer-dash-table-wrap"><table className="customer-dash-table"><thead><tr><th style={{ width: '34%' }}>Route</th><th style={{ width: '18%' }}>Pickup</th><th style={{ width: '10%' }}>Quotes</th><th style={{ width: '13%' }}>Best price</th><th style={{ width: '12%' }}>Status</th><th style={{ width: '13%' }}>Action</th></tr></thead><tbody>{actionLoads.slice(0, 8).map((job) => { const route = routeLabel(job); const bestQuote = bestQuoteForJob(job.id); const submittedCount = submittedQuotesForJob(job.id); return <tr key={job.id}><td><div className="customer-dash-table__route"><strong>{route.from} → {route.to}</strong><span>{loadReference(job)}</span></div></td><td>{when(job.pickup_datetime)}</td><td><strong>{submittedCount}</strong></td><td>{bestQuote ? <strong>{money(bestQuote)}</strong> : '—'}</td><td><StatusBadge value={workspaceJobPresentationStatus(job)} /></td><td><div className="customer-dash-table__actions"><ActionButton tone={submittedCount ? 'success' : 'secondary'} onClick={() => router.push(submittedCount ? '/customer/quotes' : `/customer/jobs/${job.id}`)}>{submittedCount ? 'Compare' : 'Open'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/customer/messages?jobId=${encodeURIComponent(job.id)}`)}>Message</ActionButton></div></td></tr>; })}</tbody></table></div>}
-            </section>
-
-            <section className="customer-dash-box">
-              <div className="customer-dash-box__head"><strong>Recent quote activity</strong><ActionButton tone="secondary" onClick={() => router.push('/customer/quotes')}>All quotes</ActionButton></div>
-              {metrics.recentQuotes.length === 0 ? <div className="customer-empty"><EmptyState compact title="No quote activity yet" description="Carrier responses will appear here after a load is published." /></div> : <div className="customer-dash-table-wrap"><table className="customer-dash-table"><thead><tr><th style={{ width: '30%' }}>Carrier</th><th style={{ width: '28%' }}>Load / route</th><th style={{ width: '14%' }}>Price</th><th style={{ width: '14%' }}>Status</th><th style={{ width: '14%' }}>Received</th><th style={{ width: '12%' }}>Message</th></tr></thead><tbody>{metrics.recentQuotes.map((bid) => { const job = jobById.get(bid.job_id); const route = job ? routeLabel(job) : null; const identity = bidderIdentity.identities.get(bid.id); const carrierName = identity?.displayName ?? bid.companies?.name ?? 'Carrier profile incomplete'; const carrier = identity?.companyId ? <MemberIdentityLink companyId={identity.companyId}>{carrierName}</MemberIdentityLink> : identity?.driverId ? <MemberIdentityLink driverId={identity.driverId}>{carrierName}</MemberIdentityLink> : carrierName; return <tr key={bid.id}><td><strong>{carrier}</strong></td><td><div className="customer-dash-table__route"><strong>{job ? `Load ${job.id.slice(0, 8).toUpperCase()}` : `Load ${bid.job_id.slice(0, 8).toUpperCase()}`}</strong><span>{route ? `${route.from} → ${route.to}` : 'Route unavailable'}</span></div></td><td><strong>{money(Number(bid.bid_price_gbp ?? bid.amount ?? 0), bid.currency ?? 'GBP')}</strong></td><td><StatusBadge value={bid.status} /></td><td>{when(bid.created_at)}</td><td><ActionButton tone="secondary" onClick={() => router.push(`/customer/messages?jobId=${encodeURIComponent(bid.job_id)}`)}>Message</ActionButton></td></tr>; })}</tbody></table></div>}
-            </section>
-
-            <section className="customer-dash-box">
-              <div className="customer-dash-box__head"><strong>Active deliveries</strong><ActionButton tone="secondary" onClick={() => router.push('/customer/tracking')}>Tracking board</ActionButton></div>
-              {metrics.activeDeliveries.length === 0 ? <div className="customer-empty"><EmptyState compact title="No active shipments" description="Execution appears here after the carrier begins the operational journey." /></div> : <div className="customer-dash-table-wrap"><table className="customer-dash-table"><thead><tr><th style={{ width: '36%' }}>Route</th><th style={{ width: '19%' }}>Pickup</th><th style={{ width: '19%' }}>Delivery</th><th style={{ width: '13%' }}>Status</th><th style={{ width: '13%' }}>Track</th></tr></thead><tbody>{metrics.activeDeliveries.slice(0, 8).map((job) => { const route = routeLabel(job); return <tr key={job.id}><td><div className="customer-dash-table__route"><strong>{route.from} → {route.to}</strong><span>{loadReference(job)}</span></div></td><td>{when(job.pickup_datetime)}</td><td>{when(job.delivery_datetime)}</td><td><StatusBadge value={workspaceJobPresentationStatus(job)} tone={metrics.delayed.includes(job) ? 'red' : undefined} /></td><td><div className="customer-dash-table__actions"><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Track</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/customer/messages?jobId=${encodeURIComponent(job.id)}`)}>Message</ActionButton></div></td></tr>; })}</tbody></table></div>}
-            </section>
-
-            <div className="customer-ops-grid-2">
-              <section className="customer-dash-box"><div className="customer-dash-box__head"><strong>Delivery photo evidence</strong><ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>Bookings</ActionButton></div>{metrics.deliveryPhotoJobs.length === 0 ? <div className="customer-empty"><EmptyState compact title="No delivery photos available" /></div> : <div className="customer-dash-table-wrap"><table className="customer-dash-table"><thead><tr><th>Load</th><th>Status</th><th>Open</th></tr></thead><tbody>{metrics.deliveryPhotoJobs.slice(0, 5).map((job) => { const route = routeLabel(job); return <tr key={job.id}><td><div className="customer-dash-table__route"><strong>{route.from} → {route.to}</strong><span>{job.delivery_photos?.length ?? 0} delivery photo(s)</span></div></td><td><StatusBadge value={workspaceJobPresentationStatus(job)} /></td><td><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Review</ActionButton></td></tr>; })}</tbody></table></div>}</section>
-              <section className="customer-dash-box"><div className="customer-dash-box__head"><strong>Invoice position</strong><ActionButton tone="secondary" onClick={() => router.push('/customer/invoices')}>Invoice register</ActionButton></div><div className="customer-dash-box__body"><div className="customer-dash-summary"><div className="customer-dash-summary__row"><span>Total invoices</span><strong>{invoiceCount(metrics.customerInvoices.length)}</strong></div><div className="customer-dash-summary__row"><span>Outstanding</span><strong>{invoiceCount(metrics.unpaidInvoices.length)}</strong></div><div className="customer-dash-summary__row"><span>Outstanding value</span><strong>{invoiceAmount(metrics.unpaidValue)}</strong></div><div className="customer-dash-summary__row"><span>Due within 7 days</span><strong>{invoiceCount(metrics.dueSoonInvoices.length)}</strong></div></div></div></section>
+        <div className="customer-dashboard-clean-grid">
+          <section className="customer-dash-box">
+            <div className="customer-dash-box__head">
+              <strong>Needs your attention</strong>
+              <ActionButton tone="secondary" onClick={() => router.push('/customer/action-centre')}>
+                Action Centre
+              </ActionButton>
             </div>
-          </main>
+            <div className="customer-dash-box__body">
+              {attentionItems.length ? (
+                <div className="customer-attention-list">
+                  {attentionItems.map((item) => (
+                    <button
+                      key={item.label}
+                      className="customer-attention-row"
+                      type="button"
+                      onClick={() => router.push(item.route)}
+                    >
+                      <span className="customer-attention-row__copy">
+                        <strong>{item.label}</strong>
+                        <span>{item.detail}</span>
+                      </span>
+                      <span className="customer-attention-row__count">{item.count}</span>
+                    </button>
+                  ))}
+                </div>
+              ) : attentionUnavailable ? (
+                <EmptyState
+                  title="Attention data unavailable"
+                  description="The dashboard cannot confirm that there are no customer actions until loads, quotes and invoices are available."
+                />
+              ) : attentionPartial ? (
+                <EmptyState
+                  title="Attention data is partial"
+                  description="The visible records are incomplete, so the dashboard does not claim that there are no customer actions."
+                />
+              ) : (
+                <EmptyState
+                  title="Nothing needs attention"
+                  description="There are no urgent customer actions right now."
+                />
+              )}
+            </div>
+          </section>
+
+          <section className="customer-dash-box">
+            <div className="customer-dash-box__head">
+              <strong>Quick actions</strong>
+            </div>
+            <div className="customer-dash-box__body">
+              <div className="customer-action-grid">
+                <ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>
+                  My Loads
+                </ActionButton>
+                <ActionButton tone="secondary" onClick={() => router.push('/customer/quotes')}>
+                  Quotes
+                </ActionButton>
+                <ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>
+                  Bookings
+                </ActionButton>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section className="customer-dash-box">
+          <div className="customer-dash-box__head">
+            <strong>Recent transport</strong>
+            <ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>
+              View all loads
+            </ActionButton>
+          </div>
+          <div className="customer-dash-box__body">
+            {metrics.recentJobs.length ? (
+              <div className="customer-table-wrap">
+                <table className="customer-transport-table">
+                  <thead>
+                    <tr>
+                      <th>Reference</th>
+                      <th>Route</th>
+                      <th>Pickup</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {metrics.recentJobs.map((job) => {
+                      const route = routeLabel(job);
+                      const status = customerLifecycleLabel(job);
+                      const action = customerJobAction(job);
+                      return (
+                        <tr key={job.id}>
+                          <td>
+                            <strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong>
+                            <span>{job.customer_reference || job.booking_reference || 'No customer ref'}</span>
+                          </td>
+                          <td>
+                            <strong>{route.from} → {route.to}</strong>
+                          </td>
+                          <td>{when(job.pickup_datetime)}</td>
+                          <td><StatusBadge value={status} /></td>
+                          <td>
+                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                              <ActionButton
+                                tone="secondary"
+                                onClick={() => router.push(`${action.href}${action.href.includes('?') ? '&' : '?'}job=${job.id}`)}
+                              >
+                                {action.label}
+                              </ActionButton>
+                              <ActionButton
+                                tone="secondary"
+                                onClick={() => router.push(`/customer/messages?jobId=${encodeURIComponent(job.id)}`)}
+                              >
+                                Message
+                              </ActionButton>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : jobsDataset.availability !== 'available' ? (
+              <EmptyState
+                title="Transport data unavailable"
+                description="Recent transport cannot be confirmed until the jobs source is available."
+              />
+            ) : jobsDataset.partialData || jobsDataset.limitedData ? (
+              <EmptyState
+                title="Transport data is partial"
+                description="The visible jobs dataset is incomplete, so the dashboard does not claim that there is no transport yet."
+              />
+            ) : (
+              <EmptyState
+                title="No transport yet"
+                description="Post your first load when you are ready to request carrier quotes."
+              />
+            )}
+          </div>
+        </section>
+
+        <div className="customer-dashboard-footer-links">
+          <button type="button" onClick={() => router.push('/customer/bookings')}>
+            POD & bookings <span>{metricState(jobsDataset, metrics.completedWithPod.length)}</span>
+          </button>
+          <button type="button" onClick={() => router.push('/customer/invoices')}>
+            Invoices <span>{metricState(invoicesDataset, metrics.unpaidInvoices.length)}</span>
+          </button>
+          <button type="button" onClick={() => router.push('/customer/messages')}>Messages</button>
+          <button type="button" onClick={() => router.push('/customer/disputes')}>Disputes</button>
+          <button type="button" onClick={() => router.push('/customer/event-log')}>Event Log</button>
         </div>
       </div>
     </PageFrame>

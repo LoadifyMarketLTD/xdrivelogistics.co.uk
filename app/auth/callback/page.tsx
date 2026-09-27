@@ -170,6 +170,7 @@ export default function AuthCallbackPage() {
         const hasTokenHash = Boolean(tokenHash);
         const hasAnyAuthSignal = hasSessionTokens || hasCode || hasTokenHash;
         const callbackRecoveryType = getCallbackRecoveryType(signals.queryType, signals.hashType, signals.flow);
+        const isTeamInvite = (signals.flow ?? '').trim().toLowerCase() === 'team-invite';
         const otpType = getOtpType(signals.queryType, signals.hashType, signals.flow) ?? 'recovery';
         setRecoveryType(callbackRecoveryType);
 
@@ -258,6 +259,23 @@ export default function AuthCallbackPage() {
         if (verifiedOtpType === 'invite' || verifiedOtpType === 'recovery') {
           router.replace(RESET_PASSWORD_PATH);
           return;
+        }
+
+        if (isTeamInvite) {
+          const {
+            data: { session },
+          } = await withTimeout(supabase.auth.getSession(), AUTH_CALLBACK_TIMEOUT_MS);
+          const accessToken = session?.access_token;
+          if (!accessToken) throw new Error('Team invitation session is unavailable.');
+
+          const acceptResponse = await fetch('/api/team-invitations/accept', {
+            method: 'POST',
+            headers: { Authorization: 'Bearer ' + accessToken },
+          });
+          const acceptPayload = (await acceptResponse.json().catch(() => ({}))) as { error?: string };
+          if (!acceptResponse.ok) {
+            throw new Error(acceptPayload.error ?? 'The team invitation could not be activated.');
+          }
         }
 
         await redirectAuthenticatedUser(sessionUser, callbackRecoveryType);

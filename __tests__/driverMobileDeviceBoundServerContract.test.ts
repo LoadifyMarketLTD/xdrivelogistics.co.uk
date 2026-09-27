@@ -28,6 +28,7 @@ describe('Driver mobile device-bound server contract', () => {
     for (const source of [statusRoute, evidenceRoute, confirmationRoute]) {
       expect(source).toContain('const driver = await requireDriver(request)');
     }
+    expect(statusRoute).toContain("'accepted'");
     expect(statusRoute).toContain("scoped.rpc('driver_update_job_status_atomic'");
     expect(evidenceRoute).toContain(".from('pod-photos')");
     expect(evidenceRoute).toContain(".eq('assigned_driver_id', driver.driverId)");
