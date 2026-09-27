@@ -3,7 +3,7 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
 
--- Supabase documents auth.role() as deprecated. Preserve service-role support
+-- Use the current JWT role claim helper. Preserve service-role support
 -- through the JWT role claim and keep browser/user execution limited to an
 -- active Platform Owner or an active member of an active company.
 CREATE OR REPLACE FUNCTION public.next_invoice_number(p_company_id uuid)
