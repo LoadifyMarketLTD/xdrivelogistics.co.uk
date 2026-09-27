@@ -3,28 +3,37 @@ import path from 'node:path';
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 
-describe('Broker approved prototype contract', () => {
+describe('Broker cleaned workspace contract', () => {
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
   const dashboard = read('app/broker/BrokerDashboardHome.tsx');
 
-  it('uses the dedicated Broker prototype navigation rather than Driver navigation', () => {
-    for (const label of ['Broker Dashboard','Customers','Customer Loads','Post Load','Carrier Quotes','Margin / Profit','Active Jobs','POD Review','Disputes','Customer Invoices','Carrier Costs','Settings','Team','Carrier Network']) {
+  it('exposes the complete Broker workflow navigation', () => {
+    for (const label of ['Broker Dashboard','Action Centre','Enquiries','Customers','Customer Loads','Post Load','Carrier Quotes','Compare Quotes','Awards','Margin / Profit','Active Jobs','Diary','POD Review','Disputes','Messages','Event Log','Carrier Network','Finance','Customer Invoices','Carrier Costs','Team','Settings']) {
       expect(shell).toContain(`label: '${label}'`);
     }
     expect(shell).toContain("if (role === 'broker') return composeBrokerPrototypeNav()");
   });
 
-  it('keeps the approved six Broker KPI strip backed by live workspace data', () => {
-    for (const label of ['Open Loads','Quotes Received','Awaiting Award','Active Jobs','POD Missing','Gross Margin']) {
-      expect(dashboard).toContain(`label="${label}"`);
+  it('keeps only four primary Broker signals on the dashboard', () => {
+    for (const label of ['Open loads','Awaiting award','Active jobs','Gross margin']) {
+      expect(dashboard).toContain(`<span>${label}</span>`);
     }
-    expect(dashboard).toContain('useCompanyWorkspaceData()');
-    expect(dashboard).not.toContain('BRK-865');
+    expect(dashboard).not.toContain('Search & filters');
+    expect(dashboard).not.toContain('Operational action queue');
+    expect(dashboard).not.toContain('Commercial exposure');
   });
 
   it('keeps broker commercial and execution workflows connected', () => {
-    for (const href of ['/broker/post-load','/broker/bids','/broker/jobs','/broker/pod-review','/broker/finance','/broker/margins']) {
+    for (const href of ['/broker/post-load','/broker/enquiries','/broker/bids','/broker/jobs','/broker/pod-review','/broker/customer-invoices','/broker/carrier-costs','/broker/margins']) {
       expect(dashboard).toContain(href);
     }
+  });
+
+  it('mirrors the same driver lifecycle in Broker language', () => {
+    for (const label of ['Driver assigned','Driver accepted','Driver en route to collection','Driver at collection','Goods collected','In transit','Driver at delivery','Delivered']) {
+      expect(dashboard).toContain(label);
+    }
+    expect(dashboard).toContain('workspaceJobPresentationStatus');
+    expect(dashboard).toContain('classifyWorkspaceJobStage');
   });
 });

@@ -33,3 +33,41 @@
 .driver-reference-dashboard .driver-dashboard-alert-row {
   min-height: 42px;
 }
+
+
+/* Driver home cleanup: execution first, commercial tools secondary. */
+.driver-action-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.driver-dashboard-footer-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.driver-dashboard-footer-links button {
+  min-height: 34px;
+  padding: 0 12px;
+  border: 1px solid #d8dee9;
+  border-radius: 4px;
+  background: #fff;
+  color: #334155;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.driver-dashboard-footer-links button:hover {
+  border-color: #1d57d8;
+  color: #1d57d8;
+}
+
+@media (max-width: 900px) {
+  .driver-action-grid {
+    grid-template-columns: 1fr;
+  }
+}
