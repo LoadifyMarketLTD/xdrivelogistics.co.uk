@@ -87,7 +87,7 @@ function SectionGrid({ sections, mode }: { sections: DetailSection[]; mode: Visu
         >
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#F5A300] via-[#1D57D8] to-transparent opacity-80" />
           <div className="flex items-center justify-between gap-4">
-            <p className="text-[0.68rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">{modeLabel[mode]}</p>
+            <p className="text-[0.68rem] font-black uppercase tracking-[0.18em] text-[#8A6100]">{modeLabel[mode]}</p>
             <span className="inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-[#DDE5EF] bg-[#F8FAFC] px-2 text-xs font-black text-[#60758F]">0{index + 1}</span>
           </div>
           <h2 className="mt-5 max-w-[92%] text-[2.15rem] tracking-tight text-[#102447]">{section.title}</h2>
@@ -254,7 +254,7 @@ export function MarketingDetailPage({
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {footerGroups.map(group => (
                 <div key={group.title}>
-                  <h2 className="text-[0.72rem] font-black uppercase tracking-[0.19em] text-[#F5A300]">{group.title}</h2>
+                  <h2 className="text-[0.72rem] font-black uppercase tracking-[0.19em] text-[#8A6100]">{group.title}</h2>
                   <div className="mt-5 grid gap-3 text-sm font-black text-[#163568]">
                     {group.links.map(([label, href]) => <Link key={href} href={href} className="transition hover:text-[#0E3FA9]">{label}</Link>)}
                   </div>
