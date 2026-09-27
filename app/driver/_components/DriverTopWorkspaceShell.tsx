@@ -23,6 +23,7 @@ const DRIVER_PRIMARY_NAV = [
   { id: 'loads', label: 'Loads', href: '/driver/loads' },
   { id: 'quotes', label: 'Quotes', href: '/driver/quotes' },
   { id: 'won-work', label: 'Won Work', href: '/driver/won-work' },
+  { id: 'load-alerts', label: 'Auto-match & Alerts', href: '/driver/load-alerts' },
   { id: 'vision', label: 'Freight Vision', href: '/driver/freight-vision' },
   { id: 'finance', label: 'Finance', href: '/driver/finance' },
   { id: 'drivers', label: 'Drivers & Vehicles', href: '/driver/drivers-vehicles' },
@@ -43,7 +44,7 @@ const DRIVER_SETTINGS_MENU = [
 ] as const;
 
 const DRIVER_COMMERCIAL_NAV_IDS = new Set(['directory', 'nearby', 'returns', 'loads', 'quotes', 'won-work', 'vision']);
-const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['finance', 'drivers']);
+const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['load-alerts', 'finance', 'drivers']);
 
 export default function DriverTopWorkspaceShell({ children }: { children: ReactNode }) {
   const router = useRouter();

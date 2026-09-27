@@ -151,7 +151,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [notes, setNotes] = useState('');
-  const [collectionPhoto, setCollectionPhoto] = useState<string | null>(null);
+  const [collectionPhotos, setCollectionPhotos] = useState<string[]>([]);
   const [deliveryPhotos, setDeliveryPhotos] = useState<string[]>([]);
   const [recipientName, setRecipientName] = useState('');
   const [signing, setSigning] = useState(false);
@@ -180,7 +180,9 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     const row = data as DbJob;
     setJob(row);
     setNotes(row.driver_notes ?? '');
-    setCollectionPhoto(row.collection_photo_url ?? null);
+    setCollectionPhotos(Array.isArray(row.pickup_photos) && row.pickup_photos.length
+      ? row.pickup_photos
+      : row.collection_photo_url ? [row.collection_photo_url] : []);
     setDeliveryPhotos(Array.isArray(row.delivery_photos) ? row.delivery_photos : []);
     setRecipientName(row.client_signature_name ?? '');
 
@@ -210,13 +212,25 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     return path;
   };
 
-  const selectCollectionPhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const selectCollectionPhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (!files.length) return;
     setWorking(true); setError('');
-    try { setCollectionPhoto(await uploadImage(file, 'collection')); }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Collection photo upload failed.'); }
-    finally { setWorking(false); }
+    try {
+      const uploaded: string[] = [];
+      for (const file of files) uploaded.push(await uploadImage(file, 'collection'));
+      const auth = await authHeader();
+      if (!auth) throw new Error('Your session has expired. Sign in again.');
+      const response = await fetch(`/api/driver/jobs/${encodeURIComponent(jobId)}/collection-evidence`, {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ photoPaths: uploaded }),
+      });
+      const payload = await response.json().catch(() => ({})) as { photoPaths?: string[]; error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Collection evidence could not be linked.');
+      setCollectionPhotos(Array.isArray(payload.photoPaths) ? payload.photoPaths : (current) => [...new Set([...current, ...uploaded])]);
+    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Collection photo upload failed.'); }
+    finally { setWorking(false); event.target.value = ''; }
   };
 
   const selectDeliveryPhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -273,8 +287,8 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     setWorking(true); setError(''); setMessage('');
     const fields: Record<string, unknown> = {};
     if (nextStatus === 'loaded') {
-      if (!collectionPhoto) { setError('A loading photo is required before the job can be marked loaded.'); setWorking(false); return; }
-      fields.p_collection_photo_url = collectionPhoto;
+      if (!collectionPhotos.length) { setError('At least one loading photo is required before the job can be marked loaded.'); setWorking(false); return; }
+      fields.p_collection_photo_url = collectionPhotos[0];
     }
     if (nextStatus === 'delivered') {
       const signature = signatureData();
@@ -444,7 +458,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
           {loadSections.map((section) => <Panel key={section.title} title={section.title}><div className="driver-detail-grid">{section.items.map((item) => <div className="driver-detail-item" key={`${section.title}-${item.label}`}><span>{item.label}</span><strong>{item.value}</strong></div>)}</div></Panel>)}
 
-          {(currentStatus === 'on_site_pickup' || currentStatus === 'loaded') && <Panel title="Collection evidence" description="A loading image is mandatory before confirming loaded."><input ref={collectionInput} type="file" accept="image/*" capture="environment" hidden onChange={selectCollectionPhoto} /><div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}><StatusBadge value={collectionPhoto ? 'Photo ready' : 'Photo required'} tone={collectionPhoto ? 'green' : 'orange'} /><ActionButton tone="secondary" disabled={working} onClick={() => collectionInput.current?.click()}>{collectionPhoto ? 'Replace loading photo' : 'Take loading photo'}</ActionButton></div></Panel>}
+          {(currentStatus === 'on_site_pickup' || currentStatus === 'loaded') && <Panel title="Collection evidence" description="One or more loading photos are required before confirming loaded."><input ref={collectionInput} type="file" accept="image/*" capture="environment" multiple hidden onChange={selectCollectionPhotos} /><div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}><StatusBadge value={collectionPhotos.length ? `${collectionPhotos.length} photo${collectionPhotos.length === 1 ? '' : 's'} ready` : 'Photos required'} tone={collectionPhotos.length ? 'green' : 'orange'} /><ActionButton tone="secondary" disabled={working} onClick={() => collectionInput.current?.click()}>Add loading photos ({collectionPhotos.length})</ActionButton></div></Panel>}
 
           {currentStatus === 'on_site_delivery' && <Panel title="Delivery evidence" description="Photo, recipient name and signature are all required."><input ref={deliveryInput} type="file" accept="image/*" capture="environment" multiple hidden onChange={selectDeliveryPhotos} /><div style={{ display: 'grid', gap: 7 }}><ActionButton tone="secondary" disabled={working} onClick={() => deliveryInput.current?.click()}>Add delivery photos ({deliveryPhotos.length})</ActionButton><input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} /><canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} /><ActionButton tone="secondary" onClick={clearSignature}>Clear signature</ActionButton></div></Panel>}
         </div>
