@@ -1,4 +1,4 @@
-﻿-- Fleet Manager persisted role foundation.
+-- Fleet Manager persisted role foundation.
 -- Adds the dedicated company role required by the CX role/function blueprint and
 -- extends only the fleet-operational RPCs that Fleet Manager must execute.
 
