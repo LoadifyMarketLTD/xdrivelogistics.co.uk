@@ -104,7 +104,7 @@ export default function DriverNearbyPage() {
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-live-availability-prototype">
         <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Live Availability</b></span>
+          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Who's Nearby</b></span>
           <div className="sub-actions">
             <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); }}>Clear</button>
             <button type="button" className="btn primary" onClick={() => void loadNearby()} disabled={loading}>{loading ? 'Refreshing…' : 'Search'}</button>
@@ -121,14 +121,14 @@ export default function DriverNearbyPage() {
             <div className="filter"><span className="label">Groups</span><label className="check"><input type="checkbox" checked readOnly />Exchange visible</label></div>
           </aside>
           <main className="main">
-            <div className="head"><div><h1>Live Availability</h1><p>Find live or future vehicle capacity by location, status, member, vehicle and group</p></div></div>
+            <div className="head"><div><h1>Who's Nearby</h1><p>Find exchange-visible nearby vehicle capacity by location, member and vehicle</p></div></div>
             {error && <div className="vision-note">{error}</div>}
             <div className="avail-topbar">
               <div className="avail-view-tabs"><button type="button" className="active">Map View</button><button type="button">List View</button></div>
               <div className="avail-audience"><button type="button" className="active">All</button><button type="button">Drivers & Sub-contractors</button><button type="button">Other Drivers</button></div>
               <button type="button" className="text-action" disabled>Open map in new window</button>
             </div>
-            <div className="toolbar"><b>Live Availability</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button></div>
+            <div className="toolbar"><b>Who's Nearby</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button></div>
             <div className="availgrid">
               <div className="map availmap">
                 <div className="mapnote">Privacy-rounded exchange availability. Exact driver coordinates remain protected.</div>
