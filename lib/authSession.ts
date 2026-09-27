@@ -127,7 +127,7 @@ const resolveFinanceAccess = (
     readMetadataFlag(sessionUser.app_metadata, 'finance_view') ||
     readMetadataFlag(sessionUser.app_metadata, 'dispatcher_finance_access');
 
-  if (explicitFinanceFlag || membershipRole === 'dispatcher') return 'limited';
+  if (explicitFinanceFlag || membershipRole === 'fleet_manager' || membershipRole === 'dispatcher') return 'limited';
   return 'hidden';
 };
 

@@ -129,7 +129,7 @@ function fail(id, note = '') { return result(id, false, note); }
 
 /** Run a shell command; return { ok, stdout, stderr } */
 function run(cmd, options = {}) {
-  const r = spawnSync(cmd, { shell: true, cwd: ROOT, ...options, encoding: 'utf8' });
+  const r = spawnSync(cmd, { shell: true, cwd: ROOT, maxBuffer: 20 * 1024 * 1024, ...options, encoding: 'utf8' });
   return {
     ok: r.status === 0,
     stdout: r.stdout ?? '',
@@ -497,7 +497,7 @@ export function checkGitSecrets(readHistory = readGitSecretHistory) {
 function checkLint() {
   if (SKIP_LINT) return [result('PR-02-03', null, 'Lint skipped (--skip-lint)')];
   console.log('  Running ESLint…');
-  const r = run('npx eslint . --max-warnings=0 --format=compact 2>&1 | tail -20');
+  const r = run('npx eslint . --max-warnings=0');
   return [r.ok
     ? pass('PR-02-03', 'ESLint passed with 0 warnings/errors')
     : fail('PR-02-03', `ESLint failed:\n${(r.stdout + r.stderr).slice(0, 400)}`)];
@@ -507,7 +507,7 @@ function checkLint() {
 function checkTypecheck() {
   if (SKIP_LINT) return [result('PR-02-02', null, 'Typecheck skipped (--skip-lint)')];
   console.log('  Running TypeScript typecheck…');
-  const r = run('npx tsc --noEmit 2>&1 | tail -30');
+  const r = run('npx tsc --noEmit');
   return [r.ok
     ? pass('PR-02-02', 'TypeScript typecheck passed — 0 errors')
     : fail('PR-02-02', `TypeScript errors:\n${(r.stdout + r.stderr).slice(0, 500)}`)];
@@ -517,7 +517,7 @@ function checkTypecheck() {
 function checkUnitTests() {
   if (SKIP_TESTS) return [result('UNIT-TESTS', null, 'Unit tests skipped (--skip-tests)')];
   console.log('  Running unit tests (Vitest)…');
-  const r = run('npx vitest run --reporter=verbose 2>&1 | tail -40');
+  const r = run('npx vitest run --reporter=verbose');
   const summary = (r.stdout + r.stderr).slice(-600);
   return [r.ok
     ? pass('UNIT-TESTS', `All unit tests passed\n${summary}`)
