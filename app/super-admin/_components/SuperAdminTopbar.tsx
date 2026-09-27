@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '../../components/AuthContext';
 import {
   ChevronDown, CircleUserRound, Menu,
   PanelLeftClose, PanelLeftOpen, RefreshCw, Search,
@@ -44,6 +45,7 @@ function PlatformSearch() {
 
 function OwnerMenu() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
 
   useEffect(() => setOpen(false), [pathname]);
@@ -71,8 +73,10 @@ function OwnerMenu() {
         <div className={styles.ownerMenu} role="menu">
           <div className={styles.ownerMenuIdentity} role="presentation">
             <strong>Platform Owner</strong>
-            <span>Authenticated platform-control session</span>
+            <span>{user?.email ?? 'Account details unavailable'}</span>
+            <span>Account status: {user?.accountStatus ?? 'Unavailable'}</span>
           </div>
+          <Link href="/super-admin/account" role="menuitem">My account</Link>
           <Link href="/auth/sign-out" role="menuitem" className={styles.ownerMenuDanger}>Sign out</Link>
         </div>
       ) : null}
