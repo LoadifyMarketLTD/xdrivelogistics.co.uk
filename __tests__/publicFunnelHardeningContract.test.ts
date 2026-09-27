@@ -13,6 +13,10 @@ describe('public funnel hardening', () => {
   const generic = read('app/onboarding/[token]/page.tsx');
   const marketing = read('app/(marketing)/_components/MarketingDetailPage.tsx');
   const nextConfig = read('next.config.mjs');
+  const homepage = read('app/page.tsx');
+  const loginLayout = read('app/login/layout.tsx');
+  const registerLayout = read('app/register/layout.tsx');
+  const onboardingLayout = read('app/onboarding/layout.tsx');
 
   it('applies middleware CSP to homepage, auth and onboarding routes', () => {
     expect(middleware).toContain("const styleSrc = `'self' 'unsafe-inline'`");
@@ -78,6 +82,12 @@ describe('public funnel hardening', () => {
     expect(generic).toContain('const nextFormData = { ...formData, [markerKey]: data.path ??');
     expect(generic).toContain("currentStep: 'document_upload'");
     expect(generic).toContain('calculateOnboardingProgress');
+  });
+
+  it('renders public and account-entry routes at request time for nonce-based CSP', () => {
+    for (const source of [homepage, loginLayout, registerLayout, onboardingLayout]) {
+      expect(source).toContain("export const dynamic = 'force-dynamic'");
+    }
   });
 
   it('serves metadata in the initial head for Lighthouse and HTML-limited bots', () => {

@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import './register-responsive.css';
 
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Create Account',
   robots: { index: false, follow: false },

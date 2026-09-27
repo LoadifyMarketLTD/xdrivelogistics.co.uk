@@ -2,6 +2,10 @@ import { MarketingDetailPage } from './(marketing)/_components/MarketingDetailPa
 import { AuthRedirectGuard } from './components/AuthRedirectGuard';
 import { buildMarketingMetadata } from '../lib/marketingMetadata';
 
+// Nonce-based CSP requires request-time rendering so Next can attach the
+// middleware nonce to its inline bootstrap scripts.
+export const dynamic = 'force-dynamic';
+
 export const metadata = buildMarketingMetadata({
   path: '/',
   title: 'XDrive Logistics | Courier & Freight Exchange Platform',
