@@ -66,6 +66,7 @@ type JobRow = {
   company_id: string;
   assigned_driver_id: string | null;
   created_at: string;
+  updated_at: string;
   pickup_location: string | null;
   pickup_postcode: string | null;
   delivery_location: string | null;
@@ -75,6 +76,7 @@ type JobRow = {
   awarded_carrier_company_id: string | null;
   delivery_photos: string[] | null;
   delivery_signature_data: string | null;
+  pod_required?: boolean | null;
 };
 
 type CompanyRow = { id: string; name: string };
@@ -172,9 +174,9 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  const supportedSections = ['jobs', 'allocations', 'deliveries', 'pods', 'active-jobs', 'pending-jobs', 'completed-jobs', 'driver-availability', 'fleet-positions', 'disputes'];
+  const supportedSections = ['jobs', 'allocations', 'deliveries', 'pods', 'active-jobs', 'pending-jobs', 'completed-jobs', 'jobs-at-risk', 'delivery-evidence', 'tracking-eta', 'driver-availability', 'fleet-positions', 'disputes'];
   if (!supportedSections.includes(section)) {
-    return respond(400, { error: 'Invalid section. Use jobs, quotes, allocations, deliveries, pods, active-jobs, pending-jobs, completed-jobs, driver-availability, fleet-positions, or disputes.' });
+    return respond(400, { error: 'Invalid section. Use jobs, quotes, allocations, deliveries, pods, active-jobs, pending-jobs, completed-jobs, jobs-at-risk, delivery-evidence, tracking-eta, driver-availability, fleet-positions, or disputes.' });
   }
 
   if (section === 'driver-availability' || section === 'fleet-positions') {
@@ -289,7 +291,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabaseAdmin
     .from('jobs')
-    .select('id, status, company_id, assigned_driver_id, created_at, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, awarded_carrier_company_id, delivery_photos, delivery_signature_data', { count: 'exact' })
+    .select('id, status, company_id, assigned_driver_id, created_at, updated_at, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, awarded_carrier_company_id, delivery_photos, delivery_signature_data, pod_required', { count: 'exact' })
     .order('created_at', { ascending: false });
 
   if (section === 'allocations') query = query.not('assigned_driver_id', 'is', null);
@@ -297,6 +299,16 @@ export async function GET(request: NextRequest) {
   if (section === 'active-jobs') query = query.in('status', ['allocated', 'accepted', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
   if (section === 'pending-jobs') query = query.in('status', ['posted', 'quoted', 'awarded']);
   if (section === 'completed-jobs') query = query.in('status', ['delivered', 'invoiced', 'paid']);
+  if (section === 'jobs-at-risk') {
+    const staleBefore = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    query = query
+      .in('status', ['awarded', 'allocated', 'accepted', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery'])
+      .or(`assigned_driver_id.is.null,updated_at.lt.${staleBefore}`);
+  }
+  if (section === 'delivery-evidence') query = query.in('status', ['delivered', 'invoiced', 'paid']);
+  if (section === 'tracking-eta') query = query
+    .in('status', ['allocated', 'accepted', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery'])
+    .not('assigned_driver_id', 'is', null);
   if (section === 'pods') query = query.or('delivery_signature_data.not.is.null,delivery_photos.not.is.null');
   if (searchMatches && 'ids' in searchMatches) query = query.in('id', searchMatches.ids);
   query = query.range(offset, offset + limit - 1);
@@ -308,6 +320,10 @@ export async function GET(request: NextRequest) {
   const mappedResources = await withCompanyAndDriverMaps((jobs ?? []) as JobRow[]);
   if ('error' in mappedResources) return respond(500, { error: mappedResources.error });
   const { companyNameById, driverById, bidCountByJobId } = mappedResources;
+  const trackingResult = section === 'tracking-eta'
+    ? await loadLatestLocations(((jobs ?? []) as JobRow[]).map((job) => job.assigned_driver_id).filter((value): value is string => Boolean(value)))
+    : { map: new Map<string, LatestLocationRow>(), error: null as string | null };
+  if (trackingResult.error) return respond(500, { error: trackingResult.error });
 
   return respond(200, {
     section,
@@ -324,6 +340,30 @@ export async function GET(request: NextRequest) {
         bids_count: bidCountByJobId.get(job.id) ?? 0,
         pod_photos_count: Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0,
         pod_signature_present: Boolean(job.delivery_signature_data),
+        ...(section === 'jobs-at-risk' ? {
+          risk_reasons: [
+            ...(!job.assigned_driver_id ? ['No driver assigned'] : []),
+            ...(Date.now() - new Date(job.updated_at).getTime() >= 60 * 60 * 1000 ? ['No lifecycle update for at least 60 minutes'] : []),
+          ],
+        } : {}),
+        ...(section === 'delivery-evidence' ? {
+          evidence_state: Boolean(job.delivery_signature_data) && Array.isArray(job.delivery_photos) && job.delivery_photos.length > 0
+            ? 'complete'
+            : Boolean(job.delivery_signature_data) || (Array.isArray(job.delivery_photos) && job.delivery_photos.length > 0)
+              ? 'partial'
+              : 'missing',
+        } : {}),
+        ...(section === 'tracking-eta' ? (() => {
+          const location = job.assigned_driver_id ? trackingResult.map.get(job.assigned_driver_id) ?? null : null;
+          const embedded = coordinatesFromLocation(location?.location);
+          const lat = location?.lat ?? embedded.lat;
+          const lng = location?.lng ?? embedded.lng;
+          return {
+            telemetry_recorded_at: location?.recorded_at ?? null,
+            telemetry_freshness: telemetryFreshness(location?.recorded_at),
+            telemetry_position: lat != null && lng != null ? `${lat.toFixed(5)}, ${lng.toFixed(5)}` : null,
+          };
+        })() : {}),
       };
     }),
   });
