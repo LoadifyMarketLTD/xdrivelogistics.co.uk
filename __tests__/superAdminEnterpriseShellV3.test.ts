@@ -109,8 +109,10 @@ describe('MASTER CONTRACT FINAL v3 — enterprise shell', () => {
     expect(topbar).not.toContain('href="/super-admin/action-centre"');
     expect(topbar).not.toContain('href="/super-admin/notifications"');
     expect(workspace).toContain("label: 'Platform Overview', href: '/super-admin/platform'");
+    expect(topbar).toContain('user?.email');
+    expect(topbar).toContain('href="/super-admin/account"');
     expect(topbar).toContain('href="/auth/sign-out"');
-    expect(topbar).toContain('Authenticated platform-control session');
+    expect(topbar).not.toContain('Authenticated platform-control session');
     expect(topbar).not.toContain('href="/super-admin" role="menuitem">Command Centre</Link>');
     expect(topbar).not.toContain('href="/super-admin/directory" role="menuitem">Explore all areas</Link>');
     expect(topbar).not.toContain('href="/super-admin/platform" role="menuitem">Platform Overview</Link>');
