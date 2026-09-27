@@ -5,7 +5,7 @@ import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  AlertTriangle, Bell, ChevronDown, CircleUserRound, Menu,
+  ChevronDown, CircleUserRound, Menu,
   PanelLeftClose, PanelLeftOpen, RefreshCw, Search,
 } from 'lucide-react';
 import styles from './SuperAdminCardNavigationShell.module.css';
@@ -118,13 +118,6 @@ export default function SuperAdminTopbar({ collapsed, mobileOpen, onToggleSideba
             <span>Refresh Live Data</span>
           </button>
         ) : null}
-        <Link href="/super-admin/action-centre" className={styles.topbarActionLink}>
-          <AlertTriangle size={18} aria-hidden="true" />
-          <span>Action Centre</span>
-        </Link>
-        <Link href="/super-admin/notifications" className={styles.topbarIconLink} aria-label="Notifications">
-          <Bell size={20} aria-hidden="true" />
-        </Link>
         <OwnerMenu />
       </div>
     </header>
