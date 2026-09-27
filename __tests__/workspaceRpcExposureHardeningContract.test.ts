@@ -20,9 +20,12 @@ describe('workspace RPC exposure hardening contract', () => {
     expect(migration).toContain("has_function_privilege('authenticated', 'public.get_expiring_vehicle_documents(integer)'::regprocedure, 'EXECUTE')");
   });
 
-  it('keeps service-role execution for server-side/internal workflows', () => {
+  it('keeps server-side CPC evaluation while hardening legacy Driver go-online', () => {
     expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.driver_has_valid_cpc(uuid)');
-    expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.get_expiring_vehicle_documents(integer)');
-    expect(migration.match(/TO service_role;/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(migration).toContain('CREATE OR REPLACE FUNCTION public.driver_go_online()');
+    expect(migration).toContain("COALESCE(d.status::text, '') = 'active'");
+    expect(migration).toContain('COALESCE(d.app_access, false) = true');
+    expect(migration).toContain('GRANT EXECUTE ON FUNCTION public.driver_go_online() TO authenticated, service_role');
+    expect(migration).not.toContain('GRANT EXECUTE ON FUNCTION public.get_expiring_vehicle_documents(integer)');
   });
 });

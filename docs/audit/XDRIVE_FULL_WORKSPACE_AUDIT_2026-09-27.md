@@ -114,7 +114,7 @@ A forward-only hardening migration is prepared locally:
 
 `supabase/migrations/20260927010354_harden_workspace_rpc_exposure.sql`
 
-It pins the notification classifier search path and removes direct authenticated execution from the two internal compliance helpers while preserving `service_role` execution. Dedicated contract tests are PASS.
+It pins the notification classifier search path, removes direct authenticated execution from the two internal compliance helpers, and hardens the legacy `driver_go_online()` SECURITY DEFINER RPC so only an active profile with an active Driver row and `app_access=true` can mark itself available. `driver_has_valid_cpc(uuid)` remains available to server-side/internal callers; the unused `get_expiring_vehicle_documents(integer)` helper is no longer directly executable by authenticated users. Dedicated contract tests are PASS.
 
 **Production mutation status:** NOT APPLIED.
 
