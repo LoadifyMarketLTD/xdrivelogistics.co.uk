@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { classifyWorkspaceJobStage } from '../../../../lib/jobs/workspaceJobStage';
+import { supabase } from '../../../../lib/supabaseClient';
 import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../../components/workspace/useCompanyWorkspaceData';
 import { useOperationsIntelligence } from '../../../components/workspace/useOperationsIntelligence';
 import { OperationalSignalStrip } from '../../../components/workspace/OperationalConvergence';
@@ -21,6 +22,14 @@ const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not set';
 
+const toLocalDateTime = (value: string | null | undefined) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  const local = new Date(parsed.getTime() - parsed.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+};
+
 export default function FleetResourcesPage() {
   const data = useCompanyWorkspaceData();
   const intelligence = useOperationsIntelligence(data.companyId);
@@ -29,9 +38,66 @@ export default function FleetResourcesPage() {
   const [availability, setAvailability] = useState('all');
   const [tracking, setTracking] = useState<'all' | 'live' | 'stale' | 'missing'>('all');
   const [attentionOnly, setAttentionOnly] = useState(false);
+  const [futureDriverId, setFutureDriverId] = useState<string | null>(null);
+  const [futurePositionDraft, setFuturePositionDraft] = useState('');
+  const [futureDateDraft, setFutureDateDraft] = useState('');
+  const [futureWorking, setFutureWorking] = useState(false);
+  const [futureError, setFutureError] = useState('');
+  const [futureNotice, setFutureNotice] = useState('');
 
   const refreshAll = async () => {
     await Promise.all([data.refresh(), intelligence.refresh()]);
+  };
+
+  const openFuturePosition = (driverId: string, position: string | null | undefined, date: string | null | undefined) => {
+    setFutureDriverId(driverId);
+    setFuturePositionDraft(position ?? '');
+    setFutureDateDraft(toLocalDateTime(date));
+    setFutureError('');
+    setFutureNotice('');
+  };
+
+  const saveFuturePosition = async () => {
+    if (!futureDriverId || !data.companyId) return;
+    if (futurePositionDraft.trim().length > 160) {
+      setFutureError('Future position must be 160 characters or fewer.');
+      return;
+    }
+    const futureDate = futureDateDraft ? new Date(futureDateDraft) : null;
+    if (futureDate && (!Number.isFinite(futureDate.getTime()) || futureDate.getTime() <= Date.now())) {
+      setFutureError('Future-position date/time must be in the future.');
+      return;
+    }
+    setFutureWorking(true);
+    setFutureError('');
+    setFutureNotice('');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setFutureError('Your session has expired. Sign in again.');
+      setFutureWorking(false);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/admin/drivers/${encodeURIComponent(futureDriverId)}/future-position`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          companyId: data.companyId,
+          futurePosition: futurePositionDraft.trim() || null,
+          futureDate: futureDate ? futureDate.toISOString() : null,
+        }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Future position could not be updated.');
+      setFutureNotice(futurePositionDraft.trim() ? 'Future position published.' : 'Future position cleared.');
+      setFutureDriverId(null);
+      await intelligence.refresh();
+    } catch (reason) {
+      setFutureError(reason instanceof Error ? reason.message : 'Future position could not be updated.');
+    } finally {
+      setFutureWorking(false);
+    }
   };
 
   const latestLocations = useMemo(() => {
@@ -153,11 +219,24 @@ export default function FleetResourcesPage() {
 
       {data.error && <AlertBanner tone="warning">{data.error}</AlertBanner>}
       {intelligence.error && <AlertBanner tone="warning">{intelligence.error}</AlertBanner>}
+      {futureError && <AlertBanner tone="danger">{futureError}</AlertBanner>}
+      {futureNotice && <AlertBanner tone="success">{futureNotice}</AlertBanner>}
       {intelligence.partial && (
         <AlertBanner tone="warning">Some future-position, return-journey, advertising or timeline metadata is temporarily unavailable. Core fleet and tracking data remains visible.</AlertBanner>
       )}
 
       <OperationalSignalStrip items={fleetSignals} ariaLabel="Fleet resource signals" />
+
+      {futureDriverId ? (
+        <Panel title="Future Position" description="Publish or clear this driver's future position on behalf of the company Fleet operation." style={{ marginBottom: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,2fr) minmax(220px,1fr) auto', gap: 8, alignItems: 'end' }}>
+            <label style={labelStyle}>Position / area<input style={inputStyle} maxLength={160} value={futurePositionDraft} onChange={(event) => setFuturePositionDraft(event.target.value)} placeholder="Postcode, town or planned destination" /></label>
+            <label style={labelStyle}>Available from<input style={inputStyle} type="datetime-local" value={futureDateDraft} onChange={(event) => setFutureDateDraft(event.target.value)} /></label>
+            <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}><ActionButton tone="success" disabled={futureWorking} onClick={() => void saveFuturePosition()}>{futureWorking ? 'Saving…' : 'Publish / Update'}</ActionButton><ActionButton tone="secondary" disabled={futureWorking} onClick={() => { setFuturePositionDraft(''); setFutureDateDraft(''); }}>Clear fields</ActionButton><ActionButton tone="secondary" disabled={futureWorking} onClick={() => setFutureDriverId(null)}>Close</ActionButton></div>
+          </div>
+          <div style={{ marginTop: 6, color: '#64748b', fontSize: 11 }}>Clearing both fields and pressing Publish / Update removes the published future position. The server revalidates company membership and active-driver ownership.</div>
+        </Panel>
+      ) : null}
 
       <Panel title="Resource filters" description="Search the resource register without changing operational records." style={{ marginBottom: 12 }}>
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,2fr) repeat(2,minmax(150px,1fr)) auto', gap: 8, alignItems: 'end' }}>
@@ -180,7 +259,7 @@ export default function FleetResourcesPage() {
             <StatusBadge key="advertising" value={row.vehicle ? row.advertising : row.vehicles.length > 1 ? 'multiple vehicles' : 'none'} tone={row.vehicle && row.advertising === 'exchange' ? 'green' : row.vehicle && row.advertising === 'partner' ? 'blue' : 'grey'} />,
             <StatusBadge key="tracking" value={row.trackingState} tone={row.trackingState === 'live' ? 'green' : row.trackingState === 'stale' ? 'orange' : 'grey'} />,
             row.flags.length ? <div key="flags" style={{ display: 'grid', gap: 3 }}>{row.flags.map((flag) => <StatusBadge key={flag} value={flag} tone="orange" />)}</div> : <StatusBadge key="clear" value="No local alert" tone="blue" />,
-            <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Drivers</ActionButton>{row.vehicle ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : row.vehicles.length > 1 ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : null}{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
+            <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => openFuturePosition(row.driver.id, row.future?.futurePosition, row.future?.futurePositionDate)}>Future Position</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Drivers</ActionButton>{row.vehicle ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : row.vehicles.length > 1 ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : null}{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
           ])}
           empty={<EmptyState title="No fleet resources match the current filters" />}
         />
