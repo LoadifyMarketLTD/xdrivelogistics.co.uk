@@ -29,11 +29,12 @@ describe('Driver execution dashboard contract', () => {
     expect(page).not.toContain("fetch('/api/driver/marketplace/loads'");
     expect(page).not.toContain('Matching loads');
     expect(page).not.toContain('Recent Bookings');
-    expect(page).not.toContain('Owner Driver Commercial Position');
   });
 
   it('shows commercial tools only when commercial authority exists', () => {
     expect(page).toContain("const commercialAccess = ownerDriver || user?.canCommercialBid === true");
+    expect(page).toContain("{ownerDriver ? (");
+    expect(page).toContain('Owner Driver Commercial Position');
     for (const route of ['/driver/loads','/driver/quotes','/driver/won-work','/driver/nearby','/driver/returns']) expect(page).toContain(route);
     expect(page).toContain("ownerDriver ? 'Owner-driver commercial tools' : 'Commercial tools'");
   });

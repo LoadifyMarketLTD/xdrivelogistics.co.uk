@@ -9,6 +9,7 @@ const superAdminLayout = source('app/super-admin/layout.tsx');
 const governanceRoute = source('app/api/super-admin/governance/route.ts');
 const brokerRoute = source('app/api/super-admin/brokers/route.ts');
 const accessMatrix = source('app/super-admin/settings/roles-permissions/page.tsx');
+const usersAccess = source('app/super-admin/users/page.tsx');
 const healthPage = source('app/super-admin/health/page.tsx');
 const liveTable = source('app/super-admin/_components/SuperAdminLiveTablePage.tsx');
 const ownerGuard = source('app/api/super-admin/_lib/verifyPlatformOwner.ts');
@@ -77,6 +78,16 @@ describe('Super Admin control-plane completeness', () => {
     ]) {
       expect(shell).toContain(`href: '${href}'`);
     }
+  });
+
+  it('keeps Users & Access distinct from the read-only Access Matrix', () => {
+    expect(usersAccess).toContain('Users & Access');
+    expect(usersAccess).toContain('/super-admin/users/company-owners');
+    expect(usersAccess).toContain('/super-admin/users/customers');
+    expect(usersAccess).toContain('/super-admin/users/dispatchers');
+    expect(usersAccess).toContain('/super-admin/users/drivers');
+    expect(usersAccess).toContain('/super-admin/users/platform-admins');
+    expect(usersAccess).not.toContain("redirect('/super-admin/settings/roles-permissions')");
   });
 
   it('keeps the Access Matrix semantically read-only', () => {

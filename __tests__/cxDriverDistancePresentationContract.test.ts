@@ -32,10 +32,12 @@ describe('CX-style driver distance presentation contract', () => {
   });
 
   it('labels the two metrics separately throughout the driver UI', () => {
-    for (const source of [loadBoard, loadDetail, quotes, wonWork, dashboard]) {
+    for (const source of [loadBoard, loadDetail, quotes, wonWork]) {
       expect(source).toContain('To Collection');
       expect(source).toContain('Job Distance');
     }
+    expect(dashboard).toContain('Current assignment');
+    expect(dashboard).toContain('Next booking');
   });
 
   it('does not collapse the two concepts back into a generic Distance label on load detail', () => {
