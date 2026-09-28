@@ -160,6 +160,7 @@ export const DRIVER_WORKSPACE_CAPABILITIES: readonly WorkspaceCapability[] = [
   'jobs.track',
   'vehicles.manage',
   'documents.own.manage',
+  'settings.manage',
 ];
 
 const DRIVER_EXECUTION_NAV: WorkspaceNavGroup[] = [
@@ -177,6 +178,7 @@ const DRIVER_EXECUTION_NAV: WorkspaceNavGroup[] = [
     { id: 'security', label: 'Security', href: '/driver/change-password', icon: '⚙' },
     { id: 'event-log', label: 'Event Log', href: '/driver/event-log', icon: '≡', capability: 'jobs.view' },
     { id: 'profile', label: 'Account', href: '/driver/profile', icon: '◉' },
+    { id: 'settings', label: 'Settings', href: '/driver/settings', icon: '⚙', capability: 'settings.manage' },
   ] },
 ];
 
@@ -205,15 +207,15 @@ const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
   platform_owner: new Set<WorkspaceCapability>(['platform.manage', ...ALL_COMPANY_MANAGEMENT.filter((capability) => capability !== 'billing.manage'), ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.execute', 'documents.own.manage', 'documents.verify', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
   company_owner: new Set<WorkspaceCapability>([...ALL_COMPANY_MANAGEMENT, ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
   company_admin: new Set<WorkspaceCapability>([...ALL_COMPANY_MANAGEMENT, ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
-  carrier_admin: new Set<WorkspaceCapability>(CARRIER_COMMERCIAL),
+  carrier_admin: new Set<WorkspaceCapability>([...CARRIER_COMMERCIAL, 'settings.manage']),
   broker: new Set<WorkspaceCapability>(['company.manage', 'billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'documents.company.manage', 'invoices.customer.manage', 'invoices.carrier.manage', 'margins.view', 'incidents.manage', 'settings.manage']),
   customer: new Set<WorkspaceCapability>(['billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'invoices.customer.manage', 'settings.manage']),
-  fleet_manager: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'documents.company.manage', 'invoices.carrier.manage', 'incidents.manage']),
-  dispatcher: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'incidents.manage']),
+  fleet_manager: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'documents.company.manage', 'invoices.carrier.manage', 'incidents.manage', 'settings.manage']),
+  dispatcher: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'incidents.manage', 'settings.manage']),
   driver: new Set<WorkspaceCapability>(DRIVER_WORKSPACE_CAPABILITIES),
   owner_driver: new Set<WorkspaceCapability>([...DRIVER_WORKSPACE_CAPABILITIES, 'invoices.carrier.manage', 'billing.manage']),
-  finance: new Set<WorkspaceCapability>(['jobs.view', 'invoices.customer.manage', 'invoices.carrier.manage', 'payments.manage', 'margins.view']),
-  compliance: new Set<WorkspaceCapability>(['drivers.manage', 'vehicles.manage', 'documents.company.manage', 'documents.verify', 'incidents.manage']),
+  finance: new Set<WorkspaceCapability>(['jobs.view', 'invoices.customer.manage', 'invoices.carrier.manage', 'payments.manage', 'margins.view', 'settings.manage']),
+  compliance: new Set<WorkspaceCapability>(['drivers.manage', 'vehicles.manage', 'documents.company.manage', 'documents.verify', 'incidents.manage', 'settings.manage']),
   viewer: new Set<WorkspaceCapability>(['jobs.view']),
 };
 
@@ -316,6 +318,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
       { id: 'fleet-event-log', label: 'Event Log', items: [{ id: 'event-log', label: 'Event Log', href: '/admin/event-log', icon: '≡', capability: 'jobs.view' }] },
       { id: 'fleet-finance', label: 'Finance', items: [{ id: 'finance', label: 'Finance', href: '/admin/invoices', icon: '£', capability: 'invoices.carrier.manage' }] },
       { id: 'fleet-compliance', label: 'Compliance', items: [{ id: 'compliance', label: 'Compliance', href: '/admin/fleet/compliance', icon: '✓', capability: 'documents.company.manage' }] },
+      { id: 'fleet-settings', label: 'Settings', items: [{ id: 'settings', label: 'Settings', href: '/admin/settings', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },
   dispatcher: {
@@ -336,6 +339,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
         { id: 'vehicles', label: 'Vehicles', href: '/admin/vehicles', icon: '▰' },
         { id: 'positions', label: 'Live Positions', href: '/admin/fleet/positions', icon: '⌖' },
       ] },
+      { id: 'dispatcher-settings', label: 'Settings', items: [{ id: 'settings', label: 'Settings', href: '/admin/settings', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },
   driver: {
@@ -355,6 +359,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
         { id: 'balances', label: 'Outstanding Balances', href: '/admin/finance/balances', icon: '!' },
         { id: 'reports', label: 'Reports & Exports', href: '/admin/finance/reports', icon: '▤' },
       ] },
+      { id: 'finance-settings', label: 'Settings', items: [{ id: 'settings', label: 'Settings', href: '/admin/settings', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },
   compliance: {
@@ -369,6 +374,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
         { id: 'expiry', label: 'Expiry Calendar', href: '/admin/documents/expiry', icon: '◷' },
         { id: 'incidents', label: 'Incidents', href: '/admin/incidents', icon: '!' },
       ] },
+      { id: 'compliance-settings', label: 'Settings', items: [{ id: 'settings', label: 'Settings', href: '/admin/settings', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },
   viewer: {

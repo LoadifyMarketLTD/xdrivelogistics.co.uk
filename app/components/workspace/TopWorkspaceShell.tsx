@@ -100,6 +100,7 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['carrier-diary', 'Diary', '/admin/diary'],
     ['carrier-freight-vision', 'Freight Vision', '/admin/freight-vision'],
     ['carrier-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
+    ['carrier-settings', 'Settings', '/admin/settings'],
   ];
 
   const directHrefs = new Set(direct.map(([, , href]) => href));
@@ -148,6 +149,7 @@ function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['fleet-freight-vision', 'Freight Vision', '/admin/freight-vision'],
     ['fleet-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
     ['fleet-drivers', 'Drivers', '/admin/fleet/drivers'],
+    ['fleet-settings', 'Settings', '/admin/settings'],
   ];
 
   const used = new Set<string>();
@@ -203,6 +205,7 @@ function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['customer-tracking-primary', 'Tracking', '/customer/tracking'],
     ['customer-diary-primary', 'Diary', '/customer/diary'],
     ['customer-invoices-primary', 'Invoices', '/customer/invoices'],
+    ['customer-settings-primary', 'Settings', '/customer/settings'],
   ], 'customer-more');
 }
 
@@ -216,6 +219,7 @@ function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['broker-diary-primary', 'Diary', '/broker/diary'],
     ['broker-pod-primary', 'POD Review', '/broker/pod-review'],
     ['broker-finance-primary', 'Finance', '/broker/finance'],
+    ['broker-settings-primary', 'Settings', '/broker/settings'],
   ], 'broker-more');
 }
 
@@ -228,6 +232,7 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
     ['owner-driver-quotes-primary', 'Quotes', '/driver/quotes'],
     ['owner-driver-diary-primary', 'Diary', '/driver/history'],
     ['owner-driver-event-log-primary', 'Event Log', '/driver/event-log'],
+    ['owner-driver-settings-primary', 'Settings', '/driver/settings?section=overview'],
   ] : [
     ['driver-dashboard-primary', 'Dashboard', '/driver'],
     ['driver-jobs-primary', 'My Jobs', '/driver/jobs'],
@@ -235,6 +240,7 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
     ['driver-availability-primary', 'Availability', '/driver/availability'],
     ['driver-vehicle-primary', 'Vehicle', '/driver/vehicles'],
     ['driver-documents-primary', 'Documents', '/driver/documents'],
+    ['driver-settings-primary', 'Settings', '/driver/settings'],
   ], ownerDriver ? 'owner-driver-more' : 'driver-more');
 }
 
@@ -247,6 +253,7 @@ function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['dispatcher-collections-primary', 'Collections', '/admin/collections'],
     ['dispatcher-deliveries-primary', 'Deliveries', '/admin/deliveries'],
     ['dispatcher-positions-primary', 'Live Positions', '/admin/fleet/positions'],
+    ['dispatcher-settings-primary', 'Settings', '/admin/settings'],
   ], 'dispatcher-more');
 }
 
@@ -258,6 +265,7 @@ function composeFinancePrimaryNav(groups: WorkspaceNavGroup[]) {
     ['finance-payments-primary', 'Payments', '/admin/finance/payments'],
     ['finance-balances-primary', 'Balances', '/admin/finance/balances'],
     ['finance-reports-primary', 'Reports', '/admin/finance/reports'],
+    ['finance-settings-primary', 'Settings', '/admin/settings'],
   ], 'finance-more');
 }
 
@@ -270,6 +278,7 @@ function composeCompliancePrimaryNav(groups: WorkspaceNavGroup[]) {
     ['compliance-verification-primary', 'Verification', '/admin/documents?view=pending'],
     ['compliance-expiry-primary', 'Expiry', '/admin/documents/expiry'],
     ['compliance-incidents-primary', 'Incidents', '/admin/incidents'],
+    ['compliance-settings-primary', 'Settings', '/admin/settings'],
   ], 'compliance-more');
 }
 

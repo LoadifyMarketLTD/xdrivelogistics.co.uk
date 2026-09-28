@@ -401,6 +401,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       const result = await hydrateUser(data.user);
       if (!result.user) {
+        if (result.reason === 'account_pending') {
+          const { data: onboardingApplication } = await supabase
+            .from('onboarding_applications')
+            .select('status, account_type')
+            .eq('user_id', data.user.id)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          const onboardingStatus = String(onboardingApplication?.status ?? '').trim().toLowerCase();
+          if (['invited', 'draft', 'in_progress', 'request_changes'].includes(onboardingStatus)) {
+            return { success: true, route: '/onboarding/resume' };
+          }
+        }
+
         if (result.reason === 'db_error') {
           console.error('[XDrive Auth] account validation db_error', {
             query: result.dbError.query,

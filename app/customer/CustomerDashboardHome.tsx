@@ -187,16 +187,6 @@ export default function CustomerDashboardHome() {
           eyebrow="Customer workspace"
           title="Transport overview"
           description="See what needs your attention, manage current loads and follow active deliveries."
-          actions={
-            <>
-              <ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>
-                My Loads
-              </ActionButton>
-              <ActionButton tone="secondary" onClick={() => router.push('/customer/tracking')}>
-                Tracking
-              </ActionButton>
-            </>
-          }
         />
 
         {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
@@ -375,17 +365,7 @@ export default function CustomerDashboardHome() {
           </div>
         </section>
 
-        <div className="customer-dashboard-footer-links">
-          <button type="button" onClick={() => router.push('/customer/bookings')}>
-            POD & bookings <span>{metricState(jobsDataset, metrics.completedWithPod.length)}</span>
-          </button>
-          <button type="button" onClick={() => router.push('/customer/invoices')}>
-            Invoices <span>{metricState(invoicesDataset, metrics.unpaidInvoices.length)}</span>
-          </button>
-          <button type="button" onClick={() => router.push('/customer/messages')}>Messages</button>
-          <button type="button" onClick={() => router.push('/customer/disputes')}>Disputes</button>
-          <button type="button" onClick={() => router.push('/customer/event-log')}>Event Log</button>
-        </div>
+
       </div>
     </PageFrame>
   );
