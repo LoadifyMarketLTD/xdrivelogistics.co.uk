@@ -278,22 +278,6 @@ export default function BrokerDashboardHome() {
               )}
             </div>
           </section>
-
-          <section className="broker-clean-box">
-            <div className="broker-clean-box__head">
-              <div>
-                <strong>Quick actions</strong>
-                <span>Core broker workflow</span>
-              </div>
-            </div>
-            <div className="broker-clean-box__body">
-              <div className="broker-clean-actions">
-                <ActionButton tone="secondary" onClick={() => router.push('/broker/enquiries')}>Enquiries</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>Carrier Quotes</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/broker/pod-review')}>POD Review</ActionButton>
-              </div>
-            </div>
-          </section>
         </div>
 
         <section className="broker-clean-box">

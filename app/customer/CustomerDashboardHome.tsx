@@ -296,25 +296,6 @@ export default function CustomerDashboardHome() {
               )}
             </div>
           </section>
-
-          <section className="customer-dash-box">
-            <div className="customer-dash-box__head">
-              <strong>Quick actions</strong>
-            </div>
-            <div className="customer-dash-box__body">
-              <div className="customer-action-grid">
-                <ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>
-                  My Loads
-                </ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/customer/quotes')}>
-                  Quotes
-                </ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>
-                  Bookings
-                </ActionButton>
-              </div>
-            </div>
-          </section>
         </div>
 
         <section className="customer-dash-box">

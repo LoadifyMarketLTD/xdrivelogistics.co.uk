@@ -163,6 +163,114 @@ function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
   return more.length ? [...primary, { id: 'fleet-more', label: 'More', items: more }] : primary;
 }
 
+type PrimaryNavEntry = [id: string, label: string, href: string];
+
+function composeRolePrimaryNav(
+  groups: WorkspaceNavGroup[],
+  direct: PrimaryNavEntry[],
+  moreId: string,
+  moreLabel = 'More',
+) {
+  const items = uniqueNavItems(groups);
+  const used = new Set<string>();
+  const primary: WorkspaceNavGroup[] = [];
+
+  for (const [id, label, href] of direct) {
+    const item = items.get(href);
+    if (!item || used.has(href)) continue;
+    used.add(href);
+    primary.push(singleGroup(id, label, item));
+  }
+
+  const more: WorkspaceNavItem[] = [];
+  for (const [href, item] of items.entries()) {
+    if (!used.has(href)) more.push(item);
+  }
+
+  return more.length ? [...primary, { id: moreId, label: moreLabel, items: more }] : primary;
+}
+
+function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
+  return composeRolePrimaryNav(groups, [
+    ['customer-dashboard-primary', 'Dashboard', '/customer'],
+    ['customer-loads-primary', 'My Loads', '/customer/loads'],
+    ['customer-quotes-primary', 'Quotes', '/customer/quotes'],
+    ['customer-bookings-primary', 'Bookings', '/customer/bookings'],
+    ['customer-tracking-primary', 'Tracking', '/customer/tracking'],
+    ['customer-diary-primary', 'Diary', '/customer/diary'],
+    ['customer-invoices-primary', 'Invoices', '/customer/invoices'],
+  ], 'customer-more');
+}
+
+function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
+  return composeRolePrimaryNav(groups, [
+    ['broker-dashboard-primary', 'Dashboard', '/broker'],
+    ['broker-enquiries-primary', 'Enquiries', '/broker/enquiries'],
+    ['broker-loads-primary', 'Loads', '/broker/loads'],
+    ['broker-quotes-primary', 'Carrier Quotes', '/broker/bids'],
+    ['broker-jobs-primary', 'Jobs', '/broker/jobs'],
+    ['broker-diary-primary', 'Diary', '/broker/diary'],
+    ['broker-pod-primary', 'POD Review', '/broker/pod-review'],
+    ['broker-finance-primary', 'Finance', '/broker/finance'],
+  ], 'broker-more');
+}
+
+function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boolean) {
+  return composeRolePrimaryNav(groups, ownerDriver ? [
+    ['owner-driver-dashboard-primary', 'Dashboard', '/driver'],
+    ['owner-driver-loads-primary', 'Available Loads', '/driver/loads'],
+    ['owner-driver-quotes-primary', 'My Quotes', '/driver/quotes'],
+    ['owner-driver-won-primary', 'Won Work', '/driver/won-work'],
+    ['owner-driver-diary-primary', 'Diary', '/driver/history'],
+    ['owner-driver-returns-primary', 'Return Journeys', '/driver/returns'],
+    ['owner-driver-nearby-primary', "Who's Nearby", '/driver/nearby'],
+    ['owner-driver-finance-primary', 'Invoices', '/driver/finance'],
+  ] : [
+    ['driver-dashboard-primary', 'Dashboard', '/driver'],
+    ['driver-jobs-primary', 'My Jobs', '/driver/jobs'],
+    ['driver-diary-primary', 'Diary', '/driver/history'],
+    ['driver-availability-primary', 'Availability', '/driver/availability'],
+    ['driver-vehicle-primary', 'Vehicle', '/driver/vehicles'],
+    ['driver-documents-primary', 'Documents', '/driver/documents'],
+    ['driver-messages-primary', 'Messages', '/driver/messages'],
+  ], ownerDriver ? 'owner-driver-more' : 'driver-more');
+}
+
+function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
+  return composeRolePrimaryNav(groups, [
+    ['dispatcher-dashboard-primary', 'Dashboard', '/admin'],
+    ['dispatcher-diary-primary', 'Diary', '/admin/diary'],
+    ['dispatcher-unallocated-primary', 'Unallocated', '/admin/fleet/assignments'],
+    ['dispatcher-active-primary', 'Active Jobs', '/admin/fleet/active-jobs'],
+    ['dispatcher-collections-primary', 'Collections', '/admin/collections'],
+    ['dispatcher-deliveries-primary', 'Deliveries', '/admin/deliveries'],
+    ['dispatcher-positions-primary', 'Live Positions', '/admin/fleet/positions'],
+  ], 'dispatcher-more');
+}
+
+function composeFinancePrimaryNav(groups: WorkspaceNavGroup[]) {
+  return composeRolePrimaryNav(groups, [
+    ['finance-dashboard-primary', 'Dashboard', '/admin/invoices'],
+    ['finance-customer-primary', 'Customer Invoices', '/admin/finance/customer-invoices'],
+    ['finance-carrier-primary', 'Carrier Invoices', '/admin/finance/carrier-invoices'],
+    ['finance-payments-primary', 'Payments', '/admin/finance/payments'],
+    ['finance-balances-primary', 'Balances', '/admin/finance/balances'],
+    ['finance-reports-primary', 'Reports', '/admin/finance/reports'],
+  ], 'finance-more');
+}
+
+function composeCompliancePrimaryNav(groups: WorkspaceNavGroup[]) {
+  return composeRolePrimaryNav(groups, [
+    ['compliance-dashboard-primary', 'Dashboard', '/admin/documents'],
+    ['compliance-driver-primary', 'Driver Docs', '/admin/documents?type=driver'],
+    ['compliance-vehicle-primary', 'Vehicle Docs', '/admin/documents?type=vehicle'],
+    ['compliance-company-primary', 'Company Docs', '/admin/documents/company'],
+    ['compliance-verification-primary', 'Verification', '/admin/documents?view=pending'],
+    ['compliance-expiry-primary', 'Expiry', '/admin/documents/expiry'],
+    ['compliance-incidents-primary', 'Incidents', '/admin/incidents'],
+  ], 'compliance-more');
+}
+
 function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
   return [
     { id: 'broker-home', label: 'Broker', items: [
@@ -241,11 +349,17 @@ function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
       { id: 'customer-dashboard', label: 'Customer Dashboard', href: '/customer', icon: '⌂' },
       { id: 'customer-action-centre', label: 'Action Centre', href: '/customer/action-centre', icon: '!' },
     ] },
-    { id: 'customer-loads', label: 'Loads', items: [
+    { id: 'customer-loads', label: 'My Loads', items: [
       { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: '■' },
-      { id: 'customer-quotes', label: 'Quotes', href: '/customer/quotes', icon: '▣' },
-      { id: 'customer-awards', label: 'Awards', href: '/customer/awards', icon: '✓' },
-      { id: 'customer-bookings', label: 'Bookings', href: '/customer/bookings', icon: '✓' },
+    ] },
+    { id: 'customer-quotes', label: 'Quotes', items: [
+      { id: 'customer-quotes-page', label: 'Quotes', href: '/customer/quotes', icon: '▣' },
+    ] },
+    { id: 'customer-awards', label: 'Awards', items: [
+      { id: 'customer-awards-page', label: 'Awards', href: '/customer/awards', icon: '✓' },
+    ] },
+    { id: 'customer-bookings', label: 'Bookings', items: [
+      { id: 'customer-bookings-page', label: 'Bookings', href: '/customer/bookings', icon: '✓' },
     ] },
     { id: 'customer-delivery', label: 'Delivery', items: [
       { id: 'customer-deliveries', label: 'Deliveries', href: '/customer/deliveries', icon: '■' },
@@ -406,13 +520,24 @@ export default function TopWorkspaceShell({
     }
 
     if (role === 'broker') {
-      return filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user);
+      return composeBrokerPrimaryNav(filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user));
     }
     if (role === 'customer') {
-      return filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user);
+      return composeCustomerPrimaryNav(filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user));
     }
-    if (CARRIER_NAV_ROLES.has(role)) base = composeCarrierPrimaryNav(base);
-    else if (role === 'fleet_manager') base = composeFleetPrimaryNav(base);
+    if (CARRIER_NAV_ROLES.has(role)) return composeCarrierPrimaryNav(base);
+    if (role === 'fleet_manager') return composeFleetPrimaryNav(base);
+    if (role === 'owner_driver') return composeDriverPrimaryNav(base, true);
+    if (role === 'driver') return composeDriverPrimaryNav(base, false);
+    if (role === 'dispatcher') return composeDispatcherPrimaryNav(base);
+    if (role === 'finance') return composeFinancePrimaryNav(base);
+    if (role === 'compliance') return composeCompliancePrimaryNav(base);
+    if (role === 'viewer') {
+      return composeRolePrimaryNav(base, [
+        ['viewer-dashboard-primary', 'Dashboard', '/admin'],
+        ['viewer-jobs-primary', 'Jobs', '/admin/jobs'],
+      ], 'viewer-more');
+    }
 
     return base;
   }, [role, user]);
@@ -576,84 +701,6 @@ export default function TopWorkspaceShell({
           )}
         </div>
 
-        <nav
-          ref={navRef}
-          className="top-workspace-nav top-workspace-nav--inline"
-          aria-label={`${definition.label} navigation`}
-        >
-          <div className="top-workspace-nav__track">
-            {nav.map((group, groupIndex) => {
-              const groupActive = group.items.some((item) => isActive(item.href));
-
-              if (group.items.length === 1) {
-                const item = group.items[0];
-                const active = isActive(item.href);
-                return (
-                  <div
-                    key={group.id}
-                    className="top-workspace-nav__group"
-                    data-first={groupIndex === 0 ? 'true' : 'false'}
-                  >
-                    <button
-                      type="button"
-                      className="top-workspace-nav__item"
-                      data-active={active ? 'true' : 'false'}
-                      onClick={() => openRoute(item.href)}
-                      aria-current={active ? 'page' : undefined}
-                    >
-                      {item.label}
-                    </button>
-                  </div>
-                );
-              }
-
-              const open = openGroupId === group.id;
-              return (
-                <div
-                  key={group.id}
-                  className="top-workspace-nav__group top-workspace-nav__group--menu"
-                  data-first={groupIndex === 0 ? 'true' : 'false'}
-                >
-                  <button
-                    type="button"
-                    className="top-workspace-nav__item top-workspace-nav__trigger"
-                    data-active={groupActive ? 'true' : 'false'}
-                    data-open={open ? 'true' : 'false'}
-                    aria-expanded={open}
-                    aria-haspopup="menu"
-                    onClick={() => setOpenGroupId(open ? null : group.id)}
-                  >
-                    <span>{group.label}</span>
-                    <span aria-hidden="true" className="top-workspace-nav__caret">▾</span>
-                  </button>
-                  {open && (
-                    <div className="top-workspace-nav__menu" role="menu" aria-label={group.label}>
-                      {group.items.map((item) => {
-                        const active = isActive(item.href);
-                        return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            role="menuitem"
-                            className="top-workspace-nav__menu-item"
-                            data-active={active ? 'true' : 'false'}
-                            onClick={() => openRoute(item.href)}
-                          >
-                            <span className="top-workspace-nav__menu-icon" aria-hidden="true">
-                              {item.icon ?? '•'}
-                            </span>
-                            <span>{item.label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </nav>
-
         <div className="top-workspace-shell__actions">
           {showCarrierPostLoadAction && (
             <button
@@ -705,6 +752,84 @@ export default function TopWorkspaceShell({
           </button>
         </div>
       </header>
+
+      <nav
+        ref={navRef}
+        className="top-workspace-nav top-workspace-nav--primary"
+        aria-label={`${definition.label} navigation`}
+      >
+        <div className="top-workspace-nav__track">
+          {nav.map((group, groupIndex) => {
+            const groupActive = group.items.some((item) => isActive(item.href));
+
+            if (group.items.length === 1) {
+              const item = group.items[0];
+              const active = isActive(item.href);
+              return (
+                <div
+                  key={group.id}
+                  className="top-workspace-nav__group"
+                  data-first={groupIndex === 0 ? 'true' : 'false'}
+                >
+                  <button
+                    type="button"
+                    className="top-workspace-nav__item"
+                    data-active={active ? 'true' : 'false'}
+                    onClick={() => openRoute(item.href)}
+                    aria-current={active ? 'page' : undefined}
+                  >
+                    {item.label}
+                  </button>
+                </div>
+              );
+            }
+
+            const open = openGroupId === group.id;
+            return (
+              <div
+                key={group.id}
+                className="top-workspace-nav__group top-workspace-nav__group--menu"
+                data-first={groupIndex === 0 ? 'true' : 'false'}
+              >
+                <button
+                  type="button"
+                  className="top-workspace-nav__item top-workspace-nav__trigger"
+                  data-active={groupActive ? 'true' : 'false'}
+                  data-open={open ? 'true' : 'false'}
+                  aria-expanded={open}
+                  aria-haspopup="menu"
+                  onClick={() => setOpenGroupId(open ? null : group.id)}
+                >
+                  <span>{group.label}</span>
+                  <span aria-hidden="true" className="top-workspace-nav__caret">▾</span>
+                </button>
+                {open && (
+                  <div className="top-workspace-nav__menu" role="menu" aria-label={group.label}>
+                    {group.items.map((item) => {
+                      const active = isActive(item.href);
+                      return (
+                        <button
+                          key={item.id}
+                          type="button"
+                          role="menuitem"
+                          className="top-workspace-nav__menu-item"
+                          data-active={active ? 'true' : 'false'}
+                          onClick={() => openRoute(item.href)}
+                        >
+                          <span className="top-workspace-nav__menu-icon" aria-hidden="true">
+                            {item.icon ?? '•'}
+                          </span>
+                          <span>{item.label}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </nav>
 
       <main className="top-workspace-shell__content">{children}</main>
     </div>

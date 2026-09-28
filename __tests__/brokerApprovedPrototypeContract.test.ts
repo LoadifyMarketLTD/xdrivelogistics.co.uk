@@ -30,7 +30,7 @@ describe('Broker cleaned workspace contract', () => {
   it('keeps broker commercial and execution workflows connected', () => {
     expect(roles).toContain("href: '/broker/post-load'");
     for (const href of ['/broker/enquiries','/broker/bids','/broker/jobs','/broker/pod-review','/broker/customer-invoices','/broker/carrier-costs','/broker/margins']) {
-      expect(dashboard).toContain(href);
+      expect(dashboard + shell).toContain(href);
     }
     expect(dashboard).not.toContain("router.push('/broker/post-load')");
   });
