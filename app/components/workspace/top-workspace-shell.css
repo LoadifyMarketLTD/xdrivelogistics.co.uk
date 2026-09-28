@@ -174,7 +174,7 @@
 }
 
 .top-workspace-context__menu [aria-label="Workspace context controls"] {
-  justify-content: flex-start !important;
+  justify-content: flex-end !important;
   align-items: end !important;
   gap: 8px !important;
 }
