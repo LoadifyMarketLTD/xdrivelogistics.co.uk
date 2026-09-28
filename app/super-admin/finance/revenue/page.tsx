@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
+import { SuperAdminPage, SuperAdminPageHeader, SuperAdminUnavailableState } from '@/app/super-admin/_components/SuperAdminEnterprisePrimitives';
+import { ChartNoAxesCombined } from 'lucide-react';
 
 const THEME = {
   pageBg: '#F4F6F8', cardBg: '#FFFFFF', cardBorder: '#E5E7EB', text: '#1A1F2B',
@@ -79,23 +81,12 @@ export default function Page() {
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ minHeight: '100vh', backgroundColor: THEME.pageBg, padding: '12px' }}>
-        <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px', marginBottom: '12px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <span style={{ fontSize: '20px' }}>📈</span>
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <h1 style={{ fontSize: '20px', fontWeight: 800, color: THEME.heading, margin: 0 }}>Financial Reporting</h1>
-                <span style={{ fontSize: '10px', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.05em', color: '#9A6700', backgroundColor: '#FFF4DA', padding: '3px 6px', borderRadius: '4px' }}>Finance</span>
-              </div>
-              <p style={{ color: THEME.muted, margin: '3px 0 0', fontSize: '12px' }}>Verified issued-invoice, paid-value and settlement reporting. Multiple currencies are never silently combined.</p>
-              {payload && <p style={{ color: THEME.muted, margin: '3px 0 0', fontSize: '10px' }}>Verified {new Date(payload.refreshedAt).toLocaleString('en-GB')} · {payload.currency}</p>}
-            </div>
-          </div>
-          <button type="button" onClick={() => void load()} disabled={loading} style={{ height: '32px', padding: '0 10px', border: `1px solid ${THEME.blue}`, borderRadius: '4px', background: THEME.blue, color: '#FFFFFF', fontWeight: 800, fontSize: '11px', cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? .65 : 1 }}>{loading ? 'Loading…' : 'Refresh'}</button>
-        </header>
+      <SuperAdminPage>
+        <SuperAdminPageHeader eyebrow="Finance" title="Financial Reporting" description="Verified issued invoices, paid value and settlements. Currencies are reported separately." icon={<ChartNoAxesCombined aria-hidden="true" />}
+          meta={payload ? `Verified ${new Date(payload.refreshedAt).toLocaleString('en-GB')} · ${payload.currency}` : undefined}
+          actions={<button type="button" onClick={() => void load()} disabled={loading}>{loading ? 'Loading…' : 'Refresh'}</button>} />
 
-        {error && <div role="alert" style={{ backgroundColor: '#FEF2F2', border: `1px solid ${THEME.red}`, borderLeft: `4px solid ${THEME.red}`, borderRadius: '4px', padding: '8px 10px', color: THEME.red, fontSize: '12px', marginBottom: '12px' }}>{error}</div>}
+        {error && <SuperAdminUnavailableState title="Financial reporting unavailable" description={error} />}
 
         {!error && loading && <div style={{ color: THEME.muted, padding: '18px', textAlign: 'center', fontSize: '12px' }}>Loading verified finance…</div>}
 
@@ -108,7 +99,7 @@ export default function Page() {
               { label: 'Payment Status Rate', value: `${summary.paymentStatusRate}%`, highlight: summary.paymentStatusRate >= 80 },
               { label: 'Paid Invoices', value: `${summary.paidInvoices} / ${summary.totalInvoices}` },
             ].map((item) => (
-              <div key={item.label} style={{ backgroundColor: THEME.cardBg, border: `1px solid ${item.highlight ? '#B7E3C1' : THEME.cardBorder}`, borderRadius: '4px', padding: '10px 12px' }}>
+              <div key={item.label} style={{ background: item.highlight ? 'linear-gradient(145deg,#F0FFF6,#FFFFFF)' : 'linear-gradient(145deg,#FFFFFF,#F4F8FF)', border: `1px solid ${item.highlight ? '#B7E3C1' : '#DCE6F5'}`, borderLeft: `4px solid ${item.highlight ? THEME.green : THEME.blue}`, borderRadius: '12px', minHeight: 105, padding: '15px 16px', boxShadow: '0 5px 17px rgba(14,45,91,.055)' }}>
                 <div style={{ color: item.highlight ? THEME.green : THEME.heading, fontSize: '18px', fontWeight: 800 }}>{item.value}</div>
                 <div style={{ color: THEME.muted, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em', marginTop: '2px' }}>{item.label}</div>
               </div>
@@ -116,7 +107,7 @@ export default function Page() {
           </div>
 
           {monthly.length > 0 ? (
-            <section style={{ backgroundColor: THEME.cardBg, border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', padding: '12px' }}>
+            <section style={{ backgroundColor: THEME.cardBg, border: `1px solid #DCE6F5`, borderRadius: '12px', padding: '17px', boxShadow: '0 6px 20px rgba(14,45,91,.055)' }}>
               <h2 style={{ color: THEME.heading, fontSize: '13px', fontWeight: 800, margin: '0 0 12px' }}>Monthly Paid Invoice Value</h2>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-end', height: '140px', padding: '0 4px' }}>
                 {monthly.slice().reverse().map((item) => {
@@ -132,7 +123,7 @@ export default function Page() {
             <div style={{ border: `1px solid ${THEME.cardBorder}`, borderRadius: '4px', backgroundColor: THEME.cardBg, minHeight: '88px', display: 'grid', placeItems: 'center', color: THEME.muted, fontSize: '12px' }}>No paid invoice records are available.</div>
           )}
         </>}
-      </div>
+      </SuperAdminPage>
     </ProtectedRoute>
   );
 }
