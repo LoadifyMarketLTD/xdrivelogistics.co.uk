@@ -119,6 +119,12 @@
   color: #172033;
 }
 
+.top-workspace-action--direct {
+  border-color: #172033;
+  background: #172033;
+  color: #fff;
+}
+
 .top-workspace-action--signout {
   border-color: #fecaca;
   color: #b91c1c;
