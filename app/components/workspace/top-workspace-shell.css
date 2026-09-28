@@ -21,8 +21,8 @@
   position: sticky;
   top: 0;
   z-index: 80;
-  height: 58px !important;
-  min-height: 58px !important;
+  height: 52px !important;
+  min-height: 52px !important;
   display: grid !important;
   grid-template-columns: minmax(160px, 1fr) auto !important;
   align-items: stretch !important;
@@ -42,9 +42,9 @@
 }
 
 .top-workspace-shell__logo-button {
-  width: 144px;
-  height: 48px;
-  flex: 0 0 144px;
+  width: 136px;
+  height: 44px;
+  flex: 0 0 136px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -55,8 +55,8 @@
 }
 
 .top-workspace-shell__logo {
-  width: 144px;
-  height: 40px;
+  width: 136px;
+  height: 36px;
   object-fit: contain;
   object-position: left center;
 }
@@ -96,13 +96,13 @@
 
 .xdrive-operational-top-workspace .top-workspace-action,
 .xdrive-operational-top-workspace .top-workspace-notification {
-  height: 36px !important;
-  min-height: 36px !important;
+  height: 32px !important;
+  min-height: 32px !important;
   border: 1px solid #d8dee8;
   border-radius: 4px !important;
   background: #fff;
   color: #172033;
-  font-size: 13px !important;
+  font-size: 12px !important;
   font-weight: 700 !important;
   white-space: nowrap;
   cursor: pointer;
@@ -110,7 +110,7 @@
 }
 
 .top-workspace-action {
-  padding: 0 14px;
+  padding: 0 12px;
 }
 
 .xdrive-operational-top-workspace .top-workspace-action--primary {
@@ -132,7 +132,7 @@
 
 .top-workspace-notification {
   position: relative;
-  width: 36px;
+  width: 32px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -230,11 +230,11 @@
 /* Unified CX-inspired primary navigation row used across operational workspaces. */
 .xdrive-operational-top-workspace .top-workspace-nav--primary {
   position: sticky !important;
-  top: 58px !important;
+  top: 52px !important;
   z-index: 79 !important;
   min-width: 0 !important;
-  height: 44px !important;
-  min-height: 44px !important;
+  height: 40px !important;
+  min-height: 40px !important;
   border: 0 !important;
   border-bottom: 1px solid #d8dee8 !important;
   background: #fff !important;
@@ -245,8 +245,8 @@
 .xdrive-operational-top-workspace .top-workspace-nav--primary .top-workspace-nav__track {
   width: 100%;
   min-width: 0;
-  height: 44px !important;
-  min-height: 44px !important;
+  height: 40px !important;
+  min-height: 40px !important;
   display: flex !important;
   align-items: stretch !important;
   justify-content: flex-end !important;
@@ -270,16 +270,16 @@
 
 .xdrive-operational-top-workspace .top-workspace-nav__item {
   position: relative;
-  height: 44px !important;
-  min-height: 44px !important;
-  padding: 0 12px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 10px !important;
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
   color: #26364d !important;
-  font-size: 14px !important;
+  font-size: 12px !important;
   line-height: 1.15 !important;
-  font-weight: 650 !important;
+  font-weight: 600 !important;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -375,7 +375,7 @@
 
 .xdrive-operational-top-workspace .top-workspace-shell__content {
   min-width: 0;
-  min-height: calc(100vh - 62px) !important;
+  min-height: calc(100vh - 92px) !important;
   background: #f4f6f8;
 }
 
@@ -498,8 +498,8 @@
 
   .xdrive-operational-top-workspace .top-workspace-nav__item {
     padding: 0 8px !important;
-    font-size: 13px !important;
-    font-weight: 650 !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
   }
 }
 
