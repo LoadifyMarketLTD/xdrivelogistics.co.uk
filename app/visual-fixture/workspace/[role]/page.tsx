@@ -10,7 +10,7 @@ import '../../../driver/driver-top-shell.css';
 const VISUAL_FIXTURE_ENABLED =
   process.env.NODE_ENV !== 'production' && process.env.E2E_VISUAL_FIXTURE === 'true';
 
-const ALLOWED_ROLES = new Set(['carrier', 'broker', 'customer', 'driver', 'fleet', 'operations', 'super-admin'] as const);
+const ALLOWED_ROLES = new Set(['carrier', 'broker', 'customer', 'driver', 'owner-driver', 'fleet', 'operations', 'finance', 'compliance', 'super-admin'] as const);
 
 type OperationalFixtureRole = Exclude<FixtureRole, 'super-admin'>;
 

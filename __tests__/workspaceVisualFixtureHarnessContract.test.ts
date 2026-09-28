@@ -42,14 +42,14 @@ describe('workspace visual fixture harness contract', () => {
   });
 
   it('allowlists only the required deterministic role fixtures', () => {
-    const expectedRoles = ['carrier', 'broker', 'customer', 'driver', 'fleet', 'operations', 'super-admin'];
+    const expectedRoles = ['carrier', 'broker', 'customer', 'driver', 'owner-driver', 'fleet', 'operations', 'finance', 'compliance', 'super-admin'];
     expect(allowedRolesFromRoute).toEqual(expectedRoles);
     for (const role of expectedRoles) {
       expect(fixtureRoute).toContain(`'${role}'`);
       expect(fixtureComponent).toContain(role.includes('-') ? `'${role}':` : `${role}:`);
     }
-    expect(fixtureComponent).not.toContain('finance:');
-    expect(fixtureComponent).not.toContain('compliance:');
+    expect(fixtureComponent).toContain('finance:');
+    expect(fixtureComponent).toContain('compliance:');
   });
 
   it('keeps action centre and notifications distinct in shell controls', () => {
