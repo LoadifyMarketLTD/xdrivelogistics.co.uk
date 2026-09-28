@@ -6,6 +6,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 describe('Unified workspace navbar contract', () => {
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
   const shellCss = read('app/components/workspace/top-workspace-shell.css');
+  const workspaceRole = read('lib/workspaceRole.ts');
 
   it('uses one two-row primary navigation shell for operational workspaces', () => {
     expect(shell).toContain('top-workspace-nav--primary');
@@ -33,5 +34,10 @@ describe('Unified workspace navbar contract', () => {
   it('keeps overflow functions under a consistent More menu', () => {
     expect(shell).toContain("moreLabel = 'More'");
     expect(shell).toContain("label: moreLabel");
+  });
+
+  it('uses distinct owner-driver settings labels inside More', () => {
+    expect(workspaceRole).toContain("label: 'Driver Settings', href: '/driver/settings'");
+    expect(workspaceRole).toContain("label: 'Company Settings', href: '/driver/settings?section=overview'");
   });
 });
