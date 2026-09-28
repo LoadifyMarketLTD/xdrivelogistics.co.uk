@@ -6,6 +6,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
 import { PlatformEntityLink, type PlatformEntityType } from '@/app/super-admin/_components/control-plane';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
+import { SuperAdminPage, SuperAdminPageHeader, SuperAdminSectionCard } from '@/app/super-admin/_components/SuperAdminEnterprisePrimitives';
+import { Search } from 'lucide-react';
 
 const X = {
   navy: '#0B2F6B', blue: '#1D57D8', white: '#FFFFFF', charcoal: '#1A1F2B', light: '#F4F6F8',
@@ -109,24 +111,19 @@ function SearchSurface() {
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ minHeight: '100vh', background: X.light, color: X.charcoal, padding: '12px' }}>
-        <header style={{ marginBottom: '12px' }}>
-          <h1 style={{ margin: 0, color: X.navy, fontSize: '20px', fontWeight: 800 }}>Global Platform Search</h1>
-          <p style={{ margin: '4px 0 0', color: X.muted, fontSize: '11px', lineHeight: 1.45 }}>
-            Search canonical platform entities and open the exact Platform Entity Inspector. Search is Platform Owner-only and never changes tenant RLS.
-          </p>
-        </header>
+      <SuperAdminPage>
+        <SuperAdminPageHeader eyebrow="Command" title="Global Platform Search" description="Find a company, job, person or record across the platform, then open its canonical inspector." icon={<Search aria-hidden="true" />} />
 
-        <form onSubmit={submit} style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '12px', padding: '10px', border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white }}>
+        <form onSubmit={submit} style={{ display: 'flex', gap: '10px', alignItems: 'center', marginBottom: '14px', padding: '15px', border: `1px solid #DCE6F5`, borderRadius: '12px', background: X.white, boxShadow: '0 6px 20px rgba(14,45,91,.055)' }}>
           <input
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Job ref, company, email, driver, registration, invoice, ticket, dispute, POD or case"
             aria-label="Global Platform Search"
             autoComplete="off"
-            style={{ flex: 1, minWidth: 0, height: '32px', border: `1px solid ${X.border}`, borderRadius: '4px', padding: '0 9px', color: X.charcoal, background: X.white, fontSize: '11px' }}
+            style={{ flex: 1, minWidth: 0, height: '42px', border: `1px solid #C7D6EB`, borderRadius: '8px', padding: '0 13px', color: X.charcoal, background: '#F8FAFF', fontSize: '13px' }}
           />
-          <button type="submit" disabled={draft.trim().length < 2 || loading} style={{ height: '32px', padding: '0 12px', borderRadius: '4px', border: `1px solid ${X.blue}`, background: X.blue, color: X.white, fontSize: '11px', fontWeight: 800, cursor: draft.trim().length < 2 || loading ? 'not-allowed' : 'pointer', opacity: draft.trim().length < 2 || loading ? .6 : 1 }}>
+          <button type="submit" disabled={draft.trim().length < 2 || loading} style={{ height: '42px', padding: '0 18px', borderRadius: '8px', border: `1px solid ${X.blue}`, background: X.blue, color: X.white, fontSize: '12px', fontWeight: 800, cursor: draft.trim().length < 2 || loading ? 'not-allowed' : 'pointer', opacity: draft.trim().length < 2 || loading ? .6 : 1 }}>
             Search
           </button>
         </form>
@@ -144,7 +141,13 @@ function SearchSurface() {
         {error ? <div role="alert" style={{ marginBottom: '12px', border: `1px solid ${X.danger}`, borderRadius: '4px', background: X.white, color: X.danger, padding: '10px 12px', fontSize: '11px' }}>{error}</div> : null}
 
         {query.length < 2 ? (
-          <section style={emptyStyle}>Enter at least 2 characters to search the control plane.</section>
+          <SuperAdminSectionCard title="Search across the control plane" description="Enter at least two characters to find verified platform records.">
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', color: X.muted, fontSize: '12px' }}>
+              {['Jobs & quotes', 'Companies & people', 'Invoices & payments', 'Tickets & disputes', 'Documents & cases'].map((label) => (
+                <span key={label} style={{ padding: '9px 12px', background: '#EEF4FF', color: X.navy, borderRadius: '8px', fontWeight: 700 }}>{label}</span>
+              ))}
+            </div>
+          </SuperAdminSectionCard>
         ) : loading ? (
           <section style={emptyStyle}>Searching canonical platform sources…</section>
         ) : !error && rows.length === 0 ? (
@@ -177,7 +180,7 @@ function SearchSurface() {
             ))}
           </div>
         )}
-      </div>
+      </SuperAdminPage>
     </ProtectedRoute>
   );
 }

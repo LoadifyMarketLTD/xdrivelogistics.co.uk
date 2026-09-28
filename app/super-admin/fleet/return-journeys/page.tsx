@@ -25,6 +25,27 @@ type Row = {
 
 const place = (location: string | null, postcode: string | null) => [location, postcode].filter(Boolean).join(' · ') || '—';
 
+function JourneyNotes({ value }: { value: string | null }) {
+  if (!value?.trim()) return <>—</>;
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+      const details = parsed as Record<string, unknown>;
+      const note = typeof details.notes === 'string' ? details.notes.trim() : '';
+      const tags = [details.bodyType, typeof details.weightKg === 'number' ? `${details.weightKg} kg` : null,
+        typeof details.spaceUnits === 'number' ? `${details.spaceUnits} spaces` : null]
+        .filter((item): item is string => typeof item === 'string' && item.length > 0);
+      return <div style={{ maxWidth: 300 }}>
+        <span>{note || 'No additional notes'}</span>
+        {tags.length > 0 ? <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4, marginTop: 5 }}>
+          {tags.map((tag) => <span key={tag} style={{ padding: '2px 6px', borderRadius: 6, background: '#EEF4FF', color: '#0B2F6B', fontSize: 10, fontWeight: 700 }}>{tag}</span>)}
+        </div> : null}
+      </div>;
+    }
+  } catch { /* Legacy plain text remains readable. */ }
+  return <span style={{ overflowWrap: 'anywhere' }}>{value}</span>;
+}
+
 export default function Page() {
   return <SuperAdminLiveTablePage<Row>
     icon="↩"
@@ -41,7 +62,7 @@ export default function Page() {
       { key: 'vehicle', label: 'Vehicle', render: (row) => row.vehicle_type?.replaceAll('_',' ') ?? '—' },
       { key: 'window', label: 'Availability', render: (row) => <div>{formatDateTime(row.available_from ?? row.available_date)}<div style={{fontSize:10,color:'#667085',marginTop:2}}>until {formatDateTime(row.available_to)}</div></div> },
       { key: 'status', label: 'Status', render: (row) => <StatusChip value={row.status} /> },
-      { key: 'notes', label: 'Notes', render: (row) => row.notes?.trim() || '—' },
+      { key: 'notes', label: 'Notes', render: (row) => <JourneyNotes value={row.notes} /> },
     ]}
   />;
 }
