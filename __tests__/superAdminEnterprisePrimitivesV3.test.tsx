@@ -66,8 +66,9 @@ describe('Super Admin v3 enterprise primitives', () => {
   it('keeps the v3 density, responsive behavior and XDrive token palette centralized', () => {
     expect(primitiveCss).toContain('#0B2F6B');
     expect(primitiveCss).toContain('#1D57D8');
-    expect(primitiveCss).toContain('#F4F6F8');
-    expect(primitiveCss).toContain('border-radius: 8px');
+    expect(primitiveCss).toContain('#F4F8FF');
+    expect(primitiveCss).toContain('border-radius: 12px');
+    expect(primitiveCss).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
     expect(primitiveCss).toContain('@media (max-width: 900px)');
     expect(primitiveCss).toContain('@media (max-width: 620px)');
     expect(primitiveCss).toContain('min-height: 48px');
@@ -80,4 +81,3 @@ describe('Super Admin v3 enterprise primitives', () => {
     expect(primitiveCss).not.toContain('ShipNow');
   });
 });
-
