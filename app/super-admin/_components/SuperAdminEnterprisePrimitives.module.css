@@ -92,6 +92,10 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
 }
 
+.metricGrid:has(> :nth-child(5):last-child) {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .metricCard {
   position: relative;
   min-height: 105px;
@@ -407,7 +411,7 @@
 }
 
 @media (max-width: 1180px) {
-  .metricGrid, .metricGrid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metricGrid, .metricGrid:has(> :nth-child(5):last-child), .metricGrid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 900px) {
@@ -418,7 +422,7 @@
     padding: 15px;
   }
   .pageHeaderActions { width: 100%; }
-  .metricGrid, .metricGrid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .metricGrid, .metricGrid:has(> :nth-child(5):last-child), .metricGrid:has(> :nth-child(6):last-child) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 @media (max-width: 620px) {
@@ -426,7 +430,7 @@
   .pageHeaderLead { gap: 10px; }
   .pageHeaderIcon { width: 36px; height: 36px; flex-basis: 36px; }
   .pageHeader h1 { font-size: 19px; }
-  .metricGrid, .metricGrid:has(> :nth-child(6):last-child) { grid-template-columns: 1fr; }
+  .metricGrid, .metricGrid:has(> :nth-child(5):last-child), .metricGrid:has(> :nth-child(6):last-child) { grid-template-columns: 1fr; }
   .sectionCardHeader { align-items: flex-start; flex-direction: column; }
   .pager { align-items: flex-start; flex-direction: column; }
   .pagerActions { width: 100%; }

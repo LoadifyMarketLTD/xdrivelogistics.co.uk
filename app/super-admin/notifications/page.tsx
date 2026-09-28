@@ -12,6 +12,7 @@ import {
 
 const X = { navy: '#0B2F6B', blue: '#1D57D8', orange: '#F5A300', white: '#FFFFFF', charcoal: '#1A1F2B', light: '#F4F6F8', border: '#E5E7EB', muted: '#667085', danger: '#D92D20' } as const;
 const controlStyle = { height: '36px', background: X.white, color: X.charcoal, border: `1px solid ${X.border}`, borderRadius: '8px', padding: '0 10px', fontSize: '12px', outlineColor: X.blue } as const;
+const selectStyle = { ...controlStyle, flex: '1 1 155px', minWidth: 150, width: 'auto' } as const;
 
 export default function Page() {
   const [pendingById, setPendingById] = useState<Record<string, boolean>>({});
@@ -77,9 +78,9 @@ export default function Page() {
     <SuperAdminLiveTablePage<NotificationRow> key={endpoint} {...notificationsTableProps} endpoint={endpoint} refreshKey={refreshKey} columns={columns} toolbar={
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', width: '100%' }}>
         <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Search title, message, event type or entity…" aria-label="Search notifications" style={{ ...controlStyle, flex: '2 1 260px', minWidth: 200 }} />
-        <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Notification category" style={controlStyle}><option value="all">All categories</option><option value="onboarding">Onboarding</option><option value="marketplace">Marketplace</option><option value="jobs">Jobs</option><option value="fleet">Fleet</option><option value="finance">Finance</option><option value="compliance">Compliance</option><option value="security">Security</option><option value="platform">Platform</option></select>
-        <select value={severity} onChange={(event) => setSeverity(event.target.value)} aria-label="Notification severity" style={controlStyle}><option value="all">All severities</option><option value="critical">Critical</option><option value="warning">Warning</option><option value="info">Info</option><option value="success">Success</option></select>
-        <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Notification delivery status" style={controlStyle}><option value="all">All delivery states</option><option value="pending">Pending</option><option value="sent">Sent</option><option value="failed">Failed</option><option value="skipped">Skipped</option></select>
+        <select value={category} onChange={(event) => setCategory(event.target.value)} aria-label="Notification category" style={selectStyle}><option value="all">All categories</option><option value="onboarding">Onboarding</option><option value="marketplace">Marketplace</option><option value="jobs">Jobs</option><option value="fleet">Fleet</option><option value="finance">Finance</option><option value="compliance">Compliance</option><option value="security">Security</option><option value="platform">Platform</option></select>
+        <select value={severity} onChange={(event) => setSeverity(event.target.value)} aria-label="Notification severity" style={selectStyle}><option value="all">All severities</option><option value="critical">Critical</option><option value="warning">Warning</option><option value="info">Info</option><option value="success">Success</option></select>
+        <select value={status} onChange={(event) => setStatus(event.target.value)} aria-label="Notification delivery status" style={selectStyle}><option value="all">All delivery states</option><option value="pending">Pending</option><option value="sent">Sent</option><option value="failed">Failed</option><option value="skipped">Skipped</option></select>
         <button type="button" onClick={clearFilters} style={{ ...controlStyle, cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap', color: X.navy }}>Clear filters</button>
       </div>
     } />
