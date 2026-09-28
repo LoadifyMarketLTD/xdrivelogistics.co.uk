@@ -5,18 +5,24 @@ type Role =
   | 'broker'
   | 'customer'
   | 'driver'
+  | 'owner-driver'
   | 'fleet'
-  | 'operations';
+  | 'operations'
+  | 'finance'
+  | 'compliance';
 
-const roles: Role[] = ['carrier', 'broker', 'customer', 'driver', 'fleet', 'operations'];
+const roles: Role[] = ['carrier', 'broker', 'customer', 'driver', 'owner-driver', 'fleet', 'operations', 'finance', 'compliance'];
 
 const expectedKpis: Record<Role, string[]> = {
   carrier: ['Quotes submitted', 'Won work', 'Awaiting allocation', 'Active jobs', 'POD outstanding', 'Overdue invoices'],
   broker: ['Draft loads', 'Carrier quotes', 'Awaiting award', 'Active jobs', 'Gross margin'],
   customer: ['Open loads', 'Quotes received', 'Awaiting award', 'Active deliveries', 'Unpaid invoices'],
-  driver: ['Jobs today', 'Active job', 'Awaiting start', 'Documents expiring', 'Quotes submitted'],
+  driver: ['Jobs today', 'Active job', 'Awaiting start', 'Documents expiring'],
+  'owner-driver': ['Jobs today', 'Active job', 'Quotes submitted', 'Outstanding invoices', 'Return capacity'],
   fleet: ['Available drivers', 'Busy drivers', 'Unassigned jobs', 'Stale positions', 'Expiry alerts'],
   operations: ['Unallocated jobs', 'Active jobs', 'Exceptions', 'Available drivers', 'Stale positions'],
+  finance: ['Customer invoices', 'Carrier invoices', 'Payments due', 'Outstanding balance'],
+  compliance: ['Pending verification', 'Expiring documents', 'Driver issues', 'Vehicle issues'],
 };
 
 const viewports = [
@@ -60,18 +66,10 @@ const toHex = (value: string) => {
   return `#${[r, g, b].map((entry) => entry.toString(16).padStart(2, '0')).join('')}`;
 };
 
-function topShellSelectors(role: Role) {
-  if (role === 'driver') {
-    return {
-      header: '.driver-top-shell__header',
-      nav: '.driver-top-nav',
-      track: '.driver-top-nav__track',
-      overflowTarget: '.driver-top-nav',
-    };
-  }
+function topShellSelectors() {
   return {
     header: '.top-workspace-shell__header',
-    nav: '.top-workspace-nav',
+    nav: '.top-workspace-nav--primary',
     track: '.top-workspace-nav__track',
     overflowTarget: '.top-workspace-nav__track',
   };
@@ -132,7 +130,7 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
         await page.goto(`/visual-fixture/workspace/${role}`);
         await page.waitForLoadState('networkidle');
 
-        const selectors = topShellSelectors(role);
+        const selectors = topShellSelectors();
         const header = page.locator(selectors.header);
         const nav = page.locator(selectors.nav);
         const track = page.locator(selectors.track);
@@ -171,9 +169,13 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
           expect(['auto', 'scroll']).toContain(navOverflow.overflowX);
         }
 
-        await expect(page.getByRole('button', { name: /Notifications/i })).toBeVisible();
         if (viewport.width > 768) {
-          await expect(page.getByRole('button', { name: 'Action Centre' })).toBeVisible();
+          await expect(page.getByRole('button', { name: /Notifications/i })).toBeVisible();
+          if (role === 'broker' || role === 'customer') {
+            await expect(page.getByRole('button', { name: 'Action Centre' })).toBeVisible();
+          }
+        } else {
+          await expect(page.getByRole('button', { name: /Notifications/i })).toBeHidden();
         }
 
         const pageOverflow = await page.evaluate(
