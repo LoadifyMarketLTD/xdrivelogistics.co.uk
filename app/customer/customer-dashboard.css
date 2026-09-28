@@ -199,15 +199,6 @@
   color: #187a35;
 }
 
-.customer-action-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
-}
-
-.customer-action-grid button {
-  width: 100%;
-}
 
 .customer-dash-table-wrap {
   width: 100%;
@@ -392,16 +383,12 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
   }
-
-  .customer-action-grid {
-    grid-template-columns: 1fr;
-  }
 }
 
 
 .customer-dashboard-clean-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(280px, 0.65fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 

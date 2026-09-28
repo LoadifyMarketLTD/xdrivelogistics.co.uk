@@ -16,6 +16,10 @@ describe('Customer clean workspace contract', () => {
     expect(shell).not.toContain("id: 'customer-post-load'");
     expect(shell).toContain("if (role === 'customer') {");
     expect(shell).toContain('filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user)');
+    expect(shell).toContain("{ id: 'customer-loads', label: 'My Loads'");
+    expect(shell).toContain("{ id: 'customer-quotes', label: 'Quotes'");
+    expect(shell).toContain("{ id: 'customer-bookings', label: 'Bookings'");
+    expect(shell).not.toContain("{ id: 'customer-loads', label: 'Loads', items:");
   });
 
   it('keeps only the four primary customer signals at the top', () => {
@@ -42,7 +46,7 @@ describe('Customer clean workspace contract', () => {
       expect(dashboard).not.toContain(removed);
     }
     expect(dashboard).toContain('Needs your attention');
-    expect(dashboard).toContain('Quick actions');
+    expect(dashboard).not.toContain('Quick actions');
     expect(dashboard).toContain('Recent transport');
   });
 

@@ -51,7 +51,7 @@ describe('CX-close carrier and fleet top navigation', () => {
     const fleetCapabilityBlock = roles.slice(roles.indexOf('fleet_manager: new Set'), roles.indexOf('dispatcher: new Set'));
     expect(fleetCapabilityBlock).not.toContain("'loads.view.marketplace'");
     expect(fleetCapabilityBlock).not.toContain("'quotes.submit'");
-    expect(shell).toContain("else if (role === 'fleet_manager') base = composeFleetPrimaryNav(base)");
+    expect(shell).toContain("if (role === 'fleet_manager') return composeFleetPrimaryNav(base);");
   });
 
   it('preserves capability gating for Driver and Vehicle links', () => {
