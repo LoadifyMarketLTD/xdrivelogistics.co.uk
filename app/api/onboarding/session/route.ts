@@ -10,8 +10,7 @@ import {
   ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE,
   normalizeOnboardingAccountType,
 } from '../../_lib/onboarding';
-import { getOnboardingContract } from '../../../../lib/onboardingContract';
-import { assessOnboardingRecovery } from '../../../../lib/onboardingProgress';
+import { assessStoredOnboardingRecovery } from '../_lib/recovery';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -52,41 +51,14 @@ export async function GET(request: NextRequest) {
   }
 
   const routeSegment = ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE[accountType];
-  const contract = getOnboardingContract(accountType);
-  const payload = app.payload && typeof app.payload === 'object' && !Array.isArray(app.payload)
-    ? { ...(app.payload as Record<string, unknown>) }
-    : {};
-
-  if (contract?.documents.length) {
-    const identityTypes = contract.documents.filter((doc) => doc.family === 'identity').map((doc) => doc.type);
-    const companyTypes = contract.documents.filter((doc) => doc.family === 'company').map((doc) => doc.type);
-
-    if (identityTypes.length > 0) {
-      const { data: identityDocs, error: identityError } = await supabaseAdmin
-        .from('driver_identity_documents')
-        .select('doc_type, file_path, upload_status, verification_status')
-        .eq('onboarding_application_id', app.id)
-        .in('doc_type', identityTypes);
-      if (identityError) return json(500, { error: identityError.message });
-      for (const doc of identityDocs ?? []) {
-        if (doc.file_path && doc.upload_status === 'uploaded') payload[`doc_${doc.doc_type}`] = doc.file_path;
-      }
-    }
-
-    if (companyTypes.length > 0) {
-      const { data: companyDocs, error: companyError } = await supabaseAdmin
-        .from('company_documents')
-        .select('doc_type, file_path, status')
-        .eq('onboarding_application_id', app.id)
-        .in('doc_type', companyTypes);
-      if (companyError) return json(500, { error: companyError.message });
-      for (const doc of companyDocs ?? []) {
-        if (doc.file_path && doc.status !== 'rejected') payload[`doc_${doc.doc_type}`] = doc.file_path;
-      }
-    }
-  }
-
-  const recovery = assessOnboardingRecovery(accountType, payload, { companyId: app.company_id });
+  const assessed = await assessStoredOnboardingRecovery({
+    applicationId: app.id,
+    accountType,
+    companyId: app.company_id,
+    payload: app.payload,
+  });
+  if (assessed.error) return json(500, { error: assessed.error });
+  const { payload, recovery } = assessed;
 
   return json(200, {
     application: {

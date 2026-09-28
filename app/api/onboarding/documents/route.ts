@@ -10,6 +10,7 @@ import {
   INDIVIDUAL_DRIVER_DOCUMENT_TYPES,
   OWNER_DRIVER_DOCUMENT_TYPES,
 } from '../../_lib/onboarding';
+import { assessStoredOnboardingRecovery } from '../_lib/recovery';
 
 export const runtime = 'nodejs';
 
@@ -119,7 +120,7 @@ export async function POST(request: NextRequest) {
 
   const { data: appRows, error: appError } = await supabaseAdmin
     .from('onboarding_applications')
-    .select('id, user_id, account_type, company_id, risk_status')
+    .select('id, user_id, account_type, company_id, risk_status, payload')
     .eq('user_id', authData.user.id)
     .order('created_at', { ascending: false })
     .limit(2);
@@ -256,17 +257,33 @@ export async function POST(request: NextRequest) {
 
   if (accountType === 'fleet_courier') {
     const parsedDocType = parsedFleetDocType!;
+    if (!app.company_id) {
+      await cleanupUploadedObject();
+      return json(409, { error: 'Fleet onboarding must be bound to a verified company workspace before uploading documents.' });
+    }
+
     const { data: company, error: companyError } = await supabaseAdmin
       .from('companies')
       .select('id')
-      .eq('created_by', authData.user.id)
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .eq('id', app.company_id)
       .maybeSingle();
 
     if (companyError || !company?.id) {
       await cleanupUploadedObject();
-      return json(409, { error: companyError?.message ?? 'Company workspace must exist before uploading fleet documents.' });
+      return json(409, { error: companyError?.message ?? 'Bound fleet company workspace could not be found.' });
+    }
+
+    const { data: membership, error: membershipError } = await supabaseAdmin
+      .from('company_memberships')
+      .select('id')
+      .eq('company_id', company.id)
+      .eq('user_id', authData.user.id)
+      .eq('status', 'active')
+      .maybeSingle();
+
+    if (membershipError || !membership?.id) {
+      await cleanupUploadedObject();
+      return json(403, { error: membershipError?.message ?? 'Active company membership is required to upload fleet documents.' });
     }
 
     const { data: document, error: documentError } = await supabaseAdmin
@@ -493,14 +510,33 @@ export async function POST(request: NextRequest) {
     return json(500, { error: fingerprintError.message });
   }
 
+  const assessed = await assessStoredOnboardingRecovery({
+    applicationId: app.id,
+    accountType,
+    companyId: app.company_id,
+    payload: app.payload,
+  });
+
+  if (assessed.error) {
+    await supabaseAdmin.from('document_fingerprints').delete().eq('document_id', storedDocument.id);
+    await supabaseAdmin.from(storedDocument.table).delete().eq('id', storedDocument.id);
+    await cleanupUploadedObject();
+    return json(503, {
+      error: 'Document was uploaded but onboarding progress could not be verified.',
+      details: assessed.error,
+    });
+  }
+
   const { data: latestApp, error: updateError } = await supabaseAdmin
     .from('onboarding_applications')
     .update({
       status: 'in_progress',
       last_activity_at: new Date().toISOString(),
+      payload: assessed.payload,
+      completion_percentage: assessed.recovery.progress,
     })
     .eq('id', app.id)
-    .select('payload, risk_status')
+    .select('payload, risk_status, completion_percentage')
     .single();
 
   if (updateError) {

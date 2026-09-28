@@ -9,6 +9,8 @@ describe('public funnel hardening', () => {
   const middleware = read('middleware.ts');
   const handlers = read('app/api/onboarding/_lib/handlers.ts');
   const schemas = read('app/api/onboarding/_lib/schemas.ts');
+  const documentsRoute = read('app/api/onboarding/documents/route.ts');
+  const storedRecovery = read('app/api/onboarding/_lib/recovery.ts');
   const broker = read('app/onboarding/_components/BrokerOnboarding.tsx');
   const generic = read('app/onboarding/[token]/page.tsx');
   const marketing = read('app/(marketing)/_components/MarketingDetailPage.tsx');
@@ -49,6 +51,24 @@ describe('public funnel hardening', () => {
     expect(handlers).toContain('getRequiredOnboardingDocuments(expectedAccountType)');
     expect(handlers).toContain("code: 'required_onboarding_documents_missing'");
     expect(handlers).toContain("from(documentTable)");
+    expect(handlers).toContain("select('doc_type, file_path')");
+    expect(handlers).toContain("typeof row.file_path === 'string' && row.file_path.trim().length > 0");
+  });
+
+  it('derives saved progress from server-side fields and stored documents', () => {
+    expect(handlers).toContain('assessStoredOnboardingRecovery');
+    expect(handlers).toContain('completion_percentage: assessed.recovery.progress');
+    expect(handlers).not.toContain('updatePayload.completion_percentage = patchData.completionPercentage');
+    expect(storedRecovery).toContain(".from('driver_identity_documents')");
+    expect(storedRecovery).toContain(".from('company_documents')");
+    expect(documentsRoute).toContain('completion_percentage: assessed.recovery.progress');
+  });
+
+  it('binds fleet document uploads to the verified onboarding company', () => {
+    expect(documentsRoute).toContain("if (!app.company_id)");
+    expect(documentsRoute).toContain(".eq('id', app.company_id)");
+    expect(documentsRoute).toContain(".eq('company_id', company.id)");
+    expect(documentsRoute).toContain(".eq('user_id', authData.user.id)");
   });
 
   it('enforces minimum owner-driver identity and vehicle fields', () => {
@@ -111,9 +131,10 @@ describe('public funnel hardening', () => {
   });
 
   it('restores legacy uploaded documents and exposes canonical recovery requirements', () => {
-    expect(onboardingSession).toContain(".from('driver_identity_documents')");
-    expect(onboardingSession).toContain(".from('company_documents')");
-    expect(onboardingSession).toContain('assessOnboardingRecovery(accountType, payload, { companyId: app.company_id })');
+    expect(onboardingSession).toContain('assessStoredOnboardingRecovery');
+    expect(storedRecovery).toContain(".from('driver_identity_documents')");
+    expect(storedRecovery).toContain(".from('company_documents')");
+    expect(storedRecovery).toContain('assessOnboardingRecovery(accountType, payload, { companyId })');
     expect(generic).toContain('Complete your XDrive onboarding');
     expect(generic).toContain('recoveryAssessment.missingFields.length > 0');
   });
@@ -153,6 +174,19 @@ describe('public funnel hardening', () => {
     expect(ownerRecovery.missingFields.map((item) => item.key)).toEqual(['registration', 'make', 'model']);
     expect(ownerRecovery.missingDocuments.map((item) => item.type)).toEqual(['driving_licence', 'right_to_work']);
     expect(ownerRecovery.blockingReasons).toHaveLength(2);
+
+    const companyDriverRecovery = assessOnboardingRecovery('individual_driver', {
+      full_name: 'Company Driver',
+      address: '1 Test Street',
+      phone: '07000000002',
+      email: 'company.driver@example.test',
+      doc_driving_licence: 'stored/licence.jpg',
+      doc_proof_of_address: 'stored/address.jpg',
+      doc_right_to_work: 'stored/rtw.jpg',
+    });
+    expect(companyDriverRecovery.complete).toBe(false);
+    expect(companyDriverRecovery.missingFields.map((item) => item.key)).toEqual(['dob', 'right_to_work_status']);
+    expect(companyDriverRecovery.missingDocuments).toHaveLength(0);
 
     const fleetRecovery = assessOnboardingRecovery('fleet_courier', {
       legal_company_name: 'HNR Express Solutions Ltd',

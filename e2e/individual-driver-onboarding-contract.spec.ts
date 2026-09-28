@@ -41,6 +41,7 @@ test.describe('company-driver onboarding compatibility contract', () => {
   test('requires driver identity fields without requiring owner vehicle fields', () => {
     const driverPayload = {
       full_name: 'E2E Individual Driver',
+      dob: '1991-04-15',
       address: '1 Test Street',
       phone: '07000000000',
       email: 'driver.e2e@example.com',
@@ -49,6 +50,8 @@ test.describe('company-driver onboarding compatibility contract', () => {
 
     expect(individualDriverPayloadSchema.safeParse(driverPayload).success).toBe(true);
     expect(individualDriverPayloadSchema.safeParse({ ...driverPayload, full_name: '' }).success).toBe(false);
+    expect(individualDriverPayloadSchema.safeParse({ ...driverPayload, dob: '' }).success).toBe(false);
+    expect(individualDriverPayloadSchema.safeParse({ ...driverPayload, right_to_work_status: '' }).success).toBe(false);
     expect(individualDriverPayloadSchema.safeParse({ ...driverPayload, email: 'invalid' }).success).toBe(false);
 
     // Owner-driver is a separate carrier-owner flow and must include the minimum

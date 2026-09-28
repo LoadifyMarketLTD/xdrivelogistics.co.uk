@@ -38,7 +38,7 @@ export const REQUIRED_ONBOARDING_FIELDS: Record<CanonicalOnboardingAccountType, 
     'make',
     'model',
   ],
-  company_driver: ['full_name', 'address', 'phone', 'email'],
+  company_driver: ['full_name', 'dob', 'address', 'phone', 'email', 'right_to_work_status'],
 };
 
 const FIELD_LABELS: Record<string, string> = {

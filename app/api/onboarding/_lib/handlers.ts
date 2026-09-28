@@ -15,6 +15,7 @@ import {
   type CompanyRegistrationAccountType,
 } from '../../../../lib/server/companyRegistration';
 import { getRequiredOnboardingDocuments } from '../../../../lib/onboardingContract';
+import { assessStoredOnboardingRecovery } from './recovery';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -194,20 +195,32 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
     }
 
     const activityTimestamp = new Date().toISOString();
+    const mergedPayload = {
+      ...((existing.payload ?? {}) as Record<string, unknown>),
+      ...payloadPatch,
+    };
+    const assessed = await assessStoredOnboardingRecovery({
+      applicationId: existing.id,
+      accountType: expectedAccountType,
+      companyId: existing.company_id,
+      payload: mergedPayload,
+    });
+    if (assessed.error) {
+      return json(503, {
+        error: 'Onboarding progress could not be recalculated from stored requirements.',
+        details: assessed.error,
+      });
+    }
+
     const updatePayload: Record<string, unknown> = {
       last_activity_at: activityTimestamp,
       status: statusDecision.nextStatus,
-      payload: {
-        ...(existing.payload as Record<string, unknown>),
-        ...payloadPatch,
-      },
+      payload: assessed.payload,
+      completion_percentage: assessed.recovery.progress,
     };
 
     if (!existing.token_activated_at) updatePayload.token_activated_at = activityTimestamp;
     if (patchData.currentStep) updatePayload.current_step = patchData.currentStep;
-    if (typeof patchData.completionPercentage === 'number') {
-      updatePayload.completion_percentage = patchData.completionPercentage;
-    }
 
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('onboarding_applications')
@@ -264,7 +277,7 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
         : 'driver_identity_documents';
       const { data: documentRows, error: documentError } = await supabaseAdmin
         .from(documentTable)
-        .select('doc_type')
+        .select('doc_type, file_path')
         .eq('onboarding_application_id', application.id);
 
       if (documentError) {
@@ -274,7 +287,11 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
         });
       }
 
-      const uploadedTypes = new Set((documentRows ?? []).map((row) => String(row.doc_type ?? '')));
+      const uploadedTypes = new Set(
+        (documentRows ?? [])
+          .filter((row) => typeof row.file_path === 'string' && row.file_path.trim().length > 0)
+          .map((row) => String(row.doc_type ?? '')),
+      );
       const missingDocuments = requiredDocuments.filter((document) => !uploadedTypes.has(document.type));
       if (missingDocuments.length > 0) {
         return json(409, {

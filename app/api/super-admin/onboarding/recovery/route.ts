@@ -2,15 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
-import { getOnboardingContract } from '../../../../../lib/onboardingContract';
-import { assessOnboardingRecovery } from '../../../../../lib/onboardingProgress';
+import { assessStoredOnboardingRecovery } from '../../../onboarding/_lib/recovery';
 
 const json = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-
-const asPayload = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' && !Array.isArray(value)
-    ? { ...(value as Record<string, unknown>) }
-    : {};
 
 export async function GET(request: NextRequest) {
   const owner = await verifyPlatformOwner(request);
@@ -46,39 +40,17 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const rows = await Promise.all((applications ?? []).map(async (application) => {
-    const payload = asPayload(application.payload);
-    const contract = getOnboardingContract(application.account_type);
-    const identityTypes = contract?.documents.filter((doc) => doc.family === 'identity').map((doc) => doc.type) ?? [];
-    const companyTypes = contract?.documents.filter((doc) => doc.family === 'company').map((doc) => doc.type) ?? [];
-
-    if (identityTypes.length > 0) {
-      const { data: docs, error: docsError } = await supabaseAdmin!
-        .from('driver_identity_documents')
-        .select('doc_type, file_path, upload_status')
-        .eq('onboarding_application_id', application.id)
-        .in('doc_type', identityTypes);
-      if (!docsError) {
-        for (const doc of docs ?? []) {
-          if (doc.file_path && doc.upload_status === 'uploaded') payload[`doc_${doc.doc_type}`] = doc.file_path;
-        }
-      }
-    }
-
-    if (companyTypes.length > 0) {
-      const { data: docs, error: docsError } = await supabaseAdmin!
-        .from('company_documents')
-        .select('doc_type, file_path, status')
-        .eq('onboarding_application_id', application.id)
-        .in('doc_type', companyTypes);
-      if (!docsError) {
-        for (const doc of docs ?? []) {
-          if (doc.file_path && doc.status !== 'rejected') payload[`doc_${doc.doc_type}`] = doc.file_path;
-        }
-      }
-    }
-
-    const recovery = assessOnboardingRecovery(application.account_type, payload, { companyId: application.company_id });
+  let rows;
+  try {
+    rows = await Promise.all((applications ?? []).map(async (application) => {
+    const assessed = await assessStoredOnboardingRecovery({
+      applicationId: application.id,
+      accountType: application.account_type,
+      companyId: application.company_id,
+      payload: application.payload,
+    });
+    if (assessed.error) throw new Error(assessed.error);
+    const { payload, recovery } = assessed;
     const payloadName = typeof payload.full_name === 'string'
       ? payload.full_name
       : typeof payload.contact_person === 'string'
@@ -122,7 +94,14 @@ export async function GET(request: NextRequest) {
       last_recovery_event_at: latestRecoveryEvent?.created_at ?? null,
       reminder_eligible: reminderEligible,
     };
-  }));
+    }));
+  } catch (recoveryError) {
+    return json(500, {
+      error: recoveryError instanceof Error
+        ? recoveryError.message
+        : 'Unable to evaluate onboarding recovery queue.',
+    });
+  }
 
   return json(200, {
     rows,
