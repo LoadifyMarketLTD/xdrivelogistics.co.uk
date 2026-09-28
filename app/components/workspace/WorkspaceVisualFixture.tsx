@@ -27,8 +27,11 @@ export type FixtureRole =
   | 'broker'
   | 'customer'
   | 'driver'
+  | 'owner-driver'
   | 'fleet'
   | 'operations'
+  | 'finance'
+  | 'compliance'
   | 'super-admin';
 
 type FixtureRow = {
@@ -110,15 +113,14 @@ export const FIXTURE_ROLE_CONFIG: Record<FixtureRole, FixtureRoleConfig> = {
     metaLabel: 'Customer transport visibility',
   },
   driver: {
-    title: 'Driver / Owner Driver Dashboard',
+    title: 'Driver Dashboard',
     subtitle: 'Execution workflow, POD and own readiness',
-    forcedRole: 'owner_driver',
+    forcedRole: 'driver',
     kpis: [
       { label: 'Jobs today', value: '7', tone: 'blue' },
       { label: 'Active job', value: '1', tone: 'green' },
       { label: 'Awaiting start', value: '2', tone: 'orange' },
       { label: 'Documents expiring', value: '1', tone: 'navy' },
-      { label: 'Quotes submitted', value: '3', tone: 'blue' },
     ],
     rows: [
       { id: 'd1', ref: 'DRV-511', lane: 'NOT → LEI', status: 'In Progress', eta: '11:05' },
@@ -126,7 +128,26 @@ export const FIXTURE_ROLE_CONFIG: Record<FixtureRole, FixtureRoleConfig> = {
       { id: 'd3', ref: 'DRV-497', lane: 'LON → LUT', status: 'Delivered', eta: '08:30' },
     ],
     actions: ['Open active route', 'Upload POD', 'Confirm availability'],
-    metaLabel: 'Driver execution workspace',
+    metaLabel: 'Employed driver execution workspace',
+  },
+  'owner-driver': {
+    title: 'Owner Driver Dashboard',
+    subtitle: 'Execution plus owner-driver commercial control',
+    forcedRole: 'owner_driver',
+    kpis: [
+      { label: 'Jobs today', value: '7', tone: 'blue' },
+      { label: 'Active job', value: '1', tone: 'green' },
+      { label: 'Quotes submitted', value: '3', tone: 'blue' },
+      { label: 'Outstanding invoices', value: '2', tone: 'orange' },
+      { label: 'Return capacity', value: '1', tone: 'navy' },
+    ],
+    rows: [
+      { id: 'od1', ref: 'ODR-511', lane: 'NOT → LEI', status: 'In Progress', eta: '11:05' },
+      { id: 'od2', ref: 'ODR-506', lane: 'YRK → HUL', status: 'Pending', eta: '13:15' },
+      { id: 'od3', ref: 'ODR-497', lane: 'LON → LUT', status: 'Delivered', eta: '08:30' },
+    ],
+    actions: ['Find loads', 'Review quotes', 'Publish return journey'],
+    metaLabel: 'Owner driver commercial workspace',
   },
   fleet: {
     title: 'Fleet Dashboard',
@@ -165,6 +186,42 @@ export const FIXTURE_ROLE_CONFIG: Record<FixtureRole, FixtureRoleConfig> = {
     ],
     actions: ['Reassign delayed load', 'Notify depot', 'Review handover risk'],
     metaLabel: 'Dispatch control surface',
+  },
+  finance: {
+    title: 'Finance Dashboard',
+    subtitle: 'Invoices, payments, balances and reporting',
+    forcedRole: 'finance',
+    kpis: [
+      { label: 'Customer invoices', value: '38', tone: 'blue' },
+      { label: 'Carrier invoices', value: '31', tone: 'green' },
+      { label: 'Payments due', value: '9', tone: 'orange' },
+      { label: 'Outstanding balance', value: '£12.6k', tone: 'navy' },
+    ],
+    rows: [
+      { id: 'fin1', ref: 'INV-930', lane: 'Customer → XDrive', status: 'Pending', eta: 'Today' },
+      { id: 'fin2', ref: 'INV-922', lane: 'XDrive → Carrier', status: 'In Progress', eta: 'Tomorrow' },
+      { id: 'fin3', ref: 'INV-917', lane: 'Customer → XDrive', status: 'Delivered', eta: 'Paid' },
+    ],
+    actions: ['Review overdue invoices', 'Reconcile payments', 'Open reports'],
+    metaLabel: 'Finance control surface',
+  },
+  compliance: {
+    title: 'Compliance Dashboard',
+    subtitle: 'Driver, vehicle and company evidence',
+    forcedRole: 'compliance',
+    kpis: [
+      { label: 'Pending verification', value: '6', tone: 'orange' },
+      { label: 'Expiring documents', value: '11', tone: 'blue' },
+      { label: 'Driver issues', value: '3', tone: 'navy' },
+      { label: 'Vehicle issues', value: '2', tone: 'green' },
+    ],
+    rows: [
+      { id: 'com1', ref: 'DOC-930', lane: 'Driver → Review', status: 'Pending', eta: 'Today' },
+      { id: 'com2', ref: 'DOC-922', lane: 'Vehicle → Review', status: 'In Progress', eta: 'Tomorrow' },
+      { id: 'com3', ref: 'DOC-917', lane: 'Company → Verified', status: 'Delivered', eta: 'Complete' },
+    ],
+    actions: ['Review pending evidence', 'Check expiries', 'Open incidents'],
+    metaLabel: 'Compliance control surface',
   },
   'super-admin': {
     title: 'Command Centre',

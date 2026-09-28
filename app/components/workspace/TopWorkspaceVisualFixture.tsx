@@ -2,7 +2,6 @@
 
 import { useState, type ReactNode } from 'react';
 
-import DriverTopWorkspaceShell from '../../driver/_components/DriverTopWorkspaceShell';
 import TopWorkspaceShell from './TopWorkspaceShell';
 import { FIXTURE_ROLE_CONFIG, type FixtureRole } from './WorkspaceVisualFixture';
 import {
@@ -28,19 +27,12 @@ type FixtureShellProps = {
 };
 
 function FixtureShell({ role, children }: FixtureShellProps) {
-  if (role === 'driver') {
-    return (
-      <div className="xdrive-workspace-visual xdrive-driver-workspace">
-        <DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell>
-      </div>
-    );
-  }
-
   const forcedRole = FIXTURE_ROLE_CONFIG[role].forcedRole;
   if (!forcedRole) return null;
+  const driverClass = role === 'driver' || role === 'owner-driver' ? ' xdrive-driver-workspace' : '';
 
   return (
-    <div className="xdrive-workspace-visual xdrive-operational-top-workspace">
+    <div className={`xdrive-workspace-visual xdrive-operational-top-workspace${driverClass}`}>
       <TopWorkspaceShell forcedRole={forcedRole}>{children}</TopWorkspaceShell>
     </div>
   );
