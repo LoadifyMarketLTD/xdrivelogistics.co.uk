@@ -515,13 +515,15 @@
   line-height: 1.5;
 }
 .areaGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 14px;
-  align-items: start;
+  columns: 3;
+  column-gap: 14px;
 }
 
 .areaCard {
+  display: inline-block;
+  width: 100%;
+  margin-bottom: 14px;
+  break-inside: avoid;
   min-width: 0;
   padding: 18px;
   border: 1px solid #DCE6F5;
@@ -628,7 +630,7 @@
 }
 @media (max-width: 1200px) {
   .areaGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    columns: 2;
   }
 
   .platformGrid {
@@ -752,7 +754,8 @@
     display: none;
   }
 
-  .areaGrid,
+  .areaGrid { columns: 1; }
+
   .platformGrid {
     grid-template-columns: minmax(0, 1fr);
   }
