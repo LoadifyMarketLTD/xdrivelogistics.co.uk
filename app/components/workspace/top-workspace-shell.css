@@ -119,6 +119,12 @@
   color: #172033;
 }
 
+.top-workspace-action--direct {
+  border-color: #172033;
+  background: #172033;
+  color: #fff;
+}
+
 .top-workspace-action--signout {
   border-color: #fecaca;
   color: #b91c1c;
@@ -243,7 +249,7 @@
   min-height: 44px !important;
   display: flex !important;
   align-items: stretch !important;
-  justify-content: flex-end !important;
+  justify-content: flex-start !important;
   gap: 2px !important;
   padding: 0 16px !important;
   overflow-x: auto !important;
