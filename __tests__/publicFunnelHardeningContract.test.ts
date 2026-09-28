@@ -98,10 +98,8 @@ describe('public funnel hardening', () => {
     }
   });
 
-  it('serves metadata in the initial head for Lighthouse and HTML-limited bots', () => {
-    expect(nextConfig).toContain('htmlLimitedBots:');
-    expect(nextConfig).toContain('Chrome-Lighthouse');
-    expect(nextConfig).toContain('Lighthouse');
+  it('serves metadata in the initial head for every user agent', () => {
+    expect(nextConfig).toContain('htmlLimitedBots: /.*/');
   });
 
   it('uses local marketing imagery and provides a mobile navigation', () => {
