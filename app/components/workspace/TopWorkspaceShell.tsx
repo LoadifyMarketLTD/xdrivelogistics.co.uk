@@ -54,6 +54,8 @@ const MESSAGE_HREFS: Partial<Record<WorkspaceRole, string>> = {
   dispatcher: '/admin/messages',
   broker: '/broker/messages',
   customer: '/customer/messages',
+  driver: '/driver/messages',
+  owner_driver: '/driver/messages',
 };
 
 const EVENT_LOG_HREFS: Partial<Record<WorkspaceRole, string>> = {
@@ -67,6 +69,8 @@ const EVENT_LOG_HREFS: Partial<Record<WorkspaceRole, string>> = {
   viewer: '/admin/event-log',
   broker: '/broker/event-log',
   customer: '/customer/event-log',
+  driver: '/driver/event-log',
+  owner_driver: '/driver/event-log',
 };
 
 function uniqueNavItems(groups: WorkspaceNavGroup[]) {
@@ -218,13 +222,12 @@ function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
 function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boolean) {
   return composeRolePrimaryNav(groups, ownerDriver ? [
     ['owner-driver-dashboard-primary', 'Dashboard', '/driver'],
-    ['owner-driver-loads-primary', 'Available Loads', '/driver/loads'],
-    ['owner-driver-quotes-primary', 'My Quotes', '/driver/quotes'],
-    ['owner-driver-won-primary', 'Won Work', '/driver/won-work'],
-    ['owner-driver-diary-primary', 'Diary', '/driver/history'],
+    ['owner-driver-directory-primary', 'Directory', '/driver/directory'],
     ['owner-driver-returns-primary', 'Return Journeys', '/driver/returns'],
-    ['owner-driver-nearby-primary', "Who's Nearby", '/driver/nearby'],
-    ['owner-driver-finance-primary', 'Invoices', '/driver/finance'],
+    ['owner-driver-loads-primary', 'Loads', '/driver/loads'],
+    ['owner-driver-quotes-primary', 'Quotes', '/driver/quotes'],
+    ['owner-driver-diary-primary', 'Diary', '/driver/history'],
+    ['owner-driver-event-log-primary', 'Event Log', '/driver/event-log'],
   ] : [
     ['driver-dashboard-primary', 'Dashboard', '/driver'],
     ['driver-jobs-primary', 'My Jobs', '/driver/jobs'],
@@ -232,7 +235,6 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
     ['driver-availability-primary', 'Availability', '/driver/availability'],
     ['driver-vehicle-primary', 'Vehicle', '/driver/vehicles'],
     ['driver-documents-primary', 'Documents', '/driver/documents'],
-    ['driver-messages-primary', 'Messages', '/driver/messages'],
   ], ownerDriver ? 'owner-driver-more' : 'driver-more');
 }
 
@@ -575,7 +577,7 @@ export default function TopWorkspaceShell({
   const actionCentreHref = getActionCentreRoute(actionRole);
   const notificationsHref = getNotificationsRoute(actionRole);
   const primaryAction =
-    !CARRIER_NAV_ROLES.has(role) &&
+    !CARRIER_NAV_ROLES.has(role) && role !== 'owner_driver' &&
     definition.primaryAction &&
     (
       (role === 'broker' || role === 'customer')
@@ -586,7 +588,18 @@ export default function TopWorkspaceShell({
       : null;
   const showCarrierPostLoadAction =
     CARRIER_NAV_ROLES.has(role) && hasWorkspaceCapability(role, 'loads.create');
-  const carrierPostLoadHref = '/admin/post-load';
+  const showOwnerDriverPostLoadAction = role === 'owner_driver';
+  const showPostLoadAction = showCarrierPostLoadAction || showOwnerDriverPostLoadAction;
+  const postLoadHref = CARRIER_NAV_ROLES.has(role) ? '/admin/post-load' : '/driver/post-load';
+  const showBookDirectAction =
+    CARRIER_NAV_ROLES.has(role) ||
+    role === 'owner_driver' ||
+    (role === 'driver' && user?.canCommercialBid === true);
+  const bookDirectHref = CARRIER_NAV_ROLES.has(role)
+    ? '/admin/marketplace/directory'
+    : '/driver/directory';
+  const headerMessageHref = MESSAGE_HREFS[role];
+  const showActionCentre = role === 'customer' || role === 'broker';
 
   useEffect(() => {
     if (!user?.companyId || !isSupabaseConfigured) {
@@ -702,13 +715,22 @@ export default function TopWorkspaceShell({
         </div>
 
         <div className="top-workspace-shell__actions">
-          {showCarrierPostLoadAction && (
+          {showPostLoadAction && (
             <button
               type="button"
               className="top-workspace-action top-workspace-action--primary"
-              onClick={() => router.push(carrierPostLoadHref)}
+              onClick={() => router.push(postLoadHref)}
             >
-              + Post Load
+              POST LOAD
+            </button>
+          )}
+          {showBookDirectAction && (
+            <button
+              type="button"
+              className="top-workspace-action top-workspace-action--direct"
+              onClick={() => router.push(bookDirectHref)}
+            >
+              BOOK DIRECT
             </button>
           )}
           {primaryAction && (
@@ -720,13 +742,22 @@ export default function TopWorkspaceShell({
               {primaryAction.label}
             </button>
           )}
-          {!CARRIER_NAV_ROLES.has(role) && (
+          {showActionCentre && (
             <button
               type="button"
               className="top-workspace-action"
               onClick={() => router.push(actionCentreHref)}
             >
               Action Centre
+            </button>
+          )}
+          {headerMessageHref && (
+            <button
+              type="button"
+              className="top-workspace-action"
+              onClick={() => router.push(headerMessageHref)}
+            >
+              Messages
             </button>
           )}
           <button

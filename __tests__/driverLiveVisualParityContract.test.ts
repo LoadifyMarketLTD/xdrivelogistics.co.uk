@@ -5,24 +5,25 @@ import { describe, expect, it } from 'vitest';
 const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), relative), 'utf8');
 
 describe('live Driver approved prototype parity contract', () => {
-  it('keeps the full prototype information architecture visible', () => {
-    const shell = read('app/driver/_components/DriverTopWorkspaceShell.tsx');
-    for (const label of ['Today','My Jobs','Diary','Availability','Vehicle','Directory','Return Journeys','Loads','Quotes','Won Work','Auto-match & Alerts','Freight Vision','Finance','Drivers & Vehicles']) {
-      expect(shell).toContain(`label: '${label}'`);
+  it('uses the unified operational shell with Driver and Owner Driver modules', () => {
+    const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
+    const roles = read('lib/workspaceRole.ts');
+    const adapter = read('app/driver/_components/DriverTopWorkspaceShell.tsx');
+    for (const label of ['My Jobs','Diary','Availability','Vehicle','Directory','Return Journeys','Loads','Quotes','Won Work','Auto-match & Alerts','Freight Vision','Invoices']) {
+      expect(roles).toContain(`label: '${label}'`);
     }
-    expect(shell).toContain('label: "Who\'s Nearby"');
-    expect(shell).not.toContain('global-rail');
-    expect(shell).toContain('topbar');
-    expect(shell).toContain('main-nav');
-    expect(shell).toContain('driver-settings-menu');
+    expect(shell).toContain('top-workspace-nav top-workspace-nav--primary');
+    expect(shell).toContain('composeDriverPrimaryNav');
+    expect(adapter).toContain('return <TopWorkspaceShell>{children}</TopWorkspaceShell>');
+    expect(adapter).not.toContain('main-nav');
   });
 
-  it('loads the literal full prototype CSS in the Driver layout', () => {
+  it('keeps the Driver page styles loaded for dense operational content', () => {
     const layout = read('app/driver/layout.tsx');
-    const full = layout.indexOf("driver-full-prototype.css");
-    expect(full).toBeGreaterThan(-1);
+    expect(layout).toContain("driver-full-prototype.css");
     expect(layout).toContain("driver-dashboard-prototype-exact.css");
   });
+
   it('keeps the dashboard as a compact operational register, not a SaaS card wall', () => {
     const page = read('app/driver/page.tsx');
     for (const marker of ['driver-dashboard-statusbar','driver-dashboard-register','driver-dashboard-readiness','Current assignment','Next booking']) {
@@ -41,7 +42,7 @@ describe('live Driver approved prototype parity contract', () => {
     expect(shell).toContain('className="main"');
   });
 
-  it('keeps Company workspace files out of the Driver prototype port', () => {
+  it('keeps Company workspace files out of the Driver page styles', () => {
     const css = read('app/driver/driver-full-prototype.css');
     expect(css).toContain('.driver-prototype-port');
     expect(css).not.toContain('.admin-top-shell');
