@@ -6,6 +6,7 @@ import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 import { useAuth } from '../../../components/AuthContext';
 import { selectWithMissingColumnFallback } from '../../../../lib/supabaseSchemaCompat';
 import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../../components/workspace/useCompanyWorkspaceData';
+import FleetPositionMap, { type FleetMapPoint } from '../FleetPositionMap';
 import {
   ActionButton,
   AlertBanner,
@@ -85,6 +86,7 @@ export default function CompanyReturnJourneysPage() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [tab, setTab] = useState<ReturnTab>('active');
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [driverSearch, setDriverSearch] = useState('');
@@ -259,6 +261,29 @@ export default function CompanyReturnJourneysPage() {
       });
   }, [driverById, driverSearch, from, journeys, tab, to]);
 
+  const mapPoints = useMemo<FleetMapPoint[]>(() => {
+    const points: FleetMapPoint[] = [];
+    const seen = new Set<string>();
+    for (const journey of visible) {
+      if (!journey.driver_id || seen.has(journey.driver_id)) continue;
+      const location = latestLocationByDriver.get(journey.driver_id);
+      if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) continue;
+      const driver = driverById.get(journey.driver_id);
+      const timestamp = location.recorded_at ?? location.updated_at ?? null;
+      const age = positionAge(timestamp);
+      points.push({
+        driverId: journey.driver_id,
+        driverName: driver?.display_name ?? driver?.email ?? 'Driver',
+        lat: location.lat,
+        lng: location.lng,
+        timestamp,
+        stale: age.stale,
+      });
+      seen.add(journey.driver_id);
+    }
+    return points;
+  }, [driverById, latestLocationByDriver, visible]);
+
   const counts = useMemo(() => ({
     active: journeys.filter((journey) => ACTIVE_STATUSES.has(normalise(journey.status))).length,
     all: journeys.length,
@@ -323,21 +348,38 @@ export default function CompanyReturnJourneysPage() {
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" role="tablist" aria-label="Return journey states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 8 }}>
-            {([
-              ['active', 'Active', counts.active],
-              ['all', 'All', counts.all],
-              ['closed', 'Closed', counts.closed],
-            ] as const).map(([id, label, count]) => (
-              <button key={id} type="button" role="tab" aria-selected={tab === id} data-active={tab === id ? 'true' : 'false'} onClick={() => setTab(id)}>{label} <span>{count}</span></button>
-            ))}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+            <div className="workspace-tab-strip" role="tablist" aria-label="Return journey states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 0 }}>
+              {([
+                ['active', 'Active', counts.active],
+                ['all', 'All', counts.all],
+                ['closed', 'Closed', counts.closed],
+              ] as const).map(([id, label, count]) => (
+                <button key={id} type="button" role="tab" aria-selected={tab === id} data-active={tab === id ? 'true' : 'false'} onClick={() => setTab(id)}>{label} <span>{count}</span></button>
+              ))}
+            </div>
+            <div role="group" aria-label="Return journey view mode" style={{ display: 'inline-flex', minHeight: 30, border: '1px solid var(--ws-border)', borderRadius: 4, overflow: 'hidden', background: '#fff' }}>
+              <button type="button" onClick={() => setViewMode('list')} aria-pressed={viewMode === 'list'} style={viewModeButtonStyle(viewMode === 'list')}>List View</button>
+              <button type="button" onClick={() => setViewMode('map')} aria-pressed={viewMode === 'map'} style={viewModeButtonStyle(viewMode === 'map')}>Map View</button>
+            </div>
           </div>
+
+          {viewMode === 'map' && !loading ? (
+            <section className="workspace-panel" aria-label="Return journey live positions" style={{ marginBottom: 10, padding: 8 }}>
+              <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+                <strong>Return-capacity driver positions</strong>
+                <span>{mapPoints.length} tracked driver{mapPoints.length === 1 ? '' : 's'} in this filtered return view</span>
+              </div>
+              <FleetPositionMap points={mapPoints} selectedDriverId={null} mode="live" />
+              <div style={{ marginTop: 6, color: '#64748b', fontSize: 11, lineHeight: '15px' }}>Map markers show the latest authorised driver positions only. They do not fabricate a route or ETA for return capacity.</div>
+            </section>
+          ) : null}
 
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading return journeys…" /></div>
           ) : visible.length === 0 ? (
             <div className="workspace-panel"><EmptyState compact title="No return journeys in this view" description="Adjust the filters or selected state." /></div>
-          ) : (
+          ) : viewMode === 'list' ? (
             <div className="workspace-record-list">
               {visible.map((journey) => {
                 const driver = journey.driver_id ? driverById.get(journey.driver_id) : undefined;
@@ -398,7 +440,7 @@ export default function CompanyReturnJourneysPage() {
                 );
               })}
             </div>
-          )}
+          ) : null}
         </main>
       </div>
     </PageFrame>
@@ -419,3 +461,15 @@ const compactLinkStyle = {
   fontWeight: 700,
   textDecoration: 'none',
 } as const;
+
+const viewModeButtonStyle = (active: boolean) => ({
+  minHeight: 30,
+  border: 0,
+  borderRight: '1px solid var(--ws-border)',
+  background: active ? '#eff6ff' : '#fff',
+  color: active ? '#0b2f6b' : '#64748b',
+  fontSize: 11,
+  fontWeight: active ? 800 : 700,
+  padding: '0 10px',
+  cursor: 'pointer',
+} as const);

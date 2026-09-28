@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getFeatureFlags, getGlobalSettingNumber } from '../../../../_lib/platformFlags';
 import { supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { isCompanyAdminContext, requireCompanyAdmin } from '../../../_lib/requireCompanyAdmin';
+import { areCompaniesBlocked } from '../../../../_lib/companyBlocks';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -149,6 +150,9 @@ export async function POST(
     if (!carrier || String(carrier.status).toLowerCase() !== 'active') {
       return respond(409, { error: 'The selected Direct Booking carrier is not active.' });
     }
+    const blockState = await areCompaniesBlocked(supabaseAdmin, admin.companyId, String(carrier.id));
+    if (blockState.error) return respond(503, { error: 'Member block status could not be verified. Please retry.' });
+    if (blockState.blocked) return respond(403, { error: 'Direct Booking is unavailable because commercial interaction between these companies is blocked.' });
     visibility = 'direct';
     directInviteCompanyId = String(carrier.id);
     note = 'Published as a Direct Booking to the selected carrier.';

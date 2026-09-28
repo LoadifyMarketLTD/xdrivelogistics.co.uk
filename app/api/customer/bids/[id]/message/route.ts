@@ -6,6 +6,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
+import { areCompaniesBlocked } from '../../../../_lib/companyBlocks';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   const { id: bidId } = await params;
   const { data: bid, error: bidError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, job_id, bidder_user_id, status')
+    .select('id, job_id, bidder_user_id, company_id, status')
     .eq('id', bidId)
     .maybeSingle();
 
@@ -80,6 +81,10 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!membership) {
     return json(403, { error: 'An active owner, admin or dispatcher of the load-owning company is required to message a bidder.' });
   }
+
+  const blockState = await areCompaniesBlocked(supabaseAdmin, job.company_id as string, bid.company_id as string | null);
+  if (blockState.error) return json(503, { error: 'Member block status could not be verified. Please retry.' });
+  if (blockState.blocked) return json(403, { error: 'Messaging is unavailable because commercial interaction between these companies is blocked.' });
 
   // Quote-origin conversations are deterministically scoped to this quote.
   // The bid UUID is itself the conversation UUID, so the thread can be linked

@@ -268,6 +268,14 @@ export async function submitDriverQuote(
         denialReasons: eligibility.denialReasons,
       };
     }
+    if (eligibility.denialReasons.includes('company_interaction_blocked')) {
+      return {
+        ok: false,
+        status: 403,
+        error: 'Commercial interaction with this company is blocked.',
+        denialReasons: eligibility.denialReasons,
+      };
+    }
 
     const readinessBlocked = eligibility.operational.blockers.length > 0;
     return {

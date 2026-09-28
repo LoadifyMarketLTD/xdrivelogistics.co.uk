@@ -7,6 +7,7 @@ import {
 } from '../_lib/supabaseAdmin';
 import { operationalError } from '../_lib/operationalError';
 import { buildMemberReputation } from '../_lib/memberReputation';
+import { getBlockedCounterpartyCompanyIds } from '../_lib/companyBlocks';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 const COMPANY_LIMIT = 500;
@@ -102,6 +103,14 @@ function memberType(value: unknown) {
   return raw.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+const SPECIALIST_LABELS: Record<string, string> = {
+  '24_hour': '24 Hour', adr: 'ADR', dgsa_qualified: 'DGSA Qualified', fors_bronze: 'FORS Bronze',
+  fors_silver: 'FORS Silver', fors_gold: 'FORS Gold', frozen: 'Frozen', hanging_garment: 'GOH - Hanging Garment Transportation',
+  high_security: 'High Security', installation_swapout: 'Installation & Swapout', aviation_level_ab: 'Level A / B Aviation',
+  cargo_operated_level_d: 'Cargo Operated (Level D)', refrigerated_chilled: 'Refrigerated / Chilled', removals: 'Removals',
+  waste_carrier: 'Waste Carrier', weee: 'WEEE', authorised_economic_operator: 'Authorised Economic Operator (AEO)', cmr: 'CMR',
+};
+
 function vehicleServices(typeValue: unknown, hasTailLift: unknown) {
   const type = String(typeValue ?? '').trim().toLowerCase();
   const services = new Set<string>();
@@ -150,7 +159,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle(),
     supabaseAdmin
       .from('drivers')
-      .select('id, status, is_active, app_access')
+      .select('id, company_id, status, is_active, app_access')
       .eq('user_id', authData.user.id)
       .maybeSingle(),
   ]);
@@ -174,7 +183,19 @@ export async function GET(request: NextRequest) {
     return respond(403, { error: 'An active XDrive member account is required to use Directory.' });
   }
 
-  const [companiesResult, driversResult, vehiclesResult, reputationJobsResult, reputationInvoicesResult] = await Promise.all([
+  const viewerCompanyId = String(membershipResult.data?.company_id ?? driverResult.data?.company_id ?? '').trim() || null;
+  const blockedResult = await getBlockedCounterpartyCompanyIds(supabaseAdmin, viewerCompanyId);
+  if (blockedResult.error) {
+    return operationalError({
+      status: 503,
+      message: 'Directory member-block preferences could not be verified.',
+      context: 'directory.member-blocks',
+      cause: { message: blockedResult.error },
+      retryable: true,
+    });
+  }
+
+  const [companiesResult, driversResult, vehiclesResult, specialistCapabilitiesResult, reputationJobsResult, reputationInvoicesResult] = await Promise.all([
     supabaseAdmin
       .from('companies')
       .select('id, name, xd_id, phone, company_type, status, created_at, city, postcode, country')
@@ -191,6 +212,9 @@ export async function GET(request: NextRequest) {
       .from('vehicles')
       .select('id, company_id, assigned_driver_id, type, has_tail_lift, pallets_capacity')
       .limit(VEHICLE_LIMIT),
+    supabaseAdmin
+      .from('company_specialist_capabilities')
+      .select('company_id, capability_code, verification_required, verification_status'),
     supabaseAdmin
       .from('jobs')
       .select('awarded_carrier_company_id, status, delivery_datetime, delivered_at, completed_at')
@@ -215,7 +239,9 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  let companies = (companiesResult.data ?? []).map((company) => ({
+  let companies = (companiesResult.data ?? [])
+    .filter((company) => !blockedResult.ids.has(String(company.id)))
+    .map((company) => ({
     companyId: company.id,
     name: company.name,
     memberId: company.xd_id ?? null,
@@ -277,7 +303,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  let reputationPartial = Boolean(reputationJobsResult.error || reputationInvoicesResult.error);
+  if (!specialistCapabilitiesResult.error) {
+    for (const capability of specialistCapabilitiesResult.data ?? []) {
+      const company = companyById.get(String(capability.company_id));
+      if (!company) continue;
+      const verificationRequired = capability.verification_required === true;
+      const status = String(capability.verification_status ?? '').trim().toLowerCase();
+      if (verificationRequired && status !== 'verified') continue;
+      const label = SPECIALIST_LABELS[String(capability.capability_code)] ?? String(capability.capability_code).replaceAll('_', ' ');
+      if (!company.specialistServices.includes(label)) company.specialistServices.push(label);
+    }
+    for (const company of companies) company.specialistServices.sort();
+  }
+
+  let reputationPartial = Boolean(reputationJobsResult.error || reputationInvoicesResult.error || specialistCapabilitiesResult.error);
   if (!reputationJobsResult.error && !reputationInvoicesResult.error) {
     const invoiceIds = (reputationInvoicesResult.data ?? []).map((invoice) => String(invoice.id));
     const paymentRows: Array<{ invoice_id?: string | null; amount?: number | string | null; paid_at?: string | null; created_at?: string | null }> = [];

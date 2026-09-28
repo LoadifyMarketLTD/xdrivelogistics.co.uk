@@ -10,6 +10,7 @@ import {
 import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFlags';
 import { operationalError } from '../../_lib/operationalError';
 import { calculateJobRouteMetrics } from '../../_lib/jobRouteMetrics';
+import { areCompaniesBlocked } from '../../_lib/companyBlocks';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
@@ -173,6 +174,9 @@ export async function POST(request: NextRequest) {
     if (!target || String(target.status ?? '').trim().toLowerCase() !== 'active') {
       return respond(409, { error: 'The selected Direct Booking carrier is no longer active.' });
     }
+    const blockState = await areCompaniesBlocked(supabaseAdmin, input.companyId, String(target.id));
+    if (blockState.error) return respond(503, { error: 'Member block status could not be verified. Please retry.' });
+    if (blockState.blocked) return respond(403, { error: 'Direct Booking is unavailable because commercial interaction between these companies is blocked.' });
     directInviteTarget = { id: String(target.id), name: typeof target.name === 'string' ? target.name : null };
 
   }
