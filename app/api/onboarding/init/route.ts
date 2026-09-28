@@ -184,6 +184,20 @@ export async function POST(request: NextRequest) {
 
   if (upsertError) return json(500, { error: upsertError.message });
 
+  if (accountType !== 'customer_shipper' && upserted.status !== 'approved') {
+    const { error: profileGateError } = await supabaseAdmin
+      .from('profiles')
+      .update({ status: 'pending', updated_at: now.toISOString() })
+      .eq('user_id', authUser.id)
+      .neq('status', 'pending');
+    if (profileGateError) {
+      return json(500, {
+        error: 'Onboarding was initialised but workspace access could not be restricted pending approval.',
+        code: 'onboarding_profile_gate_failed',
+      });
+    }
+  }
+
   if (legalEvidence) {
     const { error: evidenceError } = await supabaseAdmin
       .from('registration_legal_acceptances')
