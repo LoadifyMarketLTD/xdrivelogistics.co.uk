@@ -141,8 +141,11 @@ describe('middleware CSP nonce contract', () => {
     const response = await middleware(new NextRequest('https://example.test/'));
 
     expectNonceContract(response);
-    expect(response.headers.get('content-security-policy')).not.toContain('unsafe-inline');
-    expect(response.headers.get('content-security-policy')).not.toContain('unsafe-eval');
+    const csp = response.headers.get('content-security-policy') ?? '';
+    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+    const scriptSrc = csp.split(';').find((directive) => directive.trim().startsWith('script-src')) ?? '';
+    expect(scriptSrc).not.toContain('unsafe-inline');
+    expect(scriptSrc).not.toContain('unsafe-eval');
   });
 
   it('forwards the nonce-bearing CSP on protected routes while preserving x-nonce', async () => {

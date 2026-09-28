@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { Field, PageLayout } from './BaseUi';
+import { calculateOnboardingProgress } from '../../../lib/onboardingProgress';
 
 type Application = {
   id: string;
@@ -119,7 +120,7 @@ export function CustomerOnboarding({ token }: { token: string }) {
         headers: { 'Content-Type': 'application/json', ...headers },
         body: JSON.stringify({
           currentStep: 'workspace_ready',
-          completionPercentage: 100,
+          completionPercentage: 95,
           payload: formData,
         }),
       });
@@ -156,7 +157,8 @@ export function CustomerOnboarding({ token }: { token: string }) {
     );
   }
 
-  const progress = Number(application.completion_percentage ?? 0);
+  const calculatedProgress = calculateOnboardingProgress('customer_shipper', formData);
+  const progress = application.status === 'approved' ? 100 : calculatedProgress;
 
   return (
     <PageLayout
@@ -167,7 +169,7 @@ export function CustomerOnboarding({ token }: { token: string }) {
       error={error}
       message={message}
       saving={saving}
-      onSave={() => void saveProgress(application.current_step || 'customer_details', Math.max(progress, 70))}
+      onSave={() => void saveProgress(application.current_step || 'customer_details', calculatedProgress)}
       onSubmit={() => void submitOnboarding()}
       backToLogin={() => router.push('/login')}
       submitDisabled={application.status === 'approved'}
