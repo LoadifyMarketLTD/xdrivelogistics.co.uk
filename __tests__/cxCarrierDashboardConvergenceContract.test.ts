@@ -18,7 +18,7 @@ describe('Carrier CX convergence contract', () => {
     expect(source).toContain('Carrier Control Desk');
     expect(source).toContain('Operational workboard');
     expect(source).toContain('carrier-awarded work only');
-    expect(source.indexOf('Operational workboard')).toBeLessThan(source.indexOf('Reports & statistics'));
+    expect(source.indexOf('Operational workboard')).toBeLessThan(source.indexOf('Commercial position'));
     expect(source.indexOf('Operational workboard')).toBeLessThan(source.indexOf('Activity at a glance'));
     expect(source.indexOf('Operational workboard')).toBeLessThan(source.indexOf('Carrier workflow'));
   });

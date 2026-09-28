@@ -374,9 +374,9 @@ export default function CarrierOperationsDashboardHome() {
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.35fr)', gap: '12px', marginTop: '12px', alignItems: 'start' }}>
           <div style={{ display: 'grid', gap: '12px' }}>
-            <OperationalCard title="Reports & statistics" subtitle="CX-style commercial signals using only verified XDrive records.">
+            <OperationalCard title="Commercial position" subtitle="CX-style commercial signals using only verified XDrive records.">
               <CommercialRow label="Won work value" detail="Accepted carrier quotes backed by an award" value={metricValue(data, ['bids', 'jobs'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/won-work')} />
-              <CommercialRow label="Overdue receivables" detail="Past-due carrier invoices" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
+              <CommercialRow label="Overdue invoices" detail="Past-due carrier invoices" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
               <CommercialRow label="Submitted quotes" detail="Marketplace pricing awaiting an outcome" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && normalise(bid.status) === 'submitted').length)} onClick={() => router.push('/admin/exchange-quotes')} />
               <CommercialRow label="Compliance due" detail="Driver and vehicle evidence expiring within 30 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => metrics.expiringDocuments)} onClick={() => router.push('/admin/fleet/compliance')} />
             </OperationalCard>
