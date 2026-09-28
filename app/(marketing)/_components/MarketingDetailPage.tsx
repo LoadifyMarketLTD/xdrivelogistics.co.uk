@@ -172,7 +172,15 @@ export function MarketingDetailPage({
         <section className="relative overflow-hidden border-b border-[#DDE5EF] bg-white px-5 py-16 text-[#102447] sm:px-8 lg:py-20">
           {heroMap ? (
             <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[56%] overflow-hidden lg:block" aria-hidden="true">
-              <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url('/uk-satellite-map.png')" }} />
+              <Image
+                src="/uk-satellite-map.png"
+                alt=""
+                fill
+                priority
+                fetchPriority="high"
+                sizes="56vw"
+                className="absolute inset-0 scale-[1.03] object-cover object-center"
+              />
               <div className="absolute inset-0 bg-[linear-gradient(90deg,#FFFFFF_0%,rgba(255,255,255,0.98)_12%,rgba(255,255,255,0.78)_30%,rgba(255,255,255,0.24)_58%,rgba(255,255,255,0.05)_100%)]" />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(10,35,79,0.10))]" />
               <svg viewBox="0 0 760 520" className="absolute inset-0 h-full w-full" role="presentation">
