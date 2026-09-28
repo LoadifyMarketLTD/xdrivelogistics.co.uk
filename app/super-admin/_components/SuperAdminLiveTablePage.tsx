@@ -41,6 +41,7 @@ type SuperAdminLiveTablePageProps<T extends Record<string, unknown>> = {
   pageSize?: number;
   refreshKey?: number;
   searchPlaceholder?: string;
+  toolbar?: ReactNode;
 };
 
 export function readLiveTableNotices(
@@ -193,6 +194,7 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
   pageSize = 50,
   refreshKey = 0,
   searchPlaceholder,
+  toolbar,
 }: SuperAdminLiveTablePageProps<T>) {
   const [rows, setRows] = useState<T[]>([]);
   const [summary, setSummary] = useState<Record<string, unknown> | null>(null);
@@ -262,13 +264,13 @@ export default function SuperAdminLiveTablePage<T extends Record<string, unknown
         totalCount={totalCount}
         onPrevPage={() => setPage((current) => Math.max(1, current - 1))}
         onNextPage={() => setPage((current) => current + 1)}
-        filterBar={searchPlaceholder ? (
+        filterBar={toolbar ?? (searchPlaceholder ? (
           <form onSubmit={(event) => { event.preventDefault(); setPage(1); setSearch(searchDraft.trim()); }} style={{ display: 'flex', gap: 8, flexWrap: 'wrap', width: '100%' }}>
             <input className="sa-input" aria-label={searchPlaceholder} placeholder={searchPlaceholder} value={searchDraft} onChange={(event) => setSearchDraft(event.target.value)} style={{ minWidth: 260, flex: '1 1 320px' }} />
             <button type="submit" className="sa-button">Search</button>
             {search ? <button type="button" className="sa-button" onClick={() => { setSearchDraft(''); setSearch(''); setPage(1); }}>Clear</button> : null}
           </form>
-        ) : undefined}
+        ) : undefined)}
       />
     </ProtectedRoute>
   );
