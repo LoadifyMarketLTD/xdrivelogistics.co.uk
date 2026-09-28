@@ -5,7 +5,7 @@
   --sa-v3-navy: #0B2F6B;
   --sa-v3-blue: #1D57D8;
   --sa-v3-orange: #F5A300;
-  --sa-v3-bg: #F4F6F8;
+  --sa-v3-bg: #F1F5FB;
   --sa-v3-surface: #FFFFFF;
   --sa-v3-text: #1A1F2B;
   --sa-v3-muted: #667085;
@@ -466,7 +466,9 @@
 .main {
   min-width: 0;
   min-height: calc(100vh - var(--sa-v3-topbar));
-  background: var(--sa-v3-bg);
+  background:
+    radial-gradient(ellipse at 85% 0%, rgba(202, 222, 255, 0.48), transparent 38%),
+    linear-gradient(180deg, #F7FAFE 0%, var(--sa-v3-bg) 52%);
 }
 
 .content {
@@ -477,16 +479,17 @@
 }
 .directoryPage,
 .platformPage {
-  padding: 22px;
+  padding: 20px 22px 30px;
 }
 
 .directoryHeader {
   margin-bottom: 18px;
   padding: 20px;
   border: 1px solid var(--sa-v3-border);
-  border-radius: var(--sa-v3-radius);
-  background: var(--sa-v3-surface);
-  box-shadow: var(--sa-v3-shadow);
+  border-left: 4px solid var(--sa-v3-orange);
+  border-radius: 14px;
+  background: linear-gradient(105deg, #F4F8FF, #FFFFFF 56%);
+  box-shadow: 0 8px 26px rgba(14, 45, 91, 0.07);
 }
 
 .directoryHeader > span {
@@ -512,18 +515,21 @@
   line-height: 1.5;
 }
 .areaGrid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
+  columns: 3;
+  column-gap: 14px;
 }
 
 .areaCard {
+  display: inline-block;
+  width: 100%;
+  margin-bottom: 14px;
+  break-inside: avoid;
   min-width: 0;
   padding: 18px;
-  border: 1px solid var(--sa-v3-border);
-  border-radius: var(--sa-v3-radius);
+  border: 1px solid #DCE6F5;
+  border-radius: 12px;
   background: var(--sa-v3-surface);
-  box-shadow: var(--sa-v3-shadow);
+  box-shadow: 0 6px 20px rgba(14, 45, 91, 0.055);
 }
 
 .areaCardHead {
@@ -562,7 +568,7 @@
 }
 
 .areaLinks a {
-  min-height: 38px;
+  min-height: 34px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -570,7 +576,7 @@
   padding: 0 11px;
   border: 1px solid var(--sa-v3-border);
   border-radius: 7px;
-  background: #FFFFFF;
+  background: #F8FAFF;
   color: var(--sa-v3-navy);
   text-decoration: none;
   font-size: 13px;
@@ -586,13 +592,14 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 16px;
+  align-items: start;
 }
 .platformCard {
   min-height: 112px;
   padding: 18px;
   border: 1px solid var(--sa-v3-border);
-  border-radius: var(--sa-v3-radius);
-  background: var(--sa-v3-surface);
+  border-radius: 12px;
+  background: linear-gradient(145deg, #FFFFFF, #F4F8FF);
   box-shadow: var(--sa-v3-shadow);
   color: var(--sa-v3-text);
   text-decoration: none;
@@ -623,7 +630,7 @@
 }
 @media (max-width: 1200px) {
   .areaGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    columns: 2;
   }
 
   .platformGrid {
@@ -747,7 +754,8 @@
     display: none;
   }
 
-  .areaGrid,
+  .areaGrid { columns: 1; }
+
   .platformGrid {
     grid-template-columns: minmax(0, 1fr);
   }

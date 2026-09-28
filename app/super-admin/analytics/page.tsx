@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
+import { SuperAdminMetricCard, SuperAdminMetricGrid, SuperAdminPage, SuperAdminPageHeader } from '@/app/super-admin/_components/SuperAdminEnterprisePrimitives';
+import { ChartNoAxesCombined } from 'lucide-react';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 
 const X = {
@@ -96,15 +98,10 @@ export default function Page() {
 
   return (
     <ProtectedRoute allowedRoles={['owner']}>
-      <div style={{ minHeight: '100vh', background: X.light, color: X.charcoal, padding: '12px' }}>
-        <header style={{ minHeight: '52px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '12px', flexWrap: 'wrap' }}>
-          <div>
-            <h1 style={{ margin: 0, color: X.navy, fontSize: '20px', lineHeight: 1.2, fontWeight: 800 }}>Platform Analytics</h1>
-            <p style={{ margin: '4px 0 0', color: X.muted, fontSize: '12px' }}>Cross-platform performance, finance and operational trend reporting. Multiple invoice currencies are never silently combined.</p>
-            {refreshedAt && <div style={{ marginTop: 3, color: X.muted, fontSize: 10 }}>Verified snapshot {new Date(refreshedAt).toLocaleString('en-GB')}{currency ? ` · ${currency}` : ''}</div>}
-          </div>
-          <button type="button" onClick={() => void load()} disabled={loading} style={{ height: '32px', padding: '0 12px', border: `1px solid ${X.blue}`, borderRadius: '4px', background: X.blue, color: X.white, fontSize: '12px', fontWeight: 700, cursor: loading ? 'not-allowed' : 'pointer', opacity: loading ? 0.7 : 1 }}>{loading ? 'Loading…' : 'Refresh'}</button>
-        </header>
+      <SuperAdminPage>
+        <SuperAdminPageHeader eyebrow="Command" title="Platform Analytics" description="Cross-platform performance, finance and operational trends. Invoice currencies are reported separately." icon={<ChartNoAxesCombined aria-hidden="true" />}
+          meta={refreshedAt ? `Verified snapshot ${new Date(refreshedAt).toLocaleString('en-GB')}${currency ? ` · ${currency}` : ''}` : undefined}
+          actions={<button type="button" onClick={() => void load()} disabled={loading}>{loading ? 'Loading…' : 'Refresh'}</button>} />
 
         {error && <div role="alert" data-testid="analytics-unavailable" style={{ marginBottom: '12px', border: '1px solid #F1B8B8', borderLeft: `4px solid ${X.danger}`, borderRadius: '4px', background: X.white, padding: '10px 12px', color: X.danger, fontSize: '12px' }}><strong>Analytics unavailable.</strong> {error}</div>}
 
@@ -114,15 +111,11 @@ export default function Page() {
               <h2 style={{ margin: 0, color: X.navy, fontSize: '14px', fontWeight: 800 }}>Platform summary</h2>
               <span style={{ color: X.muted, fontSize: '11px' }}>Primary KPIs only</span>
             </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '12px' }}>
+            <SuperAdminMetricGrid>
               {(loading ? Array.from({ length: 6 }, (_, i) => ({ label: `Loading ${i + 1}`, value: '—', note: 'Loading verified snapshot…' })) : primary).map((card) => (
-                <div key={card.label} style={{ minHeight: '88px', border: `1px solid ${X.border}`, borderRadius: '4px', background: X.white, padding: '12px' }}>
-                  <div style={{ color: X.navy, fontSize: '22px', lineHeight: 1.05, fontWeight: 800 }}>{card.value}</div>
-                  <div style={{ marginTop: '7px', color: X.charcoal, fontSize: '12px', fontWeight: 700 }}>{card.label}</div>
-                  <div style={{ marginTop: '2px', color: X.muted, fontSize: '11px' }}>{card.note}</div>
-                </div>
+                <SuperAdminMetricCard key={card.label} label={card.label} value={card.value} note={card.note} />
               ))}
-            </div>
+            </SuperAdminMetricGrid>
           </section>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 2fr) minmax(280px, 1fr)', gap: '12px', alignItems: 'stretch' }}>
@@ -149,7 +142,7 @@ export default function Page() {
             </section>
           </div>
         </>}
-      </div>
+      </SuperAdminPage>
     </ProtectedRoute>
   );
 }
