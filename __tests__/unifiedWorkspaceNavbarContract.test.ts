@@ -10,8 +10,8 @@ describe('Unified workspace navbar contract', () => {
   it('uses one two-row primary navigation shell for operational workspaces', () => {
     expect(shell).toContain('top-workspace-nav--primary');
     expect(shellCss).toContain('.top-workspace-nav--primary');
-    expect(shellCss).toContain('top: 58px !important');
-    expect(shellCss).toContain('height: 44px !important');
+    expect(shellCss).toContain('top: 52px !important');
+    expect(shellCss).toContain('height: 40px !important');
     expect(shellCss).toContain('justify-content: flex-end !important');
     expect(shellCss).toContain('.xdrive-operational-top-workspace .top-workspace-action--primary');
     expect(shellCss).toContain('.xdrive-operational-top-workspace .top-workspace-action--direct');
