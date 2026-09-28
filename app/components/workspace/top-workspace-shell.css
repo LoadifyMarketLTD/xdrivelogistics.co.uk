@@ -243,7 +243,7 @@
   min-height: 44px !important;
   display: flex !important;
   align-items: stretch !important;
-  justify-content: flex-start !important;
+  justify-content: flex-end !important;
   gap: 2px !important;
   padding: 0 16px !important;
   overflow-x: auto !important;
