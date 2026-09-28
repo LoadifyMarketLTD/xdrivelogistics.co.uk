@@ -178,7 +178,7 @@ const DRIVER_EXECUTION_NAV: WorkspaceNavGroup[] = [
     { id: 'security', label: 'Security', href: '/driver/change-password', icon: '⚙' },
     { id: 'event-log', label: 'Event Log', href: '/driver/event-log', icon: '≡', capability: 'jobs.view' },
     { id: 'profile', label: 'Account', href: '/driver/profile', icon: '◉' },
-    { id: 'settings', label: 'Settings', href: '/driver/settings', icon: '⚙', capability: 'settings.manage' },
+    { id: 'settings', label: 'Driver Settings', href: '/driver/settings', icon: '⚙', capability: 'settings.manage' },
   ] },
 ];
 
@@ -198,7 +198,7 @@ const OWNER_DRIVER_NAV: WorkspaceNavGroup[] = [
     { id: 'invoices', label: 'Invoices', href: '/driver/finance', icon: '£', capability: 'invoices.carrier.manage' },
     { id: 'company-profile', label: 'Company Profile', href: '/driver/settings?section=company', icon: '◎' },
     { id: 'drivers-staff', label: 'Drivers & Staff', href: '/driver/drivers-vehicles', icon: '◎' },
-    { id: 'settings', label: 'Settings', href: '/driver/settings?section=overview', icon: '⚙' },
+    { id: 'settings', label: 'Company Settings', href: '/driver/settings?section=overview', icon: '⚙' },
     { id: 'billing', label: 'Membership & Billing', href: '/settings/billing', icon: '£', capability: 'billing.manage' },
   ] },
 ];
