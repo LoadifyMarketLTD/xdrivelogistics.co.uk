@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { usePathname } from 'next/navigation';
@@ -22,7 +21,6 @@ export default function SuperAdminCardNavigationShell({
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [openPrimaryGroup, setOpenPrimaryGroup] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = window.localStorage.getItem('xdrive-super-admin-sidebar-collapsed');
@@ -31,7 +29,6 @@ export default function SuperAdminCardNavigationShell({
 
   useEffect(() => {
     setMobileOpen(false);
-    setOpenPrimaryGroup(null);
   }, [pathname]);
 
   const toggleSidebar = () => {
@@ -68,46 +65,6 @@ export default function SuperAdminCardNavigationShell({
           onToggleSidebar={toggleSidebar}
           onToggleMobile={() => setMobileOpen((current) => !current)}
         />
-        <nav className={styles.primaryNav} aria-label="Platform owner primary navigation">
-          <div className={styles.primaryNavTrack}>
-            {definition.nav.map((group) => {
-              const active = group.items.some((item) => (
-                item.href === definition.homeHref
-                  ? pathname === item.href
-                  : pathname === item.href || pathname.startsWith(item.href + '/')
-              ));
-              const open = openPrimaryGroup === group.id;
-              return (
-                <div key={group.id} className={styles.primaryNavGroup}>
-                  <button
-                    type="button"
-                    className={[styles.primaryNavButton, active ? styles.primaryNavButtonActive : ''].filter(Boolean).join(' ')}
-                    onClick={() => setOpenPrimaryGroup((current) => current === group.id ? null : group.id)}
-                    aria-expanded={open}
-                    aria-haspopup="menu"
-                  >
-                    <span>{group.label}</span>
-                    <span className={styles.primaryNavCaret} aria-hidden="true">▾</span>
-                  </button>
-                  {open ? (
-                    <div className={styles.primaryNavMenu} role="menu">
-                      {group.items.map((item) => (
-                        <Link
-                          key={item.id}
-                          href={item.href}
-                          role="menuitem"
-                          className={pathname === item.href ? styles.primaryNavMenuActive : undefined}
-                        >
-                          {item.label}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })}
-          </div>
-        </nav>
         <main className={styles.main}>
           <div className={styles.content}>{children}</div>
         </main>
