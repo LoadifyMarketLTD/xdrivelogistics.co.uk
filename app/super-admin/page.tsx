@@ -111,7 +111,7 @@ type PrimaryKpi = {
   testId: 'kpi-loading' | 'kpi-ready' | 'kpi-unavailable';
 };
 
-const REQUEST_TIMEOUT_MS = 12_000;
+const REQUEST_TIMEOUT_MS = 30_000;
 const PRIMARY_KPI_LABELS = [
   'Active Jobs',
   'Jobs at Risk',

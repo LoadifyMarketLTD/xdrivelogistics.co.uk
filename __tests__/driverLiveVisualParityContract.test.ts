@@ -7,9 +7,10 @@ const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), rela
 describe('live Driver approved prototype parity contract', () => {
   it('keeps the full prototype information architecture visible', () => {
     const shell = read('app/driver/_components/DriverTopWorkspaceShell.tsx');
-    for (const label of ['Dashboard','Directory','Live Availability','My Fleet','Return Journeys','Loads','Quotes','Diary','Freight Vision','Finance','Drivers & Vehicles']) {
+    for (const label of ['Today','My Jobs','Diary','Availability','Vehicle','Directory','Return Journeys','Loads','Quotes','Won Work','Auto-match & Alerts','Freight Vision','Finance','Drivers & Vehicles']) {
       expect(shell).toContain(`label: '${label}'`);
     }
+    expect(shell).toContain('label: "Who\'s Nearby"');
     expect(shell).not.toContain('global-rail');
     expect(shell).toContain('topbar');
     expect(shell).toContain('main-nav');
@@ -24,7 +25,7 @@ describe('live Driver approved prototype parity contract', () => {
   });
   it('keeps the dashboard as a compact operational register, not a SaaS card wall', () => {
     const page = read('app/driver/page.tsx');
-    for (const marker of ['driver-dashboard-statusbar','driver-dashboard-register','driver-dashboard-tabs','driver-dashboard-readiness']) {
+    for (const marker of ['driver-dashboard-statusbar','driver-dashboard-register','driver-dashboard-readiness','Current assignment','Next booking']) {
       expect(page).toContain(marker);
     }
     for (const removed of ['xd2-hero','xd2-kpis','xd2-primary-grid','xd2-secondary-grid','xd2-finance','xd2-bottom-grid']) {

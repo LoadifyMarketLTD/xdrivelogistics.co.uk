@@ -22,7 +22,7 @@ describe('Driver top navigation role split', () => {
   });
 
   it('keeps finance and staff controls owner-only', () => {
-    expect(shell).toContain("const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['finance', 'drivers'])");
+    expect(shell).toContain("const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['load-alerts', 'finance', 'drivers'])");
     expect(shell).toContain("{role === 'owner_driver' && <button");
     expect(shell).toContain('ownerOnly: true');
   });

@@ -8,7 +8,7 @@ type Row = {
   id: string;
   company_id: string | null;
   company_name: string;
-  reviewer_id: string | null;
+  reviewer_user_id: string | null;
   rating: number | null;
   comment: string | null;
   created_at: string;

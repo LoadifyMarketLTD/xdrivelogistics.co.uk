@@ -81,12 +81,48 @@ describe('MASTER CONTRACT FINAL v3 — enterprise shell', () => {
     expect(css).toContain('.mobileBackdrop');
   });
 
-  it('keeps global search, Action Centre, Platform Overview and owner sign-out reachable', () => {
+  it('keeps the desktop sidebar continuous for the full viewport while page content scrolls', () => {
+    expect(css).toContain('position: fixed;');
+    expect(css).toContain('inset: 0 auto 0 0;');
+    expect(css).toContain('height: 100dvh;');
+    expect(css).toContain('width: var(--sa-v3-sidebar);');
+    expect(css).toContain('grid-column: 2;');
+    expect(css).toContain('width: var(--sa-v3-sidebar-collapsed);');
+  });
+
+  it('gives the entire sidebar a finished enterprise visual hierarchy', () => {
+    expect(css).toContain('radial-gradient(circle at 14% 0%');
+    expect(css).toContain('linear-gradient(180deg, #0B2F6B 0%, #09265A 58%, #071F4A 100%)');
+    expect(css).toContain(".sidebarGroup[data-active='true'] .sidebarGroupLabel");
+    expect(css).toContain('inset 3px 0 0 var(--sa-v3-orange)');
+    expect(css).toContain('.sidebarLinkActive::after');
+    expect(css).toContain('.sidebarScroll::-webkit-scrollbar-thumb');
+    expect(sidebar).toContain("'secure-loads': LockKeyhole");
+    expect(sidebar).toContain("'platform-overview': LayoutDashboard");
+    expect(sidebar).toContain("'compliance-overview': ShieldCheck");
+  });
+
+  it('keeps product navigation in the sidebar and owner controls in the owner menu', () => {
     expect(topbar).toContain("router.push(`/super-admin/search?q=${encodeURIComponent(query)}`)");
-    expect(topbar).toContain('href="/super-admin/action-centre"');
-    expect(topbar).toContain('href="/super-admin/platform"');
+    expect(workspace).toContain("href: '/super-admin/action-centre'");
+    expect(workspace).toContain("href: '/super-admin/notifications'");
+    expect(topbar).not.toContain('href="/super-admin/action-centre"');
+    expect(topbar).not.toContain('href="/super-admin/notifications"');
+    expect(workspace).toContain("label: 'Platform Overview', href: '/super-admin/platform'");
+    expect(topbar).toContain('user?.email');
+    expect(topbar).toContain('href="/super-admin/account"');
     expect(topbar).toContain('href="/auth/sign-out"');
-    expect(topbar).toContain('Platform Owner');
+    expect(topbar).not.toContain('Authenticated platform-control session');
+    expect(topbar).not.toContain('href="/super-admin" role="menuitem">Command Centre</Link>');
+    expect(topbar).not.toContain('href="/super-admin/directory" role="menuitem">Explore all areas</Link>');
+    expect(topbar).not.toContain('href="/super-admin/platform" role="menuitem">Platform Overview</Link>');
+  });
+
+  it('does not repeat sidebar page identity in a second shell context banner', () => {
+    expect(shell).not.toContain('GROUP_DESCRIPTIONS');
+    expect(shell).not.toContain('showContextBar');
+    expect(shell).not.toContain('styles.contextBar');
+    expect(shell).not.toContain('currentTarget?.label');
   });
 
   it('keeps tenant workspaces outside the Platform Owner shell', () => {

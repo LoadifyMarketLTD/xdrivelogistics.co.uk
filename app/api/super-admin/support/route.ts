@@ -7,7 +7,7 @@ const respond = (status: number, payload: Record<string, unknown>) => NextRespon
 
 type CompanyRow = { id: string; name: string };
 type DisputeRow = { id: string; invoice_id: string | null; company_id: string | null; reason: string; details: string | null; status: string; resolution_note: string | null; created_at: string; resolved_at: string | null };
-type ReviewRow = { id: string; company_id: string | null; reviewer_id: string | null; rating: number | null; comment: string | null; created_at: string };
+type ReviewRow = { id: string; company_id: string | null; reviewer_user_id: string | null; rating: number | null; comment: string | null; created_at: string };
 type SupportTicketDbRow = { id: string; company_id: string | null; category: string; priority: string; status: string; created_at: string };
 type SupportTicketDto = { id: string; company_id: string | null; company_name: string; type: string; severity: string; status: string; created_at: string };
 type SupportTicketMutationRow = { ticket_id: string; status: string; resolution_note: string; updated_at: string };
@@ -78,7 +78,7 @@ export async function GET(request: NextRequest) {
   if (section === 'complaints') {
     const { data, error, count } = await supabaseAdmin
       .from('reviews')
-      .select('id, company_id, reviewer_id, rating, comment, created_at', { count: 'exact' })
+      .select('id, company_id, reviewer_user_id, rating, comment, created_at', { count: 'exact' })
       .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
     if (error) {

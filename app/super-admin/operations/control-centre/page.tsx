@@ -234,6 +234,12 @@ export default function SuperAdminOperationsControlCentre() {
     void load();
   }, [load]);
 
+  useEffect(() => {
+    const refresh = () => void load();
+    window.addEventListener('xdrive-super-admin-refresh-live-data', refresh);
+    return () => window.removeEventListener('xdrive-super-admin-refresh-live-data', refresh);
+  }, [load]);
+
   const filteredJobs = useMemo(() => data?.jobs.filter((job) => {
     if (statusFilter !== 'all' && canonicalJobStatus(job.status) !== statusFilter) return false;
     if (regionFilter !== 'all' && regionOf(job) !== regionFilter) return false;
@@ -269,17 +275,6 @@ export default function SuperAdminOperationsControlCentre() {
   return (
     <ProtectedRoute allowedRoles={['owner']}>
       <main className={styles.page}>
-        <header className={styles.header}>
-          <div>
-            <h1 className={styles.title}>XDrive Logistics LTD — System Overview</h1>
-            <p className={styles.subtitle}>Your Freight. Our Priority.</p>
-            {data && <div className={styles.snapshot}>Live snapshot: {new Date(data.refreshedAt).toLocaleString('en-GB')}</div>}
-          </div>
-          <button type="button" className={styles.button} onClick={() => void load()} disabled={loading}>
-            {loading ? 'Refreshing…' : 'Refresh Live Data'}
-          </button>
-        </header>
-
         {error && <div className={styles.alert} role="alert">{error}</div>}
 
         {!error && (

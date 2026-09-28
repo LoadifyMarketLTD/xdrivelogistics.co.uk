@@ -7,7 +7,7 @@ import {
   Activity, AlertTriangle, BadgeCheck, Ban, BarChart3, Bell, Briefcase,
   Building2, CalendarClock, CheckCircle2, ClipboardCheck, CreditCard,
   FileCheck2, FileSignature, FileText, Files, Flag, Grid3X3, HeartPulse,
-  KeyRound, LayoutDashboard, LifeBuoy, Map, MessageCircle, MessageSquare,
+  KeyRound, LayoutDashboard, LifeBuoy, LockKeyhole, Map, MessageCircle, MessageSquare,
   Navigation, Network, Percent, Receipt, RefreshCw, Route, Scale, Search,
   Settings, ShieldAlert, ShieldCheck, Shuffle, Store, Truck, UserCheck,
   UserCog, Users, Wallet, Webhook,
@@ -40,12 +40,17 @@ const ICONS: Record<string, IconComponent> = {
   allocations: Shuffle,
   deliveries: Route,
   disputes: Scale,
+  'secure-loads': LockKeyhole,
   'pod-queue': FileCheck2,
+  'jobs-at-risk': AlertTriangle,
+  'tracking-eta': Navigation,
+  'delivery-evidence': Files,
   'fleet-positions': Navigation,
   drivers: Users,
   'driver-availability': UserCheck,
   vehicles: Truck,
   'return-journeys': RefreshCw,
+  'fleet-compliance': ShieldCheck,
   companies: Building2,
   brokers: Network,
   memberships: BadgeCheck,
@@ -69,6 +74,8 @@ const ICONS: Record<string, IconComponent> = {
   tickets: LifeBuoy,
   complaints: MessageCircle,
   'support-disputes': Scale,
+  'platform-overview': LayoutDashboard,
+  'compliance-overview': ShieldCheck,
   'users-access': UserCog,
   'roles-permissions': KeyRound,
   notifications: Bell,
@@ -82,10 +89,11 @@ function baseHref(href: string) {
   return href.split('?')[0] ?? href;
 }
 
-function isActivePath(pathname: string, href: string, homeHref: string) {
-  const target = baseHref(href);
-  if (target === homeHref) return pathname === target;
-  return pathname === target || pathname.startsWith(`${target}/`);
+function activeHrefForPath(pathname: string, definition: WorkspaceDefinition) {
+  return definition.nav
+    .flatMap((group) => group.items.map((item) => baseHref(item.href)))
+    .filter((target) => target === definition.homeHref ? pathname === target : pathname === target || pathname.startsWith(`${target}/`))
+    .sort((a, b) => b.length - a.length)[0] ?? null;
 }
 
 export default function SuperAdminSidebar({
@@ -95,6 +103,7 @@ export default function SuperAdminSidebar({
   mobileOpen,
   onNavigate,
 }: Props) {
+  const activeHref = activeHrefForPath(pathname, definition);
   return (
     <aside
       className={`${styles.sidebar} ${collapsed ? styles.sidebarCollapsed : ''} ${mobileOpen ? styles.sidebarMobileOpen : ''}`}
@@ -109,13 +118,13 @@ export default function SuperAdminSidebar({
       </Link>
       <nav className={styles.sidebarScroll}>
         {definition.nav.map((group) => {
-          const groupActive = group.items.some((item) => isActivePath(pathname, item.href, definition.homeHref));
+          const groupActive = group.items.some((item) => baseHref(item.href) === activeHref);
           return (
             <section key={group.id} className={styles.sidebarGroup} data-active={groupActive ? 'true' : 'false'}>
               <div className={styles.sidebarGroupLabel}>{group.label}</div>
               <div className={styles.sidebarGroupItems}>
                 {group.items.map((item) => {
-                  const active = isActivePath(pathname, item.href, definition.homeHref);
+                  const active = baseHref(item.href) === activeHref;
                   const Icon = ICONS[item.id] ?? Activity;
                   return (
                     <Link
