@@ -3,31 +3,33 @@ import { expect, test } from '@playwright/test';
 import {
   buildOnboardingUrl,
   normalizeOnboardingAccountType,
-  resolveOnboardingAccountTypeFromMetadata,
 } from '../app/api/_lib/onboarding';
 import {
   individualDriverPayloadSchema,
   ownerDriverPayloadSchema,
 } from '../app/api/onboarding/_lib/schemas';
+import {
+  getOnboardingContract,
+  normalizeCanonicalOnboardingAccountType,
+  toPersistedOnboardingAccountType,
+} from '../lib/onboardingContract';
 
-test.describe('legacy individual-driver onboarding contract (deprecated)', () => {
-  test('legacy aliases stay supported only for historical onboarding rows', () => {
+test.describe('company-driver onboarding compatibility contract', () => {
+  test('legacy driver aliases resolve to the invitation-only company-driver contract', () => {
     expect(normalizeOnboardingAccountType('individual_driver')).toBe('individual_driver');
     expect(normalizeOnboardingAccountType('driver_only')).toBe('individual_driver');
-    expect(normalizeOnboardingAccountType('fleet_driver')).toBe('fleet_courier');
+    expect(normalizeOnboardingAccountType('fleet_driver')).toBe('individual_driver');
+    expect(normalizeCanonicalOnboardingAccountType('fleet_driver')).toBe('company_driver');
+    expect(toPersistedOnboardingAccountType('company_driver')).toBe('individual_driver');
+    expect(getOnboardingContract('company_driver')?.publicRegistration).toBe(false);
     expect(normalizeOnboardingAccountType('owner_operator')).toBe('owner_driver');
   });
 
-  test('new registrations never initialize into legacy individual-driver onboarding', () => {
-    expect(resolveOnboardingAccountTypeFromMetadata({
-      requested_role: 'individual_driver',
-      account_type: 'owner_driver',
-    }, null)).toBe('owner_driver');
-
-    expect(resolveOnboardingAccountTypeFromMetadata({
-      requested_role: 'owner_operator',
-      account_type: 'owner_driver',
-    }, null)).toBe('owner_driver');
+  test('owner-driver remains a separate public carrier-owner onboarding contract', () => {
+    expect(normalizeCanonicalOnboardingAccountType('owner_operator')).toBe('owner_driver');
+    expect(toPersistedOnboardingAccountType('owner_operator')).toBe('owner_driver');
+    expect(getOnboardingContract('owner_driver')?.publicRegistration).toBe(true);
+    expect(getOnboardingContract('owner_driver')?.createsCompanyWorkspace).toBe(true);
   });
 
   test('builds a dedicated individual-driver onboarding URL', () => {
@@ -49,7 +51,19 @@ test.describe('legacy individual-driver onboarding contract (deprecated)', () =>
     expect(individualDriverPayloadSchema.safeParse({ ...driverPayload, full_name: '' }).success).toBe(false);
     expect(individualDriverPayloadSchema.safeParse({ ...driverPayload, email: 'invalid' }).success).toBe(false);
 
-    // Owner-driver remains a separate permissive compliance-reviewed payload.
-    expect(ownerDriverPayloadSchema.safeParse({ registration: 'E2E123' }).success).toBe(true);
+    // Owner-driver is a separate carrier-owner flow and must include the minimum
+    // identity and canonical vehicle fields before it can be submitted.
+    expect(ownerDriverPayloadSchema.safeParse({ registration: 'E2E123' }).success).toBe(false);
+    expect(ownerDriverPayloadSchema.safeParse({
+      full_name: 'E2E Owner Driver',
+      dob: '1990-01-02',
+      address: '1 Test Street',
+      phone: '07000000001',
+      email: 'owner.e2e@example.com',
+      right_to_work_status: 'citizen',
+      registration: 'E2E123',
+      make: 'Mercedes-Benz',
+      model: 'Sprinter',
+    }).success).toBe(true);
   });
 });
