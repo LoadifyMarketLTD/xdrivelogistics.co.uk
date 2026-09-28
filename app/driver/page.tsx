@@ -323,7 +323,6 @@ export default function DriverDashboard() {
         subtitle="Your current job, next action and next booking."
         headerActions={
           <>
-            <button type="button" className="btn" onClick={() => router.push('/driver/history')}>Diary</button>
             <button
               type="button"
               className="btn primary"
