@@ -396,7 +396,7 @@ export default function TopWorkspaceShell({
   const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
   const definition = getWorkspaceDefinition(role);
   const nav = useMemo(() => {
-    let base = getVisibleWorkspaceNav(role).map((group) => ({ ...group, items: [...group.items] }));
+    const base = getVisibleWorkspaceNav(role).map((group) => ({ ...group, items: [...group.items] }));
 
     if (CARRIER_NAV_ROLES.has(role)) {
       const customerQuotesHref = '/admin/quotes';
