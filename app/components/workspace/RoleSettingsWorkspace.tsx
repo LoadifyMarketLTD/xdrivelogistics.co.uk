@@ -7,12 +7,14 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
 import CompanyDepartmentsPanel from './CompanyDepartmentsPanel';
 import CompanyFinanceSettingsPanel from './CompanyFinanceSettingsPanel';
+import CompanyOperationsSettingsPanel from './CompanyOperationsSettingsPanel';
+import CompanyBlockedMembersPanel from './CompanyBlockedMembersPanel';
 import MfaSecurityPanel from './MfaSecurityPanel';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from './WorkspaceUI';
 import './role-settings-workspace.css';
 
 type RoleMode = 'customer' | 'broker' | 'driver' | 'owner' | 'carrier' | 'fleet' | 'dispatcher' | 'finance' | 'compliance' | 'viewer';
-type Section = 'overview' | 'profile' | 'company' | 'finance' | 'security';
+type Section = 'overview' | 'profile' | 'company' | 'operations' | 'blocked' | 'finance' | 'security';
 
 type CompanyRow = {
   id: string;
@@ -164,6 +166,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
   const companyProfileVisible = companyProfileRoles.includes(role);
   const canManageBilling = canEditCompany && billingRoles.includes(role);
   const financeSettingsVisible = canManageBilling;
+  const companyOperationsVisible = canEditCompany && (role === 'carrier' || role === 'owner');
 
   useEffect(() => {
     const requested = searchParams.get('section');
@@ -175,8 +178,16 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
       setSection('company');
       return;
     }
+    if (requested === 'operations' && companyOperationsVisible) {
+      setSection('operations');
+      return;
+    }
+    if (requested === 'blocked' && companyOperationsVisible) {
+      setSection('blocked');
+      return;
+    }
     if (requested === 'finance' && financeSettingsVisible) setSection('finance');
-  }, [companyProfileVisible, financeSettingsVisible, searchParams]);
+  }, [companyOperationsVisible, companyProfileVisible, financeSettingsVisible, searchParams]);
 
   const load = useCallback(async () => {
     if (!user?.id || !isSupabaseConfigured) {
@@ -317,6 +328,10 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     { label: 'Overview', action: () => setSection('overview'), active: section === 'overview' },
     { label: 'My Profile', action: () => setSection('profile'), active: section === 'profile' },
     ...(companyProfileVisible ? [{ label: 'Company Profile', action: () => setSection('company'), active: section === 'company' }] : []),
+    ...(companyOperationsVisible ? [
+      { label: 'Company Operations', action: () => setSection('operations'), active: section === 'operations' },
+      { label: 'Blocked Members', action: () => setSection('blocked'), active: section === 'blocked' },
+    ] : []),
     ...(routes.team ? [{ label: 'Users & Permissions', action: () => router.push(routes.team!), active: false }] : []),
     ...(role === 'owner' ? [{ label: 'Drivers / Staff', action: () => router.push('/driver/profile'), active: false }] : []),
     ...(role === 'fleet' ? [{ label: 'Drivers / Staff', action: () => router.push('/admin/drivers'), active: false }] : []),
@@ -328,7 +343,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     { label: 'Security', action: () => setSection('security'), active: section === 'security' },
     ...(routes.audit ? [{ label: 'Audit / Event Log', action: () => router.push(routes.audit!), active: false }] : []),
     { label: 'Support', action: () => router.push('/help'), active: false },
-  ], [companyProfileVisible, financeSettingsVisible, role, router, routes.audit, routes.documents, routes.finance, routes.notifications, routes.team, routes.vehicles, section]);
+  ], [companyOperationsVisible, companyProfileVisible, financeSettingsVisible, role, router, routes.audit, routes.documents, routes.finance, routes.notifications, routes.team, routes.vehicles, section]);
 
   return (
     <PageFrame>
@@ -427,6 +442,10 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
               </Panel>
               {canEditCompany && <CompanyDepartmentsPanel companyId={company.id} />}
             </div>
+          ) : section === 'operations' && companyOperationsVisible ? (
+            <CompanyOperationsSettingsPanel companyId={company.id} companyName={companyDisplay} />
+          ) : section === 'blocked' && companyOperationsVisible ? (
+            <CompanyBlockedMembersPanel companyId={company.id} />
           ) : section === 'finance' && canManageBilling ? (
             <CompanyFinanceSettingsPanel companyId={company.id} companyName={companyDisplay} />
           ) : section === 'profile' ? (

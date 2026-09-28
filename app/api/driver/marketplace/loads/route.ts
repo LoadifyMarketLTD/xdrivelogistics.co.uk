@@ -13,6 +13,7 @@ import {
 import { isDriverContext, respond } from '../../mobile/_lib';
 import { requireWebDriver } from '../../_lib/webDriver';
 import { calculateDrivingRoute, calculateJobRouteMetrics } from '../../../_lib/jobRouteMetrics';
+import { getBlockedCounterpartyCompanyIds } from '../../../_lib/companyBlocks';
 
 const LIST_LIMIT = 150;
 
@@ -185,10 +186,22 @@ export async function GET(request: NextRequest) {
     });
   }
 
+  const blockedResult = await getBlockedCounterpartyCompanyIds(supabaseAdmin, driver.companyId);
+  if (blockedResult.error) {
+    return operationalError({
+      status: 503,
+      message: 'Marketplace member-block preferences could not be verified.',
+      context: 'driver.marketplace.loads.member-blocks',
+      cause: { message: blockedResult.error },
+      retryable: true,
+    });
+  }
+
   const jobs = ((rawJobs ?? []) as JobRow[]).filter((job) => {
     const companyId = marketplaceText(job.company_id);
     if (!companyId) return false;
     if (driver.companyId && companyId === driver.companyId) return false;
+    if (blockedResult.ids.has(companyId)) return false;
     if (!exchangePostActive(job)) return false;
     return visibilityAllows(job, driver.companyId);
   });
