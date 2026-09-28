@@ -61,12 +61,15 @@ describe('driver parity across dual identity contexts', () => {
     expect(hrefs('driver')).toEqual([
       '/driver',
       '/driver/availability',
+      '/driver/change-password',
       '/driver/documents',
       '/driver/event-log',
       '/driver/history',
       '/driver/jobs',
       '/driver/messages',
+      '/driver/notifications',
       '/driver/profile',
+      '/driver/settings',
       '/driver/vehicles',
     ]);
     expect(hrefs('driver')).not.toContain('/driver/loads');
@@ -78,6 +81,7 @@ describe('driver parity across dual identity contexts', () => {
     expect(hrefs('owner_driver')).toEqual([
       ...hrefs('driver'),
       '/driver/directory',
+      '/driver/drivers-vehicles',
       '/driver/finance',
       '/driver/freight-vision',
       '/driver/load-alerts',
@@ -85,6 +89,8 @@ describe('driver parity across dual identity contexts', () => {
       '/driver/nearby',
       '/driver/quotes',
       '/driver/returns',
+      '/driver/settings?section=company',
+      '/driver/settings?section=overview',
       '/driver/won-work',
       '/settings/billing',
     ].sort());

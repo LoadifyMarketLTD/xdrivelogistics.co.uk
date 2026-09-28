@@ -113,16 +113,16 @@
   padding: 0 14px;
 }
 
-.top-workspace-action--primary {
-  border-color: #f5a300;
-  background: #f5a300;
-  color: #172033;
+.xdrive-operational-top-workspace .top-workspace-action--primary {
+  border-color: #f5a300 !important;
+  background: #f5a300 !important;
+  color: #172033 !important;
 }
 
-.top-workspace-action--direct {
-  border-color: #172033;
-  background: #172033;
-  color: #fff;
+.xdrive-operational-top-workspace .top-workspace-action--direct {
+  border-color: #172033 !important;
+  background: #172033 !important;
+  color: #fff !important;
 }
 
 .top-workspace-action--signout {

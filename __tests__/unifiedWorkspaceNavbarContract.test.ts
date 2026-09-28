@@ -13,6 +13,8 @@ describe('Unified workspace navbar contract', () => {
     expect(shellCss).toContain('top: 58px !important');
     expect(shellCss).toContain('height: 44px !important');
     expect(shellCss).toContain('justify-content: flex-end !important');
+    expect(shellCss).toContain('.xdrive-operational-top-workspace .top-workspace-action--primary');
+    expect(shellCss).toContain('.xdrive-operational-top-workspace .top-workspace-action--direct');
   });
 
   it('promotes the primary workflow for operational roles without changing Super Admin', () => {
