@@ -271,7 +271,7 @@ export default function DriverDashboard() {
   const jobsDataset = data.datasets.jobs;
   const invoicesDataset = data.datasets.invoices;
   const assignedWorkMetric = jobsDataset.availability !== 'available'
-    ? 'â€”'
+    ? '—'
     : jobsDataset.partialData || jobsDataset.limitedData
       ? 'Partial'
       : myJobs.length;
@@ -280,7 +280,7 @@ export default function DriverDashboard() {
     (invoice) => String(invoice.payment_status ?? invoice.status ?? '').toLowerCase() !== 'paid',
   );
   const ownerInvoiceMetric = invoicesDataset.availability !== 'available'
-    ? 'â€”'
+    ? '—'
     : invoicesDataset.partialData || invoicesDataset.limitedData
       ? 'Partial'
       : ownerOutstandingInvoices.length;
@@ -357,7 +357,7 @@ export default function DriverDashboard() {
               ? 'Assignment data unavailable'
               : jobsDataset.partialData || jobsDataset.limitedData
                 ? 'Assignment data partial'
-                : `${activeJobs.length} live Â· ${upcomingJobs.length} upcoming`}</small>
+                : `${activeJobs.length} live · ${upcomingJobs.length} upcoming`}</small>
           </button>
         </section>
 
@@ -388,7 +388,7 @@ export default function DriverDashboard() {
                     disabled={transitioningJobId === currentJob.id}
                     onClick={() => void runCurrentAction()}
                   >
-                    {transitioningJobId === currentJob.id ? 'Savingâ€¦' : currentAction.label}
+                    {transitioningJobId === currentJob.id ? 'Saving…' : currentAction.label}
                   </ActionButton>
                 </div>
               </>
@@ -420,7 +420,7 @@ export default function DriverDashboard() {
               <strong>Next booking</strong>
               <span>Your next allocated collection after the current assignment</span>
             </div>
-            <button type="button" className="text-action" onClick={() => router.push('/driver/history')}>Open Diary â†’</button>
+            <button type="button" className="text-action" onClick={() => router.push('/driver/history')}>Open Diary →</button>
           </div>
           <div className="driver-dashboard-register__body">
             {nextBooking ? (
@@ -448,7 +448,7 @@ export default function DriverDashboard() {
               <strong>Driver readiness</strong>
               <span>Only the essentials required to execute customer work</span>
             </div>
-            <button type="button" className="text-action" onClick={() => router.push('/driver/documents')}>Documents â†’</button>
+            <button type="button" className="text-action" onClick={() => router.push('/driver/documents')}>Documents →</button>
           </div>
           <div className="driver-dashboard-readiness__grid">
             <button type="button" onClick={() => router.push('/driver/availability')}>
