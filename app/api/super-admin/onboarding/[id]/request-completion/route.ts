@@ -3,8 +3,7 @@ import { z } from 'zod';
 
 import { supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { verifyPlatformOwner, isSuperAdminDeployPreviewReadOnly } from '../../../_lib/verifyPlatformOwner';
-import { getOnboardingContract } from '../../../../../../lib/onboardingContract';
-import { assessOnboardingRecovery } from '../../../../../../lib/onboardingProgress';
+import { assessStoredOnboardingRecovery } from '../../../../onboarding/_lib/recovery';
 
 const bodySchema = z.object({
   reason: z.string().trim().min(3).max(2000),
@@ -12,52 +11,6 @@ const bodySchema = z.object({
 });
 
 const json = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
-
-const asPayload = (value: unknown): Record<string, unknown> =>
-  value && typeof value === 'object' && !Array.isArray(value)
-    ? { ...(value as Record<string, unknown>) }
-    : {};
-
-async function buildRecovery(application: {
-  id: string;
-  account_type: string;
-  company_id?: string | null;
-  payload: unknown;
-}) {
-  if (!supabaseAdmin) return null;
-  const payload = asPayload(application.payload);
-  const contract = getOnboardingContract(application.account_type);
-  if (!contract) return { payload, recovery: assessOnboardingRecovery(application.account_type, payload, { companyId: application.company_id }) };
-
-  const identityTypes = contract.documents.filter((doc) => doc.family === 'identity').map((doc) => doc.type);
-  const companyTypes = contract.documents.filter((doc) => doc.family === 'company').map((doc) => doc.type);
-
-  if (identityTypes.length > 0) {
-    const { data, error } = await supabaseAdmin
-      .from('driver_identity_documents')
-      .select('doc_type, file_path, upload_status')
-      .eq('onboarding_application_id', application.id)
-      .in('doc_type', identityTypes);
-    if (error) throw new Error(error.message);
-    for (const doc of data ?? []) {
-      if (doc.file_path && doc.upload_status === 'uploaded') payload[`doc_${doc.doc_type}`] = doc.file_path;
-    }
-  }
-
-  if (companyTypes.length > 0) {
-    const { data, error } = await supabaseAdmin
-      .from('company_documents')
-      .select('doc_type, file_path, status')
-      .eq('onboarding_application_id', application.id)
-      .in('doc_type', companyTypes);
-    if (error) throw new Error(error.message);
-    for (const doc of data ?? []) {
-      if (doc.file_path && doc.status !== 'rejected') payload[`doc_${doc.doc_type}`] = doc.file_path;
-    }
-  }
-
-  return { payload, recovery: assessOnboardingRecovery(application.account_type, payload, { companyId: application.company_id }) };
-}
 
 export async function GET(
   request: NextRequest,
@@ -77,7 +30,13 @@ export async function GET(
   if (!application) return json(404, { error: 'Onboarding application not found.' });
 
   try {
-    const derived = await buildRecovery(application);
+    const derived = await assessStoredOnboardingRecovery({
+      applicationId: application.id,
+      accountType: application.account_type,
+      companyId: application.company_id,
+      payload: application.payload,
+    });
+    if (derived.error) throw new Error(derived.error);
     return json(200, {
       previewReadOnly: isSuperAdminDeployPreviewReadOnly(),
       application: {
@@ -131,7 +90,13 @@ export async function POST(
 
   let derived;
   try {
-    derived = await buildRecovery(application);
+    derived = await assessStoredOnboardingRecovery({
+      applicationId: application.id,
+      accountType: application.account_type,
+      companyId: application.company_id,
+      payload: application.payload,
+    });
+    if (derived.error) throw new Error(derived.error);
   } catch (recoveryError) {
     return json(500, {
       error: recoveryError instanceof Error ? recoveryError.message : 'Unable to evaluate onboarding recovery.',

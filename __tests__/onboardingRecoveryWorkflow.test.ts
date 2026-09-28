@@ -6,9 +6,11 @@ const readRepoFile = (relativePath: string) => readFileSync(new URL(`../${relati
 describe('Onboarding recovery workflow', () => {
   it('derives missing fields and documents from the canonical onboarding contract', () => {
     const route = readRepoFile('app/api/super-admin/onboarding/[id]/request-completion/route.ts');
-    expect(route).toContain('assessOnboardingRecovery');
-    expect(route).toContain(".from('driver_identity_documents')");
-    expect(route).toContain(".from('company_documents')");
+    const recovery = readRepoFile('app/api/onboarding/_lib/recovery.ts');
+    expect(route).toContain('assessStoredOnboardingRecovery');
+    expect(recovery).toContain('assessOnboardingRecovery');
+    expect(recovery).toContain(".from('driver_identity_documents')");
+    expect(recovery).toContain(".from('company_documents')");
     expect(route).toContain("'onboarding_completion_required'");
     expect(route).toContain("'onboarding_reminder'");
     expect(route).toContain("onboarding_url: '/onboarding/resume'");

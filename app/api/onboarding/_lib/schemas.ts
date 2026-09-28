@@ -93,7 +93,7 @@ const driverIdentityRecordSchema = z.record(z.string(), z.unknown());
 // right-to-work evidence. The database retains `individual_driver` only as the
 // historical persisted value for this invitation-only account type.
 export const companyDriverPayloadSchema = driverIdentityRecordSchema.superRefine((payload, context) => {
-  for (const key of ['full_name', 'address', 'phone', 'email']) {
+  for (const key of ['full_name', 'dob', 'address', 'phone', 'email', 'right_to_work_status']) {
     const value = payload[key];
     if (typeof value !== 'string' || !value.trim()) {
       context.addIssue({
@@ -107,6 +107,22 @@ export const companyDriverPayloadSchema = driverIdentityRecordSchema.superRefine
   const email = payload.email;
   if (typeof email === 'string' && email.trim() && !z.string().email().safeParse(email.trim()).success) {
     context.addIssue({ code: z.ZodIssueCode.custom, path: ['email'], message: 'A valid email is required.' });
+  }
+
+  const dob = payload.dob;
+  if (typeof dob === 'string' && dob.trim() && normalizeDateOnly(dob) === null) {
+    context.addIssue({ code: z.ZodIssueCode.custom, path: ['dob'], message: 'Enter a valid date of birth.' });
+  }
+
+  const rightToWork = typeof payload.right_to_work_status === 'string'
+    ? payload.right_to_work_status.trim().toLowerCase()
+    : '';
+  if (rightToWork === 'other' || rightToWork === 'unknown') {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['right_to_work_status'],
+      message: 'Select the applicant right-to-work status explicitly.',
+    });
   }
 });
 
