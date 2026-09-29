@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import AdminPlatformShell from './AdminPlatformShell';
+import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <div className="xdrive-workspace-measured xdrive-operational-top-workspace">
-      <AdminPlatformShell>{children}</AdminPlatformShell>
+      <TopWorkspaceShell>{children}</TopWorkspaceShell>
     </div>
   );
 }
