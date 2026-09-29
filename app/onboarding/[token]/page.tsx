@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
@@ -9,6 +8,7 @@ import {
   normalizeCanonicalOnboardingAccountType,
   type PersistedOnboardingAccountType,
 } from '../../../lib/onboardingContract';
+import { assessOnboardingRecovery, calculateOnboardingProgress } from '../../../lib/onboardingProgress';
 
 type Application = {
   id: string;
@@ -30,6 +30,7 @@ export default function OnboardingTokenPage() {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [verifyingCompany, setVerifyingCompany] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
 
@@ -43,38 +44,38 @@ export default function OnboardingTokenPage() {
     return normalized === 'true' || normalized === '1' || normalized === 'yes';
   };
 
-  const normalizedPayload = () => {
+  const normalizedPayload = (source: Record<string, string> = formData) => {
     const common = canonicalAccountType
-      ? { ...formData, canonical_account_type: canonicalAccountType }
-      : { ...formData };
+      ? { ...source, canonical_account_type: canonicalAccountType }
+      : { ...source };
 
     if (canonicalAccountType === 'fleet_courier') {
       return {
         ...common,
-        transport_contact: formData.transport_contact ?? formData.transport_manager ?? '',
+        transport_contact: source.transport_contact ?? source.transport_manager ?? '',
       };
     }
 
     if (canonicalAccountType === 'owner_driver') {
       return {
         ...common,
-        right_to_work_status: formData.right_to_work_status ?? 'other',
-        registration: formData.registration ?? formData.vehicle_registration ?? '',
-        make: formData.make ?? formData.vehicle_make ?? '',
-        model: formData.model ?? formData.vehicle_model ?? '',
-        payload: formData.payload ?? formData.vehicle_payload ?? '',
-        dimensions: formData.dimensions ?? formData.vehicle_dimensions ?? '',
-        settled_status: toBoolean(formData.settled_status),
-        pre_settled_status: toBoolean(formData.pre_settled_status),
+        right_to_work_status: source.right_to_work_status ?? '',
+        registration: source.registration ?? source.vehicle_registration ?? '',
+        make: source.make ?? source.vehicle_make ?? '',
+        model: source.model ?? source.vehicle_model ?? '',
+        payload: source.payload ?? source.vehicle_payload ?? '',
+        dimensions: source.dimensions ?? source.vehicle_dimensions ?? '',
+        settled_status: toBoolean(source.settled_status),
+        pre_settled_status: toBoolean(source.pre_settled_status),
       };
     }
 
     if (canonicalAccountType === 'company_driver') {
       return {
         ...common,
-        right_to_work_status: formData.right_to_work_status ?? 'other',
-        settled_status: toBoolean(formData.settled_status),
-        pre_settled_status: toBoolean(formData.pre_settled_status),
+        right_to_work_status: source.right_to_work_status ?? '',
+        settled_status: toBoolean(source.settled_status),
+        pre_settled_status: toBoolean(source.pre_settled_status),
       };
     }
 
@@ -169,6 +170,47 @@ export default function OnboardingTokenPage() {
     }
   };
 
+  const verifyCompany = async () => {
+    if (canonicalAccountType !== 'broker_shipper' && canonicalAccountType !== 'fleet_courier') return;
+    setVerifyingCompany(true);
+    setError('');
+    setMessage('');
+
+    try {
+      const headers = await authHeaders();
+      const res = await fetch('/api/onboarding/company-registration', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', ...headers },
+        body: JSON.stringify({ companyNumber: formData.company_number ?? '' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? 'Company verification failed.');
+        return;
+      }
+
+      setApplication((previous) => previous ? { ...previous, company_id: data.companyId } : previous);
+      const verifiedPayload =
+        data.payload && typeof data.payload === 'object' && !Array.isArray(data.payload)
+          ? data.payload as Record<string, unknown>
+          : {};
+      setFormData((previous) => {
+        const next = { ...previous };
+        Object.entries(verifiedPayload).forEach(([key, value]) => {
+          if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
+            next[key] = String(value);
+          }
+        });
+        return next;
+      });
+      setMessage(`Companies House verified: ${data.registeredName}.`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Company verification failed.');
+    } finally {
+      setVerifyingCompany(false);
+    }
+  };
+
   const submitOnboarding = async () => {
     if (!contract) return;
     setSaving(true);
@@ -185,7 +227,7 @@ export default function OnboardingTokenPage() {
         },
         body: JSON.stringify({
           currentStep: 'review_summary',
-          completionPercentage: 100,
+          completionPercentage: 95,
           payload: normalizedPayload(),
         }),
       });
@@ -240,7 +282,30 @@ export default function OnboardingTokenPage() {
         return;
       }
 
-      updateField(`doc_${docType}`, data.path ?? 'uploaded');
+      const markerKey = `doc_${docType}`;
+      const nextFormData = { ...formData, [markerKey]: data.path ?? 'uploaded' };
+      setFormData(nextFormData);
+
+      const persist = await fetch(sessionEndpoint(), {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          ...headers,
+        },
+        body: JSON.stringify({
+          currentStep: 'document_upload',
+          completionPercentage: calculateOnboardingProgress(canonicalAccountType, normalizedPayload(nextFormData)),
+          status: 'in_progress',
+          payload: normalizedPayload(nextFormData),
+        }),
+      });
+      const persisted = await persist.json();
+      if (!persist.ok) {
+        setError(persisted.error ?? 'Document uploaded but onboarding progress could not be saved.');
+        return;
+      }
+
+      setApplication(persisted.application);
       setMessage(`Uploaded ${docType.replace(/_/g, ' ')}.`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Document upload failed.');
@@ -346,7 +411,36 @@ export default function OnboardingTokenPage() {
     );
   }
 
-  const progress = Number(application.completion_percentage ?? 0);
+  const normalizedCurrentPayload = normalizedPayload();
+  const recoveryAssessment = assessOnboardingRecovery(canonicalAccountType, normalizedCurrentPayload, { companyId: application.company_id });
+  const calculatedProgress = calculateOnboardingProgress(canonicalAccountType, normalizedCurrentPayload, { companyId: application.company_id });
+  const progress = application.status === 'under_review' || application.status === 'approved'
+    ? 100
+    : calculatedProgress;
+  const requiresVerifiedCompany = canonicalAccountType === 'broker_shipper' || canonicalAccountType === 'fleet_courier';
+  const missingRequiredDocuments = onboardingDocuments.filter(
+    (doc) => doc.requirement === 'required' && !formData[`doc_${doc.type}`],
+  );
+  const isRecoveryResume = token === 'resume';
+  const visibleDocuments = isRecoveryResume
+    ? onboardingDocuments.filter((doc) => recoveryAssessment.missingDocuments.some((item) => item.type === doc.type))
+    : onboardingDocuments;
+
+  const renderRecoveryMissingFields = () => (
+    <section>
+      <h2>Information still required</h2>
+      {recoveryAssessment.missingFields.length === 0 ? (
+        <p style={{ color: '#166534', fontWeight: 600 }}>No required profile information is missing.</p>
+      ) : recoveryAssessment.missingFields.map((item) => (
+        <Field
+          key={item.key}
+          label={item.label}
+          value={formData[item.key] ?? ''}
+          onChange={(value) => updateField(item.key, value)}
+        />
+      ))}
+    </section>
+  );
 
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: '2rem' }}>
@@ -355,35 +449,87 @@ export default function OnboardingTokenPage() {
       <p>Status: <strong>{application.status}</strong></p>
       <p>Current step: <strong>{application.current_step}</strong></p>
 
+      {!recoveryAssessment.complete && application.status !== 'approved' && (
+        <section style={{ margin: '1rem 0 1.25rem', padding: '1rem', border: '1px solid #F5A300', borderRadius: 10, background: '#FFF9E8' }}>
+          <h2 style={{ margin: '0 0 0.5rem', color: '#0B2F6B', fontSize: '1.05rem' }}>Complete your XDrive onboarding</h2>
+          <p style={{ margin: '0 0 0.75rem', color: '#4B5563' }}>
+            Your previous progress has been saved. XDrive now checks the current onboarding requirements and only asks you to complete the items that are still missing.
+          </p>
+          {recoveryAssessment.missingFields.length > 0 && (
+            <div style={{ marginBottom: '0.65rem' }}>
+              <strong>Information still required:</strong>{' '}
+              {recoveryAssessment.missingFields.map((item) => item.label).join(', ')}.
+            </div>
+          )}
+          {recoveryAssessment.missingDocuments.length > 0 && (
+            <div>
+              <strong>Documents still required:</strong>{' '}
+              {recoveryAssessment.missingDocuments.map((item) => item.label).join(', ')}.
+            </div>
+          )}
+          {recoveryAssessment.blockingReasons.length > 0 && (
+            <div style={{ marginTop: '0.65rem' }}>
+              <strong>Blocking reasons:</strong> {recoveryAssessment.blockingReasons.join(' ')}
+            </div>
+          )}
+        </section>
+      )}
+
       <div style={{ background: '#E5E7EB', borderRadius: 8, overflow: 'hidden', marginBottom: '1rem' }}>
         <div style={{ width: `${progress}%`, height: 10, background: '#2563EB' }} />
       </div>
       <p style={{ marginTop: 0 }}>{progress.toFixed(0)}% complete</p>
 
-      {canonicalAccountType === 'customer_shipper' && renderCustomerShipper()}
-      {canonicalAccountType === 'broker_shipper' && renderBrokerShipper()}
-      {canonicalAccountType === 'fleet_courier' && renderFleetCourier()}
-      {canonicalAccountType === 'owner_driver' && renderOwnerDriver()}
-      {canonicalAccountType === 'company_driver' && renderCompanyDriver()}
+      {isRecoveryResume ? renderRecoveryMissingFields() : (
+        <>
+          {canonicalAccountType === 'customer_shipper' && renderCustomerShipper()}
+          {canonicalAccountType === 'broker_shipper' && renderBrokerShipper()}
+          {canonicalAccountType === 'fleet_courier' && renderFleetCourier()}
+          {canonicalAccountType === 'owner_driver' && renderOwnerDriver()}
+          {canonicalAccountType === 'company_driver' && renderCompanyDriver()}
+        </>
+      )}
 
-      {onboardingDocuments.length > 0 && (
+      {requiresVerifiedCompany && (!isRecoveryResume || !application.company_id) && (
+        <section style={{ marginTop: '2rem' }}>
+          <h2>Company Verification</h2>
+          {application.company_id ? (
+            <p style={{ color: '#166534', fontWeight: 600 }}>Companies House company verified.</p>
+          ) : (
+            <>
+              <p style={{ color: '#4B5563' }}>Verify the Companies House company before uploading company compliance documents.</p>
+              <button
+                type="button"
+                onClick={() => void verifyCompany()}
+                disabled={verifyingCompany || !formData.company_number?.trim()}
+                style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: 'pointer' }}
+              >
+                {verifyingCompany ? 'Verifying...' : 'Verify Company'}
+              </button>
+            </>
+          )}
+        </section>
+      )}
+
+      {visibleDocuments.length > 0 && (
         <section style={{ marginTop: '2rem' }}>
           <h2>Document Upload</h2>
           <p style={{ color: '#4B5563' }}>
             Required documents block activation until approved. Conditional documents are requested only when they apply to the person, vehicle or business.
           </p>
-          {onboardingDocuments.map((doc) => (
+          {visibleDocuments.map((doc) => (
             <div key={doc.type} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.9rem', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 600 }}>{doc.label}</div>
                 <div style={{ fontSize: '0.8rem', color: doc.requirement === 'required' ? '#B91C1C' : '#6B7280' }}>
-                  {doc.requirement === 'required' ? 'Required' : 'Conditional'}
-                  {doc.condition ? ` — ${doc.condition}` : ''}
+                  {formData[`doc_${doc.type}`] ? 'Uploaded' : doc.requirement === 'required' ? 'Required' : 'Conditional'}
+                  {!formData[`doc_${doc.type}`] && doc.condition ? ` — ${doc.condition}` : ''}
                 </div>
               </div>
               <input
                 type="file"
                 accept="application/pdf,image/jpeg,image/png,image/webp"
+                disabled={saving || (requiresVerifiedCompany && !application.company_id)}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (file) void uploadDocument(doc.type, file);
@@ -394,32 +540,21 @@ export default function OnboardingTokenPage() {
         </section>
       )}
 
-      <section style={{ marginTop: '2rem' }}>
-        <h2>Review Summary</h2>
-        <pre style={{ background: '#F3F4F6', padding: '1rem', borderRadius: 8, fontSize: 12, overflow: 'auto' }}>
-          {JSON.stringify(formData, null, 2)}
-        </pre>
-      </section>
-
-      <section style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid #D7E0EA', borderRadius: 10, background: '#F8FAFC' }} aria-label="Legal documents">
-        <strong style={{ display: 'block', marginBottom: '0.55rem', color: '#0B2F6B' }}>Legal & policy documents</strong>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', fontSize: '0.85rem', fontWeight: 700 }}>
-          <Link href="/legal">Legal Centre</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/subscription-terms">Membership Terms</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/cookies">Cookies</Link>
-          <Link href="/acceptable-use">Acceptable Use</Link>
-          <Link href="/complaints">Complaints</Link>
-        </div>
-      </section>
+      {!isRecoveryResume && (
+        <section style={{ marginTop: '2rem' }}>
+          <h2>Review Summary</h2>
+          <pre style={{ background: '#F3F4F6', padding: '1rem', borderRadius: 8, fontSize: 12, overflow: 'auto' }}>
+            {JSON.stringify(formData, null, 2)}
+          </pre>
+        </section>
+      )}
 
       {error && <p style={{ color: '#B91C1C' }}>{error}</p>}
       {message && <p style={{ color: '#166534' }}>{message}</p>}
 
       <div style={{ display: 'flex', gap: '0.75rem', marginTop: '1.5rem', flexWrap: 'wrap' }}>
         <button
-          onClick={() => void saveProgress(application.current_step || 'document_upload', Math.max(progress, 60))}
+          onClick={() => void saveProgress(application.current_step || 'document_upload', calculatedProgress)}
           disabled={saving}
           style={{ padding: '0.75rem 1rem', borderRadius: 6, border: '1px solid #D1D5DB', cursor: 'pointer' }}
         >
@@ -427,7 +562,13 @@ export default function OnboardingTokenPage() {
         </button>
         <button
           onClick={() => void submitOnboarding()}
-          disabled={saving || application.status === 'approved'}
+          disabled={
+            saving ||
+            application.status === 'approved' ||
+            (requiresVerifiedCompany && !application.company_id) ||
+            recoveryAssessment.missingFields.length > 0 ||
+            missingRequiredDocuments.length > 0
+          }
           style={{ padding: '0.75rem 1rem', borderRadius: 6, border: 'none', background: '#1D4ED8', color: '#fff', cursor: 'pointer' }}
         >
           Submit for review

@@ -14,6 +14,7 @@ import {
   registerCompaniesHouseCompany,
   type CompanyRegistrationAccountType,
 } from '../../../../lib/server/companyRegistration';
+import { assessStoredOnboardingRecovery } from './recovery';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -279,19 +280,33 @@ export const buildSessionHandlers = <TPatchSchema extends z.ZodTypeAny>(options:
       return json(409, { error: statusDecision.error });
     }
 
+    const activityTimestamp = new Date().toISOString();
+    const mergedPayload = {
+      ...((existing.payload ?? {}) as Record<string, unknown>),
+      ...payloadPatch,
+    };
+    const assessed = await assessStoredOnboardingRecovery({
+      applicationId: existing.id,
+      accountType: expectedAccountType,
+      companyId: existing.company_id,
+      payload: mergedPayload,
+    });
+    if (assessed.error) {
+      return json(503, {
+        error: 'Onboarding progress could not be recalculated from stored requirements.',
+        details: assessed.error,
+      });
+    }
+
     const updatePayload: Record<string, unknown> = {
-      last_activity_at: new Date().toISOString(),
+      last_activity_at: activityTimestamp,
       status: statusDecision.nextStatus,
-      payload: {
-        ...(existing.payload as Record<string, unknown>),
-        ...payloadPatch,
-      },
+      payload: assessed.payload,
+      completion_percentage: assessed.recovery.progress,
     };
 
+    if (!existing.token_activated_at) updatePayload.token_activated_at = activityTimestamp;
     if (patchData.currentStep) updatePayload.current_step = patchData.currentStep;
-    if (typeof patchData.completionPercentage === 'number') {
-      updatePayload.completion_percentage = patchData.completionPercentage;
-    }
 
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('onboarding_applications')

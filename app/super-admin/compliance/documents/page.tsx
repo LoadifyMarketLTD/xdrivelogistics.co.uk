@@ -6,6 +6,7 @@ import { StatusChip, formatDateTime } from '@/app/super-admin/_components/superA
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
 import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
 import OnboardingReviewQueue from './OnboardingReviewQueue';
+import OnboardingRecoveryQueue from './OnboardingRecoveryQueue';
 
 type DocumentFamily = 'driver' | 'vehicle' | 'company' | 'identity';
 
@@ -251,6 +252,7 @@ export default function Page() {
           ⚠️ {inlineError} <span style={{ opacity: 0.6 }}>(click to dismiss)</span>
         </div>
       )}
+      <OnboardingRecoveryQueue />
       <OnboardingReviewQueue onReviewed={() => setReloadToken(Date.now())} />
       <SuperAdminLiveTablePage<Row>
         icon="📁"
