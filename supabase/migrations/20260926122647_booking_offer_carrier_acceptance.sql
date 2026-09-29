@@ -1,4 +1,4 @@
-﻿BEGIN;
+BEGIN;
 
 CREATE TABLE IF NOT EXISTS public.job_booking_offers (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
