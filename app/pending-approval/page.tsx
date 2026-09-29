@@ -6,9 +6,16 @@ export default function PendingApprovalPage() {
       <section style={{ width: '100%', maxWidth: '560px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '2rem', boxShadow: '0 16px 40px rgba(15, 23, 42, 0.08)' }}>
         <p style={{ margin: '0 0 0.5rem', color: '#ca8a04', fontWeight: 800, textTransform: 'uppercase', fontSize: '0.8rem' }}>Account confirmed</p>
         <h1 style={{ margin: '0 0 1rem', fontSize: '1.8rem' }}>Your account has been confirmed and is pending approval.</h1>
-        <p style={{ margin: '0 0 1.5rem', color: '#475569', lineHeight: 1.6 }}>
+        <p style={{ margin: '0 0 1rem', color: '#475569', lineHeight: 1.6 }}>
           XDrive is reviewing your account setup. You will be able to access your workspace once approval and required onboarding checks are complete.
         </p>
+        <div style={{ marginBottom: '1.5rem', border: '1px solid #f5d48a', background: '#fff8e8', borderRadius: '8px', padding: '1rem', color: '#5a4a24', lineHeight: 1.6 }}>
+          <strong style={{ display: 'block', color: '#0b2f6b', marginBottom: '0.35rem' }}>Commercial accounts: complete Stripe setup</strong>
+          Customer, Broker, Carrier/Fleet and Owner Driver accounts must complete and activate the company Stripe setup before XDrive can approve commercial readiness or allow transport work to be published, quoted, awarded or accepted. Company Drivers use the Stripe setup of their employing fleet company and do not need a personal Stripe account.
+          <div style={{ marginTop: '0.75rem' }}>
+            <Link href="/settings/payments" style={{ fontWeight: 800, color: '#0b2f6b' }}>Open Stripe setup</Link>
+          </div>
+        </div>
         <Link
           href="/login"
           style={{

@@ -212,6 +212,28 @@ export async function POST(request: NextRequest) {
     if (!target || String(target.status ?? '').trim().toLowerCase() !== 'active') {
       return respond(409, { error: 'The selected Direct Booking carrier is no longer active.' });
     }
+
+    let directCarrierStripeReadiness;
+    try {
+      directCarrierStripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, String(target.id));
+    } catch (error) {
+      return operationalError({
+        status: 503,
+        message: 'The selected carrier Stripe commercial readiness could not be verified. Please try again.',
+        context: `jobs.create.direct-target-stripe:${input.directInviteCompanyId}`,
+        cause: error,
+        retryable: true,
+      });
+    }
+    if (!directCarrierStripeReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+    }
+    if (!directCarrierStripeReadiness.ready) {
+      return respond(409, stripeCommercialReadinessPayload(
+        'This carrier cannot receive a Direct Booking until its Stripe account is fully activated.'
+      ));
+    }
+
     directInviteTarget = { id: String(target.id), name: typeof target.name === 'string' ? target.name : null };
 
   }

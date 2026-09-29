@@ -59,6 +59,75 @@ const isCompanyRegistrationAccountType = (
 ): accountType is CompanyRegistrationAccountType =>
   accountType === 'broker_shipper' || accountType === 'fleet_courier';
 
+const REGISTRATION_ROLE_BY_ACCOUNT_TYPE: Partial<Record<OnboardingAccountType, string>> = {
+  customer_shipper: 'customer_shipper',
+  broker_shipper: 'transport_broker',
+  fleet_courier: 'fleet_operator',
+  owner_driver: 'owner_operator',
+};
+
+const verifySignedRegistrationLegalAcceptance = async ({
+  userId,
+  onboardingApplicationId,
+  accountType,
+}: {
+  userId: string;
+  onboardingApplicationId: string;
+  accountType: OnboardingAccountType;
+}) => {
+  if (!supabaseAdmin) return { ok: false as const, status: 503, body: { error: 'Server auth is not configured.' } };
+  const registrationRole = REGISTRATION_ROLE_BY_ACCOUNT_TYPE[accountType];
+  if (!registrationRole) return { ok: true as const };
+
+  const { data, error } = await supabaseAdmin
+    .from('registration_legal_acceptances')
+    .select('id, signer_full_name, signature_method, signature_payload_hash, signed_pdf_path, signed_pdf_hash, accepted_at')
+    .eq('user_id', userId)
+    .eq('onboarding_application_id', onboardingApplicationId)
+    .eq('registration_role', registrationRole)
+    .order('accepted_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error) {
+    const code = String(error.code ?? '');
+    if (['42P01', 'PGRST205', '42703'].includes(code)) {
+      return {
+        ok: false as const,
+        status: 503,
+        body: {
+          error: 'Signed registration legal evidence is not available. Onboarding cannot be submitted.',
+          code: 'SIGNED_LEGAL_ACCEPTANCE_UNAVAILABLE',
+        },
+      };
+    }
+    return { ok: false as const, status: 500, body: { error: 'Signed registration legal evidence could not be verified.' } };
+  }
+
+  const signedPackageComplete = Boolean(
+    data?.id
+    && String(data.signer_full_name ?? '').trim()
+    && data.signature_method === 'typed_name_explicit_acceptance'
+    && /^[0-9a-f]{64}$/.test(String(data.signature_payload_hash ?? ''))
+    && String(data.signed_pdf_path ?? '').trim()
+    && /^[0-9a-f]{64}$/.test(String(data.signed_pdf_hash ?? ''))
+    && data.accepted_at
+  );
+
+  if (!signedPackageComplete) {
+    return {
+      ok: false as const,
+      status: 409,
+      body: {
+        error: 'Read, accept and electronically sign the required XDrive legal agreement package before submitting onboarding.',
+        code: 'SIGNED_LEGAL_ACCEPTANCE_REQUIRED',
+      },
+    };
+  }
+
+  return { ok: true as const };
+};
+
 const resolveApplicantPatchStatus = (
   existingStatusRaw: string | null | undefined,
   requestedStatus?: string,
@@ -265,6 +334,15 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
 
     if (!validateAccountType(application.account_type, expectedAccountType)) {
       return json(403, { error: 'Forbidden onboarding account type.' });
+    }
+
+    const legalAcceptance = await verifySignedRegistrationLegalAcceptance({
+      userId: authUser.id,
+      onboardingApplicationId: application.id,
+      accountType: expectedAccountType,
+    });
+    if (!legalAcceptance.ok) {
+      return json(legalAcceptance.status, legalAcceptance.body);
     }
 
     const parsedPayload = payloadSchema.safeParse((application.payload ?? {}) as Record<string, unknown>);
