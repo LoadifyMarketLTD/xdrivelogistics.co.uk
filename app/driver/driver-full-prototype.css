@@ -2977,3 +2977,90 @@
   background:#f5f7f9!important;
 }
 .driver-prototype-port .diary-bookings{margin-top:3px}
+/* 2026-09-29 desktop CX proportion pass. */
+@media (min-width:1025px){
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .pagebody{
+    grid-template-columns:200px minmax(0,1fr)!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .load-nav-unified{
+    min-height:32px!important;
+    height:32px!important;
+    padding:0 5px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .load-nav-unified .load-market-nav,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .load-nav-unified .load-tabs{
+    height:31px!important;
+    min-height:31px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .load-nav-unified .load-market-nav>button,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .load-nav-unified .load-tabs>button{
+    height:31px!important;
+    min-height:31px!important;
+    padding:0 9px!important;
+    font-size:10.5px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .load-result-head,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .quote-head-cx,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .dir-summary,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .diary-head-cx{
+    min-height:30px!important;
+    padding-top:2px!important;
+    padding-bottom:2px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .load-result-head select,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .quote-head-cx select,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .return-tabs select,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .dir-summary select,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .driver-diary-summary-actions select{
+    height:24px!important;
+    min-height:24px!important;
+    font-size:10px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .load-result-head button,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .quote-head-cx button,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .dir-summary button,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .driver-diary-summary-actions button{
+    height:24px!important;
+    min-height:24px!important;
+    font-size:10px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .load-view-switch button{
+    height:24px!important;
+    min-height:24px!important;
+    padding:0 8px!important;
+    font-size:10px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .quote-tabs,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .diary-tabs{
+    min-height:30px!important;
+    height:30px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .quote-tabs button,
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .diary-tabs button{
+    height:29px!important;
+    min-height:29px!important;
+    padding:0 10px!important;
+    font-size:10.5px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .return-tabs{
+    min-height:30px!important;
+    height:auto!important;
+    padding:1px 5px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .return-tabs>button{
+    height:28px!important;
+    min-height:28px!important;
+    padding:0 8px!important;
+    font-size:10px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .dir-tabs{
+    min-height:30px!important;
+    height:30px!important;
+  }
+  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .dir-tabs>button{
+    height:29px!important;
+    min-height:29px!important;
+    padding:0 9px!important;
+    font-size:10px!important;
+  }
+}
