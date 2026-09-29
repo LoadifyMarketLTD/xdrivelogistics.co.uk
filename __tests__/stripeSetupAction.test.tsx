@@ -114,14 +114,14 @@ describe('direct company Stripe setup action', () => {
   });
 });
 
-describe('Post Load direct-party payment boundary', () => {
+describe('Post Load Stripe readiness boundary', () => {
   const form = read('app/components/workspace/LoadPostingForm.tsx');
   const createJob = read('app/api/jobs/create/route.ts');
-  it('does not expose Stripe setup as a prerequisite for posting transport work', () => {
-    expect(form).not.toContain('StripeSetupAction');
-    expect(form).not.toContain('stripeSetupCompanyId');
-    expect(createJob).not.toContain('getStripeCommercialReadiness');
-    expect(createJob).not.toContain('setupCompanyId: input.companyId');
+  it('exposes Stripe setup recovery when publication is blocked', () => {
+    expect(form).toContain('StripeSetupAction');
+    expect(form).toContain('stripeSetupCompanyId');
+    expect(createJob).toContain('getStripeCommercialReadiness');
+    expect(createJob).toContain('setupCompanyId: input.companyId');
   });
   it('keeps owner/admin Stripe onboarding separate from Post Load and avoids automatic publication or form navigation', () => {
     const onboarding = read('app/api/payments/connect/onboarding/route.ts');

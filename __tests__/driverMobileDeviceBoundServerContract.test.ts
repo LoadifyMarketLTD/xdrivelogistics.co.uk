@@ -38,7 +38,7 @@ describe('Driver mobile device-bound server contract', () => {
   test('server evidence endpoint preserves deterministic retry and assignment safety', () => {
     expect(evidenceRoute).toContain('upsert: false');
     expect(evidenceRoute).toContain("text.includes('already exists')");
-    expect(evidenceRoute).toContain('pickup_photos: [...new Set([...existingPhotos, storagePath])]');
+    expect(evidenceRoute).toContain('pickup_photos: [...new Set([...existingCollectionPhotos, storagePath])]');
     expect(evidenceRoute).toContain('Collection evidence could not be linked to this assignment.');
   });
 

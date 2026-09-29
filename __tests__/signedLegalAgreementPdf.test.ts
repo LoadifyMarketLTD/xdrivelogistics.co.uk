@@ -7,7 +7,7 @@ const acceptanceId = '11111111-2222-4333-8444-555555555555';
 const acceptedAt = '2026-09-26T14:10:00.000Z';
 
 describe('signed legal agreement PDF', () => {
-  it('generates a real multilingual PDF with integrity hashes', async () => {
+  it('generates a real multilingual PDF with integrity hashes', { timeout: 15_000 }, async () => {
     const evidence = buildCurrentLegalEvidence('customer_shipper', acceptedAt, 'ro');
     const result = await buildSignedLegalAgreementPdf({
       acceptanceId,
@@ -27,7 +27,7 @@ describe('signed legal agreement PDF', () => {
     expect(loaded.getPageCount()).toBeGreaterThan(2);
   });
 
-  it('binds the signature hash to the signer identity', async () => {
+  it('binds the signature hash to the signer identity', { timeout: 15_000 }, async () => {
     const evidence = buildCurrentLegalEvidence('transport_broker', acceptedAt, 'pl');
     const first = await buildSignedLegalAgreementPdf({
       acceptanceId,

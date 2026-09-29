@@ -19,11 +19,11 @@ describe('canonical Stripe commercial readiness contract', () => {
     expect(readiness).toContain('STRIPE_COMMERCIAL_READINESS_REQUIRED');
   });
 
-  it('does not gate Post Load publication or Direct Booking on Stripe in the direct-party payment model', () => {
-    expect(createJob).not.toContain('getStripeCommercialReadiness');
-    expect(createJob).not.toContain('stripeCommercialReadinessPayload');
-    expect(createJob).not.toContain('before publishing transport work');
-    expect(createJob).not.toContain('before it can receive a Direct Booking');
+  it('gates Post Load publication and Direct Booking on Stripe readiness', () => {
+    expect(createJob).toContain('getStripeCommercialReadiness');
+    expect(createJob).toContain('stripeCommercialReadinessPayload');
+    expect(createJob).toContain('before publishing transport work');
+    expect(createJob).toContain('before it can receive a Direct Booking');
   });
 
   it('requires carrier readiness on both driver and company quote paths', () => {
@@ -34,9 +34,9 @@ describe('canonical Stripe commercial readiness contract', () => {
   });
 
   it('rechecks both contracting parties immediately before award', () => {
-    expect(award).toContain(".select('id, job_id, status, company_id')");
-    expect(award).toContain('getStripeCommercialReadiness(supabaseAdmin, job.company_id as string)');
-    expect(award).toContain('getStripeCommercialReadiness(supabaseAdmin, bid.company_id as string | null)');
+    expect(award).toContain(".select('id, job_id, status, company_id, bid_price_gbp, amount')");
+    expect(award).toContain('getStripeCommercialReadiness(supabaseAdmin, payerCompanyId)');
+    expect(award).toContain('getStripeCommercialReadiness(supabaseAdmin, carrierCompanyId)');
     expect(award).toContain('before awarding transport work');
     expect(award).toContain('carrier cannot be awarded');
   });

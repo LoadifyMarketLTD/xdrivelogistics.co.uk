@@ -37,10 +37,9 @@ describe('Unified workspace navbar contract', () => {
     expect(shell).toContain("return more.length ? [...primary");
   });
 
-  it('promotes Settings on every operational shell', () => {
+  it('promotes Settings only on operational shells with settings authority', () => {
     for (const marker of [
       "carrier-settings', 'Settings', '/admin/settings'",
-      "fleet-settings', 'Settings', '/admin/settings'",
       "customer-settings-primary', 'Settings', '/customer/settings'",
       "broker-settings-primary', 'Settings', '/broker/settings'",
       "owner-driver-settings-primary', 'Settings', '/driver/settings'",
@@ -49,6 +48,9 @@ describe('Unified workspace navbar contract', () => {
       "finance-settings-primary', 'Settings', '/admin/settings'",
       "compliance-settings-primary', 'Settings', '/admin/settings'",
     ]) expect(shell).toContain(marker);
+    expect(workspaceRole).toContain("{ id: 'fleet-settings', label: 'Settings'");
+    expect(workspaceRole).toContain("capability: 'settings.manage'");
+    expect(shell).not.toContain("['fleet-settings', 'Settings', '/admin/settings']");
   });
 
   it('promotes customer Action Centre and View All Loads into the navbar', () => {

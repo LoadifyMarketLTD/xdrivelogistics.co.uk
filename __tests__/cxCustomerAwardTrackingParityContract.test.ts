@@ -30,7 +30,7 @@ describe('CX-close Customer quote award and tracking parity', () => {
     expect(customerQuotes).toContain("fetch(`/api/customer/bids/${id}/award`");
     expect(awardRoute).toContain("getFeatureFlag(supabaseAdmin, 'bid_acceptance_workflow')");
     expect(awardRoute).toContain(".in('role_in_company', ['owner', 'admin', 'dispatcher'])");
-    expect(awardRoute).toContain("'accept_job_bid_atomic'");
+    expect(awardRoute).toContain("'award_job_bid_pending_atomic'");
     expect(awardRoute).not.toContain(".from('jobs').update(");
   });
 
@@ -38,7 +38,7 @@ describe('CX-close Customer quote award and tracking parity', () => {
     expect(customerQuotes).toContain('MessageParticipantDialog');
     expect(customerQuotes).toContain("fetch(`/api/customer/bids/${messageCandidate.bid.id}/message`");
     expect(customerQuotes).toContain('Message</ActionButton>');
-    expect(bidderMessageRoute).toContain(".select('id, job_id, bidder_user_id, status')");
+    expect(bidderMessageRoute).toContain(".select('id, job_id, bidder_user_id, company_id, status')");
     expect(bidderMessageRoute).toContain(".in('role_in_company', ['owner', 'admin', 'dispatcher'])");
     expect(bidderMessageRoute).toContain("const recipientUserId = typeof bid.bidder_user_id === 'string' ? bid.bidder_user_id : ''");
     expect(bidderMessageRoute).not.toContain('payload.recipient');
@@ -73,8 +73,8 @@ describe('CX-close Customer quote award and tracking parity', () => {
   });
 
   it('does not fabricate member feedback, reputation, bidder ETA or distance', () => {
-    expect(memberProfile).toContain("state: 'unavailable'");
-    expect(memberProfile).toContain('Member-level feedback is not available for this company profile yet.');
+    expect(memberProfile).toContain(".from('reviews')");
+    expect(memberProfile).toContain('const feedbackItems = reviews.slice(0, 20).map');
     expect(workspaceData).toContain('export type WorkspaceBid = {');
     expect(workspaceData).not.toContain('bidder_eta');
     expect(workspaceData).not.toContain('bidder_distance');

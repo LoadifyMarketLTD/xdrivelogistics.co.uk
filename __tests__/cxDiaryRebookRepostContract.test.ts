@@ -35,7 +35,8 @@ describe('CX Diary Re-book / Re-post parity', () => {
     expect(form).toContain('/clone-prefill?companyId=');
     expect(form).toContain("idempotencyKeyRef.current = null");
     expect(form).toContain("pickupDate: '', pickupTime: '', deliveryDate: '', deliveryTime: ''");
-    expect(createApi).not.toContain('getStripeCommercialReadiness');
+    expect(createApi).toContain('getStripeCommercialReadiness');
     expect(createApi).toContain('creation_idempotency_key');
+    expect(form).toContain('StripeSetupAction');
   });
 });

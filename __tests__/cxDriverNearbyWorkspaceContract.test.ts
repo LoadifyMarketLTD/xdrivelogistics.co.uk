@@ -3,7 +3,7 @@ import path from 'node:path';
 
 describe("Driver Who's Nearby workspace contract", () => {
   const page = fs.readFileSync(path.join(process.cwd(), 'app/driver/nearby/page.tsx'), 'utf8');
-  const shell = fs.readFileSync(path.join(process.cwd(), 'app/driver/_components/DriverTopWorkspaceShell.tsx'), 'utf8');
+  const shell = fs.readFileSync(path.join(process.cwd(), 'lib/workspaceRole.ts'), 'utf8');
   const api = fs.readFileSync(path.join(process.cwd(), 'app/api/availability/nearby/route.ts'), 'utf8');
 
   it("keeps Who's Nearby distinct from the Driver's own Availability workspace", () => {

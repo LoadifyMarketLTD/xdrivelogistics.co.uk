@@ -15,19 +15,17 @@ describe('operational shell and onboarding recovery contract', () => {
     expect(driverLayout).toContain('xdrive-operational-top-workspace xdrive-driver-workspace');
   });
 
-  it('exposes Settings as a primary destination for every operational shell composer', () => {
+  it('exposes Settings only for operational roles with settings authority', () => {
     for (const marker of [
       "['carrier-settings', 'Settings', '/admin/settings']",
-      "['fleet-settings', 'Settings', '/admin/settings']",
       "['customer-settings-primary', 'Settings', '/customer/settings']",
       "['broker-settings-primary', 'Settings', '/broker/settings']",
-      "['owner-driver-settings-primary', 'Settings', '/driver/settings?section=overview']",
+      "['owner-driver-settings-primary', 'Settings', '/driver/settings']",
       "['driver-settings-primary', 'Settings', '/driver/settings']",
       "['dispatcher-settings-primary', 'Settings', '/admin/settings']",
       "['finance-settings-primary', 'Settings', '/admin/settings']",
       "['compliance-settings-primary', 'Settings', '/admin/settings']",
     ]) expect(shell).toContain(marker);
-    expect(roles).toContain("{ id: 'fleet-settings', label: 'Settings'");
     expect(roles).toContain("{ id: 'dispatcher-settings', label: 'Settings'");
     expect(roles).toContain("{ id: 'finance-settings', label: 'Settings'");
     expect(roles).toContain("{ id: 'compliance-settings', label: 'Settings'");

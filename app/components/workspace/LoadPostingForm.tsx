@@ -7,6 +7,7 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
 import PostcodeAddressField from './PostcodeAddressField';
+import StripeSetupAction from './StripeSetupAction';
 import './load-posting-exchange.css';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
@@ -191,6 +192,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [stripeSetupCompanyId, setStripeSetupCompanyId] = useState<string | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [clockNow, setClockNow] = useState<Date | null>(null);
   const [postingCompany, setPostingCompany] = useState<{ id: string; name: string | null; memberId: string | null } | null>(null);
@@ -383,6 +385,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const save = async (publish: boolean) => {
     setError('');
     setSuccess('');
+    setStripeSetupCompanyId(null);
     if (cloneLoading) {
       setError('Wait for the source booking details to finish loading before saving.');
       return;
@@ -507,10 +510,14 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
         referenceId?: string;
+        setupCompanyId?: string;
         job?: { id: string };
         replayed?: boolean;
       } | null;
       if (!response.ok || !payload?.job?.id) {
+        if (response.status === 409 && payload?.setupCompanyId === companyId) {
+          setStripeSetupCompanyId(companyId);
+        }
         const baseMessage = payload?.error ?? 'The load could not be saved.';
         throw new Error(payload?.referenceId ? `${baseMessage} Error reference: ${payload.referenceId}.` : baseMessage);
       }
@@ -584,6 +591,15 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       {error && (
         <AlertBanner tone="danger">
           {error}
+          {stripeSetupCompanyId ? (
+            <StripeSetupAction
+              companyId={stripeSetupCompanyId}
+              getAccessToken={async () => {
+                const { data } = await supabase.auth.getSession();
+                return data.session?.access_token ?? null;
+              }}
+            />
+          ) : null}
         </AlertBanner>
       )}
       {cloneLoading && <AlertBanner tone="info">Preparing a new booking from the source record…</AlertBanner>}

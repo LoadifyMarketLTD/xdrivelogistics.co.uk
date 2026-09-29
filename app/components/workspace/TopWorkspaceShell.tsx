@@ -146,7 +146,6 @@ function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['fleet-diary', 'Diary', '/admin/diary'],
     ['fleet-freight-vision', 'Freight Vision', '/admin/freight-vision'],
     ['fleet-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
-    ['fleet-settings', 'Settings', '/admin/settings'],
   ];
 
   const used = new Set<string>();

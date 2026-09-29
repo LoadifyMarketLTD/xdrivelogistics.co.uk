@@ -26,10 +26,10 @@ describe('CX-density carrier Diary contract', () => {
   });
 
   it('opens the existing authorised job-sheet tabs from each booking action bar', () => {
-    expect(diary).toContain("(['order','notes','history','documents','pod','invoice','replay'] as JobSheetTab[])");
+    expect(diary).toContain("(['agreement','route','progress','evidence','pod','invoice','payment','dispute','event-log'] as JobSheetTab[])");
     expect(diary).toContain('openJobTab(job.id, tabId)');
     expect(sheet).toContain('initialTab?: JobSheetTab');
-    expect(sheet).toContain('setTab(initialTab)');
+    expect(sheet).toContain('setTab(normalizeTab(initialTab))');
   });
 
   it('preserves allocation behind the authorised endpoint', () => {
