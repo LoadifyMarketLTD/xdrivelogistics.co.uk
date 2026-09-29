@@ -5,21 +5,21 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8');
 
 const topShell = read('app/components/workspace/TopWorkspaceShell.tsx');
-const driverShell = read('app/driver/_components/DriverTopWorkspaceShell.tsx');
+const driverNav = read('lib/workspaceRole.ts');
 const driverDashboard = read('app/driver/page.tsx');
 const customerDashboard = read('app/customer/CustomerDashboardHome.tsx');
 const carrierDashboard = read('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 const brokerDashboard = read('app/broker/BrokerDashboardHome.tsx');
 
 describe('PR #357 approved visual baseline', () => {
-  it('keeps shared workspace navigation inline in the top header before actions', () => {
-    expect(topShell).toContain('top-workspace-nav top-workspace-nav--inline');
+  it('keeps shared workspace navigation in the dedicated primary row after header actions', () => {
+    expect(topShell).toContain('top-workspace-nav top-workspace-nav--primary');
     expect(topShell).not.toContain('showWorkspaceContext');
 
-    const navIndex = topShell.indexOf('top-workspace-nav top-workspace-nav--inline');
     const actionsIndex = topShell.indexOf('top-workspace-shell__actions');
-    expect(navIndex).toBeGreaterThan(-1);
-    expect(actionsIndex).toBeGreaterThan(navIndex);
+    const navIndex = topShell.indexOf('top-workspace-nav top-workspace-nav--primary');
+    expect(actionsIndex).toBeGreaterThan(-1);
+    expect(navIndex).toBeGreaterThan(actionsIndex);
   });
 
   it('keeps Driver navigation aligned to the approved full prototype order', () => {
@@ -38,13 +38,8 @@ describe('PR #357 approved visual baseline', () => {
       "label: 'Freight Vision', href: '/driver/freight-vision'",
       "label: 'Finance', href: '/driver/finance'",
       "label: 'Drivers & Vehicles', href: '/driver/drivers-vehicles'",
-    ]) expect(driverShell).toContain(item);
-    expect(driverShell).toContain('label: "Who\'s Nearby"');
-
-    const navIndex = driverShell.indexOf('main-nav');
-    const toolsIndex = driverShell.indexOf('top-tools');
-    expect(navIndex).toBeGreaterThan(-1);
-    expect(toolsIndex).toBeGreaterThan(navIndex);
+    ]) expect(driverNav).toContain(item);
+    expect(driverNav).toContain('label: "Who\'s Nearby"');
   });
 
   it('keeps the current dense Driver operational dashboard structure', () => {
