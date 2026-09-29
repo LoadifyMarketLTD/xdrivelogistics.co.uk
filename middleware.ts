@@ -214,7 +214,7 @@ const buildCanonicalHostRedirect = (request: NextRequest) => {
   return NextResponse.redirect(redirectUrl, 308);
 };
 
-const resolveLegacyMobileRedirect = (pathname: string) => {
+const resolveCompatibilityRedirect = (pathname: string) => {
   if (pathname === '/m' || pathname === '/m/' || pathname === '/m/driver') return '/driver';
   if (pathname === '/m/jobs' || pathname === '/m/driver/jobs') return '/driver/jobs';
   if (pathname.startsWith('/m/jobs/')) return pathname.replace('/m/jobs/', '/driver/jobs/');
@@ -223,6 +223,13 @@ const resolveLegacyMobileRedirect = (pathname: string) => {
   if (pathname === '/m/driver/messages') return '/driver/messages';
   if (pathname === '/m/driver/quotes') return '/driver/quotes';
   if (pathname === '/m/driver/settings') return '/driver/settings';
+
+  if (pathname === '/admin/operations-centre') return '/admin';
+  if (pathname === '/admin/returns') return '/admin/fleet/returns';
+  if (pathname === '/admin/support') return '/admin/settings';
+  if (pathname === '/broker/awards') return '/broker/jobs';
+  if (pathname === '/customer/awards') return '/customer/bookings';
+
   return null;
 };
 
@@ -631,9 +638,9 @@ export async function middleware(request: NextRequest) {
     return canonicalRedirect;
   }
 
-  const legacyMobileTarget = resolveLegacyMobileRedirect(request.nextUrl.pathname);
-  if (legacyMobileTarget) {
-    return buildRedirect(request, legacyMobileTarget);
+  const compatibilityTarget = resolveCompatibilityRedirect(request.nextUrl.pathname);
+  if (compatibilityTarget) {
+    return buildRedirect(request, compatibilityTarget);
   }
 
   const nonce = generateNonce();
