@@ -685,8 +685,13 @@ export default function TopWorkspaceShell({
     router.push(href);
   };
 
+  const driverPrototypeScope = role === 'driver' || role === 'owner_driver';
+
   return (
-    <div className="top-workspace-shell" data-workspace-role={role}>
+    <div
+      className={`top-workspace-shell${driverPrototypeScope ? ' driver-prototype-port' : ''}`}
+      data-workspace-role={role}
+    >
       <header className="top-workspace-shell__header">
         <div className="top-workspace-shell__brand">
           <button
@@ -851,7 +856,7 @@ export default function TopWorkspaceShell({
         </div>
       </nav>
 
-      <main className="top-workspace-shell__content">{children}</main>
+      <main className={`top-workspace-shell__content${driverPrototypeScope ? ' app driver-prototype-app' : ''}`}>{children}</main>
     </div>
   );
 }
