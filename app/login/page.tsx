@@ -62,6 +62,8 @@ export default function LoginPage() {
       const result = await login(email, password);
       if (!result.success) {
         setError(result.error || 'Login failed');
+      } else if (result.route) {
+        router.replace(result.route);
       }
     } finally {
       setIsLoading(false);

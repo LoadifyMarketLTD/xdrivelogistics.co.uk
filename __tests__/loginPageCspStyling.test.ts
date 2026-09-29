@@ -30,7 +30,7 @@ describe('login page CSP-safe styling', () => {
     expect(page).toContain('Register');
     expect(page).toContain('Send Reset Email');
 
-    expect(css).toContain('grid-template-columns: minmax(0, 1.3fr) minmax(420px, 0.7fr)');
+    expect(css).toContain('grid-template-columns: minmax(0, 7fr) minmax(420px, 3fr)');
     expect(css).toContain('@media (max-width: 820px)');
     expect(css).toContain('flex-direction: column');
   });

@@ -3,6 +3,7 @@ import {
   resolveDriverOperationalEligibility,
   type DriverOperationalEligibility,
 } from './operationalEligibility';
+import { areCompaniesBlocked } from '../../_lib/companyBlocks';
 
 const activeBidStatuses = ['submitted', 'accepted'];
 
@@ -129,6 +130,11 @@ export async function resolveDriverBidEligibility(
   }
 
   const denialReasons = [...operational.blockers];
+  if (job?.company_id && driver.companyId && job.company_id !== driver.companyId) {
+    const blockState = await areCompaniesBlocked(supabaseAdmin, driver.companyId, job.company_id);
+    if (blockState.error) throw new Error(blockState.error);
+    if (blockState.blocked) denialReasons.push('company_interaction_blocked');
+  }
   if (!job) denialReasons.push('job_not_found');
   if (job && !['posted', 'quoted'].includes(String(job.status ?? '').trim().toLowerCase())) denialReasons.push('job_not_posted');
   if (job && !visibleToDriver) denialReasons.push('job_not_visible_to_driver');

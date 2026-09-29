@@ -572,12 +572,16 @@ function generateNonce(): string {
   return btoa(String.fromCharCode(...buf));
 }
 
-function buildCspHeader(nonce: string): string {
+function buildCspHeader(nonce: string, allowNetlifyPreviewFrame = false): string {
   const isDev = process.env.NODE_ENV === 'development';
   const scriptSrc = isDev
     ? `'self' 'nonce-${nonce}' 'unsafe-eval' https://*.supabase.co https://*.netlify.app`
     : `'self' 'nonce-${nonce}' https://*.supabase.co https://*.netlify.app`;
-  const styleSrc = isDev ? `'self' 'unsafe-inline'` : `'self'`;
+  // The current UI still relies on React style attributes in several public and
+  // authenticated surfaces. Blocking inline styles makes the rendered page unusable.
+  // Keep script execution nonce-protected, but allow inline CSS until those style
+  // attributes are fully migrated to classes/CSS modules.
+  const styleSrc = `'self' 'unsafe-inline'`;
   return [
     "default-src 'self'",
     `script-src ${scriptSrc}`,
@@ -585,6 +589,7 @@ function buildCspHeader(nonce: string): string {
     "img-src 'self' data: blob: https:",
     "font-src 'self' data:",
     "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com",
+    allowNetlifyPreviewFrame ? "frame-src 'self' https://app.netlify.com" : "frame-src 'self'",
     "frame-ancestors 'self'",
     "base-uri 'self'",
     "form-action 'self'",
@@ -594,7 +599,8 @@ function buildCspHeader(nonce: string): string {
 }
 
 function buildNonceResponse(request: NextRequest, nonce: string) {
-  const csp = buildCspHeader(nonce);
+  const incomingHost = (request.headers.get('host') ?? request.nextUrl.host).toLowerCase();
+  const csp = buildCspHeader(nonce, isNetlifyPreviewHost(incomingHost));
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set('x-nonce', nonce);
   requestHeaders.set('Content-Security-Policy', csp);
@@ -708,6 +714,14 @@ export async function middleware(request: NextRequest) {
 export const config = {
   runtime: 'nodejs',
   matcher: [
+    '/',
+    '/login/:path*',
+    '/register/:path*',
+    '/onboarding/:path*',
+    '/auth/:path*',
+    '/pending-approval/:path*',
+    '/forbidden/:path*',
+    '/reset-password/:path*',
     '/super-admin/:path*',
     '/broker/:path*',
     '/admin/:path*',

@@ -36,4 +36,12 @@ describe('CX-informed carrier Return Journey management contract', () => {
     expect(canonicalRpc).toContain('d.id = p_driver_id');
     expect(canonicalRpc).toContain('d.company_id = p_company_id');
   });
+
+  it('adds CX-style List View and Map View without fabricating return routes or ETA', () => {
+    expect(page).toContain("useState<'list' | 'map'>('list')");
+    expect(page).toContain('List View');
+    expect(page).toContain('Map View');
+    expect(page).toContain('<FleetPositionMap points={mapPoints} selectedDriverId={null} mode="live" />');
+    expect(page).toContain('Map markers show the latest authorised driver positions only. They do not fabricate a route or ETA for return capacity.');
+  });
 });

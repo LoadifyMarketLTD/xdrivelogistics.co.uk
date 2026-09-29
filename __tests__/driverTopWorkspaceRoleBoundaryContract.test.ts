@@ -2,32 +2,36 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
+const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
+
 describe('Driver top workspace role boundary', () => {
-  const shell = fs.readFileSync(
-    path.join(process.cwd(), 'app/driver/_components/DriverTopWorkspaceShell.tsx'),
-    'utf8',
-  );
+  const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
+  const roles = read('lib/workspaceRole.ts');
 
-  it('keeps owner-only finance, staff, billing and post-load controls out of fleet-employed UI', () => {
-    expect(shell).toContain("const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['load-alerts', 'finance', 'drivers'])");
-    expect(shell).toContain("ownerOnly: true");
-    expect(shell).toContain("role === 'owner_driver' && <button type=\"button\" className=\"cta post\"");
-    expect(shell).toContain("DRIVER_OWNER_ONLY_NAV_IDS.has(item.id)");
-    expect(shell).toContain("role === 'owner_driver' || !('ownerOnly' in item && item.ownerOnly === true)");
+  it('keeps owner-only business controls out of the employed Driver primary navigation', () => {
+    expect(shell).toContain("if (role === 'owner_driver') return composeDriverPrimaryNav(base, true);");
+    expect(shell).toContain("if (role === 'driver') return composeDriverPrimaryNav(base, false);");
+    expect(shell).toContain("const showOwnerDriverPostLoadAction = role === 'owner_driver';");
+    for (const label of ['Invoices','Company Profile','Drivers & Staff','Settings','Membership & Billing']) {
+      expect(roles).toContain(`label: '${label}'`);
+    }
   });
 
-  it('shows commercial discovery controls only to owner drivers or explicitly authorised company drivers', () => {
-    expect(shell).toContain("const commercialAccess = role === 'owner_driver' || user?.canCommercialBid === true");
-    expect(shell).toContain("const DRIVER_COMMERCIAL_NAV_IDS = new Set(['directory', 'nearby', 'returns', 'loads', 'quotes', 'won-work', 'vision'])");
-    expect(shell).toContain("{commercialAccess && <button type=\"button\" className=\"cta direct\"");
+  it('shows Book Direct only to carrier roles, Owner Driver or explicitly authorised Driver', () => {
+    expect(shell).toContain("role === 'owner_driver' ||");
+    expect(shell).toContain("(role === 'driver' && user?.canCommercialBid === true)");
+    expect(shell).toContain("'/driver/directory'");
+    expect(shell).toContain('BOOK DIRECT');
   });
 
-  it('gives an employed driver personal profile, vehicle, documents, notifications, security and audit links', () => {
-    expect(shell).toContain("{ label: 'My Profile', href: '/driver/profile' }");
-    expect(shell).toContain("{ label: 'Vehicle', href: '/driver/vehicles' }");
-    expect(shell).toContain("{ label: 'Documents', href: '/driver/documents' }");
-    expect(shell).toContain("{ label: 'Notifications', href: '/driver/notifications' }");
-    expect(shell).toContain("{ label: 'Security', href: '/driver/change-password' }");
-    expect(shell).toContain("{ label: 'Audit / Event Log', href: '/driver/event-log' }");
+  it('gives an employed Driver profile, vehicle, documents, notifications, security and audit links', () => {
+    for (const fragment of [
+      "{ id: 'profile', label: 'Account', href: '/driver/profile'",
+      "{ id: 'vehicle', label: 'Vehicle', href: '/driver/vehicles'",
+      "{ id: 'documents', label: 'Documents', href: '/driver/documents'",
+      "{ id: 'notifications', label: 'Notifications', href: '/driver/notifications'",
+      "{ id: 'security', label: 'Security', href: '/driver/change-password'",
+      "{ id: 'event-log', label: 'Event Log', href: '/driver/event-log'",
+    ]) expect(roles).toContain(fragment);
   });
 });

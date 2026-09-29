@@ -31,23 +31,18 @@ describe('canonical onboarding contract', () => {
 
     expect(getRequiredOnboardingDocuments('company_driver').map((item) => item.type)).toEqual([
       'driving_licence',
-      'proof_of_address',
       'right_to_work',
     ]);
     expect(getRequiredOnboardingDocuments('owner_driver').map((item) => item.type)).toEqual([
       'driving_licence',
-      'proof_of_address',
       'right_to_work',
     ]);
     expect(getRequiredOnboardingDocuments('fleet_courier').map((item) => item.type)).toEqual([
       'company_registration',
-      'public_liability',
-      'goods_in_transit',
       'vehicle_insurance',
     ]);
     expect(getRequiredOnboardingDocuments('broker_shipper').map((item) => item.type)).toEqual([
       'company_registration',
-      'public_liability',
     ]);
 
     const ownerInsurance = ONBOARDING_CONTRACT.owner_driver.documents.find(
@@ -59,7 +54,7 @@ describe('canonical onboarding contract', () => {
 
   it('keeps the current SQL compliance matrix aligned with the TypeScript contract', () => {
     const migration = readRepoFile(
-      'supabase/migrations/20260830201500_reconcile_company_compliance_contract.sql',
+      'supabase/migrations/20260929094000_align_onboarding_documents_with_uk_requirements.sql',
     );
 
     for (const contract of Object.values(ONBOARDING_CONTRACT)) {
@@ -71,8 +66,8 @@ describe('canonical onboarding contract', () => {
       }
     }
 
-    expect(migration).toContain("doc_type = 'motor_fleet_insurance'");
-    expect(migration).toContain("NEW.doc_type := 'vehicle_insurance'");
+    expect(migration).toContain("'employers_liability'");
+    expect(migration).toContain("'vehicle_insurance', true, true");
   });
 
   it('keeps company activation fail-closed through the full onboarding compliance assertion', () => {

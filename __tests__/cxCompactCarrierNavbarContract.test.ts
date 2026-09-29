@@ -6,9 +6,10 @@ const shell = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace
 describe('compact carrier navbar contract', () => {
   it('keeps only the useful carrier header actions visible', () => {
     expect(shell).toContain('showCarrierPostLoadAction');
-    expect(shell).toContain('+ Post Load');
+    expect(shell).toContain('POST LOAD');
     expect(shell).toContain('top-workspace-notification');
     expect(shell).toContain('Sign out');
+    expect(shell).not.toContain('>Messages</button>');
   });
 
   it('removes redundant carrier header shortcuts', () => {

@@ -1,4 +1,4 @@
-﻿BEGIN;
+BEGIN;
 
 ALTER TABLE public.registration_legal_acceptances
   ADD COLUMN IF NOT EXISTS signer_full_name text,

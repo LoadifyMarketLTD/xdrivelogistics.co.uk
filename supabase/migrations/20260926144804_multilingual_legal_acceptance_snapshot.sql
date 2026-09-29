@@ -1,4 +1,4 @@
-﻿BEGIN;
+BEGIN;
 
 ALTER TABLE public.registration_legal_acceptances
   ADD COLUMN IF NOT EXISTS acceptance_language text,

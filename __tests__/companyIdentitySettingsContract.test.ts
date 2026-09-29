@@ -14,4 +14,14 @@ describe('verified company identity settings contract', () => {
     expect(workspace).not.toContain('company_number: companyForm');
     expect(workspace).not.toContain('companyNumber: e.target.value');
   });
+
+  it('exposes real company profile fields while keeping approval flags authoritative', () => {
+    expect(workspace).toContain('Website<input');
+    expect(workspace).toContain('Company description<textarea');
+    expect(workspace).toContain('website: textOrNull(companyForm.website)');
+    expect(workspace).toContain('description: textOrNull(companyForm.description)');
+    expect(workspace).toContain('International work approval');
+    expect(workspace).toContain("company.international_work_approved === true ? 'Approved' : 'Not approved / not recorded'");
+    expect(workspace).not.toContain('international_work_approved: companyForm');
+  });
 });

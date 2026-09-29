@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next'
+import { headers } from 'next/headers'
 import './globals.css'
 import 'leaflet/dist/leaflet.css'
 import { AuthProvider } from './components/AuthContext'
@@ -80,11 +81,12 @@ export const metadata: Metadata = {
   },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  const nonce = (await headers()).get('x-nonce') ?? undefined
   const structuredData = {
     '@context': 'https://schema.org',
     '@graph': [
@@ -143,6 +145,7 @@ export default function RootLayout({
       <head>
         <script
           id="xdrive-structured-data"
+          nonce={nonce}
           type="application/ld+json"
           suppressHydrationWarning
           dangerouslySetInnerHTML={{ __html: JSON.stringify(structuredData) }}

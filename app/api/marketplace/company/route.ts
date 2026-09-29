@@ -19,6 +19,7 @@ import {
 } from '../../driver/_lib/marketplacePublic';
 import { vehicleMatchesMarketplaceSizeRange } from '../../../../lib/vehicleSizeRange';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../_lib/stripeCommercialReadiness';
+import { areCompaniesBlocked, getBlockedCounterpartyCompanyIds } from '../../_lib/companyBlocks';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../_lib/commercialLegalReadiness';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
@@ -432,7 +433,19 @@ async function searchLoads(request: NextRequest, companyId: string) {
     });
   }
 
+  const blockedResult = await getBlockedCounterpartyCompanyIds(supabaseAdmin!, companyId);
+  if (blockedResult.error) {
+    return operationalError({
+      status: 503,
+      message: 'Marketplace member-block preferences could not be verified.',
+      context: 'marketplace.company.search.member-blocks',
+      cause: { message: blockedResult.error },
+      retryable: true,
+    });
+  }
+
   const rows = ((data ?? []) as unknown as SearchLoadRow[])
+    .filter((row) => !row.company_id || !blockedResult.ids.has(String(row.company_id)))
     .filter((row) => exchangePostActive(row.exchange_expires_at));
   const geocoded = await postcodeCoordinates([
     ...rows.map((row) => row.pickup_postcode),
@@ -762,6 +775,9 @@ export async function POST(request: NextRequest) {
   }
   if (!job) return respond(404, { error: 'Load not found.' });
   if (job.company_id === input.companyId) return respond(403, { error: 'You cannot quote on your own company load.' });
+  const blockState = await areCompaniesBlocked(supabaseAdmin, input.companyId, job.company_id);
+  if (blockState.error) return respond(503, { error: 'Member block status could not be verified. Please retry.' });
+  if (blockState.blocked) return respond(403, { error: 'Commercial interaction with this company is blocked.' });
   const visible = job.exchange_visibility === 'exchange'
     || (job.exchange_visibility === 'direct' && job.direct_invite_company_id === input.companyId);
   if (!visible) return respond(404, { error: 'Load not found.' });

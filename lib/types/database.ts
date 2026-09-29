@@ -127,6 +127,7 @@ export interface CompanyDocument {
     | 'public_liability'
     | 'goods_in_transit'
     | 'vehicle_insurance'
+    | 'employers_liability'
     | 'vat_registration'
     | 'company_registration';
   file_path: string | null;

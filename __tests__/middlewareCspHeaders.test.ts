@@ -141,8 +141,22 @@ describe('middleware CSP nonce contract', () => {
     const response = await middleware(new NextRequest('https://example.test/'));
 
     expectNonceContract(response);
-    expect(response.headers.get('content-security-policy')).not.toContain('unsafe-inline');
-    expect(response.headers.get('content-security-policy')).not.toContain('unsafe-eval');
+    const csp = response.headers.get('content-security-policy') ?? '';
+    expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+    expect(csp).toContain("frame-src 'self'");
+    expect(csp).not.toContain('https://app.netlify.com');
+    const scriptSrc = csp.split(';').find((directive) => directive.trim().startsWith('script-src')) ?? '';
+    expect(scriptSrc).not.toContain('unsafe-inline');
+    expect(scriptSrc).not.toContain('unsafe-eval');
+  });
+
+  it('allows only the Netlify preview toolbar frame on deploy-preview hosts', async () => {
+    const response = await middleware(new NextRequest('https://deploy-preview-622--xdrivelogistics.netlify.app/'));
+
+    expectNonceContract(response);
+    const csp = response.headers.get('content-security-policy') ?? '';
+    expect(csp).toContain("frame-src 'self' https://app.netlify.com");
+    expect(csp).toContain("frame-ancestors 'self'");
   });
 
   it('forwards the nonce-bearing CSP on protected routes while preserving x-nonce', async () => {

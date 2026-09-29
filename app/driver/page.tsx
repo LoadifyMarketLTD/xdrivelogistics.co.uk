@@ -323,7 +323,6 @@ export default function DriverDashboard() {
         subtitle="Your current job, next action and next booking."
         headerActions={
           <>
-            <button type="button" className="btn" onClick={() => router.push('/driver/history')}>Diary</button>
             <button
               type="button"
               className="btn primary"
@@ -502,11 +501,11 @@ export default function DriverDashboard() {
           </section>
         ) : null}
 
-        {commercialAccess ? (
+        {commercialAccess && !ownerDriver ? (
           <section className="driver-dashboard-register">
             <div className="driver-dashboard-register__head">
               <div>
-                <strong>{ownerDriver ? 'Owner-driver commercial tools' : 'Commercial tools'}</strong>
+                <strong>Commercial tools</strong>
                 <span>Visible only where commercial bidding authority is enabled</span>
               </div>
             </div>
@@ -517,22 +516,11 @@ export default function DriverDashboard() {
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/won-work')}>Won Work</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/nearby')}>Who's Nearby</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/returns')}>Return Journeys</ActionButton>
-                {ownerDriver ? (
-                  <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>
-                    Invoices ({ownerInvoiceMetric})
-                  </ActionButton>
-                ) : null}
               </div>
             </div>
           </section>
         ) : null}
 
-        <div className="driver-dashboard-footer-links">
-          <button type="button" onClick={() => router.push('/driver/jobs')}>My Jobs</button>
-          <button type="button" onClick={() => router.push('/driver/history')}>Diary</button>
-          <button type="button" onClick={() => router.push('/driver/messages')}>Messages</button>
-          <button type="button" onClick={() => router.push('/driver/event-log')}>Event Log</button>
-        </div>
       </DriverWorkspaceShell>
     </div>
   );

@@ -6,6 +6,7 @@ const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), rela
 
 describe('Driver execution dashboard contract', () => {
   const page = read('app/driver/page.tsx');
+  const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
 
   it('keeps the home screen focused on current execution', () => {
     for (const marker of ['Current assignment','NEXT ACTION','Next booking','Driver readiness']) expect(page).toContain(marker);
@@ -35,11 +36,12 @@ describe('Driver execution dashboard contract', () => {
     expect(page).toContain("const commercialAccess = ownerDriver || user?.canCommercialBid === true");
     expect(page).toContain("{ownerDriver ? (");
     expect(page).toContain('Owner Driver Commercial Position');
-    for (const route of ['/driver/loads','/driver/quotes','/driver/won-work','/driver/nearby','/driver/returns']) expect(page).toContain(route);
-    expect(page).toContain("ownerDriver ? 'Owner-driver commercial tools' : 'Commercial tools'");
+    expect(page).toContain('{commercialAccess && !ownerDriver ? (');
+    for (const route of ['/driver/loads','/driver/quotes','/driver/won-work','/driver/nearby','/driver/returns']) expect(page + shell).toContain(route);
+    expect(page).not.toContain('Owner-driver commercial tools');
   });
 
-  it('keeps core execution routes one click away', () => {
-    for (const route of ['/driver/jobs','/driver/history','/driver/availability','/driver/vehicles','/driver/documents','/driver/messages','/driver/event-log']) expect(page).toContain(route);
+  it('keeps core execution routes one click away through the unified shell', () => {
+    for (const route of ['/driver/jobs','/driver/history','/driver/availability','/driver/vehicles','/driver/documents','/driver/messages','/driver/event-log']) expect(page + shell).toContain(route);
   });
 });

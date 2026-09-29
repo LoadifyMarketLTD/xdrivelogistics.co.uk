@@ -67,6 +67,7 @@ describe('workspace route contracts', () => {
       '/admin/event-log',
       '/admin/invoices',
       '/admin/fleet/compliance',
+      '/admin/settings',
     ]);
   });
 
@@ -82,8 +83,10 @@ describe('workspace route contracts', () => {
       '/admin/jobs',
       '/admin/pod',
       '/admin/fleet/assignments',
+      '/admin/fleet/resources',
       '/admin/drivers',
       '/admin/vehicles',
+      '/admin/fleet/positions',
       '/admin/fleet',
       '/admin/fleet/managers',
       '/admin/fleet/returns',

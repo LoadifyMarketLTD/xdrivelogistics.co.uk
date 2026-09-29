@@ -187,16 +187,6 @@ export default function CustomerDashboardHome() {
           eyebrow="Customer workspace"
           title="Transport overview"
           description="See what needs your attention, manage current loads and follow active deliveries."
-          actions={
-            <>
-              <ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>
-                My Loads
-              </ActionButton>
-              <ActionButton tone="secondary" onClick={() => router.push('/customer/tracking')}>
-                Tracking
-              </ActionButton>
-            </>
-          }
         />
 
         {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
@@ -256,9 +246,6 @@ export default function CustomerDashboardHome() {
           <section className="customer-dash-box">
             <div className="customer-dash-box__head">
               <strong>Needs your attention</strong>
-              <ActionButton tone="secondary" onClick={() => router.push('/customer/action-centre')}>
-                Action Centre
-              </ActionButton>
             </div>
             <div className="customer-dash-box__body">
               {attentionItems.length ? (
@@ -296,33 +283,11 @@ export default function CustomerDashboardHome() {
               )}
             </div>
           </section>
-
-          <section className="customer-dash-box">
-            <div className="customer-dash-box__head">
-              <strong>Quick actions</strong>
-            </div>
-            <div className="customer-dash-box__body">
-              <div className="customer-action-grid">
-                <ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>
-                  My Loads
-                </ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/customer/quotes')}>
-                  Quotes
-                </ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>
-                  Bookings
-                </ActionButton>
-              </div>
-            </div>
-          </section>
         </div>
 
         <section className="customer-dash-box">
           <div className="customer-dash-box__head">
             <strong>Recent transport</strong>
-            <ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>
-              View all loads
-            </ActionButton>
           </div>
           <div className="customer-dash-box__body">
             {metrics.recentJobs.length ? (
@@ -394,17 +359,7 @@ export default function CustomerDashboardHome() {
           </div>
         </section>
 
-        <div className="customer-dashboard-footer-links">
-          <button type="button" onClick={() => router.push('/customer/bookings')}>
-            POD & bookings <span>{metricState(jobsDataset, metrics.completedWithPod.length)}</span>
-          </button>
-          <button type="button" onClick={() => router.push('/customer/invoices')}>
-            Invoices <span>{metricState(invoicesDataset, metrics.unpaidInvoices.length)}</span>
-          </button>
-          <button type="button" onClick={() => router.push('/customer/messages')}>Messages</button>
-          <button type="button" onClick={() => router.push('/customer/disputes')}>Disputes</button>
-          <button type="button" onClick={() => router.push('/customer/event-log')}>Event Log</button>
-        </div>
+
       </div>
     </PageFrame>
   );

@@ -1,6 +1,6 @@
 /* Shared operational workspace shell for Customer, Broker and Carrier/Admin surfaces.
- * Driver keeps its dedicated shell. Super Admin is deliberately excluded.
- * Measured baseline: 50px header, 32px controls, 12–13px operational text.
+ * Unified operational shell inspired by the CX two-row navigation model.
+ * Role-specific items share one consistent header + primary navigation system.
  */
 
 .xdrive-operational-top-workspace {
@@ -21,10 +21,10 @@
   position: sticky;
   top: 0;
   z-index: 80;
-  height: 62px !important;
-  min-height: 62px !important;
+  height: 50px !important;
+  min-height: 50px !important;
   display: grid !important;
-  grid-template-columns: minmax(160px, auto) minmax(0, 1fr) auto !important;
+  grid-template-columns: minmax(160px, 1fr) auto !important;
   align-items: stretch !important;
   gap: 14px !important;
   padding: 0 16px !important;
@@ -42,9 +42,9 @@
 }
 
 .top-workspace-shell__logo-button {
-  width: 144px;
-  height: 48px;
-  flex: 0 0 144px;
+  width: 136px;
+  height: 44px;
+  flex: 0 0 136px;
   display: flex;
   align-items: center;
   justify-content: flex-start;
@@ -55,8 +55,8 @@
 }
 
 .top-workspace-shell__logo {
-  width: 144px;
-  height: 40px;
+  width: 136px;
+  height: 36px;
   object-fit: contain;
   object-position: left center;
 }
@@ -96,13 +96,13 @@
 
 .xdrive-operational-top-workspace .top-workspace-action,
 .xdrive-operational-top-workspace .top-workspace-notification {
-  height: 36px !important;
-  min-height: 36px !important;
+  height: 32px !important;
+  min-height: 32px !important;
   border: 1px solid #d8dee8;
   border-radius: 4px !important;
   background: #fff;
   color: #172033;
-  font-size: 13px !important;
+  font-size: 12px !important;
   font-weight: 700 !important;
   white-space: nowrap;
   cursor: pointer;
@@ -110,13 +110,19 @@
 }
 
 .top-workspace-action {
-  padding: 0 14px;
+  padding: 0 12px;
 }
 
-.top-workspace-action--primary {
-  border-color: #f5a300;
-  background: #f5a300;
-  color: #172033;
+.xdrive-operational-top-workspace .top-workspace-action--primary {
+  border-color: #f5a300 !important;
+  background: #f5a300 !important;
+  color: #172033 !important;
+}
+
+.xdrive-operational-top-workspace .top-workspace-action--direct {
+  border-color: #172033 !important;
+  background: #172033 !important;
+  color: #fff !important;
 }
 
 .top-workspace-action--signout {
@@ -126,7 +132,7 @@
 
 .top-workspace-notification {
   position: relative;
-  width: 36px;
+  width: 32px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -221,35 +227,37 @@
   line-height: 14px !important;
 }
 
-/* TopWorkspaceShell renders nav inline inside the 50px header. */
-.xdrive-operational-top-workspace .top-workspace-nav--inline {
-  position: relative !important;
-  inset: auto !important;
-  z-index: 84 !important;
+/* Unified CX-inspired primary navigation row used across operational workspaces. */
+.xdrive-operational-top-workspace .top-workspace-nav--primary {
+  position: sticky !important;
+  top: 50px !important;
+  z-index: 79 !important;
   min-width: 0 !important;
-  height: 62px !important;
-  min-height: 62px !important;
+  height: 40px !important;
+  min-height: 40px !important;
   border: 0 !important;
-  background: transparent !important;
+  border-bottom: 1px solid #d8dee8 !important;
+  background: #fff !important;
   overflow: visible !important;
+  box-sizing: border-box;
 }
 
-.xdrive-operational-top-workspace .top-workspace-nav--inline .top-workspace-nav__track {
+.xdrive-operational-top-workspace .top-workspace-nav--primary .top-workspace-nav__track {
   width: 100%;
   min-width: 0;
-  height: 62px !important;
-  min-height: 62px !important;
+  height: 40px !important;
+  min-height: 40px !important;
   display: flex !important;
   align-items: stretch !important;
-  justify-content: space-between !important;
+  justify-content: flex-end !important;
   gap: 2px !important;
-  padding: 0 !important;
+  padding: 0 16px !important;
   overflow-x: auto !important;
   scrollbar-width: none;
   box-sizing: border-box;
 }
 
-.xdrive-operational-top-workspace .top-workspace-nav--inline .top-workspace-nav__track::-webkit-scrollbar {
+.xdrive-operational-top-workspace .top-workspace-nav--primary .top-workspace-nav__track::-webkit-scrollbar {
   display: none;
 }
 
@@ -262,16 +270,16 @@
 
 .xdrive-operational-top-workspace .top-workspace-nav__item {
   position: relative;
-  height: 62px !important;
-  min-height: 62px !important;
-  padding: 0 12px !important;
+  height: 40px !important;
+  min-height: 40px !important;
+  padding: 0 10px !important;
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
   color: #26364d !important;
-  font-size: 14px !important;
+  font-size: 12px !important;
   line-height: 1.15 !important;
-  font-weight: 650 !important;
+  font-weight: 600 !important;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -302,7 +310,7 @@
 
 .xdrive-operational-top-workspace .top-workspace-nav__menu {
   position: absolute;
-  top: 58px !important;
+  top: 42px !important;
   left: 0;
   z-index: 95;
   width: 230px !important;
@@ -367,7 +375,7 @@
 
 .xdrive-operational-top-workspace .top-workspace-shell__content {
   min-width: 0;
-  min-height: calc(100vh - 62px) !important;
+  min-height: calc(100vh - 90px) !important;
   background: #f4f6f8;
 }
 
@@ -490,21 +498,21 @@
 
   .xdrive-operational-top-workspace .top-workspace-nav__item {
     padding: 0 8px !important;
-    font-size: 13px !important;
-    font-weight: 650 !important;
+    font-size: 12px !important;
+    font-weight: 600 !important;
   }
 }
 
 @media (max-width: 1024px) {
   .xdrive-operational-top-workspace .top-workspace-shell__header {
-    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
   }
 
   .top-workspace-action--signout {
     display: none;
   }
 
-  .xdrive-operational-top-workspace .top-workspace-nav--inline .top-workspace-nav__track {
+  .xdrive-operational-top-workspace .top-workspace-nav--primary .top-workspace-nav__track {
     justify-content: flex-start !important;
     overflow-x: auto !important;
   }
@@ -512,7 +520,7 @@
 
 @media (max-width: 768px) {
   .xdrive-operational-top-workspace .top-workspace-shell__header {
-    grid-template-columns: auto minmax(0, 1fr) auto !important;
+    grid-template-columns: minmax(0, 1fr) auto !important;
     height: 48px !important;
     min-height: 48px !important;
   }
@@ -546,11 +554,15 @@
     flex-direction: column;
   }
 
-  .xdrive-operational-top-workspace .top-workspace-nav--inline,
-  .xdrive-operational-top-workspace .top-workspace-nav--inline .top-workspace-nav__track,
+  .xdrive-operational-top-workspace .top-workspace-nav--primary,
+  .xdrive-operational-top-workspace .top-workspace-nav--primary .top-workspace-nav__track,
   .xdrive-operational-top-workspace .top-workspace-nav__item {
-    height: 48px !important;
-    min-height: 48px !important;
+    height: 44px !important;
+    min-height: 44px !important;
+  }
+
+  .xdrive-operational-top-workspace .top-workspace-nav--primary {
+    top: 48px !important;
   }
 
   .xdrive-operational-top-workspace .top-workspace-nav__menu {
@@ -570,11 +582,145 @@
   }
 
   .xdrive-operational-top-workspace .top-workspace-shell__content {
-    min-height: calc(100vh - 48px) !important;
+    min-height: calc(100vh - 90px) !important;
   }
 
   .xdrive-operational-top-workspace .top-workspace-shell__content > div,
   .xdrive-operational-top-workspace .xdrive-page-frame {
     padding: 8px !important;
   }
+}
+/* 2026-09-29 operational list controls — measured CX upper-right toolbar */
+.xdrive-operational-top-workspace .workspace-list-controls{
+  min-height:40px!important;
+  padding:4px 8px!important;
+  gap:8px!important;
+  background:#fff;
+  border:1px solid #d8dee8;
+  border-radius:4px!important;
+  color:#5f6f81;
+  font-size:11px!important;
+  line-height:14px!important;
+}
+.xdrive-operational-top-workspace .workspace-list-controls__right{
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.xdrive-operational-top-workspace .workspace-list-controls label{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:11px!important;
+  font-weight:600;
+  white-space:nowrap;
+}
+.xdrive-operational-top-workspace .workspace-list-controls select{
+  width:52px!important;
+  min-width:52px!important;
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 6px!important;
+  border-radius:4px!important;
+  font-size:11px!important;
+}
+.xdrive-operational-top-workspace .workspace-list-controls button{
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 8px!important;
+  border:1px solid #c8d1dc!important;
+  border-radius:4px!important;
+  background:#fff!important;
+  color:#075ed3!important;
+  font-size:11px!important;
+  font-weight:700!important;
+  cursor:pointer;
+}
+.xdrive-operational-top-workspace .workspace-list-controls button:disabled{
+  color:#9aa6b2!important;
+  background:#f5f7f9!important;
+  cursor:not-allowed;
+}
+/* 2026-09-29 CX visual-density calibration for operational workspaces only. */
+.xdrive-workspace-measured.xdrive-operational-top-workspace{
+  --ws-page-x:12px;
+  --ws-page-y:12px;
+  --ws-gap-grid:8px;
+  --ws-gap-section:12px;
+  --ws-filter-rail-w:200px;
+  --ws-control-h:32px;
+  --ws-panel-head-h:36px;
+  --ws-table-head-h:36px;
+  --ws-table-row-h:42px;
+  --ws-operational-row-min-h:52px;
+  --ws-font-page-title:20px;
+  --ws-font-panel-title:13px;
+  --ws-font-body:12.5px;
+  --ws-font-label:11px;
+  --ws-font-meta:11px;
+  --ws-radius:4px;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content > div,
+.xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-frame{
+  padding:12px 12px 16px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-header{
+  min-height:44px!important;
+  margin-bottom:8px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-header h1{
+  font-size:20px!important;
+  line-height:26px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-header p{
+  margin-top:2px!important;
+  font-size:12px!important;
+  line-height:16px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content th{
+  height:36px!important;
+  padding:6px 8px!important;
+  font-size:11px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content td{
+  min-height:42px!important;
+  padding:6px 8px!important;
+  font-size:12px!important;
+  line-height:16px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content input,
+.xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content select{
+  min-height:32px!important;
+  border-radius:4px!important;
+  font-size:12px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .workspace-tab-strip,
+.xdrive-workspace-measured.xdrive-operational-top-workspace .driver-tab-strip{
+  min-height:36px!important;
+  border-radius:4px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .workspace-tab-strip button,
+.xdrive-workspace-measured.xdrive-operational-top-workspace .driver-tab-strip button{
+  height:36px!important;
+  min-height:36px!important;
+  padding:0 12px!important;
+  font-size:12px!important;
+}
+/* Compact-list controls beat the generic 32px control baseline. */
+.xdrive-workspace-measured.xdrive-operational-top-workspace .workspace-list-controls select{
+  width:52px!important;
+  min-width:52px!important;
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 6px!important;
+  font-size:11px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .workspace-list-controls button{
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 8px!important;
+  font-size:11px!important;
 }

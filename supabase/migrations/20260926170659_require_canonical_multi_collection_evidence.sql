@@ -1,4 +1,4 @@
-﻿BEGIN;
+BEGIN;
 
 CREATE OR REPLACE FUNCTION public.fn_require_canonical_collection_evidence_before_loaded()
 RETURNS trigger

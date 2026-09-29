@@ -731,40 +731,27 @@ export default function OperationsDiaryPage() {
         </aside>
 
         <main className="workspace-board-main" style={{ minWidth: 0 }}>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between', minHeight: 34, marginBottom: 4 }}>
+          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
             <span style={{ display: 'inline-flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <strong>Diary</strong>
+              <span>{filtered.length} matching booking{filtered.length === 1 ? '' : 's'} · {visible.length} shown</span>
               <span role="group" aria-label="Diary view mode" style={{ display: 'inline-flex', gap: 8, alignItems: 'center' }}>
-                <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center', cursor: 'pointer' }}><input type="radio" name="diary-view-mode" checked={viewMode === 'list'} onChange={() => setViewMode('list')} /> List View</label>
-                <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center', cursor: 'pointer' }}><input type="radio" name="diary-view-mode" checked={viewMode === 'split'} onChange={() => setViewMode('split')} /> Split View</label>
+                <label style={{ cursor: 'pointer' }}><input type="radio" name="diary-view-mode" checked={viewMode === 'list'} onChange={() => setViewMode('list')} /> List View</label>
+                <label style={{ cursor: 'pointer' }}><input type="radio" name="diary-view-mode" checked={viewMode === 'split'} onChange={() => setViewMode('split')} /> Split View</label>
               </span>
             </span>
-            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-              <button
-                type="button"
-                onClick={toggleExpandAll}
-                disabled={!visible.length}
-                aria-label={allVisibleExpanded ? 'Collapse all visible Diary records' : 'Expand all visible Diary records'}
-                style={{ minHeight: 26, border: '1px solid var(--ws-border)', borderRadius: 4, background: '#fff', color: '#0B2F6B', padding: '0 9px', fontSize: 11, fontWeight: 700, cursor: visible.length ? 'pointer' : 'not-allowed' }}
-              >
-                {allVisibleExpanded ? 'Collapse all' : 'Expand all'}
-              </button>
-              <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
+            <span className="workspace-list-controls__right">
+              <button type="button" onClick={toggleExpandAll} disabled={!visible.length} aria-label={allVisibleExpanded ? 'Collapse all visible Diary records' : 'Expand all visible Diary records'}>{allVisibleExpanded ? 'Collapse all' : 'Expand all'}</button>
+              <label>Items per Page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+              <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page">‹</button>
+              <span>{filtered.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filtered.length)} of ${filtered.length}`}</span>
+              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} aria-label="Next Diary page">›</button>
+              <button type="button" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</button>
             </span>
           </div>
           <div className="workspace-tab-strip" role="tablist" aria-label="Diary states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
             {TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} <span>{counts[item.id]}</span></button>)}
           </div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between', minHeight: 32 }}>
-            <span>{filtered.length} matching booking{filtered.length === 1 ? '' : 's'} · {visible.length} shown</span>
-            <span style={{ display: 'inline-flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
-              <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>Items per Page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} style={{ height: 26 }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-              <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page" style={viewModeButtonStyle(false)}>‹</button>
-              <span>{filtered.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, filtered.length)}`} of {filtered.length}</span>
-              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} aria-label="Next Diary page" style={viewModeButtonStyle(false)}>›</button>
-            </span>
-          </div>
-
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Diary…" /></div>
           ) : visible.length === 0 ? (
@@ -918,14 +905,3 @@ export default function OperationsDiaryPage() {
     </PageFrame>
   );
 }
-const viewModeButtonStyle = (active: boolean) => ({
-  minHeight: 24,
-  border: '1px solid var(--ws-border)',
-  borderRadius: 4,
-  background: active ? '#eef4ff' : '#fff',
-  color: active ? '#0b2f6b' : '#64748b',
-  padding: '0 8px',
-  fontSize: 11,
-  fontWeight: active ? 800 : 650,
-  cursor: 'pointer',
-}) as const;

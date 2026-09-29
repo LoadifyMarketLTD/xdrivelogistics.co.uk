@@ -10,6 +10,7 @@ import {
   ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE,
   normalizeOnboardingAccountType,
 } from '../../_lib/onboarding';
+import { assessStoredOnboardingRecovery } from '../_lib/recovery';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -50,12 +51,23 @@ export async function GET(request: NextRequest) {
   }
 
   const routeSegment = ONBOARDING_ROUTE_SEGMENT_BY_ACCOUNT_TYPE[accountType];
+  const assessed = await assessStoredOnboardingRecovery({
+    applicationId: app.id,
+    accountType,
+    companyId: app.company_id,
+    payload: app.payload,
+  });
+  if (assessed.error) return json(500, { error: assessed.error });
+  const { payload, recovery } = assessed;
 
   return json(200, {
     application: {
       ...app,
       account_type: accountType,
+      payload,
+      completion_percentage: app.status === 'approved' ? 100 : recovery.progress,
     },
+    recovery,
     routeSegment,
     resumePath: `/onboarding/${routeSegment}/resume`,
   });

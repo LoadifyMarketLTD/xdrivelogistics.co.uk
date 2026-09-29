@@ -7,6 +7,7 @@ import {
 } from '../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../_lib/platformFlags';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
+import { areCompaniesBlocked } from '../../../../_lib/companyBlocks';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../../_lib/commercialLegalReadiness';
 import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
@@ -79,6 +80,9 @@ export async function POST(request: NextRequest, { params }: Params) {
     return json(403, { error: 'Forbidden - an active owner, admin or dispatcher of the job-owning company is required to award bids.' });
   }
 
+  const blockState = await areCompaniesBlocked(supabaseAdmin, job.company_id as string, bid.company_id as string | null);
+  if (blockState.error) return json(503, { error: 'Member block status could not be verified. Please retry.' });
+  if (blockState.blocked) return json(403, { error: 'This quote cannot be awarded because commercial interaction between these companies is blocked.' });
   const payerCompanyId = job.company_id as string;
   const carrierCompanyId = bid.company_id as string | null;
 

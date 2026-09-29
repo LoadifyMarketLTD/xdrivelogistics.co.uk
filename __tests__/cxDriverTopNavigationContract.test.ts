@@ -2,35 +2,43 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const shell = fs.readFileSync(path.join(process.cwd(), 'app/driver/_components/DriverTopWorkspaceShell.tsx'), 'utf8');
-const notificationsApi = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/notifications/route.ts'), 'utf8');
+const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
+const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
+const roles = read('lib/workspaceRole.ts');
+const notificationsApi = read('app/api/workspace/notifications/route.ts');
 
 describe('Driver top navigation role split', () => {
-  it('keeps employed Driver navigation execution-first', () => {
-    for (const label of ['Today','My Jobs','Diary','Availability','Vehicle']) {
-      expect(shell).toContain("label: '" + label + "'");
-    }
-    expect(shell).toContain("const DRIVER_COMMERCIAL_NAV_IDS = new Set(['directory', 'nearby', 'returns', 'loads', 'quotes', 'won-work', 'vision'])");
+  it('keeps employed Driver navigation execution-first in the shared shell', () => {
+    for (const primary of [
+      "['driver-dashboard-primary', 'Dashboard', '/driver']",
+      "['driver-jobs-primary', 'My Jobs', '/driver/jobs']",
+      "['driver-diary-primary', 'Diary', '/driver/history']",
+      "['driver-availability-primary', 'Availability', '/driver/availability']",
+      "['driver-vehicle-primary', 'Vehicle', '/driver/vehicles']",
+      "['driver-documents-primary', 'Documents', '/driver/documents']",
+    ]) expect(shell).toContain(primary);
   });
 
-  it('keeps commercial tools behind owner-driver or explicit commercial authority', () => {
-    expect(shell).toContain("const commercialAccess = role === 'owner_driver' || user?.canCommercialBid === true");
+  it('keeps commercial tools on Owner Driver while preserving role-aware Book Direct', () => {
     for (const href of ['/driver/directory','/driver/nearby','/driver/returns','/driver/loads','/driver/quotes','/driver/won-work']) {
-      expect(shell).toContain("href: '" + href + "'");
+      expect(roles).toContain(`href: '${href}'`);
     }
-    expect(shell).toContain('label: "Who\'s Nearby"');
+    expect(shell).toContain("role === 'owner_driver'");
+    expect(shell).toContain("user?.canCommercialBid === true");
   });
 
-  it('keeps finance and staff controls owner-only', () => {
-    expect(shell).toContain("const DRIVER_OWNER_ONLY_NAV_IDS = new Set(['load-alerts', 'finance', 'drivers'])");
-    expect(shell).toContain("{role === 'owner_driver' && <button");
-    expect(shell).toContain('ownerOnly: true');
+  it('keeps finance, staff, settings and billing in Owner Driver overflow', () => {
+    for (const label of ['Invoices','Company Profile','Drivers & Staff','Settings','Membership & Billing']) {
+      expect(roles).toContain(`label: '${label}'`);
+    }
+    expect(shell).toContain("role !== 'owner_driver'");
+    expect(shell).toContain('showOwnerDriverPostLoadAction');
   });
 
-  it('keeps real notification inbox counting', () => {
-    expect(shell).toContain("fetch('/api/driver/notifications'");
+  it('keeps notification counting server-authoritative for every workspace role', () => {
+    expect(shell).toContain("fetch('/api/workspace/notifications?mode=count'");
     expect(shell).not.toContain(".from('notifications')");
-    expect(notificationsApi).toContain(".eq('user_id', driver.userId)");
+    expect(notificationsApi).toContain(".eq('user_id', auth.user.id)");
   });
 
   it('does not introduce Super Admin coupling', () => {

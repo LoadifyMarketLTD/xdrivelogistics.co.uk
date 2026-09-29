@@ -1,4 +1,4 @@
-﻿BEGIN;
+BEGIN;
 
 ALTER TABLE public.job_booking_offers
   ADD COLUMN IF NOT EXISTS payment_obligation_acknowledged_at timestamptz,

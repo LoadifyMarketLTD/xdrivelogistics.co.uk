@@ -88,7 +88,7 @@ function SectionGrid({ sections, mode }: { sections: DetailSection[]; mode: Visu
         >
           <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-[#F5A300] via-[#1D57D8] to-transparent opacity-80" />
           <div className="flex items-center justify-between gap-4">
-            <p className="text-[0.68rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">{modeLabel[mode]}</p>
+            <p className="text-[0.68rem] font-black uppercase tracking-[0.18em] text-[#8A6100]">{modeLabel[mode]}</p>
             <span className="inline-flex h-9 min-w-9 items-center justify-center rounded-full border border-[#DDE5EF] bg-[#F8FAFC] px-2 text-xs font-black text-[#60758F]">0{index + 1}</span>
           </div>
           <h2 className="mt-5 max-w-[92%] text-[2.15rem] tracking-tight text-[#102447]">{section.title}</h2>
@@ -153,7 +153,19 @@ export function MarketingDetailPage({
             ))}
             <Link href="/login" className="transition hover:text-[#0E3FA9]">Sign In</Link>
           </nav>
-          <Link href="/register" className="rounded-lg bg-[#163568] px-5 py-2.5 text-sm font-black text-white shadow-[0_10px_24px_rgba(22,53,104,0.14)]">Start 3 Months Free</Link>
+          <Link href="/register" className="hidden rounded-lg bg-[#163568] px-5 py-2.5 text-sm font-black text-white shadow-[0_10px_24px_rgba(22,53,104,0.14)] lg:inline-flex">Start 3 Months Free</Link>
+          <details className="relative lg:hidden">
+            <summary className="cursor-pointer list-none rounded-lg border border-[#C9D5E4] bg-white px-4 py-2.5 text-sm font-black text-[#163568]">Menu</summary>
+            <div className="absolute right-0 top-[calc(100%+0.75rem)] z-50 w-[min(82vw,320px)] rounded-2xl border border-[#DDE5EF] bg-white p-3 shadow-[0_18px_48px_rgba(7,27,60,0.16)]">
+              <nav className="grid gap-1 text-sm font-black text-[#163568]">
+                {nav.map(([label, href]) => (
+                  <Link key={href} href={href} className="rounded-lg px-3 py-2.5 hover:bg-[#F4F6FA] hover:text-[#0E3FA9]">{label}</Link>
+                ))}
+                <Link href="/login" className="rounded-lg px-3 py-2.5 hover:bg-[#F4F6FA] hover:text-[#0E3FA9]">Sign In</Link>
+                <Link href="/register" className="mt-1 rounded-lg bg-[#163568] px-3 py-2.5 text-center text-white">Start 3 Months Free</Link>
+              </nav>
+            </div>
+          </details>
         </div>
       </header>
 
@@ -161,7 +173,15 @@ export function MarketingDetailPage({
         <section className="relative overflow-hidden border-b border-[#DDE5EF] bg-white px-5 py-16 text-[#102447] sm:px-8 lg:py-20">
           {heroMap ? (
             <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[56%] overflow-hidden lg:block" aria-hidden="true">
-              <div className="absolute inset-0 scale-[1.03] bg-cover bg-center" style={{ backgroundImage: "url('https://upload.wikimedia.org/wikipedia/commons/0/08/United_Kingdom_satellite_image.png')" }} />
+              <Image
+                src="/uk-satellite-map.png"
+                alt=""
+                fill
+                priority
+                fetchPriority="high"
+                sizes="56vw"
+                className="absolute inset-0 scale-[1.03] object-cover object-center"
+              />
               <div className="absolute inset-0 bg-[linear-gradient(90deg,#FFFFFF_0%,rgba(255,255,255,0.98)_12%,rgba(255,255,255,0.78)_30%,rgba(255,255,255,0.24)_58%,rgba(255,255,255,0.05)_100%)]" />
               <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10),rgba(10,35,79,0.10))]" />
               <svg viewBox="0 0 760 520" className="absolute inset-0 h-full w-full" role="presentation">
@@ -196,8 +216,8 @@ export function MarketingDetailPage({
           ) : null}
           <div className="relative mx-auto max-w-[1240px]">
             <div className="flex flex-col items-start gap-2">
-              <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-[#F5A300]">Early Access · First 3 Months Free</p>
-              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#F5A300]">{kicker}</p>
+              <p className="text-[0.7rem] font-black uppercase tracking-[0.18em] text-[#8A6100]">Early Access · First 3 Months Free</p>
+              <p className="text-xs font-black uppercase tracking-[0.18em] text-[#8A6100]">{kicker}</p>
             </div>
             <h1 className={`font-display mt-5 max-w-[980px] text-[3.05rem] leading-[1.01] tracking-[-0.035em] text-[#102447] sm:text-[4.45rem] lg:text-[4.9rem] ${heroMap ? 'lg:max-w-[700px]' : ''}`}>{title}</h1>
             <p className={`mt-7 max-w-3xl text-lg font-semibold leading-8 text-[#60758F] ${heroMap ? 'lg:max-w-[650px]' : ''}`}>{intro}</p>
@@ -243,7 +263,7 @@ export function MarketingDetailPage({
             <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
               {footerGroups.map(group => (
                 <div key={group.title}>
-                  <h2 className="text-[0.72rem] font-black uppercase tracking-[0.19em] text-[#F5A300]">{group.title}</h2>
+                  <h2 className="text-[0.72rem] font-black uppercase tracking-[0.19em] text-[#8A6100]">{group.title}</h2>
                   <div className="mt-5 grid gap-3 text-sm font-black text-[#163568]">
                     {group.links.map(([label, href]) => <Link key={href} href={href} className="transition hover:text-[#0E3FA9]">{label}</Link>)}
                   </div>

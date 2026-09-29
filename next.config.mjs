@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Keep metadata in the initial document head for every user agent. Lighthouse
+  // 13+ identifies as ordinary Chrome, so user-agent allowlists cannot reliably
+  // detect it and may cause title/description/robots/manifest to arrive too late
+  // for deterministic SEO audits. XDrive's root metadata is static, so disabling
+  // metadata streaming avoids that race without changing the rendered content.
+  htmlLimitedBots: /.*/,
   experimental: {
     optimizePackageImports: [
       'lucide-react',

@@ -16,6 +16,10 @@ describe('Customer clean workspace contract', () => {
     expect(shell).not.toContain("id: 'customer-post-load'");
     expect(shell).toContain("if (role === 'customer') {");
     expect(shell).toContain('filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user)');
+    expect(shell).toContain("{ id: 'customer-loads', label: 'My Loads'");
+    expect(shell).toContain("{ id: 'customer-quotes', label: 'Quotes'");
+    expect(shell).toContain("{ id: 'customer-bookings', label: 'Bookings'");
+    expect(shell).not.toContain("{ id: 'customer-loads', label: 'Loads', items:");
   });
 
   it('keeps only the four primary customer signals at the top', () => {
@@ -29,11 +33,13 @@ describe('Customer clean workspace contract', () => {
     expect(dashboard).not.toContain('CUS-201');
   });
 
-  it('keeps the essential customer workflows one click away', () => {
+  it('keeps the essential customer workflows one click away in the navbar', () => {
     expect(roles).toContain("href: '/customer/post-load'");
-    for (const href of ['/customer/action-centre','/customer/loads','/customer/quotes','/customer/bookings','/customer/tracking','/customer/invoices']) {
-      expect(dashboard).toContain(href);
+    for (const href of ['/customer/action-centre','/customer/loads','/customer/quotes','/customer/bookings','/customer/tracking','/customer/invoices','/customer/settings']) {
+      expect(shell).toContain(href);
     }
+    expect(dashboard).not.toContain("router.push('/customer/action-centre')");
+    expect(dashboard).not.toContain('View all loads');
     expect(dashboard).not.toContain("router.push('/customer/post-load')");
   });
 
@@ -42,7 +48,7 @@ describe('Customer clean workspace contract', () => {
       expect(dashboard).not.toContain(removed);
     }
     expect(dashboard).toContain('Needs your attention');
-    expect(dashboard).toContain('Quick actions');
+    expect(dashboard).not.toContain('Quick actions');
     expect(dashboard).toContain('Recent transport');
   });
 
