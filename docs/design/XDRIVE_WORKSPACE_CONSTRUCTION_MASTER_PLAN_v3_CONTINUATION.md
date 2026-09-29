@@ -25,7 +25,7 @@ The workspace reconstruction is now executed as one programme rather than a sequ
 For every route:
 
 1. read the relevant Master Plan section and this continuation;
-2. inspect the relevant Courier Exchange reference images / `public/reference/courier-exchange/`;
+2. inspect the relevant Courier Exchange reference images / `docs/reference/courier-exchange/`;
 3. inspect existing XDrive functionality and data sources;
 4. identify privacy / permission boundaries before changing UI;
 5. implement using shared workspace primitives where safe;
