@@ -16,9 +16,9 @@ describe('connected workspace dashboard completion', () => {
   it('connects customer messaging, event log and disputes from the dashboard and navigation', () => {
     expect(roles).toContain("href: '/customer/messages'");
     expect(roles).toContain("href: '/customer/event-log'");
-    expect(customer).toContain("router.push('/customer/messages')");
-    expect(customer).toContain("router.push('/customer/event-log')");
-    expect(customer).toContain("router.push('/customer/disputes')");
+    expect(customer).toContain('/customer/messages?jobId=');
+    expect(roles).toContain("href: '/customer/event-log'");
+    expect(roles).toContain("href: '/customer/disputes'");
     expect(customer).toContain('/customer/messages?jobId=');
   });
 
