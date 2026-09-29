@@ -2,9 +2,9 @@
 
 **Status:** Implementation in progress — PR #338
 **Reference files:**
-- `public/reference/courier-exchange/Screenshot 2026-05-28 204652.png` — CX Diary / jobs list view (primary)
-- `public/reference/courier-exchange/Screenshot 2026-05-28 204621.png` — CX Diary overview
-- `public/reference/courier-exchange/Screenshot 2026-05-28 204639.png` — CX Diary record detail
+- `docs/reference/courier-exchange/Screenshot 2026-05-28 204652.png` — CX Diary / jobs list view (primary)
+- `docs/reference/courier-exchange/Screenshot 2026-05-28 204621.png` — CX Diary overview
+- `docs/reference/courier-exchange/Screenshot 2026-05-28 204639.png` — CX Diary record detail
 
 **Implementation target:** `app/admin/jobs/page.tsx`, `app/components/workspace/JobsOperationalTable.tsx`
 
