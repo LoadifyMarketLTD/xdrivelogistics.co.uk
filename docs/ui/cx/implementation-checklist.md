@@ -6,7 +6,7 @@
 
 Status: **Complete** (PR #338)
 
-Reference measurements derived from `/public/reference/courier-exchange/` screenshots.
+Reference measurements derived from `/docs/reference/courier-exchange/` screenshots.
 All values are inspected — none approximated from memory.
 
 ### Reference measurements log (Phase 1 inspection)
