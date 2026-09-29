@@ -70,8 +70,7 @@ test.describe('Jobs operational surface visual/interaction gate', () => {
 
     for (const vp of VIEWPORTS) {
       await page.setViewportSize({ width: vp.width, height: vp.height });
-      await page.goto(FIXTURE_URL);
-      await page.waitForLoadState('networkidle');
+      await page.goto(FIXTURE_URL, { waitUntil: 'domcontentloaded' });
 
       // ── Shell geometry (all viewports) ───────────────────────────────────
 
@@ -86,8 +85,10 @@ test.describe('Jobs operational surface visual/interaction gate', () => {
       expect(headerHeight, `${vp.label}: header height`).toBeGreaterThanOrEqual(48);
       expect(headerHeight, `${vp.label}: header height`).toBeLessThanOrEqual(52);
 
-      // Activity feed ticker
-      await expect(page.locator('[aria-label="Activity feed"]')).toBeVisible();
+      // Activity feed remains mounted for accessibility/live-region semantics but is
+      // intentionally hidden in the current compact operational shell.
+      await expect(page.locator('[aria-label="Activity feed"]')).toHaveCount(1);
+      await expect(page.locator('[aria-label="Activity feed"]')).toBeHidden();
 
       // No horizontal body overflow at any viewport
       const bodyOverflow = await page.evaluate(

@@ -45,3 +45,7 @@ apk_output.txt
 
 # Local Netlify folder
 .netlify
+
+# local security tooling and reports
+.local-tools/
+.sast/

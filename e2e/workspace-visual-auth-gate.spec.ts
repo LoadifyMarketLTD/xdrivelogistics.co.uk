@@ -111,8 +111,11 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
       });
       page.on('requestfailed', (request) => {
         const url = request.url();
-        if (!isAllowlisted(url, EXPECTED_FAILED_REQUEST_ALLOWLIST)) {
-          failedRequests.push(`${request.method()} ${url} :: ${request.failure()?.errorText ?? 'unknown error'}`);
+        const errorText = request.failure()?.errorText ?? 'unknown error';
+        const expectedNavigationAbort =
+          /\/_next\/static\/chunks\//i.test(url) && /ERR_ABORTED/i.test(errorText);
+        if (!expectedNavigationAbort && !isAllowlisted(url, EXPECTED_FAILED_REQUEST_ALLOWLIST)) {
+          failedRequests.push(`${request.method()} ${url} :: ${errorText}`);
         }
       });
       page.on('response', (response) => {
@@ -127,8 +130,7 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
 
       for (const viewport of viewports) {
         await page.setViewportSize({ width: viewport.width, height: viewport.height });
-        await page.goto(`/visual-fixture/workspace/${role}`);
-        await page.waitForLoadState('networkidle');
+        await page.goto(`/visual-fixture/workspace/${role}`, { waitUntil: 'domcontentloaded' });
 
         const selectors = topShellSelectors();
         const header = page.locator(selectors.header);

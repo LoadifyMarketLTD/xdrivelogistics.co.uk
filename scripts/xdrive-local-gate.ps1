@@ -96,6 +96,10 @@ try {
 
     Invoke-Step 'TypeScript typecheck' { npm run typecheck }
 
+    Invoke-Step 'Local application SAST (Semgrep)' {
+      powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $workDir 'scripts\run-local-sast.ps1')
+    }
+
     Write-Host "`n=== Vitest unit suite ===" -ForegroundColor Cyan
     npm run test:unit
     $unitExit = $LASTEXITCODE
