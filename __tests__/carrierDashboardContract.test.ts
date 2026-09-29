@@ -157,7 +157,7 @@ describe('carrier dashboard convergence contract', () => {
     expect(shell).toContain("id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre'");
     expect(shell).toContain('data-workspace-role={role}');
     expect(shell).toContain('.sort((a, b) => b.length - a.length)');
-    expect(shell).toContain("const carrierPostLoadHref = '/admin/post-load';");
+    expect(shell).toContain("const postLoadHref = CARRIER_NAV_ROLES.has(role) ? '/admin/post-load' : '/driver/post-load';");
     expect(shell).toContain('showCarrierPostLoadAction');
     expect(shell).toContain('+ Post Load');
     expect(shell).not.toContain("import SharedContextControls from './SharedContextControls';");
@@ -169,7 +169,7 @@ describe('carrier dashboard convergence contract', () => {
   it('keeps the carrier dashboard readable while preserving the approved operational geometry', () => {
     const shellCss = source('app/components/workspace/top-workspace-shell.css');
 
-    expect(shellCss).toContain('height: 62px !important;');
+    expect(shellCss).toContain('height: 50px !important;');
     expect(shellCss).toContain('.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button');
     expect(shellCss).toContain('min-height: 72px !important;');
     expect(shellCss).toContain('.top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"]');
