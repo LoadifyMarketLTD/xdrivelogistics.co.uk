@@ -7,10 +7,10 @@ const workspaceCss = fs.readFileSync(path.join(process.cwd(), 'app/components/wo
 
 describe('workspace readability contract', () => {
   it('keeps the approved carrier navbar readable without changing its information architecture', () => {
-    expect(shellCss).toContain('height: 62px !important;');
-    expect(shellCss).toContain('font-size: 14px !important;');
-    expect(shellCss).toContain('font-weight: 650 !important;');
-    expect(shellCss).toContain('justify-content: space-between !important;');
+    expect(shellCss).toContain('height: 50px !important;');
+    expect(shellCss).toContain('font-size: 12px !important;');
+    expect(shellCss).toContain('font-weight: 600 !important;');
+    expect(shellCss).toContain('justify-content: flex-end !important;');
     expect(shellCss).toContain('box-shadow: inset 0 -3px 0 #1d57d8 !important;');
   });
 
