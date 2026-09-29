@@ -159,7 +159,7 @@ describe('carrier dashboard convergence contract', () => {
     expect(shell).toContain('.sort((a, b) => b.length - a.length)');
     expect(shell).toContain("const postLoadHref = CARRIER_NAV_ROLES.has(role) ? '/admin/post-load' : '/driver/post-load';");
     expect(shell).toContain('showCarrierPostLoadAction');
-    expect(shell).toContain('+ Post Load');
+    expect(shell).toContain('POST LOAD');
     expect(shell).not.toContain("import SharedContextControls from './SharedContextControls';");
     expect(shell).not.toContain('showWorkspaceContext');
     expect(shell).not.toContain('carrierBookDirectHref');
@@ -174,6 +174,6 @@ describe('carrier dashboard convergence contract', () => {
     expect(shellCss).toContain('min-height: 72px !important;');
     expect(shellCss).toContain('.top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"]');
     expect(shellCss).toContain('top: 74px !important;');
-    expect(shellCss).toContain('font-size: 14px !important;');
+    expect(shellCss).toContain('font-size: 12px !important;');
   });
 });
