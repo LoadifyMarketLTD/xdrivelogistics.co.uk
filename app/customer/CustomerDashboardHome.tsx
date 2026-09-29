@@ -246,9 +246,6 @@ export default function CustomerDashboardHome() {
           <section className="customer-dash-box">
             <div className="customer-dash-box__head">
               <strong>Needs your attention</strong>
-              <ActionButton tone="secondary" onClick={() => router.push('/customer/action-centre')}>
-                Action Centre
-              </ActionButton>
             </div>
             <div className="customer-dash-box__body">
               {attentionItems.length ? (
@@ -291,9 +288,6 @@ export default function CustomerDashboardHome() {
         <section className="customer-dash-box">
           <div className="customer-dash-box__head">
             <strong>Recent transport</strong>
-            <ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>
-              View all loads
-            </ActionButton>
           </div>
           <div className="customer-dash-box__body">
             {metrics.recentJobs.length ? (

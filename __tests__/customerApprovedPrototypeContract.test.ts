@@ -33,11 +33,13 @@ describe('Customer clean workspace contract', () => {
     expect(dashboard).not.toContain('CUS-201');
   });
 
-  it('keeps the essential customer workflows one click away', () => {
+  it('keeps the essential customer workflows one click away in the navbar', () => {
     expect(roles).toContain("href: '/customer/post-load'");
-    for (const href of ['/customer/action-centre','/customer/loads','/customer/quotes','/customer/bookings','/customer/tracking','/customer/invoices']) {
-      expect(dashboard).toContain(href);
+    for (const href of ['/customer/action-centre','/customer/loads','/customer/quotes','/customer/bookings','/customer/tracking','/customer/invoices','/customer/settings']) {
+      expect(shell).toContain(href);
     }
+    expect(dashboard).not.toContain("router.push('/customer/action-centre')");
+    expect(dashboard).not.toContain('View all loads');
     expect(dashboard).not.toContain("router.push('/customer/post-load')");
   });
 

@@ -34,6 +34,26 @@ describe('Unified workspace navbar contract', () => {
   it('keeps overflow functions under a consistent More menu', () => {
     expect(shell).toContain("moreLabel = 'More'");
     expect(shell).toContain("label: moreLabel");
+    expect(shell).toContain("return more.length ? [...primary");
+  });
+
+  it('promotes Settings on every operational shell', () => {
+    for (const marker of [
+      "carrier-settings', 'Settings', '/admin/settings'",
+      "fleet-settings', 'Settings', '/admin/settings'",
+      "customer-settings-primary', 'Settings', '/customer/settings'",
+      "broker-settings-primary', 'Settings', '/broker/settings'",
+      "owner-driver-settings-primary', 'Settings', '/driver/settings'",
+      "driver-settings-primary', 'Settings', '/driver/settings'",
+      "dispatcher-settings-primary', 'Settings', '/admin/settings'",
+      "finance-settings-primary', 'Settings', '/admin/settings'",
+      "compliance-settings-primary', 'Settings', '/admin/settings'",
+    ]) expect(shell).toContain(marker);
+  });
+
+  it('promotes customer Action Centre and View All Loads into the navbar', () => {
+    expect(shell).toContain("customer-action-centre-primary', 'Action Centre', '/customer/action-centre'");
+    expect(shell).toContain("customer-loads-primary', 'View All Loads', '/customer/loads'");
   });
 
   it('uses distinct owner-driver settings labels inside More', () => {
