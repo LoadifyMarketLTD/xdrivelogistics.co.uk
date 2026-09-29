@@ -13,7 +13,7 @@ const fixtureComponent = readFileSync(
 );
 
 const shell = readFileSync(
-  resolve(process.cwd(), 'app/components/workspace/WorkspaceShell.tsx'),
+  resolve(process.cwd(), 'app/components/workspace/TopWorkspaceShell.tsx'),
   'utf8',
 );
 
@@ -52,15 +52,10 @@ describe('workspace visual fixture harness contract', () => {
     expect(fixtureComponent).toContain('compliance:');
   });
 
-  it('keeps action centre and notifications distinct in shell controls', () => {
-    expect(shell).toContain('data-route={actionCentreHref}');
-    expect(shell).toContain('data-route={notificationsHref}');
-  });
-
-  it('uses fixture overrides only as explicit opt-in inputs', () => {
-    expect(shell).toContain('fixtureOverrides?: WorkspaceShellFixtureOverrides');
-    expect(shell).toContain('fixtureOverrides?.tickerItems');
-    expect(shell).toContain('fixtureOverrides?.unreadCount');
+  it('keeps operational fixtures on the canonical top workspace shell', () => {
+    expect(fixtureRoute).toContain('TopWorkspaceVisualFixture');
+    expect(shell).toContain('top-workspace-nav top-workspace-nav--primary');
+    expect(shell).toContain('forcedRole?: WorkspaceRole');
   });
 
   it('wires a dedicated CI visual gate workflow with artifacts', () => {
