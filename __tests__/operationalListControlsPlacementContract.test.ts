@@ -48,8 +48,8 @@ describe('Operational list controls placement contract', () => {
   it('uses CX-density values for upper-right operational controls', () => {
     const shellCss = read('app/components/workspace/top-workspace-shell.css');
     const driverCss = read('app/driver/driver-full-prototype.css');
-    expect(shellCss).toContain('min-height:30px!important');
-    expect(shellCss).toContain('height:24px!important');
+    expect(shellCss).toContain('min-height:40px!important');
+    expect(shellCss).toContain('height:28px!important');
     expect(shellCss).toContain('width:52px!important');
     expect(driverCss).toContain('min-height:31px!important');
     expect(driverCss).toContain('height:24px!important');
