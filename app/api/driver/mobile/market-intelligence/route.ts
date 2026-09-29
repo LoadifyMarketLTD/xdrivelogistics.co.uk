@@ -156,7 +156,7 @@ export async function GET(request: NextRequest) {
       : 'quiet';
 
   const { data: agreements, error: agreementsError } = await supabaseAdmin
-    .from('job_commercial_agreements')
+    .from('job_commercial_agreements_effective')
     .select('job_id,agreed_amount,currency,created_at')
     .gte('created_at', weekAgoIso)
     .order('created_at', { ascending: false })

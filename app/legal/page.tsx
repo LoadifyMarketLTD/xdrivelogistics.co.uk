@@ -17,6 +17,10 @@ const LEGAL_GROUPS = [
     description: 'Commercial rules that apply when transport work is posted, quoted, awarded and completed through XDrive.',
     links: [
       { href: '/terms#marketplace-transport', label: 'Marketplace & Transport Trading Terms' },
+      { href: '/legal/customer-shipper-terms', label: 'Customer / Shipper Trading Terms' },
+      { href: '/legal/broker-terms', label: 'Transport Broker Trading Terms' },
+      { href: '/legal/owner-driver-terms', label: 'Owner Driver / Carrier Terms' },
+      { href: '/legal/carrier-fleet-terms', label: 'Carrier / Fleet Trading Terms' },
     ],
   },
 ] as const;

@@ -20,6 +20,7 @@ import {
 import { vehicleMatchesMarketplaceSizeRange } from '../../../../lib/vehicleSizeRange';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../_lib/stripeCommercialReadiness';
 import { areCompaniesBlocked, getBlockedCounterpartyCompanyIds } from '../../_lib/companyBlocks';
+import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../_lib/commercialLegalReadiness';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -679,6 +680,29 @@ export async function POST(request: NextRequest) {
   if (auth.kind !== 'ok') return respond(403, { error: 'You do not have access to this company marketplace.' });
 
   if (input.action === 'submit_bid') {
+    let legalReadiness;
+    try {
+      legalReadiness = await getCommercialLegalReadiness(supabaseAdmin, input.companyId);
+    } catch (error) {
+      return operationalError({
+        status: 503,
+        message: 'Current legal acceptance could not be verified. Please try again.',
+        context: `marketplace.company.legal-readiness.company:${input.companyId}`,
+        cause: error,
+        retryable: true,
+      });
+    }
+    if (!legalReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Legal agreement evidence is temporarily unavailable.' });
+    }
+    if (!legalReadiness.ready) {
+      return respond(409, commercialLegalReadinessPayload(
+        'Review and re-accept the current XDrive legal agreements before quoting for transport work.',
+        legalReadiness,
+        '/admin/settings/legal-agreements',
+      ));
+    }
+
     let stripeReadiness;
     try {
       stripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, input.companyId);

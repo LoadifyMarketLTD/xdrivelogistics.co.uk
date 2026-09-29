@@ -29,6 +29,7 @@ export type RegistrationLegalMetadata = {
   legal_role_declaration_confirmed_at?: unknown;
   privacy_acknowledged_at?: unknown;
   privacy_version?: unknown;
+  legal_acceptance_language?: unknown;
 };
 
 export type RegistrationLegalEvidence = CurrentLegalEvidence;
@@ -86,6 +87,7 @@ export const buildRegistrationLegalEvidence = (
   const roleDeclarationAt = asIsoDate(metadata.legal_role_declaration_confirmed_at);
   const privacyAt = asIsoDate(metadata.privacy_acknowledged_at);
   const legalVersion = typeof metadata.legal_version === 'string' ? metadata.legal_version : LEGAL_VERSION;
+  const acceptanceLanguage = typeof metadata.legal_acceptance_language === 'string' ? metadata.legal_acceptance_language : 'en';
 
   if (!agreements || !acceptedAt || !authorityAt || !roleDeclarationAt || !privacyAt) return null;
   if (legalVersion !== LEGAL_VERSION || metadata.privacy_version !== PRIVACY_VERSION) return null;
@@ -97,5 +99,5 @@ export const buildRegistrationLegalEvidence = (
   // evidence timestamps must therefore all refer to that same acceptance event.
   if (authorityAt !== acceptedAt || roleDeclarationAt !== acceptedAt || privacyAt !== acceptedAt) return null;
 
-  return buildCurrentLegalEvidence(registrationRole, acceptedAt);
+  return buildCurrentLegalEvidence(registrationRole, acceptedAt, acceptanceLanguage);
 };

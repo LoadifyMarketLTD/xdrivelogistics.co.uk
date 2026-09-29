@@ -52,6 +52,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'suspended-companies', label: 'Suspended Companies', href: '/super-admin/companies/suspended' },
       { id: 'verification', label: 'Verification', href: '/super-admin/companies/verification' },
       { id: 'company-compliance', label: 'Company Compliance', href: '/super-admin/companies/compliance' },
+      { id: 'buyer-risk', label: 'Buyer Risk & Exposure', href: '/super-admin/companies/buyer-risk' },
     ] },
     { id: 'finance', label: 'Finance', items: [
       { id: 'finance-overview', label: 'Finance Overview', href: '/super-admin/finance' },

@@ -16,6 +16,8 @@ import {
   type LegalAcceptanceSnapshot,
 } from '../../../../lib/legal/legalAgreementState';
 import type { RegistrationLegalRole } from '../../../../lib/legal/registrationAgreements';
+import { LEGAL_LANGUAGES, normalizeLegalLanguage, type LegalLanguage } from '../../../../lib/legal/controlledLegalDocuments';
+import { persistSignedLegalAcceptance } from '../../../../lib/legal/persistSignedLegalAcceptance';
 
 const acceptanceSchema = z.object({
   requirementFingerprint: z.string().regex(/^[0-9a-f]{64}$/),
@@ -24,6 +26,8 @@ const acceptanceSchema = z.object({
   roleDeclarationConfirmed: z.literal(true),
   privacyAcknowledged: z.literal(true),
   initialEvidenceRemediationConfirmed: z.boolean().optional(),
+  language: z.enum(LEGAL_LANGUAGES),
+  signerFullName: z.string().trim().min(2).max(120),
 });
 
 const LEGAL_ROLE_BY_ACCOUNT_TYPE: Partial<Record<string, RegistrationLegalRole>> = {
@@ -68,17 +72,19 @@ type LegalAcceptanceRow = {
   privacy_version: string;
   accepted_at: string;
   source: string;
+  acceptance_language: string | null;
+  privacy_document_hash: string | null;
   evidence_hash: string;
   created_at: string;
 };
 
-const normalizeAgreementSnapshots = (value: unknown) => {
+const normalizeAgreementSnapshots = (value: unknown): LegalAcceptanceSnapshot['agreements'] => {
   if (!Array.isArray(value)) return [];
   return value.flatMap((entry) => {
     if (!entry || typeof entry !== 'object') return [];
     const row = entry as Record<string, unknown>;
     if (typeof row.code !== 'string' || typeof row.version !== 'string') return [];
-    return [{ code: row.code, version: row.version }];
+    return [{ code: row.code, version: row.version, language: typeof row.language === 'string' && LEGAL_LANGUAGES.includes(row.language as LegalLanguage) ? row.language as LegalLanguage : undefined, translationVersion: typeof row.translationVersion === 'string' ? row.translationVersion : undefined, documentHash: typeof row.documentHash === 'string' ? row.documentHash : undefined }];
   });
 };
 
@@ -86,6 +92,10 @@ const toAcceptanceSnapshot = (row: LegalAcceptanceRow): LegalAcceptanceSnapshot 
   registrationRole: row.registration_role,
   legalVersion: row.legal_version,
   agreements: normalizeAgreementSnapshots(row.agreements),
+  acceptanceLanguage: row.acceptance_language && LEGAL_LANGUAGES.includes(row.acceptance_language as LegalLanguage)
+    ? row.acceptance_language as LegalLanguage
+    : undefined,
+  privacyDocumentHash: row.privacy_document_hash,
 });
 
 const loadLegalContext = async (userId: string) => {
@@ -102,7 +112,7 @@ const loadLegalContext = async (userId: string) => {
       .limit(2),
     supabaseAdmin
       .from('registration_legal_acceptances')
-      .select('id, registration_role, legal_version, agreements, privacy_version, accepted_at, source, evidence_hash, created_at')
+      .select('id, registration_role, legal_version, agreements, privacy_version, acceptance_language, privacy_document_hash, accepted_at, source, evidence_hash, signer_full_name, signature_method, signature_payload_hash, signed_pdf_bucket, signed_pdf_path, signed_pdf_hash, signed_pdf_created_at, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(100),
@@ -184,8 +194,9 @@ const loadLegalContext = async (userId: string) => {
 const resolveHistoryState = (
   registrationRole: RegistrationLegalRole,
   history: LegalAcceptanceRow[],
+  language: LegalLanguage = 'en',
 ) => {
-  const requirement = buildCurrentLegalRequirement(registrationRole);
+  const requirement = buildCurrentLegalRequirement(registrationRole, language);
   const snapshots = history.map(toAcceptanceSnapshot);
   const currentAcceptanceIndex = findCurrentLegalAcceptanceIndex(requirement, snapshots);
   const latestEvaluation = evaluateLegalAcceptance(requirement, snapshots[0] ?? null);
@@ -202,8 +213,9 @@ const resolveHistoryState = (
 const buildReadModel = (
   registrationRole: RegistrationLegalRole,
   history: LegalAcceptanceRow[],
+  language: LegalLanguage,
 ) => {
-  const state = resolveHistoryState(registrationRole, history);
+  const state = resolveHistoryState(registrationRole, history, language);
   const { requirement } = state;
 
   return {
@@ -211,6 +223,8 @@ const buildReadModel = (
       registrationRole: requirement.registrationRole,
       legalVersion: requirement.legalVersion,
       privacyVersion: requirement.privacyVersion,
+      acceptanceLanguage: requirement.acceptanceLanguage,
+      privacyDocumentHash: requirement.privacyDocumentHash,
       agreements: requirement.agreements,
       acceptanceStatement: requirement.acceptanceStatement,
       authorityStatement: requirement.authorityStatement,
@@ -226,6 +240,8 @@ const buildReadModel = (
       legalVersion: row.legal_version,
       agreements: normalizeAgreementSnapshots(row.agreements),
       privacyVersion: row.privacy_version,
+      acceptanceLanguage: row.acceptance_language ?? 'legacy',
+      privacyDocumentHash: row.privacy_document_hash,
       acceptedAt: row.accepted_at,
       source: row.source,
       evidenceHash: row.evidence_hash,
@@ -242,7 +258,8 @@ export async function GET(request: NextRequest) {
   const context = await loadLegalContext(auth.user.id);
   if ('response' in context) return context.response;
 
-  return json(200, buildReadModel(context.registrationRole, context.history));
+  const language = normalizeLegalLanguage(request.nextUrl.searchParams.get('language'));
+  return json(200, buildReadModel(context.registrationRole, context.history, language));
 }
 
 export async function POST(request: NextRequest) {
@@ -261,7 +278,7 @@ export async function POST(request: NextRequest) {
   const context = await loadLegalContext(auth.user.id);
   if ('response' in context) return context.response;
 
-  const state = resolveHistoryState(context.registrationRole, context.history);
+  const state = resolveHistoryState(context.registrationRole, context.history, payload.language);
   const { requirement } = state;
   if (payload.requirementFingerprint !== requirement.requirementFingerprint) {
     return json(409, {
@@ -291,72 +308,49 @@ export async function POST(request: NextRequest) {
   }
 
   const acceptedAt = new Date().toISOString();
-  const evidence = buildCurrentLegalEvidence(context.registrationRole, acceptedAt);
+  const evidence = buildCurrentLegalEvidence(context.registrationRole, acceptedAt, payload.language);
   const acceptanceSource = isInitialRemediation ? 'initial_remediation' : 'material_reacceptance';
 
-  const { data: inserted, error } = await supabaseAdmin!
-    .from('registration_legal_acceptances')
-    .insert({
-      user_id: auth.user.id,
-      company_id: context.companyId,
-      onboarding_application_id: isInitialRemediation ? context.onboardingApplicationId : null,
-      registration_role: evidence.registrationRole,
-      legal_version: evidence.legalVersion,
-      agreements: evidence.agreements,
-      acceptance_statement: evidence.acceptanceStatement,
-      authority_statement: evidence.authorityStatement,
-      role_statement: evidence.roleStatement,
-      privacy_statement: evidence.privacyStatement,
-      privacy_version: evidence.privacyVersion,
-      accepted_at: evidence.acceptedAt,
-      source: acceptanceSource,
-      user_agent: request.headers.get('user-agent'),
-      evidence_hash: evidence.evidenceHash,
-    })
-    .select('id, registration_role, legal_version, agreements, privacy_version, accepted_at, source, evidence_hash, created_at')
-    .single();
+  const persisted = await persistSignedLegalAcceptance({
+    supabaseAdmin: supabaseAdmin!,
+    userId: auth.user.id,
+    userEmail: auth.user.email ?? null,
+    companyId: context.companyId,
+    onboardingApplicationId: isInitialRemediation ? context.onboardingApplicationId : null,
+    evidence,
+    signerFullName: payload.signerFullName,
+    source: acceptanceSource,
+    userAgent: request.headers.get('user-agent'),
+  });
+  const inserted = persisted.data;
+  const error = persisted.error;
 
   if (error) {
-    if (error.code === '42P01' || error.code === 'PGRST205') {
+    const errorCode = String(error.code ?? '');
+    if (['42P01', 'PGRST205', '42703'].includes(errorCode)) {
       return json(503, {
-        error: 'Legal agreement evidence storage is not available in this environment.',
-        code: 'legal_agreement_evidence_schema_missing',
-        migrationRequired: '20260904210500_registration_legal_acceptance_evidence.sql',
+        error: 'Signed legal agreement storage is not available in this environment.',
+        code: 'legal_signature_schema_missing',
+        migrationRequired: '20260926150657_signed_legal_agreement_package.sql',
       });
     }
-    if (error.code === '23514') {
-      return json(503, isInitialRemediation
-        ? {
-            error: 'Initial legal remediation storage is not enabled in this environment.',
-            code: 'legal_initial_remediation_schema_missing',
-            migrationRequired: '20260905183500_registration_legal_initial_remediation.sql',
-          }
-        : {
-            error: 'Material legal re-acceptance storage is not enabled in this environment.',
-            code: 'legal_reacceptance_schema_missing',
-            migrationRequired: '20260904215518_registration_legal_material_reacceptance.sql',
-          });
+    if (errorCode === '23514') {
+      return json(503, {
+        error: 'Signed legal agreement validation is not enabled in this environment.',
+        code: 'legal_signature_validation_unavailable',
+        migrationRequired: '20260926150657_signed_legal_agreement_package.sql',
+      });
     }
-    if (error.code === '23505') {
-      return json(409, isInitialRemediation
-        ? {
-            error: 'Initial legal remediation has already been recorded for this contractual requirement.',
-            code: 'initial_legal_remediation_already_recorded',
-            reloadRequired: true,
-          }
-        : {
-            error: 'This contractual requirement has already been accepted.',
-            code: 'legal_reacceptance_already_recorded',
-            reloadRequired: true,
-          });
+    if (errorCode === '23505') {
+      return json(409, {
+        error: 'This contractual requirement has already been accepted.',
+        code: isInitialRemediation ? 'initial_legal_remediation_already_recorded' : 'legal_reacceptance_already_recorded',
+        reloadRequired: true,
+      });
     }
     return json(500, {
-      error: isInitialRemediation
-        ? 'Initial legal remediation could not be persisted.'
-        : 'Legal re-acceptance could not be persisted.',
-      code: isInitialRemediation
-        ? 'initial_legal_remediation_persistence_failed'
-        : 'legal_reacceptance_persistence_failed',
+      error: isInitialRemediation ? 'Signed initial legal remediation could not be persisted.' : 'Signed legal re-acceptance could not be persisted.',
+      code: isInitialRemediation ? 'initial_legal_remediation_persistence_failed' : 'legal_reacceptance_persistence_failed',
     });
   }
 
@@ -370,6 +364,8 @@ export async function POST(request: NextRequest) {
       legalVersion: insertedRow.legal_version,
       agreements: normalizeAgreementSnapshots(insertedRow.agreements),
       privacyVersion: insertedRow.privacy_version,
+      acceptanceLanguage: insertedRow.acceptance_language ?? evidence.acceptanceLanguage,
+      privacyDocumentHash: insertedRow.privacy_document_hash,
       acceptedAt: insertedRow.accepted_at,
       source: insertedRow.source,
       evidenceHash: insertedRow.evidence_hash,
@@ -380,6 +376,8 @@ export async function POST(request: NextRequest) {
       registrationRole: requirement.registrationRole,
       legalVersion: requirement.legalVersion,
       privacyVersion: requirement.privacyVersion,
+      acceptanceLanguage: requirement.acceptanceLanguage,
+      privacyDocumentHash: requirement.privacyDocumentHash,
       requirementFingerprint: requirement.requirementFingerprint,
     },
     requiresReacceptance: false,

@@ -195,6 +195,9 @@ export default function LoginPage() {
                 <p className={styles.registerRow}>
                   Need an account? <Link href="/register">Register</Link>
                 </p>
+                <div className={styles.registerRow} aria-label="Legal documents">
+                  <Link href="/legal">Legal Centre</Link> · <Link href="/terms">Terms</Link> · <Link href="/privacy">Privacy</Link> · <Link href="/cookies">Cookies</Link>
+                </div>
               </form>
             ) : (
               <form onSubmit={handleResetPassword} className={styles.loginForm}>

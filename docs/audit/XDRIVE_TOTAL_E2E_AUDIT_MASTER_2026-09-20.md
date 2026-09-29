@@ -253,3 +253,30 @@ All negative authorization/cross-company variants of these flows must also pass.
 ## Baseline findings opened before execution
 SEC-BASE-01: Supabase advisor reports RLS disabled on public.spatial_ref_sys. Do not change automatically; determine whether this PostGIS table is intentionally exposed and document the chosen policy/remediation.
 Current repository had pre-existing untracked audit/typecheck files before this audit; they must not be overwritten or mistaken for fresh evidence.
+
+## Fresh Contract Protection E2E evidence — 26 September 2026
+
+Canonical evidence ledger: `docs/e2e/CONTRACT_PROTECTION_E2E_EVIDENCE_2026-09-26.md`.
+
+Fresh results from this audit run:
+
+- **PASS — DB runtime:** Customer → Carrier/Owner Driver through Award → pending Carrier Acceptance → explicit Carrier Acceptance → immutable agreement snapshot/hash → accepted amendment v2 → dispute persistence → audit events, all on the real XDrive Supabase schema in a synthetic transaction followed by `ROLLBACK`.
+- **PASS — DB runtime:** Broker → Carrier/Owner Driver through the same contractual lifecycle and assertions, real schema + rollback.
+- **PASS — DB runtime:** Carrier/Fleet → Subcontractor through the same contractual lifecycle and assertions, real schema + rollback.
+- **PASS — multilingual electronic signing runtime:** controlled EN/RO/FR/ES/PL legal packages generate valid signed PDFs with exact document hashes, PDF SHA-256 and signature-payload SHA-256; tampered document hashes are rejected.
+- **BLOCKED — browser-authenticated runtime:** no protected E2E passwords are present in the environment and Opera Browser Connector is not connected. No browser PASS is inherited or inferred from DB/runtime evidence.
+
+Defects found by fresh replay and repaired before recording PASS:
+
+1. Contract-specific `job_tracking_events` values were rejected by the existing check constraint; a migration now extends the canonical event-type set.
+2. `pgcrypto.digest` was unqualified while pgcrypto is installed in schema `extensions`; contractual hash functions now call `extensions.digest` explicitly.
+3. The E2E SQL fixture contained stale auth IDs / legacy quote attribution; it now resolves to the current approved XDrive test identities and canonical driver ID.
+4. The production quote rate limit remains enabled; the three role flows are run as independent rollback transactions instead of weakening the limiter for tests.
+5. Playwright webServer exposed a Next.js dynamic-route collision under Super Admin companies (`[companyId]` beside existing `[id]`). The buyer-risk endpoint was moved to `[id]/buyer-risk`; typecheck and Buyer Risk tests passed afterward, and the browser master reached its explicit credential guards.
+6. Explicit Buyer Risk `restricted` mode was ignored for established buyers; effective-mode logic now preserves an explicit `restricted` control.
+7. Trigger-local blocked-event inserts were not durable because the subsequent exception rolls back the transaction. Durable `publish_blocked` / `award_blocked` events are now written by the API precheck before rejection.
+8. Typecheck caught an incorrect actor reference in the new publish-blocked audit path; corrected to the authenticated `authData.user.id` and rerun to exit code 0.
+
+Fresh executable gates after the fixes: targeted Contract Protection Vitest **82/82 PASS**, DB role-flow smoke **3/3 PASS with rollback**, typecheck **PASS**, production build **PASS**, and browser preflight **10 skipped by explicit credential/mutation guards, 0 failed, exit code 0** across Chromium and Mobile Safari.
+
+Release-gate consequence: Contract Protection DB/runtime and multilingual signing evidence are fresh PASS. The broader release gate remains **BLOCKED** until authenticated browser E2E can be executed with approved credentials/session.

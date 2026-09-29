@@ -298,13 +298,14 @@ export default function CarrierOperationsDashboardHome() {
         title="Carrier Control Desk"
         badge="Live operations"
         description="Awarded carrier work, allocation, live delivery, delivery photo evidence and exceptions in one operational desk."
+        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Open Diary</ActionButton>}
       />
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
       <OperationalToolbar>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Operations</strong><span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>Allocation · execution · delivery photo evidence · exception recovery</span></div>
-        <ActionButton tone="primary" disabled={data.loading} onClick={() => { void data.refresh(); }}>{data.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Jobs</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/live-availability')}>Live Availability</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/freight-vision')}>Freight Vision</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/marketplace/directory')}>Directory</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/messages')}>Messages</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/event-log')}>Event Log</ActionButton><ActionButton tone="primary" disabled={data.loading} onClick={() => { void data.refresh(); }}>{data.loading ? 'Refreshing…' : 'Refresh'}</ActionButton></div>
       </OperationalToolbar>
 
       <CarrierControlSignals signals={signals} />

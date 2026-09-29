@@ -7,7 +7,7 @@ const intelligenceHook = fs.readFileSync(path.join(process.cwd(), 'app/component
 
 describe('CX Diary commercial density and execution milestone parity', () => {
   it('batch-loads real company, vehicle, commercial agreement and tracking data', () => {
-    expect(intelligenceApi).toContain("from('job_commercial_agreements')");
+    expect(intelligenceApi).toContain("from('job_commercial_agreements_effective')");
     expect(intelligenceApi).toContain("from('companies').select('id,name,phone')");
     expect(intelligenceApi).toContain("from('vehicles').select('id,reg_plate')");
     expect(intelligenceApi).toContain("from('job_tracking_events')");

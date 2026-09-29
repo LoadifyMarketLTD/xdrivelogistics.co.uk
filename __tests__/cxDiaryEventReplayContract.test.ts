@@ -1,4 +1,4 @@
-import fs from 'node:fs';
+﻿import fs from 'node:fs';
 import path from 'node:path';
 
 const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
@@ -37,15 +37,16 @@ describe('CX-inspired Diary / Event Log / Journey Replay convergence', () => {
     expect(replayPage).toContain('<WorkspaceJobReplay jobId={jobId} />');
   });
 
-  it('connects Replay from company job sheets and Driver execution', () => {
-    expect(jobSheet).toContain("{ id: 'replay', label: 'Replay' }");
-    expect(jobSheet).toContain("tab === 'replay'");
+  it('connects Replay from company booking Event Log and Driver execution', () => {
+    expect(jobSheet).toContain("{ id: 'event-log', label: 'Event Log' }");
+    expect(jobSheet).toContain("tab === 'event-log'");
+    expect(jobSheet).toContain('<WorkspaceJobReplay jobId={jobId} />');
     expect(driverJob).toContain('title="Journey Replay"');
     expect(driverJob).toContain('<WorkspaceJobReplay jobId={jobId} />');
   });
 
   it('connects operational Diaries to the same Replay surface', () => {
-    expect(operationsDiary).toContain("['order','notes','history','documents','pod','invoice','replay']");
+    expect(operationsDiary).toContain("['agreement','route','progress','evidence','pod','invoice','payment','dispute','event-log']");
     expect(operationsDiary).toContain('onClick={() => openJobTab(job.id, tabId)}');
     expect(brokerDiary).toContain('/job-replay/${job.id}');
     expect(customerDiary).toContain('/job-replay/${job.id}');

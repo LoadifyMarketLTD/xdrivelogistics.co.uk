@@ -195,13 +195,16 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     documentsResult,
     invoicesResult,
     viewerMembersResult,
+    extrasResult,
+    jobDisputesResult,
+    invoiceDisputesResult,
   ] = await Promise.all([
     supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type').eq('id', ownerCompanyId).maybeSingle(),
     awardedCompanyId ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type').eq('id', awardedCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     executionCompanyId ? supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type').eq('id', executionCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('companies').select('id, name, xd_id, phone, company_type').eq('id', viewerCompanyId).maybeSingle(),
     supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle(),
-    supabaseAdmin.from('job_commercial_agreements').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('job_commercial_agreements_effective').select('*').eq('job_id', jobId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
     assignedDriverId ? supabaseAdmin.from('drivers').select('id, display_name, user_id').eq('id', assignedDriverId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     assignedVehicleId ? supabaseAdmin.from('vehicles').select('id, reg_plate, type, make, model, body_type, payload_kg, pallets_capacity, has_tail_lift').eq('id', assignedVehicleId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('job_stops')
@@ -214,6 +217,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     viewerIsExternalExecutor
       ? supabaseAdmin.from('company_memberships').select('user_id').eq('company_id', viewerCompanyId)
       : Promise.resolve({ data: [], error: null }),
+    supabaseAdmin.from('driver_job_extras').select('id,driver_id,supplier_company_id,extra_type,description,amount_gbp,minutes,status,reviewed_at,review_note,decision_company_id,contractual_amendment_id,contractual_snapshot_hash,contractual_snapshot_version,invoice_item_id,created_at').eq('job_id', jobId).order('created_at', { ascending: false }),
+    (viewerIsOwnerCompany || viewerIsAwardedCarrier) ? supabaseAdmin.from('job_disputes').select('id,job_id,raised_by_company_id,status,description,resolution_note,resolved_at,created_at,updated_at').eq('job_id', jobId).order('created_at', { ascending: false }).limit(100) : Promise.resolve({ data: [], error: null }),
+    (viewerIsOwnerCompany || viewerIsAwardedCarrier) ? supabaseAdmin.from('invoice_disputes').select('id,invoice_id,company_id,buyer_company_id,supplier_company_id,job_id,reason,details,status,resolution_note,created_at,resolved_at').eq('job_id', jobId).order('created_at', { ascending: false }).limit(100) : Promise.resolve({ data: [], error: null }),
   ]);
 
   const ownerCompany = (ownerCompanyResult.data ?? {}) as Record<string, unknown>;
@@ -222,6 +228,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const viewerCompany = (viewerCompanyResult.data ?? {}) as Record<string, unknown>;
   const acceptedBid = (bidResult.data ?? {}) as Record<string, unknown>;
   const agreement = (agreementResult.data ?? {}) as Record<string, unknown>;
+  const agreementId = text(agreement.id);
+  const amendmentsResult = agreementId
+    ? await supabaseAdmin.from('job_commercial_agreement_amendments')
+        .select('id,agreement_id,version_number,status,reason,change_summary,effective_agreed_amount,currency,payment_terms,payment_due_days,proposed_by_company_id,decided_by_company_id,created_at,decided_at')
+        .eq('agreement_id', agreementId)
+        .order('version_number', { ascending: true })
+    : { data: [], error: null };
   const driver = (driverResult.data ?? {}) as Record<string, unknown>;
   const vehicle = (vehicleResult.data ?? {}) as Record<string, unknown>;
   const details = parseLoadDetails(job.load_details);
@@ -306,6 +319,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     createdAt: text(entry.created_at) ?? text(entry.uploaded_at),
   }));
 
+  const contractualExtras = extrasResult.error ? [] : ((extrasResult.data ?? []) as Record<string, unknown>[]).map((entry) => ({
+    id: text(entry.id),
+    driverId: text(entry.driver_id),
+    supplierCompanyId: text(entry.supplier_company_id),
+    type: text(entry.extra_type),
+    description: text(entry.description),
+    amountGbp: numberValue(entry.amount_gbp),
+    minutes: numberValue(entry.minutes),
+    status: text(entry.status),
+    reviewedAt: text(entry.reviewed_at),
+    reviewNote: text(entry.review_note),
+    decisionCompanyId: text(entry.decision_company_id),
+    contractualAmendmentId: text(entry.contractual_amendment_id),
+    contractualSnapshotHash: text(entry.contractual_snapshot_hash),
+    contractualSnapshotVersion: numberValue(entry.contractual_snapshot_version),
+    invoiceItemId: text(entry.invoice_item_id),
+    createdAt: text(entry.created_at),
+  }));
+
   const invoices = invoicesResult.error ? [] : ((invoicesResult.data ?? []) as Record<string, unknown>[])
     .filter((invoice) => invoiceVisibleToCompany(invoice, viewerCompanyId, ownerCompanyId))
     .map((invoice) => ({
@@ -318,7 +350,74 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       dueDate: text(invoice.due_date),
     }));
 
-  return respond(200, {
+
+  const visibleInvoiceIds = invoices.map((invoice) => invoice.id).filter((value): value is string => Boolean(value));
+  const paymentHistoryResult = visibleInvoiceIds.length
+    ? await supabaseAdmin.from('invoice_payment_history')
+        .select('id,invoice_id,company_id,amount,currency,settlement_method,external_reference,note,status_after,paid_at,created_at')
+        .in('invoice_id', visibleInvoiceIds)
+        .order('paid_at', { ascending: false })
+        .limit(250)
+    : { data: [], error: null };
+  const paymentHistory = paymentHistoryResult.error ? [] : ((paymentHistoryResult.data ?? []) as Record<string, unknown>[]).map((entry) => ({
+    id: text(entry.id),
+    invoiceId: text(entry.invoice_id),
+    companyId: text(entry.company_id),
+    amount: numberValue(entry.amount),
+    currency: text(entry.currency) ?? 'GBP',
+    settlementMethod: text(entry.settlement_method),
+    externalReference: text(entry.external_reference),
+    note: text(entry.note),
+    statusAfter: text(entry.status_after),
+    paidAt: text(entry.paid_at),
+    createdAt: text(entry.created_at),
+  }));
+
+  const amendments = amendmentsResult.error ? [] : ((amendmentsResult.data ?? []) as Record<string, unknown>[]).map((entry) => ({
+    id: text(entry.id),
+    agreementId: text(entry.agreement_id),
+    versionNumber: numberValue(entry.version_number),
+    status: text(entry.status),
+    reason: text(entry.reason),
+    changeSummary: entry.change_summary ?? null,
+    effectiveAgreedAmount: numberValue(entry.effective_agreed_amount),
+    currency: text(entry.currency) ?? 'GBP',
+    paymentTerms: text(entry.payment_terms),
+    paymentDueDays: numberValue(entry.payment_due_days),
+    proposedByCompanyId: text(entry.proposed_by_company_id),
+    decidedByCompanyId: text(entry.decided_by_company_id),
+    createdAt: text(entry.created_at),
+    decidedAt: text(entry.decided_at),
+  }));
+
+  const jobDisputes = jobDisputesResult.error ? [] : ((jobDisputesResult.data ?? []) as Record<string, unknown>[]).map((entry) => ({
+    id: text(entry.id),
+    type: 'job' as const,
+    status: text(entry.status),
+    raisedByCompanyId: text(entry.raised_by_company_id),
+    description: text(entry.description),
+    resolutionNote: text(entry.resolution_note),
+    createdAt: text(entry.created_at),
+    resolvedAt: text(entry.resolved_at),
+  }));
+  const visibleInvoiceIdSet = new Set(visibleInvoiceIds);
+  const invoiceDisputes = invoiceDisputesResult.error ? [] : ((invoiceDisputesResult.data ?? []) as Record<string, unknown>[])
+    .filter((entry) => {
+      const invoiceId = text(entry.invoice_id);
+      return Boolean(invoiceId && visibleInvoiceIdSet.has(invoiceId));
+    })
+    .map((entry) => ({
+      id: text(entry.id),
+      type: 'invoice' as const,
+      invoiceId: text(entry.invoice_id),
+      status: text(entry.status),
+      raisedByCompanyId: text(entry.company_id),
+      reason: text(entry.reason),
+      description: text(entry.details),
+      resolutionNote: text(entry.resolution_note),
+      createdAt: text(entry.created_at),
+      resolvedAt: text(entry.resolved_at),
+    }));  return respond(200, {
     sheet: {
       jobId,
       viewerWorkspace,
@@ -412,8 +511,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         agreedGross: commercialAwardVisible ? numberValue(agreement.agreed_gross_amount) : null,
         snapshotAvailable: commercialAwardVisible && Boolean(agreementResult.data && !agreementResult.error),
         targetCarrierCost: viewerWorkspace === 'broker' && viewerIsOwnerCompany ? details.targetCarrierCost : null,
+        agreementId: commercialAwardVisible ? text(agreement.id) : null,
+        contractVersion: commercialAwardVisible ? numberValue(agreement.contract_version) : null,
+        contractSnapshotHash: commercialAwardVisible ? text(agreement.contract_snapshot_hash) : null,
       },
-      pod: {
+      evidence: {
+        collectionPhotoCount: Array.isArray(job.pickup_photos) ? job.pickup_photos.length : text(job.collection_photo_url) ? 1 : 0,
+        deliveryPhotoCount: Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0,
+        podPhotoCount: Array.isArray(job.pod_photos) ? job.pod_photos.length : 0,
+        collectionHandoverRecorded: Boolean(job.collection_handover && typeof job.collection_handover === 'object'),
+        deliverySignatureRecorded: Boolean(text(job.delivery_signature_data)),
+        recipientName: text(job.client_signature_name),
+      },      pod: {
         required: podRequired,
         hardCopy: text(job.hard_copy_pod),
         generated: boolValue(job.pod_generated),
@@ -433,6 +542,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       timeline,
       documents,
       invoices,
+      paymentHistory,
+      amendments,
+      disputes: [...jobDisputes, ...invoiceDisputes].sort((a, b) => String(b.createdAt ?? '').localeCompare(String(a.createdAt ?? ''))),
+      extras: contractualExtras,
       partial: Boolean(
         ownerCompanyResult.error
         || carrierCompanyResult.error
@@ -448,11 +561,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         || documentsResult.error
         || invoicesResult.error
         || viewerMembersResult.error
+        || extrasResult.error
+        || amendmentsResult.error
+        || jobDisputesResult.error
+        || invoiceDisputesResult.error
+        || paymentHistoryResult.error
       ),
       unavailable: {
         bodyType: assignedVehicleId && text(vehicle.body_type) ? null : 'No verified allocated vehicle body-type value is available for this job.',
         bookingFooter: 'No immutable historical booking-footer snapshot is exposed by the current verified data contract.',
-        extras: 'No immutable waiting/loading/cancellation extras snapshot is exposed by the current verified data contract.',
+        extras: extrasResult.error ? 'Contractual execution extras are temporarily unavailable.' : null,
+        amendments: amendmentsResult.error ? 'Commercial agreement amendments are temporarily unavailable.' : null,
+        payments: paymentHistoryResult.error ? 'Payment history is temporarily unavailable.' : null,
+        disputes: jobDisputesResult.error || invoiceDisputesResult.error ? 'Dispute history is temporarily unavailable.' : null,
         documents: viewerIsExternalExecutor
           ? 'External execution view exposes only job documents historically attributable to that company membership or its assigned driver; owner-only uploads remain restricted.'
           : null,

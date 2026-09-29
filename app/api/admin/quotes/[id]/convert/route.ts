@@ -4,6 +4,9 @@ import { z } from 'zod';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { isCompanyAdminContext, requireCompanyAdmin } from '../../../_lib/requireCompanyAdmin';
 import { calculateJobRouteMetrics } from '../../../../_lib/jobRouteMetrics';
+import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
+import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../../_lib/commercialLegalReadiness';
+import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store, max-age=0' } });
@@ -42,6 +45,54 @@ export async function POST(
   }
   if (String(quote.status ?? '').toLowerCase() !== 'accepted') {
     return json(409, { error: 'Only accepted quotes can be converted to jobs.' });
+  }
+
+  let legalReadiness;
+  try {
+    legalReadiness = await getCommercialLegalReadiness(supabaseAdmin, admin.companyId);
+  } catch {
+    return json(503, { error: 'Current legal acceptance could not be verified. Please try again.' });
+  }
+  if (!legalReadiness.infrastructureAvailable) {
+    return json(503, { error: 'Legal agreement evidence is temporarily unavailable.' });
+  }
+  if (!legalReadiness.ready) {
+    return json(409, commercialLegalReadinessPayload(
+      'Review and re-accept the current XDrive legal agreements before converting this quote into transport work.',
+      legalReadiness,
+      '/admin/settings/legal-agreements',
+    ));
+  }
+
+  let stripeReadiness;
+  try {
+    stripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, admin.companyId);
+  } catch {
+    return json(503, { error: 'Stripe commercial readiness could not be verified. Please try again.' });
+  }
+  if (!stripeReadiness.infrastructureAvailable) {
+    return json(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+  }
+  if (!stripeReadiness.ready) {
+    return json(409, stripeCommercialReadinessPayload(
+      'Complete and activate your company Stripe account before converting this quote into transport work.'
+    ));
+  }
+
+  try {
+    const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, admin.companyId, 0);
+    if (!risk.infrastructureAvailable || !risk.snapshot) {
+      return json(503, { error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
+    }
+    if (!risk.snapshot.allowed) {
+      await logTransportBuyerRiskBlockedEvent(supabaseAdmin, risk.snapshot, 'publish_blocked', admin.userId, {
+        operation: 'admin_quote_convert',
+        quote_id: quoteId,
+      });
+      return json(409, transportBuyerRiskBlockedPayload(risk.snapshot));
+    }
+  } catch {
+    return json(503, { error: 'Transport buyer exposure could not be verified. Please try again.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
   }
 
   const pickupPostcode = String(quote.pickup_location ?? '').trim().toUpperCase();

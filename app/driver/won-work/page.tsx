@@ -1,10 +1,11 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import PendingBookingOffers from '../../components/workspace/PendingBookingOffers';
 
 type LifecycleGroup = 'upcoming' | 'active' | 'completed' | 'cancelled' | 'other';
 
@@ -163,6 +164,8 @@ export default function WonWorkPage() {
         <h2 style={{ margin: '0 0 0.75rem', fontSize: '20px', lineHeight: '26px', fontWeight: 700, color: '#0f172a' }}>
           Won Work
         </h2>
+
+        <PendingBookingOffers onChanged={() => void fetchWonWork()} />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem', marginBottom: '0.75rem' }}>
           {[

@@ -42,7 +42,7 @@ describe('Legal & Agreements account UI contract', () => {
     expect(legalRoute).toContain('const isInitialRemediation = context.history.length === 0;');
     expect(legalRoute).toContain('payload.initialEvidenceRemediationConfirmed !== true');
     expect(legalRoute).toContain("const acceptanceSource = isInitialRemediation ? 'initial_remediation' : 'material_reacceptance';");
-    expect(legalRoute).toContain('onboarding_application_id: isInitialRemediation ? context.onboardingApplicationId : null');
+    expect(legalRoute).toContain('onboardingApplicationId: isInitialRemediation ? context.onboardingApplicationId : null');
     expect(remediationMigration).toContain("source in ('registration', 'material_reacceptance', 'initial_remediation')");
     expect(remediationMigration).toContain("where source = 'initial_remediation'");
   });

@@ -23,6 +23,7 @@ import {
   hasModernRegistrationLegalMetadata,
   type RegistrationLegalMetadata,
 } from '../../../../lib/legal/registrationEvidence';
+import { persistSignedLegalAcceptance } from '../../../../lib/legal/persistSignedLegalAcceptance';
 
 const requestSchema = z.object({
   forceRegenerateToken: z.boolean().optional(),
@@ -199,38 +200,54 @@ export async function POST(request: NextRequest) {
   }
 
   if (legalEvidence) {
-    const { error: evidenceError } = await supabaseAdmin
+    const { data: existingLegalEvidence, error: existingEvidenceError } = await supabaseAdmin
       .from('registration_legal_acceptances')
-      .insert({
-        user_id: authUser.id,
-        company_id: upserted.company_id ?? null,
-        onboarding_application_id: upserted.id,
-        registration_role: legalEvidence.registrationRole,
-        legal_version: legalEvidence.legalVersion,
-        agreements: legalEvidence.agreements,
-        acceptance_statement: legalEvidence.acceptanceStatement,
-        authority_statement: legalEvidence.authorityStatement,
-        role_statement: legalEvidence.roleStatement,
-        privacy_statement: legalEvidence.privacyStatement,
-        privacy_version: legalEvidence.privacyVersion,
-        accepted_at: legalEvidence.acceptedAt,
-        source: 'registration',
-        user_agent: request.headers.get('user-agent'),
-        evidence_hash: legalEvidence.evidenceHash,
-      });
+      .select('id')
+      .eq('user_id', authUser.id)
+      .eq('evidence_hash', legalEvidence.evidenceHash)
+      .maybeSingle();
 
-    if (evidenceError && evidenceError.code !== '23505') {
-      if (evidenceError.code === '42P01' || evidenceError.code === 'PGRST205') {
-        return json(503, {
-          error: 'Registration legal evidence storage is not available in this environment.',
-          code: 'registration_legal_evidence_schema_missing',
-          migrationRequired: '20260904210500_registration_legal_acceptance_evidence.sql',
+    if (existingEvidenceError && !['42P01', 'PGRST205'].includes(existingEvidenceError.code ?? '')) {
+      return json(500, { error: 'Registration legal evidence could not be checked.' });
+    }
+
+    if (!existingLegalEvidence) {
+      const signerFullName = typeof authUser.user_metadata?.legal_signer_full_name === 'string'
+        ? authUser.user_metadata.legal_signer_full_name.trim()
+        : '';
+      if (signerFullName.length < 2 || signerFullName.length > 120) {
+        return json(400, {
+          error: 'A valid signer full name is required before the legal agreement package can be recorded.',
+          code: 'legal_signer_name_required',
         });
       }
-      return json(500, {
-        error: 'Registration legal acceptance could not be persisted.',
-        code: 'registration_legal_evidence_persistence_failed',
+
+      const persisted = await persistSignedLegalAcceptance({
+        supabaseAdmin,
+        userId: authUser.id,
+        userEmail: authUser.email ?? null,
+        companyId: upserted.company_id ?? null,
+        onboardingApplicationId: upserted.id,
+        evidence: legalEvidence,
+        signerFullName,
+        source: 'registration',
+        userAgent: request.headers.get('user-agent'),
       });
+
+      if (persisted.error) {
+        const errorCode = String(persisted.error.code ?? '');
+        if (['42P01', 'PGRST205', '42703'].includes(errorCode)) {
+          return json(503, {
+            error: 'Signed registration legal evidence storage is not available in this environment.',
+            code: 'registration_legal_signature_schema_missing',
+            migrationRequired: '20260926150657_signed_legal_agreement_package.sql',
+          });
+        }
+        return json(500, {
+          error: 'Signed registration legal acceptance could not be persisted.',
+          code: 'registration_legal_signature_persistence_failed',
+        });
+      }
     }
   }
 

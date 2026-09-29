@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -17,6 +17,7 @@ import {
   resolveJobStatusFilter,
 } from '../../../lib/jobs/jobOperationalContract';
 import type { JobTransitionRecord } from '../../../lib/jobs/jobOperationalContract';
+import PendingBookingOffers from '../../components/workspace/PendingBookingOffers';
 
 interface Job {
  id: string;
@@ -735,6 +736,7 @@ function JobsPageInner() {
 
  return (
  <ProtectedRoute>
+ <PendingBookingOffers onChanged={() => { void loadJobs(); }} />
  <JobsOperationalTable
   filteredJobs={filteredJobs.slice(jobsPage * JOBS_PER_PAGE, (jobsPage + 1) * JOBS_PER_PAGE).map(jobToRow)}
   page={jobsPage}
