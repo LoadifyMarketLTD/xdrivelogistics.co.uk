@@ -130,10 +130,10 @@ describe('load posting operational contract', () => {
     expect(form).toContain('MAX_DOCUMENT_BYTES = 20 * 1024 * 1024');
   });
 
-  it('does not gate posting transport work on Stripe in the direct-party payment model', () => {
-    expect(createApi).not.toContain('getStripeCommercialReadiness');
-    expect(createApi).not.toContain('stripeCommercialReadinessPayload');
-    expect(form).not.toContain('StripeSetupAction');
+  it('gates publication on company Stripe readiness and exposes recovery setup', () => {
+    expect(createApi).toContain('getStripeCommercialReadiness');
+    expect(createApi).toContain('stripeCommercialReadinessPayload');
+    expect(form).toContain('StripeSetupAction');
   });
 
   it('records an idempotent creation event for Customer Event Log history', () => {
