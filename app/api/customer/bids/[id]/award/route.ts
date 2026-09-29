@@ -10,6 +10,7 @@ import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../../_lib/commercialLegalReadiness';
 import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
+import { areCompaniesBlocked } from '../../../../_lib/companyBlocks';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -81,6 +82,10 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const payerCompanyId = job.company_id as string;
   const carrierCompanyId = bid.company_id as string | null;
+
+  const blockState = await areCompaniesBlocked(supabaseAdmin, payerCompanyId, carrierCompanyId);
+  if (blockState.error) return json(503, { error: 'Member block status could not be verified. Please retry.' });
+  if (blockState.blocked) return json(403, { error: 'This quote cannot be awarded because commercial interaction between these companies is blocked.' });
 
   let payerLegalReadiness;
   let carrierLegalReadiness;

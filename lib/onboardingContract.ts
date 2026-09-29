@@ -9,6 +9,7 @@ export const FLEET_DOCUMENT_TYPES = [
   'public_liability',
   'goods_in_transit',
   'vehicle_insurance',
+  'employers_liability',
   'operator_licence',
   'vat_registration',
 ] as const;
@@ -95,7 +96,7 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
     requiresPlatformReview: true,
     documents: [
       document('company_registration', 'Company registration evidence', 'company', 'required'),
-      document('public_liability', 'Public liability insurance', 'company', 'required'),
+      document('public_liability', 'Public liability insurance', 'company', 'conditional', 'Commercial/platform due-diligence cover; not a universal statutory requirement.'),
       document(
         'vat_registration',
         'VAT registration certificate',
@@ -115,9 +116,10 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
     requiresPlatformReview: true,
     documents: [
       document('company_registration', 'Company registration evidence', 'company', 'required'),
-      document('public_liability', 'Public liability insurance', 'company', 'required'),
-      document('goods_in_transit', 'Goods in Transit insurance', 'company', 'required'),
+      document('public_liability', 'Public liability insurance', 'company', 'conditional', 'Commercial/platform due-diligence cover; not a universal statutory requirement.'),
+      document('goods_in_transit', 'Goods in Transit insurance', 'company', 'conditional', 'Commercial cargo-cover requirement; not a universal statutory requirement.'),
       document('vehicle_insurance', 'Vehicle or motor fleet insurance', 'company', 'required'),
+      document('employers_liability', 'Employers’ Liability insurance', 'company', 'conditional', 'Required when the business is an employer, subject to statutory exemptions.'),
       document(
         'operator_licence',
         'Operator licence',
@@ -144,7 +146,7 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
     requiresPlatformReview: true,
     documents: [
       document('driving_licence', 'Driving licence', 'identity', 'required'),
-      document('proof_of_address', 'Proof of address', 'identity', 'required'),
+      document('proof_of_address', 'Proof of address', 'identity', 'conditional', 'Platform identity evidence; not a transport-specific statutory requirement.'),
       document('right_to_work', 'Right-to-work evidence', 'identity', 'required'),
       document(
         'insurance',
@@ -179,7 +181,7 @@ export const ONBOARDING_CONTRACT: Record<CanonicalOnboardingAccountType, Onboard
     requiresPlatformReview: true,
     documents: [
       document('driving_licence', 'Driving licence', 'identity', 'required'),
-      document('proof_of_address', 'Proof of address', 'identity', 'required'),
+      document('proof_of_address', 'Proof of address', 'identity', 'conditional', 'Platform identity evidence; not a transport-specific statutory requirement.'),
       document('right_to_work', 'Right-to-work evidence', 'identity', 'required'),
       document(
         'cpc',

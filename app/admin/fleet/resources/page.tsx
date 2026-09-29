@@ -44,6 +44,9 @@ export default function FleetResourcesPage() {
   const [futureWorking, setFutureWorking] = useState(false);
   const [futureError, setFutureError] = useState('');
   const [futureNotice, setFutureNotice] = useState('');
+  const [vehicleWorkingId, setVehicleWorkingId] = useState<string | null>(null);
+  const [vehicleError, setVehicleError] = useState('');
+  const [vehicleNotice, setVehicleNotice] = useState('');
 
   const refreshAll = async () => {
     await Promise.all([data.refresh(), intelligence.refresh()]);
@@ -97,6 +100,35 @@ export default function FleetResourcesPage() {
       setFutureError(reason instanceof Error ? reason.message : 'Future position could not be updated.');
     } finally {
       setFutureWorking(false);
+    }
+  };
+
+  const updateNotifyWhenTracked = async (vehicleId: string, notifyWhenTracked: boolean) => {
+    if (!data.companyId) return;
+    setVehicleWorkingId(vehicleId);
+    setVehicleError('');
+    setVehicleNotice('');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setVehicleError('Your session has expired. Sign in again.');
+      setVehicleWorkingId(null);
+      return;
+    }
+    try {
+      const response = await fetch(`/api/admin/vehicles/${encodeURIComponent(vehicleId)}/tracking-preferences`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId: data.companyId, notifyWhenTracked }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Tracking notification preference could not be updated.');
+      setVehicleNotice(notifyWhenTracked ? 'Tracking notification enabled.' : 'Tracking notification disabled.');
+      await data.refresh();
+    } catch (reason) {
+      setVehicleError(reason instanceof Error ? reason.message : 'Tracking notification preference could not be updated.');
+    } finally {
+      setVehicleWorkingId(null);
     }
   };
 
@@ -221,6 +253,8 @@ export default function FleetResourcesPage() {
       {intelligence.error && <AlertBanner tone="warning">{intelligence.error}</AlertBanner>}
       {futureError && <AlertBanner tone="danger">{futureError}</AlertBanner>}
       {futureNotice && <AlertBanner tone="success">{futureNotice}</AlertBanner>}
+      {vehicleError && <AlertBanner tone="danger">{vehicleError}</AlertBanner>}
+      {vehicleNotice && <AlertBanner tone="success">{vehicleNotice}</AlertBanner>}
       {intelligence.partial && (
         <AlertBanner tone="warning">Some future-position, return-journey, advertising or timeline metadata is temporarily unavailable. Core fleet and tracking data remains visible.</AlertBanner>
       )}
@@ -257,7 +291,20 @@ export default function FleetResourcesPage() {
             row.future?.futurePosition ? <div key="future"><span style={{ display: 'block' }}>{row.future.futurePosition}</span><span style={{ color: '#64748b' }}>{when(row.future.futurePositionDate)}</span></div> : 'Not published',
             <div key="journey"><span style={{ display: 'block' }}>{row.returnJourney ? `${row.returnJourney.fromPostcode ?? 'From TBC'} → ${row.returnJourney.toPostcode ?? 'Go anywhere'}` : 'No return journey'}</span><span style={{ color: '#64748b' }}>{row.nextJob ? `Next ${when(row.nextJob.pickup_datetime)} · ${row.nextJob.pickup_location ?? 'Pickup'}` : row.returnJourney ? when(row.returnJourney.availableFrom) : 'No future allocated job'}</span></div>,
             <StatusBadge key="advertising" value={row.vehicle ? row.advertising : row.vehicles.length > 1 ? 'multiple vehicles' : 'none'} tone={row.vehicle && row.advertising === 'exchange' ? 'green' : row.vehicle && row.advertising === 'partner' ? 'blue' : 'grey'} />,
-            <StatusBadge key="tracking" value={row.trackingState} tone={row.trackingState === 'live' ? 'green' : row.trackingState === 'stale' ? 'orange' : 'grey'} />,
+            <div key="tracking" style={{ display: 'grid', gap: 4 }}>
+              <StatusBadge value={row.trackingState} tone={row.trackingState === 'live' ? 'green' : row.trackingState === 'stale' ? 'orange' : 'grey'} />
+              {row.vehicle ? (
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, color: '#64748b' }}>
+                  <input
+                    type="checkbox"
+                    checked={row.vehicle.notify_when_tracked === true}
+                    disabled={vehicleWorkingId === row.vehicle.id}
+                    onChange={(event) => void updateNotifyWhenTracked(row.vehicle!.id, event.target.checked)}
+                  />
+                  Notify when tracked
+                </label>
+              ) : null}
+            </div>,
             row.flags.length ? <div key="flags" style={{ display: 'grid', gap: 3 }}>{row.flags.map((flag) => <StatusBadge key={flag} value={flag} tone="orange" />)}</div> : <StatusBadge key="clear" value="No local alert" tone="blue" />,
             <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => openFuturePosition(row.driver.id, row.future?.futurePosition, row.future?.futurePositionDate)}>Future Position</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Drivers</ActionButton>{row.vehicle ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : row.vehicles.length > 1 ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : null}{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
           ])}

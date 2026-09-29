@@ -7,6 +7,7 @@ import { ActionButton, EmptyState, workspaceTheme } from './WorkspaceUI';
 type SectionState = {
   state: 'unavailable' | 'restricted' | 'available';
   message: string;
+  items?: string[];
 };
 
 type MemberProfileResponse = {
@@ -57,6 +58,18 @@ function human(value: string | null | undefined) {
 }
 
 function SectionMessage({ section }: { section: SectionState }) {
+  if (section.state === 'available' && section.items?.length) {
+    return (
+      <div style={{ display: 'grid', gap: 8 }}>
+        <div style={{ padding: '7px 9px', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#f8fafc', color: workspaceTheme.muted, fontSize: 11 }}>{section.message}</div>
+        <div style={{ display: 'grid', gap: 5 }}>
+          {section.items.map((item, index) => (
+            <div key={`${item}-${index}`} style={{ minHeight: 34, padding: '7px 9px', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#fff', color: workspaceTheme.text, fontSize: 12, lineHeight: '17px' }}>{item}</div>
+          ))}
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ minHeight: 116, display: 'grid', alignContent: 'center' }}>
       <EmptyState

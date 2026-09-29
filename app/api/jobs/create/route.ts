@@ -13,6 +13,7 @@ import { calculateJobRouteMetrics } from '../../_lib/jobRouteMetrics';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../_lib/stripeCommercialReadiness';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../_lib/commercialLegalReadiness';
 import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../_lib/transportBuyerRisk';
+import { areCompaniesBlocked } from '../../_lib/companyBlocks';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
@@ -240,6 +241,10 @@ export async function POST(request: NextRequest) {
     if (!target || String(target.status ?? '').trim().toLowerCase() !== 'active') {
       return respond(409, { error: 'The selected Direct Booking carrier is no longer active.' });
     }
+
+    const blockState = await areCompaniesBlocked(supabaseAdmin, input.companyId, String(target.id));
+    if (blockState.error) return respond(503, { error: 'Member block status could not be verified. Please retry.' });
+    if (blockState.blocked) return respond(403, { error: 'Direct Booking is unavailable because commercial interaction between these companies is blocked.' });
 
     let directCarrierLegalReadiness;
     try {

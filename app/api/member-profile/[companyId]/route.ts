@@ -6,6 +6,7 @@ import {
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
 import { operationalError } from '../../_lib/operationalError';
+import { areCompaniesBlocked } from '../../_lib/companyBlocks';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -45,7 +46,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .maybeSingle(),
     supabaseAdmin
       .from('drivers')
-      .select('id, status, is_active, app_access')
+      .select('id, company_id, status, is_active, app_access')
       .eq('user_id', authData.user.id)
       .maybeSingle(),
   ]);
@@ -72,6 +73,19 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   }
 
   const { companyId } = await params;
+  const viewerCompanyId = String(membershipResult.data?.company_id ?? driverResult.data?.company_id ?? '').trim() || null;
+  const blockState = await areCompaniesBlocked(supabaseAdmin, viewerCompanyId, companyId);
+  if (blockState.error) {
+    return operationalError({
+      status: 503,
+      message: 'Member block status could not be verified.',
+      context: `member-profile.block:${companyId}`,
+      cause: { message: blockState.error },
+      retryable: true,
+    });
+  }
+  if (blockState.blocked) return respond(404, { error: 'This trading member is not available.' });
+
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
     .select('id, name, xd_id, phone, company_type, status, created_at')
@@ -91,10 +105,82 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return respond(404, { error: 'This trading member is not available.' });
   }
 
-  // This endpoint is intentionally conservative. It exposes only the member's
-  // business-facing identity fields. Home addresses, private emails, driver
-  // identity/compliance data, document URLs and internal company settings do
-  // not cross this contract.
+  const [settingsResult, specialistResult, reviewsResult] = await Promise.all([
+    supabaseAdmin
+      .from('company_settings')
+      .select('booking_footer,waiting_time_terms,loading_time_terms,cancellation_terms,other_charges')
+      .eq('company_id', companyId)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('company_specialist_capabilities')
+      .select('capability_code,verification_required,verification_status')
+      .eq('company_id', companyId)
+      .order('capability_code'),
+    supabaseAdmin
+      .from('reviews')
+      .select('id,rating,comment,created_at,reviewer_company_id')
+      .eq('company_id', companyId)
+      .order('created_at', { ascending: false })
+      .limit(50),
+  ]);
+  if (settingsResult.error || specialistResult.error || reviewsResult.error) {
+    return operationalError({
+      status: 503,
+      message: 'Member commercial profile details could not be loaded.',
+      context: `member-profile.commercial:${companyId}`,
+      cause: settingsResult.error ?? specialistResult.error ?? reviewsResult.error,
+      retryable: true,
+    });
+  }
+
+  const specialistLabels: Record<string, string> = {
+    '24_hour': '24 Hour',
+    adr: 'ADR',
+    dgsa_qualified: 'DGSA Qualified',
+    fors_bronze: 'FORS Bronze',
+    fors_silver: 'FORS Silver',
+    fors_gold: 'FORS Gold',
+    frozen: 'Frozen',
+    hanging_garment: 'GOH - Hanging Garment Transportation',
+    high_security: 'High Security',
+    installation_swapout: 'Installation & Swapout',
+    aviation_level_ab: 'Level A / B Aviation',
+    cargo_operated_level_d: 'Cargo Operated (Level D)',
+    refrigerated_chilled: 'Refrigerated / Chilled',
+    removals: 'Removals',
+    waste_carrier: 'Waste Carrier',
+    weee: 'WEEE',
+    authorised_economic_operator: 'Authorised Economic Operator (AEO)',
+    cmr: 'CMR',
+  };
+  const publicSpecialists = (specialistResult.data ?? [])
+    .filter((row) => row.verification_required !== true || String(row.verification_status ?? '').toLowerCase() === 'verified')
+    .map((row) => specialistLabels[String(row.capability_code)] ?? String(row.capability_code).replaceAll('_', ' '));
+
+  const settings = settingsResult.data;
+  const chargeLines = [
+    settings?.waiting_time_terms ? `Waiting Time: ${settings.waiting_time_terms}` : null,
+    settings?.loading_time_terms ? `Loading Time: ${settings.loading_time_terms}` : null,
+    settings?.cancellation_terms ? `Cancellation: ${settings.cancellation_terms}` : null,
+    settings?.other_charges ? `Other: ${settings.other_charges}` : null,
+  ].filter((value): value is string => Boolean(value));
+
+  const reviews = reviewsResult.data ?? [];
+  const ratings = reviews
+    .map((review) => Number(review.rating))
+    .filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+  const averageRating = ratings.length
+    ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) * 10) / 10
+    : null;
+  const feedbackItems = reviews.slice(0, 20).map((review) => {
+    const rating = Number.isFinite(Number(review.rating)) ? `${Number(review.rating)}/5` : 'Feedback';
+    const comment = String(review.comment ?? '').trim() || 'No written comment supplied.';
+    const date = review.created_at ? new Date(review.created_at).toLocaleDateString('en-GB') : 'Date unavailable';
+    return `${rating} · ${date} · ${comment}`;
+  });
+
+  // This endpoint is intentionally conservative. It exposes only business-facing
+  // identity and explicitly member-visible commercial defaults.
   return respond(200, {
     member: {
       companyId: company.id,
@@ -106,25 +192,45 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       status: 'active',
     },
     sections: {
-      feedback: {
+      feedback: feedbackItems.length ? {
+        state: 'available',
+        message: `${averageRating?.toFixed(1) ?? '—'} / 5 from ${ratings.length} verified job feedback record${ratings.length === 1 ? '' : 's'}.`,
+        items: feedbackItems,
+      } : {
         state: 'unavailable',
-        message: 'Member-level feedback is not available for this company profile yet.',
+        message: 'No verified job feedback is recorded for this company yet.',
+        items: [],
       },
       users: {
         state: 'restricted',
         message: 'Internal company users are private and are not shown in Member Profile.',
       },
-      specialistServices: {
+      specialistServices: publicSpecialists.length ? {
+        state: 'available',
+        message: 'Declared specialist services available for member review.',
+        items: publicSpecialists,
+      } : {
         state: 'unavailable',
-        message: 'Specialist services are not listed for this company profile.',
+        message: 'No public specialist services are currently recorded for this company.',
+        items: [],
       },
-      charges: {
+      charges: chargeLines.length ? {
+        state: 'available',
+        message: 'Company commercial charge defaults. Job-specific agreed terms remain authoritative.',
+        items: chargeLines,
+      } : {
         state: 'unavailable',
-        message: 'Member-visible charge information is not available for this company profile.',
+        message: 'Member-visible charge information is not recorded for this company.',
+        items: [],
       },
-      bookingFooter: {
+      bookingFooter: settings?.booking_footer ? {
+        state: 'available',
+        message: String(settings.booking_footer),
+        items: [String(settings.booking_footer)],
+      } : {
         state: 'unavailable',
-        message: 'Booking terms are not available for this company profile.',
+        message: 'Booking terms are not recorded for this company profile.',
+        items: [],
       },
       businessDocuments: {
         state: 'restricted',
