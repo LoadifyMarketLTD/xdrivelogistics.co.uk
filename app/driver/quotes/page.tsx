@@ -154,6 +154,8 @@ export default function MyQuotesPage() {
   const [filters, setFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(EMPTY_FILTERS);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [pageSize, setPageSize] = useState(25);
+  const [visibleCount, setVisibleCount] = useState(25);
 
   const fetchBids = useCallback(async () => {
     if (!isSupabaseConfigured || !userId) { setLoading(false); return; }
@@ -329,8 +331,15 @@ export default function MyQuotesPage() {
     filteredBids.forEach((bid) => { next[quoteBucket(bid)] += 1; });
     return next;
   }, [filteredBids]);
-  const visibleBids = useMemo(() => filteredBids.filter((bid) => quoteBucket(bid) === activeTab), [activeTab, filteredBids]);
+  const tabBids = useMemo(() => filteredBids.filter((bid) => quoteBucket(bid) === activeTab), [activeTab, filteredBids]);
+  const visibleBids = useMemo(() => tabBids.slice(0, visibleCount), [tabBids, visibleCount]);
   const allVisibleExpanded = visibleBids.length > 0 && visibleBids.every((bid) => expandedIds.has(bid.id));
+  const canLoadMore = visibleCount < tabBids.length;
+
+  useEffect(() => {
+    setVisibleCount(pageSize);
+    setExpandedIds(new Set());
+  }, [activeTab, appliedFilters, pageSize]);
   const toggleExpandAll = () => setExpandedIds((previous) => {
     const next = new Set(previous);
     visibleBids.forEach((bid) => { if (allVisibleExpanded) next.delete(bid.id); else next.add(bid.id); });
@@ -361,8 +370,12 @@ export default function MyQuotesPage() {
             {error && <div className="vision-note">{error}</div>}
             <div className="quote-head quote-head-cx">
               <div><b>Quote Register</b><span>Marketplace offers, counter-offers and outcomes</span></div>
-              <button type="button" className="text-action" onClick={toggleExpandAll}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
-              <span className="quote-count">{visibleBids.length} records</span>
+              <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" className="text-action" onClick={toggleExpandAll}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select className="fleet-page-size" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={25}>25</option><option value={50}>50</option></select></label>
+                <span className="quote-count">{tabBids.length ? `1-${Math.min(visibleCount, tabBids.length)} of ${tabBids.length}` : '0 records'}</span>
+                {canLoadMore && <button type="button" className="rowbtn blue" onClick={() => setVisibleCount((current) => current + pageSize)}>Next</button>}
+              </div>
             </div>
             <div className="quote-tabs">
               <button type="button" className={activeTab === 'received' ? 'active' : ''} onClick={() => setActiveTab('received')}>Received <span>{counts.received}</span></button>
@@ -403,7 +416,6 @@ export default function MyQuotesPage() {
                 })}
               </div>
             )}
-            <div className="footer"><span>Items per Page:</span><select className="fleet-page-size" defaultValue="25"><option>25</option><option>50</option></select><span style={{ marginLeft: 10 }}>1-{visibleBids.length} of {visibleBids.length}</span><div className="right"><button type="button" className="rowbtn" disabled>Previous</button><button type="button" className="rowbtn blue">1</button><button type="button" className="rowbtn" disabled>Next</button></div></div>
           </main>
         </div>
       </section>

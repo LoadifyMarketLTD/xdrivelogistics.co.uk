@@ -100,6 +100,8 @@ export function MemberDirectoryPage({
   const [truncation, setTruncation] = useState<DirectoryTruncation>({});
   const [privacy, setPrivacy] = useState('');
   const [reputationNote, setReputationNote] = useState('');
+  const [directoryPageSize, setDirectoryPageSize] = useState(25);
+  const [directoryVisibleCount, setDirectoryVisibleCount] = useState(25);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -248,6 +250,10 @@ export function MemberDirectoryPage({
 
   if (pathname.startsWith('/driver')) {
     const records = tab === 'companies' ? visibleCompanies : visibleDrivers;
+    const displayedCompanies = visibleCompanies.slice(0, directoryVisibleCount);
+    const displayedDrivers = visibleDrivers.slice(0, directoryVisibleCount);
+    const shownCount = Math.min(directoryVisibleCount, records.length);
+    const canShowMore = directoryVisibleCount < records.length;
     return (
       <section className="page driver-directory-prototype-page">
         <div className="subbar">
@@ -284,13 +290,21 @@ export function MemberDirectoryPage({
               <button type="button" className={tab === 'drivers' ? 'active' : ''} onClick={() => setTab('drivers')}>DRIVERS <span>{visibleDrivers.length}</span></button>
               <div className="dir-sort">Sort By: <select className="select" defaultValue="Distance"><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
             </div>
-            <div className="dir-summary"><span>{records.length} matching loaded record(s)</span><span className="spacer">Click a company identity for Member Profile</span></div>
+            <div className="dir-summary">
+              <span>{records.length} matching loaded record(s)</span>
+              <span className="spacer">Click a company identity for Member Profile</span>
+              <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select className="fleet-page-size" value={directoryPageSize} onChange={(event) => { const next = Number(event.target.value); setDirectoryPageSize(next); setDirectoryVisibleCount(next); }}><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
+                <span>{records.length ? `1-${shownCount} of ${records.length}` : '0 results'}</span>
+                {canShowMore && <button type="button" className="rowbtn blue" onClick={() => setDirectoryVisibleCount((current) => current + directoryPageSize)}>Next</button>}
+              </span>
+            </div>
             {loading ? <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div> : (
               <div className="tablewrap">
                 <table className="dir-table" style={{ minWidth: 1280 }}>
                   <thead><tr><th>Member</th><th>Location</th><th>Member Type</th><th>Vehicle / Capability</th><th>Delivery / Tracking</th><th>Payment / Last Seen</th><th>Status</th><th>Actions</th></tr></thead>
                   <tbody>
-                    {tab === 'companies' ? visibleCompanies.map((company) => (
+                    {tab === 'companies' ? displayedCompanies.map((company) => (
                       <tr key={company.companyId} className="dir-row">
                         <td><button type="button" className="dir-member-link"><b><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></b><span className="meta">{company.memberId ?? 'Member ID not supplied'}</span></button></td>
                         <td>{[company.city, company.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi` : ''}</span></td>
@@ -301,7 +315,7 @@ export function MemberDirectoryPage({
                         <td><StatusBadge value="Not advertised" /></td>
                         <td><button type="button" className="rowbtn blue" onClick={() => router.push(`/driver/network/${company.companyId}`)}>Profile</button>{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
                       </tr>
-                    )) : visibleDrivers.map((driver) => (
+                    )) : displayedDrivers.map((driver) => (
                       <tr key={driver.driverId} className="dir-row">
                         <td><b>{driver.displayName}</b><span className="meta">{driver.memberId ?? driver.companyName}</span></td>
                         <td>{[driver.city, driver.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{driver.country ?? 'Country not supplied'}{driver.distanceMiles != null ? ` · ${driver.distanceMiles.toFixed(1)} mi` : ''}</span></td>
@@ -317,7 +331,6 @@ export function MemberDirectoryPage({
                 </table>
               </div>
             )}
-            <div className="footer"><span>Items per Page:</span><select className="fleet-page-size" defaultValue="25"><option>25</option><option>50</option><option>100</option></select><span style={{ marginLeft: 10 }}>1-{records.length} of {records.length}</span><div className="right"><button className="rowbtn" disabled>First</button><button className="rowbtn" disabled>Previous</button><button className="rowbtn blue">1</button><button className="rowbtn" disabled>Next</button><button className="rowbtn" disabled>Last</button></div></div>
             {reputationNote && <div className="footer">{reputationNote}</div>}
             {privacy && <div className="footer">{privacy}</div>}
           </main>

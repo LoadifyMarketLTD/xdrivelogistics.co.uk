@@ -32,6 +32,7 @@ export default function CustomerDiaryPage() {
   const [carrier, setCarrier] = useState('');
   const [date, setDate] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [expandAll, setExpandAll] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
 
@@ -95,7 +96,7 @@ export default function CustomerDiaryPage() {
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visibleRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
-  useEffect(() => { setPage(1); setExpanded(null); }, [tab, reference, pickup, delivery, carrier, date, pageSize]);
+  useEffect(() => { setPage(1); setExpanded(null); setExpandAll(false); }, [tab, reference, pickup, delivery, carrier, date, pageSize]);
 
   const tabs: Array<{ id: DiaryTab; label: string; count: number }> = [
     { id: 'all', label: 'All', count: counts.all },
@@ -138,9 +139,15 @@ export default function CustomerDiaryPage() {
             {tabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} {item.count}</button>)}
           </div>
 
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
+          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between' }}>
             <span><strong>{rows.length}</strong> booking{rows.length === 1 ? '' : 's'} · page {safePage}/{totalPages}</span>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Per page<select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))} style={{ minHeight: 28 }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+            <span className="workspace-list-controls__right">
+              <button type="button" onClick={() => { setExpandAll((current) => !current); setExpanded(null); }} disabled={!visibleRows.length}>{expandAll ? 'Collapse all' : 'Expand all'}</button>
+              <label>Per page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+              <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>
+              <span>{rows.length === 0 ? '0' : `${(safePage - 1) * pageSize + 1}-${Math.min(safePage * pageSize, rows.length)} of ${rows.length}`}</span>
+              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>›</button>
+            </span>
           </div>
 
           {data.loading ? (
@@ -151,7 +158,7 @@ export default function CustomerDiaryPage() {
             <div className="workspace-record-list">
               {visibleRows.map((job) => {
                 const quoteInfo = quoteInfoByJob.get(job.id);
-                const open = expanded === job.id;
+                const open = expandAll || expanded === job.id;
                 const deliveryPhotoAvailable = (job.delivery_photos?.length ?? 0) > 0;
                 const carrierCompanyId = quoteInfo?.acceptedCompanyId ?? job.awarded_carrier_company_id ?? null;
                 const awardedDriverId = quoteInfo?.acceptedDriverId ?? null;
@@ -163,7 +170,7 @@ export default function CustomerDiaryPage() {
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>AWARDED CARRIER / MEMBER</div><strong>{carrierCompanyId || awardedOwnerDriverId ? <MemberIdentityLink companyId={carrierCompanyId} driverId={awardedOwnerDriverId}>{carrierName}</MemberIdentityLink> : carrierName}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{quoteInfo?.submitted ?? 0} submitted quote{(quoteInfo?.submitted ?? 0) === 1 ? '' : 's'}{job.assigned_driver_id ? ' · executing driver assigned' : ''}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={job.current_status ?? job.status} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'Details'}</ActionButton>{classifyWorkspaceJobStage(job) !== 'open' ? <ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open booking</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</ActionButton></div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={job.current_status ?? job.status} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}>{open ? 'Collapse' : 'Details'}</ActionButton>{classifyWorkspaceJobStage(job) !== 'open' ? <ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open booking</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</ActionButton></div></div>
                     </div>
                     <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Delivery photo: {deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</span><span>Updated {when(job.updated_at)}</span></div>
                     {open && <CompanyJobSheetPanel jobId={job.id} mode="customer" />}
@@ -173,7 +180,7 @@ export default function CustomerDiaryPage() {
             </div>
           )}
 
-          {rows.length > pageSize && <div className="workspace-record-meta" style={{ justifyContent: 'center', gap: 8, marginTop: 6 }}><ActionButton tone="secondary" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</ActionButton><span>Page {safePage} / {totalPages}</span><ActionButton tone="secondary" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</ActionButton></div>}
+
         </main>
       </div>
     </PageFrame>
