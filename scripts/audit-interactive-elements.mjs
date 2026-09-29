@@ -36,13 +36,11 @@ function routeFromPageFile(filePath) {
 
 function roleForSource(sourceFile, targetRoute = '') {
   const source = toPosix(sourceFile);
-  if (source.includes('/apps/driver-mobile/')) return 'Driver Android';
   if (targetRoute.startsWith('/super-admin') || source.includes('/app/super-admin/')) return 'Super Admin / Platform Owner';
   if (targetRoute.startsWith('/admin') || source.includes('/app/admin/')) return 'Admin / Operations';
   if (targetRoute.startsWith('/broker') || source.includes('/app/broker/')) return 'Broker';
   if (targetRoute.startsWith('/customer') || source.includes('/app/customer/')) return 'Customer';
   if (targetRoute.startsWith('/driver') || source.includes('/app/driver/')) return 'Driver Web';
-  if (targetRoute.startsWith('/m/driver') || source.includes('/app/m/driver/')) return 'Driver Android';
   if (targetRoute.startsWith('/support') || source.includes('/app/support/')) return 'Support';
   if (targetRoute.startsWith('/compliance') || source.includes('/app/compliance/')) return 'Compliance';
   return 'Public / unauthenticated';
