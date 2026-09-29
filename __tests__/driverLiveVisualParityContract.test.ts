@@ -8,14 +8,15 @@ describe('live Driver approved prototype parity contract', () => {
   it('uses the unified operational shell with Driver and Owner Driver modules', () => {
     const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
     const roles = read('lib/workspaceRole.ts');
-    const adapter = read('app/driver/_components/DriverTopWorkspaceShell.tsx');
+    const layout = read('app/driver/layout.tsx');
     for (const label of ['My Jobs','Diary','Availability','Vehicle','Directory','Return Journeys','Loads','Quotes','Won Work','Auto-match & Alerts','Freight Vision','Invoices']) {
       expect(roles).toContain(`label: '${label}'`);
     }
     expect(shell).toContain('top-workspace-nav top-workspace-nav--primary');
     expect(shell).toContain('composeDriverPrimaryNav');
-    expect(adapter).toContain('return <TopWorkspaceShell>{children}</TopWorkspaceShell>');
-    expect(adapter).not.toContain('main-nav');
+    expect(layout).toContain("import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell'");
+    expect(layout).toContain('<TopWorkspaceShell>{children}</TopWorkspaceShell>');
+    expect(layout).not.toContain('main-nav');
   });
 
   it('keeps the Driver page styles loaded for dense operational content', () => {
