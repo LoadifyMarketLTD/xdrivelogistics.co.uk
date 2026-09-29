@@ -35,6 +35,7 @@ const DOCUMENT_LABELS: Record<string, string> = {
   public_liability: 'Public Liability',
   goods_in_transit: 'Goods in Transit',
   vehicle_insurance: 'Vehicle Insurance',
+  employers_liability: 'Employers Liability',
   motor_fleet_insurance: 'Motor Fleet Insurance',
   vat_registration: 'VAT Registration',
   company_registration: 'Company Registration',
