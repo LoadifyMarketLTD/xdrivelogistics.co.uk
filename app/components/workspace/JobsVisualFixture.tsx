@@ -21,7 +21,7 @@ import {
 } from '../../../lib/jobs/jobOperationalContract';
 import { JobsOperationalTable } from './JobsOperationalTable';
 import { ExchangeKpiStrip, KpiCard, PageFrame } from './WorkspaceUI';
-import WorkspaceShell from './WorkspaceShell';
+import TopWorkspaceShell from './TopWorkspaceShell';
 
 /* ── Fixture drivers ─────────────────────────────────────────────────────── */
 
@@ -426,29 +426,8 @@ export default function JobsVisualFixture() {
     };
 
   return (
-    <WorkspaceShell
-      forcedRole="company_admin"
-      fixtureOverrides={{
-        companyName: 'XDrive Logistics — Jobs Fixture',
-        unreadCount: 2,
-        tickerItems: [
-          {
-            id: 'fx-jobs-ticker-1',
-            label: 'JOB-F001 ready to post',
-            reference: 'JOB-F001',
-            created_at: '2026-08-05T09:00:00.000Z',
-            href: '/admin/jobs',
-          },
-          {
-            id: 'fx-jobs-ticker-2',
-            label: 'JOB-F003 driver allocated',
-            reference: 'JOB-F003',
-            created_at: '2026-08-05T09:05:00.000Z',
-            href: '/admin/jobs',
-          },
-        ],
-      }}
-    >
+    <div className="xdrive-workspace-visual xdrive-operational-top-workspace">
+      <TopWorkspaceShell forcedRole="company_admin">
       <PageFrame>
         <ExchangeKpiStrip>
           <KpiCard label="All jobs" value={FIXTURE_JOBS.length} tone="blue" onClick={() => undefined} />
@@ -488,6 +467,7 @@ export default function JobsVisualFixture() {
           hasSupabaseSession={false}
         />
       </PageFrame>
-    </WorkspaceShell>
+      </TopWorkspaceShell>
+    </div>
   );
 }
