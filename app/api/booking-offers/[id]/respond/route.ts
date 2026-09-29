@@ -2,6 +2,7 @@
 import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../_lib/stripeCommercialReadiness';
+import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../_lib/commercialLegalReadiness';
 
 type Params = { params: Promise<{ id: string }> };
 const bodySchema = z.object({ action: z.enum(['accept', 'decline']), reason: z.string().trim().max(1000).optional() });
@@ -27,6 +28,32 @@ export async function POST(request: NextRequest, { params }: Params) {
     if (offerError) return json(500, { error: 'Booking offer could not be verified.' });
     if (!offer) return json(404, { error: 'Booking offer not found.' });
     if (offer.status !== 'pending') return json(409, { error: 'This booking offer is no longer pending.' });
+
+    let buyerLegalReadiness;
+    let carrierLegalReadiness;
+    try {
+      [buyerLegalReadiness, carrierLegalReadiness] = await Promise.all([
+        getCommercialLegalReadiness(supabaseAdmin, offer.buyer_company_id),
+        getCommercialLegalReadiness(supabaseAdmin, offer.carrier_company_id),
+      ]);
+    } catch {
+      return json(503, { error: 'Current legal acceptance could not be verified. Please try again.' });
+    }
+    if (!buyerLegalReadiness.infrastructureAvailable || !carrierLegalReadiness.infrastructureAvailable) {
+      return json(503, { error: 'Legal agreement evidence is temporarily unavailable.' });
+    }
+    if (!buyerLegalReadiness.ready) {
+      return json(409, commercialLegalReadinessPayload(
+        'The transport buyer must re-accept the current XDrive legal agreements before this booking can be accepted.',
+        buyerLegalReadiness,
+      ));
+    }
+    if (!carrierLegalReadiness.ready) {
+      return json(409, commercialLegalReadinessPayload(
+        'Re-accept the current XDrive legal agreements before accepting this booking.',
+        carrierLegalReadiness,
+      ));
+    }
 
     let buyerStripeReadiness;
     let carrierStripeReadiness;

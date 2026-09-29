@@ -4,6 +4,9 @@ import { z } from 'zod';
 import { getFeatureFlags, getGlobalSettingNumber } from '../../../../_lib/platformFlags';
 import { supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { isCompanyAdminContext, requireCompanyAdmin } from '../../../_lib/requireCompanyAdmin';
+import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
+import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../../_lib/commercialLegalReadiness';
+import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -125,6 +128,54 @@ export async function POST(
     return respond(200, { success: true, job: hidden.data });
   }
 
+  let buyerLegalReadiness;
+  try {
+    buyerLegalReadiness = await getCommercialLegalReadiness(supabaseAdmin, admin.companyId);
+  } catch {
+    return respond(503, { error: 'Current legal acceptance could not be verified. Please try again.' });
+  }
+  if (!buyerLegalReadiness.infrastructureAvailable) {
+    return respond(503, { error: 'Legal agreement evidence is temporarily unavailable.' });
+  }
+  if (!buyerLegalReadiness.ready) {
+    return respond(409, commercialLegalReadinessPayload(
+      'Review and re-accept the current XDrive legal agreements before publishing transport work.',
+      buyerLegalReadiness,
+      '/admin/settings/legal-agreements',
+    ));
+  }
+
+  let buyerStripeReadiness;
+  try {
+    buyerStripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, admin.companyId);
+  } catch {
+    return respond(503, { error: 'Stripe commercial readiness could not be verified. Please try again.' });
+  }
+  if (!buyerStripeReadiness.infrastructureAvailable) {
+    return respond(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+  }
+  if (!buyerStripeReadiness.ready) {
+    return respond(409, stripeCommercialReadinessPayload(
+      'Complete and activate your company Stripe account before publishing transport work.'
+    ));
+  }
+
+  try {
+    const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, admin.companyId, 0);
+    if (!risk.infrastructureAvailable || !risk.snapshot) {
+      return respond(503, { error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
+    }
+    if (!risk.snapshot.allowed) {
+      await logTransportBuyerRiskBlockedEvent(supabaseAdmin, risk.snapshot, 'publish_blocked', admin.userId, {
+        operation: 'admin_manage_publish_job',
+        job_id: id,
+      });
+      return respond(409, transportBuyerRiskBlockedPayload(risk.snapshot));
+    }
+  } catch {
+    return respond(503, { error: 'Transport buyer exposure could not be verified. Please try again.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
+  }
+
   const settings = await publicationSettings();
   if (settings.response) return settings.response;
   const now = new Date().toISOString();
@@ -149,6 +200,38 @@ export async function POST(
     if (!carrier || String(carrier.status).toLowerCase() !== 'active') {
       return respond(409, { error: 'The selected Direct Booking carrier is not active.' });
     }
+
+    let carrierLegalReadiness;
+    try {
+      carrierLegalReadiness = await getCommercialLegalReadiness(supabaseAdmin, String(carrier.id));
+    } catch {
+      return respond(503, { error: 'The selected carrier legal readiness could not be verified. Please try again.' });
+    }
+    if (!carrierLegalReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Legal agreement evidence is temporarily unavailable.' });
+    }
+    if (!carrierLegalReadiness.ready) {
+      return respond(409, commercialLegalReadinessPayload(
+        'This carrier must re-accept the current XDrive legal agreements before it can receive a Direct Booking.',
+        carrierLegalReadiness,
+      ));
+    }
+
+    let carrierStripeReadiness;
+    try {
+      carrierStripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, String(carrier.id));
+    } catch {
+      return respond(503, { error: 'The selected carrier Stripe commercial readiness could not be verified. Please try again.' });
+    }
+    if (!carrierStripeReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+    }
+    if (!carrierStripeReadiness.ready) {
+      return respond(409, stripeCommercialReadinessPayload(
+        'This carrier cannot receive a Direct Booking until its Stripe account is fully activated.'
+      ));
+    }
+
     visibility = 'direct';
     directInviteCompanyId = String(carrier.id);
     note = 'Published as a Direct Booking to the selected carrier.';

@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../_lib/platformFlags';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../_lib/stripeCommercialReadiness';
+import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../_lib/commercialLegalReadiness';
 import { isSuperAdminDeployPreviewReadOnly, verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
@@ -86,6 +87,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return respond(409, { error: complianceError.message, code: 'company_compliance_not_ready' });
       }
       return respond(500, { error: complianceError.message });
+    }
+
+    let legalReadiness;
+    try {
+      legalReadiness = await getCommercialLegalReadiness(supabaseAdmin, companyId);
+    } catch {
+      return respond(503, { error: 'Current legal acceptance could not be verified. Please try again.' });
+    }
+    if (!legalReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Legal agreement evidence is temporarily unavailable.' });
+    }
+    if (!legalReadiness.ready) {
+      return respond(409, commercialLegalReadinessPayload(
+        'Company activation is blocked until the current XDrive legal agreements are re-accepted.',
+        legalReadiness,
+      ));
     }
 
     let stripeReadiness;

@@ -9,6 +9,7 @@ import { hasBidDecisionRole } from '../../_lib/ownerRoles';
 import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
 import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
+import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../../_lib/commercialLegalReadiness';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -88,6 +89,38 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (!carrierCompanyId) {
     return NextResponse.json(
       { error: 'The selected carrier company could not be resolved for this quote.' },
+      { status: 409 }
+    );
+  }
+
+  let payerLegalReadiness;
+  let carrierLegalReadiness;
+  try {
+    [payerLegalReadiness, carrierLegalReadiness] = await Promise.all([
+      getCommercialLegalReadiness(supabaseAdmin, jobCompanyId),
+      getCommercialLegalReadiness(supabaseAdmin, carrierCompanyId),
+    ]);
+  } catch {
+    return NextResponse.json(
+      { error: 'Current legal acceptance could not be verified. Please try again.' },
+      { status: 503 }
+    );
+  }
+  if (!payerLegalReadiness.infrastructureAvailable || !carrierLegalReadiness.infrastructureAvailable) {
+    return NextResponse.json(
+      { error: 'Legal agreement evidence is temporarily unavailable.' },
+      { status: 503 }
+    );
+  }
+  if (!payerLegalReadiness.ready) {
+    return NextResponse.json(
+      commercialLegalReadinessPayload('Review and re-accept the current XDrive legal agreements before awarding transport work.', payerLegalReadiness, '/admin/settings/legal-agreements'),
+      { status: 409 }
+    );
+  }
+  if (!carrierLegalReadiness.ready) {
+    return NextResponse.json(
+      commercialLegalReadinessPayload('This carrier must re-accept the current XDrive legal agreements before it can be awarded transport work.', carrierLegalReadiness),
       { status: 409 }
     );
   }
