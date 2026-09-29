@@ -4,6 +4,7 @@ import { getGlobalSettingNumber } from '../../_lib/platformFlags';
 import type { DriverContext } from '../mobile/_lib';
 import { resolveDriverBidEligibility } from './bidEligibility';
 import { getStripeCommercialReadiness } from '../../_lib/stripeCommercialReadiness';
+import { getCommercialLegalReadiness } from '../../_lib/commercialLegalReadiness';
 
 type AdminClient = SupabaseClient;
 
@@ -189,6 +190,28 @@ export async function submitDriverQuote(
   }
   if (collectWithinMinutes !== null && (collectWithinMinutes < 5 || collectWithinMinutes > 240)) {
     return { ok: false, status: 400, error: 'Collection time must be between 5 and 240 minutes.' };
+  }
+
+  let legalReadiness;
+  try {
+    legalReadiness = await getCommercialLegalReadiness(supabaseAdmin, driver.companyId);
+  } catch (error) {
+    return {
+      ok: false,
+      status: 503,
+      error: error instanceof Error ? error.message : 'Current legal acceptance could not be verified.',
+    };
+  }
+  if (!legalReadiness.infrastructureAvailable) {
+    return { ok: false, status: 503, error: 'Legal agreement evidence is temporarily unavailable.' };
+  }
+  if (!legalReadiness.ready) {
+    return {
+      ok: false,
+      status: 403,
+      error: 'Your carrier business must re-accept the current XDrive legal agreements before quoting for transport work.',
+      denialReasons: ['commercial_legal_reacceptance_required'],
+    };
   }
 
   let stripeReadiness;

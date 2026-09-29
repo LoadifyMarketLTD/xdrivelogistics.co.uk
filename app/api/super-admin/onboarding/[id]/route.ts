@@ -3,6 +3,7 @@ import { z } from 'zod';
 
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../_lib/stripeCommercialReadiness';
+import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../_lib/commercialLegalReadiness';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -89,6 +90,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
           error: 'Approval is blocked until the onboarding application is bound to its commercial company.',
           code: 'COMMERCIAL_COMPANY_REQUIRED',
         });
+      }
+
+      let legalReadiness;
+      try {
+        legalReadiness = await getCommercialLegalReadiness(supabaseAdmin, application.company_id);
+      } catch {
+        return respond(503, { error: 'Current legal acceptance could not be verified. Please try again.' });
+      }
+      if (!legalReadiness.infrastructureAvailable) {
+        return respond(503, { error: 'Legal agreement evidence is temporarily unavailable.' });
+      }
+      if (!legalReadiness.ready) {
+        return respond(409, commercialLegalReadinessPayload(
+          'Approval is blocked until the company re-accepts the current XDrive legal agreements.',
+          legalReadiness,
+        ));
       }
 
       let stripeReadiness;

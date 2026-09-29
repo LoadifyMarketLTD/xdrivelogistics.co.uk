@@ -11,6 +11,7 @@ import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFla
 import { operationalError } from '../../_lib/operationalError';
 import { calculateJobRouteMetrics } from '../../_lib/jobRouteMetrics';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../_lib/stripeCommercialReadiness';
+import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../_lib/commercialLegalReadiness';
 import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../_lib/transportBuyerRisk';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
@@ -151,6 +152,33 @@ export async function POST(request: NextRequest) {
   if (!membership) return respond(403, { error: 'You cannot post loads for this company workspace.' });
 
   if (input.publish) {
+    let buyerLegalReadiness;
+    try {
+      buyerLegalReadiness = await getCommercialLegalReadiness(supabaseAdmin, input.companyId);
+    } catch (error) {
+      return operationalError({
+        status: 503,
+        message: 'Current legal acceptance could not be verified. Please try again.',
+        context: `jobs.create.legal-readiness.company:${input.companyId}`,
+        cause: error,
+        retryable: true,
+      });
+    }
+    if (!buyerLegalReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Legal agreement evidence is temporarily unavailable.' });
+    }
+    if (!buyerLegalReadiness.ready) {
+      return respond(409, commercialLegalReadinessPayload(
+        'Review and re-accept the current XDrive legal agreements before publishing transport work.',
+        buyerLegalReadiness,
+        input.mode === 'broker'
+          ? '/broker/account/legal-agreements'
+          : input.mode === 'customer'
+            ? '/customer/account/legal-agreements'
+            : '/admin/settings/legal-agreements',
+      ));
+    }
+
     try {
       const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, input.companyId, 0);
       if (!risk.infrastructureAvailable || !risk.snapshot) return respond(503, { error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
@@ -211,6 +239,28 @@ export async function POST(request: NextRequest) {
     }
     if (!target || String(target.status ?? '').trim().toLowerCase() !== 'active') {
       return respond(409, { error: 'The selected Direct Booking carrier is no longer active.' });
+    }
+
+    let directCarrierLegalReadiness;
+    try {
+      directCarrierLegalReadiness = await getCommercialLegalReadiness(supabaseAdmin, String(target.id));
+    } catch (error) {
+      return operationalError({
+        status: 503,
+        message: 'The selected carrier legal readiness could not be verified. Please try again.',
+        context: `jobs.create.direct-target-legal:${input.directInviteCompanyId}`,
+        cause: error,
+        retryable: true,
+      });
+    }
+    if (!directCarrierLegalReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Legal agreement evidence is temporarily unavailable.' });
+    }
+    if (!directCarrierLegalReadiness.ready) {
+      return respond(409, commercialLegalReadinessPayload(
+        'This carrier must re-accept the current XDrive legal agreements before it can receive a Direct Booking.',
+        directCarrierLegalReadiness,
+      ));
     }
 
     let directCarrierStripeReadiness;

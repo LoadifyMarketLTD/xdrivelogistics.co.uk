@@ -7,6 +7,7 @@ import {
 } from '../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../_lib/platformFlags';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
+import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../../_lib/commercialLegalReadiness';
 import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
 
@@ -78,6 +79,36 @@ export async function POST(request: NextRequest, { params }: Params) {
     return json(403, { error: 'Forbidden - an active owner, admin or dispatcher of the job-owning company is required to award bids.' });
   }
 
+  const payerCompanyId = job.company_id as string;
+  const carrierCompanyId = bid.company_id as string | null;
+
+  let payerLegalReadiness;
+  let carrierLegalReadiness;
+  try {
+    [payerLegalReadiness, carrierLegalReadiness] = await Promise.all([
+      getCommercialLegalReadiness(supabaseAdmin, payerCompanyId),
+      getCommercialLegalReadiness(supabaseAdmin, carrierCompanyId),
+    ]);
+  } catch {
+    return json(503, { error: 'Current legal acceptance could not be verified. Please try again.' });
+  }
+  if (!payerLegalReadiness.infrastructureAvailable || !carrierLegalReadiness.infrastructureAvailable) {
+    return json(503, { error: 'Legal agreement evidence is temporarily unavailable.' });
+  }
+  if (!payerLegalReadiness.ready) {
+    return json(409, commercialLegalReadinessPayload(
+      'Review and re-accept the current XDrive legal agreements before awarding transport work.',
+      payerLegalReadiness,
+      '/customer/account/legal-agreements',
+    ));
+  }
+  if (!carrierLegalReadiness.ready) {
+    return json(409, commercialLegalReadinessPayload(
+      'This carrier must re-accept the current XDrive legal agreements before it can be awarded transport work.',
+      carrierLegalReadiness,
+    ));
+  }
+
   const projectedAmount = Number(bid.bid_price_gbp ?? bid.amount ?? 0);
   try {
     const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, job.company_id as string, projectedAmount);
@@ -94,8 +125,8 @@ export async function POST(request: NextRequest, { params }: Params) {
   let carrierStripeReadiness;
   try {
     [payerStripeReadiness, carrierStripeReadiness] = await Promise.all([
-      getStripeCommercialReadiness(supabaseAdmin, job.company_id as string),
-      getStripeCommercialReadiness(supabaseAdmin, bid.company_id as string | null),
+      getStripeCommercialReadiness(supabaseAdmin, payerCompanyId),
+      getStripeCommercialReadiness(supabaseAdmin, carrierCompanyId),
     ]);
   } catch {
     return json(503, { error: 'Stripe commercial readiness could not be verified. Please try again.' });
