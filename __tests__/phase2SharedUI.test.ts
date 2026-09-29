@@ -253,6 +253,6 @@ describe('Phase 2 Shared UI — notification deduplication', () => {
 
     expect(layoutSource).not.toContain('import NotificationBell');
     expect(layoutSource).not.toContain('<NotificationBell');
-    expect(layoutSource).toContain('<AdminPlatformShell>');
+    expect(layoutSource).toContain('<TopWorkspaceShell>');
   });
 });
