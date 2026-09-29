@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const shell = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/TopWorkspaceShell.tsx'), 'utf8');
-const driverAdapter = fs.readFileSync(path.join(process.cwd(), 'app/driver/_components/DriverTopWorkspaceShell.tsx'), 'utf8');
+const driverLayout = fs.readFileSync(path.join(process.cwd(), 'app/driver/layout.tsx'), 'utf8');
 const settings = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/RoleSettingsWorkspace.tsx'), 'utf8');
 const adminSettings = fs.readFileSync(path.join(process.cwd(), 'app/admin/settings/page.tsx'), 'utf8');
 
@@ -15,8 +15,8 @@ describe('role-adaptive workspace shell contract', () => {
 
   it('exposes logout through the single shared operational shell', () => {
     expect(shell).toContain('onClick={() => void logout()}');
-    expect(driverAdapter).toContain("import TopWorkspaceShell from '../../components/workspace/TopWorkspaceShell'");
-    expect(driverAdapter).toContain('return <TopWorkspaceShell>{children}</TopWorkspaceShell>');
+    expect(driverLayout).toContain("import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell'");
+    expect(driverLayout).toContain('<TopWorkspaceShell>{children}</TopWorkspaceShell>');
   });
 
   it('resolves Driver vs Owner Driver navigation inside the canonical shell', () => {
