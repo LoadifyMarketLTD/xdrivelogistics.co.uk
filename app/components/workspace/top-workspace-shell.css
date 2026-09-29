@@ -21,8 +21,8 @@
   position: sticky;
   top: 0;
   z-index: 80;
-  height: 52px !important;
-  min-height: 52px !important;
+  height: 50px !important;
+  min-height: 50px !important;
   display: grid !important;
   grid-template-columns: minmax(160px, 1fr) auto !important;
   align-items: stretch !important;
@@ -590,16 +590,16 @@
     padding: 8px !important;
   }
 }
-/* 2026-09-29 operational list controls — CX-density upper-right toolbar */
+/* 2026-09-29 operational list controls — measured CX upper-right toolbar */
 .xdrive-operational-top-workspace .workspace-list-controls{
-  min-height:30px!important;
-  padding:2px 7px!important;
+  min-height:40px!important;
+  padding:4px 8px!important;
   gap:8px!important;
   background:#fff;
   border:1px solid #d8dee8;
-  border-radius:0!important;
+  border-radius:4px!important;
   color:#5f6f81;
-  font-size:10px!important;
+  font-size:11px!important;
   line-height:14px!important;
 }
 .xdrive-operational-top-workspace .workspace-list-controls__right{
@@ -614,28 +614,28 @@
   display:inline-flex;
   align-items:center;
   gap:4px;
-  font-size:10px!important;
+  font-size:11px!important;
   font-weight:600;
   white-space:nowrap;
 }
 .xdrive-operational-top-workspace .workspace-list-controls select{
   width:52px!important;
   min-width:52px!important;
-  height:24px!important;
-  min-height:24px!important;
-  padding:0 4px!important;
-  border-radius:2px!important;
-  font-size:10px!important;
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 6px!important;
+  border-radius:4px!important;
+  font-size:11px!important;
 }
 .xdrive-operational-top-workspace .workspace-list-controls button{
-  height:24px!important;
-  min-height:24px!important;
-  padding:0 7px!important;
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 8px!important;
   border:1px solid #c8d1dc!important;
-  border-radius:2px!important;
+  border-radius:4px!important;
   background:#fff!important;
   color:#075ed3!important;
-  font-size:10px!important;
+  font-size:11px!important;
   font-weight:700!important;
   cursor:pointer;
 }
@@ -646,12 +646,12 @@
 }
 /* 2026-09-29 CX visual-density calibration for operational workspaces only. */
 .xdrive-workspace-measured.xdrive-operational-top-workspace{
-  --ws-page-x:8px;
-  --ws-page-y:8px;
+  --ws-page-x:12px;
+  --ws-page-y:12px;
   --ws-gap-grid:8px;
   --ws-gap-section:12px;
   --ws-filter-rail-w:200px;
-  --ws-control-h:28px;
+  --ws-control-h:32px;
   --ws-panel-head-h:36px;
   --ws-table-head-h:36px;
   --ws-table-row-h:42px;
@@ -668,59 +668,59 @@
   padding:12px 12px 16px!important;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-header{
-  min-height:40px!important;
-  margin-bottom:6px!important;
+  min-height:44px!important;
+  margin-bottom:8px!important;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-header h1{
-  font-size:18px!important;
-  line-height:22px!important;
+  font-size:20px!important;
+  line-height:26px!important;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-header p{
-  margin-top:1px!important;
-  font-size:11px!important;
-  line-height:14px!important;
+  margin-top:2px!important;
+  font-size:12px!important;
+  line-height:16px!important;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content th{
-  height:34px!important;
-  padding:4px 7px!important;
-  font-size:10px!important;
+  height:36px!important;
+  padding:6px 8px!important;
+  font-size:11px!important;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content td{
-  min-height:38px!important;
-  padding:5px 7px!important;
-  font-size:11px!important;
-  line-height:15px!important;
+  min-height:42px!important;
+  padding:6px 8px!important;
+  font-size:12px!important;
+  line-height:16px!important;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content input,
 .xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content select{
-  min-height:28px!important;
-  border-radius:2px!important;
-  font-size:11px!important;
+  min-height:32px!important;
+  border-radius:4px!important;
+  font-size:12px!important;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .workspace-tab-strip,
 .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-tab-strip{
-  min-height:28px!important;
-  border-radius:2px!important;
+  min-height:36px!important;
+  border-radius:4px!important;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .workspace-tab-strip button,
 .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-tab-strip button{
-  height:28px!important;
-  min-height:28px!important;
-  padding:0 9px!important;
-  font-size:10.5px!important;
+  height:36px!important;
+  min-height:36px!important;
+  padding:0 12px!important;
+  font-size:12px!important;
 }
-/* Compact-list controls must beat the later measured-control baseline. */
+/* Compact-list controls beat the generic 32px control baseline. */
 .xdrive-workspace-measured.xdrive-operational-top-workspace .workspace-list-controls select{
   width:52px!important;
   min-width:52px!important;
-  height:24px!important;
-  min-height:24px!important;
-  padding:0 4px!important;
-  font-size:10px!important;
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 6px!important;
+  font-size:11px!important;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .workspace-list-controls button{
-  height:24px!important;
-  min-height:24px!important;
-  padding:0 7px!important;
-  font-size:10px!important;
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 8px!important;
+  font-size:11px!important;
 }
