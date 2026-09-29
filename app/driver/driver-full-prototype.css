@@ -2846,3 +2846,134 @@
 .driver-prototype-port .settings-modal-head .rowbtn{margin-left:auto}
 .driver-prototype-port .settings-modal-body{padding:16px}
 .driver-prototype-port .settings-modal-foot{justify-content:flex-end;border-top:1px solid #d7e0e7;border-bottom:0}
+/* 2026-09-29 CX-density pass: compact upper-right list controls */
+.driver-prototype-port .load-result-head,
+.driver-prototype-port .quote-head-cx,
+.driver-prototype-port .return-tabs,
+.driver-prototype-port .dir-summary{
+  min-height:31px!important;
+  height:auto!important;
+  padding:2px 7px!important;
+  gap:6px!important;
+}
+.driver-prototype-port .load-result-head>div:last-child,
+.driver-prototype-port .quote-head-cx>div:last-child{
+  min-height:26px;
+  gap:6px!important;
+  white-space:nowrap;
+}
+.driver-prototype-port .load-result-head label,
+.driver-prototype-port .quote-head-cx label,
+.driver-prototype-port .return-tabs label,
+.driver-prototype-port .dir-summary label{
+  font-size:10px!important;
+  font-weight:600;
+  color:#5f6f81;
+  line-height:24px;
+}
+.driver-prototype-port .load-result-head select,
+.driver-prototype-port .quote-head-cx select,
+.driver-prototype-port .return-tabs select,
+.driver-prototype-port .dir-summary select{
+  width:52px;
+  min-width:52px;
+  height:24px!important;
+  min-height:24px!important;
+  padding:0 4px;
+  border:1px solid #c8d1dc;
+  border-radius:2px;
+  background:#fff;
+  font-size:10px!important;
+}
+.driver-prototype-port .load-result-head .text-action,
+.driver-prototype-port .quote-head-cx .text-action,
+.driver-prototype-port .return-tabs .text-action{
+  color:#075ed3!important;
+  font-size:10px!important;
+  font-weight:700!important;
+  text-decoration:none;
+}
+.driver-prototype-port .load-result-head .btn,
+.driver-prototype-port .return-tabs .btn,
+.driver-prototype-port .load-result-head .rowbtn,
+.driver-prototype-port .quote-head-cx .rowbtn,
+.driver-prototype-port .return-tabs .rowbtn,
+.driver-prototype-port .dir-summary .rowbtn{
+  height:24px!important;
+  min-height:24px!important;
+  padding:0 7px!important;
+  font-size:10px!important;
+  border-radius:2px!important;
+}
+.driver-prototype-port .quote-count{
+  min-width:auto!important;
+  height:24px!important;
+  padding:0 7px;
+  border-radius:2px!important;
+  font-size:10px!important;
+}
+.driver-prototype-port .load-list,
+.driver-prototype-port .quote-register{
+  padding-top:3px!important;
+  gap:4px!important;
+}
+.driver-prototype-port .return-tabs .spacer{margin-left:auto}
+.driver-prototype-port .dir-summary .spacer{flex:1}
+.driver-prototype-port .diary-head-cx{
+  min-height:31px!important;
+  height:auto!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:6px!important;
+  padding:2px 7px!important;
+}
+.driver-prototype-port .diary-head-cx>span:first-child{
+  font-size:10px!important;
+  color:#5f6f81!important;
+  white-space:nowrap;
+}
+.driver-prototype-port .driver-diary-summary-actions{
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  flex-wrap:wrap;
+  font-size:10px;
+  color:#5f6f81;
+}
+.driver-prototype-port .driver-diary-summary-actions label{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:10px!important;
+  font-weight:600;
+  white-space:nowrap;
+}
+.driver-prototype-port .driver-diary-summary-actions select{
+  width:58px;
+  min-width:58px;
+  height:24px!important;
+  min-height:24px!important;
+  padding:0 4px;
+  font-size:10px!important;
+  border:1px solid #c8d1dc;
+  border-radius:2px;
+  background:#fff;
+}
+.driver-prototype-port .driver-diary-summary-actions button{
+  height:24px!important;
+  min-height:24px!important;
+  padding:0 7px!important;
+  border:1px solid #c8d1dc!important;
+  border-radius:2px!important;
+  background:#fff!important;
+  color:#075ed3!important;
+  font-size:10px!important;
+  font-weight:700!important;
+}
+.driver-prototype-port .driver-diary-summary-actions button:disabled{
+  color:#9aa6b2!important;
+  background:#f5f7f9!important;
+}
+.driver-prototype-port .diary-bookings{margin-top:3px}

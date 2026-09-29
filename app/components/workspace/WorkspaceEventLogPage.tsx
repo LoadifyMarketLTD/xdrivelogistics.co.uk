@@ -244,16 +244,20 @@ export function WorkspaceEventLogPage({
         </aside>
 
         <main className="workspace-board-main">
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
+          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between' }}>
             <span><strong>Event Log</strong> · {filteredEvents.length} event{filteredEvents.length === 1 ? '' : 's'}</span>
-            <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-              Items per Page
-              <select value={itemsPerPage} onChange={(event) => setItemsPerPage(Number(event.target.value))} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4, background: '#fff' }}>
-                <option value={10}>10</option>
-                <option value={25}>25</option>
-                <option value={50}>50</option>
-              </select>
-            </label>
+            <span className="workspace-list-controls__right">
+              <label>Items per Page
+                <select value={itemsPerPage} onChange={(event) => setItemsPerPage(Number(event.target.value))}>
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                </select>
+              </label>
+              <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>
+              <span>{filteredEvents.length === 0 ? '0' : `${(safePage - 1) * itemsPerPage + 1}-${Math.min(safePage * itemsPerPage, filteredEvents.length)} of ${filteredEvents.length}`}</span>
+              <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>›</button>
+            </span>
           </div>
 
           {loading ? (
@@ -279,13 +283,6 @@ export function WorkspaceEventLogPage({
             </div>
           )}
 
-          {filteredEvents.length > itemsPerPage && (
-            <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
-              <ActionButton tone="secondary" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</ActionButton>
-              <span>Page {safePage} / {totalPages}</span>
-              <ActionButton tone="secondary" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>Next</ActionButton>
-            </div>
-          )}
         </main>
       </div>
     </PageFrame>

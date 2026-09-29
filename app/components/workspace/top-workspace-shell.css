@@ -590,3 +590,57 @@
     padding: 8px !important;
   }
 }
+/* 2026-09-29 operational list controls — CX-density upper-right toolbar */
+.xdrive-operational-top-workspace .workspace-list-controls{
+  min-height:30px!important;
+  padding:2px 7px!important;
+  gap:8px!important;
+  background:#fff;
+  border:1px solid #d8dee8;
+  border-radius:0!important;
+  color:#5f6f81;
+  font-size:10px!important;
+  line-height:14px!important;
+}
+.xdrive-operational-top-workspace .workspace-list-controls__right{
+  margin-left:auto;
+  display:inline-flex;
+  align-items:center;
+  justify-content:flex-end;
+  gap:6px;
+  flex-wrap:wrap;
+}
+.xdrive-operational-top-workspace .workspace-list-controls label{
+  display:inline-flex;
+  align-items:center;
+  gap:4px;
+  font-size:10px!important;
+  font-weight:600;
+  white-space:nowrap;
+}
+.xdrive-operational-top-workspace .workspace-list-controls select{
+  width:52px!important;
+  min-width:52px!important;
+  height:24px!important;
+  min-height:24px!important;
+  padding:0 4px!important;
+  border-radius:2px!important;
+  font-size:10px!important;
+}
+.xdrive-operational-top-workspace .workspace-list-controls button{
+  height:24px!important;
+  min-height:24px!important;
+  padding:0 7px!important;
+  border:1px solid #c8d1dc!important;
+  border-radius:2px!important;
+  background:#fff!important;
+  color:#075ed3!important;
+  font-size:10px!important;
+  font-weight:700!important;
+  cursor:pointer;
+}
+.xdrive-operational-top-workspace .workspace-list-controls button:disabled{
+  color:#9aa6b2!important;
+  background:#f5f7f9!important;
+  cursor:not-allowed;
+}

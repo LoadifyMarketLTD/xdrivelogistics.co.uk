@@ -362,6 +362,10 @@ export default function SearchLoadsPage() {
               <button type="button" role="tab" aria-selected={viewMode === 'map'} data-active={viewMode === 'map' ? 'true' : 'false'} onClick={() => setViewMode('map')}>Interactive Freight Radar Map</button>
               <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: 11 }}>{loading ? 'Searching marketplace…' : appliedFilters ? `${total} matching load${total === 1 ? '' : 's'} · ${loads.length} shown` : 'Set filters and search the live Marketplace'}</span>
               {viewMode === 'list' && <OperationalExpandAllControl expanded={allExpanded} disabled={!loads.length} onToggle={toggleExpandAll} noun="loads" />}
+              {appliedFilters && total > 0 && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} style={{ height: 28, border: '1px solid #d8dee8', borderRadius: 3, background: '#fff' }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>}
+              {appliedFilters && total > 0 && <ActionButton tone="secondary" disabled={loading || page <= 1} onClick={() => appliedFilters && void runSearch(appliedFilters, page - 1)}>Previous</ActionButton>}
+              {appliedFilters && total > 0 && <strong>Page {page} / {totalPages}</strong>}
+              {appliedFilters && total > 0 && <ActionButton tone="secondary" disabled={loading || page >= totalPages} onClick={() => appliedFilters && void runSearch(appliedFilters, page + 1)}>Next</ActionButton>}
             </div>
 
             <div className="driver-board-summary">
@@ -432,17 +436,6 @@ export default function SearchLoadsPage() {
               </div>
             )}
 
-            {appliedFilters && total > 0 && (
-              <div className="driver-board-summary">
-                <span>{(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} of {total}</span>
-                <span style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <label>Items per Page: <select value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }} style={{ height: 28, border: '1px solid #d8dee8', borderRadius: 3, background: '#fff' }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-                  <ActionButton tone="secondary" disabled={loading || page <= 1} onClick={() => appliedFilters && void runSearch(appliedFilters, page - 1)}>Previous</ActionButton>
-                  <strong>Page {page} / {totalPages}</strong>
-                  <ActionButton tone="secondary" disabled={loading || page >= totalPages} onClick={() => appliedFilters && void runSearch(appliedFilters, page + 1)}>Next</ActionButton>
-                </span>
-              </div>
-            )}
           </main>
         </div>
 

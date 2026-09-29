@@ -373,6 +373,12 @@ export default function ReturnJourneysPage() {
               <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>My Journeys</button>
               <button type="button" className={tab === 'add' ? 'active' : ''} onClick={() => setTab('add')}>Add Journey</button>
               <span className="spacer" />
+              {tab !== 'add' && <button type="button" className="text-action" onClick={toggleExpandAll} disabled={!journeys.length}>{allVisibleExpanded ? 'Collapse all' : 'Expand all'}</button>}
+              {tab !== 'add' && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>{pageSizeOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>}
+              {tab !== 'add' && <span>{total ? `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize,total)} of ${total}` : '0 results'}</span>}
+              {tab !== 'add' && <button type="button" className="rowbtn" disabled={page <= 1} onClick={() => void loadJourneys(tab === 'mine' ? 'mine' : 'marketplace', page - 1, false)}>Previous</button>}
+              {tab !== 'add' && <button type="button" className="rowbtn blue" disabled>{page}</button>}
+              {tab !== 'add' && <button type="button" className="rowbtn" disabled={page >= totalPages} onClick={() => void loadJourneys(tab === 'mine' ? 'mine' : 'marketplace', page + 1, false)}>Next</button>}
               <div className="return-view"><button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button><button type="button" className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>Map View</button></div>
               <button type="button" className="btn" onClick={refreshCurrent} disabled={loading}>Refresh</button>
             </div>
@@ -409,7 +415,6 @@ export default function ReturnJourneysPage() {
                 )}
               </>
             )}
-            <div className="footer"><span>Items per Page:</span><select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>{pageSizeOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select><span style={{ marginLeft: 10 }}>{total ? `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize,total)} of ${total}` : '0 results'}</span><div className="right"><button type="button" className="rowbtn" disabled={page <= 1} onClick={() => void loadJourneys(tab === 'mine' ? 'mine' : 'marketplace', page - 1, false)}>Previous</button><button type="button" className="rowbtn blue">{page}</button><button type="button" className="rowbtn" disabled={page >= totalPages} onClick={() => void loadJourneys(tab === 'mine' ? 'mine' : 'marketplace', page + 1, false)}>Next</button></div></div>
           </main>
         </div>
       </section>
