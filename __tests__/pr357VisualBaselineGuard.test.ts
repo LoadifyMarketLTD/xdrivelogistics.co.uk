@@ -35,9 +35,9 @@ describe('PR #357 approved visual baseline', () => {
       "label: 'Quotes', href: '/driver/quotes'",
       "label: 'Won Work', href: '/driver/won-work'",
       "label: 'Auto-match & Alerts', href: '/driver/load-alerts'",
-      "label: 'Freight Vision', href: '/driver/freight-vision'",
-      "label: 'Finance', href: '/driver/finance'",
-      "label: 'Drivers & Vehicles', href: '/driver/drivers-vehicles'",
+      "label: 'Tracking', href: '/driver/freight-vision'",
+      "label: 'Invoices', href: '/driver/finance'",
+      "label: 'Drivers & Staff', href: '/driver/drivers-vehicles'",
     ]) expect(driverNav).toContain(item);
     expect(driverNav).toContain('label: "Who\'s Nearby"');
   });
