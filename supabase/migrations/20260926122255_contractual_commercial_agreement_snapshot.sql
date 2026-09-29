@@ -170,4 +170,3 @@ FOR EACH ROW EXECUTE FUNCTION public.fn_complete_commercial_agreement_snapshot()
 
 COMMIT;
 NOTIFY pgrst, 'reload schema';
-

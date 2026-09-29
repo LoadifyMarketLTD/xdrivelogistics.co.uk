@@ -9,7 +9,7 @@ describe('driver finance role boundary', () => {
   it('keeps invoice capability off fleet drivers and on owner drivers', () => {
     const driverBlock = workspaceRole.slice(
       workspaceRole.indexOf('export const DRIVER_WORKSPACE_CAPABILITIES'),
-      workspaceRole.indexOf('const SHARED_DRIVER_NAV'),
+      workspaceRole.indexOf('const DRIVER_EXECUTION_NAV'),
     );
     expect(driverBlock).not.toContain("'invoices.carrier.manage'");
     expect(workspaceRole).toContain("owner_driver: new Set<WorkspaceCapability>([...DRIVER_WORKSPACE_CAPABILITIES, 'invoices.carrier.manage', 'billing.manage'])");

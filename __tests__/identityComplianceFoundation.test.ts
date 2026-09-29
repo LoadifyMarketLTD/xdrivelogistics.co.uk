@@ -54,6 +54,9 @@ describe('identity compliance foundation', () => {
     expect(uploadRoute).toContain(".from('fraud_review_cases')");
     expect(uploadRoute).toContain(".in('status', ['cleared', 'dismissed'])");
     expect(uploadRoute).toContain("code: 'duplicate_document_detected'");
+    expect(uploadRoute).toContain(".eq('id', app.company_id)");
+    expect(uploadRoute).toContain(".from('company_memberships')");
+    expect(uploadRoute).toContain(".eq('user_id', authData.user.id)");
   });
 
   it('keeps Company Driver approvals non-owner and filters company activation to canonical company onboarding subjects', () => {

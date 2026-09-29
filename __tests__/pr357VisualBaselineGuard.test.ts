@@ -24,18 +24,22 @@ describe('PR #357 approved visual baseline', () => {
 
   it('keeps Driver navigation aligned to the approved full prototype order', () => {
     for (const item of [
-      "label: 'Dashboard', href: '/driver'",
+      "label: 'Today', href: '/driver'",
+      "label: 'My Jobs', href: '/driver/jobs'",
+      "label: 'Diary', href: '/driver/history'",
+      "label: 'Availability', href: '/driver/availability'",
+      "label: 'Vehicle', href: '/driver/vehicles'",
       "label: 'Directory', href: '/driver/directory'",
-      "label: 'Live Availability', href: '/driver/nearby'",
-      "label: 'My Fleet', href: '/driver/vehicles'",
       "label: 'Return Journeys', href: '/driver/returns'",
       "label: 'Loads', href: '/driver/loads'",
       "label: 'Quotes', href: '/driver/quotes'",
-      "label: 'Diary', href: '/driver/history'",
+      "label: 'Won Work', href: '/driver/won-work'",
+      "label: 'Auto-match & Alerts', href: '/driver/load-alerts'",
       "label: 'Freight Vision', href: '/driver/freight-vision'",
       "label: 'Finance', href: '/driver/finance'",
       "label: 'Drivers & Vehicles', href: '/driver/drivers-vehicles'",
     ]) expect(driverShell).toContain(item);
+    expect(driverShell).toContain('label: "Who\'s Nearby"');
 
     const navIndex = driverShell.indexOf('main-nav');
     const toolsIndex = driverShell.indexOf('top-tools');
@@ -43,34 +47,32 @@ describe('PR #357 approved visual baseline', () => {
     expect(toolsIndex).toBeGreaterThan(navIndex);
   });
 
-  it('keeps the approved dense Driver dashboard structure', () => {
+  it('keeps the current dense Driver operational dashboard structure', () => {
     for (const marker of [
       'driver-prototype-dashboard',
-      'Today at a glance',
-      'Operational workboard',
-      'Matching Loads',
-      'Commercial position',
-      'Performance & evidence',
-      'Driver workflow',
-      'Latest bookings',
-      'NEXT ACTION',
+      'driver-dashboard-statusbar',
+      'Current assignment',
+      'Next booking',
+      'Driver readiness',
+      'Owner Driver Commercial Position',
     ]) expect(driverDashboard).toContain(marker);
 
     for (const stale of [
+      'Today at a glance',
+      'Operational workboard',
       'Status & availability',
       '<span>Canonical active vehicle</span>',
       'Journey & position',
       'Quote activity',
-      'Compliance & document alerts',
     ]) expect(driverDashboard).not.toContain(stale);
   });
 
   it('keeps the Customer transport-control dashboard structure', () => {
-    expect(customerDashboard).toContain('title="Transport Control"');
+    expect(customerDashboard).toContain('title="Transport overview"');
     expect(customerDashboard).toContain('customer-dash-metrics');
-    expect(customerDashboard).toContain('customer-exchange-dashboard');
-    expect(customerDashboard).toContain('Open transport requests');
-    expect(customerDashboard).toContain('Recent quote activity');
+    expect(customerDashboard).toContain('Needs your attention');
+    expect(customerDashboard).toContain('Recent transport');
+    expect(customerDashboard).toContain('Outstanding invoices');
   });
 
   it('keeps Carrier/Admin and Broker operational control surfaces', () => {
@@ -78,8 +80,10 @@ describe('PR #357 approved visual baseline', () => {
     expect(carrierDashboard).toContain('Operational workboard');
     expect(carrierDashboard).toContain('carrierControlSignals');
 
-    expect(brokerDashboard).toContain('title="Broker Dashboard"');
-    expect(brokerDashboard).toContain('<ExchangeKpiStrip>');
-    expect(brokerDashboard).toContain('title="Operational action queue"');
+    expect(brokerDashboard).toContain('title="Transport control"');
+    expect(brokerDashboard).toContain('broker-clean-kpis');
+    expect(brokerDashboard).toContain('Needs your attention');
+    expect(brokerDashboard).toContain('Current transport');
+    expect(brokerDashboard).toContain('Commercial position');
   });
 });

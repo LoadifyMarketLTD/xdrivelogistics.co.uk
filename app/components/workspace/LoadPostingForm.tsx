@@ -7,13 +7,27 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
 import PostcodeAddressField from './PostcodeAddressField';
-import StripeSetupAction from './StripeSetupAction';
 import './load-posting-exchange.css';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
 const CARGO = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
-const HALF_HOUR_SLOTS = Array.from({ length: 48 }, (_, index) => {
-  const totalMinutes = index * 30;
+const MAX_DOCUMENT_FILES = 12;
+const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
+const ALLOWED_DOCUMENT_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'text/csv',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+]);
+const cleanDocumentFileName = (value: string) =>
+  value.replace(/[^a-zA-Z0-9._-]/g, '-').replace(/-+/g, '-');
+const QUARTER_HOUR_SLOTS = Array.from({ length: 96 }, (_, index) => {
+  const totalMinutes = index * 15;
   const hours = Math.floor(totalMinutes / 60).toString().padStart(2, '0');
   const minutes = (totalMinutes % 60).toString().padStart(2, '0');
   return `${hours}:${minutes}`;
@@ -41,21 +55,21 @@ const normalizePostcode = (value: string) => {
 const isFullUkPostcode = (value: string) => /^(GIR 0AA|(?:[A-Z]{1,2}\d[A-Z\d]?|[A-Z]{1,2}\d{1,2}) \d[A-Z]{2})$/i.test(normalizePostcode(value));
 const xdriveReference = (jobId: string) => `XDL-${jobId.slice(0, 8).toUpperCase()}`;
 const localDateKey = (value: Date) => `${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, '0')}-${String(value.getDate()).padStart(2, '0')}`;
-const halfHourSlotMinutes = (value: string) => {
-  const match = /^(\d{2}):(00|30)$/.exec(value);
+const quarterHourSlotMinutes = (value: string) => {
+  const match = /^(\d{2}):(00|15|30|45)$/.exec(value);
   if (!match) return null;
   const hours = Number(match[1]);
   const minutes = Number(match[2]);
   return hours <= 23 ? hours * 60 + minutes : null;
 };
-const availableHalfHourSlots = (date: string, now: Date | null) => {
-  if (!date || !now) return HALF_HOUR_SLOTS;
+const availableQuarterHourSlots = (date: string, now: Date | null) => {
+  if (!date || !now) return QUARTER_HOUR_SLOTS;
   const today = localDateKey(now);
   if (date < today) return [];
-  if (date > today) return HALF_HOUR_SLOTS;
+  if (date > today) return QUARTER_HOUR_SLOTS;
   const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-  return HALF_HOUR_SLOTS.filter((slot) => {
-    const minutes = halfHourSlotMinutes(slot);
+  return QUARTER_HOUR_SLOTS.filter((slot) => {
+    const minutes = quarterHourSlotMinutes(slot);
     return minutes != null && minutes * 60 > currentSeconds;
   });
 };
@@ -137,11 +151,11 @@ const validateStop = ({
   let timeError: string | undefined;
   if (timeIsRequired && !time) timeError = 'Required';
   else if (time) {
-    const minutes = halfHourSlotMinutes(time);
-    if (minutes == null) timeError = 'Use a 30-minute time slot';
+    const minutes = quarterHourSlotMinutes(time);
+    if (minutes == null) timeError = 'Use a 15-minute time slot';
     else if (date && now && date === today) {
       const currentSeconds = now.getHours() * 3600 + now.getMinutes() * 60 + now.getSeconds();
-      if (minutes * 60 <= currentSeconds) timeError = 'Choose a future 30-minute slot';
+      if (minutes * 60 <= currentSeconds) timeError = 'Choose a future 15-minute slot';
     }
   }
 
@@ -176,7 +190,6 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const idempotencyKeyRef = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [stripeSetupCompanyId, setStripeSetupCompanyId] = useState<string | null>(null);
   const [success, setSuccess] = useState('');
   const [showValidation, setShowValidation] = useState(false);
   const [clockNow, setClockNow] = useState<Date | null>(null);
@@ -185,6 +198,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [directCarrierError, setDirectCarrierError] = useState('');
   const [cloneNotice, setCloneNotice] = useState('');
   const [cloneLoading, setCloneLoading] = useState(false);
+  const [documentFiles, setDocumentFiles] = useState<File[]>([]);
   const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
   const [form, setForm] = useState({
     clientName: '', clientEmail: '', clientPhone: '',
@@ -255,7 +269,6 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         setCloneNotice(payload.notice ?? 'Source booking details copied into a new load. Review the schedule and references before saving.');
       } catch (reason) {
         if (!cancelled) {
-          setStripeSetupCompanyId(null);
           setError(reason instanceof Error ? reason.message : 'The source booking could not be prepared.');
         }
       } finally {
@@ -369,7 +382,6 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
 
   const save = async (publish: boolean) => {
     setError('');
-    setStripeSetupCompanyId(null);
     setSuccess('');
     if (cloneLoading) {
       setError('Wait for the source booking details to finish loading before saving.');
@@ -380,6 +392,19 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     if (hasRequiredErrors || hasDimensionErrors) {
       setError('Load details are incomplete or invalid. Complete the fields highlighted in red.');
       focusFirstInvalidField();
+      return;
+    }
+    if (documentFiles.length > MAX_DOCUMENT_FILES) {
+      setError('Attach no more than ' + MAX_DOCUMENT_FILES + ' documents to one load.');
+      return;
+    }
+    const invalidDocument = documentFiles.find((file) =>
+      file.size <= 0
+      || file.size > MAX_DOCUMENT_BYTES
+      || !ALLOWED_DOCUMENT_MIME_TYPES.has(file.type.trim().toLowerCase()),
+    );
+    if (invalidDocument) {
+      setError('Document ' + invalidDocument.name + ' is empty, exceeds 20 MB, or uses an unsupported file type.');
       return;
     }
     if (!user?.id || !isSupabaseConfigured) {
@@ -481,19 +506,51 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
 
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
-        code?: string;
-        setupCompanyId?: string;
         referenceId?: string;
         job?: { id: string };
         replayed?: boolean;
       } | null;
       if (!response.ok || !payload?.job?.id) {
-        // Only offer setup for the company that attempted this publication, never a carrier's account.
-        if (publish && payload?.code === 'STRIPE_COMMERCIAL_READINESS_REQUIRED' && payload.setupCompanyId === companyId) {
-          setStripeSetupCompanyId(companyId);
-        }
         const baseMessage = payload?.error ?? 'The load could not be saved.';
         throw new Error(payload?.referenceId ? `${baseMessage} Error reference: ${payload.referenceId}.` : baseMessage);
+      }
+
+      if (documentFiles.length > 0) {
+        const documentRows: Array<{ storagePath: string; fileName: string; fileSizeBytes: number; mimeType: string | null }> = [];
+        for (const file of documentFiles) {
+          const storagePath = `${companyId}/${payload.job.id}/${crypto.randomUUID()}-${cleanDocumentFileName(file.name)}`;
+          const { error: uploadError } = await supabase.storage.from('load-documents').upload(storagePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type || undefined,
+          });
+          if (uploadError) {
+            if (documentRows.length > 0) {
+              await supabase.storage.from('load-documents').remove(documentRows.map((document) => document.storagePath));
+            }
+            throw new Error(`Load ${xdriveReference(payload.job.id)} was saved, but document upload failed for ${file.name}: ${uploadError.message}`);
+          }
+          documentRows.push({
+            storagePath,
+            fileName: file.name,
+            fileSizeBytes: file.size,
+            mimeType: file.type || null,
+          });
+        }
+
+        const documentResponse = await fetch(`/api/admin/jobs/${encodeURIComponent(payload.job.id)}/documents`, {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ companyId, documents: documentRows }),
+        });
+        const documentPayload = (await documentResponse.json().catch(() => null)) as { error?: string } | null;
+        if (!documentResponse.ok) {
+          await supabase.storage.from('load-documents').remove(documentRows.map((document) => document.storagePath));
+          throw new Error(`Load ${xdriveReference(payload.job.id)} was saved, but document records could not be saved: ${documentPayload?.error ?? 'Unknown document service error.'}`);
+        }
       }
 
       const reference = xdriveReference(payload.job.id);
@@ -513,6 +570,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             ? `/driver/loads?created=${payload.job.id}`
             : `/admin/jobs?created=${payload.job.id}`;
       idempotencyKeyRef.current = null;
+      setDocumentFiles([]);
       window.setTimeout(() => router.push(destination), 650);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The load could not be saved.');
@@ -526,15 +584,6 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       {error && (
         <AlertBanner tone="danger">
           {error}
-          {stripeSetupCompanyId && (
-            <StripeSetupAction
-              companyId={stripeSetupCompanyId}
-              getAccessToken={async () => {
-                const { data } = await supabase.auth.getSession();
-                return data.session?.access_token ?? null;
-              }}
-            />
-          )}
         </AlertBanner>
       )}
       {cloneLoading && <AlertBanner tone="info">Preparing a new booking from the source record…</AlertBanner>}
@@ -591,7 +640,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             onDate={(value) => setForm((current) => ({
               ...current,
               pickupDate: value,
-              pickupTime: availableHalfHourSlots(value, clockNow).includes(current.pickupTime) ? current.pickupTime : '',
+              pickupTime: availableQuarterHourSlots(value, clockNow).includes(current.pickupTime) ? current.pickupTime : '',
             }))}
             onTime={(value) => set('pickupTime', value)}
             onPostcode={(value) => set('pickupPostcode', value.toUpperCase())}
@@ -615,7 +664,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             onDate={(value) => setForm((current) => ({
               ...current,
               deliveryDate: value,
-              deliveryTime: availableHalfHourSlots(value, clockNow).includes(current.deliveryTime) ? current.deliveryTime : '',
+              deliveryTime: availableQuarterHourSlots(value, clockNow).includes(current.deliveryTime) ? current.deliveryTime : '',
             }))}
             onTime={(value) => set('deliveryTime', value)}
             onPostcode={(value) => set('deliveryPostcode', value.toUpperCase())}
@@ -672,7 +721,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                       phone={stop.phone}
                       onDate={(value) => updateAdditionalStop(stop.id, {
                         date: value,
-                        time: availableHalfHourSlots(value, clockNow).includes(stop.time) ? stop.time : '',
+                        time: availableQuarterHourSlots(value, clockNow).includes(stop.time) ? stop.time : '',
                       })}
                       onTime={(value) => updateAdditionalStop(stop.id, { time: value })}
                       onPostcode={(value) => updateAdditionalStop(stop.id, { postcode: value.toUpperCase() })}
@@ -779,6 +828,23 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           <label style={labelStyle}>Document checklist
             <textarea style={textareaStyle} value={form.documentChecklist} onChange={(event) => set('documentChecklist', event.target.value)} placeholder="CMR, delivery note, photo evidence, signed POD — separate entries with commas or new lines." />
           </label>
+          <label style={labelStyle}>Attach job documents
+            <input
+              style={{ ...fieldStyle, padding: '5px 8px', minHeight: '38px' }}
+              type="file"
+              multiple
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.csv,.doc,.docx,.xls,.xlsx"
+              onChange={(event) => setDocumentFiles(Array.from(event.target.files ?? []))}
+            />
+            <span style={{ color: '#64748b', fontWeight: 500 }}>
+              Up to 12 files, 20 MB each. Files are stored privately against the XDrive load and released only to authorised job users.
+            </span>
+            {documentFiles.length > 0 ? (
+              <span style={{ color: '#334155', fontWeight: 600 }}>
+                {documentFiles.length} file{documentFiles.length === 1 ? '' : 's'} selected
+              </span>
+            ) : null}
+          </label>
         </div>
       </Panel>
 
@@ -856,7 +922,7 @@ function StopFields({
   now: Date | null;
   errors?: StopFieldErrors;
 }) {
-  const timeOptions = availableHalfHourSlots(date, now);
+  const timeOptions = availableQuarterHourSlots(date, now);
   const selectedTimeUnavailable = Boolean(time && !timeOptions.includes(time));
   const noSlotsLeftToday = Boolean(date && now && date === localDateKey(now) && timeOptions.length === 0);
 

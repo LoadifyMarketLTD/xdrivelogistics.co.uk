@@ -247,6 +247,7 @@ export default function OperationsDiaryPage() {
   const [groupNameDrafts, setGroupNameDrafts] = useState<Record<string, string>>({});
   const [groupWorking, setGroupWorking] = useState(false);
   const canManageCompanyBookings = Boolean(user?.membershipRole && ['owner', 'admin', 'dispatcher'].includes(user.membershipRole));
+  const canManageDiaryGroups = Boolean(user?.membershipRole && ['owner', 'admin', 'fleet_manager', 'dispatcher'].includes(user.membershipRole));
   const canLeaveCompanyFeedback = canManageCompanyBookings;
 
   const load = useCallback(async () => {
@@ -606,7 +607,7 @@ export default function OperationsDiaryPage() {
   };
 
   const createDiaryGroup = async () => {
-    if (!companyId || !user?.id || !canManageCompanyBookings) return;
+    if (!companyId || !user?.id || !canManageDiaryGroups) return;
     const name = newGroupName.trim();
     if (!name) { setError('Enter a group name.'); return; }
     setGroupWorking(true); setError('');
@@ -628,7 +629,7 @@ export default function OperationsDiaryPage() {
   };
 
   const renameDiaryGroup = async (groupId: string) => {
-    if (!companyId || !canManageCompanyBookings) return;
+    if (!companyId || !canManageDiaryGroups) return;
     const name = (groupNameDrafts[groupId] ?? '').trim();
     if (!name) { setError('Group name cannot be empty.'); return; }
     setGroupWorking(true); setError('');
@@ -648,7 +649,7 @@ export default function OperationsDiaryPage() {
   };
 
   const deleteDiaryGroup = async (groupId: string) => {
-    if (!companyId || !canManageCompanyBookings) return;
+    if (!companyId || !canManageDiaryGroups) return;
     const group = groups.find((item) => item.id === groupId);
     if (!group || !window.confirm(`Delete Diary group “${group.name}”? Bookings will not be deleted.`)) return;
     setGroupWorking(true); setError('');
@@ -663,7 +664,7 @@ export default function OperationsDiaryPage() {
   };
 
   const addJobToGroup = async (jobId: string, groupId: string) => {
-    if (!groupId || !companyId || !user?.id || !canManageCompanyBookings) return;
+    if (!groupId || !companyId || !user?.id || !canManageDiaryGroups) return;
     const { error: addError } = await supabase.from('diary_group_jobs').upsert(
       { group_id: groupId, job_id: jobId, company_id: companyId, added_by: user.id },
       { onConflict: 'group_id,job_id', ignoreDuplicates: true },
@@ -674,7 +675,7 @@ export default function OperationsDiaryPage() {
   };
 
   const removeJobFromGroup = async (jobId: string, groupId: string) => {
-    if (!companyId || !canManageCompanyBookings) return;
+    if (!companyId || !canManageDiaryGroups) return;
     const { error: removeError } = await supabase.from('diary_group_jobs').delete()
       .eq('group_id', groupId).eq('job_id', jobId).eq('company_id', companyId);
     if (removeError) { setError('Booking could not be removed from this Diary group.'); return; }
@@ -712,7 +713,7 @@ export default function OperationsDiaryPage() {
             <label>SAVE CURRENT VIEW<input value={savedViewName} onChange={(event) => setSavedViewName(event.target.value.slice(0, 80))} placeholder="e.g. Tomorrow unallocated" /></label>
             <div className="workspace-filter-actions"><ActionButton tone="secondary" onClick={() => void saveNamedView()}>Save View</ActionButton><ActionButton tone="secondary" disabled={!selectedSavedViewId} onClick={() => void deleteSavedView()}>Delete</ActionButton></div>
             <label>GROUPS<select value={selectedGroupFilter} onChange={(event) => setSelectedGroupFilter(event.target.value)}><option value="">All groups</option>{groups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select></label>
-            {canManageCompanyBookings && <ActionButton tone="secondary" onClick={() => setGroupManagerOpen(true)}>Add / Edit Groups</ActionButton>}
+            {canManageDiaryGroups && <ActionButton tone="secondary" onClick={() => setGroupManagerOpen(true)}>Add / Edit Groups</ActionButton>}
             <fieldset style={{ border: 0, padding: 0, margin: 0 }}><legend style={{ fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 4 }}>BOOKING SCOPE</legend><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="all" checked={search.scope === 'all'} onChange={() => setSearch((current) => ({ ...current, scope: 'all' }))} /> All</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="subcontracted" checked={search.scope === 'subcontracted'} onChange={() => setSearch((current) => ({ ...current, scope: 'subcontracted' }))} /> Jobs Sub-contracted</label><label style={{ display: 'flex', flexDirection: 'row', gap: 6, alignItems: 'center' }}><input type="radio" name="diary-booking-scope" value="ours" checked={search.scope === 'ours'} onChange={() => setSearch((current) => ({ ...current, scope: 'ours' }))} /> Our Bookings</label></fieldset>
             <label>FROM<input value={search.from} onChange={(event) => setSearch((current) => ({ ...current, from: event.target.value }))} placeholder="Pickup town / postcode" /></label>
             <label>TO<input value={search.to} onChange={(event) => setSearch((current) => ({ ...current, to: event.target.value }))} placeholder="Delivery town / postcode" /></label>
@@ -861,7 +862,7 @@ export default function OperationsDiaryPage() {
                       {detail?.receivedBy && <span>Received by: {detail.receivedBy}</span>}
                       {detail?.leftAt && <span>Left at: {detail.leftAt}</span>}
                       {detail?.deliveredAt && <span>Delivered: {when(detail.deliveredAt)}</span>}
-                      {assignedGroups.map((group) => <span key={`${job.id}-group-${group.id}`} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><strong>Group:</strong> {group.name}{canManageCompanyBookings && <button type="button" onClick={() => void removeJobFromGroup(job.id, group.id)} aria-label={`Remove booking from ${group.name}`} style={{ border: 0, background: 'transparent', color: '#b91c1c', cursor: 'pointer', fontWeight: 900, padding: 0 }}>×</button>}</span>)}
+                      {assignedGroups.map((group) => <span key={`${job.id}-group-${group.id}`} style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><strong>Group:</strong> {group.name}{canManageDiaryGroups && <button type="button" onClick={() => void removeJobFromGroup(job.id, group.id)} aria-label={`Remove booking from ${group.name}`} style={{ border: 0, background: 'transparent', color: '#b91c1c', cursor: 'pointer', fontWeight: 900, padding: 0 }}>×</button>}</span>)}
                       {operationalNotes && <span style={{ flex: '1 1 320px' }}><strong>Load notes:</strong> {operationalNotes}</span>}
                     </div>
                     {(milestones.length > 0 || detail?.driverNotes || detail?.deliveryNotes) && <div className="workspace-record-meta" style={{ minHeight: 28, borderTop: '1px solid #edf2f7' }}>
@@ -872,7 +873,7 @@ export default function OperationsDiaryPage() {
                     <div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', minHeight: 36, padding: '4px 8px', borderTop: '1px solid var(--ws-border)', background: '#fbfdff' }}>
                       <button type="button" onClick={() => toggleJob(job.id)} aria-label={open ? 'Collapse booking' : 'Expand booking'} style={{ width: 28, height: 26, border: '1px solid var(--ws-border)', borderRadius: 3, background: '#fff', cursor: 'pointer', fontWeight: 900 }}>{open ? '▴' : '▾'}</button>
                       {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><select value={driverSelections[job.id] ?? ''} onChange={(event) => setDriverSelections((current) => ({ ...current, [job.id]: event.target.value }))} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4 }}><option value="">Choose active driver</option>{activeAccountDrivers.map((item) => <option key={item.id} value={item.id}>{item.display_name ?? item.email ?? 'Driver'} · {item.availability_status ?? 'availability unknown'}</option>)}</select><ActionButton tone="success" disabled={assigning === job.id} onClick={() => void assignDriver(job)}>{assigning === job.id ? 'Allocating…' : 'Allocate'}</ActionButton></span>}
-                      {canManageCompanyBookings && availableGroups.length > 0 && <select value="" aria-label="Add booking to Diary group" onChange={(event) => { const groupId = event.target.value; if (groupId) void addJobToGroup(job.id, groupId); }} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4, background: '#fff' }}><option value="">Add to group…</option>{availableGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select>}
+                      {canManageDiaryGroups && availableGroups.length > 0 && <select value="" aria-label="Add booking to Diary group" onChange={(event) => { const groupId = event.target.value; if (groupId) void addJobToGroup(job.id, groupId); }} style={{ height: 28, border: '1px solid var(--ws-border)', borderRadius: 4, background: '#fff' }}><option value="">Add to group…</option>{availableGroups.map((group) => <option key={group.id} value={group.id}>{group.name}</option>)}</select>}
                       {!['completed', 'cancelled', 'expired'].includes(stage) && <ActionButton tone="secondary" onClick={() => router.push(`/admin/freight-vision?jobId=${encodeURIComponent(job.id)}`)}>Track</ActionButton>}
                       <ActionButton tone="secondary" onClick={() => router.push(`/admin/messages?jobId=${encodeURIComponent(job.id)}`)}>Message</ActionButton>
                       {canManageCompanyBookings && job.company_id === companyId && <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${encodeURIComponent(job.id)}`)}>Edit</ActionButton>}

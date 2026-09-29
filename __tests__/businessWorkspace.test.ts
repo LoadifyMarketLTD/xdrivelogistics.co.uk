@@ -27,6 +27,7 @@ describe('BusinessWorkspace vs MembershipRole separation', () => {
     const roles: MembershipRole[] = [
       'owner',
       'admin',
+      'fleet_manager',
       'dispatcher',
       'finance',
       'compliance',
@@ -169,7 +170,7 @@ describe('role resolvers', () => {
   });
 
   it('resolvePersistedCompanyRole only allows DB subset', () => {
-    const persisted: PersistedCompanyRole[] = ['owner', 'admin', 'dispatcher', 'member', 'viewer'];
+    const persisted: PersistedCompanyRole[] = ['owner', 'admin', 'fleet_manager', 'dispatcher', 'member', 'viewer'];
     for (const role of persisted) {
       expect(resolvePersistedCompanyRole(role)).toBe(role);
     }
@@ -178,11 +179,11 @@ describe('role resolvers', () => {
     expect(resolvePersistedCompanyRole('driver')).toBeNull();
   });
 
-  it('MEMBERSHIP_ROLE_VALUES contains all 8 domain roles', () => {
+  it('MEMBERSHIP_ROLE_VALUES contains all 9 domain roles', () => {
     const expected: MembershipRole[] = [
-      'owner', 'admin', 'dispatcher', 'finance', 'compliance', 'driver', 'member', 'viewer',
+      'owner', 'admin', 'fleet_manager', 'dispatcher', 'finance', 'compliance', 'driver', 'member', 'viewer',
     ];
-    expect(MEMBERSHIP_ROLE_VALUES).toHaveLength(8);
+    expect(MEMBERSHIP_ROLE_VALUES).toHaveLength(9);
     for (const role of expected) {
       expect(MEMBERSHIP_ROLE_VALUES).toContain(role);
     }

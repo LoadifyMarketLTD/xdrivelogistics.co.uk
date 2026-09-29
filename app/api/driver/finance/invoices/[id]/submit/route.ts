@@ -2,12 +2,8 @@ import { Buffer } from 'node:buffer';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from '../../../../../../../lib/server/invoicePdf';
 import { loadInvoicePdfContext } from '../../../../../../../lib/server/invoicePdfContext';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { requireDriverFinanceAccess } from '../../../_lib/financeAccess';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
 import { DEFAULT_INVOICE_EMAIL_MESSAGE, DEFAULT_INVOICE_EMAIL_SUBJECT } from '../../../../../../../lib/invoiceEmailTemplate';
 import {
@@ -116,38 +112,21 @@ type InvoiceSenderContext = {
 };
 
 async function resolveInvoiceSender(request: NextRequest, invoiceId: string): Promise<InvoiceSenderContext | NextResponse> {
-  const token = getBearerToken(request);
-  if (!token) return respond(401, { error: 'Unauthorized.' });
-
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator!.auth.getUser(token);
-  if (authError || !authData.user) return respond(401, { error: 'Unauthorized.' });
+  const access = await requireDriverFinanceAccess(request);
+  if (!access.ok) return access.response;
 
   const { data: invoice, error: invoiceError } = await supabaseAdmin!
     .from('invoices')
     .select('id, company_id')
     .eq('id', invoiceId)
+    .eq('company_id', access.context.companyId)
     .maybeSingle();
   if (invoiceError) return respond(500, { error: invoiceError.message });
   if (!invoice || typeof invoice.company_id !== 'string') return respond(404, { error: 'Invoice not found.' });
 
-  const { data: membership, error: membershipError } = await supabaseAdmin!
-    .from('company_memberships')
-    .select('role_in_company')
-    .eq('company_id', invoice.company_id)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (membershipError) return respond(500, { error: membershipError.message });
-
-  const membershipRole = String(membership?.role_in_company ?? '').toLowerCase();
-  if (!['owner', 'admin', 'dispatcher', 'finance'].includes(membershipRole)) {
-    return respond(403, { error: 'Finance workspace role is required to send invoices.' });
-  }
-
   return {
-    userId: authData.user.id,
-    companyId: invoice.company_id,
+    userId: access.context.userId,
+    companyId: access.context.companyId,
   };
 }
 

@@ -12,6 +12,7 @@ export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [hasPasswordSetupSession, setHasPasswordSetupSession] = useState(false);
+  const [isTeamInvite, setIsTeamInvite] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
@@ -49,6 +50,7 @@ export default function ResetPasswordPage() {
         const code = normalizeSignal(signals?.code ?? null);
         const tokenHash = normalizeSignal(signals?.tokenHash ?? null);
         const otpType = getOtpType(signals?.queryType ?? null, signals?.hashType ?? null, signals?.flow ?? null);
+        setIsTeamInvite((signals?.flow ?? '').trim().toLowerCase() === 'team-invite');
         const hasSessionTokens = Boolean(accessToken && refreshToken);
         const hasCode = Boolean(code);
         const hasTokenHash = Boolean(tokenHash);
@@ -152,8 +154,26 @@ export default function ResetPasswordPage() {
         return;
       }
 
+      if (isTeamInvite) {
+        const { data: sessionData } = await supabase.auth.getSession();
+        const accessToken = sessionData.session?.access_token;
+        if (!accessToken) {
+          setError('The team invitation session expired before activation. Please reopen the invitation email.');
+          return;
+        }
+        const acceptResponse = await fetch('/api/team-invitations/accept', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + accessToken },
+        });
+        const acceptPayload = (await acceptResponse.json().catch(() => ({}))) as { error?: string };
+        if (!acceptResponse.ok) {
+          setError(acceptPayload.error ?? 'The team invitation could not be activated.');
+          return;
+        }
+      }
+
       await supabase.auth.signOut();
-      setSuccess('Password updated successfully. Redirecting to sign in…');
+      setSuccess(isTeamInvite ? 'Invitation accepted and password updated. Redirecting to sign in…' : 'Password updated successfully. Redirecting to sign in…');
       setTimeout(() => router.replace(LOGIN_RESET_SUCCESS_PATH), 1200);
     } finally {
       setIsLoading(false);

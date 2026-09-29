@@ -1,23 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { requireDriverFinanceAccess } from '../../../_lib/financeAccess';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
-
-async function resolveDriver(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-  const { data: authData, error } = await supabaseAdmin.auth.getUser(token);
-  if (error || !authData.user) return null;
-  const { data: driverRow } = await supabaseAdmin
-    .from('drivers')
-    .select('id, company_id, user_id')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!driverRow) return null;
-  return { userId: authData.user.id, driverId: driverRow.id as string, companyId: driverRow.company_id as string };
-}
 
 // GET /api/driver/finance/invoices/[id]/documents
 export async function GET(
@@ -27,8 +13,9 @@ export async function GET(
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
-  const driver = await resolveDriver(request);
-  if (!driver) return respond(401, { error: 'Unauthorized' });
+  const access = await requireDriverFinanceAccess(request);
+  if (!access.ok) return access.response;
+  const driver = access.context;
 
   const { id } = await params;
 
@@ -60,8 +47,9 @@ export async function POST(
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
-  const driver = await resolveDriver(request);
-  if (!driver) return respond(401, { error: 'Unauthorized' });
+  const access = await requireDriverFinanceAccess(request);
+  if (!access.ok) return access.response;
+  const driver = access.context;
 
   const { id } = await params;
 

@@ -33,11 +33,12 @@ const resolveCallerCompany = async (request: NextRequest) => {
     .select('company_id, role_in_company, status')
     .eq('user_id', authData.user.id)
     .eq('status', 'active')
+    .in('role_in_company', ['owner', 'admin', 'dispatcher'])
     .limit(1)
     .maybeSingle();
 
   if (!membership) {
-    return { error: json(403, { error: 'Active company membership required.' }) };
+    return { error: json(403, { error: 'An active broker owner, admin or dispatcher is required.' }) };
   }
 
   return { user: authData.user, companyId: membership.company_id as string };

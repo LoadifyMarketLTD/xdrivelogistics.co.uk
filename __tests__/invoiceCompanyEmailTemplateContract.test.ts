@@ -14,7 +14,8 @@ describe('company-level invoice email defaults', () => {
   });
 
   it('loads the saved company default for authorised invoice senders', () => {
-    expect(defaultsApi).toContain("senderRoles = new Set(['owner', 'admin', 'dispatcher', 'finance'])");
+    expect(defaultsApi).toContain('requireDriverFinanceAccess(request)');
+    expect(defaultsApi).toContain(".eq('company_id', access.context.companyId)");
     expect(panel).toContain('/email-defaults`');
     expect(panel).toContain('setCompanySubjectDefault(payload.subject)');
     expect(panel).toContain('setCompanyMessageDefault(payload.message)');

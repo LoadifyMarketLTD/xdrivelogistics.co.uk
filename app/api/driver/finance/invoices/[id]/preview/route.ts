@@ -7,11 +7,10 @@ import {
   validateInvoiceVatTotals,
 } from '../../../../../../../lib/invoiceVat';
 import {
-  getBearerToken,
   isSupabaseAdminConfigured,
   supabaseAdmin,
-  supabaseValidator,
 } from '../../../../../_lib/supabaseAdmin';
+import { requireDriverFinanceAccess } from '../../../_lib/financeAccess';
 
 export const runtime = 'nodejs';
 
@@ -40,34 +39,19 @@ const cleanServiceDescription = (value: unknown) => {
 
 async function resolvePreviewer(request: NextRequest, invoiceId: string) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return null;
+  const access = await requireDriverFinanceAccess(request);
+  if (!access.ok) return null;
 
   const { data: invoice, error: invoiceError } = await supabaseAdmin
     .from('invoices')
     .select('*')
     .eq('id', invoiceId)
+    .eq('company_id', access.context.companyId)
     .maybeSingle();
   if (invoiceError) throw new Error(invoiceError.message);
   if (!invoice || typeof invoice.company_id !== 'string') return null;
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company')
-    .eq('company_id', invoice.company_id)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (membershipError) throw new Error(membershipError.message);
-
-  const role = String(membership?.role_in_company ?? '').toLowerCase();
-  if (!['owner', 'admin', 'dispatcher', 'finance', 'driver'].includes(role)) return null;
-
-  return { companyId: invoice.company_id as string, invoice };
+  return { companyId: access.context.companyId, invoice };
 }
 
 export async function GET(

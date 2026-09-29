@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
-import { rejectRevokedNativeAuthSession } from '../../../mobile/_deviceSessionGate';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { isWebDriverContext, requireActiveWebDriver } from '../../../_lib/webDriverContext';
 
 type Params = { params: Promise<{ jobId: string }> };
 
@@ -9,48 +10,13 @@ type NoteBody = {
   visibility?: unknown;
 };
 
-async function resolveCompanyAccess(userId: string, companyId: string) {
-  const { data: membership } = await supabaseAdmin!
-    .from('company_memberships')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('company_id', companyId)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (membership) return true;
-
-  const { data: driverRow } = await supabaseAdmin!
-    .from('drivers')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('company_id', companyId)
-    .maybeSingle();
-
-  return Boolean(driverRow);
-}
-
 export async function POST(request: NextRequest, { params }: Params) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return NextResponse.json({ error: 'Server auth is not configured.' }, { status: 503 });
   }
 
-  const token = getBearerToken(request);
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !authData.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-
-  const { data: driverRow, error: driverError } = await supabaseAdmin
-    .from('drivers')
-    .select('id')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (driverError) return NextResponse.json({ error: 'Driver identity lookup failed.' }, { status: 500 });
-  if (driverRow) {
-    const deviceGate = await rejectRevokedNativeAuthSession(request, authData.user.id, String(driverRow.id));
-    if (deviceGate) return deviceGate;
-  }
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
 
   const { jobId } = await params;
   if (!jobId) return NextResponse.json({ error: 'Missing job id.' }, { status: 400 });
@@ -63,26 +29,27 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id')
+    .select('id, company_id, assigned_driver_id')
     .eq('id', jobId)
+    .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
-  if (jobError) return NextResponse.json({ error: jobError.message }, { status: 500 });
-  if (!job?.company_id) return NextResponse.json({ error: 'Job not found.' }, { status: 404 });
 
-  const hasAccess = await resolveCompanyAccess(authData.user.id, job.company_id);
-  if (!hasAccess) return NextResponse.json({ error: 'Forbidden.' }, { status: 403 });
+  if (jobError) return NextResponse.json({ error: 'Job access could not be verified.' }, { status: 500 });
+  if (!job?.company_id) {
+    return NextResponse.json({ error: 'This job is not assigned to your driver account.' }, { status: 404 });
+  }
 
   const { error: insertError } = await supabaseAdmin.from('job_notes').insert({
     company_id: job.company_id,
     job_id: job.id,
     load_id: job.id,
-    author_user_id: authData.user.id,
-    created_by: authData.user.id,
+    author_user_id: driver.userId,
+    created_by: driver.userId,
     note,
     visibility,
     status: 'active',
   });
 
-  if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
+  if (insertError) return NextResponse.json({ error: 'The note could not be saved.' }, { status: 500 });
   return NextResponse.json({ ok: true }, { status: 201 });
 }

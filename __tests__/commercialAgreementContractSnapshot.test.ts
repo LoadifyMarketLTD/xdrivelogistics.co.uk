@@ -1,4 +1,4 @@
-﻿import { readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -41,4 +41,3 @@ describe('commercial agreement contractual snapshot migration', () => {
     expect(migration).toContain('agreed_gross_amount');
   });
 });
-

@@ -7,6 +7,7 @@ const route = source('app/api/super-admin/operations-cockpit/route.ts');
 const page = source('app/super-admin/operations/control-centre/page.tsx');
 const map = source('app/super-admin/_components/SuperAdminOperationalMap.tsx');
 const shell = source('app/super-admin/_components/SuperAdminWorkspaceShell.tsx');
+const topbar = source('app/super-admin/_components/SuperAdminTopbar.tsx');
 
 describe('Super Admin operations cockpit current contract', () => {
   it('requires the canonical active Platform Owner guard', () => {
@@ -20,6 +21,16 @@ describe('Super Admin operations cockpit current contract', () => {
       'Live Operational Map', 'Jobs Management', 'Drivers Center', 'Fleet Overview', 'Finance Dashboard', 'Quick Actions',
     ]) expect(page).toContain(label);
     expect(shell).toContain("href: '/super-admin/operations/control-centre'");
+  });
+
+  it('keeps the page identity in the shell and moves live refresh into the navbar', () => {
+    expect(page).not.toContain('XDrive Logistics LTD — System Overview');
+    expect(page).not.toContain('<p className={styles.subtitle}>Your Freight. Our Priority.</p>');
+    expect(page).not.toContain('Live snapshot:');
+    expect(topbar).toContain("pathname === '/super-admin/operations/control-centre'");
+    expect(topbar).toContain('Refresh Live Data');
+    expect(topbar).toContain("xdrive-super-admin-refresh-live-data");
+    expect(page).toContain("window.addEventListener('xdrive-super-admin-refresh-live-data'");
   });
 
   it('uses canonical location and cached ETA sources without provider calls', () => {
@@ -49,7 +60,7 @@ describe('Super Admin operations cockpit current contract', () => {
   });
 
   it('renders privacy-safe operational map states and regional presets', () => {
-    for (const color of ['#1A73E8', '#34A853', '#FBBC05', '#EA4335']) expect(map).toContain(color);
+    for (const color of ['#1D57D8', '#168553', '#F5A300', '#D92D20']) expect(map).toContain(color);
     expect(map).toContain('driverOperationalColor');
     expect(map).toContain('L.polyline');
     for (const region of ['London', 'Midlands', 'North', 'UK']) expect(map).toContain(`label: '${region}'`);

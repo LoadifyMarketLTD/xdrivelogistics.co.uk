@@ -8,7 +8,7 @@ function read(filePath: string): string {
 
 function hasOperationalTablePrimitive(filePath: string): boolean {
   const source = read(filePath);
-  return /\bOperationalTable\b|\bDataTable\b|customer-dash-table|driver-load-list|driver-load-row/.test(source);
+  return /\bOperationalTable\b|\bDataTable\b|<table\b|customer-dash-table|driver-load-list|driver-load-row|broker-clean-table/.test(source);
 }
 
 function hasPageHeader(filePath: string): boolean {
@@ -33,7 +33,7 @@ function rowFor(filePath: string) {
     pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b/.test(source),
     operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b|driver-tab-strip/.test(source),
     exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|customer-dash-metrics|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source),
-    operationalTable: /\bOperationalTable\b|\bDataTable\b|customer-dash-table|driver-load-list|driver-load-row/.test(source),
+    operationalTable: /\bOperationalTable\b|\bDataTable\b|<table\b|customer-dash-table|driver-load-list|driver-load-row|broker-clean-table/.test(source),
     quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b|customer-action-grid/.test(source),
     financialSummaryPanel: /\bFinancialSummaryPanel\b|customer-dash-summary/.test(source),
     complianceSummaryPanel: /\bComplianceSummaryPanel\b/.test(source),
@@ -121,9 +121,11 @@ describe('workspace primitive adoption matrix', () => {
     expect(source).not.toContain('FinancialSummaryPanel');
   });
 
-  it('keeps broker degraded metrics tied to shared dataset presentation state', () => {
+  it('keeps broker degraded metrics tied to dataset presentation state', () => {
     const brokerSource = read('app/broker/BrokerDashboardHome.tsx');
-    expect(brokerSource).toContain('getWorkspaceMetricPresentationStatus');
+    expect(brokerSource).toContain('const metricState');
+    expect(brokerSource).toContain("dataset.availability !== 'available'");
+    expect(brokerSource).toContain('dataset.partialData || dataset.limitedData');
   });
 
   it('keeps RoleDashboards as compatibility exports rather than a second implementation', () => {

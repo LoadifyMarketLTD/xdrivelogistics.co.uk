@@ -25,7 +25,7 @@ type TeamMember = {
   role: 'owner' | 'admin' | 'dispatcher' | 'viewer';
   departmentId: string | null;
   departmentName: string | null;
-  membershipStatus: 'invited' | 'active' | 'suspended';
+  membershipStatus: 'invited' | 'active' | 'disabled';
   profileStatus: string | null;
   createdAt: string;
   isCurrentUser: boolean;
@@ -163,6 +163,7 @@ export default function CustomerTeamPage() {
         companyId: workspace.companyId,
         email: inviteEmail.trim(),
         role: inviteRole,
+        workspace: 'customer',
         departmentId: inviteDepartmentId || null,
       }),
     });
@@ -172,7 +173,7 @@ export default function CustomerTeamPage() {
     } else {
       setInviteEmail('');
       setInviteDepartmentId('');
-      setNotice('Invitation saved successfully.');
+      setNotice('Invitation email sent successfully.');
       await load();
     }
     setPendingActionId(null);
@@ -314,7 +315,7 @@ export default function CustomerTeamPage() {
                       </option>
                     ))}
                   </select>
-                  {member.membershipStatus === 'suspended' ? (
+                  {member.membershipStatus === 'disabled' ? (
                     <button
                       type="button"
                       disabled={pendingActionId === member.id}
@@ -337,12 +338,12 @@ export default function CustomerTeamPage() {
                         setPendingActionId(member.id);
                         void runTeamAction(
                           { membershipId: member.id, action: 'suspend' },
-                          'Member suspended.'
+                          'Member disabled.'
                         ).finally(() => setPendingActionId(null));
                       }}
                       style={{ fontSize: '0.68rem' }}
                     >
-                      Suspend
+                      Disable
                     </button>
                   )}
                 </div>

@@ -17,6 +17,7 @@ import {
   type WorkspaceNavItem,
   type WorkspaceRole,
 } from '../../../lib/workspaceRole';
+import { isCapabilityAllowedForPath } from '../../../lib/roleCapabilities';
 import {
   getActionCentreRoute,
   getNotificationsRoute,
@@ -164,46 +165,100 @@ function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
 
 function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
   return [
-    { id: 'broker-home', label: 'Broker', items: [{ id: 'broker-dashboard', label: 'Broker Dashboard', href: '/broker', icon: '⌂' }] },
+    { id: 'broker-home', label: 'Broker', items: [
+      { id: 'broker-dashboard', label: 'Broker Dashboard', href: '/broker', icon: '⌂' },
+      { id: 'broker-action-centre', label: 'Action Centre', href: '/broker/action-centre', icon: '!' },
+      { id: 'broker-enquiries', label: 'Enquiries', href: '/broker/enquiries', icon: '◫' },
+    ] },
     { id: 'broker-customers-loads', label: 'Customers & Loads', items: [
       { id: 'broker-customers', label: 'Customers', href: '/broker/customers', icon: '○' },
       { id: 'broker-customer-loads', label: 'Customer Loads', href: '/broker/loads', icon: '■' },
-      { id: 'broker-post-load', label: 'Post Load', href: '/broker/post-load', icon: '+' },
     ] },
     { id: 'broker-commercial', label: 'Commercial', items: [
       { id: 'broker-carrier-quotes', label: 'Carrier Quotes', href: '/broker/bids', icon: '▣' },
+      { id: 'broker-compare-quotes', label: 'Compare Quotes', href: '/broker/compare-quotes', icon: '≡' },
+      { id: 'broker-awards', label: 'Awards', href: '/broker/awards', icon: '✓' },
       { id: 'broker-margin', label: 'Margin / Profit', href: '/broker/margins', icon: '%' },
     ] },
     { id: 'broker-operations', label: 'Operations', items: [
       { id: 'broker-active-jobs', label: 'Active Jobs', href: '/broker/jobs', icon: '■' },
+      { id: 'broker-diary', label: 'Diary', href: '/broker/diary', icon: '□' },
       { id: 'broker-pod-review', label: 'POD Review', href: '/broker/pod-review', icon: '▤' },
       { id: 'broker-disputes', label: 'Disputes', href: '/broker/disputes', icon: '!' },
     ] },
+    { id: 'broker-collaboration', label: 'Collaboration', items: [
+      { id: 'broker-messages', label: 'Messages', href: '/broker/messages', icon: '◫' },
+      { id: 'broker-event-log', label: 'Event Log', href: '/broker/event-log', icon: '≡' },
+      { id: 'broker-network', label: 'Carrier Network', href: '/broker/carrier-network', icon: '⊕' },
+    ] },
     { id: 'broker-finance', label: 'Finance', items: [
+      { id: 'broker-finance-home', label: 'Finance', href: '/broker/finance', icon: '£' },
       { id: 'broker-customer-invoices', label: 'Customer Invoices', href: '/broker/customer-invoices', icon: '£' },
       { id: 'broker-carrier-costs', label: 'Carrier Costs', href: '/broker/carrier-costs', icon: '£' },
     ] },
     { id: 'broker-administration', label: 'Administration', items: [
-      { id: 'broker-settings', label: 'Settings', href: '/broker/settings', icon: '⚙' },
       { id: 'broker-team', label: 'Team', href: '/broker/team', icon: '◎' },
-      { id: 'broker-network', label: 'Carrier Network', href: '/broker/carrier-network', icon: '⊕' },
+      { id: 'broker-settings', label: 'Settings', href: '/broker/settings', icon: '⚙' },
     ] },
   ];
 }
 
+function filterWorkspaceNavByAccess(
+  groups: WorkspaceNavGroup[],
+  role: WorkspaceRole,
+  user: ReturnType<typeof useAuth>['user'],
+): WorkspaceNavGroup[] {
+  if (!user) return groups;
+  const context = {
+    membershipId: user.membershipId,
+    membershipRole: user.membershipRole,
+    financeAccess: user.financeAccess,
+    rawRole: user.rawRole,
+    workspaceRole: role,
+    driverId: user.driverId,
+    canCommercialBid: user.canCommercialBid,
+    driverStatus: user.driverStatus,
+    appAccess: user.appAccess,
+    accountStatus: user.accountStatus,
+    companyStatus: user.companyStatus,
+    ownerDriverWorkspace: user.ownerDriverWorkspace,
+    ownerDriverExecutionMode: user.ownerDriverExecutionMode,
+    canAccessDriverMode: user.canAccessDriverMode,
+  };
+
+  return groups
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) =>
+        isCapabilityAllowedForPath(item.href, user.role === 'guest' ? null : user.role, context)),
+    }))
+    .filter((group) => group.items.length > 0);
+}
+
 function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
   return [
-    { id: 'customer-home', label: 'Customer', items: [{ id: 'customer-dashboard', label: 'Customer Dashboard', href: '/customer', icon: '⌂' }] },
+    { id: 'customer-home', label: 'Customer', items: [
+      { id: 'customer-dashboard', label: 'Customer Dashboard', href: '/customer', icon: '⌂' },
+      { id: 'customer-action-centre', label: 'Action Centre', href: '/customer/action-centre', icon: '!' },
+    ] },
     { id: 'customer-loads', label: 'Loads', items: [
-      { id: 'customer-post-load', label: 'Post Load', href: '/customer/post-load', icon: '+' },
       { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: '■' },
       { id: 'customer-quotes', label: 'Quotes', href: '/customer/quotes', icon: '▣' },
+      { id: 'customer-awards', label: 'Awards', href: '/customer/awards', icon: '✓' },
       { id: 'customer-bookings', label: 'Bookings', href: '/customer/bookings', icon: '✓' },
     ] },
     { id: 'customer-delivery', label: 'Delivery', items: [
       { id: 'customer-deliveries', label: 'Deliveries', href: '/customer/deliveries', icon: '■' },
+      { id: 'customer-tracking', label: 'Tracking', href: '/customer/tracking', icon: '⌖' },
       { id: 'customer-pod-docs', label: 'POD & Documents', href: '/customer/documents', icon: '▤' },
+      { id: 'customer-diary', label: 'Diary', href: '/customer/diary', icon: '□' },
       { id: 'customer-updates', label: 'Updates', href: '/customer/updates', icon: '●' },
+    ] },
+    { id: 'customer-collaboration', label: 'Collaboration', items: [
+      { id: 'customer-network', label: 'Network', href: '/customer/network', icon: '○' },
+      { id: 'customer-messages', label: 'Messages', href: '/customer/messages', icon: '◫' },
+      { id: 'customer-disputes', label: 'Disputes', href: '/customer/disputes', icon: '!' },
+      { id: 'customer-event-log', label: 'Event Log', href: '/customer/event-log', icon: '≡' },
     ] },
     { id: 'customer-finance', label: 'Finance', items: [{ id: 'customer-invoices', label: 'Invoices', href: '/customer/invoices', icon: '£' }] },
     { id: 'customer-administration', label: 'Administration', items: [
@@ -350,13 +405,17 @@ export default function TopWorkspaceShell({
       }
     }
 
-    if (role === 'broker') return composeBrokerPrototypeNav();
-    if (role === 'customer') return composeCustomerPrototypeNav();
+    if (role === 'broker') {
+      return filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user);
+    }
+    if (role === 'customer') {
+      return filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user);
+    }
     if (CARRIER_NAV_ROLES.has(role)) base = composeCarrierPrimaryNav(base);
     else if (role === 'fleet_manager') base = composeFleetPrimaryNav(base);
 
     return base;
-  }, [role]);
+  }, [role, user]);
   const [companyName, setCompanyName] = useState('XDrive Logistics');
   const [unreadCount, setUnreadCount] = useState(0);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
@@ -393,8 +452,11 @@ export default function TopWorkspaceShell({
   const primaryAction =
     !CARRIER_NAV_ROLES.has(role) &&
     definition.primaryAction &&
-    (!definition.primaryAction.capability ||
-      hasWorkspaceCapability(role, definition.primaryAction.capability))
+    (
+      (role === 'broker' || role === 'customer')
+        ? nav.some((group) => group.items.some((item) => item.href === definition.primaryAction?.href))
+        : (!definition.primaryAction.capability || hasWorkspaceCapability(role, definition.primaryAction.capability))
+    )
       ? definition.primaryAction
       : null;
   const showCarrierPostLoadAction =
@@ -509,7 +571,7 @@ export default function TopWorkspaceShell({
           {!CARRIER_NAV_ROLES.has(role) && (
             <div className="top-workspace-shell__identity">
               <span>{definition.label}</span>
-              <strong>{companyName}</strong>
+              {role !== 'customer' ? <strong>{companyName}</strong> : null}
             </div>
           )}
         </div>

@@ -28,7 +28,8 @@ describe('CX workspace accessibility convergence', () => {
   it('keeps driver operational actions as real buttons and textual status labels', () => {
     const source = read('app/driver/page.tsx');
     expect(source).toContain('<ActionButton');
-    expect(source).toContain('<StatusBadge');
+    expect(source).toContain('driver-cell-label">Status</span>');
+    expect(source).toContain('{humanize(status)}');
     expect(source).toContain('<span>NEXT ACTION</span>');
     expect(source).toContain('driver-proto-next-action');
   });

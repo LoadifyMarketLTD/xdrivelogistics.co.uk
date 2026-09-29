@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '@/app/components/ProtectedRoute';
@@ -144,7 +144,7 @@ export default function Page() {
 
       <SuperAdminSectionCard title="Company selection" description="Select a company to inspect its verified transport-buyer exposure snapshot." flush>
         <SuperAdminFilterBar><input value={search} onChange={(event)=>setSearch(event.target.value)} placeholder="Search company, number or email…" style={{minHeight:34,minWidth:300}}/></SuperAdminFilterBar>
-        {loadingList ? <SuperAdminEmptyState title="Loading company register…"/> : filtered.length===0 ? <SuperAdminEmptyState title="No companies match this view."/> : <SuperAdminDataGrid columns={columns} rows={filtered} rowKey={(row)=>row.id} minWidth={760}/>} 
+        {loadingList ? <SuperAdminEmptyState title="Loading company register…"/> : filtered.length===0 ? <SuperAdminEmptyState title="No companies match this view."/> : <SuperAdminDataGrid columns={columns} rows={filtered} rowKey={(row)=>row.id} minWidth={760}/>}
       </SuperAdminSectionCard>
 
       {risk && detail?.company ? <>

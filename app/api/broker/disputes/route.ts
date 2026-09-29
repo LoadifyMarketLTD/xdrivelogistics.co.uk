@@ -31,10 +31,11 @@ async function resolveCallerMembership(
   if (authErr || !user) return null;
   const { data: membership } = await supabaseAdmin
     .from('company_memberships')
-    .select('id')
+    .select('id, role_in_company')
     .eq('company_id', companyId)
     .eq('user_id', user.id)
     .eq('status', 'active')
+    .in('role_in_company', ['owner', 'admin'])
     .limit(1)
     .maybeSingle();
   if (!membership?.id) return null;
@@ -65,7 +66,7 @@ export async function PATCH(request: NextRequest) {
   if (!action) return json(400, { error: 'action is required. Valid: investigate, resolve, close, escalate.' });
 
   const caller = await resolveCallerMembership(request, companyId);
-  if (!caller) return json(403, { error: 'Forbidden — active broker membership required.' });
+  if (!caller) return json(403, { error: 'Forbidden — an active broker owner or admin is required.' });
 
   // Fetch dispute and confirm it relates to broker's job
   const { data: dispute, error: fetchErr } = await supabaseAdmin

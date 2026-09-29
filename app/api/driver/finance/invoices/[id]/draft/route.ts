@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../../../../_lib/supabaseAdmin';
+
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { requireDriverFinanceAccess } from '../../../_lib/financeAccess';
 import { toCanonicalInvoiceStatus } from '../../../../../../../lib/invoiceStatus';
 import {
   computeInvoiceDueDate,
@@ -39,34 +36,24 @@ const ordinaryTreatmentForRate = (vatRate: number): InvoiceVatTreatment | null =
 
 async function resolveEditor(request: NextRequest, invoiceId: string) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
 
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return null;
+  const access = await requireDriverFinanceAccess(request);
+  if (!access.ok) return access.response;
 
   const { data: invoice, error: invoiceError } = await supabaseAdmin
     .from('invoices')
     .select('*')
     .eq('id', invoiceId)
+    .eq('company_id', access.context.companyId)
     .maybeSingle();
   if (invoiceError) throw new Error(invoiceError.message);
   if (!invoice || typeof invoice.company_id !== 'string') return null;
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company')
-    .eq('company_id', invoice.company_id)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (membershipError) throw new Error(membershipError.message);
-
-  const role = String(membership?.role_in_company ?? '').toLowerCase();
-  if (!['owner', 'admin', 'dispatcher', 'finance'].includes(role)) return null;
-
-  return { userId: authData.user.id, companyId: invoice.company_id as string, invoice };
+  return {
+    userId: access.context.userId,
+    companyId: access.context.companyId,
+    invoice,
+  };
 }
 
 export async function PATCH(
@@ -84,7 +71,8 @@ export async function PATCH(
   } catch (reason) {
     return respond(500, { error: reason instanceof Error ? reason.message : 'Invoice access could not be verified.' });
   }
-  if (!editor) return respond(403, { error: 'Finance workspace access is required to edit this invoice.' });
+  if (editor instanceof NextResponse) return editor;
+  if (!editor) return respond(404, { error: 'Invoice not found for this Owner Driver account.' });
 
   const currentStatus = toCanonicalInvoiceStatus(editor.invoice.status);
   if (currentStatus !== 'Draft') {

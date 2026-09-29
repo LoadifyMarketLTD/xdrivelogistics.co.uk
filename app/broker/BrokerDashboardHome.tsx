@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 
 import {
@@ -11,47 +11,22 @@ import {
   isOverdue,
   isRevenueInvoice,
 } from '../../lib/brokerFinance';
-import { classifyWorkspaceJobStage } from '../../lib/jobs/workspaceJobStage';
-import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import {
-  getWorkspaceMetricPresentationStatus,
+  classifyWorkspaceJobStage,
+  workspaceJobPresentationStatus,
+} from '../../lib/jobs/workspaceJobStage';
+import {
   useCompanyWorkspaceData,
-  type WorkspaceDataState,
+  type WorkspaceDatasetState,
 } from '../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
-  DataTable,
   EmptyState,
-  FinancialSummaryPanel,
-  ExchangeKpiStrip,
-  KpiCard,
-  OperationalToolbar,
-  Panel,
-  QuickActionGrid,
+  PageFrame,
+  PageHeader,
   StatusBadge,
-  TwoColumn,
-  workspaceTheme,
 } from '../components/workspace/WorkspaceUI';
-import { DashboardHomeHeader } from '../components/workspace/DashboardHomePrimitives';
-
-const exceptionStatuses = new Set([
-  'cancelled',
-  'failed',
-  'exception',
-  'disputed',
-  'collection_failed',
-  'delivery_failed',
-  'damaged',
-  'breakdown',
-]);
-const enquiryActionStatuses = new Set(['draft', 'new', 'pending', 'received']);
-
-type EnquiryActionState = {
-  loading: boolean;
-  unavailable: boolean;
-  count: number;
-};
 
 const money = (value: number) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
@@ -59,119 +34,63 @@ const money = (value: number) =>
 const when = (value: string | null | undefined) =>
   value
     ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
-    : 'Not set';
+    : 'TBC';
 
-const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
+const metricState = <T,>(dataset: WorkspaceDatasetState<T>, value: number | string) => {
+  if (dataset.availability !== 'available') return '—';
+  if (dataset.partialData || dataset.limitedData) return 'Partial';
+  return value;
+};
 
-const unavailable = (
-  data: WorkspaceDataState,
-  keys: Array<keyof WorkspaceDataState['datasets']>,
-) => {
-  const status = getWorkspaceMetricPresentationStatus(keys.map((key) => data.datasets[key]));
-  return status === 'partial' || status === 'unavailable' || status === 'omitted';
+const brokerLifecycleLabel = (job: Parameters<typeof workspaceJobPresentationStatus>[0]) => {
+  const status = workspaceJobPresentationStatus(job);
+  switch (status) {
+    case 'awarded': return 'Carrier awarded';
+    case 'allocated': return 'Driver assigned';
+    case 'accepted': return 'Driver accepted';
+    case 'on_my_way': return 'Driver en route to collection';
+    case 'on_site_pickup': return 'Driver at collection';
+    case 'loaded': return 'Goods collected';
+    case 'in_transit': return 'In transit';
+    case 'on_site_delivery': return 'Driver at delivery';
+    case 'delivered': return 'Delivered';
+    case 'completed': return 'Completed';
+    case 'invoiced': return 'Invoice available';
+    case 'paid': return 'Paid';
+    case 'posted': return 'Open for quotes';
+    case 'quoted': return 'Quotes received';
+    case 'draft': return 'Draft';
+    case 'cancelled': return 'Cancelled';
+    default: return status.replaceAll('_', ' ');
+  }
+};
+
+const brokerJobPriority = (job: Parameters<typeof workspaceJobPresentationStatus>[0]) => {
+  const stage = classifyWorkspaceJobStage(job);
+  if (stage === 'in_progress') return 0;
+  if (stage === 'awarded' || stage === 'allocated') return 1;
+  if (stage === 'open') return 2;
+  if (stage === 'completed') return 3;
+  return 4;
 };
 
 export default function BrokerDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
-  const [enquiryActions, setEnquiryActions] = useState<EnquiryActionState>({ loading: true, unavailable: false, count: 0 });
-  const [searchTerm, setSearchTerm] = useState('');
-  const [savedView, setSavedView] = useState<'default' | 'exceptions' | 'margin'>('default');
-  const [dateRange, setDateRange] = useState<'today' | '7d' | '30d'>('today');
 
-  useEffect(() => {
-    let active = true;
-
-    const loadEnquiryActions = async () => {
-      if (!isSupabaseConfigured || !data.companyId) {
-        if (active) setEnquiryActions({ loading: false, unavailable: true, count: 0 });
-        return;
-      }
-
-      const { data: rows, error } = await supabase
-        .from('quotes')
-        .select('status')
-        .eq('company_id', data.companyId)
-        .limit(250);
-
-      if (!active) return;
-      if (error) {
-        setEnquiryActions({ loading: false, unavailable: true, count: 0 });
-        return;
-      }
-
-      const count = (rows ?? []).filter((row) => enquiryActionStatuses.has(String(row.status ?? 'draft').toLowerCase())).length;
-      setEnquiryActions({ loading: false, unavailable: false, count });
-    };
-
-    void loadEnquiryActions();
-    return () => { active = false; };
-  }, [data.companyId]);
-
-  const filteredJobs = useMemo(() => {
-    const query = normalise(searchTerm);
-    const now = Date.now();
-    const rangeStart = dateRange === 'today'
-      ? new Date(new Date().setHours(0, 0, 0, 0)).getTime()
-      : now - (dateRange === '7d' ? 7 : 30) * 86_400_000;
-
-    return data.jobs.filter((job) => {
-      const timestampValue = job.pickup_datetime ?? job.created_at;
-      const timestamp = timestampValue ? new Date(timestampValue).getTime() : Number.NaN;
-      if (Number.isFinite(timestamp) && timestamp < rangeStart) return false;
-
-      const haystack = [
-        job.id,
-        job.customer_reference,
-        job.client_name,
-        job.pickup_location,
-        job.pickup_postcode,
-        job.delivery_location,
-        job.delivery_postcode,
-        job.status,
-        job.current_status,
-      ].map(normalise).join(' ');
-      if (query && !haystack.includes(query)) return false;
-
-      if (savedView === 'exceptions') {
-        return exceptionStatuses.has(normalise(job.current_status ?? job.status));
-      }
-      if (savedView === 'margin') {
-        const budget = Number(job.budget_amount ?? 0);
-        const submitted = data.bids.filter((bid) => bid.job_id === job.id && bid.status === 'submitted');
-        if (!budget || submitted.length === 0) return false;
-        const bestCarrierQuote = Math.min(...submitted.map((bid) => Number(bid.bid_price_gbp ?? bid.amount ?? Number.POSITIVE_INFINITY)));
-        return Number.isFinite(bestCarrierQuote) && bestCarrierQuote >= budget;
-      }
-      return true;
-    });
-  }, [data.bids, data.jobs, dateRange, savedView, searchTerm]);
   const metrics = useMemo(() => {
-    const now = Date.now();
     const submittedQuotes = data.bids.filter((bid) => bid.status === 'submitted');
-    const acceptedQuotes = data.bids.filter((bid) => bid.status === 'accepted');
-    const awaitingAward = filteredJobs.filter(
+    const openLoads = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'open');
+    const awaitingAward = openLoads.filter(
       (job) =>
-        classifyWorkspaceJobStage(job) === 'open' &&
         !job.awarded_carrier_company_id &&
         submittedQuotes.some((bid) => bid.job_id === job.id),
     );
-    const awardedJobs = filteredJobs.filter((job) => {
+    const activeJobs = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'in_progress');
+    const awardedJobs = data.jobs.filter((job) => {
       const stage = classifyWorkspaceJobStage(job);
       return stage === 'awarded' || stage === 'allocated';
     });
-    const activeJobs = filteredJobs.filter((job) => classifyWorkspaceJobStage(job) === 'in_progress');
-    // The dashboard workspace feed exposes delivery_photos but not the complete
-    // POD signature/recipient/document contract. Keep this signal explicitly
-    // about missing delivery-photo evidence and direct users to POD review.
-    const deliveryEvidenceMissing = filteredJobs.filter(
-      (job) =>
-        classifyWorkspaceJobStage(job) === 'completed' &&
-        (job.delivery_photos?.length ?? 0) === 0,
-    );
-    const exceptions = filteredJobs.filter((job) =>
-      exceptionStatuses.has(normalise(job.current_status ?? job.status)),
-    );
 
     const revenueInvoices = data.invoices.filter((invoice) =>
       isRevenueInvoice(invoice, data.companyId),
@@ -187,302 +106,324 @@ export default function BrokerDashboardHome() {
       (sum, invoice) => sum + invoiceSignedNetAmount(invoice),
       0,
     );
-    const awaitingPayment = revenueInvoices.filter((invoice) => isAwaitingPayment(invoice));
-    const overdue = revenueInvoices.filter((invoice) => isOverdue(invoice));
-    const dueSoon = awaitingPayment.filter((invoice) => {
-      if (!invoice.due_date) return false;
-      const dueAt = new Date(invoice.due_date).getTime();
-      return Number.isFinite(dueAt) && dueAt >= now && dueAt <= now + 7 * 86_400_000;
-    });
     const grossMargin = revenue - carrierCost;
+    const outstandingRevenue = revenueInvoices.filter((invoice) => isAwaitingPayment(invoice));
+    const overdueRevenue = revenueInvoices.filter((invoice) => isOverdue(invoice));
+
+    const currentJobs = [...data.jobs]
+      .sort((a, b) => {
+        const priority = brokerJobPriority(a) - brokerJobPriority(b);
+        if (priority !== 0) return priority;
+        return String(b.updated_at ?? b.created_at ?? '').localeCompare(
+          String(a.updated_at ?? a.created_at ?? ''),
+        );
+      })
+      .slice(0, 8);
 
     return {
-      draftLoads: filteredJobs.filter((job) => normalise(job.status) === 'draft').length,
       submittedQuotes,
-      acceptedQuotes,
+      openLoads,
       awaitingAward,
-      awardedJobs,
       activeJobs,
-      deliveryEvidenceMissing,
-      exceptions,
+      awardedJobs,
+      currentJobs,
       grossMargin,
-      grossMarginPct: revenue > 0 ? (grossMargin / revenue) * 100 : 0,
-      awaitingPayment,
-      awaitingPaymentValue: awaitingPayment.reduce(
+      outstandingRevenue,
+      outstandingRevenueValue: outstandingRevenue.reduce(
         (sum, invoice) => sum + invoiceNetAmount(invoice),
         0,
       ),
-      dueSoon,
-      overdue,
-      overdueValue: overdue.reduce((sum, invoice) => sum + invoiceNetAmount(invoice), 0),
-      carrierSpend: carrierCost,
+      overdueRevenue,
     };
-  }, [data, filteredJobs]);
+  }, [data]);
 
-  const jobsUnavailable = unavailable(data, ['jobs']);
-  const quotesUnavailable = unavailable(data, ['jobs', 'bids']);
-  const invoicesUnavailable = unavailable(data, ['invoices']);
-  const invoiceAlertCount = metrics.overdue.length + metrics.dueSoon.length;
-  const marginAlert = metrics.grossMargin < 0;
+  const jobsDataset = data.datasets.jobs;
+  const bidsDataset = data.datasets.bids;
+  const invoicesDataset = data.datasets.invoices;
+  const quoteDecisionUnavailable = jobsDataset.availability !== 'available' || bidsDataset.availability !== 'available';
+  const quoteDecisionPartial = !quoteDecisionUnavailable && (
+    jobsDataset.partialData || jobsDataset.limitedData || bidsDataset.partialData || bidsDataset.limitedData
+  );
+  const quoteDecisionMetric = quoteDecisionUnavailable
+    ? '—'
+    : quoteDecisionPartial
+      ? 'Partial'
+      : metrics.awaitingAward.length;
+  const attentionUnavailable = [jobsDataset, bidsDataset, invoicesDataset].some(
+    (dataset) => dataset.availability !== 'available',
+  );
+  const attentionPartial = !attentionUnavailable && [jobsDataset, bidsDataset, invoicesDataset].some(
+    (dataset) => dataset.partialData || dataset.limitedData,
+  );
+
+  const attentionItems = [
+    {
+      label: 'Quotes awaiting decision',
+      detail: 'Compare carrier quotes and award the customer load.',
+      value: quoteDecisionMetric,
+      route: '/broker/bids',
+      show: metrics.awaitingAward.length > 0,
+    },
+    {
+      label: 'Awarded work awaiting execution',
+      detail: 'Carrier selected, waiting for driver allocation or start.',
+      value: metricState(jobsDataset, metrics.awardedJobs.length),
+      route: '/broker/jobs',
+      show: metrics.awardedJobs.length > 0,
+    },
+    {
+      label: 'Overdue customer invoices',
+      detail: 'Customer receivables are past their due date.',
+      value: metricState(invoicesDataset, metrics.overdueRevenue.length),
+      route: '/broker/customer-invoices',
+      show: metrics.overdueRevenue.length > 0,
+    },
+  ].filter((item) => item.show);
 
   return (
-    <div style={{ width: '100%', padding: '12px 12px 16px' }}>
-      <DashboardHomeHeader
-        eyebrow="Broker commercial desk"
-        title="Broker Dashboard"
-        badge="Operational control"
-        description="Action-first control of customer enquiries, carrier decisions, awarded work, delivery evidence, invoices and realised margin."
-        actions={
-          <>
-            <ActionButton tone="warning" onClick={() => router.push('/broker/post-load')}>Post Load</ActionButton>
-            <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>Compare Quotes</ActionButton>
-          </>
-        }
-      />
-
-      {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
-
-      <OperationalToolbar>
-        <input
-          aria-label="Search broker operations"
-          type="search"
-          placeholder="Search jobs, routes, refs"
-          value={searchTerm}
-          onChange={(event) => setSearchTerm(event.target.value)}
-        />
-        <select aria-label="Saved view" value={savedView} onChange={(event) => setSavedView(event.target.value as 'default' | 'exceptions' | 'margin')}>
-          <option value="default">Default</option>
-          <option value="exceptions">Exceptions</option>
-          <option value="margin">Margin watch</option>
-        </select>
-        <select aria-label="Date range" value={dateRange} onChange={(event) => setDateRange(event.target.value as 'today' | '7d' | '30d')}>
-          <option value="today">Today</option>
-          <option value="7d">Last 7 days</option>
-          <option value="30d">Last 30 days</option>
-        </select>
-        <ActionButton tone="secondary" onClick={() => { setSearchTerm(''); setSavedView('default'); setDateRange('today'); }}>Clear</ActionButton>
-        <ActionButton tone="secondary" onClick={() => router.push('/broker/finance')}>Export / Finance</ActionButton>
-      </OperationalToolbar>
-
-      <ExchangeKpiStrip>
-        <KpiCard label="Open Loads" value={jobsUnavailable ? '—' : filteredJobs.filter((job) => classifyWorkspaceJobStage(job) === 'open').length} tone="blue" />
-        <KpiCard label="Quotes Received" value={quotesUnavailable ? '—' : metrics.submittedQuotes.length} tone="green" />
-        <KpiCard label="Awaiting Award" value={quotesUnavailable ? '—' : metrics.awaitingAward.length} tone="orange" />
-        <KpiCard label="Active Jobs" value={jobsUnavailable ? '—' : metrics.activeJobs.length} tone="blue" />
-        <KpiCard label="POD Missing" value={jobsUnavailable ? '—' : metrics.deliveryEvidenceMissing.length} tone="orange" />
-        <KpiCard label="Gross Margin" value={invoicesUnavailable ? '—' : money(metrics.grossMargin)} tone={metrics.grossMargin < 0 ? 'red' : 'green'} />
-      </ExchangeKpiStrip>
-
-      <Panel
-        title="Operational action queue"
-        description="Master Plan v3 broker priorities, using live workspace data and truthful unavailable states."
-      >
-        <DataTable
-          columns={['Priority', 'Current state', 'Operational meaning', 'Action']}
-          rows={[
-            [
-              <strong key="priority">Enquiries awaiting action</strong>,
-              enquiryActions.loading ? 'Loading…' : enquiryActions.unavailable ? 'Unavailable' : enquiryActions.count,
-              enquiryActions.unavailable ? 'Customer enquiry data is not available to this dashboard.' : 'New or pending customer transport requests.',
-              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/enquiries')}>Open enquiries</ActionButton>,
-            ],
-            [
-              <strong key="priority">Quotes requiring action</strong>,
-              quotesUnavailable ? 'Unavailable' : metrics.awaitingAward.length,
-              'Loads with submitted carrier quotes awaiting a broker decision.',
-              <ActionButton key="action" tone="warning" onClick={() => router.push('/broker/bids')}>Compare quotes</ActionButton>,
-            ],
-            [
-              <strong key="priority">Awarded</strong>,
-              jobsUnavailable ? 'Unavailable' : metrics.awardedJobs.length,
-              'Carrier awarded or allocated work that has not yet entered live execution.',
-              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/jobs')}>Open jobs</ActionButton>,
-            ],
-            [
-              <strong key="priority">Active</strong>,
-              jobsUnavailable ? 'Unavailable' : metrics.activeJobs.length,
-              'Awarded work currently moving through collection or delivery.',
-              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/jobs')}>Track active</ActionButton>,
-            ],
-            [
-              <strong key="priority">Delivery evidence review</strong>,
-              jobsUnavailable ? 'Unavailable' : metrics.deliveryEvidenceMissing.length,
-              'Completed work with no delivery-photo evidence in the dashboard feed. Full POD state is checked in POD review / job sheet.',
-              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/pod-review')}>Review evidence</ActionButton>,
-            ],
-            [
-              <strong key="priority">Invoice alerts</strong>,
-              invoicesUnavailable ? 'Unavailable' : invoiceAlertCount,
-              invoicesUnavailable ? 'Invoice data is not available.' : `${metrics.overdue.length} overdue · ${metrics.dueSoon.length} due within 7 days`,
-              <ActionButton key="action" tone="secondary" onClick={() => router.push('/broker/finance')}>Open finance</ActionButton>,
-            ],
-            [
-              <strong key="priority">Margin alerts</strong>,
-              invoicesUnavailable ? 'Unavailable' : marginAlert ? 'Attention' : 'Clear',
-              invoicesUnavailable ? 'Margin data is not available.' : `${money(metrics.grossMargin)} realised margin · ${metrics.grossMarginPct.toFixed(1)}%`,
-              <ActionButton key="action" tone={marginAlert ? 'danger' : 'secondary'} onClick={() => router.push('/broker/margins')}>Review margin</ActionButton>,
-            ],
-          ]}
-        />
-      </Panel>
-
-      <Panel
-        title="Quote decisions requiring action"
-        description="Loads with live carrier quotes remain directly actionable below the broker queue."
-        actions={<ActionButton tone="warning" onClick={() => router.push('/broker/bids')}>Compare all</ActionButton>}
-        style={{ marginTop: '12px' }}
-      >
-        <DataTable
-          columns={['Customer load', 'Route', 'Quotes', 'Budget', 'Best quote', 'Est. margin', 'Decision']}
-          rows={metrics.awaitingAward.slice(0, 8).map((job) => {
-            const quotes = data.bids.filter(
-              (bid) => bid.job_id === job.id && bid.status === 'submitted',
-            );
-            const prices = quotes
-              .map((bid) => Number(bid.bid_price_gbp ?? bid.amount ?? 0))
-              .filter((price) => price > 0);
-            const best = prices.length ? Math.min(...prices) : 0;
-            const budget = Number(job.budget_amount ?? 0);
-            return [
-              job.client_name ?? job.id.slice(0, 8).toUpperCase(),
-              <strong key="route">
-                {job.pickup_postcode ?? job.pickup_location ?? 'Collection'} →{' '}
-                {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
-              </strong>,
-              quotes.length,
-              budget > 0 ? money(budget) : '—',
-              best > 0 ? money(best) : '—',
-              best > 0 && budget > 0 ? money(budget - best) : '—',
-              <ActionButton key="decision" tone="success" onClick={() => router.push(`/broker/bids?job=${job.id}`)}>
-                Compare &amp; award
-              </ActionButton>,
-            ];
-          })}
-          empty={
-            <EmptyState
-              compact
-              title={quotesUnavailable ? 'Quote decision data unavailable' : 'No award decisions waiting'}
-              description={quotesUnavailable ? 'The broker load or quote feed is currently incomplete.' : 'New loads with carrier quotes will appear here.'}
-            />
+    <PageFrame>
+      <div className="broker-clean-dashboard">
+        <PageHeader
+          eyebrow="Broker workspace"
+          title="Transport control"
+          description="Manage customer loads, carrier decisions, live execution and commercial position from one clear workflow."
+          actions={
+            <>
+              <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>
+                Compare Quotes
+              </ActionButton>
+              <ActionButton tone="secondary" onClick={() => router.push('/broker/jobs')}>
+                Active Jobs
+              </ActionButton>
+            </>
           }
         />
-      </Panel>
 
-      <TwoColumn>
-        <Panel
-          title="Live carrier execution"
-          description="Awarded work currently moving through collection and delivery."
-          actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/jobs')}>All jobs</ActionButton>}
-          style={{ marginTop: '12px' }}
-        >
-          <DataTable
-            columns={['Route', 'Customer', 'Pickup', 'Status', 'Photo evidence', 'Track']}
-            rows={metrics.activeJobs.slice(0, 7).map((job) => [
-              <strong key="route">
-                {job.pickup_postcode ?? job.pickup_location ?? 'Collection'} →{' '}
-                {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
-              </strong>,
-              job.client_name ?? 'Customer',
-              when(job.pickup_datetime),
-              <StatusBadge key="status" value={job.current_status ?? job.status} />,
-              (job.delivery_photos?.length ?? 0) > 0
-                ? <StatusBadge key="evidence" value="captured" tone="green" />
-                : <StatusBadge key="evidence" value="not captured" tone="orange" />,
-              <ActionButton key="track" tone="secondary" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Track</ActionButton>,
-            ])}
-            empty={<EmptyState compact title={jobsUnavailable ? 'Job data unavailable' : 'No active carrier jobs'} />}
-          />
-        </Panel>
+        {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
+        {quoteDecisionUnavailable ? (
+          <AlertBanner tone="warning">
+            Quote decision data unavailable. Award counts are hidden until both jobs and carrier quotes are available.
+          </AlertBanner>
+        ) : quoteDecisionPartial ? (
+          <AlertBanner tone="warning">
+            Quote decision data is partial. Exact award counts are hidden until the complete jobs and quotes datasets are available.
+          </AlertBanner>
+        ) : null}
 
-        <div style={{ display: 'grid', gap: '12px', marginTop: '12px' }}>
-          <Panel title="Commercial exposure" description="Finance detail supporting invoice and margin alerts.">
-            <FinancialSummaryPanel
-              items={[
-                {
-                  label: 'Draft loads',
-                  detail: 'Not yet published',
-                  value: jobsUnavailable ? '—' : metrics.draftLoads,
-                  color: workspaceTheme.blue,
-                  background: '#EEF4FF',
-                },
-                {
-                  label: 'Awaiting customer payment',
-                  detail: money(metrics.awaitingPaymentValue),
-                  value: invoicesUnavailable ? '—' : metrics.awaitingPayment.length,
-                  color: workspaceTheme.amber,
-                  background: '#FFF7ED',
-                },
-                {
-                  label: 'Due within 7 days',
-                  detail: 'Receivables approaching due date',
-                  value: invoicesUnavailable ? '—' : metrics.dueSoon.length,
-                  color: workspaceTheme.orange,
-                  background: '#FFF8E8',
-                },
-                {
-                  label: 'Overdue customer invoices',
-                  detail: money(metrics.overdueValue),
-                  value: invoicesUnavailable ? '—' : metrics.overdue.length,
-                  color: metrics.overdue.length ? workspaceTheme.red : workspaceTheme.green,
-                  background: metrics.overdue.length ? '#FEF2F2' : '#F0FDF4',
-                },
-                {
-                  label: 'Carrier cost',
-                  detail: 'Realised supplier invoices',
-                  value: invoicesUnavailable ? '—' : money(metrics.carrierSpend),
-                  color: workspaceTheme.navy,
-                  background: workspaceTheme.surfaceMuted,
-                },
-              ]}
-            />
-          </Panel>
-
-          <Panel title="Broker actions" description="Existing commercial and exception workflows.">
-            <QuickActionGrid
-              actions={[
-                { key: 'post', label: 'Post customer load', onClick: () => router.push('/broker/post-load') },
-                { key: 'compare', label: 'Compare carrier quotes', onClick: () => router.push('/broker/bids') },
-                { key: 'network', label: 'Carrier network', onClick: () => router.push('/broker/carrier-network') },
-                { key: 'disputes', label: 'Disputes', onClick: () => router.push('/broker/disputes') },
-                { key: 'invoices', label: 'Customer invoices', onClick: () => router.push('/broker/customer-invoices') },
-                { key: 'margins', label: 'Margin reporting', onClick: () => router.push('/broker/margins') },
-                { key: 'messages', label: 'Messages', onClick: () => router.push('/broker/messages') },
-                { key: 'event-log', label: 'Event Log', onClick: () => router.push('/broker/event-log') },
-              ]}
-            />
-          </Panel>
+        <div className="broker-clean-kpis" aria-label="Broker summary">
+          <button type="button" onClick={() => router.push('/broker/loads')}>
+            <span>Open loads</span>
+            <strong>{metricState(jobsDataset, metrics.openLoads.length)}</strong>
+            <small>Customer work in sourcing</small>
+          </button>
+          <button type="button" onClick={() => router.push('/broker/bids')}>
+            <span>Awaiting award</span>
+            <strong>{quoteDecisionMetric}</strong>
+            <small>Carrier quotes need a decision</small>
+          </button>
+          <button type="button" onClick={() => router.push('/broker/jobs')}>
+            <span>Active jobs</span>
+            <strong>{metricState(jobsDataset, metrics.activeJobs.length)}</strong>
+            <small>Driver execution in progress</small>
+          </button>
+          <button type="button" onClick={() => router.push('/broker/margins')}>
+            <span>Gross margin</span>
+            <strong>{metricState(invoicesDataset, money(metrics.grossMargin))}</strong>
+            <small>Revenue less carrier cost</small>
+          </button>
         </div>
-      </TwoColumn>
 
-      {(metrics.deliveryEvidenceMissing.length > 0 || metrics.exceptions.length > 0) ? (
-        <Panel
-          title="Exceptions and delivery evidence follow-up"
-          description="Operational exceptions and missing delivery-photo evidence are surfaced before they become customer or finance problems. Full POD completeness remains authoritative in the job sheet."
-          actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/disputes')}>Open disputes</ActionButton>}
-          style={{ marginTop: '12px' }}
-        >
-          <DataTable
-            columns={['Route', 'Customer', 'Issue', 'Last status', 'Action']}
-            rows={[...metrics.exceptions, ...metrics.deliveryEvidenceMissing.filter((job) => !metrics.exceptions.includes(job))]
-              .slice(0, 8)
-              .map((job) => {
-                const isEvidence = metrics.deliveryEvidenceMissing.includes(job);
-                return [
-                  <strong key="route">
-                    {job.pickup_postcode ?? job.pickup_location ?? 'Collection'} →{' '}
-                    {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
-                  </strong>,
-                  job.client_name ?? 'Customer',
-                  isEvidence ? 'Delivery-photo evidence missing' : 'Operational exception',
-                  <StatusBadge key="status" value={job.current_status ?? job.status} tone={isEvidence ? 'orange' : 'red'} />,
-                  <ActionButton key="action" tone={isEvidence ? 'secondary' : 'danger'} onClick={() => router.push(isEvidence ? '/broker/pod-review' : '/broker/disputes')}>
-                    Review
-                  </ActionButton>,
-                ];
-              })}
-          />
-        </Panel>
-      ) : null}
-    </div>
+        <div className="broker-clean-grid">
+          <section className="broker-clean-box">
+            <div className="broker-clean-box__head">
+              <div>
+                <strong>Needs your attention</strong>
+                <span>Only items requiring a broker decision or intervention</span>
+              </div>
+              <ActionButton tone="secondary" onClick={() => router.push('/broker/action-centre')}>
+                Action Centre
+              </ActionButton>
+            </div>
+            <div className="broker-clean-box__body">
+              {attentionItems.length ? (
+                <div className="broker-clean-attention">
+                  {attentionItems.map((item) => (
+                    <button key={item.label} type="button" onClick={() => router.push(item.route)}>
+                      <span>
+                        <strong>{item.label}</strong>
+                        <small>{item.detail}</small>
+                      </span>
+                      <b>{item.value}</b>
+                    </button>
+                  ))}
+                </div>
+              ) : attentionUnavailable ? (
+                <EmptyState
+                  compact
+                  title={quoteDecisionUnavailable ? 'Quote decision data unavailable' : 'Attention data unavailable'}
+                  description="The broker dashboard cannot confirm that there are no decisions or interventions until jobs, quotes and invoices are available."
+                />
+              ) : attentionPartial ? (
+                <EmptyState
+                  compact
+                  title={quoteDecisionPartial ? 'Quote decision data is partial' : 'Attention data is partial'}
+                  description="The visible records are incomplete, so this dashboard does not claim that the attention queue is empty."
+                />
+              ) : (
+                <EmptyState
+                  compact
+                  title="Nothing needs attention"
+                  description="There are no urgent broker decisions right now."
+                />
+              )}
+            </div>
+          </section>
+
+          <section className="broker-clean-box">
+            <div className="broker-clean-box__head">
+              <div>
+                <strong>Quick actions</strong>
+                <span>Core broker workflow</span>
+              </div>
+            </div>
+            <div className="broker-clean-box__body">
+              <div className="broker-clean-actions">
+                <ActionButton tone="secondary" onClick={() => router.push('/broker/enquiries')}>Enquiries</ActionButton>
+                <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>Carrier Quotes</ActionButton>
+                <ActionButton tone="secondary" onClick={() => router.push('/broker/pod-review')}>POD Review</ActionButton>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <section className="broker-clean-box">
+          <div className="broker-clean-box__head">
+            <div>
+              <strong>Current transport</strong>
+              <span>Same job lifecycle seen by Customer, Driver, Fleet and Broker</span>
+            </div>
+            <ActionButton tone="secondary" onClick={() => router.push('/broker/jobs')}>View all jobs</ActionButton>
+          </div>
+          <div className="broker-clean-box__body">
+            {metrics.currentJobs.length ? (
+              <div className="broker-clean-table-wrap">
+                <table className="broker-clean-table">
+                  <thead>
+                    <tr>
+                      <th>Reference</th>
+                      <th>Customer</th>
+                      <th>Route</th>
+                      <th>Pickup</th>
+                      <th>Status</th>
+                      <th>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {metrics.currentJobs.map((job) => {
+                      const stage = classifyWorkspaceJobStage(job);
+                      const action =
+                        stage === 'in_progress'
+                          ? 'Track'
+                          : stage === 'completed'
+                            ? 'POD'
+                            : stage === 'open'
+                              ? 'Quotes'
+                              : 'View booking';
+                      const route =
+                        action === 'Quotes'
+                          ? `/broker/bids?job=${job.id}`
+                          : action === 'POD'
+                            ? `/broker/pod-review?job=${job.id}`
+                            : `/broker/jobs?job=${job.id}`;
+
+                      return (
+                        <tr key={job.id}>
+                          <td>
+                            <strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong>
+                            <small>{job.customer_reference || 'No customer ref'}</small>
+                          </td>
+                          <td>{job.client_name || 'Customer'}</td>
+                          <td>
+                            <strong>
+                              {job.pickup_postcode ?? job.pickup_location ?? 'Collection'} →{' '}
+                              {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
+                            </strong>
+                          </td>
+                          <td>{when(job.pickup_datetime)}</td>
+                          <td><StatusBadge value={brokerLifecycleLabel(job)} /></td>
+                          <td>
+                            <ActionButton tone="secondary" onClick={() => router.push(route)}>
+                              {action}
+                            </ActionButton>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : jobsDataset.availability !== 'available' ? (
+              <EmptyState
+                compact
+                title="Transport data unavailable"
+                description="Current transport cannot be confirmed until the jobs source is available."
+              />
+            ) : jobsDataset.partialData || jobsDataset.limitedData ? (
+              <EmptyState
+                compact
+                title="Transport data is partial"
+                description="The visible jobs dataset is incomplete, so the dashboard does not claim that there is no transport yet."
+              />
+            ) : (
+              <EmptyState
+                compact
+                title="No transport yet"
+                description="Customer loads and awarded carrier work will appear here."
+              />
+            )}
+          </div>
+        </section>
+
+        <section className="broker-clean-box">
+          <div className="broker-clean-box__head">
+            <div>
+              <strong>Commercial position</strong>
+              <span>Broker-only financial visibility, kept separate from operational execution</span>
+            </div>
+            <ActionButton tone="secondary" onClick={() => router.push('/broker/finance')}>Open Finance</ActionButton>
+          </div>
+          <div className="broker-clean-commercial">
+            <button type="button" onClick={() => router.push('/broker/customer-invoices')}>
+              <span>Awaiting customer payment</span>
+              <strong>{metricState(invoicesDataset, metrics.outstandingRevenue.length)}</strong>
+              <small>{invoicesDataset.availability !== 'available'
+                ? 'Unavailable'
+                : invoicesDataset.partialData || invoicesDataset.limitedData
+                  ? 'Partial total'
+                  : money(metrics.outstandingRevenueValue)}</small>
+            </button>
+            <button type="button" onClick={() => router.push('/broker/carrier-costs')}>
+              <span>Carrier costs</span>
+              <strong>Open</strong>
+              <small>Review payable carrier invoices</small>
+            </button>
+            <button type="button" onClick={() => router.push('/broker/margins')}>
+              <span>Margin</span>
+              <strong>{metricState(invoicesDataset, money(metrics.grossMargin))}</strong>
+              <small>Customer revenue minus carrier cost</small>
+            </button>
+          </div>
+        </section>
+
+        <div className="broker-clean-footer-links">
+          <button type="button" onClick={() => router.push('/broker/customers')}>Customers</button>
+          <button type="button" onClick={() => router.push('/broker/carrier-network')}>Carrier Network</button>
+          <button type="button" onClick={() => router.push('/broker/diary')}>Diary</button>
+          <button type="button" onClick={() => router.push('/broker/messages')}>Messages</button>
+          <button type="button" onClick={() => router.push('/broker/event-log')}>Event Log</button>
+          <button type="button" onClick={() => router.push('/broker/disputes')}>Disputes</button>
+        </div>
+      </div>
+    </PageFrame>
   );
 }

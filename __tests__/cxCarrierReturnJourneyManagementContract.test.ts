@@ -12,12 +12,12 @@ describe('CX-informed carrier Return Journey management contract', () => {
     expect(page).toContain('Publish Return Journey');
     expect(page).toContain('Publish / Update');
     expect(page).toContain('Close Return');
-    expect(page).toContain("['owner', 'admin', 'dispatcher']");
+    expect(page).toContain("['owner', 'admin', 'fleet_manager', 'dispatcher']");
     expect(page).toContain("fetch('/api/admin/return-journeys'");
   });
 
-  it('requires company-admin context and a same-company active driver', () => {
-    expect(route).toContain('requireCompanyAdmin(request, parsed.data.companyId)');
+  it('requires authorised fleet-operator context and a same-company active driver', () => {
+    expect(route).toContain('requireCompanyFleetOperator(request, parsed.data.companyId)');
     expect(route).toContain("eq('company_id', context.companyId)");
     expect(route).toContain("Return journeys can only be published for an active driver.");
   });

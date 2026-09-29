@@ -4,64 +4,42 @@ import { describe, expect, it } from 'vitest';
 
 const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), relative), 'utf8');
 
-describe('Driver Dashboard prototype and route audit', () => {
-  const topShell = read('app/driver/_components/DriverTopWorkspaceShell.tsx');
+describe('Driver execution dashboard contract', () => {
   const page = read('app/driver/page.tsx');
-  const css = read('app/driver/driver-dashboard-prototype-exact.css');
 
-  it('keeps Dashboard as the first Driver navbar destination and routes it to /driver', () => {
-    const dashboard = "{ id: 'dashboard', label: 'Dashboard', href: '/driver' }";
-    const directory = "{ id: 'directory', label: 'Directory', href: '/driver/directory' }";
-    expect(topShell).toContain(dashboard);
-    expect(topShell).toContain(directory);
-    expect(topShell.indexOf(dashboard)).toBeLessThan(topShell.indexOf(directory));
+  it('keeps the home screen focused on current execution', () => {
+    for (const marker of ['Current assignment','NEXT ACTION','Next booking','Driver readiness']) expect(page).toContain(marker);
+    expect(page).toContain('Your current job, next action and next booking.');
   });
 
-  it('uses the literal 17883 Dashboard V2 structure', () => {
-    for (const marker of ['xd2-hero', 'xd2-kpis', 'xd2-primary-grid', 'xd2-workboard', 'xd2-readiness', 'xd2-secondary-grid', 'xd2-finance', 'xd2-bottom-grid']) {
-      expect(page).toContain(marker);
-    }
-    expect(page).toContain('Today at a glance');
-    expect(page).toContain('Operational workboard');
-    expect(page).toContain('Commercial position');
-    expect(page).toContain('Performance & evidence');
-    expect(page).toContain('Driver workflow');
-    expect(page).toContain('Latest bookings');
-    expect(page).not.toContain('<span>Quote activity</span>');
-    expect(page).not.toContain('<span>Recent completed work</span>');
-    expect(page).not.toContain('<span>Status & availability</span>');
-    expect(page).not.toContain('<span>Canonical active vehicle</span>');
-    expect(page).not.toContain('<span>Journey & position</span>');
-  });
-
-  it('keeps dashboard shortcuts on real Driver routes', () => {
-    for (const route of ['/driver/history', '/driver/jobs', '/driver/loads', '/driver/availability', '/driver/vehicles', '/driver/documents', '/driver/returns']) {
-      expect(page).toContain(route);
-    }
-  });
-
-  it('does not move prototype fake data or company-only Fleet content into Driver Dashboard', () => {
-    for (const fake of ['Available drivers', 'Sub-contract spend', 'Accounts payable', 'North West Freight Ltd']) {
-      expect(page).not.toContain(fake);
-    }
-    expect(page.toLowerCase()).not.toContain('my fleet');
-  });
-
-  it('keeps the approved six-card command strip and functional workboard tabs', () => {
-    expect(css).toContain('.xd2-kpis');
-    expect(css).toContain('.xd2-kpi');
-    for (const label of ['Needs Attention', 'Upcoming Work', 'Live Jobs', 'Matching Loads', 'Document Alerts', 'Exceptions']) {
-      expect(page).toContain(label);
-    }
-    for (const tab of ['Needs attention', 'Upcoming', 'Live jobs', 'Documents', 'Exceptions', 'All work']) {
-      expect(page).toContain(tab);
-    }
-    expect(page).toContain('setWorkboardView');
-  });
-
-  it('keeps lifecycle and marketplace authority unchanged', () => {
+  it('uses the canonical shared lifecycle and mutation authority', () => {
+    expect(page).toContain('workspaceJobPresentationStatus');
+    expect(page).toContain('jobLifecyclePresentationGroup');
+    expect(page).toContain('nextDriverExecutionStatus');
     expect(page).toContain("supabase.rpc('driver_update_job_status_atomic'");
-    expect(page).toContain("fetch('/api/driver/marketplace/loads'");
-    expect(page).toContain("fetch('/api/driver/vehicles'");
+  });
+
+  it('keeps evidence-gated pickup and delivery steps on the full job screen', () => {
+    expect(page).toContain("label: 'Add collection evidence'");
+    expect(page).toContain("label: 'Capture POD'");
+    expect(page).toContain("mode: 'open'");
+  });
+
+  it('does not load marketplace data for an employed Driver dashboard', () => {
+    expect(page).not.toContain("fetch('/api/driver/marketplace/loads'");
+    expect(page).not.toContain('Matching loads');
+    expect(page).not.toContain('Recent Bookings');
+  });
+
+  it('shows commercial tools only when commercial authority exists', () => {
+    expect(page).toContain("const commercialAccess = ownerDriver || user?.canCommercialBid === true");
+    expect(page).toContain("{ownerDriver ? (");
+    expect(page).toContain('Owner Driver Commercial Position');
+    for (const route of ['/driver/loads','/driver/quotes','/driver/won-work','/driver/nearby','/driver/returns']) expect(page).toContain(route);
+    expect(page).toContain("ownerDriver ? 'Owner-driver commercial tools' : 'Commercial tools'");
+  });
+
+  it('keeps core execution routes one click away', () => {
+    for (const route of ['/driver/jobs','/driver/history','/driver/availability','/driver/vehicles','/driver/documents','/driver/messages','/driver/event-log']) expect(page).toContain(route);
   });
 });

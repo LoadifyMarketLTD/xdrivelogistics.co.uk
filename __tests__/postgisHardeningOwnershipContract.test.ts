@@ -8,6 +8,14 @@ const source = readFileSync(
 );
 
 describe('PostGIS spatial_ref_sys hardening ownership boundary', () => {
+  it('uses the Supabase-supported extensions schema for fresh installs while tolerating legacy public installs', () => {
+    expect(source).toContain('CREATE EXTENSION IF NOT EXISTS postgis WITH SCHEMA extensions');
+    expect(source).toContain("v_postgis_schema NOT IN ('public', 'extensions')");
+    expect(source).toContain("to_regclass('extensions.spatial_ref_sys')");
+    expect(source).toContain('public spatial_ref_sys hardening is not required');
+    expect(source).not.toContain('WITH SCHEMA public');
+  });
+
   it('does not block production when spatial_ref_sys is owned by an inaccessible Supabase-managed role', () => {
     expect(source).toContain("pg_get_userbyid(c.relowner)");
     expect(source).toContain("pg_has_role(current_user, v_owner, 'MEMBER')");

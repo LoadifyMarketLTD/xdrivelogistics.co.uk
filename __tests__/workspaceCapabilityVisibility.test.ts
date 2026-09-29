@@ -27,6 +27,11 @@ describe('visible workspace navigation', () => {
       '/customer/bookings',
       '/customer/tracking',
       '/customer/diary',
+      '/customer/documents',
+      '/customer/invoices',
+      '/customer/notifications',
+      '/customer/messages',
+      '/customer/event-log',
       '/customer/network',
       '/customer/disputes',
       '/settings/billing',
@@ -34,8 +39,14 @@ describe('visible workspace navigation', () => {
     ]);
   });
 
-  it('keeps the Fleet Account entry visible', () => {
-    expect(visibleHrefs('fleet_manager')).toContain('/admin/settings');
+  it('keeps Fleet Manager operational without company-owner settings access', () => {
+    expect(hasWorkspaceCapability('fleet_manager', 'settings.manage')).toBe(false);
+    expect(visibleHrefs('fleet_manager')).not.toContain('/admin/settings');
+    expect(visibleHrefs('fleet_manager')).toContain('/admin/fleet/assignments');
+    expect(visibleHrefs('fleet_manager')).toContain('/admin/fleet/future-availability');
+    expect(visibleHrefs('fleet_manager')).toContain('/admin/fleet/positions');
+    expect(visibleHrefs('fleet_manager')).toContain('/admin/fleet/maintenance');
+    expect(visibleHrefs('fleet_manager')).toContain('/admin/incidents');
   });
 
   it('does not let a read-only viewer bypass quote capabilities through bidder identity API access', () => {

@@ -30,14 +30,18 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
     ] },
     { id: 'secure-operations', label: 'Secure Operations', items: [
       { id: 'secure-loads', label: 'Secure Loads', href: '/super-admin/operations/secure-loads' },
+      { id: 'jobs-at-risk', label: 'Jobs at Risk', href: '/super-admin/operations/jobs-at-risk' },
+      { id: 'tracking-eta', label: 'Tracking & ETA', href: '/super-admin/operations/tracking-eta' },
       { id: 'pod-queue', label: 'POD Queue', href: '/super-admin/operations/pods' },
-      { id: 'fleet-positions', label: 'Tracking & Fleet Positions', href: '/super-admin/operations/fleet-positions' },
+      { id: 'delivery-evidence', label: 'Delivery Evidence', href: '/super-admin/operations/delivery-evidence' },
+      { id: 'fleet-positions', label: 'Fleet Positions', href: '/super-admin/operations/fleet-positions' },
     ] },
     { id: 'fleet', label: 'Fleet', items: [
       { id: 'drivers', label: 'Drivers', href: '/super-admin/users/drivers' },
       { id: 'driver-availability', label: 'Driver Availability', href: '/super-admin/operations/driver-availability' },
       { id: 'vehicles', label: 'Vehicle Registry', href: '/super-admin/fleet/vehicles' },
       { id: 'return-journeys', label: 'Return Journeys', href: '/super-admin/fleet/return-journeys' },
+      { id: 'fleet-compliance', label: 'Fleet Compliance Status', href: '/super-admin/fleet/compliance' },
     ] },
     { id: 'companies', label: 'Companies', items: [
       { id: 'companies', label: 'All Companies', href: '/super-admin/companies' },
@@ -73,6 +77,7 @@ export const SUPER_ADMIN_WORKSPACE_DEFINITION: WorkspaceDefinition = {
       { id: 'support-disputes', label: 'Support Disputes', href: '/super-admin/support/disputes' },
     ] },
     { id: 'platform', label: 'Platform', items: [
+      { id: 'platform-overview', label: 'Platform Overview', href: '/super-admin/platform' },
       { id: 'users-access', label: 'Users & Access', href: '/super-admin/users' },
       { id: 'roles-permissions', label: 'Roles & Permissions', href: '/super-admin/settings/roles-permissions' },
       { id: 'notifications', label: 'Notifications', href: '/super-admin/notifications' },

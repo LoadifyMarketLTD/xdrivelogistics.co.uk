@@ -1,12 +1,14 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import SuperAdminLiveTablePage from '@/app/super-admin/_components/SuperAdminLiveTablePage';
+import ComplianceRequestUpdateButton from '@/app/super-admin/compliance/_components/ComplianceRequestUpdateButton';
 import { StatusChip } from '@/app/super-admin/_components/superAdminFormatters';
 
 type Row = {
   id: string;
-  entity_type: string;
+  entity_type: 'driver' | 'vehicle' | 'company';
   entity_name: string;
   company_name: string;
   doc_type: string;
@@ -33,6 +35,8 @@ const actionStyle = {
 } as const;
 
 export default function Page() {
+  const [refreshKey, setRefreshKey] = useState(0);
+
   return (
     <SuperAdminLiveTablePage<Row>
       icon="📋"
@@ -41,6 +45,7 @@ export default function Page() {
       description="Operator licence status across all companies — regulator readiness overview."
       endpoint="/api/super-admin/compliance?section=operator-licences&limit=250"
       summaryField="summary"
+      refreshKey={refreshKey}
       emptyMessage="No operator licence documents found."
       columns={[
         {
@@ -85,10 +90,14 @@ export default function Page() {
         {
           key: 'actions',
           label: 'Actions',
-          render: () => (
-            <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
+          render: (row) => (
+            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
               <Link href="/super-admin/compliance/documents" style={actionStyle}>Review docs</Link>
-              <button type="button" aria-disabled="true" title="No governed request-update mutation is exposed by the current backend." style={{ ...actionStyle, cursor: 'not-allowed', opacity: 0.55 }}>Request update</button>
+              <ComplianceRequestUpdateButton
+                documentFamily={row.entity_type}
+                documentId={row.id}
+                onUpdated={() => setRefreshKey((value) => value + 1)}
+              />
             </div>
           ),
         },

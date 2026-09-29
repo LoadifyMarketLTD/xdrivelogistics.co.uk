@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { COMPANY_DRIVER_DOCUMENT_TYPES } from '../../_lib/onboarding';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
-import { isCompanyAdminContext, requireCompanyAdmin } from '../_lib/requireCompanyAdmin';
+import { isCompanyFleetOperatorContext, requireCompanyFleetOperator } from '../_lib/requireCompanyFleetOperator';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -120,8 +120,8 @@ export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const companyId = text(url.searchParams.get('companyId'), 80);
   const kind = text(url.searchParams.get('kind'), 20) as DocumentKind;
-  const admin = await requireCompanyAdmin(request, companyId);
-  if (!isCompanyAdminContext(admin)) return admin;
+  const admin = await requireCompanyFleetOperator(request, companyId);
+  if (!isCompanyFleetOperatorContext(admin)) return admin;
   if (kind !== 'driver' && kind !== 'vehicle') return json(400, { error: 'Document kind must be driver or vehicle.' });
 
   if (kind === 'vehicle') {
@@ -238,8 +238,8 @@ export async function POST(request: NextRequest) {
   const issuedDate = text(formData.get('issuedDate'), 10);
   const expiryDate = text(formData.get('expiryDate'), 10);
 
-  const admin = await requireCompanyAdmin(request, companyId);
-  if (!isCompanyAdminContext(admin)) return admin;
+  const admin = await requireCompanyFleetOperator(request, companyId);
+  if (!isCompanyFleetOperatorContext(admin)) return admin;
   if (!(file instanceof File)) return json(400, { error: 'Choose a document file.' });
   if (kind !== 'driver' && kind !== 'vehicle') return json(400, { error: 'Document kind must be driver or vehicle.' });
   if (!subjectId || !docType) return json(400, { error: 'Subject and document type are required.' });

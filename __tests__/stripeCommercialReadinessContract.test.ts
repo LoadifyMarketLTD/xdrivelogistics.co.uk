@@ -19,15 +19,11 @@ describe('canonical Stripe commercial readiness contract', () => {
     expect(readiness).toContain('STRIPE_COMMERCIAL_READINESS_REQUIRED');
   });
 
-  it('blocks publishing but still permits saving a non-published draft', () => {
-    expect(createJob).toContain('if (input.publish)');
-    expect(createJob).toContain('getStripeCommercialReadiness(supabaseAdmin, input.companyId)');
-    expect(createJob).toContain('before publishing transport work');
-  });
-
-  it('requires a direct-booking carrier to be commercially ready', () => {
-    expect(createJob).toContain('getStripeCommercialReadiness(supabaseAdmin, directInviteTarget.id)');
-    expect(createJob).toContain('before it can receive a Direct Booking');
+  it('does not gate Post Load publication or Direct Booking on Stripe in the direct-party payment model', () => {
+    expect(createJob).not.toContain('getStripeCommercialReadiness');
+    expect(createJob).not.toContain('stripeCommercialReadinessPayload');
+    expect(createJob).not.toContain('before publishing transport work');
+    expect(createJob).not.toContain('before it can receive a Direct Booking');
   });
 
   it('requires carrier readiness on both driver and company quote paths', () => {

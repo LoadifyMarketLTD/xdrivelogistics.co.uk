@@ -4,9 +4,10 @@ import Link from 'next/link';
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '../../components/AuthContext';
 import {
-  AlertTriangle, Bell, ChevronDown, CircleUserRound, Menu,
-  PanelLeftClose, PanelLeftOpen, Search,
+  ChevronDown, CircleUserRound, Menu,
+  PanelLeftClose, PanelLeftOpen, RefreshCw, Search,
 } from 'lucide-react';
 import styles from './SuperAdminCardNavigationShell.module.css';
 
@@ -44,6 +45,7 @@ function PlatformSearch() {
 
 function OwnerMenu() {
   const pathname = usePathname();
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
 
   useEffect(() => setOpen(false), [pathname]);
@@ -69,9 +71,12 @@ function OwnerMenu() {
       </button>
       {open ? (
         <div className={styles.ownerMenu} role="menu">
-          <Link href="/super-admin" role="menuitem">Command Centre</Link>
-          <Link href="/super-admin/directory" role="menuitem">Explore all areas</Link>
-          <Link href="/super-admin/platform" role="menuitem">Platform Overview</Link>
+          <div className={styles.ownerMenuIdentity} role="presentation">
+            <strong>Platform Owner</strong>
+            <span>{user?.email ?? 'Account details unavailable'}</span>
+            <span>Account status: {user?.accountStatus ?? 'Unavailable'}</span>
+          </div>
+          <Link href="/super-admin/account" role="menuitem">My account</Link>
           <Link href="/auth/sign-out" role="menuitem" className={styles.ownerMenuDanger}>Sign out</Link>
         </div>
       ) : null}
@@ -80,6 +85,9 @@ function OwnerMenu() {
 }
 
 export default function SuperAdminTopbar({ collapsed, mobileOpen, onToggleSidebar, onToggleMobile }: Props) {
+  const pathname = usePathname();
+  const showLiveRefresh = pathname === '/super-admin/operations/control-centre';
+
   return (
     <header className={styles.topbar}>
       <div className={styles.topbarLeft}>
@@ -104,13 +112,16 @@ export default function SuperAdminTopbar({ collapsed, mobileOpen, onToggleSideba
       </div>
 
       <div className={styles.topbarActions}>
-        <Link href="/super-admin/action-centre" className={styles.topbarActionLink}>
-          <AlertTriangle size={18} aria-hidden="true" />
-          <span>Action Centre</span>
-        </Link>
-        <Link href="/super-admin/notifications" className={styles.topbarIconLink} aria-label="Notifications">
-          <Bell size={20} aria-hidden="true" />
-        </Link>
+        {showLiveRefresh ? (
+          <button
+            type="button"
+            className={styles.topbarActionLink}
+            onClick={() => window.dispatchEvent(new Event('xdrive-super-admin-refresh-live-data'))}
+          >
+            <RefreshCw size={18} aria-hidden="true" />
+            <span>Refresh Live Data</span>
+          </button>
+        ) : null}
         <OwnerMenu />
       </div>
     </header>
