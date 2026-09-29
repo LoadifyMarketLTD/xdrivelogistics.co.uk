@@ -50,6 +50,7 @@ const footerGroups = [
     title: 'Company',
     links: [
       ['Contact', '/contact'],
+      ['Legal Centre', '/legal'],
       ['Privacy', '/privacy'],
       ['Terms', '/terms'],
       ['Subscription Terms', '/subscription-terms'],

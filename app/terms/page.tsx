@@ -42,7 +42,7 @@ export default function TermsPage() {
           {sections.map(([title, body]) => <section key={String(title)}><h2 className="text-xl font-black text-[#F5A300]">{title}</h2><div className="mt-3">{body}</div></section>)}
           <section><h2 className="text-xl font-black text-[#F5A300]">18. Contact</h2><p className="mt-3">{COMPANY_CONFIG.legalName}<br />Company No. {COMPANY_CONFIG.companyNumber}<br />Registered office: {COMPANY_CONFIG.address.full}<br />Registered in England and Wales<br />Email: {COMPANY_CONFIG.email}<br />Phone: {COMPANY_CONFIG.phoneDisplay}</p></section>
         </div>
-        <div className="mt-12 flex flex-wrap gap-4 border-t border-white/10 pt-7 text-sm font-black text-[#F5A300]"><Link href="/subscription-terms">Membership & Subscription Terms</Link><Link href="/acceptable-use">Acceptable Use</Link><Link href="/privacy">Privacy</Link><Link href="/cookies">Cookies</Link><Link href="/complaints">Complaints</Link></div>
+        <div className="mt-12 flex flex-wrap gap-4 border-t border-white/10 pt-7 text-sm font-black text-[#F5A300]"><Link href="/legal">Legal Centre</Link><Link href="/subscription-terms">Membership & Subscription Terms</Link><Link href="/acceptable-use">Acceptable Use</Link><Link href="/privacy">Privacy</Link><Link href="/cookies">Cookies</Link><Link href="/complaints">Complaints</Link></div>
       </div>
     </main>
   );

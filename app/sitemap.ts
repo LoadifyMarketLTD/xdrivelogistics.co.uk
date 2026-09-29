@@ -31,6 +31,7 @@ const PUBLIC_ROUTES: PublicRoute[] = [
   { path: '/product-status', changeFrequency: 'weekly', priority: 0.75 },
   { path: '/help', changeFrequency: 'monthly', priority: 0.7 },
   { path: '/contact', changeFrequency: 'monthly', priority: 0.65 },
+  { path: '/legal', changeFrequency: 'monthly', priority: 0.55 },
   { path: '/privacy', changeFrequency: 'yearly', priority: 0.4 },
   { path: '/terms', changeFrequency: 'yearly', priority: 0.4 },
   { path: '/subscription-terms', changeFrequency: 'yearly', priority: 0.4 },

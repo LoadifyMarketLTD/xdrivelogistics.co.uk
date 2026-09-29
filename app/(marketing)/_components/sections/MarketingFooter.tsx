@@ -34,9 +34,13 @@ const footerColumns = {
     { label: 'Contact', href: '/contact' },
   ],
   legal: [
-    { label: 'Privacy', href: '/privacy' },
+    { label: 'Legal Centre', href: '/legal' },
     { label: 'Terms', href: '/terms' },
+    { label: 'Membership Terms', href: '/subscription-terms' },
+    { label: 'Privacy', href: '/privacy' },
     { label: 'Cookies', href: '/cookies' },
+    { label: 'Acceptable Use', href: '/acceptable-use' },
+    { label: 'Complaints', href: '/complaints' },
   ],
 } as const;
 
