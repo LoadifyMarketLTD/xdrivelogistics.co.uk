@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import type { WorkspaceRole } from '../../../lib/workspaceRole';
 import SuperAdminWorkspaceShell from '../../super-admin/_components/SuperAdminWorkspaceShell';
-import WorkspaceShell from './WorkspaceShell';
+import TopWorkspaceShell from './TopWorkspaceShell';
 import {
   ActionButton,
   ComplianceSummaryPanel,
@@ -271,19 +271,11 @@ function FixtureShell({
   }
 
   return (
-    <WorkspaceShell
-      forcedRole={FIXTURE_ROLE_CONFIG[role].forcedRole!}
-      fixtureOverrides={{
-        companyName,
-        unreadCount: 4,
-        tickerItems: [
-          { id: `fx-${role}-1`, label: 'Route update posted', reference: `${role.toUpperCase()}-001`, created_at: '2026-08-02T09:00:00.000Z', href: `/visual-fixture/workspace/${role}` },
-          { id: `fx-${role}-2`, label: 'Action required', reference: `${role.toUpperCase()}-002`, created_at: '2026-08-02T09:05:00.000Z', href: `/visual-fixture/workspace/${role}` },
-        ],
-      }}
-    >
-      {children}
-    </WorkspaceShell>
+    <div className="xdrive-workspace-visual xdrive-operational-top-workspace">
+      <TopWorkspaceShell forcedRole={FIXTURE_ROLE_CONFIG[role].forcedRole!}>
+        {children}
+      </TopWorkspaceShell>
+    </div>
   );
 }
 
