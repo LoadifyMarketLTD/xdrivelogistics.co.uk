@@ -8,6 +8,7 @@ import {
 import { hasBidDecisionRole } from '../../_lib/ownerRoles';
 import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
 import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
+import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   // ── 3. Pre-check caller role on owning company ──────────────────────────────
   const { data: bidJob, error: bidJobError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, bid_price_gbp, amount, jobs!inner(company_id)')
+    .select('id, company_id, bid_price_gbp, amount, jobs!inner(company_id)')
     .eq('id', bidId)
     .maybeSingle();
 
@@ -80,6 +81,46 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json(
       { error: 'Forbidden — insufficient role to accept bids.' },
       { status: 403 }
+    );
+  }
+
+  const carrierCompanyId = (bidJob as { company_id?: string | null }).company_id;
+  if (!carrierCompanyId) {
+    return NextResponse.json(
+      { error: 'The selected carrier company could not be resolved for this quote.' },
+      { status: 409 }
+    );
+  }
+
+  let payerStripeReadiness;
+  let carrierStripeReadiness;
+  try {
+    [payerStripeReadiness, carrierStripeReadiness] = await Promise.all([
+      getStripeCommercialReadiness(supabaseAdmin, jobCompanyId),
+      getStripeCommercialReadiness(supabaseAdmin, carrierCompanyId),
+    ]);
+  } catch {
+    return NextResponse.json(
+      { error: 'Stripe commercial readiness could not be verified. Please try again.' },
+      { status: 503 }
+    );
+  }
+  if (!payerStripeReadiness.infrastructureAvailable || !carrierStripeReadiness.infrastructureAvailable) {
+    return NextResponse.json(
+      { error: 'Stripe commercial readiness is temporarily unavailable.' },
+      { status: 503 }
+    );
+  }
+  if (!payerStripeReadiness.ready) {
+    return NextResponse.json(
+      stripeCommercialReadinessPayload('Complete and activate your company Stripe account before awarding transport work.'),
+      { status: 409 }
+    );
+  }
+  if (!carrierStripeReadiness.ready) {
+    return NextResponse.json(
+      stripeCommercialReadinessPayload('This carrier cannot be awarded the job until its Stripe account is fully activated.'),
+      { status: 409 }
     );
   }
 

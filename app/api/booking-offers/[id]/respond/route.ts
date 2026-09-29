@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
+import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../_lib/stripeCommercialReadiness';
 
 type Params = { params: Promise<{ id: string }> };
 const bodySchema = z.object({ action: z.enum(['accept', 'decline']), reason: z.string().trim().max(1000).optional() });
@@ -16,6 +17,41 @@ export async function POST(request: NextRequest, { params }: Params) {
   const parsed = bodySchema.safeParse(await request.json().catch(() => ({})));
   if (!parsed.success) return json(400, { error: 'Invalid booking-offer response.' });
   const { id } = await params;
+
+  if (parsed.data.action === 'accept') {
+    const { data: offer, error: offerError } = await supabaseAdmin
+      .from('job_booking_offers')
+      .select('id, buyer_company_id, carrier_company_id, status')
+      .eq('id', id)
+      .maybeSingle();
+    if (offerError) return json(500, { error: 'Booking offer could not be verified.' });
+    if (!offer) return json(404, { error: 'Booking offer not found.' });
+    if (offer.status !== 'pending') return json(409, { error: 'This booking offer is no longer pending.' });
+
+    let buyerStripeReadiness;
+    let carrierStripeReadiness;
+    try {
+      [buyerStripeReadiness, carrierStripeReadiness] = await Promise.all([
+        getStripeCommercialReadiness(supabaseAdmin, offer.buyer_company_id),
+        getStripeCommercialReadiness(supabaseAdmin, offer.carrier_company_id),
+      ]);
+    } catch {
+      return json(503, { error: 'Stripe commercial readiness could not be verified. Please try again.' });
+    }
+    if (!buyerStripeReadiness.infrastructureAvailable || !carrierStripeReadiness.infrastructureAvailable) {
+      return json(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+    }
+    if (!buyerStripeReadiness.ready) {
+      return json(409, stripeCommercialReadinessPayload(
+        'The transport buyer Stripe account is no longer commercially ready. Booking acceptance is blocked.'
+      ));
+    }
+    if (!carrierStripeReadiness.ready) {
+      return json(409, stripeCommercialReadinessPayload(
+        'Complete and activate the carrier company Stripe account before accepting this booking.'
+      ));
+    }
+  }
 
   const rpc = parsed.data.action === 'accept' ? 'accept_job_booking_offer_atomic' : 'decline_job_booking_offer_atomic';
   const args = parsed.data.action === 'accept'

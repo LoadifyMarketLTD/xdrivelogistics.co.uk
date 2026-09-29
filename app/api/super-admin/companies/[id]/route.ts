@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../_lib/platformFlags';
+import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../_lib/stripeCommercialReadiness';
 import { isSuperAdminDeployPreviewReadOnly, verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
@@ -85,6 +86,21 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
         return respond(409, { error: complianceError.message, code: 'company_compliance_not_ready' });
       }
       return respond(500, { error: complianceError.message });
+    }
+
+    let stripeReadiness;
+    try {
+      stripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, companyId);
+    } catch {
+      return respond(503, { error: 'Stripe commercial readiness could not be verified. Please try again.' });
+    }
+    if (!stripeReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+    }
+    if (!stripeReadiness.ready) {
+      return respond(409, stripeCommercialReadinessPayload(
+        'Company activation is blocked until Stripe onboarding is complete and commercial readiness is active.'
+      ));
     }
   }
 
