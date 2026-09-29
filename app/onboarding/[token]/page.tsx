@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
@@ -398,6 +399,19 @@ export default function OnboardingTokenPage() {
         <pre style={{ background: '#F3F4F6', padding: '1rem', borderRadius: 8, fontSize: 12, overflow: 'auto' }}>
           {JSON.stringify(formData, null, 2)}
         </pre>
+      </section>
+
+      <section style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid #D7E0EA', borderRadius: 10, background: '#F8FAFC' }} aria-label="Legal documents">
+        <strong style={{ display: 'block', marginBottom: '0.55rem', color: '#0B2F6B' }}>Legal & policy documents</strong>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', fontSize: '0.85rem', fontWeight: 700 }}>
+          <Link href="/legal">Legal Centre</Link>
+          <Link href="/terms">Terms</Link>
+          <Link href="/subscription-terms">Membership Terms</Link>
+          <Link href="/privacy">Privacy</Link>
+          <Link href="/cookies">Cookies</Link>
+          <Link href="/acceptable-use">Acceptable Use</Link>
+          <Link href="/complaints">Complaints</Link>
+        </div>
       </section>
 
       {error && <p style={{ color: '#B91C1C' }}>{error}</p>}

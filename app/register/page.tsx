@@ -361,6 +361,9 @@ export default function RegisterPage() {
 
                 <button type="submit" disabled={loading || !legalGateComplete} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#F5A300] px-5 text-sm font-black text-[#071B3C] transition hover:bg-[#E99B00] disabled:cursor-not-allowed disabled:opacity-50">{loading ? 'Creating your XDrive account…' : <>Start 3 Months Free <ArrowRight className="h-4 w-4" /></>}</button>
                 <p className="mt-2 text-center text-xs font-semibold text-[#7A8DA4]">No membership charge during the qualifying 3-month launch period.</p>
+                <div className="mt-4 flex flex-wrap justify-center gap-x-3 gap-y-2 border-t border-[#E2E8F0] pt-4 text-xs font-black text-[#173B73]" aria-label="Legal documents">
+                  <Link href="/legal">Legal Centre</Link><Link href="/terms">Terms</Link><Link href="/subscription-terms">Membership Terms</Link><Link href="/privacy">Privacy</Link><Link href="/cookies">Cookies</Link><Link href="/acceptable-use">Acceptable Use</Link><Link href="/complaints">Complaints</Link>
+                </div>
               </div>
             </form>
           )}
