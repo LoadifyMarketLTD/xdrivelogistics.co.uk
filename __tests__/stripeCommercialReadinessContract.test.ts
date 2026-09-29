@@ -35,8 +35,8 @@ describe('canonical Stripe commercial readiness contract', () => {
 
   it('rechecks both contracting parties immediately before award', () => {
     expect(award).toContain(".select('id, job_id, status, company_id, bid_price_gbp, amount')");
-    expect(award).toContain('getStripeCommercialReadiness(supabaseAdmin, job.company_id as string)');
-    expect(award).toContain('getStripeCommercialReadiness(supabaseAdmin, bid.company_id as string | null)');
+    expect(award).toContain('getStripeCommercialReadiness(supabaseAdmin, payerCompanyId)');
+    expect(award).toContain('getStripeCommercialReadiness(supabaseAdmin, carrierCompanyId)');
     expect(award).toContain('before awarding transport work');
     expect(award).toContain('carrier cannot be awarded');
   });
