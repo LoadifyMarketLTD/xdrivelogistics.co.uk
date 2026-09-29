@@ -1,3 +1,7 @@
+import { type RoleTradingTermsCode } from './roleTradingTerms';
+import { CONTROLLED_LEGAL_ROUTES, CONTROLLED_LEGAL_VERSION, CONTROLLED_PRIVACY_VERSION, normalizeLegalLanguage } from './controlledLegalDocuments';
+import { getLocalizedRegistrationDeclarations } from './registrationDeclarations';
+
 export type RegistrationLegalRole =
   | 'customer_shipper'
   | 'transport_broker'
@@ -29,14 +33,14 @@ export type RegistrationRoleLegalConfig = {
   privacyAcknowledgement: string;
 };
 
-export const LEGAL_VERSION = '2026-09-04';
-export const PRIVACY_VERSION = '2026-09-01';
+export const LEGAL_VERSION = CONTROLLED_LEGAL_VERSION;
+export const PRIVACY_VERSION = CONTROLLED_PRIVACY_VERSION;
 
 const PLATFORM_TERMS: RegistrationAgreementDefinition = {
   code: 'platform_terms',
   label: 'XDrive Platform Terms',
-  href: '/terms',
-  version: '2026-09-01',
+  href: CONTROLLED_LEGAL_ROUTES.platform_terms,
+  version: CONTROLLED_LEGAL_VERSION,
   required: true,
   materialChangeRequiresReacceptance: true,
 };
@@ -44,8 +48,8 @@ const PLATFORM_TERMS: RegistrationAgreementDefinition = {
 const MEMBERSHIP_TERMS: RegistrationAgreementDefinition = {
   code: 'membership_subscription_terms',
   label: 'Membership & Subscription Terms',
-  href: '/subscription-terms',
-  version: '2026-09-01',
+  href: CONTROLLED_LEGAL_ROUTES.membership_subscription_terms,
+  version: CONTROLLED_LEGAL_VERSION,
   required: true,
   materialChangeRequiresReacceptance: true,
 };
@@ -53,25 +57,25 @@ const MEMBERSHIP_TERMS: RegistrationAgreementDefinition = {
 const MARKETPLACE_TERMS: RegistrationAgreementDefinition = {
   code: 'marketplace_transport_terms',
   label: 'Marketplace & Transport Trading Terms',
-  href: '/terms',
-  version: '2026-09-01',
+  href: CONTROLLED_LEGAL_ROUTES.marketplace_transport_terms,
+  version: CONTROLLED_LEGAL_VERSION,
   required: true,
   materialChangeRequiresReacceptance: true,
 };
 
 const roleTerm = (
-  code: RegistrationAgreementCode,
+  code: RoleTradingTermsCode,
   label: string,
-): RegistrationAgreementDefinition => ({
-  code,
-  label,
-  // Until dedicated role-term routes receive final legal review, role obligations
-  // resolve to the canonical Platform Terms rather than a non-existent document.
-  href: '/terms',
-  version: '2026-09-01',
-  required: true,
-  materialChangeRequiresReacceptance: true,
-});
+): RegistrationAgreementDefinition => {
+  return {
+    code,
+    label,
+    href: CONTROLLED_LEGAL_ROUTES[code],
+    version: CONTROLLED_LEGAL_VERSION,
+    required: true,
+    materialChangeRequiresReacceptance: true,
+  };
+};
 
 export const REGISTRATION_LEGAL_CONFIG: Record<RegistrationLegalRole, RegistrationRoleLegalConfig> = {
   customer_shipper: {
@@ -132,5 +136,18 @@ export const REGISTRATION_LEGAL_CONFIG: Record<RegistrationLegalRole, Registrati
   },
 };
 
-export const getRegistrationLegalConfig = (role: RegistrationLegalRole) =>
-  REGISTRATION_LEGAL_CONFIG[role];
+export const getRegistrationLegalConfig = (role: RegistrationLegalRole, languageInput: unknown = 'en') => {
+  const base = REGISTRATION_LEGAL_CONFIG[role];
+  const language = normalizeLegalLanguage(languageInput);
+  const declarations = getLocalizedRegistrationDeclarations(role, language, {
+    authority: base.authorityDeclaration,
+    role: base.roleDeclaration,
+    privacy: base.privacyAcknowledgement,
+  });
+  return {
+    ...base,
+    authorityDeclaration: declarations.authority,
+    roleDeclaration: declarations.role,
+    privacyAcknowledgement: declarations.privacy,
+  };
+};

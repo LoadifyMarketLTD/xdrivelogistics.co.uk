@@ -63,23 +63,44 @@ type JobSheet = {
   commercial: {
     customerPrice: number | null; carrierCost: number | null; margin: number | null; currency: string; paymentTerms: string | null;
     paymentDueDays: number | null; vatRate: number | null; vatAmount: number | null; agreedGross: number | null;
-    snapshotAvailable: boolean; targetCarrierCost: number | null;
+    snapshotAvailable: boolean; targetCarrierCost: number | null; agreementId: string | null; contractVersion: number | null; contractSnapshotHash: string | null;
   };
+  evidence: { collectionPhotoCount: number; deliveryPhotoCount: number; podPhotoCount: number; collectionHandoverRecorded: boolean; deliverySignatureRecorded: boolean; recipientName: string | null };
   pod: { required: boolean | null; hardCopy: string | null; generated: boolean | null; generatedAt: string | null; photoCount: number; reviewStatus: string | null; reviewNote: string | null };
   notes: { publicQuoteNotes: string | null; executionInstructions: string | null; collection: string | null; delivery: string | null; driver: string | null; documentChecklist: string[] };
   timeline: Array<{ id: string | null; eventType: string; message: string | null; createdAt: string | null; userName: string | null }>;
   documents: Array<{ id: string | null; type: string; fileName: string | null; filePath: string | null; createdAt: string | null }>;
   invoices: Array<{ id: string | null; number: string | null; status: string | null; paymentStatus: string | null; amount: number | null; currency: string; dueDate: string | null }>;
+  paymentHistory: Array<{ id: string | null; invoiceId: string | null; companyId: string | null; amount: number | null; currency: string; settlementMethod: string | null; externalReference: string | null; note: string | null; statusAfter: string | null; paidAt: string | null; createdAt: string | null }>;
+  amendments: Array<{ id: string | null; agreementId: string | null; versionNumber: number | null; status: string | null; reason: string | null; changeSummary: unknown; effectiveAgreedAmount: number | null; currency: string; paymentTerms: string | null; paymentDueDays: number | null; proposedByCompanyId: string | null; decidedByCompanyId: string | null; createdAt: string | null; decidedAt: string | null }>;
+  disputes: Array<{ id: string | null; type: 'job' | 'invoice'; invoiceId?: string | null; status: string | null; raisedByCompanyId: string | null; reason?: string | null; description: string | null; resolutionNote: string | null; createdAt: string | null; resolvedAt: string | null }>;
+  extras: Array<{ id: string | null; type: string | null; description: string | null; amountGbp: number | null; minutes: number | null; status: string | null; reviewedAt: string | null; reviewNote: string | null; contractualAmendmentId: string | null; contractualSnapshotHash: string | null; contractualSnapshotVersion: number | null; createdAt: string | null }>;
   partial: boolean;
-  unavailable: { bodyType: string; bookingFooter: string; extras: string };
+  unavailable: { bodyType: string | null; bookingFooter: string | null; extras: string | null; amendments?: string | null; payments?: string | null; disputes?: string | null; documents?: string | null };
 };
 
-export type JobSheetTab = 'order' | 'notes' | 'history' | 'replay' | 'documents' | 'pod' | 'invoice';
+export type JobSheetTab = 'agreement' | 'route' | 'progress' | 'evidence' | 'pod' | 'invoice' | 'payment' | 'dispute' | 'event-log';
+export type LegacyJobSheetTab = 'order' | 'notes' | 'history' | 'replay' | 'documents';
+type JobSheetTabInput = JobSheetTab | LegacyJobSheetTab;
 type SheetMode = 'broker' | 'customer' | 'carrier';
 const TABS: Array<{ id: JobSheetTab; label: string }> = [
-  { id: 'order', label: 'Order' }, { id: 'notes', label: 'Notes' }, { id: 'history', label: 'History' },
-  { id: 'replay', label: 'Replay' }, { id: 'documents', label: 'Documents' }, { id: 'pod', label: 'POD' }, { id: 'invoice', label: 'Invoice' },
+  { id: 'agreement', label: 'Agreement' },
+  { id: 'route', label: 'Route' },
+  { id: 'progress', label: 'Progress' },
+  { id: 'evidence', label: 'Evidence' },
+  { id: 'pod', label: 'POD' },
+  { id: 'invoice', label: 'Invoice' },
+  { id: 'payment', label: 'Payment' },
+  { id: 'dispute', label: 'Dispute' },
+  { id: 'event-log', label: 'Event Log' },
 ];
+const normalizeTab = (value: JobSheetTabInput): JobSheetTab => {
+  if (value === 'order') return 'agreement';
+  if (value === 'notes') return 'progress';
+  if (value === 'history' || value === 'replay') return 'event-log';
+  if (value === 'documents') return 'evidence';
+  return value;
+};
 
 const when = (value: string | null) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not supplied';
 const money = (value: number | null, currency = 'GBP') => value == null ? 'Not supplied' : new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
@@ -137,13 +158,13 @@ function Detail({ label, value, detail }: { label: string; value: ReactNode; det
   return <div className="workspace-detail-item"><strong>{label}</strong><div>{value}</div>{detail ? <small>{detail}</small> : null}</div>;
 }
 
-export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'order' }: { jobId: string; mode: SheetMode; initialTab?: JobSheetTab }) {
+export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: { jobId: string; mode: SheetMode; initialTab?: JobSheetTabInput }) {
   const [sheet, setSheet] = useState<JobSheet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<JobSheetTab>(initialTab);
+  const [tab, setTab] = useState<JobSheetTab>(normalizeTab(initialTab));
 
-  useEffect(() => { setTab(initialTab); }, [initialTab]);
+  useEffect(() => { setTab(normalizeTab(initialTab)); }, [initialTab]);
 
   useEffect(() => {
     let cancelled = false;
@@ -241,96 +262,137 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'order' }: { jo
     <div className="workspace-record-details" style={{ padding: 0 }}>
       {sheet.partial && <AlertBanner tone="warning">Some booking details are unavailable. Verified values are shown and missing values are left unfilled.</AlertBanner>}
       <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-        <span>Job-context communication stays participant-scoped and immutable.</span>
+        <span><strong>Booking Detail</strong> · {sheet.references.xdrive}</span>
         <ActionButton tone="secondary" onClick={() => { window.location.href = messagesHref; }}>Messages for this job</ActionButton>
       </div>
-      <div className="workspace-tab-strip" role="tablist" aria-label="Job sheet sections" style={{ display: 'flex', overflowX: 'auto', marginBottom: 6 }}>
-        {TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}{item.id === 'documents' && sheet.documents.length ? ` ${sheet.documents.length}` : ''}</button>)}
+      <div className="workspace-tab-strip" role="tablist" aria-label="Booking detail sections" style={{ display: 'flex', overflowX: 'auto', marginBottom: 6 }}>
+        {TABS.map((item) => {
+          const count = item.id === 'evidence' ? sheet.documents.length
+            : item.id === 'invoice' ? sheet.invoices.length
+              : item.id === 'payment' ? sheet.paymentHistory.length
+                : item.id === 'dispute' ? sheet.disputes.length
+                  : item.id === 'event-log' ? sheet.timeline.length
+                    : 0;
+          return <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label}{count ? ` ${count}` : ''}</button>;
+        })}
       </div>
 
-      {tab === 'order' && (
+      {tab === 'agreement' && (
         <div style={{ display: 'grid', gap: 8 }}>
           <div className="workspace-detail-grid">
             <Detail label="XDrive reference" value={sheet.references.xdrive} detail={sheet.references.booking ? `Customer booking ref ${sheet.references.booking}` : undefined} />
-            <Detail label="Status" value={<StatusBadge value={presentationStatus} />} detail={sheet.acceptedAt ? `Awarded ${when(sheet.acceptedAt)}` : undefined} />
-            <Detail label="Posting company" value={<MemberIdentityLink companyId={sheet.ownerCompany.companyId}>{sheet.ownerCompany.name}</MemberIdentityLink>} detail={companyDetail(sheet.ownerCompany.memberId, sheet.ownerCompany.phone)} />
-            <Detail label="Awarded carrier" value={sheet.carrier ? <MemberIdentityLink companyId={sheet.carrier.companyId}>{sheet.carrier.name}</MemberIdentityLink> : 'Not awarded'} detail={sheet.carrier ? companyDetail(sheet.carrier.memberId, sheet.carrier.phone) : undefined} />
-            <Detail label="Accepted bidder driver" value={acceptedBidderDriverLabel} detail={acceptedBidderDriverDetail} />
-            <Detail label="Execution company" value={sheet.executionCompany ? <MemberIdentityLink companyId={sheet.executionCompany.companyId}>{sheet.executionCompany.name}</MemberIdentityLink> : 'Not assigned'} detail={sheet.executionCompany ? companyDetail(sheet.executionCompany.memberId, sheet.executionCompany.phone) : undefined} />
-            <Detail label="Assigned driver" value={sheet.driver?.name ?? 'Not assigned'} detail={sheet.driver?.status ? `Account ${human(sheet.driver.status)}` : undefined} />
-            <Detail label="Allocated vehicle" value={allocatedVehicleLabel} detail={allocatedVehicleDetail} />
+            <Detail label="Contract status" value={<StatusBadge value={presentationStatus} />} detail={sheet.acceptedAt ? `Accepted ${when(sheet.acceptedAt)}` : 'Booking acceptance not recorded'} />
+            <Detail label="Transport buyer / posting company" value={<MemberIdentityLink companyId={sheet.ownerCompany.companyId}>{sheet.ownerCompany.name}</MemberIdentityLink>} detail={companyDetail(sheet.ownerCompany.memberId, sheet.ownerCompany.phone)} />
+            <Detail label="Performing carrier" value={sheet.carrier ? <MemberIdentityLink companyId={sheet.carrier.companyId}>{sheet.carrier.name}</MemberIdentityLink> : 'Not awarded'} detail={sheet.carrier ? companyDetail(sheet.carrier.memberId, sheet.carrier.phone) : undefined} />
+            <Detail label="Agreement ID" value={sheet.commercial.agreementId ?? 'Not available'} />
+            <Detail label="Contract version" value={sheet.commercial.contractVersion != null ? `v${sheet.commercial.contractVersion}` : 'Not available'} detail={sheet.commercial.contractSnapshotHash ? `Snapshot ${sheet.commercial.contractSnapshotHash.slice(0, 16)}…` : undefined} />
+            {!carrierMode && <Detail label="Customer price" value={money(sheet.commercial.customerPrice, sheet.commercial.currency)} />}
+            <Detail label={carrierMode ? 'Agreed carrier rate' : 'Carrier cost'} value={money(sheet.commercial.carrierCost, sheet.commercial.currency)} detail={sheet.commercial.snapshotAvailable ? 'Immutable commercial agreement recorded' : 'Historical agreement snapshot unavailable'} />
+            <Detail label="Agreed gross" value={money(sheet.commercial.agreedGross, sheet.commercial.currency)} detail={sheet.commercial.vatRate != null ? `VAT ${sheet.commercial.vatRate}% · ${money(sheet.commercial.vatAmount, sheet.commercial.currency)}` : undefined} />
+            {mode === 'broker' && <Detail label="Margin" value={money(sheet.commercial.margin, sheet.commercial.currency)} detail={sheet.commercial.targetCarrierCost != null ? `Target carrier cost ${money(sheet.commercial.targetCarrierCost, sheet.commercial.currency)}` : undefined} />}
+            <Detail label="Payment terms" value={sheet.commercial.paymentTerms ?? 'Historical terms unavailable'} detail={sheet.commercial.paymentDueDays != null ? `${sheet.commercial.paymentDueDays} day(s)` : undefined} />
+            <Detail label="Customer reference" value={sheet.references.customer ?? 'Not supplied'} />
+            <Detail label="Purchase order" value={sheet.references.purchaseOrder ?? 'Not supplied'} />
+          </div>
+
+          <div style={{ display: 'grid', gap: 6 }}>
+            <strong>Contract amendments</strong>
+            {sheet.amendments.length ? sheet.amendments.map((amendment, index) => (
+              <div key={amendment.id ?? `amendment-${index}`} className="workspace-record-meta">
+                <span><strong>v{amendment.versionNumber ?? '?'}</strong> · {human(amendment.status)}</span>
+                <span>{amendment.reason ?? 'Commercial amendment'}</span>
+                <span>{amendment.effectiveAgreedAmount != null ? money(amendment.effectiveAgreedAmount, amendment.currency) : 'Amount unchanged'}</span>
+                <span>{amendment.decidedAt ? when(amendment.decidedAt) : when(amendment.createdAt)}</span>
+              </div>
+            )) : <EmptyState compact title="No contract amendments recorded" description={sheet.unavailable.amendments ?? undefined} />}
+          </div>
+
+          <div style={{ display: 'grid', gap: 6 }}>
+            <strong>Approved extras / adjustments</strong>
+            {sheet.extras.length ? sheet.extras.map((extra, index) => (
+              <div key={extra.id ?? `extra-${index}`} className="workspace-record-meta">
+                <span><strong>{human(extra.type)}</strong></span>
+                <span>{money(extra.amountGbp, 'GBP')}</span>
+                <span>{human(extra.status)}</span>
+                <span>{extra.contractualSnapshotVersion != null ? `Contract v${extra.contractualSnapshotVersion}` : 'Not contractually accepted'}</span>
+                <span>{extra.description ?? extra.reviewNote ?? ''}</span>
+              </div>
+            )) : <EmptyState compact title="No execution extras recorded" description={sheet.unavailable.extras ?? undefined} />}
+          </div>
+        </div>
+      )}
+
+      {tab === 'route' && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div className="workspace-detail-grid">
             <Detail label="Requested vehicle" value={human(sheet.load.requestedVehicle)} />
-            <Detail label="Body type" value={sheet.vehicle?.bodyType ? human(sheet.vehicle.bodyType) : 'Not supplied'} detail={!sheet.vehicle?.bodyType ? availabilityCopy(sheet.unavailable.bodyType, 'Not available for this booking.') : undefined} />
             <Detail label="Cargo" value={human(sheet.load.cargoType)} detail={[sheet.load.weightKg != null ? `${sheet.load.weightKg} kg` : null, sheet.load.pallets != null ? `${sheet.load.pallets} pallet(s)` : null].filter(Boolean).join(' · ') || undefined} />
             <Detail label="Dimensions" value={dimensions} />
             <Detail label="Cargo value" value={money(sheet.load.cargoValueGbp)} />
             <Detail label="Distance" value={sheet.route.distanceMiles != null ? `${sheet.route.distanceMiles} miles` : 'Not supplied'} />
-            <Detail label="Customer" value={sheet.customer.name ?? 'Not supplied'} detail={mode === 'broker' ? [sheet.customer.email, sheet.customer.phone].filter(Boolean).join(' · ') || undefined : undefined} />
-            <Detail label="Customer ref" value={sheet.references.customer ?? 'Not supplied'} />
-            <Detail label="PO number" value={sheet.references.purchaseOrder ?? 'Not supplied'} />
-            {!carrierMode && <Detail label="Customer price" value={money(sheet.commercial.customerPrice, sheet.commercial.currency)} />}
-            <Detail label={carrierMode ? 'Agreed carrier rate' : 'Carrier cost'} value={money(sheet.commercial.carrierCost, sheet.commercial.currency)} detail={sheet.commercial.snapshotAvailable ? 'Agreed rate recorded at award' : 'Historical agreed-rate record unavailable'} />
-            {mode === 'broker' && <Detail label="Margin" value={money(sheet.commercial.margin, sheet.commercial.currency)} detail={sheet.commercial.targetCarrierCost != null ? `Target carrier cost ${money(sheet.commercial.targetCarrierCost, sheet.commercial.currency)}` : undefined} />}
-            <Detail label="Payment terms" value={sheet.commercial.paymentTerms ?? 'Historical terms unavailable'} detail={sheet.commercial.paymentDueDays != null ? `${sheet.commercial.paymentDueDays} day(s)` : undefined} />
-            <Detail label="Extras" value="Not supplied" detail={availabilityCopy(sheet.unavailable.extras, 'No historical extras record is available for this booking.')} />
-            <Detail label="Hard-copy POD" value={hardCopyPod} />
+            <Detail label="Pallet type" value={human(sheet.load.palletType)} detail={sheet.load.stackable == null ? undefined : sheet.load.stackable ? 'Stackable' : 'Not stackable'} />
           </div>
-
           <div className="workspace-detail-grid">
             {hasPersistedRoute ? routeStops.map((stop, index) => {
               const sequence = stop.sequence ?? index + 1;
-              const routeDetail = [
-                formatStopSchedule(stop.windowStart, stop.windowEnd),
-                stop.status ? `Status ${human(stop.status)}` : null,
-              ].filter(Boolean).join(' · ');
+              const routeDetail = [formatStopSchedule(stop.windowStart, stop.windowEnd), stop.status ? `Status ${human(stop.status)}` : null].filter(Boolean).join(' · ');
               const contactDetail = [stop.companyName, stop.contactPhone, stop.instructions].filter(Boolean).join(' · ') || undefined;
               return [
-                <Detail
-                  key={`${stop.id ?? sequence}-route`}
-                  label={`Stop ${sequence} · ${human(stop.type)}`}
-                  value={formatExecutionAddress(stop.address, stop.postcode)}
-                  detail={routeDetail}
-                />,
-                <Detail
-                  key={`${stop.id ?? sequence}-contact`}
-                  label={`Stop ${sequence} contact`}
-                  value={stop.contactName ?? 'Not supplied'}
-                  detail={contactDetail}
-                />,
+                <Detail key={`${stop.id ?? sequence}-route`} label={`Stop ${sequence} · ${human(stop.type)}`} value={formatExecutionAddress(stop.address, stop.postcode)} detail={routeDetail} />,
+                <Detail key={`${stop.id ?? sequence}-contact`} label={`Stop ${sequence} contact`} value={stop.contactName ?? 'Not supplied'} detail={contactDetail} />,
               ];
-            }) : (
-              <>
-                <Detail label="Pickup" value={formatExecutionAddress(sheet.route.pickup.address, sheet.route.pickup.postcode)} detail={formatScheduleDetail(sheet.route.pickup.dateTime, sheet.route.pickup.slot)} />
-                <Detail label="Pickup contact" value={sheet.route.pickup.contactName ?? 'Not supplied'} detail={sheet.route.pickup.contactPhone ?? undefined} />
-                <Detail label="Delivery" value={formatExecutionAddress(sheet.route.delivery.address, sheet.route.delivery.postcode)} detail={formatScheduleDetail(sheet.route.delivery.dateTime, sheet.route.delivery.slot)} />
-                <Detail label="Delivery contact" value={sheet.route.delivery.contactName ?? 'Not supplied'} detail={sheet.route.delivery.contactPhone ?? undefined} />
-              </>
-            )}
+            }) : <>
+              <Detail label="Pickup" value={formatExecutionAddress(sheet.route.pickup.address, sheet.route.pickup.postcode)} detail={formatScheduleDetail(sheet.route.pickup.dateTime, sheet.route.pickup.slot)} />
+              <Detail label="Pickup contact" value={sheet.route.pickup.contactName ?? 'Not supplied'} detail={[sheet.route.pickup.contactPhone, sheet.route.pickup.notes].filter(Boolean).join(' · ') || undefined} />
+              <Detail label="Delivery" value={formatExecutionAddress(sheet.route.delivery.address, sheet.route.delivery.postcode)} detail={formatScheduleDetail(sheet.route.delivery.dateTime, sheet.route.delivery.slot)} />
+              <Detail label="Delivery contact" value={sheet.route.delivery.contactName ?? 'Not supplied'} detail={[sheet.route.delivery.contactPhone, sheet.route.delivery.notes].filter(Boolean).join(' · ') || undefined} />
+            </>}
           </div>
-
-          {bookingNotes.length > 0 && (
-            <div style={{ display: 'grid', gap: 6 }}>
-              <strong>Notes &amp; Details</strong>
-              {bookingNotes.map(([label, value]) => <div key={label} className="workspace-detail-item"><strong>{label}</strong><div>{value}</div></div>)}
-            </div>
-          )}
           {sheet.load.requirements.length > 0 && <div className="workspace-record-meta"><span><strong>Requirements:</strong> {sheet.load.requirements.join(' · ')}</span></div>}
-          {sheet.notes.documentChecklist.length > 0 && <div className="workspace-record-meta"><span><strong>Paperwork:</strong> {sheet.notes.documentChecklist.join(' · ')}</span></div>}
-          <div className="workspace-detail-item"><strong>Booking footer / working instructions</strong><div>Unavailable</div><small>{availabilityCopy(sheet.unavailable.bookingFooter, 'Not available for this historical booking.')}</small></div>
+          {bookingNotes.length > 0 && <div style={{ display: 'grid', gap: 6 }}>{bookingNotes.map(([label, value]) => <div key={label} className="workspace-detail-item"><strong>{label}</strong><div>{value}</div></div>)}</div>}
         </div>
       )}
 
-      {tab === 'notes' && (visibleNotes.length ? <div style={{ display: 'grid', gap: 6 }}>{visibleNotes.map(([label, value]) => <div key={label} className="workspace-detail-item"><strong>{label}</strong><div>{value}</div></div>)}</div> : <EmptyState compact title="No notes recorded" />)}
+      {tab === 'progress' && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div className="workspace-detail-grid">
+            <Detail label="Current status" value={<StatusBadge value={presentationStatus} />} detail={sheet.updatedAt ? `Updated ${when(sheet.updatedAt)}` : undefined} />
+            <Detail label="Accepted bidder driver" value={acceptedBidderDriverLabel} detail={acceptedBidderDriverDetail} />
+            <Detail label="Execution company" value={sheet.executionCompany ? <MemberIdentityLink companyId={sheet.executionCompany.companyId}>{sheet.executionCompany.name}</MemberIdentityLink> : 'Not assigned'} detail={sheet.executionCompany ? companyDetail(sheet.executionCompany.memberId, sheet.executionCompany.phone) : undefined} />
+            <Detail label="Assigned driver" value={sheet.driver?.name ?? 'Not assigned'} />
+            <Detail label="Allocated vehicle" value={allocatedVehicleLabel} detail={allocatedVehicleDetail} />
+            <Detail label="Body type" value={sheet.vehicle?.bodyType ? human(sheet.vehicle.bodyType) : 'Not supplied'} detail={!sheet.vehicle?.bodyType ? availabilityCopy(sheet.unavailable.bodyType, 'Not available for this booking.') : undefined} />
+          </div>
+          {visibleNotes.length ? <div style={{ display: 'grid', gap: 6 }}>{visibleNotes.map(([label, value]) => <div key={label} className="workspace-detail-item"><strong>{label}</strong><div>{value}</div></div>)}</div> : <EmptyState compact title="No operational notes recorded" />}
+        </div>
+      )}
 
-      {tab === 'history' && (sheet.timeline.length ? <div style={{ display: 'grid' }}>{[...sheet.timeline].reverse().map((event, index) => <div key={event.id ?? `${event.eventType}-${index}`} className="workspace-record-meta"><span><strong>{human(event.eventType)}</strong></span><span>{when(event.createdAt)}</span><span>{event.message ?? event.userName ?? 'Operational update'}</span></div>)}</div> : <EmptyState compact title="No history events recorded" />)}
-
-      {tab === 'replay' && <WorkspaceJobReplay jobId={jobId} />}
-
-      {tab === 'documents' && (sheet.documents.length ? <div style={{ display: 'grid' }}>{sheet.documents.map((document, index) => <div key={document.id ?? `${document.fileName}-${index}`} className="workspace-record-meta"><span><strong>{document.fileName ?? document.type}</strong></span><span>{human(document.type)}</span><span>{when(document.createdAt)}</span>{document.filePath?.startsWith('http') ? <ActionButton tone="secondary" onClick={() => window.open(document.filePath ?? '', '_blank', 'noopener,noreferrer')}>Open</ActionButton> : <span>Stored securely</span>}</div>)}</div> : <EmptyState compact title="No job documents attached" />)}
+      {tab === 'evidence' && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          <div className="workspace-detail-grid">
+            <Detail label="Collection photos" value={sheet.evidence.collectionPhotoCount} detail={sheet.evidence.collectionHandoverRecorded ? 'Verified collection handover recorded' : 'Collection handover not recorded'} />
+            <Detail label="Delivery photos" value={sheet.evidence.deliveryPhotoCount} />
+            <Detail label="POD photos" value={sheet.evidence.podPhotoCount} />
+            <Detail label="Delivery signature" value={sheet.evidence.deliverySignatureRecorded ? 'Recorded' : 'Not recorded'} detail={sheet.evidence.recipientName ?? undefined} />
+          </div>
+          {sheet.documents.length ? <div style={{ display: 'grid' }}>{sheet.documents.map((document, index) => <div key={document.id ?? `${document.fileName}-${index}`} className="workspace-record-meta"><span><strong>{document.fileName ?? document.type}</strong></span><span>{human(document.type)}</span><span>{when(document.createdAt)}</span>{document.filePath?.startsWith('http') ? <ActionButton tone="secondary" onClick={() => window.open(document.filePath ?? '', '_blank', 'noopener,noreferrer')}>Open</ActionButton> : <span>Stored securely</span>}</div>)}</div> : <EmptyState compact title="No job documents attached" description={sheet.unavailable.documents ?? undefined} />}
+        </div>
+      )}
 
       {tab === 'pod' && <div className="workspace-detail-grid"><Detail label="POD required" value={sheet.pod.required == null ? 'Not supplied' : sheet.pod.required ? 'Yes' : 'No'} /><Detail label="Hard-copy POD" value={hardCopyPod} /><Detail label="POD status" value={<StatusBadge value={podState.label} tone={podState.tone} />} detail={podState.detail} /><Detail label="Evidence files" value={sheet.pod.photoCount} /><Detail label="Generated" value={sheet.pod.generated ? when(sheet.pod.generatedAt) : 'Not confirmed'} /><Detail label="Review" value={human(sheet.pod.reviewStatus)} detail={sheet.pod.reviewNote ?? undefined} /></div>}
 
-      {tab === 'invoice' && (sheet.invoices.length ? <div style={{ display: 'grid' }}>{sheet.invoices.map((invoice, index) => <div key={invoice.id ?? `${invoice.number}-${index}`} className="workspace-record-meta"><span><strong>{invoice.number ?? 'Invoice'}</strong></span><span>{money(invoice.amount, invoice.currency)}</span><span>{human(invoice.paymentStatus ?? invoice.status)}</span><span>{invoice.dueDate ? `Due ${when(invoice.dueDate)}` : 'No due date'}</span></div>)}</div> : <EmptyState compact title="No authorised invoice linked to this job" />)}
+      {tab === 'invoice' && (sheet.invoices.length ? <div style={{ display: 'grid' }}>{sheet.invoices.map((invoice, index) => <div key={invoice.id ?? `${invoice.number}-${index}`} className="workspace-record-meta"><span><strong>{invoice.number ?? 'Invoice'}</strong></span><span>{money(invoice.amount, invoice.currency)}</span><span>{human(invoice.paymentStatus ?? invoice.status)}</span><span>{invoice.dueDate ? `Due ${when(invoice.dueDate)}` : 'No due date'}</span></div>)}</div> : <EmptyState compact title="No authorised invoice linked to this booking" />)}
+
+      {tab === 'payment' && (sheet.paymentHistory.length ? <div style={{ display: 'grid' }}>{sheet.paymentHistory.map((payment, index) => <div key={payment.id ?? `payment-${index}`} className="workspace-record-meta"><span><strong>{money(payment.amount, payment.currency)}</strong></span><span>{human(payment.settlementMethod)}</span><span>{human(payment.statusAfter)}</span><span>{when(payment.paidAt ?? payment.createdAt)}</span><span>{payment.externalReference ?? payment.note ?? ''}</span></div>)}</div> : <EmptyState compact title="No payment history recorded" description={sheet.unavailable.payments ?? undefined} />)}
+
+      {tab === 'dispute' && (sheet.disputes.length ? <div style={{ display: 'grid' }}>{sheet.disputes.map((dispute, index) => <div key={dispute.id ?? `dispute-${index}`} className="workspace-record-meta"><span><strong>{dispute.type === 'invoice' ? 'Invoice dispute' : 'Job dispute'}</strong></span><span>{human(dispute.status)}</span><span>{dispute.reason ?? dispute.description ?? 'No reason supplied'}</span><span>{when(dispute.createdAt)}</span>{dispute.resolutionNote ? <span>Resolution: {dispute.resolutionNote}</span> : null}</div>)}</div> : <EmptyState compact title="No disputes recorded" description={sheet.unavailable.disputes ?? undefined} />)}
+
+      {tab === 'event-log' && (
+        <div style={{ display: 'grid', gap: 8 }}>
+          {sheet.timeline.length ? <div style={{ display: 'grid' }}>{[...sheet.timeline].reverse().map((event, index) => <div key={event.id ?? `${event.eventType}-${index}`} className="workspace-record-meta"><span><strong>{human(event.eventType)}</strong></span><span>{when(event.createdAt)}</span><span>{event.message ?? event.userName ?? 'Operational update'}</span></div>)}</div> : <EmptyState compact title="No event log entries recorded" />}
+          <WorkspaceJobReplay jobId={jobId} />
+        </div>
+      )}
     </div>
   );
 }

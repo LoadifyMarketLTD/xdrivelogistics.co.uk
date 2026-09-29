@@ -16,7 +16,7 @@ describe('CX-benchmark market intelligence contract', () => {
   });
 
   it('uses accepted commercial agreements for seven-day PPM intelligence', () => {
-    expect(source).toContain(".from('job_commercial_agreements')");
+    expect(source).toContain(".from('job_commercial_agreements_effective')");
     expect(source).toContain(".select('job_id,agreed_amount,currency,created_at')");
     expect(source).toContain('MIN_RATE_SAMPLES = 5');
     expect(source).toContain("unit: 'per_mile'");

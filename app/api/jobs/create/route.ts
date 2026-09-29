@@ -10,6 +10,8 @@ import {
 import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFlags';
 import { operationalError } from '../../_lib/operationalError';
 import { calculateJobRouteMetrics } from '../../_lib/jobRouteMetrics';
+import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../_lib/stripeCommercialReadiness';
+import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../_lib/transportBuyerRisk';
 
 const optionalText = z.string().trim().max(2000).optional().nullable();
 const optionalNumber = z.number().finite().nonnegative().optional().nullable();
@@ -147,6 +149,43 @@ export async function POST(request: NextRequest) {
     });
   }
   if (!membership) return respond(403, { error: 'You cannot post loads for this company workspace.' });
+
+  if (input.publish) {
+    try {
+      const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, input.companyId, 0);
+      if (!risk.infrastructureAvailable || !risk.snapshot) return respond(503, { error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
+      if (!risk.snapshot.allowed) {
+        await logTransportBuyerRiskBlockedEvent(supabaseAdmin, risk.snapshot, 'publish_blocked', authData.user.id, { operation: 'publish_job' });
+        return respond(409, transportBuyerRiskBlockedPayload(risk.snapshot));
+      }
+    } catch (error) {
+      return operationalError({ status: 503, message: 'Transport buyer exposure could not be verified. Please try again.', context: `jobs.create.buyer-risk.company:${input.companyId}`, cause: error, retryable: true });
+    }
+
+    let stripeReadiness;
+    try {
+      stripeReadiness = await getStripeCommercialReadiness(supabaseAdmin, input.companyId);
+    } catch (error) {
+      return operationalError({
+        status: 503,
+        message: 'Stripe commercial readiness could not be verified. Please try again.',
+        context: `jobs.create.stripe-readiness.company:${input.companyId}`,
+        cause: error,
+        retryable: true,
+      });
+    }
+    if (!stripeReadiness.infrastructureAvailable) {
+      return respond(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+    }
+    if (!stripeReadiness.ready) {
+      return respond(409, {
+        ...stripeCommercialReadinessPayload(
+          'Complete and activate your company Stripe account before publishing transport work.'
+        ),
+        setupCompanyId: input.companyId,
+      });
+    }
+  }
 
   let directInviteTarget: { id: string; name: string | null } | null = null;
   if (input.directInviteCompanyId) {

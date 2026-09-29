@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data, error } = await supabaseAdmin
     .from('driver_job_extras')
-    .select('id,job_id,driver_id,supplier_company_id,extra_type,description,amount_gbp,minutes,status,review_note,created_at,updated_at')
+    .select('id,job_id,driver_id,supplier_company_id,extra_type,description,amount_gbp,minutes,status,review_note,reviewed_by,reviewed_at,decision_company_id,contractual_amendment_id,contractual_snapshot,contractual_snapshot_hash,contractual_snapshot_version,invoice_item_id,created_at,updated_at')
     .eq('job_id', id)
     .eq('driver_id', driver.driverId)
     .order('created_at', { ascending: false });
@@ -84,7 +84,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       created_at: now,
       updated_at: now,
     })
-    .select('id,job_id,driver_id,supplier_company_id,extra_type,description,amount_gbp,minutes,status,review_note,created_at,updated_at')
+    .select('id,job_id,driver_id,supplier_company_id,extra_type,description,amount_gbp,minutes,status,review_note,reviewed_by,reviewed_at,decision_company_id,contractual_amendment_id,contractual_snapshot,contractual_snapshot_hash,contractual_snapshot_version,invoice_item_id,created_at,updated_at')
     .single();
 
   if (error) return respond(500, { error: error.message });

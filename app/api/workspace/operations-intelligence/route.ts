@@ -145,7 +145,7 @@ export async function GET(request: NextRequest) {
       : Promise.resolve({ data: [], error: null }),
     scopedJobIds.length
       ? supabaseAdmin
-          .from('job_commercial_agreements')
+          .from('job_commercial_agreements_effective')
           .select('job_id,agreed_amount,payment_terms,currency,created_at')
           .in('job_id', scopedJobIds)
           .order('created_at', { ascending: false })

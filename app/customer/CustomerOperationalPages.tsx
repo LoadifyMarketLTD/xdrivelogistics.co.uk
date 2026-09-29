@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
+import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../lib/legal/paymentObligationClient';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobPresentationStatus } from '../../lib/jobs/workspaceJobStage';
 import { CompanyJobSheetPanel } from '../components/workspace/CompanyJobSheetPanel';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../components/workspace/useCompanyWorkspaceData';
@@ -228,13 +229,14 @@ export function CustomerQuotesOperationalPage() {
   }, [allQuotes, carrierSearch, data.jobs, identities, reference, statusFilter]);
 
   const award = async (id: string) => {
+    if (!confirmBookingPaymentObligation()) return;
     setWorking(id); setMessage('');
     const { data: session } = await supabase.auth.getSession();
-    const response = await fetch(`/api/customer/bids/${id}/award`, { method: 'POST', headers: session.session?.access_token ? { Authorization: `Bearer ${session.session.access_token}` } : {} });
+    const response = await fetch(`/api/customer/bids/${id}/award`, { method: 'POST', headers: session.session?.access_token ? { Authorization: `Bearer ${session.session.access_token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' }, body: bookingPaymentObligationRequestBody });
     const payload = await response.json().catch(() => ({})) as { error?: string };
     setWorking(null);
     if (!response.ok) { setMessage(payload.error ?? 'Unable to award quote.'); return; }
-    setMessage('Carrier quote awarded successfully.');
+    setMessage('Booking offer sent - awaiting carrier acceptance.');
     await data.refresh();
   };
 

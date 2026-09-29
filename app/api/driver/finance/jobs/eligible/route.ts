@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
           .eq('company_id', driver.companyId)
           .in('job_id', jobIds),
         supabaseAdmin
-          .from('job_commercial_agreements')
+          .from('job_commercial_agreements_effective')
           .select('id, job_id, supplier_company_id, agreed_amount, currency, vat_amount, agreed_gross_amount, payment_terms')
           .eq('supplier_company_id', driver.companyId)
           .in('job_id', jobIds),

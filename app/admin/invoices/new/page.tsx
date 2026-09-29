@@ -188,7 +188,7 @@ export default function NewInvoicePage() {
       setJobId(job.id);
 
       const { data: agreementData, error: agreementError } = await supabase
-        .from('job_commercial_agreements')
+        .from('job_commercial_agreements_effective')
         .select('buyer_company_id, supplier_company_id, agreed_amount, agreed_gross_amount, vat_rate, currency, payment_terms')
         .eq('job_id', job.id)
         .eq('supplier_company_id', companyId)

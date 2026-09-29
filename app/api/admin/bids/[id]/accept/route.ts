@@ -6,6 +6,8 @@ import {
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
 import { hasBidDecisionRole } from '../../_lib/ownerRoles';
+import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
+import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -31,6 +33,11 @@ export async function POST(request: NextRequest, { params }: Params) {
   }
 
   // ── 2. Resolve bid id ───────────────────────────────────────────────────────
+  const body = await request.json().catch(() => ({})) as { paymentObligationAcknowledged?: boolean };
+  if (body.paymentObligationAcknowledged !== true) {
+    return NextResponse.json({ error: 'You must explicitly acknowledge the transport buyer payment obligation before awarding this quote.', code: 'PAYMENT_OBLIGATION_ACK_REQUIRED' }, { status: 409 });
+  }
+
   const { id: bidId } = await params;
   if (!bidId) {
     return NextResponse.json({ error: 'Bad request — missing bid id.' }, { status: 400 });
@@ -39,7 +46,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   // ── 3. Pre-check caller role on owning company ──────────────────────────────
   const { data: bidJob, error: bidJobError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, jobs!inner(company_id)')
+    .select('id, bid_price_gbp, amount, jobs!inner(company_id)')
     .eq('id', bidId)
     .maybeSingle();
 
@@ -76,16 +83,31 @@ export async function POST(request: NextRequest, { params }: Params) {
     );
   }
 
+  const projectedAmount = Number((bidJob as { bid_price_gbp?: number | string | null; amount?: number | string | null }).bid_price_gbp ?? (bidJob as { amount?: number | string | null }).amount ?? 0);
+  try {
+    const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, jobCompanyId, projectedAmount);
+    if (!risk.infrastructureAvailable || !risk.snapshot) return NextResponse.json({ error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' }, { status: 503 });
+    if (!risk.snapshot.allowed) {
+      await logTransportBuyerRiskBlockedEvent(supabaseAdmin, risk.snapshot, 'award_blocked', user.id, { operation: 'admin_award', bid_id: bidId });
+      return NextResponse.json(transportBuyerRiskBlockedPayload(risk.snapshot), { status: 409 });
+    }
+  } catch {
+    return NextResponse.json({ error: 'Transport buyer exposure could not be verified. Please try again.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' }, { status: 503 });
+  }
+
   // ── 4. Atomic accept via database function ───────────────────────────────────
   const { data: rpcResult, error: rpcError } = await supabaseAdmin.rpc(
-    'accept_job_bid_atomic',
+    'award_job_bid_pending_atomic',
     {
       p_bid_id: bidId,
       p_actor_user_id: user.id,
+      p_payment_obligation_acknowledged: true,
+      p_payment_obligation_terms_version: BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION,
     }
   );
 
   if (rpcError) {
+    if (String(rpcError.hint ?? '') === 'TRANSPORT_BUYER_RISK_LIMIT') return NextResponse.json({ error: rpcError.message, code: 'TRANSPORT_BUYER_RISK_LIMIT' }, { status: 409 });
     return NextResponse.json(
       { error: `Failed to accept bid: ${rpcError.message}` },
       { status: 500 }
@@ -104,6 +126,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     success: true,
     bidId: result.bid_id,
     jobId: result.job_id,
-    awardedCarrierCompanyId: result.awarded_carrier_company_id,
+    bookingOfferId: result.booking_offer_id,
+    carrierCompanyId: result.carrier_company_id,
+    status: result.status,
   });
 }

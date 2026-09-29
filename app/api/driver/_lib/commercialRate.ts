@@ -44,7 +44,7 @@ export async function loadDriverAgreedRates(
 
   const [agreementsResult, bidsResult] = await Promise.all([
     client
-      .from('job_commercial_agreements')
+      .from('job_commercial_agreements_effective')
       .select('*')
       .in('job_id', jobIds)
       .order('created_at', { ascending: false }),
