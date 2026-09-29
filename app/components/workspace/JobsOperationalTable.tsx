@@ -5,7 +5,7 @@
  * All dimensions derived from docs/ui/cx/jobs.md and the mandatory numeric
  * contract in PR #338.  No layout values are invented.
  *
- * Reference: public/reference/courier-exchange/Screenshot 2026-05-28 204652.png
+ * Reference: docs/reference/courier-exchange/Screenshot 2026-05-28 204652.png
  *
  * Section 10 column geometry (from mandatory directive):
  *   status/priority : 92px
