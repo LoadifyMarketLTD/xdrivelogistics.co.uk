@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS public.driver_job_extras (
   reviewed_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
   reviewed_at timestamptz,
   review_note text,
-  invoice_item_id uuid REFERENCES public.invoice_items(id) ON DELETE SET NULL,
+  invoice_item_id uuid,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );

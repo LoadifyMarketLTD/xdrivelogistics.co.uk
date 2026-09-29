@@ -16,7 +16,8 @@ describe('driver_job_extras fresh-schema bootstrap', () => {
     expect(bootstrap).toContain('CREATE TABLE IF NOT EXISTS public.driver_job_extras');
     expect(bootstrap).toContain('job_id uuid NOT NULL REFERENCES public.jobs(id) ON DELETE CASCADE');
     expect(bootstrap).toContain('driver_id uuid NOT NULL REFERENCES public.drivers(id) ON DELETE CASCADE');
-    expect(bootstrap).toContain('invoice_item_id uuid REFERENCES public.invoice_items(id) ON DELETE SET NULL');
+    expect(bootstrap).toContain('invoice_item_id uuid');
+    expect(bootstrap).not.toContain('REFERENCES public.invoice_items');
     expect(contractual).toContain('ALTER TABLE public.driver_job_extras');
     expect(contractual).toContain('contractual_snapshot_hash text');
   });
