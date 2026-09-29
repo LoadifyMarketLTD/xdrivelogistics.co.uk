@@ -16,7 +16,7 @@ const DRIVER_JOBS_PATH = '/driver/jobs';
 const DRIVER_CHANGE_PASSWORD_PATH = '/driver/change-password';
 const FORBIDDEN_PATH = '/forbidden';
 const LOGIN_PATH = '/login';
-const PROTECTED_PATH_PREFIXES = ['/super-admin', '/broker', '/admin', '/driver', '/customer', '/m'];
+const PROTECTED_PATH_PREFIXES = ['/super-admin', '/broker', '/admin', '/driver', '/customer'];
 
 type RouteAuthResult =
   | { kind: 'unauthenticated' }
@@ -212,6 +212,18 @@ const buildCanonicalHostRedirect = (request: NextRequest) => {
   redirectUrl.host = canonicalHost;
   redirectUrl.port = '';
   return NextResponse.redirect(redirectUrl, 308);
+};
+
+const resolveLegacyMobileRedirect = (pathname: string) => {
+  if (pathname === '/m' || pathname === '/m/' || pathname === '/m/driver') return '/driver';
+  if (pathname === '/m/jobs' || pathname === '/m/driver/jobs') return '/driver/jobs';
+  if (pathname.startsWith('/m/jobs/')) return pathname.replace('/m/jobs/', '/driver/jobs/');
+  if (pathname === '/m/driver/active') return '/driver/jobs';
+  if (pathname === '/m/driver/documents') return '/driver/documents';
+  if (pathname === '/m/driver/messages') return '/driver/messages';
+  if (pathname === '/m/driver/quotes') return '/driver/quotes';
+  if (pathname === '/m/driver/settings') return '/driver/settings';
+  return null;
 };
 
 export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthResult> => {
@@ -617,6 +629,11 @@ export async function middleware(request: NextRequest) {
   const canonicalRedirect = buildCanonicalHostRedirect(request);
   if (canonicalRedirect) {
     return canonicalRedirect;
+  }
+
+  const legacyMobileTarget = resolveLegacyMobileRedirect(request.nextUrl.pathname);
+  if (legacyMobileTarget) {
+    return buildRedirect(request, legacyMobileTarget);
   }
 
   const nonce = generateNonce();
