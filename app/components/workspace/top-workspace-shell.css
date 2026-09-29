@@ -230,7 +230,7 @@
 /* Unified CX-inspired primary navigation row used across operational workspaces. */
 .xdrive-operational-top-workspace .top-workspace-nav--primary {
   position: sticky !important;
-  top: 52px !important;
+  top: 50px !important;
   z-index: 79 !important;
   min-width: 0 !important;
   height: 40px !important;
@@ -375,7 +375,7 @@
 
 .xdrive-operational-top-workspace .top-workspace-shell__content {
   min-width: 0;
-  min-height: calc(100vh - 92px) !important;
+  min-height: calc(100vh - 90px) !important;
   background: #f4f6f8;
 }
 
@@ -582,7 +582,7 @@
   }
 
   .xdrive-operational-top-workspace .top-workspace-shell__content {
-    min-height: calc(100vh - 92px) !important;
+    min-height: calc(100vh - 90px) !important;
   }
 
   .xdrive-operational-top-workspace .top-workspace-shell__content > div,
@@ -649,23 +649,23 @@
   --ws-page-x:8px;
   --ws-page-y:8px;
   --ws-gap-grid:8px;
-  --ws-gap-section:10px;
+  --ws-gap-section:12px;
   --ws-filter-rail-w:200px;
   --ws-control-h:28px;
-  --ws-panel-head-h:32px;
-  --ws-table-head-h:34px;
-  --ws-table-row-h:38px;
-  --ws-operational-row-min-h:48px;
-  --ws-font-page-title:18px;
-  --ws-font-panel-title:12px;
-  --ws-font-body:12px;
-  --ws-font-label:10.5px;
-  --ws-font-meta:10px;
-  --ws-radius:2px;
+  --ws-panel-head-h:36px;
+  --ws-table-head-h:36px;
+  --ws-table-row-h:42px;
+  --ws-operational-row-min-h:52px;
+  --ws-font-page-title:20px;
+  --ws-font-panel-title:13px;
+  --ws-font-body:12.5px;
+  --ws-font-label:11px;
+  --ws-font-meta:11px;
+  --ws-radius:4px;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content > div,
 .xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-frame{
-  padding:8px 8px 12px!important;
+  padding:12px 12px 16px!important;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-header{
   min-height:40px!important;
