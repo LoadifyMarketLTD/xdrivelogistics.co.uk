@@ -644,3 +644,68 @@
   background:#f5f7f9!important;
   cursor:not-allowed;
 }
+/* 2026-09-29 CX visual-density calibration for operational workspaces only. */
+.xdrive-workspace-measured.xdrive-operational-top-workspace{
+  --ws-page-x:8px;
+  --ws-page-y:8px;
+  --ws-gap-grid:8px;
+  --ws-gap-section:10px;
+  --ws-filter-rail-w:200px;
+  --ws-control-h:28px;
+  --ws-panel-head-h:32px;
+  --ws-table-head-h:34px;
+  --ws-table-row-h:38px;
+  --ws-operational-row-min-h:48px;
+  --ws-font-page-title:18px;
+  --ws-font-panel-title:12px;
+  --ws-font-body:12px;
+  --ws-font-label:10.5px;
+  --ws-font-meta:10px;
+  --ws-radius:2px;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content > div,
+.xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-frame{
+  padding:8px 8px 12px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-header{
+  min-height:40px!important;
+  margin-bottom:6px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-header h1{
+  font-size:18px!important;
+  line-height:22px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .xdrive-page-header p{
+  margin-top:1px!important;
+  font-size:11px!important;
+  line-height:14px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content th{
+  height:34px!important;
+  padding:4px 7px!important;
+  font-size:10px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content td{
+  min-height:38px!important;
+  padding:5px 7px!important;
+  font-size:11px!important;
+  line-height:15px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content input,
+.xdrive-workspace-measured.xdrive-operational-top-workspace .top-workspace-shell__content select{
+  min-height:28px!important;
+  border-radius:2px!important;
+  font-size:11px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .workspace-tab-strip,
+.xdrive-workspace-measured.xdrive-operational-top-workspace .driver-tab-strip{
+  min-height:28px!important;
+  border-radius:2px!important;
+}
+.xdrive-workspace-measured.xdrive-operational-top-workspace .workspace-tab-strip button,
+.xdrive-workspace-measured.xdrive-operational-top-workspace .driver-tab-strip button{
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 9px!important;
+  font-size:10.5px!important;
+}
