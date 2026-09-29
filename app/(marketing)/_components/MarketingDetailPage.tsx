@@ -140,7 +140,7 @@ export function MarketingDetailPage({
     <div className="marketing-editorial min-h-screen bg-[#F4F6FA] text-[#102447]">
       <header className="sticky top-0 z-50 border-b border-[#DDE5EF] bg-white/95 text-[#163568] backdrop-blur-xl">
         <div className="mx-auto flex h-[72px] max-w-[1240px] items-center justify-between px-5 sm:px-8">
-          <Link href="/"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link>
+          <Link href="/"><Image src="/xdrive-logo-primary.webp" alt="XDrive Logistics" width={218} height={59} priority className="h-[44px] w-auto" /></Link>
           <nav className="hidden items-center gap-6 text-sm font-black text-[#163568] lg:flex">
             {nav.map(([label, href]) => (
               <Link
@@ -174,7 +174,7 @@ export function MarketingDetailPage({
           {heroMap ? (
             <div className="pointer-events-none absolute inset-y-0 right-0 hidden w-[56%] overflow-hidden lg:block" aria-hidden="true">
               <Image
-                src="/uk-satellite-map.png"
+                src="/uk-satellite-map.webp"
                 alt=""
                 fill
                 priority
@@ -248,7 +248,7 @@ export function MarketingDetailPage({
         <div className="mx-auto max-w-[1440px]">
           <div className="grid gap-10 pb-10 xl:grid-cols-[1.15fr_2.85fr]">
             <div>
-              <Link href="/" className="inline-flex"><Image src="/xdrive-logo-primary.png" alt="XDrive Logistics" width={218} height={59} className="h-[46px] w-auto" /></Link>
+              <Link href="/" className="inline-flex"><Image src="/xdrive-logo-primary.webp" alt="XDrive Logistics" width={218} height={59} className="h-[46px] w-auto" /></Link>
               <p className="mt-4 text-base font-black text-[#163568]">Courier &amp; Freight Exchange Platform</p>
               <p className="mt-3 max-w-md text-sm font-semibold leading-6 text-[#60758F]">Posted work, courier quotes, awarded jobs, dispatch, POD and invoice readiness in one controlled workflow.</p>
               <div className="mt-5 rounded-[24px] border border-[#1B3D6B] bg-gradient-to-br from-[#163568] to-[#102B55] p-5 text-sm font-bold leading-6 text-[#D8E4F3] shadow-[0_18px_45px_rgba(7,27,60,0.12)]">

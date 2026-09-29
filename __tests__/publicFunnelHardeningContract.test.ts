@@ -123,7 +123,7 @@ describe('public funnel hardening', () => {
   });
 
   it('uses local marketing imagery and provides a mobile navigation', () => {
-    expect(marketing).toContain('src="/uk-satellite-map.png"');
+    expect(marketing).toContain('src="/uk-satellite-map.webp"');
     expect(marketing).toContain('fetchPriority="high"');
     expect(marketing).not.toContain('upload.wikimedia.org');
     expect(marketing).toContain('<details className="relative lg:hidden">');
