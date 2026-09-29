@@ -40,4 +40,10 @@ describe('Unified workspace navbar contract', () => {
     expect(workspaceRole).toContain("label: 'Driver Settings', href: '/driver/settings'");
     expect(workspaceRole).toContain("label: 'Company Settings', href: '/driver/settings?section=overview'");
   });
+
+  it('preserves the driver prototype scope needed by CX-converged page CSS', () => {
+    expect(shell).toContain("driver-prototype-port");
+    expect(shell).toContain("app driver-prototype-app");
+    expect(shell).toContain("role === 'driver' || role === 'owner_driver'");
+  });
 });
