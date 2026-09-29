@@ -29,7 +29,7 @@ describe('CX-density carrier Diary contract', () => {
     expect(diary).toContain("(['agreement','route','progress','evidence','pod','invoice','payment','dispute','event-log'] as JobSheetTab[])");
     expect(diary).toContain('openJobTab(job.id, tabId)');
     expect(sheet).toContain('initialTab?: JobSheetTab');
-    expect(sheet).toContain('setTab(initialTab)');
+    expect(sheet).toContain('setTab(normalizeTab(initialTab))');
   });
 
   it('preserves allocation behind the authorised endpoint', () => {
