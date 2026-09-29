@@ -1,7 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { headers } from 'next/headers'
 import './globals.css'
-import 'leaflet/dist/leaflet.css'
 import { AuthProvider } from './components/AuthContext'
 import OnboardingAccessGuard from './components/OnboardingAccessGuard'
 import { COMPANY_CONFIG } from './config/company'
