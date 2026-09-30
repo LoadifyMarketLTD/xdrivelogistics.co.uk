@@ -12,7 +12,7 @@ import {
 } from '../../_lib/marketplacePublic';
 import { isDriverContext, respond } from '../../mobile/_lib';
 import { requireWebDriver } from '../../_lib/webDriver';
-import { calculateDrivingRoute, calculateJobRouteMetrics } from '../../../_lib/jobRouteMetrics';
+import { calculateDrivingRoute } from '../../../_lib/jobRouteMetrics';
 import { getBlockedCounterpartyCompanyIds } from '../../../_lib/companyBlocks';
 
 const LIST_LIMIT = 150;
@@ -206,41 +206,9 @@ export async function GET(request: NextRequest) {
     return visibilityAllows(job, driver.companyId);
   });
 
-  const missingRouteJobs = jobs.filter((job) =>
-    marketplaceNumber(job.job_distance_miles) == null
-    || marketplaceNumber(job.job_distance_minutes) == null
-    || marketplaceNumber(job.pickup_lat) == null
-    || marketplaceNumber(job.pickup_lng) == null
-    || marketplaceNumber(job.delivery_lat) == null
-    || marketplaceNumber(job.delivery_lng) == null
-  );
-  if (missingRouteJobs.length) {
-    const repaired = await Promise.all(missingRouteJobs.slice(0, 20).map(async (job) => {
-      const pickupPostcode = marketplaceText(job.pickup_postcode);
-      const deliveryPostcode = marketplaceText(job.delivery_postcode);
-      if (!pickupPostcode || !deliveryPostcode) return null;
-      const route = await calculateJobRouteMetrics([pickupPostcode, deliveryPostcode]);
-      if (!route) return null;
-      await supabaseAdmin!.from('jobs').update({
-        pickup_lat: route.pickupLat,
-        pickup_lng: route.pickupLng,
-        delivery_lat: route.deliveryLat,
-        delivery_lng: route.deliveryLng,
-        job_distance_miles: route.distanceMiles,
-        job_distance_minutes: route.durationMinutes,
-      }).eq('id', String(job.id));
-      Object.assign(job, {
-        pickup_lat: route.pickupLat,
-        pickup_lng: route.pickupLng,
-        delivery_lat: route.deliveryLat,
-        delivery_lng: route.deliveryLng,
-        job_distance_miles: route.distanceMiles,
-        job_distance_minutes: route.durationMinutes,
-      });
-      return job.id;
-    }));
-    void repaired;
-  }
+  // Keep the marketplace list request fast. Route repair belongs in job creation/update
+  // workflows, not in a Driver GET that can contain up to LIST_LIMIT jobs. Blocking here
+  // on external geocoding/routing was able to exceed the native app's 20s read timeout.
 
   if (requestedId && jobs.length === 0) {
     return respond(404, { error: 'This load is not available to your marketplace account.' });
@@ -345,9 +313,12 @@ export async function GET(request: NextRequest) {
   }
 
   const loads = await Promise.all(jobs.map(async (job) => {
-    let distanceToPickupMiles: number | null = null;
-    let pickupEtaMinutes: number | null = null;
-    if (driverPosition) {
+    let distanceToPickupMiles = marketplaceNumber(job.distance_to_pickup_miles);
+    let pickupEtaMinutes = marketplaceNumber(job.pickup_eta_minutes);
+
+    // A single Load Detail request may enrich a missing driver-to-pickup route on demand.
+    // The list endpoint must never fan out external routing requests for every load.
+    if (requestedId && driverPosition && (distanceToPickupMiles == null || pickupEtaMinutes == null)) {
       let pickup = validCoordinates(job.pickup_lat, job.pickup_lng);
       if (!pickup && job.pickup_postcode) {
         try {
