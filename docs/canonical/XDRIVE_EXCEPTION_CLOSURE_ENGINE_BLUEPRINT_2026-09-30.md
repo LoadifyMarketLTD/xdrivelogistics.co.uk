@@ -138,6 +138,19 @@ Production reconciliation is scheduled by Supabase Cron rather than a browser se
 - stable detector/entity dedupe keys keep repeated reconciliation idempotent;
 - automated runs assign engine-created cases, persist SLA breaches, and escalate overdue customer-update and verified-closure obligations.
 
+## 8.2 Company routing and notification policy
+
+Company-scoped engine cases are routed through `notification_events` without granting company users direct write access to `platform_cases`.
+
+- operational exceptions -> active company owner/admin/dispatcher/fleet-manager roles;
+- POD/evidence exceptions -> active company owner/admin/dispatcher/fleet-manager roles;
+- finance exceptions -> active company owner/admin/finance roles;
+- notification routing is idempotent per case, recipient and escalation level;
+- finance alerts respect finance notification preferences; operational and POD alerts respect operational preferences;
+- the Platform Action Centre remains the canonical owner case registry and audit surface.
+
+The notification worker maps each exception class to the appropriate company workspace while preserving the platform-only case lifecycle and closure controls.
+
 ## 9. UI contract
 
 Action Centre list must expose:

@@ -134,7 +134,7 @@ async function getUserEmail(userId: string): Promise<{ email: string; name: stri
 
 const notificationEventClass = (eventType: string) => {
   if (['load_alert', 'bid_accepted', 'bid_rejected', 'carrier_invited', 'carrier_accepted', 'carrier_rejected'].includes(eventType)) return 'marketplace';
-  if (['invoice_created', 'invoice_dispute', 'invoice_disputed', 'invoice_paid', 'payment_received'].includes(eventType)) return 'finance';
+  if (['invoice_created', 'invoice_dispute', 'invoice_disputed', 'invoice_paid', 'payment_received', 'exception_finance_alert'].includes(eventType)) return 'finance';
   if (eventType.startsWith('onboarding_') || ['membership_invite', 'membership_changed'].includes(eventType)) return 'account';
   return 'operational';
 };
@@ -563,6 +563,38 @@ async function handleInvoiceCreated(event: NotificationEvent) {
   );
 }
 
+async function handleExceptionCaseAlert(event: NotificationEvent) {
+  const userId = event.recipient_user_id;
+  if (!userId) return true;
+  if (!await userEmailEnabled(userId, event.event_type)) return true;
+
+  const user = await getUserEmail(userId);
+  if (!user) return true;
+
+  const reference = escapeHtml(event.payload.reference ?? event.entity_id);
+  const severity = escapeHtml(event.payload.severity ?? 'P2');
+  const title = escapeHtml(event.payload.title ?? 'Operational exception requires attention');
+  const entityLabel = escapeHtml(event.payload.entity_label ?? event.payload.entity_id ?? 'Affected record');
+  const nextAction = escapeHtml(event.payload.next_action ?? 'Review the exception and record the next action.');
+  const escalationLevel = Number(event.payload.escalation_level ?? 0);
+  const caseType = String(event.payload.case_type ?? '');
+  const destination = event.event_type === 'exception_finance_alert'
+    ? '/admin/finance'
+    : event.event_type === 'exception_pod_alert'
+      ? '/admin/pod'
+      : '/admin/incidents';
+  const escalationText = escalationLevel > 0
+    ? `<p><strong>Escalation level:</strong> ${escapeHtml(escalationLevel)}</p>`
+    : '';
+
+  return sendEmail(
+    user.email,
+    `${severity} exception ${reference} - XDrive Logistics`,
+    `<h2>${title}</h2><p>Hi ${escapeHtml(user.name)},</p><p>XDrive has detected an exception that requires attention.</p><ul><li><strong>Reference:</strong> ${reference}</li><li><strong>Type:</strong> ${escapeHtml(caseType.replaceAll('_', ' '))}</li><li><strong>Affected record:</strong> ${entityLabel}</li><li><strong>Next action:</strong> ${nextAction}</li></ul>${escalationText}<p><a href="${escapeHtml(buildAppUrl(destination))}">Open the relevant XDrive workspace</a></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
+  );
+}
+
 async function processEvent(event: NotificationEvent): Promise<void> {
   const leaseToken = event.lease_token ?? '';
   if (!leaseToken) {
@@ -594,6 +626,11 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       case 'onboarding_approved': success = await handleOnboardingApproved(event); break;
       case 'invoice_disputed': success = await handleInvoiceDisputed(event); break;
       case 'invoice_created': success = await handleInvoiceCreated(event); break;
+      case 'exception_operational_alert':
+      case 'exception_pod_alert':
+      case 'exception_finance_alert':
+        success = await handleExceptionCaseAlert(event);
+        break;
       default:
         console.log(`[notify] Unknown event type: ${event.event_type} - skipped`);
         skipped = true;
