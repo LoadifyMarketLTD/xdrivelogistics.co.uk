@@ -8,10 +8,14 @@ const respond = (status: number, payload: Record<string, unknown>) => NextRespon
 const TABLE_MISSING_CODES = new Set(['42P01', 'PGRST202', 'PGRST205']);
 
 const mutationSchema = z.object({
-  action: z.enum(['assign', 'acknowledge', 'investigate', 'wait', 'resolve', 'close', 'reopen']),
+  action: z.enum(['assign', 'acknowledge', 'investigate', 'wait', 'resolve', 'close', 'reopen', 'plan']),
   reason: z.string().trim().max(5000).optional(),
   assignedToUserId: z.string().uuid().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  nextAction: z.string().trim().max(1000).nullable().optional(),
+  nextActionDueAt: z.string().datetime({ offset: true }).nullable().optional(),
+  customerUpdateDueAt: z.string().datetime({ offset: true }).nullable().optional(),
+  closureDueAt: z.string().datetime({ offset: true }).nullable().optional(),
 });
 
 const isTableMissing = (error: { code?: string } | null | undefined) =>
@@ -69,14 +73,24 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const { caseId } = await params;
   const value = parsed.data;
-  const { data, error } = await supabaseAdmin.rpc('owner_mutate_platform_case', {
-    p_actor_user_id: owner.id,
-    p_case_id: caseId,
-    p_action: value.action,
-    p_reason: value.reason ?? null,
-    p_assigned_to_user_id: value.assignedToUserId ?? null,
-    p_metadata: value.metadata ?? {},
-  });
+  const rpcResult = value.action === 'plan'
+    ? await supabaseAdmin.rpc('owner_set_platform_case_plan', {
+        p_actor_user_id: owner.id,
+        p_case_id: caseId,
+        p_next_action: value.nextAction ?? null,
+        p_next_action_due_at: value.nextActionDueAt ?? null,
+        p_customer_update_due_at: value.customerUpdateDueAt ?? null,
+        p_closure_due_at: value.closureDueAt ?? null,
+      })
+    : await supabaseAdmin.rpc('owner_mutate_platform_case', {
+        p_actor_user_id: owner.id,
+        p_case_id: caseId,
+        p_action: value.action,
+        p_reason: value.reason ?? null,
+        p_assigned_to_user_id: value.assignedToUserId ?? null,
+        p_metadata: value.metadata ?? {},
+      });
+  const { data, error } = rpcResult;
 
   if (error) {
     if (isTableMissing(error)) return respond(503, { error: 'Platform Case Centre schema is not applied in this environment.' });

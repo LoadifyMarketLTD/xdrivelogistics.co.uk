@@ -55,5 +55,15 @@ describe('Exception & Closure Engine Phase 1', () => {
     expect(page).toContain('SLA breached');
     expect(page).toContain('BREACHED');
     expect(page).toContain('Next action');
+    const detail = readRepoFile('app/super-admin/action-centre/[caseId]/page.tsx');
+    const detailApi = readRepoFile('app/api/super-admin/cases/[caseId]/route.ts');
+    expect(detail).toContain('Operational plan');
+    expect(detail).toContain('Customer update due');
+    expect(detail).toContain('Verified closure due');
+    expect(detailApi).toContain("action: z.enum(['assign', 'acknowledge', 'investigate', 'wait', 'resolve', 'close', 'reopen', 'plan'])");
+    expect(detailApi).toContain("owner_set_platform_case_plan");
+    const migration = readRepoFile(MIGRATION);
+    expect(migration).toContain('owner_set_platform_case_plan');
+    expect(migration).toContain("'plan_updated'");
   });
 });

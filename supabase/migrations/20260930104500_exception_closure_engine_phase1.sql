@@ -132,12 +132,69 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.owner_set_platform_case_plan(
+  p_actor_user_id uuid,
+  p_case_id uuid,
+  p_next_action text DEFAULT NULL,
+  p_next_action_due_at timestamptz DEFAULT NULL,
+  p_customer_update_due_at timestamptz DEFAULT NULL,
+  p_closure_due_at timestamptz DEFAULT NULL
+)
+RETURNS public.platform_cases
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = pg_catalog, public
+AS $$
+DECLARE
+  v_case public.platform_cases;
+  v_next_action text := NULLIF(btrim(COALESCE(p_next_action, '')), '');
+BEGIN
+  PERFORM public.assert_platform_owner_actor(p_actor_user_id);
+
+  IF v_next_action IS NOT NULL AND length(v_next_action) > 1000 THEN
+    RAISE EXCEPTION 'Next action must be 1000 characters or fewer.' USING ERRCODE = '23514';
+  END IF;
+
+  UPDATE public.platform_cases
+  SET next_action = v_next_action,
+      next_action_due_at = p_next_action_due_at,
+      customer_update_due_at = p_customer_update_due_at,
+      closure_due_at = p_closure_due_at
+  WHERE id = p_case_id
+  RETURNING * INTO v_case;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Platform case not found.' USING ERRCODE = 'P0002';
+  END IF;
+
+  INSERT INTO public.platform_case_events (
+    case_id, actor_user_id, event_type, old_status, new_status, reason, metadata
+  ) VALUES (
+    v_case.id,
+    p_actor_user_id,
+    'plan_updated',
+    v_case.status,
+    v_case.status,
+    v_next_action,
+    jsonb_build_object(
+      'next_action_due_at', v_case.next_action_due_at,
+      'customer_update_due_at', v_case.customer_update_due_at,
+      'closure_due_at', v_case.closure_due_at
+    )
+  );
+
+  RETURN v_case;
+END;
+$$;
+
 REVOKE ALL ON FUNCTION public.platform_case_default_sla(text, timestamptz) FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.platform_case_apply_sla_defaults() FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON FUNCTION public.service_reconcile_platform_case_sla(timestamptz) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.owner_set_platform_case_plan(uuid, uuid, text, timestamptz, timestamptz, timestamptz) FROM PUBLIC, anon, authenticated;
 
 GRANT EXECUTE ON FUNCTION public.platform_case_default_sla(text, timestamptz) TO service_role;
 GRANT EXECUTE ON FUNCTION public.service_reconcile_platform_case_sla(timestamptz) TO service_role;
+GRANT EXECUTE ON FUNCTION public.owner_set_platform_case_plan(uuid, uuid, text, timestamptz, timestamptz, timestamptz) TO service_role;
 
 COMMENT ON FUNCTION public.service_reconcile_platform_case_sla(timestamptz) IS
   'Persists first SLA breach/escalation for active Platform Case Centre records and writes a semantic system event.';
