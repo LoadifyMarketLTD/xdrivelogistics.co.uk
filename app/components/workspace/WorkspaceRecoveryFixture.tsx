@@ -8,6 +8,7 @@ import TopWorkspaceShell from './TopWorkspaceShell';
 import RoleSettingsWorkspace from './RoleSettingsWorkspace';
 import WorkspaceSupportPage from './WorkspaceSupportPage';
 import LoadPostingForm from './LoadPostingForm';
+import LegalAgreementsPage from './LegalAgreementsPage';
 import { MemberDirectoryPage } from './MemberDirectoryPage';
 import LiveAvailabilityPage from '../../admin/live-availability/page';
 import CarrierOperationsDashboardHome from './CarrierOperationsDashboardHome';
@@ -46,7 +47,8 @@ export default function WorkspaceRecoveryFixture({ role, initialScreen }: { role
               <div role="note" style={{ padding: '4px 12px', fontSize: 11 }}>LOCAL TEST DATA - navigation capture only</div>
               <output data-testid="fixture-user" hidden>{user?.companyId ?? ''}</output>
               <output data-testid="navigation-target" hidden>{lastTarget}</output>
-              {pathname === '/admin/dashboard' ? <CarrierOperationsDashboardHome />
+              {pathname === `${root}/legal-recovery` ? <LegalAgreementsPage recoveryHref="/onboarding/resume" supportHref={`${root}/support?reason=legal-contractual-role`} />
+                : pathname === '/admin/dashboard' ? <CarrierOperationsDashboardHome />
                 : pathname === '/admin/live-availability' ? <LiveAvailabilityPage />
                 : pathname === '/admin/marketplace/directory' ? <MemberDirectoryPage title="Directory" eyebrow="Carrier member network" />
                 : pathname === `${root}/settings` ? <RoleSettingsWorkspace role={role} />

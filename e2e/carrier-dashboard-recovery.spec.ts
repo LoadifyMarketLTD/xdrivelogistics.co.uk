@@ -33,7 +33,9 @@ test.describe('Carrier Dashboard real component recovery', () => {
     await page.route('**/rest/v1/invoices?**', (route) => route.fulfill({ status: 503, json: { message: 'Fixture invoices unavailable' } }));
     await page.goto('/visual-fixture/workspace-recovery/carrier?screen=dashboard');
     const activity = page.getByRole('region', { name: 'Activity at a glance' });
-    await expect(activity).toContainText('Job data unavailable');
+    // 503 responses are retried by the data client; assert the settled error, not the transient Loading state.
+    await expect(page.getByTestId('fixture-user')).toHaveText(COMPANY);
+    await expect(activity).toContainText('Job data unavailable', { timeout: 30000 });
     await expect(activity).not.toContainText('No recent carrier bookings');
     const payable = page.getByRole('region', { name: 'Accounts Payable', exact: true });
     await expect(payable).not.toContainText('0 awaiting payment');

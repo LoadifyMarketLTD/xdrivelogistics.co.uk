@@ -34,3 +34,11 @@ Full release-source verification and the deployed preview revision are recorded 
 - Semgrep 1.178.0: 89 rules, 36 changed application files scanned, zero findings and zero parsing errors (`v2-security-gate.json`). JSX text normalization preserves rendered labels while removing partial-parser coverage gaps.
 - The full optimized build and isolated browser run are retained in `v2-build.log`, `browser-results.json` and their gate files. Hosted preview acceptance is recorded in PR #647 after deployment.
 - This is a preview branch, not a main/production merge. GitHub-hosted jobs previously reported an account billing lock; a runner that did not start is not represented as a passed test.
+
+## Hosted preview prerequisite found and addressed
+
+The deployed preview was opened in the user's normal Opera session. The workspace correctly reported missing onboarding, current legal evidence and Stripe setup; none of those requirements was bypassed or accepted by the agent. Opening legal review for an account without an authoritative contractual role exposed a generic `legal_contractual_role_unavailable` screen.
+
+Operational Legal & Agreements pages now turn that specific prerequisite into a direct **Complete / recover account setup** action to the existing server-resolved `/onboarding/resume` flow and a workspace-scoped support link. The backend still decides the legal role; no role is guessed, no agreements are accepted automatically, and Company Driver is not granted company-signing authority. General service failures are not misclassified as missing onboarding. Super Admin is not changed.
+
+`e2e/legal-context-recovery.spec.ts` covers Carrier, Customer, Broker, Owner Driver and Company Driver, plus a service-failure negative case. The final source is captured in `source-manifest-v3.json`. The earlier Dashboard fault-injection test now waits for the data client's 503 retries to settle instead of assuming an unavailable result within five seconds; its no-false-zero/no-healthy-empty assertions remain unchanged.

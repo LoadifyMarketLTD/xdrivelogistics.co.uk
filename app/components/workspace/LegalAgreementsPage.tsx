@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
 import { LEGAL_LANGUAGE_LABELS, LEGAL_LANGUAGES, type LegalLanguage } from '../../../lib/legal/controlledLegalDocuments';
 import {
@@ -65,6 +66,8 @@ type LegalReadModel = {
 type LegalAgreementsPageProps = {
   eyebrow?: string;
   description?: string;
+  recoveryHref?: '/onboarding/resume';
+  supportHref?: string;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -95,12 +98,15 @@ const reasonLabel = (reason: string) => {
 
 export default function LegalAgreementsPage({
   eyebrow = 'Account governance',
+  recoveryHref,
+  supportHref,
   description = 'Review the contractual package accepted for this account, its exact versions and immutable evidence history.',
 }: LegalAgreementsPageProps) {
   const [model, setModel] = useState<LegalReadModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
+  const [contractualRoleMissing, setContractualRoleMissing] = useState(false);
   const [message, setMessage] = useState('');
   const [agreementsAccepted, setAgreementsAccepted] = useState(false);
   const [authorityConfirmed, setAuthorityConfirmed] = useState(false);
@@ -130,6 +136,7 @@ export default function LegalAgreementsPage({
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
+    setContractualRoleMissing(false);
     try {
       const token = await getAccessToken();
       const response = await fetch(`/api/account/legal-agreements?language=${legalLanguage}`, {
@@ -137,8 +144,11 @@ export default function LegalAgreementsPage({
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
-      const payload = (await response.json().catch(() => ({}))) as LegalReadModel & { error?: string };
-      if (!response.ok) throw new Error(payload.error || 'Legal agreement history could not be loaded.');
+      const payload = (await response.json().catch(() => ({}))) as LegalReadModel & { error?: string; code?: string };
+      if (!response.ok) {
+        setContractualRoleMissing(payload.code === 'legal_contractual_role_unavailable');
+        throw new Error(payload.error || 'Legal agreement history could not be loaded.');
+      }
       setModel(payload);
       resetConfirmations();
     } catch (loadError) {
@@ -248,11 +258,19 @@ export default function LegalAgreementsPage({
         actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>Refresh</ActionButton>}
       />
 
-      {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+      {error && !(contractualRoleMissing && recoveryHref) && <AlertBanner tone="danger">{error}</AlertBanner>}
       {message && <AlertBanner tone="success">{message}</AlertBanner>}
 
       {loading ? (
         <Panel><EmptyState compact title="Loading Legal & Agreements…" /></Panel>
+      ) : !model && contractualRoleMissing && recoveryHref ? (
+        <Panel title="Account setup required before legal review" description="Your contractual role has not been established yet. Complete or recover account onboarding before reviewing the correct agreement package.">
+          <p style={{ margin: '0 0 8px', fontSize: 12 }}>Company drivers must ask their company administrator to manage company agreements. No agreement is accepted automatically and no previous acceptance is recreated.</p>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <Link href={recoveryHref} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 32, padding: '0 12px', border: '1px solid #D8DEE8', borderRadius: 4, color: '#1D57D8' }}>Complete / recover account setup</Link>
+            {supportHref && <Link href={supportHref} style={{ display: 'inline-flex', alignItems: 'center', minHeight: 32, padding: '0 12px', border: '1px solid #D8DEE8', borderRadius: 4, color: '#1D57D8' }}>Get workspace support</Link>}
+          </div>
+        </Panel>
       ) : !model ? (
         <Panel><EmptyState title="Legal history unavailable" description="XDrive could not resolve the contractual record for this account." /></Panel>
       ) : (
