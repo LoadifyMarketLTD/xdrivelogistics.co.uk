@@ -976,6 +976,8 @@ function StopFields({
             style={{ ...fieldStyle, ...(errors?.date ? invalidFieldStyle : {}) }}
             aria-invalid={errors?.date ? 'true' : undefined}
             type="date"
+            aria-label={`${title} date`}
+            aria-required={requiredDate}
             min={minDate}
             value={date}
             onChange={(event) => onDate(event.target.value)}
@@ -986,6 +988,8 @@ function StopFields({
           <select
             style={{ ...fieldStyle, ...(errors?.time ? invalidFieldStyle : {}) }}
             aria-invalid={errors?.time ? 'true' : undefined}
+            aria-label={`${title} time`}
+            aria-required={requiredTime || Boolean(date)}
             value={time}
             disabled={!date || noSlotsLeftToday}
             onChange={(event) => onTime(event.target.value)}

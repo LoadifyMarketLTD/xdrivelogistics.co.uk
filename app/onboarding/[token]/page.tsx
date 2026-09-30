@@ -534,7 +534,7 @@ export default function OnboardingTokenPage() {
             Required documents block activation until approved. Conditional documents are requested only when they apply to the person, vehicle or business.
           </p>
           {visibleDocuments.map((doc) => (
-            <div key={doc.type} id={'onboarding-document-' + doc.type} data-recovery-document={doc.type === requestedDocument || undefined} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.9rem', alignItems: 'center' }}>
+            <div key={doc.type} id={'onboarding-document-' + doc.type} data-recovery-document={doc.type === requestedDocument || undefined} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.9rem', alignItems: 'center', ...(doc.type === requestedDocument ? { padding: '0.75rem', borderRadius: 8, outline: '2px solid #1D57D8', background: '#EFF6FF' } : {}) }}>
               <div>
                 <div style={{ fontWeight: 600 }}>{doc.label}</div>
                 {doc.type === requestedDocument && <p role="status" style={{ margin: '4px 0', color: '#7a271a' }}>This evidence requires attention. Review its current validity before uploading a replacement. Uploading does not mean it has been approved.</p>}

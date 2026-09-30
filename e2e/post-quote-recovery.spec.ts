@@ -5,7 +5,7 @@ test.skip(process.env.E2E_VISUAL_FIXTURE!=='true','Local-only mocked services.')
 async function fillLoad(page:Page){
  const date=new Date();date.setDate(date.getDate()+2);
  await page.locator('input[type="date"]').first().fill(date.toISOString().slice(0,10));
- await page.getByRole('combobox',{name:'Time *',exact:true}).first().selectOption('10:00');
+ await page.getByRole('combobox',{name:'Collection time',exact:true}).first().selectOption('10:00');
  await page.getByPlaceholder('e.g. BB1 1AA').nth(0).fill('BB1 1AA');await page.getByPlaceholder('e.g. BB1 1AA').nth(1).fill('M1 1AA');
  await page.locator('textarea').nth(0).fill('Keep collection details');await page.locator('textarea').nth(1).fill('Keep delivery details');
 }

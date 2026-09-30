@@ -1,7 +1,7 @@
 # Actionable account restrictions - isolated release
 
 Date: 2026-09-30
-Base: d5714053 (main's existing commercial-readiness hotfix).
+Base: d5714053, reconciled with efdaa2fb (a concurrently merged partial recovery hotfix).
 Branch: fix/actionable-workspace-recovery-20260930.
 Working copy: C:/Users/Danny/Desktop/XDrive-Local/hotfix-actionable-recovery-20260930.
 
@@ -20,7 +20,10 @@ Working copy: C:/Users/Danny/Desktop/XDrive-Local/hotfix-actionable-recovery-202
 - Targeted security/behavioral suite: 106 tests passed.
 - TypeScript: exit 0; targeted ESLint: exit 0, zero warnings.
 - Isolated Chromium recovery suite: 18/18 passed, including owner/company-driver exact document upload, pending review, direct assignment, error retry, role-specific actions and form preservation.
-- Additional blocked-post/quote and production build checks are release gates; their final results must be checked before merge.
+- Additional blocked-post/quote Chromium suite: 6/6 passed. Canonical Netlify preview for c9c59775 passed.
+- Full release unit rerun: 2458/2458 passed with a 20-second per-test budget for the existing multi-language PDF tests on the shared laptop; no test assertion was disabled.
+- Reconciliation retains the upstream collection/delivery accessible labels and document highlighting; the same suites must be verified on the reconciled release head.
+- Final deployment and current gate results are recorded on PR #649, not inferred from this checkpoint.
 - Live Supabase read-only schema checks confirmed private vehicle-docs/driver-docs buckets, exact document columns and vehicles_one_active_assignment_per_driver_uidx. No migration required.
 
 ## Evidence and release policy
