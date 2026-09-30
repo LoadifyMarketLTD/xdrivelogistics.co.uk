@@ -120,11 +120,11 @@ BEGIN
     );
 
     IF p.using_expr IS NOT NULL THEN
-      sql_stmt := sql_stmt || format(' USING (%s)', p.using_expr);
+      sql_stmt := sql_stmt || format(' USING (%s)', replace(replace(p.using_expr, '::public.company_role', '::text'), '::company_role', '::text'));
     END IF;
 
     IF p.with_check_expr IS NOT NULL THEN
-      sql_stmt := sql_stmt || format(' WITH CHECK (%s)', p.with_check_expr);
+      sql_stmt := sql_stmt || format(' WITH CHECK (%s)', replace(replace(p.with_check_expr, '::public.company_role', '::text'), '::company_role', '::text'));
     END IF;
 
     EXECUTE sql_stmt;
