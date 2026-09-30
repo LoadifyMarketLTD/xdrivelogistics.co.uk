@@ -136,6 +136,9 @@ export async function POST(request: NextRequest) {
     return respond(result.status, {
       error: result.error,
       denialReasons: result.denialReasons ?? [],
+      code: result.code ?? null,
+      setupUrl: result.setupUrl ?? null,
+      actionLabel: result.actionLabel ?? null,
     });
   }
 

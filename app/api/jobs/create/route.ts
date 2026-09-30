@@ -150,7 +150,11 @@ export async function POST(request: NextRequest) {
       retryable: true,
     });
   }
-  if (!membership) return respond(403, { error: 'You cannot post loads for this company workspace.' });
+  if (!membership) return respond(403, {
+    error: 'You cannot post loads for this company workspace.',
+    code: 'COMPANY_MEMBERSHIP_REQUIRED',
+    setupUrl: '/onboarding/resume',
+  });
 
   if (input.publish) {
     let buyerLegalReadiness;
@@ -185,7 +189,10 @@ export async function POST(request: NextRequest) {
       if (!risk.infrastructureAvailable || !risk.snapshot) return respond(503, { error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' });
       if (!risk.snapshot.allowed) {
         await logTransportBuyerRiskBlockedEvent(supabaseAdmin, risk.snapshot, 'publish_blocked', authData.user.id, { operation: 'publish_job' });
-        return respond(409, transportBuyerRiskBlockedPayload(risk.snapshot));
+        return respond(409, {
+          ...transportBuyerRiskBlockedPayload(risk.snapshot),
+          setupUrl: input.mode === 'admin' ? '/admin/support' : '/help',
+        });
       }
     } catch (error) {
       return operationalError({ status: 503, message: 'Transport buyer exposure could not be verified. Please try again.', context: `jobs.create.buyer-risk.company:${input.companyId}`, cause: error, retryable: true });

@@ -193,6 +193,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [stripeSetupCompanyId, setStripeSetupCompanyId] = useState<string | null>(null);
+  const [remediationAction, setRemediationAction] = useState<{ url: string; label: string } | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [clockNow, setClockNow] = useState<Date | null>(null);
   const [postingCompany, setPostingCompany] = useState<{ id: string; name: string | null; memberId: string | null } | null>(null);
@@ -386,6 +387,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     setError('');
     setSuccess('');
     setStripeSetupCompanyId(null);
+    setRemediationAction(null);
     if (cloneLoading) {
       setError('Wait for the source booking details to finish loading before saving.');
       return;
@@ -511,12 +513,24 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         error?: string;
         referenceId?: string;
         setupCompanyId?: string;
+        setupUrl?: string;
+        code?: string;
         job?: { id: string };
         replayed?: boolean;
       } | null;
       if (!response.ok || !payload?.job?.id) {
         if (response.status === 409 && payload?.setupCompanyId === companyId) {
           setStripeSetupCompanyId(companyId);
+        }
+        if (payload?.setupUrl && payload.code !== 'STRIPE_COMMERCIAL_READINESS_REQUIRED') {
+          const label = payload.code === 'COMMERCIAL_LEGAL_REACCEPTANCE_REQUIRED'
+            ? 'Review legal agreements'
+            : payload.code === 'TRANSPORT_BUYER_RISK_LIMIT'
+              ? 'Resolve account restriction'
+              : payload.code === 'COMPANY_MEMBERSHIP_REQUIRED'
+                ? 'Complete onboarding'
+                : 'Resolve requirement';
+          setRemediationAction({ url: payload.setupUrl, label });
         }
         const baseMessage = payload?.error ?? 'The load could not be saved.';
         throw new Error(payload?.referenceId ? `${baseMessage} Error reference: ${payload.referenceId}.` : baseMessage);
@@ -599,6 +613,13 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                 return data.session?.access_token ?? null;
               }}
             />
+          ) : null}
+          {remediationAction ? (
+            <div style={{ marginTop: 10 }}>
+              <ActionButton tone="primary" onClick={() => router.push(remediationAction.url)}>
+                {remediationAction.label}
+              </ActionButton>
+            </div>
           ) : null}
         </AlertBanner>
       )}

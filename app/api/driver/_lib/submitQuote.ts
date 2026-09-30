@@ -23,7 +23,15 @@ export type DriverQuoteInput = {
 
 export type DriverQuoteResult =
   | { ok: true; status: 200 | 201; bidId: string; jobId: string; idempotent: boolean; totalAmount: number }
-  | { ok: false; status: number; error: string; denialReasons?: string[] };
+  | {
+      ok: false;
+      status: number;
+      error: string;
+      denialReasons?: string[];
+      code?: string;
+      setupUrl?: string;
+      actionLabel?: string;
+    };
 
 type DriverBidRow = {
   id: string;
@@ -211,6 +219,9 @@ export async function submitDriverQuote(
       status: 403,
       error: 'Your carrier business must re-accept the current XDrive legal agreements before quoting for transport work.',
       denialReasons: ['commercial_legal_reacceptance_required'],
+      code: 'COMMERCIAL_LEGAL_REACCEPTANCE_REQUIRED',
+      setupUrl: '/driver/account/legal-agreements',
+      actionLabel: 'Review legal agreements',
     };
   }
 
@@ -229,6 +240,9 @@ export async function submitDriverQuote(
       status: 403,
       error: 'Your carrier business must complete and activate Stripe before quoting for transport work.',
       denialReasons: ['stripe_commercial_readiness_required'],
+      code: 'STRIPE_COMMERCIAL_READINESS_REQUIRED',
+      setupUrl: '/settings/payments',
+      actionLabel: 'Complete Stripe setup',
     };
   }
 
@@ -301,6 +315,18 @@ export async function submitDriverQuote(
     }
 
     const readinessBlocked = eligibility.operational.blockers.length > 0;
+    const operationalBlocker = eligibility.operational.blockers[0] ?? null;
+    const remediation = operationalBlocker === 'driver_onboarding_not_approved' || operationalBlocker === 'verified_driver_identity_missing'
+      ? { code: operationalBlocker, setupUrl: '/onboarding/resume', actionLabel: 'Complete onboarding' }
+      : operationalBlocker === 'driver_personal_compliance_not_current' || operationalBlocker?.startsWith('vehicle_document_missing_or_invalid:')
+        ? { code: operationalBlocker ?? undefined, setupUrl: '/driver/documents', actionLabel: 'Upload required documents' }
+        : operationalBlocker === 'canonical_vehicle_missing' || operationalBlocker === 'canonical_vehicle_ambiguous'
+          ? { code: operationalBlocker, setupUrl: '/driver/drivers-vehicles', actionLabel: 'Manage vehicle assignment' }
+          : operationalBlocker === 'commercial_bid_disabled'
+            ? { code: operationalBlocker, setupUrl: '/driver/settings?section=overview', actionLabel: 'Open account settings' }
+            : operationalBlocker
+              ? { code: operationalBlocker, setupUrl: '/help', actionLabel: 'Resolve account restriction' }
+              : {};
     return {
       ok: false,
       status: readinessBlocked ? 403 : 409,
@@ -308,6 +334,7 @@ export async function submitDriverQuote(
         ? 'Your driver and vehicle must be fully verified and operationally eligible before you can quote.'
         : 'This job is no longer available for quotation.',
       denialReasons: eligibility.denialReasons,
+      ...remediation,
     };
   }
 
