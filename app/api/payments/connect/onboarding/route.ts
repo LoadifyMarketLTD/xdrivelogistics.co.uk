@@ -123,7 +123,14 @@ export async function POST(request: NextRequest) {
     return await createCompanyOnboarding(request);
   } catch (reason) {
     const failure = stripeOnboardingFailure(reason);
-    console.error('[stripe.onboarding]', { code: failure.code });
+    const diagnostic = reason instanceof Error
+      ? {
+          message: reason.message,
+          stripeCode: 'stripeCode' in reason ? String((reason as Error & { stripeCode?: unknown }).stripeCode ?? '') : '',
+          status: 'status' in reason ? Number((reason as Error & { status?: unknown }).status ?? 0) : 0,
+        }
+      : { message: String(reason ?? ''), stripeCode: '', status: 0 };
+    console.error('[stripe.onboarding]', { code: failure.code, ...diagnostic });
     return json(failure.status, { error: failure.error, code: failure.code });
   }
 }
