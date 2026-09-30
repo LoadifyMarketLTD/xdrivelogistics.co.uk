@@ -1,7 +1,7 @@
 # XDrive Exception & Closure Engine — Canonical Blueprint
 
 **Date:** 2026-09-30  
-**Status:** Implementation started  
+**Status:** Implemented and runtime-verified in PR #646 Deploy Preview; production Supabase reconciliation is active.
 **Scope:** Operational exception detection, ownership, SLA ageing, escalation, customer-update obligations, and verified closure.
 
 ## 1. Why this exists
@@ -118,7 +118,7 @@ Closure checks:
 
 Initial implementation persists breach/escalation state.
 
-Future routing matrix:
+Current routing policy:
 
 - operational exception -> Dispatcher / Fleet
 - POD/evidence -> Operations / Compliance
@@ -184,9 +184,25 @@ Priority ordering should be deterministic:
 
 ## 11. Implementation sequence
 
-1. **Now:** SLA schema, automatic breach reconciliation, API exposure, Action Centre SLA visibility, tests.
-2. Detector engine for job/POD/invoice exceptions.
-3. Customer communication obligations.
-4. Closure integrity gate.
-5. Company-role routing and notification/escalation policies.
-6. Production E2E and public product messaging only after runtime verification.
+1. **Complete:** SLA schema, persisted breach reconciliation, API exposure and Action Centre SLA visibility.
+2. **Complete:** deterministic job, tracking, POD, invoice and payment exception detectors.
+3. **Complete:** customer communication obligations with overdue escalation.
+4. **Complete:** verified closure gate and closure evidence requirement.
+5. **Complete:** company-role routing, notification policy, automatic ownership and persisted priority ordering.
+6. **Complete for Deploy Preview verification:** public capability messaging was added only after the underlying runtime paths were validated.
+
+## 12. Runtime verification evidence
+
+Verification on 30 September 2026 used PowerShell, the canonical Supabase project and a physical Pixel 7. GitHub Actions was not used as the verification authority.
+
+- targeted Exception & Closure test suite: PASS;
+- TypeScript no-emit validation: PASS;
+- targeted ESLint validation: PASS;
+- full production `npm run build`: PASS;
+- Supabase minute-level cron `xdrive-exception-closure-reconcile`: active;
+- Pixel 7 Deploy Preview list verified persisted priority ordering, ownership, SLA breach state and customer-update overdue state;
+- Pixel 7 case detail verified queue priority, owner, SLA state, operational plan, customer communication and verified-closure controls;
+- Deploy Preview write attempts to reconciliation and case mutation endpoints returned HTTP 403 and performed no writes;
+- temporary runtime verification data was removed after inspection.
+
+Production domain tables remain authoritative. Deploy Preview remains inspection-only.
