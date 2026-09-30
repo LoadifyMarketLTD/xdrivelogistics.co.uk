@@ -187,6 +187,11 @@ export async function reconcileJobExceptions(
     ? obligationResult.data[0] ?? null
     : obligationResult.data;
 
+  const priorityResult = await client.rpc('service_refresh_platform_case_priority', {
+    p_now: reconciledAt,
+  });
+  if (priorityResult.error) errors.push(`priority: ${priorityResult.error.message}`);
+
   return {
     detected: candidates.length,
     createdOrMatched,
