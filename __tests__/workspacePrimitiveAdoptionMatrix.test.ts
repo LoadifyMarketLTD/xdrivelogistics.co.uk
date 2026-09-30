@@ -13,7 +13,7 @@ function hasOperationalTablePrimitive(filePath: string): boolean {
 
 function hasPageHeader(filePath: string): boolean {
   const source = read(filePath);
-  return /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b/.test(source);
+  return /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b|carrierStyles\.header/.test(source);
 }
 
 function hasCompactKpiStrip(filePath: string): boolean {
@@ -30,7 +30,7 @@ function hasActionCentreRoute(filePath: string): boolean {
 function rowFor(filePath: string) {
   const source = readFileSync(resolve(process.cwd(), filePath), 'utf8');
   return {
-    pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b/.test(source),
+    pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b|carrierStyles\.header/.test(source),
     operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b|driver-tab-strip/.test(source),
     exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|customer-dash-metrics|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source),
     operationalTable: /\bOperationalTable\b|\bDataTable\b|<table\b|customer-dash-table|driver-load-list|driver-load-row|broker-clean-table/.test(source),
@@ -106,7 +106,7 @@ describe('workspace primitive adoption matrix', () => {
   it('keeps the active carrier dashboard on the Courier Exchange-derived control-desk family', () => {
     const source = read('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
-    expect(source).toContain('DashboardHomeHeader');
+    expect(source).toContain('carrierStyles.header');
     expect(source).toContain('CarrierControlSignals');
     expect(source).toContain('OperationalToolbar');
     expect(source).toContain('OperationalPageLayout');

@@ -1,5 +1,6 @@
 'use client';
 
+import { isValidElement } from 'react';
 import type { CSSProperties, ReactNode, FormEvent } from 'react';
 import styles from './WorkspaceUI.module.css';
 
@@ -279,6 +280,7 @@ export function OperationalPageLayout({
   maxWidth,
   style,
   searchAsideStyle,
+  stackAt1024 = false,
 }: {
   children: ReactNode;
   /** Optional left search/filter panel. When provided, the layout switches to
@@ -287,10 +289,12 @@ export function OperationalPageLayout({
   maxWidth?: number;
   style?: CSSProperties;
   searchAsideStyle?: CSSProperties;
+  stackAt1024?: boolean;
 }) {
   return (
     <div
       className={styles.operationalPageLayout}
+      data-stack-at-1024={stackAt1024 ? 'true' : undefined}
       style={{ ...(typeof maxWidth === 'number' ? { ['--xdrive-page-max-width' as string]: `${maxWidth}px` } : {}), ...style } as CSSProperties}
     >
       {searchPanel ? (
@@ -1087,6 +1091,19 @@ export function WorkspaceState(props: WorkspaceStateProps) {
   }
 }
 
+function dataTableNodeKeyPart(node: ReactNode): string {
+  if (node == null || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(dataTableNodeKeyPart).join('|');
+  if (isValidElement(node)) {
+    const props = node.props as { children?: ReactNode; value?: unknown; 'aria-label'?: unknown };
+    const ariaLabel = typeof props['aria-label'] === 'string' ? props['aria-label'] : '';
+    const value = typeof props.value === 'string' || typeof props.value === 'number' ? String(props.value) : '';
+    return [node.key ?? '', ariaLabel, value, dataTableNodeKeyPart(props.children)].filter(Boolean).join(':');
+  }
+  return String(node);
+}
+
 export function DataTable({ columns, rows, empty }: { columns: string[]; rows: ReactNode[][]; empty?: ReactNode }) {
   return (
     <OperationalTable
@@ -1097,7 +1114,7 @@ export function DataTable({ columns, rows, empty }: { columns: string[]; rows: R
         isAction: /action/i.test(column),
       }))}
       rows={rows}
-      getRowKey={(row) => String(row[0] ?? row.map((cell) => String(cell)).join('|'))}
+      getRowKey={(row) => row.map(dataTableNodeKeyPart).join('¦')}
       empty={empty}
     />
   );

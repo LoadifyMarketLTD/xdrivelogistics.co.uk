@@ -53,12 +53,14 @@ describe('Carrier dashboard visual execution contract', () => {
     expect(css).toMatch(/\.page\s*\{[\s\S]*?padding:\s*12px 12px 16px;/);
     expect(css).toMatch(/\.header\s*\{[\s\S]*?height:\s*78px;/);
     expect(css).toMatch(/\.signals\s*\{[\s\S]*?height:\s*56px;/);
-    expect(css).toMatch(/\.workboardHeader\s*\{[\s\S]*?height:\s*40px;/);
+    expect(css).toMatch(/\.workboardHeader\s*\{[\s\S]*?height:\s*44px;/);
     expect(css).toMatch(/\.tabs\s*\{[\s\S]*?height:\s*32px;/);
     expect(css).toMatch(/\.workboardFooter\s*\{[\s\S]*?height:\s*32px;/);
     expect(css).toContain('grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);');
     expect(css).toMatch(/\.panelHeader\s*\{[\s\S]*?height:\s*44px;/);
     expect(css).toMatch(/\.compactEmpty\s*\{[\s\S]*?height:\s*64px;/);
+    expect(page).toContain("columns={['Ref / priority', 'Route', 'Pickup', 'Vehicle', 'Driver', 'Status', 'Action']}");
+    expect(page).toContain("columns={['Route / vehicle', 'Pickup', 'Status / evidence', 'Action']}");
   });
 
   it('locks Carrier shell overrides to the current 90px shell contract', () => {

@@ -13,7 +13,6 @@ import {
   OperationalPageLayout,
   OperationalToolbar,
   StatusBadge,
-  workspaceTheme,
 } from './WorkspaceUI';
 
 const signals = [
@@ -85,6 +84,7 @@ export default function CarrierDashboardVisualFixture() {
           <OperationalPageLayout
             style={{ padding: 0 }}
             searchAsideStyle={{ top: '102px' }}
+            stackAt1024
             searchPanel={
               <OperationalFilters title="Control filters" onSearch={() => undefined} onClear={() => { setQuery(''); setView('attention'); }} footer={
                 <div style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #D8DEE8' }}>
@@ -112,11 +112,11 @@ export default function CarrierDashboardVisualFixture() {
               </div>
               <div className={carrierStyles.workboardTable}>
                 <DataTable
-                  columns={['Ref', 'Priority', 'Route', 'Pickup', 'Required vehicle', 'Driver', 'Status', 'Action']}
+                  columns={['Ref / priority', 'Route', 'Pickup', 'Vehicle', 'Driver', 'Status', 'Action']}
                   rows={[
-                    ['A81F22C1', 'Allocate', <strong key="r1">BB1 → M1</strong>, 'Today 10:30', 'Luton Van', 'Unassigned', <StatusBadge key="s1" value="Awarded" tone="orange" />, <button key="a1" type="button" className={carrierStyles.microAction} data-tone="success">Allocate</button>],
-                    ['B77D93F2', 'Monitor', <strong key="r2">M4 → L1</strong>, 'Today 11:15', 'LWB', 'D. Smith', <StatusBadge key="s2" value="In transit" tone="blue" />, <button key="a2" type="button" className={carrierStyles.microAction} data-tone="secondary">Open</button>],
-                    ['C91A44E8', 'Evidence', <strong key="r3">LS1 → B1</strong>, 'Today 12:05', 'Small Van', 'A. Jones', <StatusBadge key="s3" value="Delivered" tone="green" />, <button key="a3" type="button" className={carrierStyles.microAction} data-tone="secondary">Open</button>],
+                    [<span key="rp1"><strong style={{ display: 'block', fontSize: 11, lineHeight: '14px' }}>A81F22C1</strong><span style={{ display: 'block', color: '#92400E', fontSize: 10, lineHeight: '12px', fontWeight: 700 }}>Allocate</span></span>, <strong key="r1">BB1 → M1</strong>, 'Today 10:30', 'Luton Van', 'Unassigned', <StatusBadge key="s1" value="Awarded" tone="orange" />, <button key="a1" type="button" className={carrierStyles.microAction} data-tone="success">Allocate</button>],
+                    [<span key="rp2"><strong style={{ display: 'block', fontSize: 11, lineHeight: '14px' }}>B77D93F2</strong><span style={{ display: 'block', color: '#1D57D8', fontSize: 10, lineHeight: '12px', fontWeight: 700 }}>Monitor</span></span>, <strong key="r2">M4 → L1</strong>, 'Today 11:15', 'LWB', 'D. Smith', <StatusBadge key="s2" value="In transit" tone="blue" />, <button key="a2" type="button" className={carrierStyles.microAction} data-tone="secondary">Open</button>],
+                    [<span key="rp3"><strong style={{ display: 'block', fontSize: 11, lineHeight: '14px' }}>C91A44E8</strong><span style={{ display: 'block', color: '#0B2F6B', fontSize: 10, lineHeight: '12px', fontWeight: 700 }}>Evidence</span></span>, <strong key="r3">LS1 → B1</strong>, 'Today 12:05', 'Small Van', 'A. Jones', <StatusBadge key="s3" value="Delivered" tone="green" />, <button key="a3" type="button" className={carrierStyles.microAction} data-tone="secondary">Open</button>],
                   ]}
                 />
               </div>
@@ -140,9 +140,9 @@ export default function CarrierDashboardVisualFixture() {
               </div>
               <div className={carrierStyles.lowerColumn}>
                 <Panel title="Activity at a glance" subtitle="Latest carrier-awarded bookings." flush>
-                  <DataTable columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Evidence', 'Action']} rows={[
-                    [<strong key="rr1">BB1 → M1</strong>, '10:30', 'Luton Van', <StatusBadge key="ss1" value="Awarded" tone="orange" />, '—', <button key="aa1" type="button" className={carrierStyles.microAction} data-tone="success">Allocate</button>],
-                    [<strong key="rr2">M4 → L1</strong>, '11:15', 'LWB', <StatusBadge key="ss2" value="In transit" tone="blue" />, '—', <button key="aa2" type="button" className={carrierStyles.microAction} data-tone="secondary">Open booking</button>],
+                  <DataTable columns={['Route / vehicle', 'Pickup', 'Status / evidence', 'Action']} rows={[
+                    [<span key="rr1"><strong style={{ display: 'block' }}>BB1 → M1</strong><span style={{ display: 'block', color: '#64748B', fontSize: 10, lineHeight: '12px' }}>Luton Van · #A81F22C1</span></span>, '10:30', <StatusBadge key="ss1" value="Awarded" tone="orange" />, <button key="aa1" type="button" className={carrierStyles.microAction} data-tone="success">Allocate</button>],
+                    [<span key="rr2"><strong style={{ display: 'block' }}>M4 → L1</strong><span style={{ display: 'block', color: '#64748B', fontSize: 10, lineHeight: '12px' }}>LWB · #B77D93F2</span></span>, '11:15', <StatusBadge key="ss2" value="In transit" tone="blue" />, <button key="aa2" type="button" className={carrierStyles.microAction} data-tone="secondary">Open booking</button>],
                   ]} />
                 </Panel>
                 <Panel title="Carrier workflow" subtitle="Exchange operating sequence.">

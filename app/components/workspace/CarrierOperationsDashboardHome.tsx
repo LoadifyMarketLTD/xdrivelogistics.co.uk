@@ -357,6 +357,7 @@ export default function CarrierOperationsDashboardHome() {
       <OperationalPageLayout
         style={{ padding: 0 }}
         searchAsideStyle={{ top: '102px' }}
+        stackAt1024
         searchPanel={
           <OperationalFilters
             title="Control filters"
@@ -410,15 +411,17 @@ export default function CarrierOperationsDashboardHome() {
 
           <div className={carrierStyles.workboardTable}>
             <DataTable
-              columns={['Ref', 'Priority', 'Route', 'Pickup', 'Required vehicle', 'Driver', 'Status', 'Action']}
+              columns={['Ref / priority', 'Route', 'Pickup', 'Vehicle', 'Driver', 'Status', 'Action']}
               rows={filteredJobs.slice(0, 10).map((job) => {
                 const priority = priorityStyle(job);
                 const assignedDriver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) ?? 'Assigned' : 'Unassigned';
                 const actionPath = isUnallocatedJob(job) ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`;
                 return [
-                  job.id.slice(0, 8).toUpperCase(),
-                  <span key="priority" style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 6px', border: `1px solid ${priority.border}`, borderRadius: '4px', background: priority.background, color: priority.color, fontSize: '10px', fontWeight: 800 }}>{priorityLabel(job)}</span>,
-                  <span key="route" style={{ display: 'block', minWidth: '220px' }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{job.client_name ?? 'Customer not specified'}</span></span>,
+                  <span key="ref-priority" style={{ display: 'block', minWidth: '86px' }}>
+                    <strong style={{ display: 'block', fontSize: '11px', lineHeight: '14px' }}>{job.id.slice(0, 8).toUpperCase()}</strong>
+                    <span style={{ display: 'block', color: priority.color, fontSize: '10px', lineHeight: '12px', fontWeight: 700 }}>{priorityLabel(job)}</span>
+                  </span>,
+                  <span key="route" style={{ display: 'block', minWidth: '160px' }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '10px', lineHeight: '12px' }}>{job.client_name ?? 'Customer not specified'}</span></span>,
                   when(job.pickup_datetime),
                   (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
                   assignedDriver,
@@ -456,17 +459,21 @@ export default function CarrierOperationsDashboardHome() {
           <div className={carrierStyles.lowerColumn}>
             <CarrierPanel title="Activity at a glance" subtitle="Latest carrier-awarded bookings with the same operational priority CX gives recent work." flush>
               <DataTable
-                columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Evidence', 'Action']}
+                columns={['Route / vehicle', 'Pickup', 'Status / evidence', 'Action']}
                 rows={latestBookings.map((job) => {
                   const completed = classifyWorkspaceJobStage(job) === 'completed';
                   const evidenceReady = (job.delivery_photos?.length ?? 0) > 0;
                   const needsAllocation = isUnallocatedJob(job);
                   return [
-                    <span key="route"><strong style={{ display: 'block' }}>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>#{job.id.slice(0, 8).toUpperCase()}</span></span>,
+                    <span key="route">
+                      <strong style={{ display: 'block' }}>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong>
+                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10, lineHeight: '12px' }}>{(job.vehicle_type ?? 'Not specified').replace(/_/g, ' ')} · #{job.id.slice(0, 8).toUpperCase()}</span>
+                    </span>,
                     when(job.pickup_datetime),
-                    (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-                    <StatusBadge key="status" value={workspaceJobPresentationStatus(job)} />,
-                    completed ? <StatusBadge key="evidence" value={evidenceReady ? 'POD / photos recorded' : 'Evidence attention'} tone={evidenceReady ? 'green' : 'orange'} /> : '—',
+                    <span key="status-evidence" style={{ display: 'grid', gap: '2px', justifyItems: 'start' }}>
+                      <StatusBadge value={workspaceJobPresentationStatus(job)} />
+                      {completed ? <span style={{ color: workspaceTheme.muted, fontSize: 10, lineHeight: '12px' }}>{evidenceReady ? 'POD / photos recorded' : 'Evidence attention'}</span> : null}
+                    </span>,
                     <button key="action" type="button" className={carrierStyles.microAction} data-tone={needsAllocation ? 'success' : 'secondary'} onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}>{needsAllocation ? 'Allocate' : completed ? 'POD / booking' : 'Open booking'}</button>,
                   ];
                 })}

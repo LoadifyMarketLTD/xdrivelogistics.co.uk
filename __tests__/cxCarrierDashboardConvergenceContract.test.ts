@@ -33,7 +33,7 @@ describe('Carrier CX convergence contract', () => {
   it('preserves dense operational filters and carrier execution boundaries', () => {
     expect(source).toContain('<OperationalFilters');
     expect(source).toContain("job.awarded_carrier_company_id === data.companyId");
-    expect(source).toContain("columns={['Ref', 'Priority', 'Route', 'Pickup', 'Required vehicle', 'Driver', 'Status', 'Action']}");
+    expect(source).toContain("columns={['Ref / priority', 'Route', 'Pickup', 'Vehicle', 'Driver', 'Status', 'Action']}");
   });
 
   it('retains carrier workflow routes without changing lifecycle authority', () => {

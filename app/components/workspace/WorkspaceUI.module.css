@@ -1891,6 +1891,22 @@
   display: none;
 }
 
+@media (max-width: 1024px) {
+  .operationalPageLayout[data-stack-at-1024='true'] .operationalPageLayoutTwoPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .operationalPageLayout[data-stack-at-1024='true'] .operationalPageLayoutSearchAside,
+  .operationalPageLayout[data-stack-at-1024='true'] .operationalFilters {
+    width: 100%;
+  }
+
+  .operationalPageLayout[data-stack-at-1024='true'] .operationalPageLayoutSearchAside {
+    position: static;
+    top: auto !important;
+  }
+}
+
 /* ── Tablet ──────────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
   .operationalPageLayoutTwoPanel {

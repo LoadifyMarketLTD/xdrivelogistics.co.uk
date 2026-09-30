@@ -119,7 +119,7 @@ describe('carrier dashboard convergence contract', () => {
     expect(carrier).not.toContain("['submitted', 'pending']");
     expect(carrier).toContain("normalise(bid.status) === 'submitted'");
     expect(carrier).toContain("XDrive persists that driver's canonical active vehicle with the allocation");
-    expect(carrier).toContain("'Required vehicle'");
+    expect(carrier).toContain("'Vehicle'");
     expect(carrier).toContain('workspaceJobPresentationStatus(job)');
     expect(carrier).toContain("jobStatus(job) === 'cancelled' ? 'grey'");
     expect(carrier).toContain("'Partial job data'");
@@ -177,7 +177,7 @@ describe('carrier dashboard convergence contract', () => {
     expect(shellCss).toContain('.top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"]');
     expect(shellCss).toContain('top: 102px !important;');
     expect(dashboardCss).toMatch(/\.header\s*\{[\s\S]*?height:\s*78px;/);
-    expect(dashboardCss).toMatch(/\.workboardHeader\s*\{[\s\S]*?height:\s*40px;/);
+    expect(dashboardCss).toMatch(/\.workboardHeader\s*\{[\s\S]*?height:\s*44px;/);
     expect(dashboardCss).toMatch(/\.tabs\s*\{[\s\S]*?height:\s*32px;/);
     expect(dashboardCss).toMatch(/\.workboardFooter\s*\{[\s\S]*?height:\s*32px;/);
     expect(dashboardCss).toMatch(/\.panelHeader\s*\{[\s\S]*?height:\s*44px;/);

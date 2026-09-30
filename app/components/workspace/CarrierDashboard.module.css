@@ -164,7 +164,7 @@
 }
 
 .workboardHeader {
-  height: 40px;
+  height: 44px;
   padding: 3px 10px;
   display: flex;
   align-items: center;
@@ -483,10 +483,15 @@
     border-right: 0;
   }
 
-  .workboardHeader,
+  .workboardHeader {
+    height: auto;
+    min-height: 44px;
+    flex-wrap: wrap;
+  }
+
   .workboardFooter {
     height: auto;
-    min-height: 40px;
+    min-height: 32px;
     flex-wrap: wrap;
   }
 }

@@ -966,6 +966,8 @@ Board:
 - rail 220px
 - workboard panel header 44px
 - workboard tabs 32px
+- workboard desktop columns, in this exact order: Ref / Priority | Route | Pickup | Vehicle | Driver | Status | Action
+- Ref / Priority is one compact two-line cell so the workboard remains fully visible at 1280px without losing priority information
 - register rows table geometry 36/44 when populated
 - empty state 64px
 - footer 32px
@@ -981,6 +983,14 @@ Cards:
 - Reports & Finance
 - Activity at a Glance
 - Carrier Workflow
+
+Activity at a Glance desktop columns, in this exact order:
+- Route / Vehicle
+- Pickup
+- Status / Evidence
+- Action
+
+Vehicle and reference are rendered as route-cell metadata. Evidence is rendered as status-cell metadata. This compact four-column form is mandatory so the right-hand lower panel does not require horizontal scrolling at 1280px or 1440px.
 
 All four use 44px panel headers.
 

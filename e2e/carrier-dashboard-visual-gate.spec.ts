@@ -47,14 +47,61 @@ test.describe('Carrier dashboard blueprint visual gate', () => {
       await expect(pageRoot).toBeVisible();
       await expect(signals.locator('button')).toHaveCount(6);
 
+      if (viewport.width >= 769) {
+        expect(Math.round(await shellHeader.evaluate((el) => el.getBoundingClientRect().height))).toBe(50);
+        expect(Math.round(await shellNav.evaluate((el) => el.getBoundingClientRect().height))).toBe(40);
+      }
+
+      const toolbarHeight = Math.round(await toolbar.evaluate((el) => el.getBoundingClientRect().height));
+      if (viewport.width >= 1025) {
+        expect(toolbarHeight).toBe(40);
+      } else {
+        expect(toolbarHeight).toBeGreaterThanOrEqual(40);
+      }
+
+      const lowerColumns = await lowerGrid.evaluate((el) => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
+      if (viewport.width >= 1025) {
+        expect(lowerColumns).toBe(2);
+      } else {
+        expect(lowerColumns).toBe(1);
+      }
+
       const bodyOverflow = await page.evaluate(() =>
         document.documentElement.scrollWidth - document.documentElement.clientWidth
       );
       expect(bodyOverflow).toBeLessThanOrEqual(0);
 
+      if (viewport.width >= 1024) {
+        const workboardTable = page.getByTestId('carrier-workboard').locator('table').first();
+        const workboardOverflow = await workboardTable.evaluate((table) => {
+          const scroll = table.parentElement;
+          return scroll ? scroll.scrollWidth - scroll.clientWidth : 0;
+        });
+        expect(workboardOverflow).toBeLessThanOrEqual(0);
+
+        const activityHeading = page.getByRole('heading', { name: 'Activity at a glance' });
+        const activityTable = activityHeading.locator('xpath=ancestor::section[1]').locator('table').first();
+        const activityOverflow = await activityTable.evaluate((table) => {
+          const scroll = table.parentElement;
+          return scroll ? scroll.scrollWidth - scroll.clientWidth : 0;
+        });
+        expect(activityOverflow).toBeLessThanOrEqual(0);
+      }
+
       if (viewport.width >= 1025) {
         expect(Math.round(await header.evaluate((el) => el.getBoundingClientRect().height))).toBe(78);
-        expect(Math.round(await page.locator('[aria-label="Search and filters"]').evaluate((el) => el.getBoundingClientRect().width))).toBe(220);
+        expect(Math.round(await filterRail.evaluate((el) => el.getBoundingClientRect().width))).toBe(220);
+        const filterBox = await filterRail.boundingBox();
+        const workboardBox = await page.getByTestId('carrier-workboard').boundingBox();
+        expect(filterBox).not.toBeNull();
+        expect(workboardBox).not.toBeNull();
+        expect(Math.abs(Math.round((filterBox?.y ?? 0) - (workboardBox?.y ?? 0)))).toBeLessThanOrEqual(1);
+      } else {
+        const filterBox = await filterRail.boundingBox();
+        const workboardBox = await page.getByTestId('carrier-workboard').boundingBox();
+        expect(filterBox).not.toBeNull();
+        expect(workboardBox).not.toBeNull();
+        expect(Math.round((workboardBox?.y ?? 0) - ((filterBox?.y ?? 0) + (filterBox?.height ?? 0)))).toBe(12);
       }
 
       for (const signal of await signals.locator('button').all()) {
@@ -62,9 +109,9 @@ test.describe('Carrier dashboard blueprint visual gate', () => {
       }
       const workboardHeaderHeight = Math.round(await workboardHeader.evaluate((el) => el.getBoundingClientRect().height));
       if (viewport.width > 768) {
-        expect(workboardHeaderHeight).toBe(40);
+        expect(workboardHeaderHeight).toBe(44);
       } else {
-        expect(workboardHeaderHeight).toBeGreaterThanOrEqual(40);
+        expect(workboardHeaderHeight).toBeGreaterThanOrEqual(44);
       }
       expect(Math.round(await tabs.evaluate((el) => el.getBoundingClientRect().height))).toBe(32);
 
