@@ -30,6 +30,432 @@ Required sequence:
 Recommended cleanup commit intent:
 `chore: remove unused runtime assets and relocate CX references`
 
+## 0.1 Strict numeric execution contract — mandatory
+
+This section converts the blueprint from design direction into an execution specification.
+
+**Precedence rule:** for Carrier visual convergence, the values in this document override conflicting Carrier-specific values in older workspace/CX documents. Shared values outside Carrier must not be changed unless explicitly stated.
+
+**No interpretation rule:** implementation may not replace an exact value below with an approximate value, a range, or a visually similar value. Responsive changes are permitted only at the breakpoints defined below.
+
+### 0.1.1 Canonical Carrier tokens
+
+| Token | Exact value |
+|---|---:|
+| Global header height | 50px |
+| Primary navigation height | 40px |
+| Total sticky shell chrome | 90px |
+| Header horizontal padding | 16px |
+| Header internal gap | 14px |
+| Logo button | 136px × 44px |
+| Logo image | 136px × 36px |
+| Identity gap | 1px |
+| Identity eyebrow | 10px / 13px / 700 |
+| Identity company line | 12px / 15px / 700 |
+| Identity max width | 190px |
+| Header action height | 32px |
+| Header action horizontal padding | 12px |
+| Header action gap | 8px |
+| Notification control | 32px × 32px |
+| Primary nav item height | 40px |
+| Primary nav item horizontal padding | 10px |
+| Primary nav item font | 12px / 600 |
+| Active nav underline | 2px |
+| Page top padding | 12px |
+| Page horizontal padding | 12px |
+| Page bottom padding | 16px |
+| Section gap | 16px |
+| Grid gap | 12px |
+| Internal gap | 8px |
+| Micro gap | 4px |
+| Filter rail width | 220px |
+| Filter/main gap | 12px |
+| Standard control height | 32px |
+| Micro action height | 28px |
+| Panel header height | 36px |
+| Panel body padding | 10px |
+| Panel footer padding | 8px 12px |
+| Panel radius | 4px |
+| Standard border | 1px solid #D8DEE8 |
+| Soft divider | 1px solid #E5E7EB |
+| Page background | #F4F6F8 |
+| Panel background | #FFFFFF |
+| Panel header background | #F4F6F8 |
+| Main text | #1A1F2B |
+| Shell text | #172033 |
+| Muted text | #64748B |
+| Primary blue | #1D57D8 |
+| Navy | #0B2F6B |
+| Action orange | #F5A300 |
+| Success green | #198754 |
+| Warning text | #B76E00 |
+| Danger red | #C62828 |
+| Row hover | #F1F6FF |
+| Row selected | #E8F0FF |
+| Radius for controls/panels | 4px |
+| Drop shadow | none |
+
+### 0.1.2 Typography — exact
+
+| Element | Size | Line height | Weight |
+|---|---:|---:|---:|
+| Page eyebrow | 11px | 14px | 700 |
+| Page H1 | 20px | 26px | 650 |
+| Page subtitle | 12px | 16px | 400 |
+| Section H2 | 14px | 20px | 650 |
+| Panel title | 13px | 18px | 650 |
+| Body | 13px | 18px | 400 |
+| Control text (input/select) | 12px | 16px | 400 |
+| Action text (button) | 12px | 16px | 600 |
+| Filter label | 11px | 14px | 650 |
+| Table header | 11px | 14px | 700 |
+| Metadata | 11px | 14px | 400 |
+| Micro text (regular) | 10px | 13px | 400 |
+| Micro text (strong) | 10px | 13px | 700 |
+| KPI label | 11px | 14px | 600 |
+| KPI value | 22px | 26px | 700 |
+| Status badge | 11px | 14px | 700 |
+
+Font family for all Carrier operational surfaces:
+`"Segoe UI", Arial, sans-serif`.
+
+No Carrier operational text may render below 10px.
+
+### 0.1.3 Page header geometry — exact
+
+Every Carrier page header must use on desktop >=769px:
+- height: 60px;
+- bottom margin: 8px;
+- left/right content gap: 12px;
+- title/subtitle vertical gap: 2px;
+- actions gap: 8px;
+- action height: 32px;
+- action horizontal padding: 12px.
+
+Exactly one `h1` is permitted per Carrier page.
+
+### 0.1.4 Carrier signal strip — exact
+
+Desktop >1200px:
+- 6 columns;
+- each tile height: 72px;
+- internal separator gap: 1px;
+- outer border: 1px #D8DEE8;
+- radius: 4px;
+- tile padding: 8px 10px;
+- label: 11/14/600;
+- value: 22/26/700;
+- detail: 11/14/400;
+- semantic accent: 3px left border or equivalent 3px edge indicator;
+- strip bottom margin: 8px.
+
+Viewport <=1200px:
+- 3 columns;
+- 2 rows;
+- tile height remains 72px.
+
+Viewport <=640px:
+- 2 columns;
+- 3 rows;
+- tile height remains 72px.
+
+No horizontal scrolling is allowed for the Carrier signal strip.
+
+### 0.1.5 Filter rail — exact
+
+Desktop >=1025px:
+- width: 220px exactly;
+- layout: `220px minmax(0,1fr)`;
+- grid gap: 12px;
+- sticky offset: 102px from viewport top (50px header + 40px nav + 12px page top);
+- header padding: 8px 10px;
+- body padding: 8px 10px;
+- field gap: 6px;
+- label-to-control gap: 2px;
+- footer padding: 8px 10px;
+- Search button: 32px, full width;
+- Clear button: 32px, full width;
+- inputs/selects: 32px high, 9px horizontal padding.
+
+Viewport <=1024px:
+- rail width: 100%;
+- position: static;
+- rail stacks above main content;
+- rail/main gap remains 12px.
+
+### 0.1.6 Tabs and view toggles — exact
+
+Primary operational tab strip:
+- height: 36px;
+- button height: 36px;
+- horizontal padding: 12px;
+- font: 12px / 600;
+- active indicator: 2px bottom border;
+- border radius: 4px on strip outer container;
+- inter-tab gap: 0px.
+
+Compact view toggle:
+- height: 32px;
+- segment horizontal padding: 10px;
+- font: 11px / 600;
+- border: 1px #D8DEE8;
+- outer radius: 4px;
+- active background: #EFF6FF;
+- active text: #0B2F6B.
+
+### 0.1.7 Panels — exact
+
+Every Carrier operational panel:
+- border: 1px solid #D8DEE8;
+- radius: 4px;
+- background: #FFFFFF;
+- shadow: none;
+- header min-height: 36px;
+- header padding: 8px 10px;
+- header background: #F4F6F8;
+- body padding: 10px;
+- footer padding: 8px 12px;
+- title: 13/18/650;
+- subtitle: 11/14/400;
+- header action gap: 8px.
+
+Flush table/register panels may set body padding to 0 only.
+
+### 0.1.8 Tables/registers — Carrier exact target
+
+Carrier-specific table target supersedes older 40px table-header values for this Carrier convergence pass.
+
+| Property | Exact value |
+|---|---:|
+| Table header height | 36px |
+| Header horizontal padding | 8px |
+| Header font | 11px / 14px / 700 |
+| Standard row height | 42px |
+| Wrapped row height | 52px |
+| Cell padding | 6px 8px |
+| Primary cell text | 12.5px / 17px / 600 |
+| Metadata | 11px / 14px / 400 |
+| Status badge height | 22px |
+| Status badge radius | 999px |
+| Row action height | 28px |
+| Row action horizontal padding | 8px |
+| Row action gap | 4px |
+| Pagination bar height | 36px |
+| Pagination button | 28px × 28px |
+| Pagination gap | 4px |
+
+Tables must scroll inside their own wrapper if unavoidable. Page-level horizontal overflow is forbidden.
+
+### 0.1.9 Empty states — exact
+
+Compact register empty state:
+- min-height: 64px;
+- padding: 10px 12px;
+- title: 13px / 18px / 600;
+- description: 11px / 15px / 400;
+- title/description gap: 2px;
+- optional action margin-top: 8px;
+- no decorative X icon;
+- no illustration larger than 24px.
+
+Map empty state:
+- min-height: 220px;
+- centered vertically and horizontally;
+- same typography as compact state;
+- optional action height: 32px.
+
+### 0.1.10 Map/register split — exact
+
+For Live Availability and Freight Vision:
+- desktop >=1200px: `minmax(0,0.79fr) minmax(0,1fr)`;
+- exact fraction ratio from 0.79fr / 1fr: 44.134% map / 55.866% register;
+- gap: 12px;
+- map panel min-height: 320px;
+- register panel min-height: 320px;
+- both panel headers: 36px;
+- both start on the same y-coordinate.
+
+At <=1199px:
+- stack to one column;
+- gap remains 12px.
+
+### 0.1.11 Responsive geometry — exact
+
+#### 1920×1080
+- page inner width: 1896px (1920 - 24);
+- rail layout main width: 1664px (1896 - 220 - 12);
+- full Carrier shell chrome: 90px;
+- no page-level horizontal scroll.
+
+#### 1440×900
+- page inner width: 1416px;
+- rail layout main width: 1184px;
+- no page-level horizontal scroll.
+
+#### 1280×800
+- page inner width: 1256px;
+- rail layout main width: 1024px;
+- no page-level horizontal scroll.
+
+#### 1024 tablet
+- page horizontal padding: 10px;
+- inner width: 1004px;
+- rail stacks above main;
+- signal strip uses 3 columns;
+- map/register stacks to one column.
+
+#### 768
+- page horizontal padding: 8px;
+- inner width: 752px;
+- one-column operational rows;
+- filters stacked;
+- tables may scroll inside table wrapper only.
+
+#### 390 mobile
+- page horizontal padding: 8px;
+- inner width: 374px;
+- signal strip: 2 columns;
+- all operational record grids collapse to 1 column;
+- header actions wrap below title if they cannot fit without clipping;
+- no control may be narrower than 32px touch height; primary actions remain 32px high.
+
+### 0.1.12 Exact Carrier page geometry
+
+#### Carrier Control Desk
+- header: 60px;
+- signal strip: 6 × 72px desktop;
+- main composition: 220px rail + 12px gap + main;
+- Operational Workboard header: 40px;
+- workboard empty state: 64px minimum;
+- lower summary grid: `minmax(0,1fr) minmax(0,1.35fr)`;
+- lower grid gap: 12px;
+- lower grid top margin: 12px;
+- Commercial Position row: 42px minimum;
+- Workflow link row: 38px minimum;
+- nested card gap: 12px.
+
+#### My Fleet
+- header: 60px;
+- signal strip: up to 6 tiles; every rendered tile is exactly 72px high;
+- Connected Workspace control row: 40px;
+- full-width register panel;
+- table header: 36px;
+- table rows: 42px;
+- Fleet Attention rows: 42px;
+- section gap: 12px.
+
+#### Drivers & Vehicles
+- header: 60px;
+- signal strip: up to 6 tiles; every rendered tile is exactly 72px high;
+- Resource Filters panel header: 36px;
+- Resource Filters body grid: `repeat(4,minmax(160px,1fr))`;
+- filter body gap: 8px;
+- controls: 32px;
+- Fleet Resource Register header: 36px;
+- Company Vehicles header: 36px;
+- all register rows: 42px;
+- gap between register panels: 12px.
+
+At <=1199px Resource Filters becomes 2 columns.
+At <=768px Resource Filters becomes 1 column.
+
+#### Live Availability
+- header: 60px;
+- signal strip: up to 6 tiles; every rendered tile is exactly 72px high;
+- filter panel header: 36px;
+- filter panel body: 4-column grid at >=1200px, 8px gap;
+- map/register ratio: 0.79fr / 1fr;
+- map/register gap: 12px;
+- both panels min-height: 320px;
+- tabs: 36px;
+- table header: 36px;
+- row: 42px.
+
+#### Freight Vision
+Use the **identical geometry** as Live Availability:
+- same header;
+- same signal strip;
+- same filter panel;
+- same 0.79fr / 1fr split;
+- same 320px minimum panel height;
+- same register dimensions.
+Tracking Timeline, when visible, starts 12px below the map/register row.
+
+#### Loads
+- layout: 220px rail + 12px gap + main;
+- primary tabs: 36px;
+- secondary load-type tabs: 32px;
+- register toolbar: 40px;
+- List/Map toggle: 32px;
+- collapsed load record: 84px minimum;
+- record internal padding: 8px 10px;
+- record gap: 8px;
+- metadata rail: 22px minimum;
+- empty state: 64px;
+- pagination bar: 36px.
+
+#### Quotes
+- layout identical to Loads;
+- rail: 220px;
+- status tabs: 36px;
+- register toolbar: 40px;
+- collapsed quote record: 76px minimum;
+- expanded quote details top border: 1px #E5E7EB;
+- expanded detail padding: 10px;
+- empty state: 64px;
+- pagination: 36px.
+
+#### Diary
+- layout: 220px rail + 12px gap + main;
+- status tabs: 36px;
+- toolbar: 40px;
+- List/Split toggle: 32px;
+- booking record collapsed minimum: 84px;
+- record gap: 8px;
+- metadata bar: 22px;
+- no empty main area taller than 96px when there are zero bookings;
+- empty state min-height: 64px;
+- page-size control: 32px;
+- pagination bar: 36px.
+
+#### Return Journeys
+- layout: 220px rail + 12px gap + main;
+- state tabs: 36px;
+- List/Map toggle: 32px;
+- editor panel header: 36px;
+- editor desktop grid: `repeat(4,minmax(150px,1fr))`;
+- editor grid gap: 8px;
+- editor controls: 32px;
+- record collapsed minimum: 76px;
+- record metadata bar: 22px;
+- map panel minimum: 320px;
+- empty state: 64px.
+
+#### Directory
+- exactly one page H1;
+- outer Carrier PageHeader only; inner MemberDirectoryPage must not render a second H1/hero;
+- layout: 220px rail + 12px gap + main;
+- Companies/Drivers tabs: 36px;
+- register metadata bar: 36px;
+- operational member row minimum: 88px;
+- row internal grid desktop: `1.20fr 1fr 1.25fr 1.45fr 1fr`;
+- column gap: 0; separators are 1px #E5E7EB;
+- cell padding: 8px 10px;
+- action gap: 4px;
+- action height: 28px;
+- empty state: 64px.
+
+### 0.1.13 Visual acceptance tolerances
+
+Implementation is considered geometrically correct only when:
+- specified fixed heights/widths differ by **0px** in computed CSS;
+- browser rasterisation/screenshot edge tolerance is at most **±2px**;
+- page-level horizontal overflow is **0px**;
+- no unexpected vertical gap exceeds its specified token by more than **2px**;
+- every Carrier page uses the same border, radius, typography and control-height tokens;
+- any deviation from this numeric contract requires an explicit amendment to this document before code is merged.
+
+
 ## 1. Objective
 
 Make every Carrier surface feel like one operational product without flattening role-specific functionality.
