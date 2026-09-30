@@ -22,6 +22,7 @@ import {
   getNotificationsRoute,
   resolveActionCentreRole,
 } from './actionCentreConfig';
+import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 const FREIGHT_VISION_ROLES = new Set<WorkspaceRole>([
   'company_owner',
@@ -585,11 +586,7 @@ export default function TopWorkspaceShell({
   const primaryAction =
     !CARRIER_NAV_ROLES.has(role) && role !== 'owner_driver' &&
     definition.primaryAction &&
-    (
-      (role === 'broker' || role === 'customer')
-        ? nav.some((group) => group.items.some((item) => item.href === definition.primaryAction?.href))
-        : (!definition.primaryAction.capability || hasWorkspaceCapability(role, definition.primaryAction.capability))
-    )
+    (!definition.primaryAction.capability || hasWorkspaceCapability(role, definition.primaryAction.capability))
       ? definition.primaryAction
       : null;
   const showCarrierPostLoadAction =
@@ -852,6 +849,7 @@ export default function TopWorkspaceShell({
         </div>
       </nav>
 
+      <WorkspaceRestrictionBanner role={role} />
       <main className={`top-workspace-shell__content${driverPrototypeScope ? ' app driver-prototype-app' : ''}`}>{children}</main>
     </div>
   );

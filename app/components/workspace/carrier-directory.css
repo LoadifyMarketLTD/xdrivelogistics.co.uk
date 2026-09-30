@@ -1,0 +1,55 @@
+/* Carrier only: blueprint geometry, never applied to Driver/Broker/Customer. */
+.xdrive-workspace-measured .directory-workspace[data-carrier-directory="true"] { padding: 12px 12px 16px !important; gap: 8px !important; min-width: 0; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-register-header { height: 78px !important; min-height: 78px !important; padding: 0 !important; border: 0 !important; background: transparent !important; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-register-header > div { display: grid !important; gap: 2px !important; min-width: 0; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-register-header h1 { font: 650 20px/26px 'Segoe UI', Arial, sans-serif; margin: 0; color: #1A1F2B; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-register-header p { font-size: 12px; line-height: 16px; color: #64748B; margin: 0; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .workspace-board-layout { display: grid !important; grid-template-columns: 220px minmax(0, 1fr) !important; gap: 12px !important; align-items: start; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .workspace-filter-rail { width: auto !important; top: 102px !important; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .workspace-filter-rail__header { height: 36px !important; min-height: 36px !important; display: flex; align-items: center; box-sizing: border-box; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .workspace-filter-rail__body { padding: 10px !important; display: grid !important; gap: 8px !important; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .workspace-filter-rail__body input:not([type="checkbox"]), .xdrive-workspace-measured [data-carrier-directory="true"] select, .xdrive-workspace-measured [data-carrier-directory="true"] .workspace-filter-rail button { height: 32px !important; min-height: 32px !important; box-sizing: border-box; min-width: 0; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .workspace-tab-strip button { height: 32px !important; min-height: 32px !important; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-register-meta { height: 40px !important; min-height: 40px !important; gap: 8px !important; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .workspace-record-list { display: grid; gap: 8px; }
+/* Inset outline keeps the visible 1px frame inside the exact 60px + 32px record. */
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row { border: 0 !important; outline: 1px solid #D8DEE8; outline-offset: -1px; border-radius: 4px !important; overflow: hidden; margin: 0 !important; height: 92px; background: #FFFFFF; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row__top { grid-template-columns: minmax(260px,1.30fr) minmax(210px,1fr) minmax(240px,1.15fr) minmax(280px,1.30fr) !important; height: 60px !important; min-height: 60px !important; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row__top > .workspace-operational-cell { grid-column: auto !important; padding: 8px 10px !important; min-width: 0; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .driver-cell-label { font-size: 10px !important; line-height: 12px !important; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .driver-cell-secondary { font-size: 11px !important; line-height: 14px !important; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-record-footer { height: 32px; box-sizing: border-box; padding: 1px 8px 2px; border-top: 1px solid #E5E7EB; background: #FBFDFF; display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-record-footer > div { margin-top: 0 !important; display: flex; gap: 4px !important; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-record-footer button { height: 28px !important; min-height: 28px !important; padding: 0 8px !important; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-record-footer .directory-detail-toggle { margin-right: auto; border: 1px solid #D8DEE8; border-radius: 4px; background: white; color: #0B2F6B; cursor: pointer; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row[data-expanded="true"], .xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row[data-expanded="true"] .directory-operational-row__top { height: auto !important; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row[data-expanded="true"] .driver-cell-secondary { white-space: normal; overflow-wrap: anywhere; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row__top strong { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (min-width: 1200px) and (max-width: 1279px) {
+  .xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row__top { grid-template-columns: 1.30fr 1fr 1.15fr 1.30fr !important; }
+}
+@media (max-width: 1199px) {
+  .xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row { height: auto; }
+  .xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row__top { grid-template-columns: repeat(2,minmax(0,1fr)) !important; height: auto !important; }
+  .xdrive-workspace-measured [data-carrier-directory="true"] .directory-register-meta { height: auto !important; flex-wrap: wrap !important; }
+}
+@media (max-width: 1024px) {
+  .xdrive-workspace-measured .directory-workspace[data-carrier-directory="true"] { padding: 10px 10px 14px !important; }
+  .xdrive-workspace-measured [data-carrier-directory="true"] .workspace-board-layout { grid-template-columns: minmax(0,1fr) !important; }
+  .xdrive-workspace-measured [data-carrier-directory="true"] .workspace-filter-rail { position: static !important; }
+  .xdrive-workspace-measured [data-carrier-directory="true"] .workspace-filter-rail__body { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .xdrive-workspace-measured [data-carrier-directory="true"] .directory-register-header { height: auto !important; }
+}
+@media (max-width: 768px) {
+  .xdrive-workspace-measured .directory-workspace[data-carrier-directory="true"] { padding: 8px 8px 12px !important; }
+  .xdrive-workspace-measured [data-carrier-directory="true"] .workspace-filter-rail__body { grid-template-columns: minmax(0,1fr); }
+  .xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row__top { grid-template-columns: minmax(0,1fr) !important; }
+  .xdrive-workspace-measured [data-carrier-directory="true"] .driver-cell-secondary { white-space: normal; overflow-wrap: anywhere; }
+  .xdrive-workspace-measured [data-carrier-directory="true"] .directory-record-footer { height: auto; min-height: 32px; flex-wrap: wrap; }
+}
+/* Inline identity links are text, not standard 32px toolbar controls. */
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row__top button[title="Open member profile"] { height: auto !important; min-height: 0 !important; padding: 0 !important; line-height: inherit !important; vertical-align: baseline; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row__top strong { line-height: 16px !important; }
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row__top .driver-cell-secondary { margin-top: 0 !important; }
+/* Override the legacy five-column action-cell span at 1280px. */
+.xdrive-workspace-measured [data-carrier-directory="true"] .directory-operational-row__top > .workspace-operational-cell:last-child { grid-column: auto !important; }

@@ -1,8 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
+import { useAuth } from '../../components/AuthContext';
+import { getOperationalWorkspaceRoot } from '../../../lib/workspaceRemediation';
+import { getWorkspaceHomeRoute, resolveWorkspaceRole } from '../../../lib/workspaceRole';
+import { hasWorkspaceCapabilityForContext } from '../../../lib/roleCapabilities';
 
 import { XDRIVE_STANDARD_PLANS, isStandardMembershipPlan, type StandardMembershipPlanId } from '../../../lib/commercialBilling';
 import { supabase } from '../../../lib/supabaseClient';
@@ -43,6 +47,20 @@ const formatDate = (value: string | null | undefined) => {
 
 export default function BillingSettingsPage() {
   const router = useRouter();
+  const { user, isLoading: authLoading } = useAuth();
+  const workspaceRoot = getOperationalWorkspaceRoot(usePathname());
+  const resolvedRole = user ? resolveWorkspaceRole(user) : null;
+  const legacyBillingRoot = resolvedRole && hasWorkspaceCapabilityForContext(resolvedRole, 'billing.manage', { membershipRole: user?.membershipRole ?? null })
+    ? getOperationalWorkspaceRoot(getWorkspaceHomeRoute(user)) : null;
+  const redirectLegacyBilling = !workspaceRoot && Boolean(legacyBillingRoot);
+  useEffect(() => {
+    if (!authLoading && redirectLegacyBilling && legacyBillingRoot) {
+      router.replace(`${legacyBillingRoot}/settings/billing${window.location.search}`);
+    }
+  }, [authLoading, redirectLegacyBilling, legacyBillingRoot, router]);
+  const statusRequest = useRef(0);
+  const [statusReady, setStatusReady] = useState(false);
+  const [personalScopeVerified, setPersonalScopeVerified] = useState(false);
   const [planId, setPlanId] = useState<StandardMembershipPlanId>('owner-driver');
   const [companies, setCompanies] = useState<CompanyMembership[]>([]);
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -58,7 +76,11 @@ export default function BillingSettingsPage() {
   const [error, setError] = useState('');
 
   const readStatus = async (token: string, targetCompanyId: string | null) => {
+    const requestId = ++statusRequest.current;
     setStatusLoading(true);
+    setStatusReady(false);
+    setSubscription(null);
+    setAcceptedTerms(false);
     try {
       const query = targetCompanyId ? `?companyId=${encodeURIComponent(targetCompanyId)}` : '';
       const response = await fetch(`/api/billing/status${query}`, {
@@ -66,22 +88,35 @@ export default function BillingSettingsPage() {
         cache: 'no-store',
       });
       const payload = (await response.json().catch(() => null)) as BillingStatusPayload | null;
+      if (requestId !== statusRequest.current) return;
       if (!response.ok) throw new Error(payload?.error ?? 'Billing status could not be loaded.');
+      if (!payload || typeof payload.excluded !== 'boolean' || typeof payload.delegated !== 'boolean'
+        || !('subscription' in payload) || (payload.subscription !== null
+          && (typeof payload.subscription !== 'object' || typeof payload.subscription?.planId !== 'string' || typeof payload.subscription?.status !== 'string'))) {
+        throw new Error('Billing returned an incomplete account status. Retry before continuing.');
+      }
       const nextSubscription = payload?.subscription ?? null;
       setExcluded(payload?.excluded === true);
       setDelegated(payload?.delegated === true);
       setSubscription(nextSubscription);
       if (nextSubscription && isStandardMembershipPlan(nextSubscription.planId)) setPlanId(nextSubscription.planId);
-      if (nextSubscription?.contractAcceptedAt) setAcceptedTerms(true);
+      setAcceptedTerms(Boolean(nextSubscription?.contractAcceptedAt));
+      setStatusReady(true);
     } finally {
-      setStatusLoading(false);
+      if (requestId === statusRequest.current) setStatusLoading(false);
     }
   };
 
   useEffect(() => {
+    if (authLoading || redirectLegacyBilling) return;
     let active = true;
     const load = async () => {
       setLoading(true);
+      setStatusReady(false);
+      setPersonalScopeVerified(false);
+      setError('');
+      setCompanies([]);
+      setCompanyId(null);
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData.session;
       if (!session) {
@@ -106,8 +141,15 @@ export default function BillingSettingsPage() {
           const company = Array.isArray(relation) ? relation[0] : relation;
           return { companyId: String(row.company_id), role: String(row.role_in_company ?? ''), name: company?.name?.trim() || 'XDrive company' };
         }).filter((company) => BILLING_ROLES.has(company.role.toLowerCase()));
-        const initialCompanyId = resolved[0]?.companyId ?? null;
-        setCompanies(resolved);
+        const initialCompanyId = workspaceRoot ? user?.companyId ?? null : resolved[0]?.companyId ?? null;
+        const personalAccount = !initialCompanyId && (data ?? []).length === 0;
+        setPersonalScopeVerified(personalAccount);
+        if (workspaceRoot && !initialCompanyId && !personalAccount) {
+          setError('Select an active company in your workspace before opening membership billing.');
+          setLoading(false);
+          return;
+        }
+        setCompanies(workspaceRoot ? resolved.filter((company) => company.companyId === initialCompanyId) : resolved);
         setCompanyId(initialCompanyId);
         try {
           await readStatus(session.access_token, initialCompanyId);
@@ -117,11 +159,21 @@ export default function BillingSettingsPage() {
       }
       if (active) setLoading(false);
     };
-    void load();
-    return () => { active = false; };
-  }, []);
+    void load().catch((reason) => {
+      if (!active) return;
+      setStatusReady(false);
+      setLoading(false);
+      setError(reason instanceof Error ? reason.message : 'Billing could not be loaded.');
+    });
+    return () => { active = false; statusRequest.current += 1; };
+  }, [authLoading, redirectLegacyBilling, user?.companyId, user?.id, workspaceRoot]);
 
   const refreshStatusForCompany = async (nextCompanyId: string | null) => {
+    const verifiedPersonalAccount = personalScopeVerified && !nextCompanyId && !user?.companyId;
+    if (workspaceRoot && !verifiedPersonalAccount && (!nextCompanyId || nextCompanyId !== user?.companyId)) {
+      setError('Select an active company in your workspace before opening membership billing.');
+      return;
+    }
     setCompanyId(nextCompanyId);
     setError('');
     const { data } = await supabase.auth.getSession();
@@ -152,6 +204,7 @@ export default function BillingSettingsPage() {
     : `Start 3-month free trial · then ${money(plan.monthlyAmountPence)}/month + VAT`;
 
   const startCheckout = async () => {
+    if (!statusReady || statusLoading || excluded || delegated) return;
     if (!acceptedTerms) {
       setError('Please accept the Membership & Subscription Terms before continuing.');
       return;
@@ -177,6 +230,7 @@ export default function BillingSettingsPage() {
   };
 
   const openPortal = async () => {
+    if (!statusReady || statusLoading || excluded || delegated) return;
     setPortalOpening(true);
     setError('');
     try {
@@ -198,6 +252,7 @@ export default function BillingSettingsPage() {
   };
 
   const downloadConfirmation = async () => {
+    if (!statusReady || statusLoading || excluded || delegated) return;
     setDownloading(true);
     setError('');
     try {
@@ -234,10 +289,14 @@ export default function BillingSettingsPage() {
         eyebrow="Membership"
         title="XDrive membership billing"
         description="The first three calendar months are free for eligible standard memberships. After the trial, membership continues monthly at the disclosed price plus VAT where applicable."
-        actions={<ActionButton tone="secondary" onClick={() => router.back()}>Back</ActionButton>}
+        actions={<ActionButton tone="secondary" onClick={() => workspaceRoot ? router.push(`${workspaceRoot}/settings`) : router.back()}>Back</ActionButton>}
       />
       {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
-      {loading ? <Panel><EmptyState title="Loading billing profile…" /></Panel> : excluded ? (
+      {loading || statusLoading ? <Panel><EmptyState title="Loading billing profile…" /></Panel> : !statusReady ? (
+        <Panel title="Billing account unavailable" description="No billing action is available until this account has been verified.">
+          <ActionButton tone="secondary" onClick={() => void refreshStatusForCompany(companyId)}>Retry billing status</ActionButton>
+        </Panel>
+      ) : excluded ? (
         <Panel title="Platform account" description="Platform Owner is intentionally outside the commercial XDrive membership billing lifecycle.">
           <EmptyState title="No platform membership charge applies to this account." />
         </Panel>
@@ -248,13 +307,14 @@ export default function BillingSettingsPage() {
       ) : (
         <>
           {companies.length > 0 ? (
-            <Panel title="Billing account" description="Select the company that owns this XDrive membership.">
-              <select value={companyId ?? ''} onChange={(event) => void refreshStatusForCompany(event.target.value || null)} style={{ width: '100%', maxWidth: 520, padding: '0.75rem', border: '1px solid #CBD5E1', borderRadius: 10, background: '#fff' }}>
+            <Panel title="Billing account" description={workspaceRoot ? "This is the active workspace company. Switch companies from the workspace selector." : "Select the company that owns this XDrive membership."}>
+              <select aria-label="Billing company" disabled={Boolean(workspaceRoot)} value={companyId ?? ''} onChange={(event) => void refreshStatusForCompany(event.target.value || null)} style={{ width: '100%', maxWidth: 520, padding: '0.75rem', border: '1px solid #CBD5E1', borderRadius: 10, background: '#fff' }}>
                 {companies.map((company) => <option key={company.companyId} value={company.companyId}>{company.name} · {company.role}</option>)}
               </select>
             </Panel>
           ) : null}
 
+          {personalScopeVerified ? <Panel title="Personal membership account"><p style={{ margin: 0 }}>No active company membership is attached to this account. Billing is verified for your signed-in account.</p></Panel> : null}
           {subscription ? (
             <Panel title="Current membership" description="This is the server-authoritative membership lifecycle for the selected billing account.">
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.8rem' }}>
@@ -287,7 +347,7 @@ export default function BillingSettingsPage() {
           <Panel title="Contract & payment method" description="Stripe securely stores the payment method used for future membership renewals. XDrive does not receive or store card numbers.">
             <label style={{ display: 'flex', alignItems: 'flex-start', gap: '0.65rem', lineHeight: 1.55 }}>
               <input type="checkbox" checked={acceptedTerms} disabled={Boolean(subscription?.contractAcceptedAt)} onChange={(event) => setAcceptedTerms(event.target.checked)} style={{ marginTop: '0.3rem' }} />
-              <span>I accept the <Link href="/subscription-terms" style={{ color: '#1D57D8', fontWeight: 800 }}>Membership & Subscription Terms</Link> (version 2026-09-01), including the three-month free period and monthly rolling renewal after the trial.</span>
+              <span>I accept the <Link href="/subscription-terms" style={{ color: '#1D57D8', fontWeight: 800 }}>{"Membership & Subscription Terms"}</Link> (version 2026-09-01), including the three-month free period and monthly rolling renewal after the trial.</span>
             </label>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.7rem', marginTop: '1rem' }}>
               {!subscription?.hasStripeSubscription ? <ActionButton tone="primary" disabled={opening || !acceptedTerms || statusLoading} onClick={() => void startCheckout()}>{opening ? 'Opening Stripe…' : checkoutLabel}</ActionButton> : null}

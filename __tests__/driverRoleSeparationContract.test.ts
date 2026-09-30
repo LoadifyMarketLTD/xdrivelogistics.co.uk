@@ -26,7 +26,7 @@ describe('Fleet Driver and Owner Driver separation', () => {
   });
 
   it('keeps Owner Driver commercial and finance tools visible', () => {
-    for (const href of ['/driver/loads','/driver/quotes','/driver/won-work','/driver/nearby','/driver/returns','/driver/finance','/settings/billing']) {
+    for (const href of ['/driver/loads','/driver/quotes','/driver/won-work','/driver/nearby','/driver/returns','/driver/finance','/driver/settings/billing']) {
       expect(hrefs('owner_driver')).toContain(href);
     }
   });

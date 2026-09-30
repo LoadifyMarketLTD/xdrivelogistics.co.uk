@@ -565,6 +565,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     [pathname, workspaceRole],
   );
   const [companyId, setCompanyId] = useState<string | null>(userCompanyId);
+  const [companyContextResolved, setCompanyContextResolved] = useState(userCompanyId !== null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [partialData, setPartialData] = useState(false);
@@ -574,13 +575,51 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
   useEffect(() => {
     let cancelled = false;
     const resolve = async () => {
-      if (!userId) return;
-      const resolved = await resolveActiveCompanyId({
+      setCompanyContextResolved(false);
+
+      if (!userId) {
+        if (!cancelled) {
+          setCompanyId(null);
+          setCompanyContextResolved(true);
+        }
+        return;
+      }
+
+      let resolved = await resolveActiveCompanyId({
         userId,
         fallbackCompanyId: userCompanyId,
       });
-      if (!cancelled) setCompanyId(resolved ?? null);
+
+      if (!resolved) {
+        try {
+          const response = await fetch('/api/auth/context', {
+            method: 'GET',
+            credentials: 'same-origin',
+            cache: 'no-store',
+          });
+          const body = await response.json().catch(() => null) as
+            | {
+                current?: { companyId?: string | null } | null;
+                selectedCompanyId?: string | null;
+              }
+            | null;
+
+          if (response.ok && body) {
+            resolved = body.current?.companyId ?? body.selectedCompanyId ?? null;
+          }
+        } catch {
+          // The normal client resolver remains authoritative when the server
+          // context endpoint is unavailable. The workspace will surface the
+          // unresolved context explicitly after resolution completes.
+        }
+      }
+
+      if (!cancelled) {
+        setCompanyId(resolved ?? null);
+        setCompanyContextResolved(true);
+      }
     };
+
     void resolve();
     return () => { cancelled = true; };
   }, [userId, userCompanyId]);
@@ -628,6 +667,12 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
       setPartialData(false);
       setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
       setLoading(false);
+      return;
+    }
+
+    if (!driverSurface && !companyContextResolved) {
+      setLoading(true);
+      setError('');
       return;
     }
 
@@ -972,7 +1017,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setPartialData(Object.values(nextDatasets).some((dataset) => dataset.partialData));
     setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
     setLoading(false);
-  }, [companyId, plan, driverId, userId]);
+  }, [companyContextResolved, companyId, plan, driverId, userId]);
 
   useEffect(() => {
     setDatasets(createDatasetMap(plan.datasets));

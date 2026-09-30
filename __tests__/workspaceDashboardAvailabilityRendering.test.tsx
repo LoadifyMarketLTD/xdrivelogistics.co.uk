@@ -234,8 +234,8 @@ describe('active workspace dashboard degraded-state rendering', () => {
     const html = render(<CarrierOperationsDashboardHome />);
     expect(html).toContain('Job data unavailable');
     expect(html).not.toContain('No jobs require attention');
-    expect(html).toContain('Document expiry alerts');
-    expect(html).toContain('Commercial position');
+    expect(html).toContain('Compliance - Drivers &amp; Vehicles');
+    expect(html).toContain('Reports &amp; Statistics');
     expect(html).not.toContain('£0.00');
   });
 
@@ -250,7 +250,8 @@ describe('active workspace dashboard degraded-state rendering', () => {
 
     const html = render(<CarrierOperationsDashboardHome />);
     expect(html).toContain('Overdue invoices');
-    expect(html).toContain('Commercial position');
+    expect(html).toContain('Reports &amp; Statistics');
+    expect(html).toContain('Partial');
     expect(html).not.toContain('£0.00');
   });
 
@@ -323,5 +324,84 @@ describe('active workspace dashboard degraded-state rendering', () => {
     expect(html).not.toContain('Allocate Work');
     expect(html).not.toContain('Find Loads');
     expect(html).not.toContain('Open Invoices');
+  });
+});
+
+describe('Carrier Dashboard data quality and finance regression coverage', () => {
+  const section = (html: string, label: string) => html.match(new RegExp(`<section[^>]*aria-label="${label}"[^>]*>([\\s\\S]*?)</section>`))?.[1] ?? '';
+  const invoice = (id: string, overrides: Record<string, unknown> = {}) => ({ id, company_id: 'supplier', supplier_company_id: 'supplier', buyer_company_id: 'company-1', status: 'Sent', payment_status: 'unpaid', delivery_state: 'sent', amount: 120, net_amount: 100, client_name: 'Fixture buyer', due_date: '2020-01-01', created_at: '2026-01-01T00:00:00Z', ...overrides });
+
+  beforeEach(() => mockUseCompanyWorkspaceData.mockReset());
+  it.each(['unavailable', 'omitted'] as const)('does not turn %s jobs into an empty booking list', (availability) => {
+    const state = workspaceState();
+    state.datasets.jobs = dataset({ availability, successfulEmpty: false });
+    mockUseCompanyWorkspaceData.mockReturnValue(state);
+    const html = render(<CarrierOperationsDashboardHome />);
+    expect(section(html, 'Activity at a glance')).toContain('Job data unavailable');
+    expect(html).not.toContain('No recent carrier bookings');
+  });
+  it('never flashes exact zero metrics or no bookings during loading', () => {
+    mockUseCompanyWorkspaceData.mockReturnValue(workspaceState({ loading: true }));
+    const html = render(<CarrierOperationsDashboardHome />);
+    expect(html).toContain('Loading carrier bookings');
+    expect(html).not.toContain('No recent carrier bookings');
+    expect(section(html, 'Accounts Payable')).not.toContain('0 awaiting payment');
+    expect(section(html, 'Accounts Payable')).toContain('Loading');
+  });
+  it('identifies a partial empty booking result without claiming no bookings exist', () => {
+    const state = workspaceState();
+    state.datasets.jobs = dataset({ partialData: true, limitedData: true, successfulEmpty: false });
+    mockUseCompanyWorkspaceData.mockReturnValue(state);
+    const html = render(<CarrierOperationsDashboardHome />);
+    expect(html).toContain('Job data is partial');
+    expect(html).not.toContain('No recent carrier bookings');
+  });
+  it('keeps partial returned bookings visible with the incompleteness warning', () => {
+    const job = carrierJob({ awarded_carrier_company_id: 'company-1', status: 'awarded', current_status: 'awarded' });
+    const state = workspaceState({ jobs: [job] });
+    state.datasets.jobs = dataset({ data: [job], partialData: true, successfulEmpty: false });
+    mockUseCompanyWorkspaceData.mockReturnValue(state);
+    const html = render(<CarrierOperationsDashboardHome />);
+    expect(html).toContain('Job data is partial');
+    expect(html).toContain('Blackburn');
+    expect(html).toContain('Allocate');
+  });
+  it('keeps genuine empty results distinct and provides a real document heading', () => {
+    mockUseCompanyWorkspaceData.mockReturnValue(workspaceState());
+    const html = render(<CarrierOperationsDashboardHome />);
+    expect(html).toMatch(/<h1[^>]*>Carrier Dashboard<\/h1>/);
+    expect(html).toContain('No recent carrier bookings');
+    expect(html).not.toContain('Job data unavailable');
+  });
+  it.each(['unavailable', 'omitted', 'partial'] as const)('never reports a precise payable zero for %s finance data', (quality) => {
+    const state = workspaceState();
+    state.datasets.invoices = dataset(quality === 'partial' ? { partialData: true, successfulEmpty: false } : { availability: quality, successfulEmpty: false });
+    mockUseCompanyWorkspaceData.mockReturnValue(state);
+    const accounts = section(render(<CarrierOperationsDashboardHome />), 'Accounts Payable');
+    expect(accounts).toBeTruthy();
+    expect(accounts).not.toContain('0 awaiting payment');
+    expect(accounts).not.toContain('0 received invoice');
+    expect(accounts).not.toContain('0 overdue');
+    if (quality === 'partial') expect(accounts).toContain('Partial');
+  });
+  it('separates received payables from issued receivables and never calls a draft payable', () => {
+    const invoices = [
+      invoice('received'),
+      invoice('received-paid', { status: 'Paid', payment_status: 'paid' }),
+      invoice('received-draft', { status: 'Draft', delivery_state: 'draft' }),
+      invoice('cancelled', { status: 'Cancelled' }),
+      invoice('voided', { status: 'void' }),
+      invoice('issued', { company_id: 'company-1', supplier_company_id: 'company-1', buyer_company_id: 'another-company' }),
+      invoice('unrelated', { buyer_company_id: 'another-company' }),
+    ];
+    const state = workspaceState({ invoices });
+    state.datasets.invoices = dataset({ data: invoices, successfulEmpty: false });
+    mockUseCompanyWorkspaceData.mockReturnValue(state);
+    const html = render(<CarrierOperationsDashboardHome />);
+    const accounts = section(html, 'Accounts Payable');
+    expect(accounts).toContain('2 received invoices');
+    expect(accounts).toContain('1 awaiting payment');
+    expect(accounts).toContain('1 overdue');
+    expect(section(html, 'Reports &amp; Statistics')).toContain('1 overdue invoice');
   });
 });

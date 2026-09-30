@@ -1,0 +1,41 @@
+.page { padding: 12px 12px 16px; display: grid; gap: 8px; min-width: 0; background: #F4F6F8; color: #1A1F2B; font: 12px/16px 'Segoe UI', Arial, sans-serif; }
+.pageHeader { height: 78px; display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; }
+.pageHeader > div { min-width: 0; }
+.pageHeader h1 { margin: 2px 0; font-size: 20px; line-height: 26px; font-weight: 650; }
+.pageHeader p { margin: 0; color: #64748B; }
+.pageHeader span { font-size: 10px; line-height: 14px; color: #64748B; }
+.mainActions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.mainActions button, .filterActions button { height: 32px !important; min-height: 32px !important; border-radius: 4px !important; }
+.viewTabs { display: flex; height: 32px; overflow-x: auto; border-bottom: 1px solid #D8DEE8; }
+.viewTabs button { flex: 0 0 auto; height: 32px !important; min-height: 32px !important; padding: 0 12px !important; border: 0; border-bottom: 2px solid transparent; background: transparent; color: #64748B; font-size: 12px; cursor: pointer; }
+.viewTabs button[data-active='true'] { color: #0B2F6B; border-bottom-color: #1D57D8; background: #FFFFFF; }
+.page [data-signal-count] { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)) !important; gap: 8px !important; }
+.page [data-signal-count] > div, .page [data-signal-count] > button { min-height: 56px !important; height: 56px !important; padding: 6px 10px !important; border-radius: 4px !important; border: 1px solid #D8DEE8; box-sizing: border-box; }
+.page [data-signal-count] strong { font-size: 20px; line-height: 24px; }
+.filterPanel { min-width: 0; margin-bottom: 4px; border: 1px solid #D8DEE8; border-radius: 4px; background: #FFFFFF; }
+.filterHeader { min-height: 36px; height: 36px; display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 0 10px; border-bottom: 1px solid #E5E7EB; background: #F4F6F8; box-sizing: border-box; }
+.filterHeader strong { font-size: 12px; line-height: 16px; }
+.filterActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.filterBody { min-height: 50px; padding: 9px 10px; display: grid; grid-template-columns: minmax(360px,2fr) minmax(220px,1fr) minmax(220px,1fr); gap: 8px; box-sizing: border-box; }
+.filterBody[data-view='nearby'] { grid-template-columns: minmax(300px,2fr) repeat(3,minmax(150px,1fr)); }
+.filterBody[data-view='future'] { grid-template-columns: minmax(360px,2fr) minmax(220px,1fr); }
+.filterField { display: flex; align-items: center; min-width: 0; gap: 8px; font-size: 11px; color: #64748B; white-space: nowrap; }
+.filterField input, .filterField select { width: 100%; min-width: 0; height: 32px !important; min-height: 32px !important; padding: 0 8px; border: 1px solid #D8DEE8; border-radius: 4px; box-sizing: border-box; background: #FFFFFF; color: #1A1F2B; font: 12px/16px 'Segoe UI',Arial,sans-serif; }
+.legend { min-height: 32px; display: flex; align-items: center; flex-wrap: wrap; gap: 12px; color: #64748B; font-size: 10px; line-height: 14px; }
+.privacyNote { margin: 8px; padding: 8px; border: 1px solid #D8DEE8; border-radius: 4px; background: #F4F6F8; color: #64748B; font-size: 10px; line-height: 14px; }
+.page button:focus-visible, .page input:focus-visible, .page select:focus-visible { outline: 2px solid #1D57D8; outline-offset: -1px; }
+@media (max-width: 1200px) { .page [data-signal-count] { grid-template-columns: repeat(3,minmax(0,1fr)) !important; } }
+@media (max-width: 1024px) {
+  .page { padding: 10px 10px 14px; }
+  .pageHeader { height: auto; min-height: 78px; flex-wrap: wrap; }
+  .filterBody, .filterBody[data-view='future'], .filterBody[data-view='nearby'] { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .filterHeader { height: auto; flex-wrap: wrap; padding-top: 4px; padding-bottom: 4px; }
+}
+@media (max-width: 768px) {
+  .page { padding: 8px 8px 12px; }
+  .page [data-signal-count] { grid-template-columns: repeat(2,minmax(0,1fr)) !important; }
+  .filterBody, .filterBody[data-view='future'], .filterBody[data-view='nearby'] { grid-template-columns: minmax(0,1fr); }
+  .mainActions { justify-content: flex-start; }
+  .pageHeader { gap: 8px; }
+  .filterActions { gap: 4px; }
+}

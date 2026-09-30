@@ -8,17 +8,17 @@ function read(filePath: string): string {
 
 function hasOperationalTablePrimitive(filePath: string): boolean {
   const source = read(filePath);
-  return /\bOperationalTable\b|\bDataTable\b|<table\b|customer-dash-table|driver-load-list|driver-load-row|broker-clean-table/.test(source);
+  return /\bOperationalTable\b|\bDataTable\b|<table\b|customer-dash-table|driver-load-list|driver-load-row|broker-clean-table|carrierStyles\.bookingList|\bBookingCard\b/.test(source);
 }
 
 function hasPageHeader(filePath: string): boolean {
   const source = read(filePath);
-  return /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b|carrierStyles\.header/.test(source);
+  return /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b|carrierStyles\.header|<h1 className=\{carrierStyles\.dashboardTitle\}/.test(source);
 }
 
 function hasCompactKpiStrip(filePath: string): boolean {
   const source = read(filePath);
-  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|customer-dash-metrics|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source);
+  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|carrierStyles\.metricTileGrid|customer-dash-metrics|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source);
 }
 
 function hasActionCentreRoute(filePath: string): boolean {
@@ -30,10 +30,10 @@ function hasActionCentreRoute(filePath: string): boolean {
 function rowFor(filePath: string) {
   const source = readFileSync(resolve(process.cwd(), filePath), 'utf8');
   return {
-    pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b|carrierStyles\.header/.test(source),
+    pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b|carrierStyles\.header|<h1 className=\{carrierStyles\.dashboardTitle\}/.test(source),
     operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b|driver-tab-strip/.test(source),
-    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|customer-dash-metrics|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source),
-    operationalTable: /\bOperationalTable\b|\bDataTable\b|<table\b|customer-dash-table|driver-load-list|driver-load-row|broker-clean-table/.test(source),
+    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|carrierStyles\.metricTileGrid|customer-dash-metrics|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source),
+    operationalTable: /\bOperationalTable\b|\bDataTable\b|<table\b|customer-dash-table|driver-load-list|driver-load-row|broker-clean-table|carrierStyles\.bookingList|\bBookingCard\b/.test(source),
     quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b|customer-action-grid/.test(source),
     financialSummaryPanel: /\bFinancialSummaryPanel\b|customer-dash-summary/.test(source),
     complianceSummaryPanel: /\bComplianceSummaryPanel\b/.test(source),
@@ -106,16 +106,14 @@ describe('workspace primitive adoption matrix', () => {
   it('keeps the active carrier dashboard on the Courier Exchange-derived control-desk family', () => {
     const source = read('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
-    expect(source).toContain('carrierStyles.header');
-    expect(source).toContain('CarrierControlSignals');
-    expect(source).toContain('OperationalToolbar');
-    expect(source).toContain('OperationalPageLayout');
-    expect(source).toContain('OperationalFilters');
-    expect(source).toContain('<DataTable');
-    expect(source).toContain('Operational workboard');
-    expect(source).toContain('Resource readiness');
-    expect(source).toContain('Commercial position');
-    expect(source).toContain('Carrier workflow');
+    expect(source).toContain('carrierStyles.page');
+    expect(source).toContain('Reports & Statistics');
+    expect(source).toContain('Activity at a glance');
+    expect(source).toContain('Accounts Payable');
+    expect(source).toContain('Feedback in Last 90 Days');
+    expect(source).toContain('Compliance - Drivers & Vehicles');
+    expect(source).toContain('carrierStyles.bookingList');
+    expect(source).toContain('carrierStyles.metricTileGrid');
     expect(source).not.toContain('<KpiGrid>');
     expect(source).not.toContain('QuickActionGrid');
     expect(source).not.toContain('FinancialSummaryPanel');

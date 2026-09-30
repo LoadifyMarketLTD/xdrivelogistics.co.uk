@@ -4,6 +4,8 @@ import { useMemo, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   getWorkspaceDatasetMetricValue,
+  getWorkspaceMetricPresentationStatus,
+  isCustomerVisibleWorkspaceInvoice,
   useCompanyWorkspaceData,
   type WorkspaceJob,
 } from './useCompanyWorkspaceData';
@@ -12,7 +14,7 @@ import carrierStyles from './CarrierDashboard.module.css';
 import {
   daysUntil,
   exceptionStatuses,
-  metricValue,
+  metricValue as sharedMetricValue,
   money,
   when,
 } from './AdminDashboardShared';
@@ -22,6 +24,8 @@ import {
   workspaceJobPresentationStatus,
 } from '../../../lib/jobs/workspaceJobStage';
 import { toCanonicalInvoiceDisplayStatus } from '../../../lib/invoiceStatus';
+
+const metricValue = (...args: Parameters<typeof sharedMetricValue>) => args[0].loading ? 'Loading' : sharedMetricValue(...args);
 
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
 const jobStatus = (job: WorkspaceJob) => normalise(job.current_status ?? job.status);
@@ -59,10 +63,10 @@ function CarrierPanel({
   action?: ReactNode;
 }) {
   return (
-    <section className={carrierStyles.panel}>
+    <section className={carrierStyles.panel} aria-label={title}>
       <header className={carrierStyles.panelHeader}>
         <div className={carrierStyles.panelHeaderText}>
-          <h3 className={carrierStyles.panelTitle}>{title}</h3>
+          <h2 className={carrierStyles.panelTitle}>{title}</h2>
           {subtitle ? <p className={carrierStyles.panelSubtitle}>{subtitle}</p> : null}
         </div>
         {action}
@@ -92,7 +96,7 @@ function MetricTile({
   );
 
   return onClick ? (
-    <button type="button" className={carrierStyles.metricTile} onClick={onClick}>{content}</button>
+    <button type="button" className={carrierStyles.metricTile} aria-label={label} onClick={onClick}>{content}</button>
   ) : (
     <div className={carrierStyles.metricTile}>{content}</div>
   );
@@ -100,7 +104,7 @@ function MetricTile({
 
 function ReportLink({ label, detail, onClick }: { label: string; detail: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" className={carrierStyles.reportLink} onClick={onClick}>
+    <button type="button" className={carrierStyles.reportLink} aria-label={label} onClick={onClick}>
       <span>
         <strong>{label}</strong>
         <small>{detail}</small>
@@ -141,7 +145,7 @@ export default function CarrierOperationsDashboardHome() {
   const data = useCompanyWorkspaceData();
 
   const carrierExecutionJobs = useMemo(
-    () => data.jobs.filter((job) => job.awarded_carrier_company_id === data.companyId),
+    () => data.jobs.filter((job) => Boolean(data.companyId) && job.awarded_carrier_company_id === data.companyId),
     [data.companyId, data.jobs],
   );
 
@@ -156,10 +160,14 @@ export default function CarrierOperationsDashboardHome() {
     });
     const overdueInvoices = carrierInvoices.filter((invoice) =>
       toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status) === 'Overdue');
-    const overdueExposure = overdueInvoices.reduce((sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0), 0);
-    const awaitingPayment = carrierInvoices.filter((invoice) => {
+    const payables = data.invoices.filter((invoice) => isCustomerVisibleWorkspaceInvoice(invoice, data.companyId)
+      && invoice.supplier_company_id !== data.companyId
+      && toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status) !== 'Cancelled');
+    const overduePayables = payables.filter((invoice) =>
+      toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status) === 'Overdue');
+    const awaitingPayment = payables.filter((invoice) => {
       const status = toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status);
-      return status === 'Draft';
+      return status === 'Sent' || status === 'Overdue';
     });
     const wonValue = companyBids
       .filter((bid) => normalise(bid.status) === 'accepted' && awardedJobIds.has(bid.job_id))
@@ -173,7 +181,8 @@ export default function CarrierOperationsDashboardHome() {
     return {
       carrierInvoices,
       overdueInvoices,
-      overdueExposure,
+      payables,
+      overduePayables,
       awaitingPayment,
       wonValue,
       expiredDocuments,
@@ -188,21 +197,25 @@ export default function CarrierOperationsDashboardHome() {
     [carrierExecutionJobs],
   );
 
-  const availableDrivers = getWorkspaceDatasetMetricValue(
+  const jobDataStatus = getWorkspaceMetricPresentationStatus([data.datasets.jobs]);
+  const unavailableJobs = jobDataStatus === 'unavailable' || jobDataStatus === 'omitted';
+  const partialJobs = jobDataStatus === 'partial';
+  const availableDrivers = data.loading ? 'Loading' : getWorkspaceDatasetMetricValue(
     data.datasets.drivers,
     (rows) => rows.filter(isActiveAvailableDriver).length,
   );
-  const busyDrivers = getWorkspaceDatasetMetricValue(
+  const busyDrivers = data.loading ? 'Loading' : getWorkspaceDatasetMetricValue(
     data.datasets.drivers,
     (rows) => rows.filter(isActiveBusyDriver).length,
   );
-  const unassignedVehicles = getWorkspaceDatasetMetricValue(
+  const unassignedVehicles = data.loading ? 'Loading' : getWorkspaceDatasetMetricValue(
     data.datasets.vehicles,
     (rows) => rows.filter((vehicle) => !vehicle.assigned_driver_id).length,
   );
 
   return (
-    <div className={carrierStyles.page}>
+    <div className={carrierStyles.page} data-testid="carrier-dashboard">
+      <h1 className={carrierStyles.dashboardTitle}>Carrier Dashboard</h1>
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
       <div className={carrierStyles.cxDashboardGrid}>
@@ -216,8 +229,9 @@ export default function CarrierOperationsDashboardHome() {
                 onClick={() => router.push('/admin/won-work')}
               />
               <MetricTile
-                label="Overdue receivables"
-                value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? moneyOrDash(metrics.overdueExposure) : '£0')}
+                label="Overdue invoices"
+                value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length)}
+
                 detail={metricValue(data, ['invoices'], () => `${metrics.overdueInvoices.length} overdue invoice${metrics.overdueInvoices.length === 1 ? '' : 's'}`)}
                 onClick={() => router.push('/admin/invoices')}
               />
@@ -226,9 +240,9 @@ export default function CarrierOperationsDashboardHome() {
 
           <div className={carrierStyles.cxTwinPanels}>
             <CarrierPanel title="Accounts Payable">
-              <ReportLink label="Latest invoices received" detail={metricValue(data, ['invoices'], () => `${metrics.carrierInvoices.length} carrier invoice${metrics.carrierInvoices.length === 1 ? '' : 's'}`)} onClick={() => router.push('/admin/invoices')} />
+              <ReportLink label="Latest invoices received" detail={metricValue(data, ['invoices'], () => `${metrics.payables.length} received invoice${metrics.payables.length === 1 ? '' : 's'}`)} onClick={() => router.push('/admin/invoices')} />
               <ReportLink label="Invoices due for payment" detail={metricValue(data, ['invoices'], () => `${metrics.awaitingPayment.length} awaiting payment`)} onClick={() => router.push('/admin/invoices')} />
-              <ReportLink label="Invoices overdue" detail={metricValue(data, ['invoices'], () => `${metrics.overdueInvoices.length} overdue`)} onClick={() => router.push('/admin/invoices')} />
+              <ReportLink label="Invoices overdue" detail={metricValue(data, ['invoices'], () => `${metrics.overduePayables.length} overdue`)} onClick={() => router.push('/admin/invoices')} />
             </CarrierPanel>
 
             <CarrierPanel title="Reports">
@@ -259,14 +273,20 @@ export default function CarrierOperationsDashboardHome() {
             flush
             action={<button type="button" className={carrierStyles.panelHeaderAction} onClick={() => router.push('/admin/diary')}>View all…</button>}
           >
-            <div className={carrierStyles.bookingList}>
-              {latestBookings.length > 0 ? latestBookings.map((job) => (
+            <div className={carrierStyles.bookingList} aria-live="polite">
+              {partialJobs && !data.loading && <AlertBanner tone="warning">Job data is partial. Only loaded bookings are shown; this is not the complete booking list.</AlertBanner>}
+              {data.loading ? <div className={carrierStyles.feedbackPlaceholder}><strong>Loading carrier bookings</strong></div> : unavailableJobs ? (
+                <div className={carrierStyles.feedbackPlaceholder}>
+                  <strong>Job data unavailable</strong>
+                  <span>Recent carrier bookings cannot be verified right now.</span>
+                </div>
+              ) : latestBookings.length > 0 ? latestBookings.map((job) => (
                 <BookingCard
                   key={job.id}
                   job={job}
                   onOpen={() => router.push(isUnallocatedJob(job) ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}
                 />
-              )) : (
+              )) : partialJobs ? <div className={carrierStyles.feedbackPlaceholder}><strong>No carrier bookings in the partial result</strong><span>Refresh to verify the complete booking list.</span></div> : (
                 <div className={carrierStyles.feedbackPlaceholder}>
                   <strong>No recent carrier bookings</strong>
                   <span>Awarded carrier work will appear here when available.</span>

@@ -16,7 +16,8 @@ describe('CX nearby availability workspace contract', () => {
     expect(page).toContain("type Tab = 'live' | 'future' | 'nearby';");
     expect(page).toContain('Nearby Exchange');
     expect(page).toContain("position.scope === 'exchange'");
-    expect(page).toContain(`title="Who's nearby"`);
+    expect(page).toContain('registerTitle={');
+    expect(page).toContain("Who's nearby");
   });
 
   it('shows operational vehicle capability without inventing driver identity', () => {

@@ -18,11 +18,14 @@ describe('CX workspace accessibility convergence', () => {
     expect(css).toContain('outline: 2px solid var(--ws-blue, #1d57d8);');
   });
 
-  it('keeps carrier work views as semantic tabs with selected state', () => {
+  it('keeps carrier dashboard actions as semantic buttons', () => {
     const source = read('app/components/workspace/CarrierOperationsDashboardHome.tsx');
-    expect(source).toContain('role="tablist"');
-    expect(source).toContain('role="tab"');
-    expect(source).toContain('aria-selected={selected}');
+    expect(source).toContain('type="button"');
+    expect(source).toContain('className={carrierStyles.reportLink}');
+    expect(source).toContain('className={carrierStyles.complianceDial}');
+    expect(source).toContain('<h1 className={carrierStyles.dashboardTitle}>');
+    expect(source).toContain('aria-label={title}');
+    expect(source).toContain('aria-label={label}');
   });
 
   it('keeps driver operational actions as real buttons and textual status labels', () => {

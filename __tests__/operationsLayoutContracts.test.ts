@@ -14,10 +14,12 @@ const fleetMapWrapper = readFileSync(
 
 describe('live-map layout contracts', () => {
   it('keeps the fleet live map fallback and Leaflet container within a fixed-height wrapper', () => {
-    expect(fleetMapClient).toContain("height: '440px'");
+    expect(fleetMapClient).toContain('height = 440');
     expect(fleetMapClient).toContain("width: '100%'");
     expect(fleetMapClient).toContain("overflow: 'hidden'");
-    expect(fleetMapWrapper).toContain("minHeight: '440px'");
+    expect(fleetMapWrapper).toContain('height = 440');
+    expect(fleetMapWrapper).toContain("height: '100%', minHeight: 0");
+    expect(fleetMapWrapper).toContain('data-fleet-map-wrapper');
     expect(fleetMapWrapper).toContain('Loading live map…');
   });
 });

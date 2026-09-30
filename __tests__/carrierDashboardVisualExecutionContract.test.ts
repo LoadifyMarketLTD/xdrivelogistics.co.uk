@@ -9,7 +9,9 @@ describe('Carrier dashboard CX-reference execution contract', () => {
   const css = read('app/components/workspace/CarrierDashboard.module.css');
 
   it('uses the CX dashboard management anatomy instead of an operational workboard', () => {
-    expect(page).not.toContain('<h1');
+    expect(page.match(/<h1\b/g)).toHaveLength(1);
+    expect(page).toContain('<h1 className={carrierStyles.dashboardTitle}>Carrier Dashboard</h1>');
+    expect(css).toMatch(/\.dashboardTitle\s*\{[^}]*width: 1px;[^}]*height: 1px;[^}]*clip-path: inset\(50%\)/);
     expect(page).toContain('title="Reports & Statistics"');
     expect(page).toContain('title="Activity at a glance"');
     expect(page).toContain('title="Accounts Payable"');

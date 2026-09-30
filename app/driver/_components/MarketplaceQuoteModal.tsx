@@ -1,5 +1,6 @@
 'use client';
 
+import WorkspaceRestrictionBanner from '../../components/workspace/WorkspaceRestrictionBanner';
 import { ActionButton } from '../../components/workspace/WorkspaceUI';
 
 type QuoteTarget = {
@@ -21,6 +22,7 @@ export default function MarketplaceQuoteModal({
   amount,
   message,
   working,
+  error,
   onAmountChange,
   onMessageChange,
   onSubmit,
@@ -30,6 +32,7 @@ export default function MarketplaceQuoteModal({
   amount: string;
   message: string;
   working: boolean;
+  error?: string;
   onAmountChange: (value: string) => void;
   onMessageChange: (value: string) => void;
   onSubmit: () => void;
@@ -39,7 +42,7 @@ export default function MarketplaceQuoteModal({
 
   return (
     <div className="driver-quote-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !working) onClose(); }}>
-      <section className="driver-quote-modal" role="dialog" aria-modal="true" aria-labelledby="driver-quote-modal-title">
+      <section className="driver-quote-modal" style={{ maxHeight: '90dvh', overflowY: 'auto' }} role="dialog" aria-modal="true" aria-labelledby="driver-quote-modal-title">
         <header className="driver-quote-modal__header">
           <strong id="driver-quote-modal-title">Quote Now</strong>
           <button type="button" aria-label="Close quote form" disabled={working} onClick={onClose}>×</button>
@@ -63,6 +66,8 @@ export default function MarketplaceQuoteModal({
             <span>To</span><strong>{target.delivery}</strong>
           </div>
         </div>
+
+        {error && <div style={{ padding: '0 12px' }}><p role="alert">{error}</p><WorkspaceRestrictionBanner operation="quote" inline /></div>}
 
         <div className="driver-quote-modal__form">
           <label>

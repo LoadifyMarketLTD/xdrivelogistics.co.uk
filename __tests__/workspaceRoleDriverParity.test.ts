@@ -76,7 +76,7 @@ describe('driver parity across dual identity contexts', () => {
     expect(hrefs('driver')).not.toContain('/driver/quotes');
     expect(hrefs('driver')).not.toContain('/driver/won-work');
     expect(hrefs('driver')).not.toContain('/driver/returns');
-    expect(hrefs('driver')).not.toContain('/settings/billing');
+    expect(hrefs('driver')).not.toContain('/driver/settings/billing');
 
     expect(hrefs('owner_driver')).toEqual([
       ...hrefs('driver'),
@@ -92,7 +92,7 @@ describe('driver parity across dual identity contexts', () => {
       '/driver/settings?section=company',
       '/driver/settings?section=overview',
       '/driver/won-work',
-      '/settings/billing',
+      '/driver/settings/billing',
     ].sort());
   });
 });

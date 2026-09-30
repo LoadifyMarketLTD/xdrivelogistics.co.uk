@@ -30,9 +30,13 @@ describe('CX-close Live Availability composition', () => {
   });
 
   it('uses the measured control geometry', () => {
-    expect(source).toContain('minHeight: 32');
-    expect(source).toContain('borderRadius: 4');
-    expect(source).toContain('minHeight: 28');
+    const css = fs.readFileSync(path.join(process.cwd(), 'app/admin/live-availability/LiveAvailability.module.css'), 'utf8');
+    const splitCss = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/CarrierMapRegisterSplit.module.css'), 'utf8');
+    expect(css).toContain('min-height: 32px');
+    expect(css).toContain('border-radius: 4px');
+    expect(splitCss).toContain('min-height: 28px');
+    expect(source).toContain('CarrierMapRegisterSplit');
+    expect(source).toContain('height={280}');
   });
 
   it('supports CX-style saved availability defaults without inventing server preferences', () => {

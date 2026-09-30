@@ -1,5 +1,8 @@
 'use client';
 
+import WorkspaceRestrictionBanner from '../../components/workspace/WorkspaceRestrictionBanner';
+import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -282,7 +285,7 @@ export default function AvailableLoadsPage() {
         body: JSON.stringify({ jobId: loadId, amount, message: bidMessage.trim() }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string; denialReasons?: string[] };
-      if (!response.ok) throw new Error(payload.error || 'Your quote could not be submitted.');
+      if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
       setBidLoadId(null); setBidAmount(''); setBidMessage(''); setSuccessMsg('Quote submitted successfully.'); window.setTimeout(() => setSuccessMsg(''), 3500);
       await fetchLoads({ background: true });
     } catch (reason) {
@@ -309,7 +312,7 @@ export default function AvailableLoadsPage() {
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Loads</div>
-            <div className="filter"><span className="label">Scope</span><div className="load-scope"><button type="button" className={regionFilter !== 'euro' ? 'active' : ''} onClick={() => setRegionFilter('uk_roi')}>UK & ROI</button><button type="button" className={regionFilter === 'euro' ? 'active' : ''} onClick={() => setRegionFilter('euro')}>Euro</button></div></div>
+            <div className="filter"><span className="label">Scope</span><div className="load-scope"><button type="button" className={regionFilter !== 'euro' ? 'active' : ''} onClick={() => setRegionFilter('uk_roi')}>{"UK & ROI"}</button><button type="button" className={regionFilter === 'euro' ? 'active' : ''} onClick={() => setRegionFilter('euro')}>Euro</button></div></div>
             <div className="filter"><span className="label">From / Radius</span><input className="input" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Blackburn BB1 / postcode" /></div>
             <div className="filter"><span className="label">To</span><input className="input" value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Enter destination" /></div>
             <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="any">Any exact / specialist</option>{Object.entries(VEHICLE_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
@@ -324,7 +327,7 @@ export default function AvailableLoadsPage() {
           <main className="main">
             <div className="head"><div><h1>Loads</h1><p>Search live freight, inspect privacy-safe details and prepare a quote</p></div></div>
             {successMsg && <div className="vision-note">{successMsg}</div>}
-            {error && <div className="vision-note">{error}</div>}
+            {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
             <div className="load-nav-unified">
               <div className="load-market-nav"><button type="button" className="active">Available Loads</button><button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button><button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button></div>
               <span className="load-nav-divider" aria-hidden="true" />

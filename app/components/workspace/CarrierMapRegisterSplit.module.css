@@ -1,0 +1,11 @@
+.split { display: grid; grid-template-columns: minmax(0,.79fr) minmax(0,1fr); gap: 12px; min-width: 0; }
+.panel { height: 326px; min-width: 0; overflow: hidden; border: 1px solid #D8DEE8; border-radius: 4px; background: #FFFFFF; box-sizing: border-box; }
+.header { height: 44px; padding: 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; box-sizing: border-box; border-bottom: 1px solid #E5E7EB; background: #F4F6F8; }
+.header h2 { font-size: 13px; line-height: 18px; font-weight: 650; margin: 0; }
+.body { height: 280px; min-width: 0; overflow: auto; }
+.map { overflow: hidden; }
+.body table { margin: 0; }
+.body thead tr { height: 36px; }
+.body tbody tr { height: 44px; }
+@media (max-width: 1199px) { .split { grid-template-columns: minmax(0,1fr); } }
+.body table button { height: 28px !important; min-height: 28px !important; border-radius: 4px !important; }

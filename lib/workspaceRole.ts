@@ -199,7 +199,7 @@ const OWNER_DRIVER_NAV: WorkspaceNavGroup[] = [
     { id: 'company-profile', label: 'Company Profile', href: '/driver/settings?section=company', icon: '◎' },
     { id: 'drivers-staff', label: 'Drivers & Staff', href: '/driver/drivers-vehicles', icon: '◎' },
     { id: 'settings', label: 'Company Settings', href: '/driver/settings?section=overview', icon: '⚙' },
-    { id: 'billing', label: 'Membership & Billing', href: '/settings/billing', icon: '£', capability: 'billing.manage' },
+    { id: 'billing', label: 'Membership & Billing', href: '/driver/settings/billing', icon: '£', capability: 'billing.manage' },
   ] },
 ];
 
@@ -207,7 +207,7 @@ const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
   platform_owner: new Set<WorkspaceCapability>(['platform.manage', ...ALL_COMPANY_MANAGEMENT.filter((capability) => capability !== 'billing.manage'), ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.execute', 'documents.own.manage', 'documents.verify', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
   company_owner: new Set<WorkspaceCapability>([...ALL_COMPANY_MANAGEMENT, ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
   company_admin: new Set<WorkspaceCapability>([...ALL_COMPANY_MANAGEMENT, ...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'invoices.customer.manage', 'payments.manage', 'margins.view']),
-  carrier_admin: new Set<WorkspaceCapability>([...CARRIER_COMMERCIAL]),
+  carrier_admin: new Set<WorkspaceCapability>([...CARRIER_COMMERCIAL, 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award']),
   broker: new Set<WorkspaceCapability>(['company.manage', 'billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'documents.company.manage', 'invoices.customer.manage', 'invoices.carrier.manage', 'margins.view', 'incidents.manage', 'settings.manage']),
   customer: new Set<WorkspaceCapability>(['billing.manage', 'loads.create', 'loads.publish', 'loads.view.own', 'quotes.receive', 'quotes.compare', 'quotes.award', 'jobs.view', 'jobs.track', 'jobs.review_pod', 'invoices.customer.manage', 'settings.manage']),
   fleet_manager: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'documents.company.manage', 'invoices.carrier.manage', 'incidents.manage']),
@@ -248,7 +248,7 @@ const carrierNav: WorkspaceNavGroup[] = [
   { id: 'carrier-event-log', label: 'Event Log', items: [{ id: 'event-log', label: 'Event Log', href: '/admin/event-log', icon: '≡', capability: 'jobs.view' }] },
   { id: 'carrier-finance', label: 'Finance', items: [{ id: 'finance', label: 'Finance', href: '/admin/invoices', icon: '£', capability: 'invoices.carrier.manage' }] },
   { id: 'carrier-compliance', label: 'Compliance', items: [{ id: 'compliance', label: 'Compliance', href: '/admin/documents', icon: '✓', capability: 'documents.company.manage' }] },
-  { id: 'carrier-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/settings/billing', icon: '£', capability: 'billing.manage' }] },
+  { id: 'carrier-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/admin/settings/billing', icon: '£', capability: 'billing.manage' }] },
   { id: 'carrier-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/admin/settings', icon: '⚙', capability: 'settings.manage' }] },
 ];
 
@@ -274,7 +274,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
       { id: 'broker-disputes', label: 'Disputes', items: [{ id: 'disputes', label: 'Disputes', href: '/broker/disputes', icon: '!', capability: 'incidents.manage' }] },
       { id: 'broker-finance', label: 'Finance', items: [{ id: 'finance', label: 'Finance', href: '/broker/finance', icon: '£', capability: 'invoices.customer.manage' }] },
       { id: 'broker-reports', label: 'Reports', items: [{ id: 'reports', label: 'Reports', href: '/broker/reports', icon: '□', capability: 'margins.view' }] },
-      { id: 'broker-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/settings/billing', icon: '£', capability: 'billing.manage' }] },
+      { id: 'broker-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/broker/settings/billing', icon: '£', capability: 'billing.manage' }] },
       { id: 'broker-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/broker/account', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },
@@ -294,7 +294,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
       { id: 'customer-event-log', label: 'Event Log', items: [{ id: 'event-log', label: 'Event Log', href: '/customer/event-log', icon: '≡', capability: 'jobs.view' }] },
       { id: 'customer-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/customer/network', icon: '◌' }] },
       { id: 'customer-disputes', label: 'Disputes', items: [{ id: 'disputes', label: 'Disputes', href: '/customer/disputes', icon: '!', capability: 'jobs.view' }] },
-      { id: 'customer-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/settings/billing', icon: '£', capability: 'billing.manage' }] },
+      { id: 'customer-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/customer/settings/billing', icon: '£', capability: 'billing.manage' }] },
       { id: 'customer-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/customer/account', icon: '⚙', capability: 'settings.manage' }] },
     ],
   },

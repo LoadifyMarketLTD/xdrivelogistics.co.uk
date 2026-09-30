@@ -34,7 +34,7 @@ describe('visible workspace navigation', () => {
       '/customer/event-log',
       '/customer/network',
       '/customer/disputes',
-      '/settings/billing',
+      '/customer/settings/billing',
       '/customer/account',
     ]);
   });

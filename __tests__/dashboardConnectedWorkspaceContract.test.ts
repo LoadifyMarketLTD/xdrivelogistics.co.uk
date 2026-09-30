@@ -31,11 +31,13 @@ describe('connected workspace dashboard completion', () => {
     expect(broker).toContain("router.push('/broker/event-log')");
   });
 
-  it('connects carrier directory, live availability, Freight Vision, messages and event log', () => {
-    const routes = ['/admin/marketplace/directory', '/admin/live-availability', '/admin/freight-vision', '/admin/messages', '/admin/event-log'];
-    for (const route of routes) {
+  it('keeps carrier shell routes connected while dashboard actions stay contextual', () => {
+    const shellRoutes = ['/admin/marketplace/directory', '/admin/live-availability', '/admin/freight-vision', '/admin/messages', '/admin/event-log'];
+    for (const route of shellRoutes) {
       expect(roles).toContain("href: '" + route + "'");
-      expect(carrier).toContain("router.push('" + route + "')");
+    }
+    for (const route of ['/admin/live-availability', '/admin/diary', '/admin/invoices', '/admin/won-work']) {
+      expect(carrier).toContain(route);
     }
   });
 

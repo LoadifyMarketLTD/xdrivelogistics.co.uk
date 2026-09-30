@@ -318,6 +318,8 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/companies', workspace: 'carrier_fleet', anyOf: ['company.members.manage'] },
   { prefix: '/admin/broker-invitations', workspace: 'carrier_fleet', roles: ['company_owner', 'company_admin', 'carrier_admin'] },
   { prefix: '/admin/notifications', workspace: 'carrier_fleet' },
+  { prefix: '/admin/support', workspace: 'carrier_fleet' },
+  { prefix: '/admin/settings/billing', workspace: 'carrier_fleet', anyOf: ['billing.manage'] },
   { prefix: '/admin/settings', workspace: 'carrier_fleet', anyOf: ['settings.manage'] },
   { prefix: '/admin', workspace: 'carrier_fleet', anyOf: ['jobs.view'], exact: true },
 
@@ -345,6 +347,8 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/broker/team', workspace: 'broker', anyOf: ['settings.manage'] },
   { prefix: '/broker/account', workspace: 'broker', anyOf: ['settings.manage'] },
   { prefix: '/broker/notifications', workspace: 'broker' },
+  { prefix: '/broker/support', workspace: 'broker' },
+  { prefix: '/broker/settings/billing', workspace: 'broker', anyOf: ['billing.manage'] },
   { prefix: '/broker/settings', workspace: 'broker', anyOf: ['settings.manage'] },
   { prefix: '/broker', workspace: 'broker', anyOf: ['loads.view.own'], exact: true },
 
@@ -371,13 +375,17 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer/team', workspace: 'shipper', anyOf: ['settings.manage'] },
   { prefix: '/customer/updates', workspace: 'shipper' },
   { prefix: '/customer/notifications', workspace: 'shipper' },
+  { prefix: '/customer/support', workspace: 'shipper' },
+  { prefix: '/customer/settings/billing', workspace: 'shipper', anyOf: ['billing.manage'] },
   { prefix: '/customer/settings', workspace: 'shipper', anyOf: ['settings.manage'] },
   { prefix: '/customer', workspace: 'shipper', anyOf: ['loads.view.own'], exact: true },
 
   // owner_operator (/driver)
   { prefix: '/driver/action-centre', workspace: 'owner_operator' },
   { prefix: '/driver/post-load', workspace: 'owner_operator', roles: ['owner_driver'] },
-  { prefix: '/driver/settings', workspace: 'owner_operator', roles: ['owner_driver'] },
+  { prefix: '/driver/support', workspace: 'owner_operator' },
+  { prefix: '/driver/settings/billing', workspace: 'owner_operator', anyOf: ['billing.manage'] },
+  { prefix: '/driver/settings', workspace: 'owner_operator', roles: ['owner_driver', 'driver'] },
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
   { prefix: '/driver/load-alerts', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/directory', workspace: 'owner_operator' },

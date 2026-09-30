@@ -8,7 +8,7 @@ const FleetPositionMapClient = dynamic(() => import('./FleetPositionMapClient'),
   loading: () => (
     <div
       style={{
-        minHeight: '440px',
+        height: '100%', minHeight: 0,
         display: 'grid',
         placeItems: 'center',
         borderRadius: '4px',
@@ -28,10 +28,12 @@ export default function FleetPositionMap({
   points,
   selectedDriverId,
   mode = 'live',
+  height = 440,
 }: {
   points: FleetMapPoint[];
   selectedDriverId: string | null;
   mode?: FleetMapMode;
+  height?: number | string;
 }) {
-  return <FleetPositionMapClient points={points} selectedDriverId={selectedDriverId} mode={mode} />;
+  return <div style={{ height, minWidth: 0, overflow: 'hidden' }} data-fleet-map-wrapper><FleetPositionMapClient points={points} selectedDriverId={selectedDriverId} mode={mode} height={height} /></div>;
 }

@@ -284,7 +284,9 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
 
     expect(isRoleAllowedForPath('/driver/finance', DRIVER_ROLE, context)).toBe(false);
     expect(isRoleAllowedForPath('/driver/drivers-vehicles', DRIVER_ROLE, context)).toBe(false);
-    expect(isRoleAllowedForPath('/driver/settings', DRIVER_ROLE, context)).toBe(false);
+    expect(isRoleAllowedForPath('/driver/settings', DRIVER_ROLE, context)).toBe(true);
+    expect(isRoleAllowedForPath('/driver/support', DRIVER_ROLE, context)).toBe(true);
+    expect(isRoleAllowedForPath('/driver/settings/billing', DRIVER_ROLE, context)).toBe(false);
   });
 
   it('allows /admin only through valid membership-derived admin workspace, not owner-driver metadata', () => {

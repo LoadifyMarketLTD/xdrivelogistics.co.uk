@@ -3,7 +3,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import FleetPositionMap, { type FleetMapPoint } from '../fleet/FleetPositionMap';
+import styles from './LiveAvailability.module.css';
+import CarrierMapRegisterSplit from '../../components/workspace/CarrierMapRegisterSplit';
 import { OperationalSignalStrip } from '../../components/workspace/OperationalConvergence';
+import { getWorkspaceMetricPresentationStatus, type WorkspaceDatasetKey } from '../../components/workspace/useCompanyWorkspaceData';
 import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
 import { useOperationsIntelligence } from '../../components/workspace/useOperationsIntelligence';
 import { supabase } from '../../../lib/supabaseClient';
@@ -12,11 +15,7 @@ import {
   AlertBanner,
   DataTable,
   EmptyState,
-  PageFrame,
-  PageHeader,
-  Panel,
   StatusBadge,
-  TwoColumn,
 } from '../../components/workspace/WorkspaceUI';
 
 type Tab = 'live' | 'future' | 'nearby';
@@ -68,10 +67,10 @@ const isStale = (timestamp: string | null | undefined) => {
 
 const capacityLabel = (position: NearbyAvailabilityPosition) => {
   const parts = [
-    Number.isFinite(Number(position.payload_kg)) ? `${Number(position.payload_kg).toLocaleString()} kg` : null,
-    Number.isFinite(Number(position.pallets_capacity)) ? `${Number(position.pallets_capacity)} pallet(s)` : null,
+    position.payload_kg != null && Number.isFinite(Number(position.payload_kg)) ? `${Number(position.payload_kg).toLocaleString()} kg` : null,
+    position.pallets_capacity != null && Number.isFinite(Number(position.pallets_capacity)) ? `${Number(position.pallets_capacity)} pallet(s)` : null,
   ].filter(Boolean);
-  return parts.length ? parts.join(' · ') : 'Capacity not published';
+  return parts.length ? parts.join(' / ') : 'Capacity not published';
 };
 
 export default function LiveAvailabilityPage() {
@@ -277,139 +276,157 @@ export default function LiveAvailabilityPage() {
 
   const availabilityValues = useMemo(() => [...new Set(data.drivers.map((driver) => String(driver.availability_status ?? 'offline').toLowerCase()))].sort(), [data.drivers]);
   const nearbyVehicleTypes = useMemo(() => [...new Set(nearbyPositions.map((position) => position.vehicle_type).filter((value): value is string => Boolean(value)))].sort(), [nearbyPositions]);
-  const futurePublished = driverRows.filter((row) => Boolean(row.future?.futurePosition || row.returnJourney)).length;
-  const availabilityConflicts = driverRows.filter((row) => row.driver.availability_status === 'available' && row.currentJob).length;
+  const busy = data.loading || intelligence.loading || nearbyLoading;
+  const activePoints = tab === 'future' ? futurePoints : tab === 'nearby' ? nearbyPoints : livePoints;
+  const registerCount = tab === 'nearby' ? filteredNearby.length : filtered.length;
+  const mapMode = tab === 'future' ? 'future' as const : 'live' as const;
+
+  const metric = (keys: WorkspaceDatasetKey[], value: number) => {
+    if (data.loading) return '\u2014';
+    const status = getWorkspaceMetricPresentationStatus(keys.map((key) => data.datasets[key]));
+    return status === 'complete' || status === 'empty' ? value : '\u2014';
+  };
   const signals = [
-    { key: 'available', label: 'Available', value: data.drivers.filter((driver) => driver.availability_status === 'available').length, detail: 'Fleet drivers', tone: 'green' as const, onClick: () => { setTab('live'); setAvailability('available'); } },
-    { key: 'busy', label: 'Busy', value: data.drivers.filter((driver) => driver.availability_status === 'busy').length, detail: 'Fleet drivers', tone: 'purple' as const, onClick: () => { setTab('live'); setAvailability('busy'); } },
-    { key: 'fresh', label: 'Fresh locations', value: driverRows.filter((row) => row.freshnessState === 'live').length, detail: 'Within 20 min', tone: 'blue' as const, onClick: () => { setTab('live'); setFreshness('live'); } },
-    { key: 'stale', label: 'Stale / missing', value: driverRows.filter((row) => row.freshnessState === 'stale' || row.freshnessState === 'missing').length, detail: 'Needs attention', tone: 'orange' as const, onClick: () => { setTab('live'); setFreshness('all'); } },
-    { key: 'future', label: 'Future positions', value: futurePublished, detail: 'Published capacity', tone: 'blue' as const, onClick: () => setTab('future') },
-    { key: 'conflicts', label: 'Availability conflicts', value: availabilityConflicts, detail: 'Available + active job', tone: availabilityConflicts ? 'red' as const : 'green' as const, onClick: () => setTab('live') },
+    { key: 'available', label: 'Available', value: metric(['drivers'], driverRows.filter((row) => row.driver.availability_status === 'available').length), tone: 'green' as const },
+    { key: 'busy', label: 'Busy', value: metric(['drivers'], driverRows.filter((row) => row.driver.availability_status === 'busy').length), tone: 'purple' as const },
+    { key: 'fresh', label: 'Fresh locations', value: metric(['drivers', 'locations'], driverRows.filter((row) => row.freshnessState === 'live').length), tone: 'blue' as const },
+    { key: 'stale', label: 'Stale / missing', value: metric(['drivers', 'locations'], driverRows.filter((row) => row.freshnessState !== 'live').length), tone: 'orange' as const },
+    { key: 'future', label: 'Future positions', value: intelligence.loading || intelligence.error || intelligence.partial || !intelligence.generatedAt ? '\u2014' : intelligence.futurePositions.length, tone: 'blue' as const },
+    { key: 'conflicts', label: 'Availability conflicts', value: metric(['drivers', 'jobs'], driverRows.filter((row) => row.driver.availability_status === 'available' && row.currentJob).length), tone: 'red' as const },
   ];
-
   return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Fleet resources"
-        title="Live Availability"
-        description="Live and future driver capacity, tracking freshness and privacy-safe nearby Exchange vehicle discovery in one operational workspace."
-        actions={<><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</ActionButton><ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading || nearbyLoading}>{data.loading || intelligence.loading || nearbyLoading ? 'Refreshing…' : 'Refresh'}</ActionButton></>}
-        meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Operational availability'}</span>}
-      />
-
+    <div className={styles.page} data-testid="carrier-live-availability">
+      <header className={styles.pageHeader}>
+        <div><span>Carrier operations</span><h1>Live Availability</h1><p>Fleet tracking, declared future positions and privacy-scoped Exchange availability.</p></div>
+        <div className={styles.mainActions}>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Add Future Position</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/resources')}>Register vehicles</ActionButton>
+          <ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={busy}>{busy ? 'Refreshing...' : 'Refresh'}</ActionButton>
+        </div>
+      </header>
       {data.error && <AlertBanner tone="warning">{data.error}</AlertBanner>}
       {intelligence.error && <AlertBanner tone="warning">{intelligence.error}</AlertBanner>}
-      {intelligence.partial && (
-        <AlertBanner tone="warning">Some future-position, return-journey or advertising intelligence is temporarily unavailable. Live driver availability and tracking remain available.</AlertBanner>
-      )}
+      {intelligence.partial && <AlertBanner tone="warning">Some future-position and return-journey intelligence is unavailable. Unknown totals are not shown as zero.</AlertBanner>}
       {nearbyError && <AlertBanner tone="warning">{nearbyError}</AlertBanner>}
       {filterNotice && <AlertBanner tone="info">{filterNotice}</AlertBanner>}
-
-      <div style={{ display: 'flex', border: '1px solid #dbe2ea', background: '#fff', marginBottom: 8, overflowX: 'auto' }} role="tablist" aria-label="Availability views">
-        <button type="button" role="tab" aria-selected={tab === 'live'} style={tabStyle(tab === 'live')} onClick={() => setTab('live')}>Live Fleet</button>
-        <button type="button" role="tab" aria-selected={tab === 'future'} style={tabStyle(tab === 'future')} onClick={() => setTab('future')}>Future</button>
-        <button type="button" role="tab" aria-selected={tab === 'nearby'} style={tabStyle(tab === 'nearby')} onClick={() => setTab('nearby')}>Nearby Exchange <span style={{ marginLeft: 4 }}>{nearbyLoading ? '…' : filteredNearby.length}</span></button>
+      <div className={styles.viewTabs} role="tablist" aria-label="Availability views">
+        {([{ id: 'live', label: 'Live Fleet' }, { id: 'future', label: 'Future' }, { id: 'nearby', label: 'Nearby Exchange' }] as const).map((view) =>
+          <button key={view.id} role="tab" type="button" aria-selected={tab === view.id} data-active={tab === view.id} onClick={() => { setTab(view.id); setSelectedDriverId(null); }}>{view.label}</button>)}
       </div>
-
-      <OperationalSignalStrip items={signals} ariaLabel="Live availability operational signals" />
-
-      <Panel title="Availability filters" description={tab === 'nearby' ? 'Search privacy-scoped Exchange availability by member or vehicle type.' : 'Filter the operational register without changing saved driver data.'} style={{ marginBottom: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: tab === 'live' ? 'minmax(220px,2fr) repeat(2,minmax(150px,1fr))' : tab === 'nearby' ? 'minmax(190px,1.4fr) minmax(150px,1fr) 100px minmax(150px,1fr)' : 'minmax(220px,2fr) minmax(150px,1fr)', gap: 8 }}>
-          <label style={labelStyle}>Search<input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === 'nearby' ? 'Member, ID or vehicle type' : 'Driver, registration, route or future position'} /></label>
-          {tab !== 'nearby' && <label style={labelStyle}>Availability<select style={inputStyle} value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="all">All states</option>{availabilityValues.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
-          {tab === 'live' && <label style={labelStyle}>Tracking freshness<select style={inputStyle} value={freshness} onChange={(event) => setFreshness(event.target.value as FreshnessFilter)}><option value="all">All freshness</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>}
-          {tab === 'nearby' && <label style={labelStyle}>Near postcode / outcode<input style={inputStyle} value={nearbyPostcode} onChange={(event) => setNearbyPostcode(event.target.value)} placeholder="BB1" /></label>}
-          {tab === 'nearby' && <label style={labelStyle}>Radius<select style={inputStyle} value={nearbyRadius} onChange={(event) => setNearbyRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} mi</option>)}</select></label>}
-          {tab === 'nearby' && <label style={labelStyle}>Vehicle<select style={inputStyle} value={nearbyVehicle} onChange={(event) => setNearbyVehicle(event.target.value)}><option value="all">All vehicle types</option>{nearbyVehicleTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
-        </div>
-        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
+      <OperationalSignalStrip items={signals} ariaLabel="Fleet availability signals" />
+      <section className={styles.filterPanel} aria-label="Availability filters">
+        <header className={styles.filterHeader}><strong>Search availability</strong><div className={styles.filterActions}>
+          {tab === 'nearby' && <ActionButton tone="success" onClick={() => setNearbyQuery({ postcode: nearbyPostcode.trim(), radius: nearbyRadius })}>Find Nearest</ActionButton>}
+          {tab === 'future' && <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</ActionButton>}
           <ActionButton tone="secondary" onClick={saveDefaults}>Save Default</ActionButton>
           <ActionButton tone="secondary" onClick={loadDefaults}>Load Default</ActionButton>
-          {tab === 'nearby' && <ActionButton tone="success" onClick={() => setNearbyQuery({ postcode: nearbyPostcode.trim(), radius: nearbyRadius })}>Find Nearest</ActionButton>}
           <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
-        </div>
-      </Panel>
+        </div></header>
+        <div className={styles.filterBody} data-view={tab}>
+              <label className={styles.filterField}>Search
+                <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === 'nearby' ? 'Member, ID or vehicle type' : 'Driver, registration or route'} />
+              </label>
 
-      {tab === 'live' ? (
-        <TwoColumn rightWidth="minmax(440px,1fr)">
-          <Panel title="Live fleet map" description="Green positions are fresh; red positions are older than 20 minutes.">
-            {livePoints.length > 0 ? <FleetPositionMap points={livePoints} selectedDriverId={selectedDriverId} /> : <EmptyState title="No live positions match the current filters" />}
-          </Panel>
-          <Panel title="Live availability register" description={`${filtered.length} driver(s) in the current view.`}>
-            <DataTable
-              columns={['Driver', 'Vehicle', 'Availability', 'Current work', 'Last location', 'Next / future', 'Action']}
-              rows={filtered.map(({ driver, vehicle, currentJob, nextJob, future, returnJourney, location, timestamp, freshnessState }) => [
-                <div key="driver"><strong style={{ display: 'block' }}>{driver.display_name ?? driver.email ?? 'Driver'}</strong><span style={{ color: '#64748b' }}>{driver.phone ?? 'No phone recorded'}</span></div>,
-                vehicle?.reg_plate ?? vehicle?.type?.replaceAll('_', ' ') ?? 'Not assigned',
-                <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={driver.availability_status === 'available' ? 'green' : driver.availability_status === 'busy' ? 'purple' : 'grey'} />,
-                currentJob ? <div key="job"><span style={{ display: 'block' }}>{currentJob.pickup_location ?? 'Pickup'} → {currentJob.delivery_location ?? 'Delivery'}</span><span style={{ color: '#64748b' }}>#{currentJob.id.slice(0, 8).toUpperCase()}</span></div> : 'No active job',
-                location ? <button key="location" type="button" onClick={() => setSelectedDriverId(driver.id)} style={{ border: 0, padding: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer' }}>{when(timestamp)} · {freshnessState}</button> : <StatusBadge key="missing" value="missing" tone="grey" />,
-                <div key="future"><span style={{ display: 'block' }}>{future?.futurePosition ?? (returnJourney ? `${returnJourney.fromPostcode ?? 'From TBC'} → ${returnJourney.toPostcode ?? 'Go anywhere'}` : 'Not declared')}</span><span style={{ color: '#64748b' }}>{nextJob ? `Next ${when(nextJob.pickup_datetime)} · ${nextJob.pickup_location ?? 'Pickup'}` : 'No future job allocated'}</span></div>,
-                <ActionButton key="open" tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Driver register</ActionButton>,
-              ])}
-              empty={<EmptyState title="No drivers match these availability filters" />}
-            />
-          </Panel>
-        </TwoColumn>
-      ) : tab === 'future' ? (
-        <TwoColumn rightWidth="minmax(440px,1fr)">
-          <Panel title="Future position map" description="Blue markers are declared future positions or geocoded return-journey origins. Only postcode-based declarations can be mapped reliably.">
-            {futurePoints.length > 0 ? <FleetPositionMap points={futurePoints} selectedDriverId={selectedDriverId} mode="future" /> : <EmptyState title="No geocoded future positions match the current filters" description="Future declarations remain visible in the register even when they cannot be converted to map coordinates." />}
-          </Panel>
-          <Panel title="Future availability" description="Declared future positions and return journeys are shown alongside the next assigned collection.">
-            <DataTable
-              columns={['Driver', 'Availability', 'Future position', 'Return journey', 'Available from', 'Next assigned work', 'Action']}
-              rows={filtered.map(({ driver, future, returnJourney, nextJob }) => [
-                <strong key="driver">{driver.display_name ?? driver.email ?? 'Driver'}</strong>,
-                <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={driver.availability_status === 'available' ? 'green' : driver.availability_status === 'busy' ? 'purple' : 'grey'} />,
-                future?.futurePosition ?? 'Not published',
-                returnJourney ? `${returnJourney.fromPostcode ?? 'From TBC'} → ${returnJourney.toPostcode ?? 'Go anywhere'}` : 'No return journey',
-                when(future?.futurePositionDate ?? returnJourney?.availableFrom),
-                nextJob ? `${nextJob.pickup_location ?? 'Pickup'} · ${when(nextJob.pickup_datetime)}` : 'No future job allocated',
-                <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedDriverId(driver.id)}>Locate</ActionButton>{returnJourney ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Driver register</ActionButton></div>,
-              ])}
-              empty={<EmptyState title="No future availability records match these filters" />}
-            />
-          </Panel>
-        </TwoColumn>
-      ) : (
-        <TwoColumn rightWidth="minmax(480px,1.08fr)">
-          <Panel title="Nearby Exchange map" description="Other companies are shown only at the rounded Exchange area supplied by the privacy boundary; exact driver identity and exact coordinates are never exposed.">
-            {nearbyLoading ? <EmptyState title="Loading nearby Exchange availability…" /> : nearbyPoints.length > 0 ? <FleetPositionMap points={nearbyPoints} selectedDriverId={selectedDriverId} /> : <EmptyState title="No nearby Exchange vehicles match the current filters" description="Only opt-in, currently available resources without an active job appear here." />}
-          </Panel>
-          <Panel title="Who's nearby" description={`${filteredNearby.length} privacy-scoped Exchange vehicle(s) visible to this company.`}>
-            <DataTable
-              columns={['Member', 'Vehicle', 'Capacity', 'Distance', 'Equipment', 'Available until', 'Freshness', 'Action']}
-              rows={filteredNearby.map((position, index) => {
-                const pointId = nearbyPointKey(position, index);
-                return [
-                  <div key="member"><strong style={{ display: 'block' }}>{position.member_name ?? 'Exchange member'}</strong><span style={{ color: '#64748b' }}>{position.member_code ? `ID ${position.member_code}` : position.member_type ?? 'Member profile'}</span></div>,
-                  (position.vehicle_type ?? 'Vehicle not published').replaceAll('_', ' '),
-                  capacityLabel(position),
-                  position.distance_miles != null ? `${position.distance_miles.toFixed(1)} mi` : '—',
-                  position.has_tail_lift === true ? <StatusBadge key="equipment" value="Tail lift" tone="blue" /> : position.has_tail_lift === false ? 'No tail lift' : 'Equipment not published',
-                  when(position.available_until),
-                  <button key="freshness" type="button" onClick={() => setSelectedDriverId(pointId)} style={{ border: 0, padding: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer' }}>{isStale(position.recorded_at) ? 'Stale' : 'Fresh'} · {when(position.recorded_at)}</button>,
-                  <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                    <ActionButton tone="secondary" onClick={() => setSelectedDriverId(pointId)}>Locate</ActionButton>
-                    {position.company_id ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/messages?companyId=${encodeURIComponent(position.company_id!)}`)}>Message</ActionButton> : null}
-                    {position.company_id ? <ActionButton tone="success" onClick={() => router.push(`/admin/post-load?directCarrier=${encodeURIComponent(position.company_id!)}`)}>Book Direct</ActionButton> : null}
-                  </div>,
-                ];
-              })}
-              empty={<EmptyState title={nearbyLoading ? 'Loading nearby Exchange availability…' : nearbyError ? 'Nearby Exchange availability unavailable' : 'No nearby Exchange vehicles'} />}
-            />
-            <div style={{ marginTop: 8, padding: '8px 10px', border: '1px solid #dbe2ea', background: '#f8fafc', color: '#475569', fontSize: 11, lineHeight: '15px' }}>
-              <strong style={{ color: '#0b2f6b' }}>Privacy boundary:</strong> own-fleet availability may use exact coordinates. Exchange discovery intentionally exposes only a rounded area, member identity and coarse vehicle/capacity information; driver identity is not disclosed.
-            </div>
-          </Panel>
-        </TwoColumn>
-      )}
-    </PageFrame>
+              {tab !== 'nearby' ? (
+                <label className={styles.filterField}>Availability
+                  <select value={availability} onChange={(event) => setAvailability(event.target.value)}>
+                    <option value="all">All states</option>
+                    {availabilityValues.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}
+                  </select>
+                </label>
+              ) : null}
+
+              {tab === 'live' ? (
+                <label className={styles.filterField}>Tracking freshness
+                  <select value={freshness} onChange={(event) => setFreshness(event.target.value as FreshnessFilter)}>
+                    <option value="all">All freshness</option>
+                    <option value="live">Live</option>
+                    <option value="stale">Stale</option>
+                    <option value="missing">Missing</option>
+                  </select>
+                </label>
+              ) : null}
+
+              {tab === 'nearby' ? (
+                <>
+                  <label className={styles.filterField}>Near postcode / outcode
+                    <input value={nearbyPostcode} onChange={(event) => setNearbyPostcode(event.target.value)} placeholder="BB1" />
+                  </label>
+                  <label className={styles.filterField}>Radius
+                    <select value={nearbyRadius} onChange={(event) => setNearbyRadius(event.target.value)}>
+                      {['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} mi</option>)}
+                    </select>
+                  </label>
+                  <label className={styles.filterField}>Vehicle
+                    <select value={nearbyVehicle} onChange={(event) => setNearbyVehicle(event.target.value)}>
+                      <option value="all">All vehicle types</option>
+                      {nearbyVehicleTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}
+                    </select>
+                  </label>
+                </>
+              ) : null}
+
+
+        </div>
+      </section>
+      <CarrierMapRegisterSplit mapTitle={tab === 'future' ? 'Future positions map' : tab === 'nearby' ? 'Nearby Exchange map' : 'Fleet tracking map'}
+        registerTitle={tab === 'future' ? 'Future Availability' : tab === 'nearby' ? "Who's nearby" : 'Live Availability Register'} meta={<span>{registerCount} loaded record(s)</span>}
+        map={<FleetPositionMap points={activePoints} selectedDriverId={selectedDriverId} mode={mapMode} height={280} />}
+        register={<>
+            {tab === 'live' ? (
+              <DataTable
+                columns={['Driver', 'Vehicle', 'Availability', 'Current work', 'Last location', 'Next / future', 'Action']}
+                rows={filtered.map(({ driver, vehicle, currentJob, nextJob, future, returnJourney, location, timestamp, freshnessState }) => [
+                  <div key="driver"><strong style={{ display: 'block' }}>{driver.display_name ?? driver.email ?? 'Driver'}</strong><span style={{ color: '#64748b' }}>{driver.phone ?? 'No phone recorded'}</span></div>,
+                  vehicle?.reg_plate ?? vehicle?.type?.replaceAll('_', ' ') ?? 'Not assigned',
+                  <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={driver.availability_status === 'available' ? 'green' : driver.availability_status === 'busy' ? 'purple' : 'grey'} />,
+                  currentJob ? <div key="job"><span style={{ display: 'block' }}>{currentJob.pickup_location ?? 'Pickup'} {'->'} {currentJob.delivery_location ?? 'Delivery'}</span><span style={{ color: '#64748b' }}>#{currentJob.id.slice(0, 8).toUpperCase()}</span></div> : 'No active job',
+                  location ? <button key="location" type="button" onClick={() => setSelectedDriverId(driver.id)} style={{ border: 0, padding: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer' }}>{when(timestamp)} / {freshnessState}</button> : <StatusBadge key="missing" value="missing" tone="grey" />,
+                  <div key="future"><span style={{ display: 'block' }}>{future?.futurePosition ?? (returnJourney ? `${returnJourney.fromPostcode ?? 'From TBC'} -> ${returnJourney.toPostcode ?? 'Go anywhere'}` : 'Not declared')}</span><span style={{ color: '#64748b' }}>{nextJob ? `Next ${when(nextJob.pickup_datetime)} / ${nextJob.pickup_location ?? 'Pickup'}` : 'No future job allocated'}</span></div>,
+                  <ActionButton key="open" tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Driver register</ActionButton>,
+                ])}
+                empty={<EmptyState compact title="No drivers match these availability filters" />}
+              />
+            ) : tab === 'future' ? (
+              <DataTable
+                columns={['Driver', 'Availability', 'Future position', 'Return journey', 'Available from', 'Next assigned work', 'Action']}
+                rows={filtered.map(({ driver, future, returnJourney, nextJob }) => [
+                  <strong key="driver">{driver.display_name ?? driver.email ?? 'Driver'}</strong>,
+                  <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={driver.availability_status === 'available' ? 'green' : driver.availability_status === 'busy' ? 'purple' : 'grey'} />,
+                  future?.futurePosition ?? 'Not published',
+                  returnJourney ? `${returnJourney.fromPostcode ?? 'From TBC'} -> ${returnJourney.toPostcode ?? 'Go anywhere'}` : 'No return journey',
+                  when(future?.futurePositionDate ?? returnJourney?.availableFrom),
+                  nextJob ? `${nextJob.pickup_location ?? 'Pickup'} / ${when(nextJob.pickup_datetime)}` : 'No future job allocated',
+                  <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedDriverId(driver.id)}>Locate</ActionButton>{returnJourney ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton> : null}</div>,
+                ])}
+                empty={<EmptyState compact title="No future availability records match these filters" />}
+              />
+            ) : (
+              <>
+                <DataTable
+                  columns={['Member', 'Vehicle', 'Capacity', 'Distance', 'Equipment', 'Available until', 'Freshness', 'Action']}
+                  rows={filteredNearby.map((position, index) => {
+                    const pointId = nearbyPointKey(position, index);
+                    return [
+                      <div key="member"><strong style={{ display: 'block' }}>{position.member_name ?? 'Exchange member'}</strong><span style={{ color: '#64748b' }}>{position.member_code ? `ID ${position.member_code}` : position.member_type ?? 'Member profile'}</span></div>,
+                      (position.vehicle_type ?? 'Vehicle not published').replaceAll('_', ' '),
+                      capacityLabel(position),
+                      position.distance_miles != null ? `${position.distance_miles.toFixed(1)} mi` : '-',
+                      position.has_tail_lift === true ? <StatusBadge key="equipment" value="Tail lift" tone="blue" /> : position.has_tail_lift === false ? 'No tail lift' : 'Equipment not published',
+                      when(position.available_until),
+                      <button key="freshness" type="button" onClick={() => setSelectedDriverId(pointId)} style={{ border: 0, padding: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer' }}>{isStale(position.recorded_at) ? 'Stale' : 'Fresh'} / {when(position.recorded_at)}</button>,
+                      <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedDriverId(pointId)}>Locate</ActionButton>{position.company_id ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/messages?companyId=${encodeURIComponent(position.company_id!)}`)}>Message</ActionButton> : null}{position.company_id ? <ActionButton tone="success" onClick={() => router.push(`/admin/post-load?directCarrier=${encodeURIComponent(position.company_id!)}`)}>Book Direct</ActionButton> : null}</div>,
+                    ];
+                  })}
+                  empty={<EmptyState compact title={nearbyLoading ? 'Loading nearby Exchange availability...' : nearbyError ? 'Nearby Exchange availability unavailable' : 'No nearby Exchange vehicles'} />}
+                />
+                <div className={styles.privacyNote}><strong>Privacy boundary:</strong> own-fleet availability may use exact coordinates. The rounded Exchange area exposes only member-level discovery information, member identity and coarse vehicle/capacity information; driver identity is not disclosed. Only opt-in, currently available resources without an active job appear here.</div>
+              </>
+            )}
+        </>} />
+      <div className={styles.legend} aria-label="Map legend">
+        {tab === 'future' ? <span>Declared future position</span> : <><span>Fresh tracking: received within 20 minutes</span><span>Stale: older or invalid timestamp</span><span>Missing: no received location</span></>}
+      </div>
+    </div>
   );
 }
-
-const inputStyle = { width: '100%', minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px', background: '#fff', color: '#0f172a', fontSize: 12, boxSizing: 'border-box' as const };
-const labelStyle = { display: 'grid', gap: 4, color: '#475569', fontSize: 11, fontWeight: 800 } as const;
-const tabStyle = (active: boolean) => ({ minHeight: 28, padding: '0 10px', border: 0, borderRight: '1px solid #dbe2ea', background: active ? '#eef4ff' : '#fff', color: active ? '#0b2f6b' : '#475569', fontSize: 11, fontWeight: 800, cursor: 'pointer' }) as const;

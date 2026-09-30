@@ -1,6 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useAuth } from '../AuthContext';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
+import { hasWorkspaceCapabilityForContext } from '../../../lib/roleCapabilities';
+import './carrier-directory.css';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from './MemberProfile';
@@ -69,6 +73,18 @@ type DirectoryResponse = {
 
 const normalise = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 
+
+function DirectoryRecord({ carrier, children, actions }: { carrier: boolean; children: ReactNode; actions: ReactNode }) {
+  const [expanded, setExpanded] = useState(false);
+  return <article className="workspace-operational-row directory-operational-row" data-expanded={expanded ? "true" : "false"}>
+    <div className="workspace-operational-row__top directory-operational-row__top">
+      {children}
+      {!carrier && <div className="workspace-operational-cell">{actions}</div>}
+    </div>
+    {carrier && <div className="directory-record-footer"><button type="button" className="directory-detail-toggle" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>{expanded ? "Less detail" : "Details"}</button>{actions}</div>}
+  </article>;
+}
+
 export function MemberDirectoryPage({
   title = 'Directory',
   eyebrow = 'XDrive member network',
@@ -78,6 +94,9 @@ export function MemberDirectoryPage({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth();
+  const isCarrier = pathname.startsWith('/admin/marketplace/directory');
+  const canCreateCarrierBooking = Boolean(user && hasWorkspaceCapabilityForContext(resolveWorkspaceRole(user), 'loads.create', { membershipRole: user.membershipRole }));
   const [companies, setCompanies] = useState<DirectoryCompany[]>([]);
   const [drivers, setDrivers] = useState<DirectoryDriver[]>([]);
   const [tab, setTab] = useState<'companies' | 'drivers'>('companies');
@@ -165,6 +184,7 @@ export function MemberDirectoryPage({
   const canBookCompany = (company: DirectoryCompany | null | undefined) => Boolean(
     directBookingRoute
     && company
+    && (!isCarrier || (canCreateCarrierBooking && company.companyId !== user?.companyId))
     && ['carrier / fleet', 'owner driver'].includes(normalise(company.memberType)),
   );
   const openDirectBooking = (companyId: string) => {
@@ -341,11 +361,10 @@ export function MemberDirectoryPage({
   }
 
   return (
-    <div className="directory-workspace">
+    <div className="directory-workspace" data-carrier-directory={isCarrier ? 'true' : undefined}>
       <div className="directory-register-header">
         <div>
-          <strong>{title}</strong>
-          <span>{eyebrow}</span>
+          {isCarrier ? <><span>{eyebrow}</span><h1>{title}</h1><p>Find members by location, capability and evidenced reliability.</p></> : <><strong>{title}</strong><span>{eyebrow}</span></>}
         </div>
         <ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton>
       </div>
@@ -359,7 +378,7 @@ export function MemberDirectoryPage({
             <label>MEMBER / XDRIVE ID<input value={member} onChange={(event) => setMember(event.target.value)} placeholder="Company, driver or XDrive member ID" /></label>
             <label>LOCATION<input value={location} onChange={(event) => setLocation(event.target.value)} placeholder="Town / postcode / country" /></label>
             <label>FIND MY NEAREST<input value={nearestLocation} onChange={(event) => setNearestLocation(event.target.value)} placeholder="Postcode / outcode, e.g. BB1" /></label>
-            <label>RADIUS<select value={nearestRadius} onChange={(event) => setNearestRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} miles</option>)}</select></label>
+            <label>RADIUS<select aria-label="Directory search radius" value={nearestRadius} onChange={(event) => setNearestRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} miles</option>)}</select></label>
             <label>COUNTRY<select value={country} onChange={(event) => setCountry(event.target.value)}><option value="">Any country</option>{countries.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
             {tab === 'companies' ? <label>MEMBER TYPE<input value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier, broker, customer…" /></label> : null}
             <label>VEHICLE TYPE<input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="LWB, Luton, Artic…" /></label>
@@ -375,8 +394,8 @@ export function MemberDirectoryPage({
 
         <main style={{ minWidth: 0 }}>
           <div className="workspace-tab-strip" role="tablist" aria-label="Directory member types" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            <button type="button" data-active={tab === 'companies' ? 'true' : 'false'} onClick={() => setTab('companies')}>Companies {visibleCompanies.length}</button>
-            <button type="button" data-active={tab === 'drivers' ? 'true' : 'false'} onClick={() => setTab('drivers')}>Drivers {visibleDrivers.length}</button>
+            <button type="button" role="tab" aria-selected={tab === 'companies'} data-active={tab === 'companies' ? 'true' : 'false'} onClick={() => setTab('companies')}>Companies {visibleCompanies.length}</button>
+            <button type="button" role="tab" aria-selected={tab === 'drivers'} data-active={tab === 'drivers' ? 'true' : 'false'} onClick={() => setTab('drivers')}>Drivers {visibleDrivers.length}</button>
           </div>
           <div className="workspace-record-meta directory-register-meta">
             <span><strong>{directoryRecords.length}</strong> matching loaded record(s)</span>
@@ -406,30 +425,24 @@ export function MemberDirectoryPage({
           ) : tab === 'companies' ? (
             <div className="workspace-record-list">
               {displayedCompanies.map((company) => (
-                <article key={company.companyId} className="workspace-operational-row directory-operational-row">
-                  <div className="workspace-operational-row__top directory-operational-row__top">
+                <DirectoryRecord key={company.companyId} carrier={isCarrier} actions={<>{!isCarrier && <div className="driver-cell-label">ACTION</div>}<div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId)}>Messages</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}</div></>}>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">MEMBER</div><strong><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></strong><div className="driver-cell-secondary">{company.memberId ? `Member ID ${company.memberId}` : 'Member ID not supplied'}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE / CAPABILITY</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Fleet capability not supplied'}{company.specialistServices?.length ? ` · ${company.specialistServices.join(', ')}` : ''}{company.maxPallets != null ? ` · up to ${company.maxPallets} pallets` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DELIVERY / PAYMENT RELIABILITY</div><strong>Delivery {company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">{company.deliveryReliability.evidenceCount} timed delivery record(s) · Payment {company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`} from {company.paymentReliability.evidenceCount} due/settlement record(s){company.paymentReliability.overdueOpen ? ` · ${company.paymentReliability.overdueOpen} overdue open` : ''}</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId)}>Messages</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}</div></div>
-                  </div>
-                </article>
+                </DirectoryRecord>
               ))}
               {visibleCompanies.length === 0 && <div className="workspace-panel"><EmptyState compact title="No companies match these loaded records" /></div>}
             </div>
           ) : (
             <div className="workspace-record-list">
               {displayedDrivers.map((driver) => (
-                <article key={driver.driverId} className="workspace-operational-row directory-operational-row">
-                  <div className="workspace-operational-row__top directory-operational-row__top">
+                <DirectoryRecord key={driver.driverId} carrier={isCarrier} actions={<>{!isCarrier && <div className="driver-cell-label">AVAILABILITY / ACTION</div>}<StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} />{driver.companyId && messagesRoute ? <div style={{ marginTop: 6 }}><ActionButton tone="secondary" onClick={() => openMemberMessages(driver.companyId as string)}>Messages</ActionButton></div> : null}{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) ? <div style={{ marginTop: 6 }}><ActionButton tone="success" onClick={() => openDirectBooking(driver.companyId as string)}>Book Direct</ActionButton></div> : null}</>}>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DRIVER / MEMBER</div><strong>{driver.displayName}</strong><div className="driver-cell-secondary">{driver.companyId ? <MemberIdentityLink companyId={driver.companyId}>{driver.companyName}</MemberIdentityLink> : driver.companyName}{driver.memberId ? ` · Member ID ${driver.memberId}` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[driver.city, driver.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">Broad member/company location only{driver.distanceMiles != null ? ` · ${driver.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">VEHICLE / CAPABILITY</div><strong>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}</strong><div className="driver-cell-secondary">{driver.hasTailLift ? 'Tail lift · ' : ''}{driver.palletsCapacity != null ? `${driver.palletsCapacity} pallets · ` : ''}{driver.specialistServices?.length ? driver.specialistServices.join(', ') : 'No specialist service declared'} · no live coordinates exposed</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">COMPANY RELIABILITY</div><strong>Delivery {driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">Payment {driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`} · evidence is company-level and truth-derived</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY / ACTION</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} />{driver.companyId && messagesRoute ? <div style={{ marginTop: 6 }}><ActionButton tone="secondary" onClick={() => openMemberMessages(driver.companyId as string)}>Messages</ActionButton></div> : null}{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) ? <div style={{ marginTop: 6 }}><ActionButton tone="success" onClick={() => openDirectBooking(driver.companyId as string)}>Book Direct</ActionButton></div> : null}</div>
-                  </div>
-                </article>
+                </DirectoryRecord>
               ))}
               {visibleDrivers.length === 0 && <div className="workspace-panel"><EmptyState compact title="No drivers match these loaded records" /></div>}
             </div>
