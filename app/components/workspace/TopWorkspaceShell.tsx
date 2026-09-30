@@ -22,6 +22,7 @@ import {
   getNotificationsRoute,
   resolveActionCentreRole,
 } from './actionCentreConfig';
+import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 const FREIGHT_VISION_ROLES = new Set<WorkspaceRole>([
   'company_owner',
@@ -44,15 +45,6 @@ const CARRIER_NAV_ROLES = new Set<WorkspaceRole>([
   'company_admin',
   'carrier_admin',
 ]);
-
-type CommercialRemediation = {
-  code: string;
-  title: string;
-  message: string;
-  actionLabel: string;
-  actionUrl: string;
-  actionKind: 'post_load' | 'quote';
-};
 
 const MESSAGE_HREFS: Partial<Record<WorkspaceRole, string>> = {
   company_owner: '/admin/messages',
@@ -562,8 +554,6 @@ export default function TopWorkspaceShell({
   const [companyName, setCompanyName] = useState('XDrive Logistics');
   const [unreadCount, setUnreadCount] = useState(0);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
-  const [commercialRemediations, setCommercialRemediations] = useState<CommercialRemediation[]>([]);
-  const [commercialReadinessLoading, setCommercialReadinessLoading] = useState(false);
   const navRef = useRef<HTMLElement | null>(null);
 
   const navigationTargets = useMemo(
@@ -611,56 +601,6 @@ export default function TopWorkspaceShell({
   const bookDirectHref = CARRIER_NAV_ROLES.has(role)
     ? '/admin/marketplace/directory'
     : '/driver/directory';
-
-  useEffect(() => {
-    if (!user?.id || !isSupabaseConfigured) {
-      setCommercialRemediations([]);
-      setCommercialReadinessLoading(false);
-      return;
-    }
-
-    const actions: Array<'post_load' | 'quote'> = [];
-    if (CARRIER_NAV_ROLES.has(role) || role === 'broker' || role === 'customer' || role === 'owner_driver') {
-      actions.push('post_load');
-    }
-    if (hasWorkspaceCapability(role, 'quotes.submit')) actions.push('quote');
-    if (actions.length === 0) {
-      setCommercialRemediations([]);
-      setCommercialReadinessLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    const loadCommercialReadiness = async () => {
-      setCommercialReadinessLoading(true);
-      try {
-        const { data: sessionData } = await supabase.auth.getSession();
-        const accessToken = sessionData.session?.access_token;
-        if (!accessToken) {
-          if (!cancelled) setCommercialRemediations([]);
-          return;
-        }
-        const payloads = await Promise.all(actions.map(async (action) => {
-          const response = await fetch(`/api/workspace/commercial-readiness?role=${encodeURIComponent(role)}&action=${action}`, {
-            headers: { Authorization: `Bearer ${accessToken}` },
-            cache: 'no-store',
-          });
-          if (!response.ok) return [] as CommercialRemediation[];
-          const payload = await response.json().catch(() => null) as { blockers?: CommercialRemediation[] } | null;
-          return Array.isArray(payload?.blockers) ? payload.blockers : [];
-        }));
-        if (!cancelled) {
-          const deduped = Array.from(new Map(payloads.flat().map((item) => [`${item.actionKind}:${item.code}`, item])).values());
-          setCommercialRemediations(deduped);
-        }
-      } finally {
-        if (!cancelled) setCommercialReadinessLoading(false);
-      }
-    };
-
-    void loadCommercialReadiness();
-    return () => { cancelled = true; };
-  }, [role, user?.id]);
 
   useEffect(() => {
     if (!user?.companyId || !isSupabaseConfigured) {
@@ -910,64 +850,7 @@ export default function TopWorkspaceShell({
         </div>
       </nav>
 
-      {commercialRemediations.length > 0 && (
-        <section
-          aria-label="Commercial account actions required"
-          style={{
-            margin: '12px 16px 0',
-            border: '1px solid #f0b429',
-            background: '#fff8e6',
-            borderRadius: 8,
-            padding: 12,
-            display: 'grid',
-            gap: 10,
-          }}
-        >
-          <div>
-            <strong style={{ color: '#7a4b00' }}>Action required before you can continue</strong>
-            <div style={{ marginTop: 3, color: '#684b1a', fontSize: 13 }}>
-              XDrive detected the exact conditions blocking a commercial action. Complete them here; you do not need to search through Settings.
-            </div>
-          </div>
-          {commercialRemediations.map((item) => (
-            <div
-              key={`${item.actionKind}:${item.code}`}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                padding: '10px 12px',
-                background: '#fff',
-                border: '1px solid #ead7a2',
-                borderRadius: 6,
-              }}
-            >
-              <div>
-                <strong style={{ display: 'block', color: '#1a1f2b' }}>{item.title}</strong>
-                <span style={{ display: 'block', marginTop: 3, color: '#667085', fontSize: 13 }}>{item.message}</span>
-                <span style={{ display: 'block', marginTop: 3, color: '#946200', fontSize: 11, fontWeight: 700 }}>
-                  Blocks: {item.actionKind === 'post_load' ? 'posting transport work' : 'submitting quotes'}
-                </span>
-              </div>
-              <button
-                type="button"
-                className="top-workspace-action top-workspace-action--primary"
-                onClick={() => router.push(item.actionUrl)}
-                style={{ flexShrink: 0 }}
-              >
-                {item.actionLabel}
-              </button>
-            </div>
-          ))}
-        </section>
-      )}
-      {commercialReadinessLoading && commercialRemediations.length === 0 ? (
-        <div role="status" style={{ padding: '8px 16px 0', color: '#667085', fontSize: 12 }}>
-          Checking commercial readiness...
-        </div>
-      ) : null}
-
+      <WorkspaceRestrictionBanner role={role} />
       <main className={`top-workspace-shell__content${driverPrototypeScope ? ' app driver-prototype-app' : ''}`}>{children}</main>
     </div>
   );

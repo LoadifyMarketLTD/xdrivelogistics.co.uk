@@ -1,5 +1,8 @@
 'use client';
 
+import WorkspaceRestrictionBanner from '../../../components/workspace/WorkspaceRestrictionBanner';
+import { WORKSPACE_READINESS_CHANGED } from '../../../../lib/workspaceReadiness';
+
 import { use, useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
@@ -161,7 +164,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
         body: JSON.stringify({ jobId: id, amount, message: bidMessage.trim() }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string; denialReasons?: string[] };
-      if (!response.ok) throw new Error(payload.error || 'Your quote could not be submitted.');
+      if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
       setSuccess('Quote submitted successfully. The posting member will review it.');
       setBidMessage('');
       await fetchLoad();
@@ -180,6 +183,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
         <div style={{ display: 'grid', gap: 8 }}>
           <div className="driver-board-summary" style={{ justifyContent: 'space-between' }}><span><button type="button" onClick={() => router.back()} style={{ border: 0, background: 'transparent', color: '#1d57d8', cursor: 'pointer', fontWeight: 700, padding: 0 }}>← Back to Loads</button></span><span>Pre-award marketplace view · exact execution details protected</span></div>
           {error && <div role="alert" style={{ minHeight: 32, display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #fecaca', borderRadius: 4, background: '#fef2f2', color: '#b91c1c', fontSize: 12, fontWeight: 700 }}>{error}</div>}
+          {error && <WorkspaceRestrictionBanner operation="quote" inline />}
           {success && <div style={{ minHeight: 32, display: 'flex', alignItems: 'center', padding: '6px 10px', border: '1px solid #bbf7d0', borderRadius: 4, background: '#ecfdf3', color: '#166534', fontSize: 12, fontWeight: 700 }}>{success}</div>}
 
           {loading ? <div className="driver-load-row"><EmptyState compact title="Loading marketplace load…" /></div> : load ? (

@@ -8,6 +8,9 @@ import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
 import PostcodeAddressField from './PostcodeAddressField';
 import StripeSetupAction from './StripeSetupAction';
+import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
+import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
+import { resolveLegalRemediationUrl } from '../../../lib/workspaceRemediation';
 import './load-posting-exchange.css';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
@@ -193,7 +196,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [stripeSetupCompanyId, setStripeSetupCompanyId] = useState<string | null>(null);
-  const [remediationAction, setRemediationAction] = useState<{ url: string; label: string } | null>(null);
+  const [legalRemediationUrl, setLegalRemediationUrl] = useState<string | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [clockNow, setClockNow] = useState<Date | null>(null);
   const [postingCompany, setPostingCompany] = useState<{ id: string; name: string | null; memberId: string | null } | null>(null);
@@ -387,7 +390,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     setError('');
     setSuccess('');
     setStripeSetupCompanyId(null);
-    setRemediationAction(null);
+    setLegalRemediationUrl(null);
     if (cloneLoading) {
       setError('Wait for the source booking details to finish loading before saving.');
       return;
@@ -522,16 +525,14 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         if (response.status === 409 && payload?.setupCompanyId === companyId) {
           setStripeSetupCompanyId(companyId);
         }
-        if (payload?.setupUrl && payload.code !== 'STRIPE_COMMERCIAL_READINESS_REQUIRED') {
-          const label = payload.code === 'COMMERCIAL_LEGAL_REACCEPTANCE_REQUIRED'
-            ? 'Review legal agreements'
-            : payload.code === 'TRANSPORT_BUYER_RISK_LIMIT'
-              ? 'Resolve account restriction'
-              : payload.code === 'COMPANY_MEMBERSHIP_REQUIRED'
-                ? 'Complete onboarding'
-                : 'Resolve requirement';
-          setRemediationAction({ url: payload.setupUrl, label });
+        if (
+          response.status === 409
+          && payload?.code === 'COMMERCIAL_LEGAL_REACCEPTANCE_REQUIRED'
+          && payload.setupUrl
+        ) {
+          setLegalRemediationUrl(resolveLegalRemediationUrl(payload.setupUrl, mode));
         }
+        window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED));
         const baseMessage = payload?.error ?? 'The load could not be saved.';
         throw new Error(payload?.referenceId ? `${baseMessage} Error reference: ${payload.referenceId}.` : baseMessage);
       }
@@ -614,15 +615,16 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               }}
             />
           ) : null}
-          {remediationAction ? (
-            <div style={{ marginTop: 10 }}>
-              <ActionButton tone="primary" onClick={() => router.push(remediationAction.url)}>
-                {remediationAction.label}
+          {legalRemediationUrl ? (
+            <div style={{ marginTop: 8 }}>
+              <ActionButton tone="primary" onClick={() => router.push(legalRemediationUrl)}>
+                Review & accept legal agreements
               </ActionButton>
             </div>
           ) : null}
         </AlertBanner>
       )}
+      {error && !stripeSetupCompanyId && !legalRemediationUrl && <WorkspaceRestrictionBanner operation="post_load" inline />}
       {cloneLoading && <AlertBanner tone="info">Preparing a new booking from the source record…</AlertBanner>}
       {cloneNotice && <AlertBanner tone="info">{cloneNotice}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
@@ -972,6 +974,8 @@ function StopFields({
             style={{ ...fieldStyle, ...(errors?.date ? invalidFieldStyle : {}) }}
             aria-invalid={errors?.date ? 'true' : undefined}
             type="date"
+            aria-label={`${title} date`}
+            aria-required={requiredDate}
             min={minDate}
             value={date}
             onChange={(event) => onDate(event.target.value)}
@@ -982,6 +986,8 @@ function StopFields({
           <select
             style={{ ...fieldStyle, ...(errors?.time ? invalidFieldStyle : {}) }}
             aria-invalid={errors?.time ? 'true' : undefined}
+            aria-label={`${title} time`}
+            aria-required={requiredTime || Boolean(date)}
             value={time}
             disabled={!date || noSlotsLeftToday}
             onChange={(event) => onTime(event.target.value)}

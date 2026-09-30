@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import {
   getOnboardingContract,
@@ -26,6 +26,8 @@ export default function OnboardingTokenPage() {
   const params = useParams<{ token: string }>();
   const token = decodeURIComponent(params?.token ?? '');
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const targetDocumentType = (searchParams.get('document') ?? '').trim();
 
   const [application, setApplication] = useState<Application | null>(null);
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -519,7 +521,14 @@ export default function OnboardingTokenPage() {
             Required documents block activation until approved. Conditional documents are requested only when they apply to the person, vehicle or business.
           </p>
           {visibleDocuments.map((doc) => (
-            <div key={doc.type} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.9rem', alignItems: 'center' }}>
+            <div
+              key={doc.type}
+              id={`onboarding-document-${doc.type}`}
+              style={{
+                display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.9rem', alignItems: 'center',
+                ...(targetDocumentType === doc.type ? { padding: '0.75rem', borderRadius: 8, outline: '2px solid #1D57D8', background: '#EFF6FF' } : {}),
+              }}
+            >
               <div>
                 <div style={{ fontWeight: 600 }}>{doc.label}</div>
                 <div style={{ fontSize: '0.8rem', color: doc.requirement === 'required' ? '#B91C1C' : '#6B7280' }}>
@@ -529,6 +538,8 @@ export default function OnboardingTokenPage() {
               </div>
               <input
                 type="file"
+                aria-label={`Upload ${doc.label}`}
+                autoFocus={targetDocumentType === doc.type}
                 accept="application/pdf,image/jpeg,image/png,image/webp"
                 disabled={saving || (requiresVerifiedCompany && !application.company_id)}
                 onChange={(event) => {

@@ -1,6 +1,7 @@
 'use client';
 
-import { ActionButton } from '../../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner } from '../../components/workspace/WorkspaceUI';
+import WorkspaceRestrictionBanner from '../../components/workspace/WorkspaceRestrictionBanner';
 
 type QuoteTarget = {
   id: string;
@@ -21,6 +22,7 @@ export default function MarketplaceQuoteModal({
   amount,
   message,
   working,
+  error,
   onAmountChange,
   onMessageChange,
   onSubmit,
@@ -30,6 +32,7 @@ export default function MarketplaceQuoteModal({
   amount: string;
   message: string;
   working: boolean;
+  error?: string;
   onAmountChange: (value: string) => void;
   onMessageChange: (value: string) => void;
   onSubmit: () => void;
@@ -44,6 +47,8 @@ export default function MarketplaceQuoteModal({
           <strong id="driver-quote-modal-title">Quote Now</strong>
           <button type="button" aria-label="Close quote form" disabled={working} onClick={onClose}>×</button>
         </header>
+
+        {error ? <><AlertBanner tone="danger">{error}</AlertBanner><WorkspaceRestrictionBanner operation="quote" inline /></> : null}
 
         <div className="driver-quote-modal__context">
           <div>
