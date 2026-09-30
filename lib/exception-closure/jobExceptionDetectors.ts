@@ -8,7 +8,7 @@ export type DetectorJob = {
   current_status?: string | null;
   status?: string | null;
   load_id?: string | null;
-  job_ref?: string | null;
+  your_ref?: string | null;
   load_ref?: string | null;
   pickup_datetime?: string | null;
   delivery_datetime?: string | null;
@@ -46,7 +46,7 @@ const PRE_COLLECTION = new Set(['allocated','accepted','on_my_way','on_my_way_to
 const DRIVER_MOVING = new Set(['on_my_way','on_my_way_to_pickup','on_site_pickup','loaded','collected','in_transit','on_my_way_to_delivery','on_site_delivery']);
 const COMPLETED = new Set(['delivered','completed','invoiced','paid']);
 const parseMs = (value?: string | null) => value ? Date.parse(value) : Number.NaN;
-const entityLabel = (job: DetectorJob) => job.load_id?.trim() || job.job_ref?.trim() || job.load_ref?.trim() || job.id.slice(0,8).toUpperCase();
+const entityLabel = (job: DetectorJob) => job.load_id?.trim() || job.your_ref?.trim() || job.load_ref?.trim() || job.id.slice(0,8).toUpperCase();
 const companyId = (job: DetectorJob) => job.assigned_company_id || job.awarded_carrier_company_id || job.company_id || job.posted_by_company_id || null;
 
 function makeCandidate(job: DetectorJob, input: Omit<JobExceptionCandidate,'jobId'|'entityLabel'|'companyId'|'dedupeKey'>): JobExceptionCandidate {

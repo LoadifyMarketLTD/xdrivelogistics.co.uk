@@ -4,7 +4,7 @@ import { detectJobExceptions, type DetectorJob } from './jobExceptionDetectors';
 
 const JOB_SELECT = [
   'id','company_id','posted_by_company_id','assigned_company_id','awarded_carrier_company_id',
-  'assigned_driver_id','current_status','status','load_id','job_ref','load_ref',
+  'assigned_driver_id','current_status','status','load_id','your_ref','load_ref',
   'pickup_datetime','delivery_datetime','collection_window_start','collection_window_end',
   'delivery_window_end','status_updated_at','updated_at','delivered_at','completed_at',
   'pod_required','pod_generated','broker_pod_review_status','is_test',
@@ -14,6 +14,9 @@ export type ExceptionReconcileResult = {
   detected: number;
   createdOrMatched: number;
   planned: number;
+  autoAssigned: number;
+  customerUpdateEscalated: number;
+  closureEscalated: number;
   errors: string[];
 };
 
@@ -33,7 +36,7 @@ export async function reconcileJobExceptions(
   const errors: string[] = [];
   if (jobsResult.error) errors.push(`jobs: ${jobsResult.error.message}`);
   if (invoicesResult.error) errors.push(`invoices: ${invoicesResult.error.message}`);
-  if (errors.length) return { detected: 0, createdOrMatched: 0, planned: 0, errors };
+  if (errors.length) return { detected: 0, createdOrMatched: 0, planned: 0, autoAssigned: 0, customerUpdateEscalated: 0, closureEscalated: 0, errors };
 
   const jobs = (jobsResult.data ?? []) as unknown as DetectorJob[];
   const invoiceJobIds = new Set(
@@ -61,7 +64,7 @@ export async function reconcileJobExceptions(
 
     if (locationsResult.error) {
       errors.push(`driver_locations: ${locationsResult.error.message}`);
-      return { detected: 0, createdOrMatched: 0, planned: 0, errors };
+      return { detected: 0, createdOrMatched: 0, planned: 0, autoAssigned: 0, customerUpdateEscalated: 0, closureEscalated: 0, errors };
     }
 
     for (const row of locationsResult.data ?? []) {
@@ -132,15 +135,28 @@ export async function reconcileJobExceptions(
     }
   }
 
+  const reconciledAt = new Date(nowMs).toISOString();
   const slaResult = await client.rpc('service_reconcile_platform_case_sla', {
-    p_now: new Date(nowMs).toISOString(),
+    p_now: reconciledAt,
   });
   if (slaResult.error) errors.push(`sla: ${slaResult.error.message}`);
+
+  const obligationResult = await client.rpc('service_reconcile_platform_case_obligations', {
+    p_actor_user_id: actorUserId,
+    p_now: reconciledAt,
+  });
+  if (obligationResult.error) errors.push(`obligations: ${obligationResult.error.message}`);
+  const obligationRow = Array.isArray(obligationResult.data)
+    ? obligationResult.data[0] ?? null
+    : obligationResult.data;
 
   return {
     detected: candidates.length,
     createdOrMatched,
     planned,
+    autoAssigned: Number(obligationRow?.auto_assigned_count ?? 0),
+    customerUpdateEscalated: Number(obligationRow?.customer_update_escalated_count ?? 0),
+    closureEscalated: Number(obligationRow?.closure_escalated_count ?? 0),
     errors,
   };
 }

@@ -22,7 +22,7 @@ type ApiCaseRow = {
   customer_update_due_at:string|null; customer_updated_at:string|null; closure_due_at:string|null; closure_verified_at:string|null;
 };
 type CasesPayload = { available?:boolean; readOnly?:boolean; rows?:ApiCaseRow[]; note?:string; pagination?:{total?:number}; error?:string };
-type ReconcilePayload = { reconciliation?:{detected:number;createdOrMatched:number;planned:number;errors:string[]}; error?:string };
+type ReconcilePayload = { reconciliation?:{detected:number;createdOrMatched:number;planned:number;autoAssigned:number;customerUpdateEscalated:number;closureEscalated:number;errors:string[]}; error?:string };
 
 export default function Page() {
   const router = useRouter();
@@ -69,7 +69,7 @@ export default function Page() {
       const body = await response.json().catch(() => ({})) as ReconcilePayload;
       if (!response.ok || !body.reconciliation) { setError(body.error ?? 'Exception reconciliation failed.'); return; }
       const result = body.reconciliation;
-      setReconcileMessage(`Reconciliation complete: ${result.detected} detected, ${result.createdOrMatched} registered, ${result.planned} operational plans added.`);
+      setReconcileMessage(`Reconciliation complete: ${result.detected} detected, ${result.createdOrMatched} registered, ${result.planned} operational plans added, ${result.autoAssigned} auto-assigned, ${result.customerUpdateEscalated + result.closureEscalated} escalated.`);
       await load();
     } catch { setError('Exception reconciliation failed.'); }
     finally { setReconciling(false); }
@@ -94,7 +94,7 @@ export default function Page() {
     <div className={styles.page}>
       <header className={styles.header}>
         <div><div className={styles.eyebrow}>Support & Cases</div><h1 className={styles.title}>Platform Action Centre</h1><p className={styles.description}>Persistent cross-domain exception cases for Platform Owner triage, investigation and verified closure. Domain records remain authoritative.</p></div>
-        <div className={styles.badges}><span className={styles.badge}>Case Centre · SA-02</span>{readOnly ? <span className={styles.badge} data-tone="warning">Deploy Preview · read only</span> : null}</div>
+        <div className={styles.badges}><span className={styles.badge}>Case Centre Â· SA-02</span>{readOnly ? <span className={styles.badge} data-tone="warning">Deploy Preview Â· read only</span> : null}</div>
       </header>
 
       {available === true ? <div className={styles.metrics}>
@@ -111,18 +111,18 @@ export default function Page() {
         <label className={styles.field}>Severity<select className={styles.select} value={severity} onChange={(event) => setSeverity(event.target.value)} disabled={loading || available === false}><option value="ALL">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></label>
         <label className={styles.field}>Ownership<select className={styles.select} value={assignee} onChange={(event) => setAssignee(event.target.value)} disabled={loading || available === false}><option value="all">All owners</option><option value="me">Assigned to me</option><option value="unassigned">Unassigned</option></select></label>
         <label className={styles.field}>Search<input className={styles.input} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Reference, title, entity or owner" disabled={available === false}/></label>
-        <button type="button" className={styles.buttonSecondary} onClick={() => void reconcile()} disabled={loading || reconciling || available === false || readOnly}>{reconciling ? 'Reconciling…' : 'Reconcile exceptions'}</button>
-        <button type="button" className={styles.button} onClick={() => void load()} disabled={loading || reconciling}>{loading ? 'Loading…' : 'Refresh'}</button>
+        <button type="button" className={styles.buttonSecondary} onClick={() => void reconcile()} disabled={loading || reconciling || available === false || readOnly}>{reconciling ? 'Reconcilingâ€¦' : 'Reconcile exceptions'}</button>
+        <button type="button" className={styles.button} onClick={() => void load()} disabled={loading || reconciling}>{loading ? 'Loadingâ€¦' : 'Refresh'}</button>
       </section>
 
       <section className={styles.panel}>
         <div className={styles.panelHeader}><div><h2 className={styles.panelTitle}>Platform Case Centre</h2><p className={styles.panelSubtitle}>Human-owned exceptions with semantic lifecycle and durable event history.</p></div><span className={styles.count}>{loading ? 'Loading' : `${visible.length} visible`}</span></div>
-        {loading ? <div className={styles.empty}>Loading persistent cases…</div> : available === false ? <div className={styles.empty}>Persistent case registry is not applied in this environment.</div> : visible.length === 0 ? <div className={styles.empty}>No persistent cases match the current filters.</div> : <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Severity</th><th>Case</th><th>Entity</th><th>Status</th><th>Owner</th><th>SLA</th><th>Customer update</th><th>Next action</th><th>Updated</th><th></th></tr></thead><tbody>{visible.map((item) => <tr key={item.id}>
+        {loading ? <div className={styles.empty}>Loading persistent casesâ€¦</div> : available === false ? <div className={styles.empty}>Persistent case registry is not applied in this environment.</div> : visible.length === 0 ? <div className={styles.empty}>No persistent cases match the current filters.</div> : <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Severity</th><th>Case</th><th>Entity</th><th>Status</th><th>Owner</th><th>SLA</th><th>Customer update</th><th>Next action</th><th>Updated</th><th></th></tr></thead><tbody>{visible.map((item) => <tr key={item.id}>
           <td><span className={styles.severity} style={{color:severityColor[item.severity]}}>{item.severity}</span></td>
-          <td><div className={styles.caseTitle}>{item.reference} · {item.title}</div>{item.description ? <div className={styles.muted}>{item.description}</div> : null}</td>
+          <td><div className={styles.caseTitle}>{item.reference} Â· {item.title}</div>{item.description ? <div className={styles.muted}>{item.description}</div> : null}</td>
           <td><PlatformEntityLink compact entityType={entityType(item.entity_type)} entityId={item.entity_id}>{item.entity_label}</PlatformEntityLink></td>
           <td><span className={styles.status} style={{color:statusColor[item.status]}}>{item.status.replace(/_/g,' ')}</span></td>
-          <td>{item.assigned_to_label ?? 'Unassigned'}</td><td>{item.sla_breached_at ? <span className={styles.status} style={{color:'#D92D20'}}>BREACHED · {when(item.sla_breached_at)}</span> : item.sla_due_at ? when(item.sla_due_at) : '—'}</td><td>{item.customer_update_due_at ? item.customer_updated_at ? <span className={styles.status} style={{color:'#168553'}}>COMPLETED · {when(item.customer_updated_at)}</span> : <span className={styles.status} style={{color:new Date(item.customer_update_due_at).getTime() <= Date.now() ? '#D92D20' : '#9A6700'}}>{new Date(item.customer_update_due_at).getTime() <= Date.now() ? 'OVERDUE' : 'DUE'} · {when(item.customer_update_due_at)}</span> : '—'}</td><td>{item.next_action ? <><div className={styles.caseTitle}>{item.next_action}</div>{item.next_action_due_at ? <div className={styles.muted}>Due {when(item.next_action_due_at)}</div> : null}</> : '—'}</td><td>{when(item.updated_at)}</td><td><button type="button" className={styles.buttonSecondary} onClick={() => router.push(`/super-admin/action-centre/${item.id}`)}>Open case</button></td>
+          <td>{item.assigned_to_label ?? 'Unassigned'}</td><td>{item.sla_breached_at ? <span className={styles.status} style={{color:'#D92D20'}}>BREACHED Â· {when(item.sla_breached_at)}</span> : item.sla_due_at ? when(item.sla_due_at) : 'â€”'}</td><td>{item.customer_update_due_at ? item.customer_updated_at ? <span className={styles.status} style={{color:'#168553'}}>COMPLETED Â· {when(item.customer_updated_at)}</span> : <span className={styles.status} style={{color:new Date(item.customer_update_due_at).getTime() <= Date.now() ? '#D92D20' : '#9A6700'}}>{new Date(item.customer_update_due_at).getTime() <= Date.now() ? 'OVERDUE' : 'DUE'} Â· {when(item.customer_update_due_at)}</span> : 'â€”'}</td><td>{item.next_action ? <><div className={styles.caseTitle}>{item.next_action}</div>{item.next_action_due_at ? <div className={styles.muted}>Due {when(item.next_action_due_at)}</div> : null}</> : 'â€”'}</td><td>{when(item.updated_at)}</td><td><button type="button" className={styles.buttonSecondary} onClick={() => router.push(`/super-admin/action-centre/${item.id}`)}>Open case</button></td>
         </tr>)}</tbody></table></div>}
       </section>
     </div>

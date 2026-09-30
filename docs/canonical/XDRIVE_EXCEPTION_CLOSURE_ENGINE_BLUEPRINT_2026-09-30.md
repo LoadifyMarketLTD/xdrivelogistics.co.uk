@@ -126,6 +126,18 @@ Future routing matrix:
 - unresolved P0/P1 or repeated SLA breach -> Platform Owner
 - company-specific operational case -> authorised company owner/admin where policy permits
 
+## 8.1 Automatic reconciliation authority
+
+Production reconciliation is scheduled by Supabase Cron rather than a browser session.
+
+- canonical cadence: every minute;
+- scheduler: hosted Supabase pg_cron;
+- dispatcher: a service-controlled database reconciliation function; the browser is not the scheduling authority;
+- manual Action Centre reconciliation remains an explicit operator control, not the scheduling authority;
+- Deploy Preview is inspection-only and rejects reconciliation writes server-side;
+- stable detector/entity dedupe keys keep repeated reconciliation idempotent;
+- automated runs assign engine-created cases, persist SLA breaches, and escalate overdue customer-update and verified-closure obligations.
+
 ## 9. UI contract
 
 Action Centre list must expose:
