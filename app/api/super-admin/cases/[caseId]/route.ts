@@ -73,24 +73,31 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const { caseId } = await params;
   const value = parsed.data;
-  const rpcResult = value.action === 'plan'
-    ? await supabaseAdmin.rpc('owner_set_platform_case_plan', {
-        p_actor_user_id: owner.id,
-        p_case_id: caseId,
-        p_next_action: value.nextAction ?? null,
-        p_next_action_due_at: value.nextActionDueAt ?? null,
-        p_customer_update_due_at: value.customerUpdateDueAt ?? null,
-        p_closure_due_at: value.closureDueAt ?? null,
-      })
-    : await supabaseAdmin.rpc('owner_mutate_platform_case', {
-        p_actor_user_id: owner.id,
-        p_case_id: caseId,
-        p_action: value.action,
-        p_reason: value.reason ?? null,
-        p_assigned_to_user_id: value.assignedToUserId ?? null,
-        p_metadata: value.metadata ?? {},
-      });
-  const { data, error } = rpcResult;
+  let data: unknown = null;
+  let error: { code?: string; message: string } | null = null;
+  if (value.action === 'plan') {
+    const result = await supabaseAdmin.rpc('owner_set_platform_case_plan', {
+      p_actor_user_id: owner.id,
+      p_case_id: caseId,
+      p_next_action: value.nextAction ?? null,
+      p_next_action_due_at: value.nextActionDueAt ?? null,
+      p_customer_update_due_at: value.customerUpdateDueAt ?? null,
+      p_closure_due_at: value.closureDueAt ?? null,
+    });
+    data = result.data;
+    error = result.error;
+  } else {
+    const result = await supabaseAdmin.rpc('owner_mutate_platform_case', {
+      p_actor_user_id: owner.id,
+      p_case_id: caseId,
+      p_action: value.action,
+      p_reason: value.reason ?? null,
+      p_assigned_to_user_id: value.assignedToUserId ?? null,
+      p_metadata: value.metadata ?? {},
+    });
+    data = result.data;
+    error = result.error;
+  }
 
   if (error) {
     if (isTableMissing(error)) return respond(503, { error: 'Platform Case Centre schema is not applied in this environment.' });
