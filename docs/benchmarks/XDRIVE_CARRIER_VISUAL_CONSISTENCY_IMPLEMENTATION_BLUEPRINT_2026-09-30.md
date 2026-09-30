@@ -1,950 +1,1567 @@
-# XDrive Carrier Visual Consistency - Implementation Blueprint
+# XDrive Logistics — Carrier Visual Consistency Implementation Blueprint
 
-Date: 2026-09-30
-Scope: Carrier workspace only. Do not change Customer, Broker, Driver, Super Admin, Finance, Compliance or Dispatcher visual systems in this pass.
+**Status:** FINAL EXECUTION SPECIFICATION
+**Date:** 30 September 2026
+**Scope:** Carrier workspace only
+**Repository:** `LoadifyMarketLTD/xdrivelogistics.co.uk`
+**Implementation branch:** `feat/carrier-visual-convergence-20260930`
 
-## 0. Pre-implementation repository hygiene gate
+This document is an execution contract, not a visual direction document. An implementation agent must be able to execute it without inventing dimensions, spacing, component anatomy, breakpoints, page order, empty-state treatment, table geometry or functional grouping.
 
-Before any Carrier visual implementation begins, close the already-audited runtime/reference cleanup as a separate repository change. Do not mix this cleanup with Carrier UI commits.
+---
 
-Verified cleanup value:
-- move Courier Exchange reference screenshots from `public/reference/courier-exchange/**` to `docs/reference/courier-exchange/**` so development references are not shipped as public runtime assets;
-- update all code/documentation references to the new `docs/reference/courier-exchange/**` location;
-- remove unused legacy driver CSS files `app/driver/driver-dashboard-layout.css` and `app/driver/driver-quote-modal.css` after confirming there are no active references;
-- remove unused legacy public images, including the old ChatGPT-generated assets and `public/uk-satellite-map.png`, after confirming there are no active references;
-- keep the `JobsOperationalTable.tsx` change that only updates the CX reference path;
-- preserve all functional code and business logic.
+# 0. Scope and hard boundaries
 
-Verified evidence for this cleanup candidate:
-- 391/391 Vitest files PASS;
-- 2376/2376 tests PASS;
-- production build PASS;
-- approximately 16.67 MB of unused image assets removed from runtime/public paths.
+Carrier routes covered:
 
-Required sequence:
-1. commit and push the cleanup independently, using a dedicated cleanup commit;
-2. confirm `main` and local working tree are clean;
-3. start Carrier visual convergence from that clean `main`;
-4. do not reintroduce CX reference screenshots into `public/` during Carrier work.
+1. `/admin` — Carrier Control Desk
+2. `/admin/marketplace/directory` — Directory
+3. `/admin/live-availability` — Live Availability
+4. `/admin/fleet` — My Fleet
+5. `/admin/fleet/returns` — Return Journeys
+6. `/admin/marketplace` — Loads
+7. `/admin/exchange-quotes` — Quotes
+8. `/admin/diary` — Diary
+9. `/admin/freight-vision` — Freight Vision
+10. `/admin/fleet/resources` — Drivers & Vehicles
 
-Recommended cleanup commit intent:
-`chore: remove unused runtime assets and relocate CX references`
+Do not redesign Customer, Broker, Driver, Owner Driver, Dispatcher, Finance, Compliance or Super Admin during this pass.
 
-## 0.1 Strict numeric execution contract — mandatory
+Do not touch PR #607.
 
-This section converts the blueprint from design direction into an execution specification.
+Do not alter business rules, Supabase queries, RLS, legal/Stripe gates, quote eligibility, award logic, lifecycle authority, invoice truth, tracking privacy, return-journey ownership, company-driver restrictions or reliability calculations unless a separate functional defect is explicitly found and approved.
 
-**Precedence rule:** for Carrier visual convergence, the values in this document override conflicting Carrier-specific values in older workspace/CX documents. Shared values outside Carrier must not be changed unless explicitly stated.
+---
 
-**No interpretation rule:** implementation may not replace an exact value below with an approximate value, a range, or a visually similar value. Responsive changes are permitted only at the breakpoints defined below.
+# 1. Evidence reviewed before defining this specification
 
-### 0.1.1 Canonical Carrier tokens
+## 1.1 Current XDrive Carrier screenshots supplied by the owner
 
-| Token | Exact value |
-|---|---:|
-| Global header height | 50px |
-| Primary navigation height | 40px |
-| Total sticky shell chrome | 90px |
-| Header horizontal padding | 16px |
-| Header internal gap | 14px |
-| Logo button | 136px × 44px |
-| Logo image | 136px × 36px |
-| Identity gap | 1px |
-| Identity eyebrow | 10px / 13px / 700 |
-| Identity company line | 12px / 15px / 700 |
-| Identity max width | 190px |
-| Header action height | 32px |
-| Header action horizontal padding | 12px |
-| Header action gap | 8px |
-| Notification control | 32px × 32px |
-| Primary nav item height | 40px |
-| Primary nav item horizontal padding | 10px |
-| Primary nav item font | 12px / 600 |
-| Active nav underline | 2px |
-| Page top padding | 12px |
-| Page horizontal padding | 12px |
-| Page bottom padding | 16px |
-| Section gap | 16px |
-| Grid gap | 12px |
-| Internal gap | 8px |
-| Micro gap | 4px |
-| Filter rail width | 220px |
-| Filter/main gap | 12px |
-| Standard control height | 32px |
-| Micro action height | 28px |
-| Panel header height | 36px |
-| Panel body padding | 10px |
-| Panel footer padding | 8px 12px |
-| Panel radius | 4px |
-| Standard border | 1px solid #D8DEE8 |
-| Soft divider | 1px solid #E5E7EB |
-| Page background | #F4F6F8 |
-| Panel background | #FFFFFF |
-| Panel header background | #F4F6F8 |
-| Main text | #1A1F2B |
-| Shell text | #172033 |
-| Muted text | #64748B |
-| Primary blue | #1D57D8 |
-| Navy | #0B2F6B |
-| Action orange | #F5A300 |
-| Success green | #198754 |
-| Warning text | #B76E00 |
-| Danger red | #C62828 |
-| Row hover | #F1F6FF |
-| Row selected | #E8F0FF |
-| Radius for controls/panels | 4px |
-| Drop shadow | none |
+The following live Carrier pages were visually inspected in the supplied 1920×1080 desktop screenshots:
 
-### 0.1.2 Typography — exact
+- Carrier Control Desk
+- Drivers & Vehicles
+- Freight Vision
+- Diary
+- Quotes
+- Loads
+- Return Journeys
+- My Fleet
+- Live Availability
+- Directory
+
+The current visual defects identified from those screenshots are captured in Section 4.
+
+## 1.2 Current repository implementation inspected
+
+Primary files inspected:
+
+- `app/components/workspace/TopWorkspaceShell.tsx`
+- `app/components/workspace/top-workspace-shell.css`
+- `app/components/workspace/WorkspaceUI.tsx`
+- `app/components/workspace/WorkspaceUI.module.css`
+- `app/components/workspace/OperationalConvergence.tsx`
+- `app/components/workspace/OperationalConvergence.module.css`
+- `app/components/workspace/workspace-measured-cx-baseline.css`
+- `app/components/workspace/CarrierOperationsDashboardHome.tsx`
+- `app/components/workspace/FleetControlDashboardHome.tsx`
+- `app/components/workspace/CompanyMarketplaceExchange.tsx`
+- `app/components/workspace/OperationsDiaryPage.tsx`
+- `app/components/workspace/MemberDirectoryPage.tsx`
+- `app/admin/live-availability/page.tsx`
+- `app/admin/freight-vision/page.tsx`
+- `app/admin/fleet/resources/page.tsx`
+- `app/admin/fleet/returns/page.tsx`
+
+## 1.3 Courier Exchange visual references inspected
+
+Reference screenshots are stored under `docs/reference/courier-exchange/`.
+
+Key observed CX patterns used as functional/structural benchmark:
+
+- Dashboard: reports/statistics, latest bookings, accounts/reports, feedback/compliance.
+- Drivers & Vehicles: company vehicles, driver/user management, vehicle tracking.
+- Loads: persistent left search rail, list/map choice, All Live / On Demand / Regular Load / Daily Hire, dense operational load records, Quote Now.
+- Quotes: persistent search rail, Received/Archived/Submitted/Unsuccessful states, compact empty state.
+- Diary: persistent search rail, lifecycle tabs, compact booking records, POD/order/notes/history/documents/invoice actions.
+- Return Journeys: add journey, list/map, route/radius/date/member filters, dense journey records, Track/View Feedback/Book Direct.
+- Availability/return-capacity: current status, future intent, return capacity, recent work and nearby context.
+- My Fleet: resource status, current/last location, future position, future journey, advertising state and tracking notification.
+- Settings/member information: dense forms and grouped operational information, not large marketing cards.
+
+CX is a functional-density benchmark only. XDrive keeps its own branding, privacy model, terminology and component system.
+
+## 1.4 Canonical functional benchmark also reviewed
+
+- `docs/benchmarks/CX_CONNECTED_WORKSPACES_2026-09-06.md`
+- `docs/benchmarks/CX_ROLE_FUNCTION_MASTER_BLUEPRINT_2026-09-25.md`
+- `docs/benchmarks/XDRIVE_OPERATIONAL_WORKSPACE_SHELL_CANONICAL_2026-09-28.md`
+- `docs/ui/cx/jobs.md`
+- `docs/ui/cx/implementation-checklist.md`
+- `docs/ui/cx/screen-inventory.md`
+
+---
+
+# 2. Carrier information architecture — fixed
+
+The Carrier primary navbar order is canonical and must not change:
+
+1. Dashboard
+2. Directory
+3. Live Availability
+4. My Fleet
+5. Return Journeys
+6. Loads
+7. Quotes
+8. Diary
+9. Freight Vision
+10. Drivers & Vehicles
+11. Settings
+12. More
+
+Source: `TopWorkspaceShell.tsx`.
+
+`More` keeps lower-frequency destinations such as Action Centre, invoices, jobs, messages and Event Log according to current permissions.
+
+Do not add a second navbar inside any Carrier page.
+
+---
+
+# 3. Functional meaning of each Carrier navbar destination
+
+This section prevents an implementation agent from simplifying a page until its function no longer matches the product.
+
+## 3.1 Dashboard — Carrier Control Desk
+
+Purpose: command centre, not another register.
+
+Must contain:
+- attention state;
+- unallocated awarded work;
+- live jobs;
+- delivery/POD evidence attention;
+- available drivers;
+- operational exceptions;
+- searchable operational workboard;
+- commercial position;
+- latest carrier-awarded activity;
+- workflow shortcuts tied to actual Carrier lifecycle;
+- finance/report entry points when backed by real data.
+
+Do not duplicate the whole navbar as dashboard shortcuts.
+
+## 3.2 Directory
+
+Purpose: discover members/resources while preserving privacy and verified truth.
+
+Must contain:
+- Companies / Drivers mode;
+- member/XDrive ID;
+- location/coverage;
+- member type/capability;
+- delivery/payment reliability only when evidence exists;
+- filters for member, location/radius, member type, vehicle/capability, specialist service and reliability;
+- Call/Message;
+- Book Direct only where authorised and supported.
+
+No fabricated ratings or verification labels.
+
+## 3.3 Live Availability
+
+Purpose: current/future capacity view.
+
+Must contain:
+- Live Fleet;
+- Future;
+- Nearby Exchange;
+- availability state;
+- current/fresh/stale/missing position;
+- future position;
+- current work;
+- next/future work;
+- privacy-safe nearby Exchange discovery;
+- map + operational register.
+
+## 3.4 My Fleet
+
+Purpose: Carrier fleet-control overview.
+
+Must contain:
+- unallocated;
+- allocated;
+- active jobs;
+- available drivers;
+- tracking attention;
+- compliance attention;
+- resource register;
+- current/last tracked location;
+- future position;
+- return journey;
+- advertising state;
+- document readiness;
+- fleet attention register.
+
+The current `Connected workspace` card duplicates routes already present in the canonical navbar and must be removed from the Carrier visual target.
+
+## 3.5 Return Journeys
+
+Purpose: publish and discover return capacity.
+
+Must contain:
+- Publish Return Journey;
+- Active / All / Closed;
+- List / Map;
+- From / To / Driver filters;
+- journey origin/destination;
+- departure/ETA/date;
+- capacity/vehicle;
+- relevant actions;
+- map when requested.
+
+## 3.6 Loads
+
+Purpose: discover marketplace work.
+
+Must contain:
+- Available Loads / Won Work;
+- All Live / On Demand / Regular Load / Daily Hire;
+- List / Map;
+- From + radius;
+- To + radius;
+- vehicle;
+- body/equipment;
+- freight type;
+- member;
+- advanced search;
+- saved/default search;
+- route;
+- pickup/delivery;
+- distance/cargo/requested vehicle/payment terms when real;
+- quote action;
+- expandable operational detail.
+
+## 3.7 Quotes
+
+Purpose: manage Carrier-submitted marketplace offers.
+
+Must contain:
+- All;
+- Submitted;
+- Accepted / Won;
+- Unsuccessful;
+- Archived;
+- pickup/delivery time filters;
+- load/reference;
+- booked-by/member;
+- route;
+- poster/member;
+- amount;
+- quote state;
+- submitted timestamp;
+- vehicle;
+- marketplace budget where real;
+- commercial note;
+- Withdraw only where policy allows.
+
+## 3.8 Diary
+
+Purpose: canonical booking/history register.
+
+Must contain:
+- All;
+- Unallocated;
+- Allocated;
+- In Progress;
+- Completed;
+- Cancelled;
+- Expired;
+- Awaiting Feedback;
+- Recent Feedback;
+- POD / Evidence;
+- saved views;
+- groups;
+- own/subcontracted scope;
+- route;
+- pickup/delivery;
+- driver/vehicle;
+- status;
+- POD/evidence;
+- notes/history/documents/invoice links where authorised;
+- List / Split View.
+
+## 3.9 Freight Vision
+
+Purpose: execution monitoring and exception recovery.
+
+Must contain:
+- active jobs;
+- on-time state;
+- behind ETA;
+- late;
+- not tracking;
+- not started;
+- pickup/delivery filter;
+- ETA/tracking state;
+- job status;
+- live freight map;
+- exception register;
+- tracking timeline when a job is selected;
+- inspect/open/Diary/replay/message/call actions where authorised.
+
+## 3.10 Drivers & Vehicles
+
+Purpose: detailed resource administration.
+
+Must contain:
+- Resources;
+- Drivers;
+- Vehicles;
+- Vehicle Tracking;
+- Live Availability;
+- Return Journeys;
+- driver/vehicle relationships;
+- availability;
+- current/last location;
+- future position;
+- future journey/next work;
+- advertising;
+- tracking;
+- attention;
+- vehicle document state;
+- vehicle tracking notification preference.
+
+---
+
+# 4. Current visual/code defects — exact audit
+
+| Area | Current state | Defect | Final action |
+|---|---|---|---|
+| Global shell | 50px header + 40px nav | Correct | Keep |
+| Page wrapper | Dashboard/My Fleet custom wrappers; other pages PageFrame | top padding differs 10px vs 12px | All 10 use CarrierPageFrame |
+| Page header | variable natural height; DashboardHomeHeader differs from PageHeader | next section starts at different Y position | fixed desktop header contract |
+| Header margin | PageHeader currently 12px bottom | inconsistent with dense dashboard rhythm | set 8px |
+| Signal strip | Dashboard custom ~54px; OperationalSignalStrip 52px | visually different KPI systems | one CarrierSignalStrip |
+| Signal count | My Fleet has 7 | breaks common strip anatomy | merge document/compliance into one Compliance signal; max 6 |
+| Signal value type | Dashboard 20px, shared strip 17px | inconsistent emphasis | 18px/20px/800 |
+| Tabs | 28px, 30px, min 34px, custom | inconsistent heights | all Carrier local tabs 32px |
+| Filter rail | width 220px | correct | keep |
+| Filter sticky top | legacy CSS top 50px | overlaps 40px primary nav | exact top 102px |
+| Card border | #cfd7e3 / #cbd5e1 / #dbe2ea / #D8DEE8 | inconsistent visual weight | #D8DEE8 only |
+| Card radius | mostly 4px, some shared components 8/9px | inconsistent | 4px only |
+| Panel header | natural/36/40px | inconsistent | CarrierPanelHeader 44px |
+| Controls | 26/28/30/32/34px | inconsistent | 32px standard, 28px micro |
+| Tables | 36/40px headers; rows variable | inconsistent scan rhythm | 36px header, 44px rows |
+| Board records | 52px+ mixed footer/meta | Loads/Quotes/Diary/Returns differ | one 92px collapsed record |
+| Empty state | default 160px with 38px X icon; some 28px padding | placeholder/dead-space appearance | 64px compact; no X |
+| Map empty state | default EmptyState 160px | panels look unfinished | fixed 280px map body |
+| Live/Freight split | page-specific | sibling modules do not match | identical split primitive |
+| Directory | alternate 1280px table + record mode | mixed paradigms/horizontal overflow risk | Carrier uses record mode only |
+| My Fleet Connected workspace | route shortcut card | duplicates navbar | remove |
+| Dashboard quick action strip | custom toolbar | useful contextual actions | keep, but standardize to 40px |
+| Inline CSS | extensive page-specific geometry | agent can drift | move Carrier geometry into shared CSS |
+| Empty main pages | Diary/Quotes/Loads/Returns produce large blank viewport | poor density | compact 64px empty register; no filler height |
+
+---
+
+# 5. Final Carrier design tokens — exact
+
+All values below are mandatory for Carrier.
+
+## 5.1 Colours
+
+| Token | Value |
+|---|---|
+| page-bg | #F4F6F8 |
+| surface | #FFFFFF |
+| surface-muted | #F4F6F8 |
+| surface-hover | #F1F6FF |
+| surface-selected | #E8F0FF |
+| border | #D8DEE8 |
+| divider | #E5E7EB |
+| text | #1A1F2B |
+| shell-text | #172033 |
+| muted | #64748B |
+| blue | #1D57D8 |
+| navy | #0B2F6B |
+| orange | #F5A300 |
+| green | #198754 |
+| green-hover | #157347 |
+| red | #C62828 |
+| warning | #B76E00 |
+
+No box shadow on Carrier operational cards, tables, toolbars or filters.
+
+## 5.2 Radius
+
+- panels: 4px
+- inputs/selects: 4px
+- buttons: 4px
+- status badges: 999px
+- expandable-row toggle: 3px
+
+## 5.3 Typography
+
+Font family: `"Segoe UI", Arial, sans-serif`.
 
 | Element | Size | Line height | Weight |
 |---|---:|---:|---:|
-| Page eyebrow | 11px | 14px | 700 |
-| Page H1 | 20px | 26px | 650 |
-| Page subtitle | 12px | 16px | 400 |
-| Section H2 | 14px | 20px | 650 |
-| Panel title | 13px | 18px | 650 |
-| Body | 13px | 18px | 400 |
-| Control text (input/select) | 12px | 16px | 400 |
-| Action text (button) | 12px | 16px | 600 |
-| Filter label | 11px | 14px | 650 |
-| Table header | 11px | 14px | 700 |
-| Metadata | 11px | 14px | 400 |
-| Micro text (regular) | 10px | 13px | 400 |
-| Micro text (strong) | 10px | 13px | 700 |
-| KPI label | 11px | 14px | 600 |
-| KPI value | 22px | 26px | 700 |
-| Status badge | 11px | 14px | 700 |
+| page eyebrow | 11px | 14px | 700 |
+| H1 | 20px | 26px | 650 |
+| page description | 12px | 16px | 400 |
+| page meta | 11px | 14px | 400 |
+| H2/section | 14px | 20px | 650 |
+| panel title | 13px | 18px | 700 |
+| panel subtitle | 10px | 13px | 400 |
+| body | 12px | 16px | 400 |
+| strong body | 12px | 16px | 650 |
+| label | 11px | 14px | 650 |
+| metadata | 11px | 14px | 400 |
+| micro | 10px | 12px | 400 |
+| micro strong | 10px | 12px | 700 |
+| signal value | 18px | 20px | 800 |
+| table header | 11px | 14px | 700 |
+| status badge | 10px | 14px | 700 |
 
-Font family for all Carrier operational surfaces:
-`"Segoe UI", Arial, sans-serif`.
+No operational text below 10px.
 
-No Carrier operational text may render below 10px.
+## 5.4 Spacing scale
 
-### 0.1.3 Page header geometry — exact
+Only these spacing values are allowed for Carrier layout:
 
-Every Carrier page header must use on desktop >=769px:
-- height: 60px;
-- bottom margin: 8px;
-- left/right content gap: 12px;
-- title/subtitle vertical gap: 2px;
-- actions gap: 8px;
-- action height: 32px;
-- action horizontal padding: 12px.
+- 2px — text micro-gap
+- 4px — micro control/action gap
+- 6px — compact filter gap
+- 8px — internal component gap
+- 10px — compact panel cell padding
+- 12px — grid/page section gap
+- 16px — major section separation
 
-Exactly one `h1` is permitted per Carrier page.
+Do not introduce 5px, 7px, 9px, 14px or arbitrary rem-based Carrier spacing.
 
-### 0.1.4 Carrier signal strip — exact
+---
 
-Desktop >1200px:
-- 6 columns;
-- each tile height: 72px;
-- internal separator gap: 1px;
-- outer border: 1px #D8DEE8;
-- radius: 4px;
-- tile padding: 8px 10px;
-- label: 11/14/600;
-- value: 22/26/700;
-- detail: 11/14/400;
-- semantic accent: 3px left border or equivalent 3px edge indicator;
-- strip bottom margin: 8px.
+# 6. Canonical shell geometry — exact
 
-Viewport <=1200px:
-- 3 columns;
-- 2 rows;
-- tile height remains 72px.
+Existing `TopWorkspaceShell` remains the only global Carrier shell.
 
-Viewport <=640px:
-- 2 columns;
-- 3 rows;
-- tile height remains 72px.
+## 6.1 Header
 
-No horizontal scrolling is allowed for the Carrier signal strip.
+- height: 50px
+- sticky top: 0px
+- z-index: 80
+- horizontal padding: 16px
+- grid gap: 14px
+- logo button: 136×44px
+- logo image: 136×36px
+- header action height: 32px
+- header action horizontal padding: 12px
+- header action gap: 8px
+- notification: 32×32px
 
-### 0.1.5 Filter rail — exact
+## 6.2 Primary navbar
+
+- height: 40px
+- sticky top: 50px
+- z-index: 79
+- horizontal track padding: 16px
+- item height: 40px
+- item horizontal padding: 10px
+- item gap: 2px
+- font: 12px/16px/600
+- active underline: 2px #1D57D8
+
+Total sticky shell chrome: exactly **90px**.
+
+---
+
+# 7. Canonical page frame — exact
+
+Create/use a Carrier-specific wrapper backed by shared primitives:
+
+`CarrierPageFrame`
 
 Desktop >=1025px:
-- width: 220px exactly;
-- layout: `220px minmax(0,1fr)`;
-- grid gap: 12px;
-- sticky offset: 102px from viewport top (50px header + 40px nav + 12px page top);
-- header padding: 8px 10px;
-- body padding: 8px 10px;
-- field gap: 6px;
-- label-to-control gap: 2px;
-- footer padding: 8px 10px;
-- Search button: 32px, full width;
-- Clear button: 32px, full width;
-- inputs/selects: 32px high, 9px horizontal padding.
+- width: 100%
+- max-width: none
+- padding-top: 12px
+- padding-right: 12px
+- padding-bottom: 16px
+- padding-left: 12px
+- page-level overflow-x: 0px
 
-Viewport <=1024px:
-- rail width: 100%;
-- position: static;
-- rail stacks above main content;
-- rail/main gap remains 12px.
+Tablet <=1024px:
+- horizontal padding: 10px
+- top padding: 10px
+- bottom padding: 14px
 
-### 0.1.6 Tabs and view toggles — exact
+Mobile <=768px:
+- horizontal padding: 8px
+- top padding: 8px
+- bottom padding: 12px
 
-Primary operational tab strip:
-- height: 36px;
-- button height: 36px;
-- horizontal padding: 12px;
-- font: 12px / 600;
-- active indicator: 2px bottom border;
-- border radius: 4px on strip outer container;
-- inter-tab gap: 0px.
+---
 
-Compact view toggle:
-- height: 32px;
-- segment horizontal padding: 10px;
-- font: 11px / 600;
-- border: 1px #D8DEE8;
-- outer radius: 4px;
-- active background: #EFF6FF;
-- active text: #0B2F6B.
+# 8. Canonical page header — exact
 
-### 0.1.7 Panels — exact
+Create `CarrierPageHeader`.
 
-Every Carrier operational panel:
-- border: 1px solid #D8DEE8;
-- radius: 4px;
-- background: #FFFFFF;
-- shadow: none;
-- header min-height: 36px;
-- header padding: 8px 10px;
-- header background: #F4F6F8;
-- body padding: 10px;
-- footer padding: 8px 12px;
-- title: 13/18/650;
-- subtitle: 11/14/400;
-- header action gap: 8px.
+Desktop >=1025px:
+- content block height: exactly 78px
+- margin-bottom: 8px
+- actions gap: 8px
+- left/right header gap: 12px
+- title column min-width: 0
+- title column preferred flex-basis: 520px
 
-Flush table/register panels may set body padding to 0 only.
+Vertical title stack:
+1. eyebrow: 14px line box
+2. gap: 2px
+3. H1: 26px line box
+4. gap: 2px
+5. description: 16px line box
+6. gap: 4px
+7. meta: 14px line box
 
-### 0.1.8 Tables/registers — Carrier exact target
+Total: 78px.
 
-Carrier-specific table target supersedes older 40px table-header values for this Carrier convergence pass.
+If a page has no visible meta, reserve the 14px meta row on desktop so the next component begins at the same Y-coordinate across all ten pages.
 
-| Property | Exact value |
-|---|---:|
-| Table header height | 36px |
-| Header horizontal padding | 8px |
-| Header font | 11px / 14px / 700 |
-| Standard row height | 42px |
-| Wrapped row height | 52px |
-| Cell padding | 6px 8px |
-| Primary cell text | 12.5px / 17px / 600 |
-| Metadata | 11px / 14px / 400 |
-| Status badge height | 22px |
-| Status badge radius | 999px |
-| Row action height | 28px |
-| Row action horizontal padding | 8px |
-| Row action gap | 4px |
-| Pagination bar height | 36px |
-| Pagination button | 28px × 28px |
-| Pagination gap | 4px |
+Description is one line on desktop:
+- white-space: nowrap
+- overflow: hidden
+- text-overflow: ellipsis
 
-Tables must scroll inside their own wrapper if unavoidable. Page-level horizontal overflow is forbidden.
+At <=1024px header height becomes auto and actions may wrap below the title block.
 
-### 0.1.9 Empty states — exact
+Exactly one H1 per page.
 
-Compact register empty state:
-- min-height: 64px;
-- padding: 10px 12px;
-- title: 13px / 18px / 600;
-- description: 11px / 15px / 400;
-- title/description gap: 2px;
-- optional action margin-top: 8px;
-- no decorative X icon;
-- no illustration larger than 24px.
+---
 
-Map empty state:
-- min-height: 220px;
-- centered vertically and horizontally;
-- same typography as compact state;
-- optional action height: 32px.
+# 9. Canonical Carrier signal strip — exact
 
-### 0.1.10 Map/register split — exact
-
-For Live Availability and Freight Vision:
-- desktop >=1200px: `minmax(0,0.79fr) minmax(0,1fr)`;
-- exact fraction ratio from 0.79fr / 1fr: 44.134% map / 55.866% register;
-- gap: 12px;
-- map panel min-height: 320px;
-- register panel min-height: 320px;
-- both panel headers: 36px;
-- both start on the same y-coordinate.
-
-At <=1199px:
-- stack to one column;
-- gap remains 12px.
-
-### 0.1.11 Responsive geometry — exact
-
-#### 1920×1080
-- page inner width: 1896px (1920 - 24);
-- rail layout main width: 1664px (1896 - 220 - 12);
-- full Carrier shell chrome: 90px;
-- no page-level horizontal scroll.
-
-#### 1440×900
-- page inner width: 1416px;
-- rail layout main width: 1184px;
-- no page-level horizontal scroll.
-
-#### 1280×800
-- page inner width: 1256px;
-- rail layout main width: 1024px;
-- no page-level horizontal scroll.
-
-#### 1024 tablet
-- page horizontal padding: 10px;
-- inner width: 1004px;
-- rail stacks above main;
-- signal strip uses 3 columns;
-- map/register stacks to one column.
-
-#### 768
-- page horizontal padding: 8px;
-- inner width: 752px;
-- one-column operational rows;
-- filters stacked;
-- tables may scroll inside table wrapper only.
-
-#### 390 mobile
-- page horizontal padding: 8px;
-- inner width: 374px;
-- signal strip: 2 columns;
-- all operational record grids collapse to 1 column;
-- header actions wrap below title if they cannot fit without clipping;
-- no control may be narrower than 32px touch height; primary actions remain 32px high.
-
-### 0.1.12 Exact Carrier page geometry
-
-#### Carrier Control Desk
-- header: 60px;
-- signal strip: 6 × 72px desktop;
-- main composition: 220px rail + 12px gap + main;
-- Operational Workboard header: 40px;
-- workboard empty state: 64px minimum;
-- lower summary grid: `minmax(0,1fr) minmax(0,1.35fr)`;
-- lower grid gap: 12px;
-- lower grid top margin: 12px;
-- Commercial Position row: 42px minimum;
-- Workflow link row: 38px minimum;
-- nested card gap: 12px.
-
-#### My Fleet
-- header: 60px;
-- signal strip: up to 6 tiles; every rendered tile is exactly 72px high;
-- Connected Workspace control row: 40px;
-- full-width register panel;
-- table header: 36px;
-- table rows: 42px;
-- Fleet Attention rows: 42px;
-- section gap: 12px.
-
-#### Drivers & Vehicles
-- header: 60px;
-- signal strip: up to 6 tiles; every rendered tile is exactly 72px high;
-- Resource Filters panel header: 36px;
-- Resource Filters body grid: `repeat(4,minmax(160px,1fr))`;
-- filter body gap: 8px;
-- controls: 32px;
-- Fleet Resource Register header: 36px;
-- Company Vehicles header: 36px;
-- all register rows: 42px;
-- gap between register panels: 12px.
-
-At <=1199px Resource Filters becomes 2 columns.
-At <=768px Resource Filters becomes 1 column.
-
-#### Live Availability
-- header: 60px;
-- signal strip: up to 6 tiles; every rendered tile is exactly 72px high;
-- filter panel header: 36px;
-- filter panel body: 4-column grid at >=1200px, 8px gap;
-- map/register ratio: 0.79fr / 1fr;
-- map/register gap: 12px;
-- both panels min-height: 320px;
-- tabs: 36px;
-- table header: 36px;
-- row: 42px.
-
-#### Freight Vision
-Use the **identical geometry** as Live Availability:
-- same header;
-- same signal strip;
-- same filter panel;
-- same 0.79fr / 1fr split;
-- same 320px minimum panel height;
-- same register dimensions.
-Tracking Timeline, when visible, starts 12px below the map/register row.
-
-#### Loads
-- layout: 220px rail + 12px gap + main;
-- primary tabs: 36px;
-- secondary load-type tabs: 32px;
-- register toolbar: 40px;
-- List/Map toggle: 32px;
-- collapsed load record: 84px minimum;
-- record internal padding: 8px 10px;
-- record gap: 8px;
-- metadata rail: 22px minimum;
-- empty state: 64px;
-- pagination bar: 36px.
-
-#### Quotes
-- layout identical to Loads;
-- rail: 220px;
-- status tabs: 36px;
-- register toolbar: 40px;
-- collapsed quote record: 76px minimum;
-- expanded quote details top border: 1px #E5E7EB;
-- expanded detail padding: 10px;
-- empty state: 64px;
-- pagination: 36px.
-
-#### Diary
-- layout: 220px rail + 12px gap + main;
-- status tabs: 36px;
-- toolbar: 40px;
-- List/Split toggle: 32px;
-- booking record collapsed minimum: 84px;
-- record gap: 8px;
-- metadata bar: 22px;
-- no empty main area taller than 96px when there are zero bookings;
-- empty state min-height: 64px;
-- page-size control: 32px;
-- pagination bar: 36px.
-
-#### Return Journeys
-- layout: 220px rail + 12px gap + main;
-- state tabs: 36px;
-- List/Map toggle: 32px;
-- editor panel header: 36px;
-- editor desktop grid: `repeat(4,minmax(150px,1fr))`;
-- editor grid gap: 8px;
-- editor controls: 32px;
-- record collapsed minimum: 76px;
-- record metadata bar: 22px;
-- map panel minimum: 320px;
-- empty state: 64px.
-
-#### Directory
-- exactly one page H1;
-- outer Carrier PageHeader only; inner MemberDirectoryPage must not render a second H1/hero;
-- layout: 220px rail + 12px gap + main;
-- Companies/Drivers tabs: 36px;
-- register metadata bar: 36px;
-- operational member row minimum: 88px;
-- row internal grid desktop: `1.20fr 1fr 1.25fr 1.45fr 1fr`;
-- column gap: 0; separators are 1px #E5E7EB;
-- cell padding: 8px 10px;
-- action gap: 4px;
-- action height: 28px;
-- empty state: 64px.
-
-### 0.1.13 Visual acceptance tolerances
-
-Implementation is considered geometrically correct only when:
-- specified fixed heights/widths differ by **0px** in computed CSS;
-- browser rasterisation/screenshot edge tolerance is at most **±2px**;
-- page-level horizontal overflow is **0px**;
-- no unexpected vertical gap exceeds its specified token by more than **2px**;
-- every Carrier page uses the same border, radius, typography and control-height tokens;
-- any deviation from this numeric contract requires an explicit amendment to this document before code is merged.
-
-
-## 1. Objective
-
-Make every Carrier surface feel like one operational product without flattening role-specific functionality.
-
-Carrier anchor:
-- `/admin` - Carrier Control Desk
-
-Carrier surfaces covered:
-- `/admin` - Carrier Control Desk
-- `/admin/marketplace/directory` - Directory
-- `/admin/live-availability` - Live Availability
-- `/admin/fleet` - My Fleet
-- `/admin/fleet/returns` - Return Journeys
-- `/admin/marketplace` - Loads
-- `/admin/exchange-quotes` - Quotes
-- `/admin/diary` - Diary
-- `/admin/freight-vision` - Freight Vision
-- `/admin/fleet/resources` - Drivers & Vehicles
-- Carrier Settings stays on the canonical shell but is not redesigned in this pass.
-
-Do not touch PR #607 or Super Admin.
-
-## 2. Current-state diagnosis from screenshots + repo
-
-### 2.1 Shell is already canonical
-Carrier primary navigation is composed in:
-- `app/components/workspace/TopWorkspaceShell.tsx`
-
-The Carrier primary order is already correct:
-Dashboard, Directory, Live Availability, My Fleet, Return Journeys, Loads, Quotes, Diary, Freight Vision, Drivers & Vehicles, Settings, More.
-
-Do not create another navbar or page-specific shell.
-
-### 2.2 Two competing page systems exist
-
-#### Family A - current shared WorkspaceUI
-Used heavily by:
-- Carrier Control Desk
-- Freight Vision
-- Live Availability
-- Drivers & Vehicles
-
-Core primitives:
-- `PageFrame`
-- `PageHeader`
-- `OperationalToolbar`
-- `OperationalSignalStrip`
-- `Panel`
-- `OperationalCard`
-- `DataTable`
-- `EmptyState`
-- `TwoColumn`
-- `OperationalPageLayout`
-- `OperationalFilters`
-
-Source:
-- `app/components/workspace/WorkspaceUI.tsx`
-- `app/components/workspace/WorkspaceUI.module.css`
-
-#### Family B - measured/legacy operational classes
-Used heavily by:
-- Diary
-- Loads / Quotes
-- Return Journeys
-- Directory
-
-Examples:
-- `workspace-board-layout`
-- `workspace-filter-rail`
-- `workspace-tab-strip`
-- `workspace-panel`
-- `workspace-operational-row`
-- `workspace-record-meta`
-
-Source:
-- `app/components/workspace/workspace-measured-cx-baseline.css`
-
-This split is the main reason screenshots feel related but not fully consistent.
-
-## 3. Canonical Carrier visual system
-
-Use Carrier Control Desk as the anchor, but converge it toward reusable primitives rather than copying page-specific JSX.
-
-### 3.1 Page geometry
+Create `CarrierSignalStrip`; do not use raw page-specific KPI markup.
 
 Desktop:
-- page padding: 12px horizontal, 12px top, 16px bottom
-- panel gap: 8-12px
-- border radius: 4px
-- borders: #D8DEE8
-- no drop shadows
-- page background: #F4F6F8
-- surfaces: #FFFFFF
+- exactly 6 cells when a page uses signals
+- strip height: 56px
+- outer border: 1px #D8DEE8
+- outer radius: 4px
+- internal cell separators: 1px #E5E7EB
+- cell padding: 4px 10px
+- semantic accent: 3px left edge
+- margin-bottom: 8px
+- no horizontal scrolling
 
-Typography:
-- eyebrow: 11px / 16px / 700 / uppercase / blue
-- H1: 20px / 26px / 600
-- panel title: 13-14px / 18px / 600-650
-- body: 12px / 16px
-- metadata: 11px / 14-15px
-- table headers / filter labels: 11px / 14px / 650
+Cell typography:
+- label: 11/14/650
+- value: 18/20/800
+- detail: 10/12/400
+
+Responsive:
+- >1200px: 6 columns
+- 769–1200px: 3 columns × 2 rows
+- <=768px: 2 columns × 3 rows
+
+Every cell remains exactly 56px high.
+
+My Fleet currently has 7 signals. Final six:
+1. Unallocated
+2. Allocated
+3. Active Jobs
+4. Available Drivers
+5. Tracking Alerts
+6. Compliance
+
+`Documents expiring` is folded into the Compliance signal detail/count; do not keep a seventh tile.
+
+---
+
+# 10. Canonical card/panel system — exact
+
+Create/use `CarrierPanel`.
+
+Outer:
+- border: 1px solid #D8DEE8
+- radius: 4px
+- background: #FFFFFF
+- shadow: none
+- overflow: hidden
+
+Header:
+- height: exactly 44px
+- padding: 6px 10px
+- title: 13/18/700
+- subtitle: 10/13/400
+- title/subtitle gap: 1px
+- action gap: 8px
+- background: #F4F6F8
+- bottom border: 1px #D8DEE8
+
+Body:
+- standard padding: 10px
+- flush register/table body: 0px
+
+Footer:
+- min-height: 32px
+- padding: 4px 10px
+- background: #F4F6F8
+- top border: 1px #D8DEE8
+- font: 11/14/400
+
+---
+
+# 11. Canonical filter rail — exact
+
+Create/use `CarrierFilterRail`.
+
+Desktop >=1025px:
+- width: exactly 220px
+- board grid: `220px minmax(0,1fr)`
+- rail/main gap: 12px
+- sticky top: **102px**
+  - 50px global header
+  - 40px primary nav
+  - 12px page top padding
+- background: #FFFFFF
+- border: 1px #D8DEE8
+- radius: 4px
+- overflow: hidden
+
+Header:
+- height: 36px
+- padding: 0 10px
+- title: 12/16/700
+
+Body:
+- padding: 10px
+- field vertical gap: 6px
+- label/control gap: 2px
 
 Controls:
-- normal action height: 32px
-- micro actions: 28-30px
+- height: 32px
+- border: 1px #D8DEE8
 - radius: 4px
-- primary blue, success green, secondary white
+- horizontal padding: 9px
+- font: 12/16/400
 
-### 3.2 Header contract
+Footer:
+- padding: 8px 10px
+- button gap: 4px
 
-Every Carrier page must use one header anatomy:
-1. eyebrow
-2. H1
-3. one-line description
-4. optional meta line
-5. action cluster at top-right
+At <=1024px:
+- width: 100%
+- position: static
+- rail stacks above main
+- grid becomes 1 column
+- gap remains 12px
 
-Canonical implementation:
-- use `PageHeader`
-- deprecate duplicate page-local title/header structures
+The current legacy sticky `top:50px` is incorrect and must not survive Carrier convergence.
 
-Dashboard:
-- replace or align `DashboardHomeHeader` with `PageHeader` tokens so both render the same geometry.
-- badge is allowed only on Dashboard where it adds live context.
+---
 
-### 3.3 Signal/KPI strip contract
+# 12. Canonical tabs — exact
 
-Canonical:
-- max 6 equal-width operational signals on desktop
-- compact 54-72px range
-- top/left semantic accent only
-- label 11px
-- value 20-22px
-- optional 11px detail
-- responsive 6 -> 3 -> 2 columns
+Create/use `CarrierTabStrip`.
 
-Unify:
-- `CarrierControlSignals`
-- `OperationalSignalStrip`
-- `KpiCard / ExchangeKpiStrip`
+- strip height: 32px
+- tab height: 32px
+- horizontal padding: 10px
+- font: 11/14/650
+- active font weight: 800
+- active underline: 2px #1D57D8
+- inactive text: #64748B
+- active text: #1D57D8
+- background: #FFFFFF
+- bottom border: 1px #D8DEE8
+- tab gap: 0px
+- no rounded individual tabs
 
-Implementation target:
-create one shared `CarrierSignalStrip` adapter in WorkspaceUI/OperationalConvergence and migrate Carrier dashboard to it.
+This replaces current 28px, 30px and 34px variants.
 
-### 3.4 Filter rail contract
+---
 
-Pages with a search rail:
-- Dashboard
-- Loads
-- Quotes
-- Diary
-- Return Journeys
-- Directory
+# 13. Canonical toolbar — exact
 
-Canonical width:
-- 220-230px desktop
-- sticky below header/navbar
-- full-width below 1024px
+Create/use `CarrierToolbar`.
 
-Canonical component:
-- `OperationalFilters`
-- `OperationalFilterField`
-- `OperationalFilterInput`
-- `OperationalFilterSelect`
+Desktop:
+- height: 40px
+- padding: 4px 8px
+- control gap: 8px
+- border: 1px #D8DEE8
+- radius: 4px
+- background: #FFFFFF
+- flex-wrap: nowrap
 
-Migrate all remaining `workspace-filter-rail` implementations to these components.
+At <=1024px:
+- min-height: 40px
+- height: auto
+- wrapping allowed
 
-Do not keep separate filter visual markup per page.
+Standard control height inside toolbar: 32px.
 
-### 3.5 Panel contract
+---
 
-Canonical panel:
-- `OperationalCard` for strict dense operational sections
-- `Panel` allowed only until migrated
-- header background #F4F6F8
-- 1px border
-- body padding 10-12px
-- no oversized empty bodies
+# 14. Buttons and controls — exact
 
-Migration goal:
-Carrier pages use `OperationalCard` for:
-- filters
-- registers
-- maps
-- workflow sections
-- secondary summaries
+## Standard button
+- height: 32px
+- horizontal padding: 12px
+- radius: 4px
+- font: 12/16/600
+- gap between icon/text: 8px
 
-### 3.6 Register/table contract
+## Micro/row button
+- height: 28px
+- horizontal padding: 8px
+- radius: 4px
+- font: 11/14/600
 
-Use one of two patterns only:
+## Expand/collapse square
+- 28×28px
+- radius: 3px
 
-A. Table register
-- `DataTable`
-- for Drivers & Vehicles, Live Availability, Freight Vision and dense registers
+## Focus
+- outline: 2px solid #1D57D8
+- outline-offset: -1px
 
-B. Operational record rows
-- reusable `OperationalRecordList` extracted from measured classes
-- for Loads, Quotes, Diary, Return Journeys, Directory only where card-like rows are genuinely more readable than tables
+## Disabled
+- opacity: 0.55
+- cursor: not-allowed
 
-Do not mix raw HTML tables, DataTable and ad-hoc article rows on the same conceptual surface.
+No operational button may be 26px, 30px or 34px after convergence.
 
-### 3.7 Empty state contract
+---
 
-Remove the current visual placeholder feeling.
+# 15. Canonical table geometry — exact
 
-All Carrier empty states:
-- compact by default
-- no large decorative X badge
-- title + optional explanation
-- optional contextual action
-- target min-height: 52-80px
-- never fill half the viewport without data
+Use one Carrier table implementation.
 
-Use `EmptyState compact` for list/register empties.
-Use standard `EmptyState` only for maps or primary surfaces that need more space.
+- table wrapper: overflow-x auto only when necessary
+- page-level horizontal overflow: forbidden
+- header height: 36px
+- header padding: 0 10px
+- header font: 11/14/700
+- row height: 44px
+- wrapped row height: 52px only when explicitly required
+- cell padding: 6px 10px
+- body font: 12/16/400
+- strong cell: 12/16/650
+- metadata: 10/12/400
+- row bottom border: 1px #E5E7EB
+- hover: #F1F6FF
+- selected: #E8F0FF
 
-## 4. Shared implementation changes first
+Status badge:
+- height: 22px
+- padding: 0 7px
+- font: 10/14/700
+- radius: 999px
 
-Before page-by-page polish, make the primitives capable of supporting every Carrier surface.
+Pagination:
+- bar height: 36px
+- page button: 28×28px
+- gap: 4px
 
-### 4.1 WorkspaceUI.tsx
+---
 
-Add / standardise:
-- `CarrierPageHeader` wrapper around PageHeader or bring DashboardHomeHeader onto identical tokens
-- `CarrierSignalStrip`
-- `OperationalTabStrip`
-- `OperationalViewToggle`
-- `OperationalRegisterHeader`
-- `OperationalEmptyState` wrapper with compact/map variants
-- `OperationalRecordList`
-- `OperationalRecordRow`
-- `OperationalActionGroup`
+# 16. Canonical operational record — exact
 
-Do not duplicate new primitives in page files.
+Loads, Quotes, Diary, Return Journeys and Directory use the same collapsed record anatomy.
 
-### 4.2 WorkspaceUI.module.css
+Outer:
+- border: 1px solid #D8DEE8
+- radius: 4px
+- background: #FFFFFF
+- overflow: hidden
+- margin/gap between records: 8px
+- collapsed total height: exactly **92px**
 
-Create shared classes for:
-- carrier page rhythm
-- signal strip
-- filter rail
-- tab strip
-- register toolbar
-- map/register split
-- operational rows
-- compact empty state
-- actions
-- responsive breakpoints
+Primary record area:
+- height: 60px
+- display: grid
+- cell padding: 8px 10px
+- vertical separators: 1px #E5E7EB
 
-Remove page-specific inline geometry after migration.
+Action/footer bar:
+- height: 32px
+- padding: 2px 8px
+- top border: 1px #E5E7EB
+- background: #FBFDFF
+- action gap: 4px
 
-### 4.3 workspace-measured-cx-baseline.css
+No separate 22–28px metadata bar may be added to the collapsed record. Metadata must fit inside the 60px primary area or the 32px footer.
 
-Keep this file as measurement/reference and compatibility layer during migration.
+Expanded detail:
+- top border: 1px #E5E7EB
+- padding: 10px
+- grid gap: 8px
+- background: #F8FAFC
+- appears between the 60px primary area and 32px action/footer bar.
 
-Do not delete it before:
-- all Carrier pages have moved to shared primitives
-- Visual Fixture Gate is green
-- no Carrier page depends on legacy classes
+---
 
-After Carrier convergence, reduce Carrier-specific dependence on this file.
+# 17. Empty states — exact
 
-## 5. Page-by-page implementation plan
+Do not use the existing decorative 38px `X` icon on Carrier.
 
-### Phase A - establish the anchor
+## Register empty state
+- height: 64px
+- padding: 10px 12px
+- title: 12/16/650
+- description: 11/14/400
+- title/description gap: 2px
+- no illustration
+- optional CTA: 28px micro action
 
-#### 5.1 Carrier Control Desk
-Files:
-- `app/components/workspace/CarrierOperationsDashboardHome.tsx`
-- `app/components/workspace/DashboardHomePrimitives.tsx`
+## Map empty state
+- body height: 280px
+- centered horizontally/vertically
+- no decorative X
+- title: 13/18/650
+- description: 11/14/400
+- max text width: 420px
 
-Keep:
-- operational toolbar
-- six control signals
-- left Control Filters
-- operational workboard
+No empty list/register surface may fill unused viewport height.
+
+---
+
+# 18. Live map/register split — exact
+
+Live Availability and Freight Vision must use the same shared primitive.
+
+Desktop >=1200px:
+- grid: `minmax(0,.79fr) minmax(0,1fr)`
+- gap: 12px
+- available fraction:
+  - map: 44.134%
+  - register: 55.866%
+- panel header: 44px
+- panel body: 280px
+- total panel height including borders: 326px
+- both panels start on identical Y coordinate
+- both panels have identical total height when register content does not require more
+
+At <=1199px:
+- stack to 1 column
+- gap: 12px
+- body stays 280px
+
+---
+
+# 19. Desktop width calculations — exact
+
+## 1920px viewport
+- page horizontal padding: 12+12
+- page inner width: 1896px
+- rail: 220px
+- rail/main gap: 12px
+- rail-layout main width: 1664px
+
+Dashboard lower grid using `1fr / 1.35fr`:
+- usable width after 12px gap: 1652px
+- left: 703px
+- right: 949px
+
+Live/Freight split:
+- usable width after 12px gap: 1884px
+- map: 831.5px
+- register: 1052.5px
+
+## 1440px viewport
+- inner width: 1416px
+- rail-layout main: 1184px
+- dashboard lower left/right after gap: 498.7px / 673.3px
+- Live/Freight map/register after gap: 619.7px / 784.3px
+
+## 1280px viewport
+- inner width: 1256px
+- rail-layout main: 1024px
+- dashboard lower left/right after gap: 430.6px / 581.4px
+- Live/Freight map/register after gap: 549.0px / 695.0px
+
+No page-level horizontal scroll is permitted at 1920, 1440 or 1280.
+
+---
+
+# 20. Breakpoints — exact
+
+## >=1280
+Full desktop geometry.
+
+## 1200–1279
+- rail remains 220px
+- signal strip remains 6 columns until 1200 boundary
+- operational record primary grid may reduce column minimums but remains one row
+
+## 1025–1199
+- rail remains 220px
+- signal strip becomes 3×2
+- map/register stacks at <=1199
+- operational records use 2-column primary arrangement where needed
+
+## 769–1024
+- filter rail stacks above content
+- page horizontal padding 10px
+- signal strip 3×2
+- filter grids max 2 columns
+- tables scroll within wrapper only
+- header height auto
+
+## <=768
+- page padding 8px
+- signal strip 2×3
+- all record grids 1 column
+- collapsed operational records no longer fixed to 92px; they become content-height cards
+- filters 1 column
+- actions wrap
+- no page-level horizontal overflow
+
+## 390 reference mobile
+- page inner width: 374px
+- standard controls: 32px
+- micro actions: 28px
+- two signal columns
+- tables converted to cards only where the existing component explicitly supports mobile card rendering; otherwise table wrapper scrolls horizontally
+
+---
+
+# 21. Page-specific exact implementation contracts
+
+## 21.1 Carrier Control Desk — /admin
+
+Vertical order:
+
+1. CarrierPageHeader — 78px
+2. 8px gap
+3. contextual Operations toolbar — 40px
+4. 8px gap
+5. CarrierSignalStrip — 56px
+6. 8px gap
+7. board grid: 220px rail + 12px + main
+8. lower summary grid inside main — 12px top gap
+
+Header:
+- eyebrow: CARRIER OPERATIONS
+- title: Carrier Control Desk
+- description: existing truthful description
+- meta row reserved
+
+Context toolbar:
+- exactly 40px
+- left: Operations + short descriptor
+- right: Jobs, Live Availability, Live Positions, Freight Vision, Directory, Messages, Event Log, Refresh
+- these are contextual operations shortcuts and may remain because they relate directly to the active control desk
+- buttons: 32px
+
+Signals — exactly 6:
+1. Needs Attention
+2. Awaiting Allocation
+3. Live Jobs
+4. Photo Evidence
+5. Available Drivers
+6. Exceptions
+
+Board:
+- rail 220px
+- workboard panel header 44px
+- workboard tabs 32px
+- register rows table geometry 36/44 when populated
+- empty state 64px
+- footer 32px
+
+Lower grid:
+- `minmax(0,1fr) minmax(0,1.35fr)`
+- gap 12px
+- left stack gap 12px
+- right stack gap 12px
+
+Cards:
 - Commercial Position
+- Reports & Finance
 - Activity at a Glance
 - Carrier Workflow
-- Reports & Finance
 
-Change:
-- migrate page wrapper to `PageFrame`
-- align header with canonical PageHeader geometry
-- migrate CarrierControlSignals to shared CarrierSignalStrip
-- replace inline RailMetric / WorkflowLink / CommercialRow geometry with shared compact list primitives where possible
-- reduce repeated inline styles
-- preserve all routes, counts and business logic
+All four use 44px panel headers.
 
-Acceptance:
-- dashboard screenshot remains recognisably the same information architecture
-- no page-level horizontal overflow
-- no duplicated navbar actions
-- no data/logic change
+Commercial rows: 44px each.
+Workflow rows: 44px each.
 
-### Phase B - converge the strongest existing pages
+Remove page-specific custom signal geometry and move to CarrierSignalStrip.
 
-#### 5.2 My Fleet
-Main implementation:
-- Fleet dashboard component resolved by `AdminRoleDashboardHome` / fleet surfaces
+## 21.2 Directory — /admin/marketplace/directory
 
-Goal:
-- same header rhythm as Carrier Control Desk
-- same 6-signal strip geometry
-- same register header/action alignment
-- same status badge language
-- same panel background/borders
+Vertical order:
 
-Keep:
-- Connected workspace
-- resource register
-- fleet attention
-- Allocate Jobs
+1. CarrierPageHeader — 78px
+2. 8px gap
+3. board grid 220px + 12px + main
+
+No duplicate H1 inside `MemberDirectoryPage`.
+
+Rail:
+- 220px
+- header 36px
+- exact field order:
+  1. Member / XDrive ID
+  2. Location
+  3. Find My Nearest
+  4. Radius
+  5. Country
+  6. Member Type
+  7. Vehicle Type
+  8. Specialist Service
+  9. Tail Lift Capability
+  10. Delivery Reliability
+  11. Payment Reliability
+- controls 32px
+- field gap 6px
+
+Main:
+- Companies / Drivers tabs: 32px
+- register toolbar: 40px
+- page-size control: 32px
+- record gap: 8px
+
+Carrier Directory record:
+- total collapsed height 92px
+- primary 60px
+- footer/actions 32px
+- desktop primary grid:
+  `minmax(260px,1.30fr) minmax(210px,1fr) minmax(240px,1.15fr) minmax(280px,1.30fr)`
+- cells:
+  1. Member
+  2. Location
+  3. Type / Capability
+  4. Delivery / Payment reliability
+- actions move to 32px footer:
+  - Profile/member identity where available
+  - Call member
+  - Messages
+  - Book Direct when authorised
+
+Do not use the existing `dir-table` 1280px desktop mode in Carrier. Carrier Directory uses operational records only.
+
+Empty result: 64px.
+
+## 21.3 Live Availability — /admin/live-availability
+
+Vertical order:
+
+1. CarrierPageHeader — 78px
+2. tabs — 32px
+3. 8px gap
+4. CarrierSignalStrip — 56px
+5. 8px gap
+6. filter panel — 88px total
+7. 12px gap
+8. shared map/register split — 326px
+
+Tabs:
+- Live Fleet
+- Future
+- Nearby Exchange
+
+Signals — exactly 6:
+1. Available
+2. Busy
+3. Fresh Locations
+4. Stale / Missing
+5. Future Positions
+6. Availability Conflicts
+
+Filter panel:
+- header 36px
+- body height 50px
+- body padding 9px 10px
+- desktop Live grid:
+  `minmax(360px,2fr) minmax(220px,1fr) minmax(220px,1fr)`
+- search / availability / tracking freshness
+- Clear/Save controls stay 32px
+
+Map/register split:
+- use Section 18 exactly
+- no X icon
+- register table 36px header / 44px rows
+
+## 21.4 My Fleet — /admin/fleet
+
+Vertical order:
+
+1. CarrierPageHeader — 78px
+2. 8px gap
+3. CarrierSignalStrip — 56px
+4. 8px gap
+5. Fleet Resource Register
+6. 12px gap
+7. Fleet Attention
+
+Remove `Connected workspace` card entirely because Finance, Freight Vision, Messages and Event Log are already reachable from the canonical shell/More and the shell contract forbids duplicate dashboard navigation.
+
+Signals — exactly 6:
+1. Unallocated
+2. Allocated
+3. Active Jobs
+4. Available Drivers
+5. Tracking Alerts
+6. Compliance
+
+Resource Register panel:
+- header 44px
+- filter toolbar 40px
+- table header 36px
+- row 44px
+- actions micro 28px
+
+Columns stay:
+Driver / Vehicle / Availability / Current Location / Future Position / Return Journey / Advertise / Documents / Actions
+
+Fleet Attention:
+- header 44px
+- filter toolbar 40px
+- table header 36px
+- row 44px
+
+Page wrapper top padding changes from current 10px to canonical 12px desktop.
+
+## 21.5 Return Journeys — /admin/fleet/returns
+
+Vertical order:
+
+1. CarrierPageHeader — 78px
+2. 8px gap
+3. board grid 220px + 12px + main
+
+Header actions:
+- Publish Return Journey
+- Live / Future Availability
 - Refresh
+- 32px each
 
-Remove:
-- unnecessary duplicated navigation if already in top navbar
+Publish editor:
+- hidden/collapsed until Publish Return Journey is activated
+- when open, appears immediately below header and before board grid
+- panel header 44px
+- body desktop grid: `repeat(4,minmax(150px,1fr))`
+- body gap 8px
+- controls 32px
+- action row 40px
+- panel margin-bottom 12px
 
-#### 5.3 Drivers & Vehicles
-File:
-- `app/admin/fleet/resources/page.tsx`
+Rail:
+- From
+- To
+- Driver
+- 220px exact
 
-Already uses modern primitives.
+Main:
+- Active / All / Closed tabs: 32px
+- List / Map toggle: 32px
+- toolbar: 40px
 
-Change:
-- standardise header/meta placement
-- use the same signal-strip component as Dashboard
-- convert Resource filters to canonical filter/register pattern
-- use one register toolbar style
-- align Company Vehicles and Fleet Resource Register tables
-- make warning badges use consistent semantic tones
-- ensure action buttons use shared action group
+List record:
+- 92px collapsed
+- primary 60px
+- footer 32px
+- primary grid:
+  `minmax(320px,1.35fr) minmax(260px,1fr) minmax(220px,.75fr)`
+- columns: Route / Timing / Capacity+Vehicle
+- footer: Track / Feedback / Book Direct / management actions permitted by XDrive
 
-#### 5.4 Live Availability
-File:
-- `app/admin/live-availability/page.tsx`
+Map:
+- CarrierPanel header 44px
+- body 280px
+- total 326px
 
-Change:
-- same header/meta rhythm
-- same signal strip
-- standardise filter panel height/padding
-- standard map/register two-column frame
-- compact empty map state
-- remove decorative X appearance from empty state
-- ensure register never produces awkward horizontal scroll at desktop width
+Empty list: 64px.
 
-#### 5.5 Freight Vision
-File:
-- `app/admin/freight-vision/page.tsx`
+## 21.6 Loads — /admin/marketplace
 
-Change:
-- same header/meta rhythm
-- same signal strip
-- same filter-panel anatomy
-- standard map/register split used by Live Availability
-- same compact empty-state treatment
-- timeline panel follows same register pattern
+Vertical order:
 
-Result:
-Live Availability and Freight Vision should look like sibling modules.
+1. CarrierPageHeader — 78px
+2. Available Loads / Won Work tabs — 32px
+3. 8px gap
+4. board grid 220px + 12px + main
 
-## 6. Board/register migration
+Rail:
+- Search Loads header 36px
+- From + radius
+- To + radius
+- Vehicle Size
+- Body / Equipment
+- Freight Type
+- Member Name / ID
+- Advanced Search
+- Search / Clear
+- Load Default / Save Default
+- controls 32px
+- field gap 6px
 
-### 6.1 Loads
-Files:
-- `app/admin/marketplace/page.tsx`
-- `app/components/workspace/CompanyMarketplaceExchange.tsx`
+Main:
+- register toolbar 40px
+- left area: All Live / On Demand / Regular Load / Daily Hire as 32px tabs
+- right area: result count / Expand All / List / Map
+- all toolbar controls 32px
 
-Current issue:
-custom Panel + custom fields + raw inline layout.
+Load record:
+- collapsed 92px
+- primary 60px
+- footer 32px
+- grid:
+  `minmax(360px,1.35fr) minmax(280px,1fr) minmax(260px,.90fr)`
+- column 1: route + distance/reference
+- column 2: pickup/delivery
+- column 3: description/vehicle/budget/quote state
+- footer: expand toggle + Quote + Details/member action
+- expanded detail padding 10px
+- expanded grid `repeat(4,minmax(170px,1fr))`, gap 8px
 
-Migrate:
-- outer page remains PageFrame/PageHeader
-- left rail -> OperationalFilters
-- Available Loads / Won Work -> OperationalTabStrip
-- All Live / On Demand / Regular Load / Daily Hire -> secondary compact tab strip
-- results area -> OperationalRegisterHeader + OperationalRecordList
-- List / Map -> OperationalViewToggle
-- pagination -> shared register footer
-- quote modal remains functionally unchanged
+Empty: 64px.
+Pagination: 36px.
 
-Do not merge Customer Quotes into this page.
+Won Work uses canonical table geometry, not a separate 40px legacy table.
 
-### 6.2 Quotes
-Files:
-- `app/admin/exchange-quotes/page.tsx`
-- `app/components/workspace/CompanyMarketplaceExchange.tsx`
+## 21.7 Quotes — /admin/exchange-quotes
 
-Use the same composition as Loads:
-- same left rail width
-- same tab strip
-- same empty state
-- same register body
-- same top controls
+Vertical order:
 
-Quotes must visually be the same module family as Loads, not a separate design.
+1. CarrierPageHeader — 78px
+2. 8px gap
+3. board grid 220px + 12px + main
 
-### 6.3 Diary
-Files:
-- `app/admin/diary/page.tsx`
-- `app/components/workspace/OperationsDiaryPage.tsx`
+Rail:
+- Pickup Time Within
+- Delivery Time Within
+- Load ID / Ref
+- Booked By
+- Search / Clear
+- width 220px
+- controls 32px
 
-Current issue:
-legacy measured layout with large blank register area.
+Main:
+- status tabs 32px:
+  All / Submitted / Accepted-Won / Unsuccessful / Archived
+- register toolbar 40px
+- Expand All control 32px
 
-Migrate:
-- PageFrame + PageHeader
-- OperationalFilters left rail
-- shared register toolbar for List / Split View, page size, pagination, refresh
-- status tabs -> OperationalTabStrip
-- empty state compact, no large blank workspace
-- booking rows -> OperationalRecordList
-- preserve Saved Views, Groups, booking scope, payment report and filtering behaviour
+Quote record:
+- 92px collapsed
+- primary 60px
+- footer 32px
+- grid:
+  `minmax(360px,1.35fr) minmax(280px,1fr) minmax(200px,.65fr)`
+- route/reference
+- poster + pickup/delivery
+- amount + state
+- expanded detail grid `repeat(4,minmax(170px,1fr))`
+- expanded padding 10px
+- footer includes Updated timestamp and Withdraw when allowed
 
-### 6.4 Return Journeys
-File:
-- `app/admin/fleet/returns/page.tsx`
+Empty state 64px.
 
-Current issue:
-hybrid PageFrame/PageHeader plus legacy board classes.
+## 21.8 Diary — /admin/diary
 
-Migrate:
-- filter rail -> OperationalFilters
-- Active / All / Closed -> OperationalTabStrip
-- List / Map -> OperationalViewToggle
-- editor -> OperationalCard
-- map -> same map panel as Live Availability/Freight Vision
-- list rows -> OperationalRecordList
-- standard empty state
-- preserve all publish/edit/close/call/route actions
+Vertical order:
 
-## 7. Directory migration
+1. CarrierPageHeader — 78px
+2. 8px gap
+3. board grid 220px + 12px + main
 
-Files:
-- `app/admin/marketplace/directory/page.tsx`
-- `app/components/workspace/MemberDirectoryPage.tsx`
+Rail exact order:
+- Saved Views
+- Save Current View
+- Groups
+- Booking Scope
+- From
+- To
+- Pickup Time Within
+- Delivery Time Within
+- Load ID / Ref
+- Customer Name
+- remaining current filters in existing order
+- 220px width
+- controls 32px
 
-Critical issue:
-Directory currently contains multiple visual modes / legacy structures and can effectively create a second heading hierarchy inside the page.
+Main:
+- toolbar 40px:
+  - result count
+  - List View / Split View
+  - Items per Page
+  - pagination
+  - Refresh
+- status tabs 32px:
+  All / Unallocated / Allocated / In Progress / Completed / Cancelled / Expired / Awaiting Feedback / Recent Feedback / POD-Evidence
 
-Carrier wrapper already provides:
-- PageFrame
-- PageHeader
+List record:
+- 92px collapsed
+- primary 60px
+- footer 32px
+- grid:
+  `minmax(360px,1.35fr) minmax(280px,1fr) minmax(260px,.90fr)`
+- Route / Pickup-Delivery / Status-Vehicle-Evidence
+- footer contains expand, allocation, groups and contextual actions
+- no separate 28px metadata bars on collapsed state
 
-Therefore:
-- MemberDirectoryPage in Carrier context must not render another H1/hero that duplicates Directory
-- use one canonical left filter rail
-- Companies / Drivers -> OperationalTabStrip
-- results metadata -> OperationalRegisterHeader
-- results -> either DataTable or OperationalRecordList, not both modes for the same Carrier surface
-- action cluster: Profile / Message / Book Direct
-- reliability fields retain truth-derived wording
+Split View:
+- list/detail grid:
+  `minmax(360px,.82fr) minmax(520px,1.18fr)`
+- gap 8px
+- detail panel uses CarrierPanel
+- at <=1199px split stacks vertically
 
-Recommended Carrier implementation:
-use operational rows on desktop because member identity, location, capability, reliability and actions need grouped reading more than a dense table.
+Zero bookings:
+- 64px empty state only
+- no blank register panel filling the viewport
 
-## 8. Exact component ownership after migration
+## 21.9 Freight Vision — /admin/freight-vision
 
-`TopWorkspaceShell.tsx`
-- global Carrier header/nav/actions only
-- no page-specific layout responsibilities
+Vertical order:
 
-`WorkspaceUI.tsx`
-- all generic operational primitives
+1. CarrierPageHeader — 78px
+2. CarrierSignalStrip — 56px
+3. 8px gap
+4. filter panel — 88px
+5. 12px gap
+6. shared map/register split — 326px
+7. selected-job detail/timeline — 12px gap when present
 
-`OperationalConvergence.tsx`
-- signal strips and convergence-specific operational pieces
+Signals exactly 6:
+1. Active Jobs
+2. On Time
+3. Behind ETA
+4. Late
+5. Not Tracking
+6. Not Started
 
-`CarrierOperationsDashboardHome.tsx`
-- Carrier dashboard business composition only
+Filter panel:
+- header 36px
+- body 50px
+- grid:
+  `minmax(260px,1fr) minmax(260px,1fr) minmax(260px,1fr) minmax(260px,1fr)`
+- Pickup / Delivery / ETA-Tracking State / Job Status
+- gap 8px
 
-`CompanyMarketplaceExchange.tsx`
-- Loads/Quotes data and feature logic only; no unique design system
+Map/Register:
+- same primitive and dimensions as Live Availability
+- map body 280px
+- exception register body 280px
+- register table 36/44
+- no X icon
 
-`OperationsDiaryPage.tsx`
-- diary business logic only; shared visuals
+Selected job summary:
+- 4-column desktop grid
+- gap 8px
+- card padding 10px
 
-`MemberDirectoryPage.tsx`
-- member/network logic only; shared visuals
+Tracking Timeline:
+- CarrierPanel
+- header 44px
+- table 36/44
 
-Page files under `app/admin/**/page.tsx`
-- route protection and top-level composition only
+## 21.10 Drivers & Vehicles — /admin/fleet/resources
 
-## 9. Visual order of implementation
+Vertical order:
 
-Do not redesign all pages simultaneously.
+1. CarrierPageHeader — 78px
+2. local tabs — 32px
+3. 8px gap
+4. CarrierSignalStrip — 56px
+5. 8px gap
+6. Resource Filters — 88px
+7. 12px gap
+8. Fleet Resource Register
+9. 12px gap
+10. Company Vehicles
+11. 12px gap
+12. resource attention/details when present
 
-Implementation sequence:
-1. Shared Carrier primitives
+Tabs:
+Resources / Drivers / Vehicles / Vehicle Tracking / Live Availability / Return Journeys
+
+Signals exactly 6:
+1. Drivers
+2. Vehicles
+3. Live Tracking
+4. Advertised
+5. Future Declared
+6. Needs Attention
+
+Resource Filters:
+- header 36px
+- body 50px
+- desktop grid:
+  `minmax(360px,2fr) minmax(220px,1fr) minmax(220px,1fr) 180px`
+- Search / Availability / Tracking / Needs Attention only
+- gap 8px
+- controls 32px
+
+At <=1199px:
+- 2 columns
+
+At <=768px:
+- 1 column
+
+Registers:
+- panel header 44px
+- table header 36px
+- row 44px
+- action 28px
+- warning badges 22px
+- gap between panels 12px
+
+---
+
+# 22. Shared component ownership after implementation
+
+## TopWorkspaceShell.tsx
+Owns only:
+- global header
+- primary nav
+- global workspace actions
+- More menu
+
+## WorkspaceUI / Carrier additions
+Must own:
+- CarrierPageFrame
+- CarrierPageHeader
+- CarrierPanel
+- CarrierToolbar
+- CarrierFilterRail
+- CarrierTabStrip
+- CarrierViewToggle
+- CarrierTable
+- CarrierOperationalRecord
+- CarrierEmptyState
+- CarrierActionGroup
+
+## OperationalConvergence
+Must own:
+- CarrierSignalStrip or a strict Carrier mode of OperationalSignalStrip
+- shared map/register split
+
+## Page components
+Must own only:
+- data selection
+- permission logic
+- page-specific content order
+- business actions
+
+They must not define new geometry tokens.
+
+---
+
+# 23. Required code migrations
+
+## CarrierOperationsDashboardHome.tsx
+- remove custom CarrierControlSignals implementation
+- replace with CarrierSignalStrip
+- move inline panel/row geometry to shared classes
+- use CarrierPageFrame + CarrierPageHeader
+- keep workboard logic unchanged
+
+## FleetControlDashboardHome.tsx
+- replace custom wrapper with CarrierPageFrame
+- remove Connected workspace duplicate-nav card
+- reduce 7 signals to 6
+- use CarrierPageHeader
+- use canonical tables/toolbars
+
+## live-availability/page.tsx
+- replace custom tabStyle/inputStyle/labelStyle geometry with shared Carrier primitives
+- use shared map/register split
+- CarrierEmptyState only
+
+## freight-vision/page.tsx
+- same geometry as Live Availability
+- remove page-specific grid values where shared primitive can express them
+
+## fleet/resources/page.tsx
+- migrate 34px/28px local nav variants to 32px
+- migrate filters to exact Resource Filters grid
+- canonical table/actions/status badge geometry
+
+## fleet/returns/page.tsx
+- remove legacy workspace-board visual dependency
+- preserve functionality
+- migrate to CarrierFilterRail, CarrierTabStrip, CarrierOperationalRecord
+
+## CompanyMarketplaceExchange.tsx
+- preserve Loads and Quotes business logic
+- replace 28px tabs, 30px advanced button, 34px local bars, 26px expand controls and ad-hoc records with Carrier primitives
+- Won Work uses canonical CarrierTable
+
+## OperationsDiaryPage.tsx
+- replace legacy rail/panel/record geometry
+- keep saved views, groups, lifecycle, split view, allocation, feedback and modal logic
+- collapse record anatomy to canonical 92px
+
+## MemberDirectoryPage.tsx
+- Carrier mode uses one H1 from route wrapper only
+- remove Carrier desktop table mode
+- use canonical operational record
+- preserve filters/reliability/privacy/direct booking logic
+
+---
+
+# 24. Interaction contract
+
+Buttons:
+- hover transition 120ms ease-out
+- no scale/bounce
+- no decorative shadow
+
+Inputs:
+- focus 2px #1D57D8, offset -1px
+- disabled background #F4F6F8
+- disabled text #94A3B8
+
+Rows:
+- hover #F1F6FF
+- selected #E8F0FF
+
+Keyboard:
+- DOM/tab order follows visual order
+- no positive tabIndex
+- Enter activates button/link
+- Space activates button/toggle
+- Escape closes modal/popover
+- focus returns to trigger after close
+
+Motion:
+- normal transition 120ms ease-out
+- modal backdrop maximum 150ms
+- `prefers-reduced-motion` disables non-essential transitions
+
+Sticky:
+- header top 0
+- nav top 50
+- filter rail top 102
+- no Carrier sticky element may use a top offset between 1 and 101px
+
+---
+
+# 25. Accessibility contract
+
+Every page:
+- exactly one H1
+- labelled filters
+- meaningful button text
+- icon-only buttons require aria-label
+- tabs use tab semantics where appropriate
+- view toggles use aria-pressed or tabs
+- status is never communicated by colour alone
+- focus-visible state always present
+- no inaccessible click-only divs
+- WCAG AA text contrast
+
+---
+
+# 26. Implementation order — mandatory
+
+Do not implement all pages simultaneously.
+
+1. Shared Carrier primitives and tokens
 2. Carrier Control Desk
 3. My Fleet
 4. Drivers & Vehicles
@@ -955,107 +1572,25 @@ Implementation sequence:
 9. Diary
 10. Return Journeys
 11. Directory
-12. Carrier visual regression pass
+12. full Carrier visual-regression pass
 
-Reason:
-- first five establish the operational language
-- Loads/Quotes/Diary/Returns reuse the new register/filter primitives
-- Directory comes last because it has the most distinct information model
+Do not move to another role until step 12 is complete.
 
-## 10. Functional non-regression rules
+---
 
-Visual work must not change:
-- role/capability gates
-- Supabase queries
-- RLS
-- Stripe/legal posting gates
-- quote eligibility
-- award logic
-- job lifecycle
-- invoice truth
-- tracking privacy rules
-- return journey ownership
-- member reliability calculations
-- Company Driver publishing restrictions
+# 27. Visual verification matrix
 
-No fake metrics.
-No placeholder rows.
-No visual state that implies data exists when the API says unavailable/partial.
+Every page must be captured at:
 
-## 11. Responsive contract
+- 1920×1080
+- 1440×900
+- 1280×800
+- 1024 tablet
+- 768
+- 390 mobile
 
-Desktop >= 1240:
-- horizontal top nav
-- rail + main where applicable
-- 6 signal tiles max
-- map/register side-by-side where useful
-
-Tablet 769-1239:
-- signal strip 3 columns where needed
-- rail may stack above main
-- actions wrap predictably
-
-Mobile <= 768:
-- one-column content
-- filter rail becomes normal panel
-- tables use controlled horizontal scrolling only when unavoidable
-- operational rows collapse to one column
-- top shell remains usable
-
-## 12. Accessibility contract
-
-- one H1 per page
-- tab strips use tablist semantics where appropriate
-- view toggles use aria-pressed
-- clickable KPI/signal cards use buttons
-- filter labels are associated with controls
-- empty-state actions are keyboard reachable
-- active nav state remains visible
-- colour is not the only status indicator
-
-## 13. Carrier acceptance matrix
-
-Every page must pass:
-- canonical TopWorkspaceShell
-- canonical PageHeader geometry
-- no duplicate page hero/H1
-- shared action button geometry
-- shared panel border/radius/background
-- shared tabs
-- shared filter rail where applicable
-- compact empty states
-- no decorative X placeholder
-- no unexplained dead space
-- no page-level horizontal overflow at 1920, 1440, 1280
-- responsive at 1024 and 768
-- no business logic change
-
-## 14. Test / gate plan
-
-Existing:
-- `__tests__/carrierDashboardContract.test.ts`
-- Visual Fixture Gate
-- TypeScript
-- ESLint
-- production build
-- local Semgrep SAST
-
-Add:
-- `__tests__/carrierVisualConsistencyContract.test.ts`
-
-Contract assertions should verify:
-- all target Carrier pages use PageFrame/PageHeader or approved Carrier wrappers
-- no target Carrier page introduces a custom top navbar
-- no legacy giant empty-state geometry
-- Directory does not duplicate H1 inside Carrier wrapper
-- Loads, Quotes, Diary, Returns use shared filter rail components after migration
-- Live Availability and Freight Vision use same map/register split primitive
-- Carrier primary nav order remains unchanged
-- Settings stays directly visible
-- More retains secondary destinations
-
-Visual fixture matrix:
-- Carrier Dashboard
+Pages:
+- Dashboard
 - Directory
 - Live Availability
 - My Fleet
@@ -1066,35 +1601,95 @@ Visual fixture matrix:
 - Freight Vision
 - Drivers & Vehicles
 
-Capture at:
-- 1920x1080
-- 1440x900
-- 1024 tablet
-- 390 mobile
+Total required Carrier visual fixtures: **60**.
 
-## 15. Definition of done
+---
+
+# 28. Numeric acceptance tolerances
+
+A Carrier implementation is accepted only when:
+
+- fixed width/height tokens differ by 0px in computed CSS;
+- screenshot rasterisation tolerance is ±2px at edges;
+- page horizontal overflow is exactly 0px at 1920, 1440, 1280 and 1024;
+- grid gaps differ by no more than 0px in computed style;
+- typography size/line-height/weight matches the contract exactly;
+- all standard controls are 32px;
+- all row actions are 28px;
+- all Carrier tabs are 32px;
+- all Carrier table headers are 36px;
+- all normal table rows are 44px;
+- all Carrier panel headers are 44px;
+- all signal cells are 56px;
+- all desktop rail layouts use 220px rail width;
+- all list empty states are 64px;
+- all map bodies are 280px;
+- collapsed board records are 92px on desktop.
+
+Any deliberate deviation requires this document to be amended before merge.
+
+---
+
+# 29. Test/gate requirements
+
+Existing gates:
+- TypeScript
+- ESLint
+- full Vitest
+- production build
+- Semgrep local SAST
+- Visual Fixture Gate
+
+Add:
+- `__tests__/carrierVisualConsistencyContract.test.ts`
+
+Contract test must assert:
+- canonical Carrier primary nav order unchanged;
+- all ten pages use approved Carrier wrapper/primitives;
+- no page-specific global navbar;
+- no decorative X empty state in Carrier;
+- no 26px/30px/34px Carrier buttons/tabs;
+- no legacy Carrier rail sticky top 50px;
+- max 6 Carrier signals;
+- My Fleet has 6 signals;
+- no Carrier Directory 1280px table mode;
+- no duplicate Directory H1;
+- Loads/Quotes/Diary/Returns use CarrierFilterRail;
+- Live Availability and Freight Vision use same map/register split;
+- no page-level overflow fixture at target desktop widths.
+
+---
+
+# 30. Definition of done
 
 Carrier is complete only when:
-1. all ten screenshots look like one workspace family;
-2. TopWorkspaceShell is the only global Carrier shell;
-3. shared WorkspaceUI primitives own page geometry;
-4. no Carrier page has an independent visual system;
-5. empty states are compact and intentional;
-6. filters/registers/maps are consistent;
-7. visual fixture matrix passes;
-8. Carrier contract tests pass;
-9. TypeScript, ESLint, full Vitest, build and SAST pass;
-10. Netlify preview is inspected page-by-page before push/merge.
 
-## 16. Explicit non-goals
+1. all ten pages visually read as one product family;
+2. shell/header/nav are identical across the ten pages;
+3. identical semantic components use identical dimensions;
+4. there are no arbitrary page-local geometry values;
+5. no large blank empty-state areas remain;
+6. no decorative X placeholder remains;
+7. all rails, tabs, buttons, tables, records, panels and maps follow this contract;
+8. all 60 visual fixtures are reviewed;
+9. contract tests pass;
+10. TypeScript passes;
+11. ESLint passes;
+12. full Vitest passes;
+13. production build passes;
+14. SAST passes;
+15. Netlify preview is inspected page-by-page;
+16. only after those checks may the Carrier branch be merged to main.
 
-During this Carrier pass:
-- do not redesign Customer
-- do not redesign Broker
-- do not redesign Driver / Owner Driver
-- do not touch Super Admin
-- do not change #607
-- do not perform unrelated repo cleanup
-- do not delete measured CSS until Carrier dependency has been removed and gates prove it safe
+---
 
-Carrier first. Finish it completely before moving to any other workspace.
+# 31. Non-interpretation rule
+
+If an implementation agent encounters a visual choice not explicitly covered here, the agent must not invent a new Carrier pattern.
+
+The agent must:
+1. first reuse the closest existing Carrier primitive defined by this document;
+2. if no primitive applies, stop and amend this blueprint with an exact numeric contract;
+3. only then implement the new element.
+
+This rule exists specifically to prevent unreviewed spacing, heights, widths, typography, cards, grids or interaction patterns from entering Carrier.
