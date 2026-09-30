@@ -17,6 +17,16 @@ import { getBlockedCounterpartyCompanyIds } from '../../../_lib/companyBlocks';
 
 const LIST_LIMIT = 150;
 
+function distanceMiles(from: { lat: number; lng: number }, to: { lat: number; lng: number }) {
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const earthMiles = 3958.8;
+  const deltaLat = radians(to.lat - from.lat);
+  const deltaLng = radians(to.lng - from.lng);
+  const a = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(radians(from.lat)) * Math.cos(radians(to.lat)) * Math.sin(deltaLng / 2) ** 2;
+  return earthMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
 type JobRow = Record<string, unknown> & {
   id?: unknown;
   company_id?: unknown;
@@ -273,7 +283,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const [{ data: latestDriverLocation }, { data: homeCompany }] = await Promise.all([
+  const [{ data: latestDriverLocation }, { data: alertPreferences }] = await Promise.all([
     supabaseAdmin
       .from('driver_locations')
       .select('lat,lng,recorded_at')
@@ -281,9 +291,11 @@ export async function GET(request: NextRequest) {
       .order('recorded_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    driver.companyId
-      ? supabaseAdmin.from('companies').select('postcode').eq('id', driver.companyId).maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
+    supabaseAdmin
+      .from('driver_load_alert_preferences')
+      .select('enabled,current_radius_enabled,radius_miles,current_location_max_age_minutes')
+      .eq('driver_id', driver.driverId)
+      .maybeSingle(),
   ]);
 
   const validCoordinates = (lat: unknown, lng: unknown) => {
@@ -291,55 +303,49 @@ export async function GET(request: NextRequest) {
     const parsedLng = Number(lng);
     return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
   };
-  const postcodeKey = (value: unknown) => String(value ?? '').replace(/\s+/g, '').toUpperCase();
   const latestPosition = validCoordinates(latestDriverLocation?.lat, latestDriverLocation?.lng);
   const recordedAt = latestDriverLocation?.recorded_at ? new Date(latestDriverLocation.recorded_at).getTime() : Number.NaN;
-  const fresh = latestPosition !== null && Number.isFinite(recordedAt) && Date.now() - recordedAt <= 120 * 60_000;
+  const maxLocationAgeMinutes = Math.max(15, Math.min(360, Number(alertPreferences?.current_location_max_age_minutes ?? 120)));
+  const gpsFresh = latestPosition !== null
+    && Number.isFinite(recordedAt)
+    && Date.now() - recordedAt <= maxLocationAgeMinutes * 60_000;
+  const currentRadiusEnabled = alertPreferences ? alertPreferences.current_radius_enabled !== false : true;
+  const radiusMiles = Math.max(5, Math.min(300, Number(alertPreferences?.radius_miles ?? 30)));
+  const driverPosition = gpsFresh && currentRadiusEnabled ? latestPosition : null;
 
-  let driverPosition = fresh ? latestPosition : null;
-  if (!driverPosition && homeCompany?.postcode) {
-    try {
-      const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcodeKey(homeCompany.postcode))}`, {
-        signal: AbortSignal.timeout(5_000),
-        cache: 'no-store',
-      });
-      if (response.ok) {
-        const payload = await response.json() as { result?: { latitude?: number; longitude?: number } | null };
-        driverPosition = validCoordinates(payload.result?.latitude, payload.result?.longitude);
-      }
-    } catch {
-      // No driver-to-pickup metric is safer than an invented one.
-    }
-  }
+  const candidateJobs = requestedId
+    ? jobs
+    : driverPosition
+      ? jobs
+          .map((job) => {
+            const pickup = validCoordinates(job.pickup_lat, job.pickup_lng);
+            const miles = pickup ? distanceMiles(driverPosition, pickup) : null;
+            return { job, miles };
+          })
+          .filter(({ miles }) => miles !== null && miles <= radiusMiles)
+          .sort((a, b) => {
+            const postedA = new Date(String(a.job.exchange_posted_at ?? 0)).getTime();
+            const postedB = new Date(String(b.job.exchange_posted_at ?? 0)).getTime();
+            if (postedA !== postedB) return postedB - postedA;
+            return (a.miles ?? Number.POSITIVE_INFINITY) - (b.miles ?? Number.POSITIVE_INFINITY);
+          })
+          .map(({ job }) => job)
+      : [];
 
-  const loads = await Promise.all(jobs.map(async (job) => {
-    let distanceToPickupMiles = marketplaceNumber(job.distance_to_pickup_miles);
+  const loads = await Promise.all(candidateJobs.map(async (job) => {
+    const pickup = validCoordinates(job.pickup_lat, job.pickup_lng);
+    let distanceToPickupMiles = driverPosition && pickup
+      ? Number(distanceMiles(driverPosition, pickup).toFixed(1))
+      : marketplaceNumber(job.distance_to_pickup_miles);
     let pickupEtaMinutes = marketplaceNumber(job.pickup_eta_minutes);
 
-    // A single Load Detail request may enrich a missing driver-to-pickup route on demand.
-    // The list endpoint must never fan out external routing requests for every load.
-    if (requestedId && driverPosition && (distanceToPickupMiles == null || pickupEtaMinutes == null)) {
-      let pickup = validCoordinates(job.pickup_lat, job.pickup_lng);
-      if (!pickup && job.pickup_postcode) {
-        try {
-          const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcodeKey(job.pickup_postcode))}`, {
-            signal: AbortSignal.timeout(5_000),
-            cache: 'no-store',
-          });
-          if (response.ok) {
-            const payload = await response.json() as { result?: { latitude?: number; longitude?: number } | null };
-            pickup = validCoordinates(payload.result?.latitude, payload.result?.longitude);
-          }
-        } catch {
-          pickup = null;
-        }
-      }
-      if (pickup) {
-        const route = await calculateDrivingRoute([driverPosition, pickup]);
-        if (route) {
-          distanceToPickupMiles = route.distanceMiles;
-          pickupEtaMinutes = route.durationMinutes;
-        }
+    // A single Load Detail request may enrich road distance/ETA on demand.
+    // Alerts stay instant by using the driver's live GPS + stored pickup coordinates.
+    if (requestedId && driverPosition && pickup) {
+      const route = await calculateDrivingRoute([driverPosition, pickup]);
+      if (route) {
+        distanceToPickupMiles = route.distanceMiles;
+        pickupEtaMinutes = route.durationMinutes;
       }
     }
     return {
