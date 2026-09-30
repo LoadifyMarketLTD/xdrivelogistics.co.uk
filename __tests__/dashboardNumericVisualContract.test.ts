@@ -14,21 +14,22 @@ describe('dashboard numeric visual contract', () => {
     expect(source).toContain('fontWeight: 600');
   });
 
-  it('reflows Carrier signals without a forced horizontal scroll surface', () => {
+  it('reflows Carrier signals using the approved 56px six/three/two-column contract', () => {
     const component = readFileSync(
       join(process.cwd(), 'app/components/workspace/CarrierOperationsDashboardHome.tsx'),
       'utf8',
     );
     const css = readFileSync(
-      join(process.cwd(), 'app/components/workspace/WorkspaceUI.module.css'),
+      join(process.cwd(), 'app/components/workspace/CarrierDashboard.module.css'),
       'utf8',
     );
 
-    expect(component).toContain('className={styles.carrierControlSignalsGrid}');
+    expect(component).toContain('className={carrierStyles.signals}');
     expect(component).not.toContain("minWidth: '780px'");
-    expect(css).toContain('.carrierControlSignalsGrid');
+    expect(css).toContain('.signals');
     expect(css).toContain('grid-template-columns: repeat(6, minmax(0, 1fr))');
     expect(css).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
     expect(css).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
+    expect(css).toMatch(/\.signals\s*\{[\s\S]*?height:\s*56px;/);
   });
 });

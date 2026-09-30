@@ -168,12 +168,19 @@ describe('carrier dashboard convergence contract', () => {
 
   it('keeps the carrier dashboard readable while preserving the approved operational geometry', () => {
     const shellCss = source('app/components/workspace/top-workspace-shell.css');
+    const dashboardCss = source('app/components/workspace/CarrierDashboard.module.css');
 
     expect(shellCss).toContain('height: 50px !important;');
     expect(shellCss).toContain('.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button');
-    expect(shellCss).toContain('min-height: 72px !important;');
+    expect(shellCss).toContain('height: 56px !important;');
+    expect(shellCss).toContain('min-height: 56px !important;');
     expect(shellCss).toContain('.top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"]');
-    expect(shellCss).toContain('top: 74px !important;');
-    expect(shellCss).toContain('font-size: 12px !important;');
+    expect(shellCss).toContain('top: 102px !important;');
+    expect(dashboardCss).toMatch(/\.header\s*\{[\s\S]*?height:\s*78px;/);
+    expect(dashboardCss).toMatch(/\.workboardHeader\s*\{[\s\S]*?height:\s*40px;/);
+    expect(dashboardCss).toMatch(/\.tabs\s*\{[\s\S]*?height:\s*32px;/);
+    expect(dashboardCss).toMatch(/\.workboardFooter\s*\{[\s\S]*?height:\s*32px;/);
+    expect(dashboardCss).toMatch(/\.panelHeader\s*\{[\s\S]*?height:\s*44px;/);
+    expect(dashboardCss).toMatch(/\.compactEmpty\s*\{[\s\S]*?height:\s*64px;/);
   });
 });

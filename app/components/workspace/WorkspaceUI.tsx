@@ -278,13 +278,15 @@ export function OperationalPageLayout({
   searchPanel,
   maxWidth,
   style,
+  searchAsideStyle,
 }: {
   children: ReactNode;
   /** Optional left search/filter panel. When provided, the layout switches to
-   *  a 230px aside + flexible main two-column grid. */
+   *  a 220px aside + flexible main two-column grid. */
   searchPanel?: ReactNode;
   maxWidth?: number;
   style?: CSSProperties;
+  searchAsideStyle?: CSSProperties;
 }) {
   return (
     <div
@@ -296,6 +298,7 @@ export function OperationalPageLayout({
           <aside
             className={styles.operationalPageLayoutSearchAside}
             aria-label="Search and filters"
+            style={searchAsideStyle}
           >
             {searchPanel}
           </aside>

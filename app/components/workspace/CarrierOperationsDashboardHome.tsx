@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState, type CSSProperties, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   getWorkspaceDatasetMetricValue,
@@ -11,8 +11,6 @@ import {
   ActionButton,
   AlertBanner,
   DataTable,
-  EmptyState,
-  OperationalCard,
   OperationalFilterField,
   OperationalFilterInput,
   OperationalFilterSelect,
@@ -22,8 +20,7 @@ import {
   StatusBadge,
   workspaceTheme,
 } from './WorkspaceUI';
-import { DashboardHomeHeader } from './DashboardHomePrimitives';
-import styles from './WorkspaceUI.module.css';
+import carrierStyles from './CarrierDashboard.module.css';
 import {
   daysUntil,
   exceptionStatuses,
@@ -44,6 +41,7 @@ type ControlSignal = {
   key: ControlView | 'drivers';
   label: string;
   value: ReactNode;
+  detail: string;
   tone: string;
   active?: boolean;
   onClick: () => void;
@@ -111,26 +109,59 @@ const moneyOrDash = (value: number) => (value > 0 ? money(value) : '—');
 
 function CarrierControlSignals({ signals }: { signals: ControlSignal[] }) {
   return (
-    <div
-      className={styles.carrierControlSignals}
+    <section
+      className={carrierStyles.signals}
       data-testid="carrier-control-signals"
       aria-label="Carrier control signals"
-      style={{ border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', background: workspaceTheme.surface, marginBottom: '8px' }}
     >
-      <div className={styles.carrierControlSignalsGrid}>
-        {signals.map((signal) => (
-          <button
-            className={styles.carrierControlSignal}
-            key={signal.key}
-            type="button"
-            onClick={signal.onClick}
-            aria-pressed={signal.active}
-            style={{ minHeight: '54px', padding: '6px 9px', border: 0, borderTop: `3px solid ${signal.tone}`, background: signal.active ? '#F1F6FF' : workspaceTheme.surface, color: workspaceTheme.text, cursor: 'pointer', textAlign: 'left' }}
-          >
-            <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{signal.label}</span>
-            <strong style={{ display: 'block', marginTop: '2px', color: signal.active ? workspaceTheme.blue : workspaceTheme.navy, fontSize: '20px', lineHeight: '24px', fontWeight: 800 }}>{signal.value}</strong>
-          </button>
-        ))}
+      {signals.map((signal) => (
+        <button
+          className={carrierStyles.signal}
+          key={signal.key}
+          type="button"
+          onClick={signal.onClick}
+          aria-pressed={signal.active ?? false}
+          style={{ '--carrier-signal-tone': signal.tone } as CSSProperties}
+        >
+          <span className={carrierStyles.signalLabel}>{signal.label}</span>
+          <strong className={carrierStyles.signalValue}>{signal.value}</strong>
+          <span className={carrierStyles.signalDetail}>{signal.detail}</span>
+        </button>
+      ))}
+    </section>
+  );
+}
+
+function CarrierPanel({
+  title,
+  subtitle,
+  children,
+  flush = false,
+}: {
+  title: string;
+  subtitle?: string;
+  children: ReactNode;
+  flush?: boolean;
+}) {
+  return (
+    <section className={carrierStyles.panel}>
+      <header className={carrierStyles.panelHeader}>
+        <div className={carrierStyles.panelHeaderText}>
+          <h3 className={carrierStyles.panelTitle}>{title}</h3>
+          {subtitle ? <p className={carrierStyles.panelSubtitle}>{subtitle}</p> : null}
+        </div>
+      </header>
+      <div className={flush ? carrierStyles.panelBodyFlush : carrierStyles.panelBody}>{children}</div>
+    </section>
+  );
+}
+
+function CarrierCompactEmptyState({ title, description }: { title: string; description?: string }) {
+  return (
+    <div className={carrierStyles.compactEmpty}>
+      <div>
+        <strong>{title}</strong>
+        {description ? <p>{description}</p> : null}
       </div>
     </div>
   );
@@ -138,7 +169,7 @@ function CarrierControlSignals({ signals }: { signals: ControlSignal[] }) {
 
 function RailMetric({ label, value, onClick }: { label: string; value: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} style={{ width: '100%', minHeight: '28px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '5px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, cursor: 'pointer', textAlign: 'left', fontSize: '11px' }}>
+    <button type="button" onClick={onClick} style={{ width: '100%', minHeight: '32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '5px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, cursor: 'pointer', textAlign: 'left', fontSize: '11px' }}>
       <span>{label}</span><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>{value}</strong>
     </button>
   );
@@ -146,7 +177,7 @@ function RailMetric({ label, value, onClick }: { label: string; value: ReactNode
 
 function WorkflowLink({ label, detail, onClick }: { label: string; detail: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '8px', minHeight: '38px', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, textAlign: 'left', cursor: 'pointer' }}>
+    <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '8px', minHeight: '44px', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, textAlign: 'left', cursor: 'pointer' }}>
       <span style={{ minWidth: 0 }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{detail}</span></span>
       <span aria-hidden="true" style={{ color: workspaceTheme.blue, fontSize: '14px', fontWeight: 800 }}>→</span>
     </button>
@@ -155,7 +186,7 @@ function WorkflowLink({ label, detail, onClick }: { label: string; detail: strin
 
 function CommercialRow({ label, detail, value, onClick }: { label: string; detail: string; value: ReactNode; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '10px', minHeight: '42px', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
+    <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '10px', minHeight: '44px', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
       <span><strong style={{ display: 'block', color: workspaceTheme.text, fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{detail}</span></span>
       <strong style={{ color: workspaceTheme.navy, fontSize: '13px', whiteSpace: 'nowrap' }}>{value}</strong>
     </button>
@@ -266,12 +297,12 @@ export default function CarrierOperationsDashboardHome() {
   };
 
   const signals: ControlSignal[] = [
-    { key: 'attention', label: 'Needs attention', value: viewCounts.attention, tone: workspaceTheme.orange, active: view === 'attention', onClick: () => setView('attention') },
-    { key: 'unallocated', label: 'Awaiting allocation', value: viewCounts.unallocated, tone: workspaceTheme.orange, active: view === 'unallocated', onClick: () => setView('unallocated') },
-    { key: 'live', label: 'Live jobs', value: viewCounts.live, tone: workspaceTheme.blue, active: view === 'live', onClick: () => setView('live') },
-    { key: 'pod', label: 'Photo evidence', value: viewCounts.pod, tone: workspaceTheme.navy, active: view === 'pod', onClick: () => setView('pod') },
-    { key: 'drivers', label: 'Available drivers', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveAvailableDriver).length), tone: workspaceTheme.green, onClick: () => router.push('/admin/live-availability') },
-    { key: 'exceptions', label: 'Exceptions', value: viewCounts.exceptions, tone: workspaceTheme.red, active: view === 'exceptions', onClick: () => setView('exceptions') },
+    { key: 'attention', label: 'Needs attention', value: viewCounts.attention, detail: 'Allocation, evidence or exception', tone: workspaceTheme.orange, active: view === 'attention', onClick: () => setView('attention') },
+    { key: 'unallocated', label: 'Awaiting allocation', value: viewCounts.unallocated, detail: 'Awarded work awaiting driver', tone: workspaceTheme.orange, active: view === 'unallocated', onClick: () => setView('unallocated') },
+    { key: 'live', label: 'Live jobs', value: viewCounts.live, detail: 'Currently in execution', tone: workspaceTheme.blue, active: view === 'live', onClick: () => setView('live') },
+    { key: 'pod', label: 'Photo evidence', value: viewCounts.pod, detail: 'Completed work needing photos', tone: workspaceTheme.navy, active: view === 'pod', onClick: () => setView('pod') },
+    { key: 'drivers', label: 'Available drivers', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveAvailableDriver).length), detail: 'Active + available', tone: workspaceTheme.green, onClick: () => router.push('/admin/live-availability') },
+    { key: 'exceptions', label: 'Exceptions', value: viewCounts.exceptions, detail: 'Immediate recovery required', tone: workspaceTheme.red, active: view === 'exceptions', onClick: () => setView('exceptions') },
   ];
 
   const activeViewLabel = CONTROL_VIEWS.find((item) => item.value === view)?.label ?? 'Work';
@@ -292,26 +323,40 @@ export default function CarrierOperationsDashboardHome() {
       : 'Change the control view or clear the filters.';
 
   return (
-    <div style={{ width: '100%', padding: '12px 12px 16px' }}>
-      <DashboardHomeHeader
-        eyebrow="Carrier operations"
-        title="Carrier Control Desk"
-        badge="Live operations"
-        description="Awarded carrier work, allocation, live delivery, delivery photo evidence and exceptions in one operational desk."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Open Diary</ActionButton>}
-      />
+    <div className={carrierStyles.page}>
+      <header className={carrierStyles.header}>
+        <div className={carrierStyles.headerCopy}>
+          <div className={carrierStyles.eyebrow}>Carrier operations</div>
+          <h1 className={carrierStyles.title}>Carrier Control Desk</h1>
+          <p className={carrierStyles.description}>Awarded carrier work, allocation, live delivery, delivery photo evidence and exceptions in one operational desk.</p>
+          <div className={carrierStyles.headerMeta}>Carrier-awarded work · live operational control</div>
+        </div>
+      </header>
 
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
       <OperationalToolbar>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Operations</strong><span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>Allocation · execution · delivery photo evidence · exception recovery</span></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Jobs</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/live-availability')}>Live Availability</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/freight-vision')}>Freight Vision</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/marketplace/directory')}>Directory</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/messages')}>Messages</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/event-log')}>Event Log</ActionButton><ActionButton tone="primary" disabled={data.loading} onClick={() => { void data.refresh(); }}>{data.loading ? 'Refreshing…' : 'Refresh'}</ActionButton></div>
+        <div className={carrierStyles.toolbarCopy}>
+          <strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Operations</strong>
+          <span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>Allocation · execution · delivery photo evidence · exception recovery</span>
+        </div>
+        <div className={carrierStyles.toolbarActions}>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Jobs</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/live-availability')}>Live Availability</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/freight-vision')}>Freight Vision</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/marketplace/directory')}>Directory</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/messages')}>Messages</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/event-log')}>Event Log</ActionButton>
+          <ActionButton tone="primary" disabled={data.loading} onClick={() => { void data.refresh(); }}>{data.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
+        </div>
       </OperationalToolbar>
 
       <CarrierControlSignals signals={signals} />
 
       <OperationalPageLayout
         style={{ padding: 0 }}
+        searchAsideStyle={{ top: '102px' }}
         searchPanel={
           <OperationalFilters
             title="Control filters"
@@ -334,20 +379,36 @@ export default function CarrierOperationsDashboardHome() {
           </OperationalFilters>
         }
       >
-        <section aria-label="Carrier operational workboard" style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', overflow: 'hidden' }}>
-          <div style={{ minHeight: '40px', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, flexWrap: 'wrap' }}>
-            <div><h2 style={{ margin: 0, color: workspaceTheme.navy, fontSize: '13px', lineHeight: '18px', fontWeight: 800 }}>Operational workboard</h2><p style={{ margin: '1px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{activeViewLabel} · carrier-awarded work only</p></div>
-            <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 650 }}>{jobFeedLabel}</div>
+        <section aria-label="Carrier operational workboard" className={carrierStyles.workboard}>
+          <div className={carrierStyles.workboardHeader}>
+            <div>
+              <h2>Operational workboard</h2>
+              <p>{activeViewLabel} · carrier-awarded work only</p>
+            </div>
+            <div style={{ color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px', fontWeight: 650 }}>{jobFeedLabel}</div>
           </div>
 
-          <div role="tablist" aria-label="Carrier work views" style={{ display: 'flex', alignItems: 'stretch', minHeight: '28px', overflowX: 'auto', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface }}>
+          <div role="tablist" aria-label="Carrier work views" className={carrierStyles.tabs}>
             {CONTROL_VIEWS.map((item) => {
               const selected = item.value === view;
-              return <button key={item.value} type="button" role="tab" aria-selected={selected} onClick={() => setView(item.value)} style={{ height: '28px', padding: '0 10px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: 0, borderBottom: `2px solid ${selected ? workspaceTheme.blue : 'transparent'}`, background: selected ? '#F1F6FF' : 'transparent', color: selected ? workspaceTheme.blue : workspaceTheme.muted, fontSize: '11px', fontWeight: selected ? 800 : 650, whiteSpace: 'nowrap', cursor: 'pointer' }}>{item.label}<span style={{ minWidth: '18px', height: '18px', padding: '0 4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', borderRadius: '9px', background: selected ? workspaceTheme.blue : workspaceTheme.surfaceMuted, color: selected ? '#fff' : workspaceTheme.text, fontSize: '10px', fontWeight: 800 }}>{viewCounts[item.value]}</span></button>;
+              return (
+                <button
+                  key={item.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={selected}
+                  data-selected={selected ? 'true' : 'false'}
+                  className={carrierStyles.tab}
+                  onClick={() => setView(item.value)}
+                >
+                  {item.label}
+                  <span className={carrierStyles.tabCount}>{viewCounts[item.value]}</span>
+                </button>
+              );
             })}
           </div>
 
-          <div style={{ margin: '-1px' }}>
+          <div className={carrierStyles.workboardTable}>
             <DataTable
               columns={['Ref', 'Priority', 'Route', 'Pickup', 'Required vehicle', 'Driver', 'Status', 'Action']}
               rows={filteredJobs.slice(0, 10).map((job) => {
@@ -362,35 +423,38 @@ export default function CarrierOperationsDashboardHome() {
                   (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
                   assignedDriver,
                   <StatusBadge key="status" value={workspaceJobPresentationStatus(job)} tone={jobStatus(job) === 'cancelled' ? 'grey' : isExceptionJob(job) ? 'red' : undefined} />,
-                  <button key="action" type="button" onClick={() => router.push(actionPath)} style={{ height: '28px', padding: '0 9px', border: `1px solid ${isUnallocatedJob(job) ? workspaceTheme.green : workspaceTheme.border}`, borderRadius: '4px', background: isUnallocatedJob(job) ? workspaceTheme.green : '#fff', color: isUnallocatedJob(job) ? '#fff' : workspaceTheme.blue, fontSize: '11px', fontWeight: 750, cursor: 'pointer' }}>{isUnallocatedJob(job) ? 'Allocate' : 'Open'}</button>,
+                  <button key="action" type="button" className={carrierStyles.microAction} data-tone={isUnallocatedJob(job) ? 'success' : 'secondary'} onClick={() => router.push(actionPath)}>{isUnallocatedJob(job) ? 'Allocate' : 'Open'}</button>,
                 ];
               })}
-              empty={<EmptyState compact title={jobEmptyTitle} description={jobEmptyDescription} />}
+              empty={<CarrierCompactEmptyState title={jobEmptyTitle} description={jobEmptyDescription} />}
             />
           </div>
 
-          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of a partial job dataset` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register →</button></div>
+          <div className={carrierStyles.workboardFooter}>
+            <span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of a partial job dataset` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span>
+            <button type="button" className={carrierStyles.workboardFooterButton} onClick={() => router.push('/admin/jobs')}>Open full jobs register →</button>
+          </div>
         </section>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.35fr)', gap: '12px', marginTop: '12px', alignItems: 'start' }}>
-          <div style={{ display: 'grid', gap: '12px' }}>
-            <OperationalCard title="Commercial position" subtitle="CX-style commercial signals using only verified XDrive records.">
+        <div className={carrierStyles.lowerGrid}>
+          <div className={carrierStyles.lowerColumn}>
+            <CarrierPanel title="Commercial position" subtitle="CX-style commercial signals using only verified XDrive records.">
               <CommercialRow label="Won work value" detail="Accepted carrier quotes backed by an award" value={metricValue(data, ['bids', 'jobs'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/won-work')} />
               <CommercialRow label="Overdue invoices" detail="Past-due carrier invoices" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
               <CommercialRow label="Submitted quotes" detail="Marketplace pricing awaiting an outcome" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && normalise(bid.status) === 'submitted').length)} onClick={() => router.push('/admin/exchange-quotes')} />
               <CommercialRow label="Compliance due" detail="Driver and vehicle evidence expiring within 30 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => metrics.expiringDocuments)} onClick={() => router.push('/admin/fleet/compliance')} />
-            </OperationalCard>
+            </CarrierPanel>
 
-            <OperationalCard title="Reports & finance" subtitle="CX-equivalent reporting entry points mapped to verified XDrive registers instead of estimated dashboard figures.">
+            <CarrierPanel title="Reports & finance" subtitle="CX-equivalent reporting entry points mapped to verified XDrive registers instead of estimated dashboard figures.">
               <WorkflowLink label="Invoices / accounts" detail="Draft, awaiting payment, overdue, disputed and paid invoices" onClick={() => router.push('/admin/invoices')} />
               <WorkflowLink label="Gross margin / subcontract reporting" detail="Open Finance reports and exports; XDrive does not fabricate dashboard margin estimates" onClick={() => router.push('/admin/finance/reports')} />
               <WorkflowLink label="Bookings / Diary" detail="Operational booking history, evidence and feedback" onClick={() => router.push('/admin/diary')} />
               <WorkflowLink label="Return Journeys" detail="Published and available return capacity" onClick={() => router.push('/admin/fleet/returns')} />
-            </OperationalCard>
+            </CarrierPanel>
           </div>
 
-          <div style={{ display: 'grid', gap: '12px' }}>
-            <OperationalCard title="Activity at a glance" subtitle="Latest carrier-awarded bookings with the same operational priority CX gives recent work." flush>
+          <div className={carrierStyles.lowerColumn}>
+            <CarrierPanel title="Activity at a glance" subtitle="Latest carrier-awarded bookings with the same operational priority CX gives recent work." flush>
               <DataTable
                 columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Evidence', 'Action']}
                 rows={latestBookings.map((job) => {
@@ -403,20 +467,20 @@ export default function CarrierOperationsDashboardHome() {
                     (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
                     <StatusBadge key="status" value={workspaceJobPresentationStatus(job)} />,
                     completed ? <StatusBadge key="evidence" value={evidenceReady ? 'POD / photos recorded' : 'Evidence attention'} tone={evidenceReady ? 'green' : 'orange'} /> : '—',
-                    <ActionButton key="action" tone={needsAllocation ? 'success' : 'secondary'} onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}>{needsAllocation ? 'Allocate' : completed ? 'POD / booking' : 'Open booking'}</ActionButton>,
+                    <button key="action" type="button" className={carrierStyles.microAction} data-tone={needsAllocation ? 'success' : 'secondary'} onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}>{needsAllocation ? 'Allocate' : completed ? 'POD / booking' : 'Open booking'}</button>,
                   ];
                 })}
-                empty={<EmptyState compact title="No recent carrier bookings" description="Awarded carrier work will appear here when available." />}
+                empty={<CarrierCompactEmptyState title="No recent carrier bookings" description="Awarded carrier work will appear here when available." />}
               />
-            </OperationalCard>
+            </CarrierPanel>
 
-            <OperationalCard title="Carrier workflow" subtitle="Shortcuts follow the exchange operating sequence without changing XDrive lifecycle authority.">
+            <CarrierPanel title="Carrier workflow" subtitle="Shortcuts follow the exchange operating sequence without changing XDrive lifecycle authority.">
               <WorkflowLink label="1. Find marketplace work" detail="Search suitable loads and lanes" onClick={() => router.push('/admin/marketplace')} />
               <WorkflowLink label="2. Price and review marketplace quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/exchange-quotes')} />
               <WorkflowLink label="3. Allocate awarded work" detail="Select an eligible executing driver; XDrive persists that driver's canonical active vehicle with the allocation" onClick={() => router.push('/admin/fleet/assignments')} />
               <WorkflowLink label="4. Control live execution" detail="Monitor active jobs and positions" onClick={() => router.push('/admin/fleet/active-jobs')} />
               <WorkflowLink label="5. Review POD, evidence and exceptions" detail="Review completed delivery evidence and operational exceptions" onClick={() => router.push('/admin/pod')} />
-            </OperationalCard>
+            </CarrierPanel>
           </div>
         </div>
       </OperationalPageLayout>

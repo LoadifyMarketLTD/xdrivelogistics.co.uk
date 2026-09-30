@@ -6,10 +6,17 @@ describe('Carrier CX convergence contract', () => {
     path.join(process.cwd(), 'app/components/workspace/CarrierOperationsDashboardHome.tsx'),
     'utf8',
   );
+  const visualCss = fs.readFileSync(
+    path.join(process.cwd(), 'app/components/workspace/CarrierDashboard.module.css'),
+    'utf8',
+  );
 
-  it('keeps compact control signals rather than a large KPI wall', () => {
+  it('keeps the approved 56px six-signal control strip rather than a large KPI wall', () => {
     expect(source).toContain('<CarrierControlSignals signals={signals} />');
-    expect(source).toContain("minHeight: '54px'");
+    expect(source).toContain('className={carrierStyles.signals}');
+    expect(visualCss).toContain('grid-template-columns: repeat(6, minmax(0, 1fr));');
+    expect(visualCss).toMatch(/\.signals\s*\{[\s\S]*?height:\s*56px;/);
+    expect(visualCss).toMatch(/\.signal\s*\{[\s\S]*?height:\s*56px;/);
     expect(source).not.toContain('<KpiGrid>');
     expect(source).not.toContain('<KpiCard');
   });
