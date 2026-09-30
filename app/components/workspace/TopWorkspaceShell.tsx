@@ -1,5 +1,7 @@
 'use client';
 
+import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
+
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
@@ -22,7 +24,6 @@ import {
   getNotificationsRoute,
   resolveActionCentreRole,
 } from './actionCentreConfig';
-import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 const FREIGHT_VISION_ROLES = new Set<WorkspaceRole>([
   'company_owner',
@@ -45,6 +46,7 @@ const CARRIER_NAV_ROLES = new Set<WorkspaceRole>([
   'company_admin',
   'carrier_admin',
 ]);
+
 
 const MESSAGE_HREFS: Partial<Record<WorkspaceRole, string>> = {
   company_owner: '/admin/messages',
@@ -851,6 +853,7 @@ export default function TopWorkspaceShell({
       </nav>
 
       <WorkspaceRestrictionBanner role={role} />
+
       <main className={`top-workspace-shell__content${driverPrototypeScope ? ' app driver-prototype-app' : ''}`}>{children}</main>
     </div>
   );

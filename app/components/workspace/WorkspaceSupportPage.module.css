@@ -1,0 +1,13 @@
+.grid { display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr); gap: 12px; }
+.grid > :first-child { grid-row: span 2; }
+.topics { display: grid; gap: 8px; }
+.topics details { border: 1px solid #D8DEE8; border-radius: 4px; }
+.topics summary { min-height: 32px; padding: 8px 10px; cursor: pointer; font-size: 12px; line-height: 16px; font-weight: 650; }
+.topics p { margin: 0; padding: 0 10px 10px; color: #64748B; font-size: 12px; line-height: 16px; }
+.contacts { display: grid; gap: 8px; font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
+.contacts span { color: #64748B; }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.actions a { display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border: 1px solid #D8DEE8; border-radius: 4px; font-size: 12px; }
+.contacts a, .actions a { color: #1D57D8; }
+.grid a:focus-visible, .topics summary:focus-visible { outline: 2px solid #1D57D8; outline-offset: -1px; }
+@media (max-width: 1024px) { .grid { grid-template-columns: minmax(0, 1fr); } .grid > :first-child { grid-row: auto; } }

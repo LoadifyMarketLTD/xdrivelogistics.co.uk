@@ -69,9 +69,10 @@ export function driverReadinessBlocker(code: string, context: ReadinessContext):
       actionLabel: 'Review driver verification', actionHref: context.onboardingHref };
   }
   if (code.startsWith('vehicle_document_missing_or_invalid:')) {
-    return { ...base, title: 'Vehicle document requires attention', message: 'Your assigned vehicle needs current, approved ' + code.split(':')[1] + ' evidence. Ask the company administrator to update this vehicle document.' };
+    const docType = code.split(':')[1];
+    return { ...base, title: 'Vehicle document requires attention', message: 'Your assigned vehicle needs current, approved ' + docType + ' evidence. Upload the replacement here; verification is still required.', actionLabel: 'Upload vehicle ' + docType, actionHref: '/driver/vehicle-readiness?document=' + encodeURIComponent(docType) + '#vehicle-document-upload' };
   }
-  if (code.startsWith('canonical_vehicle_')) return { ...base, title: 'Vehicle assignment requires attention', message: 'Quoting requires exactly one active, correctly assigned vehicle. Ask your company administrator to correct the assignment.' };
+  if (code.startsWith('canonical_vehicle_')) return { ...base, title: 'Vehicle assignment requires attention', message: context.canManageCompany ? 'Select exactly one active vehicle from your company. Existing job and quote commitments remain protected.' : 'Your company administrator manages assignments. Review your assigned vehicle and contact the company to resolve this restriction.', actionLabel: context.canManageCompany ? 'Resolve vehicle assignment' : 'Review vehicle assignment', actionHref: '/driver/vehicle-readiness?section=assignment#vehicle-assignment' };
   return base;
 }
 

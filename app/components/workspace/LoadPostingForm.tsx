@@ -9,7 +9,7 @@ import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
 import PostcodeAddressField from './PostcodeAddressField';
 import StripeSetupAction from './StripeSetupAction';
 import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
-import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
+import { WORKSPACE_READINESS_CHANGED, isSafeRecoveryHref } from '../../../lib/workspaceReadiness';
 import { resolveLegalRemediationUrl } from '../../../lib/workspaceRemediation';
 import './load-posting-exchange.css';
 
@@ -196,7 +196,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [stripeSetupCompanyId, setStripeSetupCompanyId] = useState<string | null>(null);
-  const [legalRemediationUrl, setLegalRemediationUrl] = useState<string | null>(null);
+  const [remediationAction, setRemediationAction] = useState<{ url: string; label: string } | null>(null);
   const [showValidation, setShowValidation] = useState(false);
   const [clockNow, setClockNow] = useState<Date | null>(null);
   const [postingCompany, setPostingCompany] = useState<{ id: string; name: string | null; memberId: string | null } | null>(null);
@@ -390,7 +390,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     setError('');
     setSuccess('');
     setStripeSetupCompanyId(null);
-    setLegalRemediationUrl(null);
+    setRemediationAction(null);
     if (cloneLoading) {
       setError('Wait for the source booking details to finish loading before saving.');
       return;
@@ -522,17 +522,21 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         replayed?: boolean;
       } | null;
       if (!response.ok || !payload?.job?.id) {
-        if (response.status === 409 && payload?.setupCompanyId === companyId) {
+        window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED));
+        if (response.status === 409 && payload?.setupCompanyId === companyId && ['owner', 'admin'].includes(user?.membershipRole ?? '')) {
           setStripeSetupCompanyId(companyId);
         }
-        if (
-          response.status === 409
-          && payload?.code === 'COMMERCIAL_LEGAL_REACCEPTANCE_REQUIRED'
-          && payload.setupUrl
-        ) {
-          setLegalRemediationUrl(resolveLegalRemediationUrl(payload.setupUrl, mode));
+        if (isSafeRecoveryHref(payload?.setupUrl) && payload?.code !== 'STRIPE_COMMERCIAL_READINESS_REQUIRED') {
+          const label = payload.code === 'COMMERCIAL_LEGAL_REACCEPTANCE_REQUIRED'
+            ? 'Review legal agreements'
+            : payload.code === 'TRANSPORT_BUYER_RISK_LIMIT'
+              ? 'Resolve account restriction'
+              : payload.code === 'COMPANY_MEMBERSHIP_REQUIRED'
+                ? 'Complete onboarding'
+                : 'Resolve requirement';
+          const url = payload.code === 'COMMERCIAL_LEGAL_REACCEPTANCE_REQUIRED' ? resolveLegalRemediationUrl(payload.setupUrl, mode) : payload.setupUrl;
+          if (url && (payload.code !== 'COMMERCIAL_LEGAL_REACCEPTANCE_REQUIRED' || ['owner', 'admin'].includes(user?.membershipRole ?? ''))) setRemediationAction({ url, label });
         }
-        window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED));
         const baseMessage = payload?.error ?? 'The load could not be saved.';
         throw new Error(payload?.referenceId ? `${baseMessage} Error reference: ${payload.referenceId}.` : baseMessage);
       }
@@ -606,6 +610,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       {error && (
         <AlertBanner tone="danger">
           {error}
+            <WorkspaceRestrictionBanner role={mode === 'owner' ? 'owner_driver' : mode === 'admin' ? 'company_owner' : mode} inline operation="post_load" />
           {stripeSetupCompanyId ? (
             <StripeSetupAction
               companyId={stripeSetupCompanyId}
@@ -615,16 +620,13 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               }}
             />
           ) : null}
-          {legalRemediationUrl ? (
-            <div style={{ marginTop: 8 }}>
-              <ActionButton tone="primary" onClick={() => router.push(legalRemediationUrl)}>
-                Review & accept legal agreements
-              </ActionButton>
+          {remediationAction ? (
+            <div style={{ marginTop: 10 }}>
+              <a href={remediationAction.url} target="_blank" rel="noopener noreferrer" style={{ display: 'inline-block', padding: '8px 12px', borderRadius: 6, background: '#0b2f6b', color: '#fff', fontWeight: 700 }}>{remediationAction.label}</a>
             </div>
           ) : null}
         </AlertBanner>
       )}
-      {error && !stripeSetupCompanyId && !legalRemediationUrl && <WorkspaceRestrictionBanner operation="post_load" inline />}
       {cloneLoading && <AlertBanner tone="info">Preparing a new booking from the source record…</AlertBanner>}
       {cloneNotice && <AlertBanner tone="info">{cloneNotice}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
