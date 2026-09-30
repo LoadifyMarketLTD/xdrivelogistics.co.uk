@@ -4,7 +4,7 @@
 
 **Status:** Mandatory implementation specification  
 **Audience:** Lead Architect, Frontend Engineers, Supabase Engineers, QA, Security Reviewers, Copilot agents  
-**Source material:** `public/reference/courier-exchange/**` and owner-provided Courier Exchange screenshots  
+**Source material:** `docs/reference/courier-exchange/**` and owner-provided Courier Exchange screenshots  
 **Important:** Courier Exchange images are reference-only. They must never be shipped as production assets and must not be copied pixel-for-pixel.
 
 ---
@@ -601,7 +601,7 @@ A test that only checks component existence does not satisfy visual acceptance.
 
 Copilot must:
 
-1. read this document and `public/reference/courier-exchange/README.md` before coding;
+1. read this document and `docs/reference/courier-exchange/README.md` before coding;
 2. inspect the relevant reference screenshots before changing a page;
 3. state which reference principles are being translated;
 4. preserve XDrive branding;

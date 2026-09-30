@@ -1,6 +1,6 @@
 # CX Screenshot Inventory
 
-All reference screenshots were measured from `/public/reference/courier-exchange`.
+All reference screenshots were measured from `/docs/reference/courier-exchange`.
 
 | # | File | Size |
 |---:|---|---|

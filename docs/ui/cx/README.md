@@ -3,7 +3,7 @@
 Status: Mandatory implementation baseline.
 
 ## Scope
-- Screenshots source: `/public/reference/courier-exchange`
+- Screenshots source: `/docs/reference/courier-exchange`
 - Applies to: admin, broker, customer, driver, super-admin operational surfaces.
 - Excludes: third-party branding/assets.
 

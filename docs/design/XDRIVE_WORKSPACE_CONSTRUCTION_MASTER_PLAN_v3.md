@@ -152,7 +152,7 @@ Pentru toate deciziile de dimensiune, ordinea surselor este obligatorie:
 
 1. măsurători reale din Courier Exchange prin browser DevTools;
 2. documentația măsurată din `docs/ui/cx/`;
-3. screenshot-urile din `/public/reference/courier-exchange`;
+3. screenshot-urile din `/docs/reference/courier-exchange`;
 4. abia apoi CSS-ul XDrive existent, dacă nu contrazice sursele de mai sus.
 
 Valorile legacy care comprimă interfața sub baseline-ul măsurat NU sunt sursă de adevăr.

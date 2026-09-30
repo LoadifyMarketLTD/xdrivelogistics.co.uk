@@ -74,7 +74,7 @@ The **single local validation phase** happens only after:
 3. the Branch Guard has completed a final strict repository audit against:
    - Master Plan v3;
    - this v3.1 amendment;
-   - `public/reference/courier-exchange/`;
+   - `docs/reference/courier-exchange/`;
    - measured `docs/ui/cx/` baseline;
 4. all known source-level blockers are closed or explicitly accepted as launch blockers.
 
