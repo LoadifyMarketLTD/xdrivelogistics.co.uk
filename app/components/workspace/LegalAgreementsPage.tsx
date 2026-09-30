@@ -1,6 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import LegalDocumentChecklist from './LegalDocumentChecklist';
+import { legalDraftKey, readLegalDraft } from '../../../lib/legal/legalAcceptanceDraft';
 import { supabase } from '../../../lib/supabaseClient';
 import { LEGAL_LANGUAGE_LABELS, LEGAL_LANGUAGES, type LegalLanguage } from '../../../lib/legal/controlledLegalDocuments';
 import {
@@ -44,6 +46,7 @@ type AcceptanceHistoryRow = {
 };
 
 type LegalReadModel = {
+  context?: { userId: string; companyId: string | null; onboardingApplicationId: string | null };
   currentRequirement: {
     registrationRole: string;
     legalVersion: string;
@@ -65,6 +68,10 @@ type LegalReadModel = {
 type LegalAgreementsPageProps = {
   eyebrow?: string;
   description?: string;
+  embedded?: boolean;
+  onboardingApplicationId?: string;
+  expectedRegistrationRole?: string;
+  onReadinessChange?: (ready: boolean) => void;
 };
 
 const ROLE_LABELS: Record<string, string> = {
@@ -95,8 +102,15 @@ const reasonLabel = (reason: string) => {
 
 export default function LegalAgreementsPage({
   eyebrow = 'Account governance',
+  embedded = false, onboardingApplicationId, expectedRegistrationRole, onReadinessChange,
   description = 'Review the contractual package accepted for this account, its exact versions and immutable evidence history.',
 }: LegalAgreementsPageProps) {
+  const userIdRef = useRef<string | null>(null);
+  const draftKeyRef = useRef<string | null>(null);
+  const [acceptedDocumentCodes, setAcceptedDocumentCodes] = useState<string[]>([]);
+  const [signatureReview, setSignatureReview] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const Frame = embedded ? 'div' : PageFrame;
   const [model, setModel] = useState<LegalReadModel | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -112,6 +126,10 @@ export default function LegalAgreementsPage({
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const resetConfirmations = () => {
+    setAcceptedDocumentCodes([]);
+    setSignatureReview(false);
+    setSignerFullName('');
+    setDraftRestored(false);
     setAgreementsAccepted(false);
     setAuthorityConfirmed(false);
     setRoleDeclarationConfirmed(false);
@@ -122,6 +140,7 @@ export default function LegalAgreementsPage({
   const getAccessToken = async () => {
     const { data, error: sessionError } = await supabase.auth.getSession();
     if (sessionError) throw new Error(sessionError.message);
+    userIdRef.current = data.session?.user?.id ?? null;
     const token = data.session?.access_token;
     if (!token) throw new Error('Your XDrive session is not available. Please sign in again.');
     return token;
@@ -139,19 +158,53 @@ export default function LegalAgreementsPage({
       });
       const payload = (await response.json().catch(() => ({}))) as LegalReadModel & { error?: string };
       if (!response.ok) throw new Error(payload.error || 'Legal agreement history could not be loaded.');
+      if (onboardingApplicationId && payload.context?.onboardingApplicationId !== onboardingApplicationId) {
+        throw new Error('The legal package does not match this onboarding application. Contact support; no agreement has been accepted.');
+      }
+      if (expectedRegistrationRole && payload.currentRequirement.registrationRole !== expectedRegistrationRole) {
+        throw new Error('The contractual role does not match this application. Contact support before signing.');
+      }
       setModel(payload);
       resetConfirmations();
+      const userId = payload.context?.userId ?? userIdRef.current;
+      draftKeyRef.current = userId ? legalDraftKey(userId, payload.context?.companyId ?? null, payload.currentRequirement.requirementFingerprint) : null;
+      if (draftKeyRef.current) {
+        try {
+          const draft = payload.requiresReacceptance ? readLegalDraft(sessionStorage.getItem(draftKeyRef.current), payload.currentRequirement.agreements.map(item => item.code)) : null;
+          if (draft) {
+            setAcceptedDocumentCodes(draft.acceptedDocumentCodes); setSignerFullName(draft.signerFullName);
+            setAgreementsAccepted(draft.agreementsAccepted); setAuthorityConfirmed(draft.authorityConfirmed);
+            setRoleDeclarationConfirmed(draft.roleDeclarationConfirmed); setPrivacyAcknowledged(draft.privacyAcknowledged);
+            setInitialEvidenceRemediationConfirmed(draft.initialEvidenceRemediationConfirmed); setDraftRestored(true);
+          }
+          if (!payload.requiresReacceptance) sessionStorage.removeItem(draftKeyRef.current);
+        } catch { /* Browser storage restrictions never authorize acceptance. */ }
+      }
     } catch (loadError) {
       setModel(null);
       setError(loadError instanceof Error ? loadError.message : 'Legal agreement history could not be loaded.');
     } finally {
       setLoading(false);
     }
-  }, [legalLanguage]);
+  }, [legalLanguage, onboardingApplicationId, expectedRegistrationRole]);
 
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    onReadinessChange?.(Boolean(!loading && model && !model.requiresReacceptance));
+  }, [loading, model, onReadinessChange]);
+
+  useEffect(() => {
+    if (loading || !model?.requiresReacceptance || !draftKeyRef.current) return;
+    try {
+      sessionStorage.setItem(draftKeyRef.current, JSON.stringify({ savedAt: Date.now(), signerFullName,
+        acceptedDocumentCodes, agreementsAccepted, authorityConfirmed, roleDeclarationConfirmed,
+        privacyAcknowledged, initialEvidenceRemediationConfirmed }));
+    } catch { /* The form remains usable when storage is unavailable. */ }
+  }, [loading, model, signerFullName, acceptedDocumentCodes, agreementsAccepted, authorityConfirmed,
+    roleDeclarationConfirmed, privacyAcknowledged, initialEvidenceRemediationConfirmed]);
 
   const agreementLabelByCode = useMemo(() => {
     const map = new Map<string, string>();
@@ -162,7 +215,8 @@ export default function LegalAgreementsPage({
   const isInitialRemediation = Boolean(model?.requiresReacceptance && model.history.length === 0);
 
   const canAccept = Boolean(
-    model?.requiresReacceptance &&
+    model?.requiresReacceptance && signatureReview &&
+      model.currentRequirement.agreements.every(item => acceptedDocumentCodes.includes(item.code)) &&
       agreementsAccepted &&
       authorityConfirmed &&
       roleDeclarationConfirmed &&
@@ -206,6 +260,7 @@ export default function LegalAgreementsPage({
         },
         body: JSON.stringify({
           requirementFingerprint: model.currentRequirement.requirementFingerprint,
+          acceptedAgreementCodes: acceptedDocumentCodes,
           agreementsAccepted: true,
           authorityConfirmed: true,
           roleDeclarationConfirmed: true,
@@ -226,6 +281,8 @@ export default function LegalAgreementsPage({
         }
         throw new Error(payload.error || 'Legal acceptance could not be recorded.');
       }
+      if (draftKeyRef.current) { try { sessionStorage.removeItem(draftKeyRef.current); } catch { /* optional storage */ } }
+      window.dispatchEvent(new Event('xdrive:workspace-readiness-changed'));
       setMessage(
         payload.acceptanceMode === 'initial_remediation'
           ? 'Your current XDrive contractual package has been accepted now and recorded as an immutable initial-remediation event. No historical registration acceptance has been recreated or backdated.'
@@ -240,7 +297,7 @@ export default function LegalAgreementsPage({
   };
 
   return (
-    <PageFrame>
+    <Frame>
       <PageHeader
         eyebrow={eyebrow}
         title="Legal & Agreements"
@@ -275,31 +332,31 @@ export default function LegalAgreementsPage({
                 </select>
               </label>
 
-              <div style={{ display: 'grid', gap: 6 }}>
-                {model.currentRequirement.agreements.map((agreement) => (
-                  <div key={agreement.code} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) auto', gap: 10, padding: '8px 10px', border: '1px solid #dbe3ee', borderRadius: 4, background: '#fff' }}>
-                    <div style={{ minWidth: 0 }}>
-                      <a href={`${agreement.href}?lang=${legalLanguage}`} target="_blank" rel="noreferrer" style={{ color: '#0b3f9c', fontSize: 12, fontWeight: 800, textDecoration: 'none' }}>{agreement.label}</a>
-                      <div style={{ color: '#64748b', fontSize: 10, lineHeight: '14px', marginTop: 2 }}>{agreement.code.replace(/_/g, ' ')}</div>
-                    </div>
-                    <div style={{ textAlign: 'right', fontSize: 10, color: '#475569' }}>
-                      <strong style={{ display: 'block', color: '#0f172a' }}>v{agreement.version}</strong>
-                      {agreement.materialChangeRequiresReacceptance ? 'Material-change gated' : 'No re-accept on version change'}
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <LegalDocumentChecklist agreements={model.currentRequirement.agreements} language={legalLanguage}
+                selected={acceptedDocumentCodes} onChange={codes => { setAcceptedDocumentCodes(codes); setSignatureReview(false); }} editable={model.requiresReacceptance} />
+              {model.requiresReacceptance && <>
+                {draftRestored && <p role="status">Your unsigned selections and name were restored in this tab. Review them before signing; no acceptance has been submitted automatically.</p>}
+                <ActionButton disabled={!model.currentRequirement.agreements.every(item => acceptedDocumentCodes.includes(item.code))}
+                  onClick={() => { setSignatureReview(true); requestAnimationFrame(() => document.getElementById('legal-signature-review')?.scrollIntoView({ block: 'start' })); }}>
+                  Review selected documents &amp; continue to signature
+                </ActionButton>
+              </>}
+
             </div>
           </Panel>
 
-          {model.requiresReacceptance && (
+          {model.requiresReacceptance && signatureReview && (
             <Panel
               title={isInitialRemediation ? 'Initial legal evidence requires remediation' : 'Re-acceptance required'}
               description={isInitialRemediation
                 ? 'No immutable initial acceptance record exists for this legacy account. You may explicitly accept the current contractual package now. XDrive records the event at the current time and does not recreate or backdate the original registration acceptance.'
                 : 'A material contractual change requires a new explicit acceptance. Your earlier evidence remains unchanged in history.'}
             >
-              <div style={{ display: 'grid', gap: 8 }}>
+              <div id="legal-signature-review" style={{ display: 'grid', gap: 8 }}>
+                <h3>Final review and electronic signature</h3>
+                <p>Your signature below covers all selected documents, in {legalLanguage.toUpperCase()}:</p>
+                <ul>{model.currentRequirement.agreements.filter(item => acceptedDocumentCodes.includes(item.code)).map(item =>
+                  <li key={item.code}>{item.label} - v{item.version}</li>)}</ul>
                 {model.reacceptanceReasons.length > 0 && (
                   <div style={{ display: 'grid', gap: 3, color: '#7c2d12', fontSize: 11, lineHeight: '15px' }}>
                     {model.reacceptanceReasons.map((reason) => <span key={reason}>• {reasonLabel(reason)}</span>)}
@@ -420,6 +477,6 @@ export default function LegalAgreementsPage({
           </Panel>
         </div>
       )}
-    </PageFrame>
+    </Frame>
   );
 }

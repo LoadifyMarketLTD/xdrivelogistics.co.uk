@@ -76,6 +76,13 @@ type LegalAcceptanceRow = {
   privacy_document_hash: string | null;
   evidence_hash: string;
   created_at: string;
+  signer_full_name?: string | null;
+  signature_method?: string | null;
+  signature_payload_hash?: string | null;
+  signed_pdf_bucket?: string | null;
+  signed_pdf_path?: string | null;
+  signed_pdf_hash?: string | null;
+  signed_pdf_created_at?: string | null;
 };
 
 const normalizeAgreementSnapshots = (value: unknown): LegalAcceptanceSnapshot['agreements'] => {
@@ -245,6 +252,12 @@ const buildReadModel = (
       acceptedAt: row.accepted_at,
       source: row.source,
       evidenceHash: row.evidence_hash,
+      signerFullName: row.signer_full_name ?? null,
+      signatureMethod: row.signature_method ?? null,
+      signaturePayloadHash: row.signature_payload_hash ?? null,
+      signedPdfAvailable: Boolean(row.signed_pdf_bucket && row.signed_pdf_path && row.signed_pdf_hash),
+      signedPdfHash: row.signed_pdf_hash ?? null,
+      signedPdfCreatedAt: row.signed_pdf_created_at ?? null,
       createdAt: row.created_at,
       status: index === state.currentAcceptanceIndex ? 'current' : 'superseded',
     })),
@@ -259,7 +272,7 @@ export async function GET(request: NextRequest) {
   if ('response' in context) return context.response;
 
   const language = normalizeLegalLanguage(request.nextUrl.searchParams.get('language'));
-  return json(200, buildReadModel(context.registrationRole, context.history, language));
+  return json(200, { ...buildReadModel(context.registrationRole, context.history, language), context: { userId: auth.user.id, companyId: context.companyId, onboardingApplicationId: context.onboardingApplicationId } });
 }
 
 export async function POST(request: NextRequest) {

@@ -272,6 +272,7 @@ export function BrokerOnboarding({ token }: { token: string }) {
 
   return (
     <PageLayout
+      applicationId={application.id} accountType={application.account_type}
       title="Broker / Shipper Onboarding"
       status={application.status}
       currentStep={application.current_step}

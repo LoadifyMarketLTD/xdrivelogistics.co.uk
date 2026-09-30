@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (relativePath: string) =>
   fs.readFileSync(path.join(process.cwd(), relativePath), 'utf8');
 
-const legalUi = read('app/components/workspace/LegalAgreementsPage.tsx');
+const legalUi = read('app/components/workspace/LegalAgreementsPage.tsx') + read('app/components/workspace/LegalDocumentChecklist.tsx');
 const legalRoute = read('app/api/account/legal-agreements/route.ts');
 const remediationMigration = read('supabase/migrations/20260905183500_registration_legal_initial_remediation.sql');
 const customerAccount = read('app/components/workspace/CustomerCompanySettingsPage.tsx');

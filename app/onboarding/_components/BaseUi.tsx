@@ -1,6 +1,7 @@
 'use client';
 
-import Link from 'next/link';
+import { useState } from 'react';
+import OnboardingLegalStep from './OnboardingLegalStep';
 
 export function Field({
   label,
@@ -44,6 +45,7 @@ export function ToggleField({
 }
 
 export function PageLayout({
+  applicationId, accountType,
   title,
   status,
   currentStep,
@@ -57,6 +59,8 @@ export function PageLayout({
   backToLogin,
   submitDisabled,
 }: {
+  applicationId: string;
+  accountType: string;
   title: string;
   status: string;
   currentStep: string;
@@ -70,6 +74,7 @@ export function PageLayout({
   backToLogin: () => void;
   submitDisabled?: boolean;
 }) {
+  const [legalReady, setLegalReady] = useState(false);
   return (
     <main style={{ maxWidth: 900, margin: '0 auto', padding: '2rem' }}>
       <h1>{title}</h1>
@@ -87,18 +92,7 @@ export function PageLayout({
 
       {children}
 
-      <section style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid #D7E0EA', borderRadius: 10, background: '#F8FAFC' }} aria-label="Legal documents">
-        <strong style={{ display: 'block', marginBottom: '0.55rem', color: '#0B2F6B' }}>Legal & policy documents</strong>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', fontSize: '0.85rem', fontWeight: 700 }}>
-          <Link href="/legal">Legal Centre</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/subscription-terms">Membership Terms</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/cookies">Cookies</Link>
-          <Link href="/acceptable-use">Acceptable Use</Link>
-          <Link href="/complaints">Complaints</Link>
-        </div>
-      </section>
+      <OnboardingLegalStep applicationId={applicationId} accountType={accountType} onReadinessChange={setLegalReady} />
 
       {error && <p style={{ color: '#B91C1C' }}>{error}</p>}
       {message && <p style={{ color: '#166534' }}>{message}</p>}
@@ -113,7 +107,7 @@ export function PageLayout({
         </button>
         <button
           onClick={onSubmit}
-          disabled={saving || submitDisabled}
+          disabled={saving || submitDisabled || !legalReady}
           style={{
             padding: '0.75rem 1rem',
             borderRadius: 6,

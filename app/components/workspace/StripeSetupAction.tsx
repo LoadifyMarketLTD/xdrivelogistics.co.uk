@@ -10,17 +10,20 @@ export default function StripeSetupAction({ companyId, getAccessToken, context =
   const inFlight = useRef(false);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState('');
+  const [failureCode, setFailureCode] = useState('');
   const [opened, setOpened] = useState(false);
   const start = async () => {
     if (inFlight.current) return;
     inFlight.current = true;
     setOpening(true);
     setError('');
+    setFailureCode('');
     setOpened(false);
     try {
       await startStripeCompanyOnboarding(companyId, getAccessToken);
       setOpened(true);
     } catch (reason) {
+      setFailureCode(reason && typeof reason === 'object' && 'code' in reason ? String(reason.code ?? '') : '');
       setError(reason instanceof Error ? reason.message : 'Stripe setup could not be started. Please try again.');
     } finally {
       inFlight.current = false;
@@ -41,6 +44,10 @@ export default function StripeSetupAction({ companyId, getAccessToken, context =
       </div>
       {opened && <div role="status">{context === 'post_load' ? 'Stripe setup opened. The load has not been published.' : 'Stripe setup opened. No commercial action has been submitted.'}</div>}
       {error && <div role="alert">{error}</div>}
+      {error && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12 }}>
+        {failureCode !== 'STRIPE_PLATFORM_SETUP_REQUIRED' && <a href={'/settings/payments?companyId=' + encodeURIComponent(companyId)} target="_blank" rel="noopener noreferrer">Open payment setup page</a>}
+        <a href="/support/feedback?category=payments" target="_blank" rel="noopener noreferrer">Contact XDrive support</a>
+      </div>}
     </div>
   );
 }

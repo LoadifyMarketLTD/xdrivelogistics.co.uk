@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { stripeOnboardingFailure } from '../../../../../lib/stripeOnboardingFailure';
 
 import { getCanonicalSiteOrigin } from '../../../../../lib/siteUrl';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
@@ -17,7 +18,7 @@ type StripeAccount = {
 
 type StripeAccountLink = { url: string; expires_at: number };
 
-export async function POST(request: NextRequest) {
+async function createCompanyOnboarding(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return json(503, { error: 'Server auth is not configured.' });
   if (!isStripeServerConfigured) return json(503, { error: 'Stripe is not configured.' });
 
@@ -112,4 +113,14 @@ export async function POST(request: NextRequest) {
     chargesEnabled: Boolean(account.charges_enabled),
     payoutsEnabled: Boolean(account.payouts_enabled),
   });
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    return await createCompanyOnboarding(request);
+  } catch (reason) {
+    const failure = stripeOnboardingFailure(reason);
+    console.error('[stripe.onboarding]', { code: failure.code });
+    return json(failure.status, { error: failure.error, code: failure.code });
+  }
 }

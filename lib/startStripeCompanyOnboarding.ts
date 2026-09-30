@@ -16,9 +16,11 @@ export async function startStripeCompanyOnboarding(companyId: string, getAccessT
       body: JSON.stringify({ companyId }),
       signal: AbortSignal.timeout(30_000),
     });
-    const payload = await response.json().catch(() => null) as { onboardingUrl?: unknown; error?: unknown } | null;
+    const payload = await response.json().catch(() => null) as { onboardingUrl?: unknown; error?: unknown; code?: unknown } | null;
     if (!response.ok || typeof payload?.onboardingUrl !== 'string') {
-      throw new Error(typeof payload?.error === 'string' ? payload.error : 'Stripe setup could not be started. Please try again.');
+      const failure = new Error(typeof payload?.error === 'string' ? payload.error : 'Stripe setup could not be started. Please try again.');
+      Object.assign(failure, { code: typeof payload?.code === 'string' ? payload.code : null });
+      throw failure;
     }
     const url = new URL(payload.onboardingUrl);
     if (url.protocol !== 'https:' || url.hostname !== 'connect.stripe.com' || url.port || url.username || url.password) {

@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import OnboardingLegalStep from '../_components/OnboardingLegalStep';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
@@ -31,6 +31,7 @@ export default function OnboardingTokenPage() {
   const [formData, setFormData] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [legalReady, setLegalReady] = useState(false);
   const [verifyingCompany, setVerifyingCompany] = useState(false);
   const [message, setMessage] = useState('');
   const [requestedDocument, setRequestedDocument] = useState('');
@@ -568,18 +569,7 @@ export default function OnboardingTokenPage() {
         </section>
       )}
 
-      <section style={{ marginTop: '1.5rem', padding: '1rem', border: '1px solid #D7E0EA', borderRadius: 10, background: '#F8FAFC' }} aria-label="Legal documents">
-        <strong style={{ display: 'block', marginBottom: '0.55rem', color: '#0B2F6B' }}>Legal & policy documents</strong>
-        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', fontSize: '0.85rem', fontWeight: 700 }}>
-          <Link href="/legal">Legal Centre</Link>
-          <Link href="/terms">Terms</Link>
-          <Link href="/subscription-terms">Membership Terms</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/cookies">Cookies</Link>
-          <Link href="/acceptable-use">Acceptable Use</Link>
-          <Link href="/complaints">Complaints</Link>
-        </div>
-      </section>
+      <OnboardingLegalStep applicationId={application.id} accountType={application.account_type} onReadinessChange={setLegalReady} />
 
       {error && <p style={{ color: '#B91C1C' }}>{error}</p>}
       {message && <p style={{ color: '#166534' }}>{message}</p>}
@@ -597,6 +587,7 @@ export default function OnboardingTokenPage() {
           disabled={
             saving ||
             application.status === 'approved' ||
+            (canonicalAccountType !== 'company_driver' && !legalReady) ||
             (requiresVerifiedCompany && !application.company_id) ||
             recoveryAssessment.missingFields.length > 0 ||
             missingRequiredDocuments.length > 0

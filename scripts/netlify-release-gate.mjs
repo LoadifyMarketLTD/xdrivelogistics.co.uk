@@ -229,4 +229,5 @@ if (isSuperAdminControlPlanePreview) {
 run(npmCommand, ['run', 'typecheck']);
 run(npmCommand, ['run', 'build']);
 assertNextStaticAssets();
+run(process.execPath, ['scripts/validate-legal-runtime-assets.mjs']);
 console.log('NETLIFY_RELEASE_GATE=PASS');

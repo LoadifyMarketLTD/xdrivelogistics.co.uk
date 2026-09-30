@@ -1,6 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Signed legal PDFs read these two multilingual font files at request time.
+  // Explicit tracing is required because the path is assembled dynamically.
+  outputFileTracingIncludes: {
+    '/api/account/legal-agreements': ['./node_modules/@fontsource/inter/files/inter-latin-ext-{400,700}-normal.woff'],
+    '/api/onboarding/init': ['./node_modules/@fontsource/inter/files/inter-latin-ext-{400,700}-normal.woff'],
+  },
   // Keep metadata in the initial document head for every user agent. Lighthouse
   // 13+ identifies as ordinary Chrome, so user-agent allowlists cannot reliably
   // detect it and may cause title/description/robots/manifest to arrive too late
