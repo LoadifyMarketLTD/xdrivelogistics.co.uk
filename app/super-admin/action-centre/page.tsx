@@ -18,6 +18,7 @@ const when = (value: string) => { const date = new Date(value); return Number.is
 type ApiCaseRow = {
   id:string; reference:string; severity:'P0'|'P1'|'P2'|'P3'; status:PlatformCaseStatus; title:string; description:string|null;
   entity_type:string; entity_id:string; entity_label:string; assigned_to_label:string|null; detected_at:string; updated_at:string;
+  sla_due_at:string|null; sla_breached_at:string|null; escalated_at:string|null; escalation_level:number; next_action:string|null; next_action_due_at:string|null;
 };
 type CasesPayload = { available?:boolean; readOnly?:boolean; rows?:ApiCaseRow[]; note?:string; pagination?:{total?:number}; error?:string };
 
@@ -65,6 +66,7 @@ export default function Page() {
     high: visible.filter((item) => item.severity === 'P0' || item.severity === 'P1').length,
     unassigned: visible.filter((item) => !item.assigned_to_label).length,
     waiting: visible.filter((item) => item.status === 'waiting').length,
+    breached: visible.filter((item) => Boolean(item.sla_breached_at)).length,
   }),[visible]);
 
   return <ProtectedRoute allowedRoles={['owner']}>
@@ -75,7 +77,7 @@ export default function Page() {
       </header>
 
       {available === true ? <div className={styles.metrics}>
-        <Metric label="Visible cases" value={summary.visible}/><Metric label="P0 / P1 visible" value={summary.high}/><Metric label="Unassigned visible" value={summary.unassigned}/><Metric label="Waiting visible" value={summary.waiting}/>
+        <Metric label="Visible cases" value={summary.visible}/><Metric label="P0 / P1 visible" value={summary.high}/><Metric label="SLA breached" value={summary.breached}/><Metric label="Unassigned visible" value={summary.unassigned}/><Metric label="Waiting visible" value={summary.waiting}/>
       </div> : null}
 
       {readOnly ? <div className={styles.notice} data-tone="warning">This Deploy Preview is inspection-only. Case mutations are disabled server-side.</div> : null}
@@ -92,12 +94,12 @@ export default function Page() {
 
       <section className={styles.panel}>
         <div className={styles.panelHeader}><div><h2 className={styles.panelTitle}>Platform Case Centre</h2><p className={styles.panelSubtitle}>Human-owned exceptions with semantic lifecycle and durable event history.</p></div><span className={styles.count}>{loading ? 'Loading' : `${visible.length} visible`}</span></div>
-        {loading ? <div className={styles.empty}>Loading persistent cases…</div> : available === false ? <div className={styles.empty}>Persistent case registry is not applied in this environment.</div> : visible.length === 0 ? <div className={styles.empty}>No persistent cases match the current filters.</div> : <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Severity</th><th>Case</th><th>Entity</th><th>Status</th><th>Owner</th><th>Updated</th><th></th></tr></thead><tbody>{visible.map((item) => <tr key={item.id}>
+        {loading ? <div className={styles.empty}>Loading persistent cases…</div> : available === false ? <div className={styles.empty}>Persistent case registry is not applied in this environment.</div> : visible.length === 0 ? <div className={styles.empty}>No persistent cases match the current filters.</div> : <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Severity</th><th>Case</th><th>Entity</th><th>Status</th><th>Owner</th><th>SLA</th><th>Next action</th><th>Updated</th><th></th></tr></thead><tbody>{visible.map((item) => <tr key={item.id}>
           <td><span className={styles.severity} style={{color:severityColor[item.severity]}}>{item.severity}</span></td>
           <td><div className={styles.caseTitle}>{item.reference} · {item.title}</div>{item.description ? <div className={styles.muted}>{item.description}</div> : null}</td>
           <td><PlatformEntityLink compact entityType={entityType(item.entity_type)} entityId={item.entity_id}>{item.entity_label}</PlatformEntityLink></td>
           <td><span className={styles.status} style={{color:statusColor[item.status]}}>{item.status.replace(/_/g,' ')}</span></td>
-          <td>{item.assigned_to_label ?? 'Unassigned'}</td><td>{when(item.updated_at)}</td><td><button type="button" className={styles.buttonSecondary} onClick={() => router.push(`/super-admin/action-centre/${item.id}`)}>Open case</button></td>
+          <td>{item.assigned_to_label ?? 'Unassigned'}</td><td>{item.sla_breached_at ? <span className={styles.status} style={{color:'#D92D20'}}>BREACHED · {when(item.sla_breached_at)}</span> : item.sla_due_at ? when(item.sla_due_at) : '—'}</td><td>{item.next_action ? <><div className={styles.caseTitle}>{item.next_action}</div>{item.next_action_due_at ? <div className={styles.muted}>Due {when(item.next_action_due_at)}</div> : null}</> : '—'}</td><td>{when(item.updated_at)}</td><td><button type="button" className={styles.buttonSecondary} onClick={() => router.push(`/super-admin/action-centre/${item.id}`)}>Open case</button></td>
         </tr>)}</tbody></table></div>}
       </section>
     </div>
