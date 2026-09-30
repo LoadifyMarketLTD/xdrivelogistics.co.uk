@@ -32,11 +32,8 @@
 
 ## Forbidden (do not modify without Platform Owner approval)
 
-- `apps/driver-mobile/**` — Expo Driver scope
-- `android-native/**` — Android Native scope
 - `supabase/migrations/**` (unless co-approved as SUPABASE)
 - Root lockfiles without a documented dependency reason
-- `.github/workflows/android-native-ci.yml`
 - Any production Supabase operations
 
 ## Required checks before merging

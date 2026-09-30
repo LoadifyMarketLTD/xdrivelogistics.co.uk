@@ -36,8 +36,6 @@
 
 - Dashboard redesign or web UI work
 - `app/**` UI pages unrelated to a migration
-- `apps/driver-mobile/**` — Expo scope
-- `android-native/**` — Android scope
 - Root `package.json`, `package-lock.json` (unless `supabase` CLI is being pinned)
 - **Production migration execution** — migrations must only be applied via the Supabase dashboard or approved CI pipeline, never by an agent
 - **Production data operations** — no `INSERT`, `UPDATE`, or `DELETE` on live data
