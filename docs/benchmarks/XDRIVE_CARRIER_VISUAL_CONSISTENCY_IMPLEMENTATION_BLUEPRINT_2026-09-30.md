@@ -1703,3 +1703,30 @@ The agent must:
 3. only then implement the new element.
 
 This rule exists specifically to prevent unreviewed spacing, heights, widths, typography, cards, grids or interaction patterns from entering Carrier.
+# 32. Mandatory live CX reference rule
+
+The implementation agent MUST continuously compare Carrier work against the owner's live Courier Exchange reference library at:
+
+`C:\Users\Danny\OneDrive\Imagini\CX IMAGE`
+
+This is not an optional inspiration source. It is a mandatory visual and functional reference set.
+
+For every Carrier page, section, register, filter rail, toolbar, record, table, status treatment, action group, settings form or empty state:
+
+1. open the relevant CX reference image(s) from that folder before changing code;
+2. identify the CX information hierarchy, density, control placement, record anatomy and action placement;
+3. implement the XDrive equivalent using XDrive branding and XDrive business rules;
+4. do not invent an unrelated visual pattern when an equivalent CX pattern exists;
+5. after implementation, compare the XDrive result against the reference again before marking the section complete.
+
+Professional consistency means shared visual grammar with page-specific functional anatomy. It does NOT mean forcing every page into the same dashboard/card template.
+
+Global XDrive rules still override CX where product logic differs:
+- XDrive permissions and lifecycle authority;
+- Stripe/legal/compliance gates;
+- privacy model;
+- no fabricated metrics or statuses;
+- no SmartPay/escrow/platform-held funds semantics;
+- no third-party advertising sidebars.
+
+Any deviation from a relevant CX reference must have a documented XDrive-specific functional reason.

@@ -11,41 +11,39 @@ describe('Carrier CX convergence contract', () => {
     'utf8',
   );
 
-  it('keeps the approved 56px six-signal control strip rather than a large KPI wall', () => {
-    expect(source).toContain('<CarrierControlSignals signals={signals} />');
-    expect(source).toContain('className={carrierStyles.signals}');
-    expect(visualCss).toContain('grid-template-columns: repeat(6, minmax(0, 1fr));');
-    expect(visualCss).toMatch(/\.signals\s*\{[\s\S]*?height:\s*56px;/);
-    expect(visualCss).toMatch(/\.signal\s*\{[\s\S]*?height:\s*56px;/);
-    expect(source).not.toContain('<KpiGrid>');
-    expect(source).not.toContain('<KpiCard');
-  });
-
-  it('keeps carrier-awarded work as the primary workboard after controls', () => {
-    expect(source).toContain('Carrier Control Desk');
-    expect(source).toContain('Operational workboard');
-    expect(source).toContain('carrier-awarded work only');
-    expect(source.indexOf('Operational workboard')).toBeLessThan(source.indexOf('Commercial position'));
-    expect(source.indexOf('Operational workboard')).toBeLessThan(source.indexOf('Activity at a glance'));
-    expect(source.indexOf('Operational workboard')).toBeLessThan(source.indexOf('Carrier workflow'));
-  });
-
-  it('preserves dense operational filters and carrier execution boundaries', () => {
-    expect(source).toContain('<OperationalFilters');
-    expect(source).toContain("job.awarded_carrier_company_id === data.companyId");
-    expect(source).toContain("columns={['Ref / priority', 'Route', 'Pickup', 'Vehicle', 'Driver', 'Status', 'Action']}");
-  });
-
-  it('retains carrier workflow routes without changing lifecycle authority', () => {
-    for (const route of [
-      '/admin/marketplace',
-      '/admin/fleet/assignments',
-      '/admin/fleet/active-jobs',
-      '/admin/fleet/positions',
-      '/admin/diary',
-      '/admin/jobs',
+  it('follows the CX dashboard information architecture', () => {
+    for (const section of [
+      'Reports & Statistics',
+      'Accounts Payable',
+      'Reports',
+      'Feedback in Last 90 Days',
+      'Activity at a glance',
+      'Compliance - Drivers & Vehicles',
     ]) {
-      expect(source).toContain(route);
+      expect(source).toContain(section);
     }
+    expect(source).not.toContain('Operational workboard');
+    expect(source).not.toContain('Carrier workflow');
+  });
+
+  it('keeps the main desktop split close to the CX dashboard left/right balance', () => {
+    expect(source).toContain('className={carrierStyles.cxDashboardGrid}');
+    expect(visualCss).toContain('grid-template-columns: minmax(0, 0.43fr) minmax(0, 0.57fr);');
+    expect(visualCss).toContain('grid-template-columns: minmax(0, 1.35fr) minmax(160px, .85fr) minmax(150px, .7fr);');
+  });
+
+  it('keeps verified XDrive commercial truth without fabricating unavailable feedback', () => {
+    expect(source).toContain("normalise(bid.status) === 'accepted' && awardedJobIds.has(bid.job_id)");
+    expect(source).toContain("toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status) === 'Overdue'");
+    expect(source).toContain('Verified feedback data is not included in the current Carrier feed.');
+    expect(source).toContain('No rating or performance score is fabricated.');
+  });
+
+  it('keeps operational actions contextual to each booking', () => {
+    expect(source).toContain('className={carrierStyles.bookingActions}');
+    expect(source).toContain('/admin/fleet/assignments?job=');
+    expect(source).toContain('/admin/jobs/');
+    expect(source).not.toContain('Find marketplace work');
+    expect(source).not.toContain('Price and review marketplace quotes');
   });
 });

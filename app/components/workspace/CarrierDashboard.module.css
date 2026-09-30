@@ -58,18 +58,27 @@
   font-weight: 400;
 }
 
-.toolbarCopy {
-  min-width: 0;
+.headerActions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex: 0 0 auto;
 }
 
-.toolbarActions {
-  display: flex;
+.liveBadge {
+  height: 22px;
+  padding: 0 8px;
+  display: inline-flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: nowrap;
+  border: 1px solid #BFDBFE;
+  border-radius: 4px;
+  background: #EFF6FF;
+  color: #1D57D8;
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: .03em;
 }
 
 .signals {
@@ -98,7 +107,7 @@
   background: #FFFFFF;
   color: #1A1F2B;
   text-align: left;
-  cursor: pointer;
+  cursor: default;
 }
 
 .signal:last-child {
@@ -111,16 +120,6 @@
   inset: 0 auto 0 0;
   width: 3px;
   background: var(--carrier-signal-tone, #1D57D8);
-}
-
-.signal[aria-pressed="true"] {
-  background: #E8F0FF;
-}
-
-.signal:focus-visible {
-  z-index: 1;
-  outline: 2px solid #1D57D8;
-  outline-offset: -1px;
 }
 
 .signalLabel {
@@ -344,8 +343,8 @@
 }
 
 .panelHeader {
-  height: 44px;
-  min-height: 44px;
+  height: 36px;
+  min-height: 36px;
   padding: 6px 10px;
   display: flex;
   align-items: center;
@@ -493,5 +492,421 @@
     height: auto;
     min-height: 32px;
     flex-wrap: wrap;
+  }
+}
+.cxDashboardHeader {
+  height: 52px;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cxDashboardGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.43fr) minmax(0, 0.57fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.cxDashboardColumn {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.cxTwinPanels {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+}
+
+.metricTileGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.metricTile {
+  min-height: 148px;
+  padding: 12px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  border: 1px solid #B7C9E2;
+  border-radius: 3px;
+  background: #EAF2FF;
+  color: #1A1F2B;
+  text-align: center;
+  cursor: default;
+}
+
+button.metricTile {
+  cursor: pointer;
+}
+
+.metricTileLabel {
+  color: #1A1F2B;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+.metricTileValue {
+  color: #0B2F6B;
+  font-size: 22px;
+  line-height: 26px;
+  font-weight: 800;
+}
+
+.metricTileDetail {
+  color: #64748B;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.reportLink {
+  width: 100%;
+  min-height: 46px;
+  padding: 7px 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  border-bottom: 1px solid #E5E7EB;
+  background: #FFFFFF;
+  color: #1A1F2B;
+  text-align: left;
+  cursor: pointer;
+}
+
+.reportLink:last-child {
+  border-bottom: 0;
+}
+
+.reportLink strong {
+  display: block;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 650;
+}
+
+.reportLink small {
+  display: block;
+  margin-top: 1px;
+  color: #64748B;
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.panelHeaderAction {
+  height: 28px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: #1D57D8;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.bookingList {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+}
+
+.bookingCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(160px, .85fr) minmax(150px, .7fr);
+  grid-template-areas:
+    "route timing status"
+    "actions actions actions";
+  overflow: hidden;
+  border: 1px solid #79B94C;
+  border-radius: 3px;
+  background: #FFFFFF;
+}
+
+.bookingRoute {
+  grid-area: route;
+  min-width: 0;
+  padding: 8px 10px;
+  display: grid;
+  gap: 4px;
+  border-right: 1px solid #E5E7EB;
+}
+
+.bookingTiming {
+  grid-area: timing;
+  padding: 8px 10px;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  border-right: 1px solid #E5E7EB;
+}
+
+.bookingStatus {
+  grid-area: status;
+  padding: 6px 10px;
+  display: grid;
+  align-content: start;
+  gap: 2px;
+}
+
+.bookingStatus > strong {
+  min-height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #78B75C;
+  color: #0B2F0A;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 800;
+}
+
+.bookingStatus > span {
+  color: #166534;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 650;
+}
+
+.bookingStatus > small,
+.bookingRoute small,
+.bookingTiming small {
+  color: #64748B;
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.bookingRoute strong,
+.bookingTiming strong {
+  color: #1A1F2B;
+  font-size: 12px;
+  line-height: 15px;
+  font-weight: 650;
+}
+
+.bookingRoute > span,
+.bookingTiming > span {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 6px;
+}
+
+.bookingActions {
+  grid-area: actions;
+  min-height: 28px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  border-top: 1px solid #E5E7EB;
+  background: #F8FAFC;
+}
+
+.bookingActions button {
+  height: 24px;
+  min-width: 72px;
+  padding: 0 10px;
+  border: 1px solid #9CA3AF;
+  border-radius: 2px;
+  background: #FFFFFF;
+  color: #1A1F2B;
+  font-size: 10px;
+  line-height: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.feedbackPlaceholder {
+  min-height: 112px;
+  padding: 14px;
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  text-align: center;
+}
+
+.feedbackPlaceholder strong {
+  color: #1A1F2B;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 650;
+}
+
+.feedbackPlaceholder span {
+  color: #64748B;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.complianceGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.complianceGrid .metricTile {
+  min-height: 94px;
+  text-align: left;
+  align-content: start;
+  background: #FFFFFF;
+}
+
+@media (max-width: 1024px) {
+  .cxDashboardGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .bookingCard {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      "route timing"
+      "status status"
+      "actions actions";
+  }
+
+  .bookingTiming {
+    border-right: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .cxTwinPanels,
+  .metricTileGrid,
+  .complianceGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .bookingCard {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "route"
+      "timing"
+      "status"
+      "actions";
+  }
+
+  .bookingRoute,
+  .bookingTiming {
+    border-right: 0;
+    border-bottom: 1px solid #E5E7EB;
+  }
+}
+
+/* CX dashboard parity refinements */
+.reportLink {
+  margin: 6px 10px;
+  width: calc(100% - 20px);
+  min-height: 34px;
+  padding: 6px 10px;
+  border: 1px solid #C7CDD6;
+  border-radius: 2px;
+  background: #E5E7EB;
+}
+
+.reportLink + .reportLink {
+  margin-top: 0;
+}
+
+.reportLink:hover {
+  background: #DDE1E6;
+}
+
+.reportLink small {
+  margin-top: 0;
+  color: #64748B;
+}
+
+.feedbackGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  padding: 10px;
+}
+
+.feedbackBox {
+  min-height: 112px;
+  padding: 10px;
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  border: 1px solid #D8DEE8;
+  background: #FFFFFF;
+  text-align: center;
+}
+
+.feedbackBox strong {
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.feedbackBox span {
+  color: #64748B;
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.complianceSummary {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+  padding: 10px;
+}
+
+.complianceDial {
+  width: 150px;
+  height: 150px;
+  margin: auto;
+  display: grid;
+  place-content: center;
+  gap: 4px;
+  border: 18px solid #E5E7EB;
+  border-radius: 50%;
+  background: #FFFFFF;
+  color: #1A1F2B;
+  text-align: center;
+  cursor: pointer;
+}
+
+.complianceDial strong {
+  color: #0B2F6B;
+  font-size: 24px;
+  line-height: 28px;
+}
+
+.complianceDial span {
+  color: #64748B;
+  font-size: 10px;
+  line-height: 13px;
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+
+.complianceRows {
+  display: grid;
+  align-content: start;
+}
+
+.complianceRows .reportLink {
+  margin-left: 0;
+  margin-right: 0;
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .feedbackGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .complianceSummary {
+    grid-template-columns: 1fr;
   }
 }

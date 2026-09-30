@@ -416,24 +416,24 @@
 }
 
 /* Carrier dashboard signals: canonical 56px operational signal contract. */
-.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button {
+.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] > * {
   height: 56px !important;
   min-height: 56px !important;
   padding: 4px 10px !important;
 }
 
-.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button > span:first-child {
+.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] > * > span:first-child {
   font-size: 11px !important;
   line-height: 14px !important;
 }
 
-.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button > strong {
+.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] > * > strong {
   margin-top: 0 !important;
   font-size: 18px !important;
   line-height: 20px !important;
 }
 
-.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button > span:last-child {
+.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] > * > span:last-child {
   font-size: 10px !important;
   line-height: 12px !important;
 }

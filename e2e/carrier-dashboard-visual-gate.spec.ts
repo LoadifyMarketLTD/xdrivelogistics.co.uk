@@ -9,7 +9,7 @@ const viewports = [
   { label: '390', width: 390, height: 844 },
 ] as const;
 
-test.describe('Carrier dashboard blueprint visual gate', () => {
+test.describe('Carrier dashboard CX-reference visual gate', () => {
   test.skip(process.env.E2E_VISUAL_FIXTURE !== 'true', 'Requires deterministic visual fixture mode.');
 
   test.beforeEach(async ({ page }) => {
@@ -27,43 +27,28 @@ test.describe('Carrier dashboard blueprint visual gate', () => {
       });
     });
   });
+
   for (const viewport of viewports) {
-    test(`Carrier Control Desk exact geometry at ${viewport.label}`, async ({ page }, testInfo) => {
+    test(`Carrier Dashboard CX geometry at ${viewport.label}`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: viewport.width, height: viewport.height });
       await page.goto('/visual-fixture/carrier-dashboard', { waitUntil: 'domcontentloaded' });
 
       const pageRoot = page.getByTestId('carrier-dashboard-fixture');
       const shellHeader = page.locator('.top-workspace-shell__header');
       const shellNav = page.locator('.top-workspace-nav--primary');
-      const header = page.getByTestId('carrier-page-header');
-      const toolbar = pageRoot.locator(':scope > div').first();
-      const signals = page.getByTestId('carrier-signal-strip');
-      const filterRail = page.locator('[aria-label="Search and filters"]');
-      const workboardHeader = page.getByTestId('carrier-workboard-header');
-      const tabs = page.getByTestId('carrier-tabs');
-      const footer = page.getByTestId('carrier-workboard-footer');
-      const lowerGrid = page.getByTestId('carrier-lower-grid');
+      const grid = page.getByTestId('carrier-dashboard-grid');
 
       await expect(pageRoot).toBeVisible();
-      await expect(signals.locator('button')).toHaveCount(6);
+      await expect(page.getByRole('heading', { name: 'Reports & Statistics' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Activity at a glance' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Accounts Payable' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Reports', exact: true })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Feedback in Last 90 Days' })).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Compliance - Drivers & Vehicles' })).toBeVisible();
 
       if (viewport.width >= 769) {
         expect(Math.round(await shellHeader.evaluate((el) => el.getBoundingClientRect().height))).toBe(50);
         expect(Math.round(await shellNav.evaluate((el) => el.getBoundingClientRect().height))).toBe(40);
-      }
-
-      const toolbarHeight = Math.round(await toolbar.evaluate((el) => el.getBoundingClientRect().height));
-      if (viewport.width >= 1025) {
-        expect(toolbarHeight).toBe(40);
-      } else {
-        expect(toolbarHeight).toBeGreaterThanOrEqual(40);
-      }
-
-      const lowerColumns = await lowerGrid.evaluate((el) => getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length);
-      if (viewport.width >= 1025) {
-        expect(lowerColumns).toBe(2);
-      } else {
-        expect(lowerColumns).toBe(1);
       }
 
       const bodyOverflow = await page.evaluate(() =>
@@ -71,70 +56,29 @@ test.describe('Carrier dashboard blueprint visual gate', () => {
       );
       expect(bodyOverflow).toBeLessThanOrEqual(0);
 
-      if (viewport.width >= 1024) {
-        const workboardTable = page.getByTestId('carrier-workboard').locator('table').first();
-        const workboardOverflow = await workboardTable.evaluate((table) => {
-          const scroll = table.parentElement;
-          return scroll ? scroll.scrollWidth - scroll.clientWidth : 0;
-        });
-        expect(workboardOverflow).toBeLessThanOrEqual(0);
-
-        const activityHeading = page.getByRole('heading', { name: 'Activity at a glance' });
-        const activityTable = activityHeading.locator('xpath=ancestor::section[1]').locator('table').first();
-        const activityOverflow = await activityTable.evaluate((table) => {
-          const scroll = table.parentElement;
-          return scroll ? scroll.scrollWidth - scroll.clientWidth : 0;
-        });
-        expect(activityOverflow).toBeLessThanOrEqual(0);
-      }
-
+      const columns = await grid.evaluate((el) =>
+        getComputedStyle(el).gridTemplateColumns.trim().split(/\s+/).length
+      );
       if (viewport.width >= 1025) {
-        expect(Math.round(await header.evaluate((el) => el.getBoundingClientRect().height))).toBe(78);
-        expect(Math.round(await filterRail.evaluate((el) => el.getBoundingClientRect().width))).toBe(220);
-        const filterBox = await filterRail.boundingBox();
-        const workboardBox = await page.getByTestId('carrier-workboard').boundingBox();
-        expect(filterBox).not.toBeNull();
-        expect(workboardBox).not.toBeNull();
-        expect(Math.abs(Math.round((filterBox?.y ?? 0) - (workboardBox?.y ?? 0)))).toBeLessThanOrEqual(1);
+        expect(columns).toBe(2);
       } else {
-        const filterBox = await filterRail.boundingBox();
-        const workboardBox = await page.getByTestId('carrier-workboard').boundingBox();
-        expect(filterBox).not.toBeNull();
-        expect(workboardBox).not.toBeNull();
-        expect(Math.round((workboardBox?.y ?? 0) - ((filterBox?.y ?? 0) + (filterBox?.height ?? 0)))).toBe(12);
-      }
-
-      for (const signal of await signals.locator('button').all()) {
-        expect(Math.round(await signal.evaluate((el) => el.getBoundingClientRect().height))).toBe(56);
-      }
-      const workboardHeaderHeight = Math.round(await workboardHeader.evaluate((el) => el.getBoundingClientRect().height));
-      if (viewport.width > 768) {
-        expect(workboardHeaderHeight).toBe(44);
-      } else {
-        expect(workboardHeaderHeight).toBeGreaterThanOrEqual(44);
-      }
-      expect(Math.round(await tabs.evaluate((el) => el.getBoundingClientRect().height))).toBe(32);
-
-      if (viewport.width > 768) {
-        expect(Math.round(await footer.evaluate((el) => el.getBoundingClientRect().height))).toBe(32);
-      } else {
-        expect(Math.round(await footer.evaluate((el) => el.getBoundingClientRect().height))).toBeGreaterThanOrEqual(32);
+        expect(columns).toBe(1);
       }
 
       const panelHeaders = page.locator('section').filter({ has: page.locator('h3') }).locator('header');
       const panelHeaderCount = await panelHeaders.count();
-      expect(panelHeaderCount).toBeGreaterThanOrEqual(4);
+      expect(panelHeaderCount).toBe(6);
       for (let i = 0; i < panelHeaderCount; i += 1) {
-        expect(Math.round(await panelHeaders.nth(i).evaluate((el) => el.getBoundingClientRect().height))).toBe(44);
+        expect(Math.round(await panelHeaders.nth(i).evaluate((el) => el.getBoundingClientRect().height))).toBe(36);
       }
 
+      const bookingCards = page.locator('article');
+      await expect(bookingCards).toHaveCount(4);
+
       if (viewport.width >= 1025) {
-        const th = page.locator('th').first();
-        const td = page.locator('tbody td').first();
-        await expect(th).toBeVisible();
-        await expect(td).toBeVisible();
-        expect(Math.round(await th.evaluate((el) => el.getBoundingClientRect().height))).toBe(36);
-        expect(Math.round(await td.evaluate((el) => el.getBoundingClientRect().height))).toBe(44);
+        const box = await grid.boundingBox();
+        expect(box).not.toBeNull();
+        expect(box?.width ?? 0).toBeGreaterThan(900);
       }
 
       await page.screenshot({
