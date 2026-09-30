@@ -44,7 +44,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!caseResult.data) return respond(404, { error: 'Platform case not found.' });
   if (eventsResult.error) return respond(500, { error: eventsResult.error.message });
 
-  const actorIds = Array.from(new Set((eventsResult.data ?? []).map((event) => event.actor_user_id).filter(Boolean)));
+  const actorIds = Array.from(new Set([
+    ...(eventsResult.data ?? []).map((event) => event.actor_user_id),
+    caseResult.data.assigned_to_user_id,
+  ].filter(Boolean)));
   const { data: profiles, error: profileError } = actorIds.length
     ? await supabaseAdmin.from('profiles').select('user_id, full_name').in('user_id', actorIds)
     : { data: [], error: null };
@@ -53,7 +56,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   return respond(200, {
     readOnly: isSuperAdminDeployPreviewReadOnly(request),
-    case: caseResult.data,
+    case: {
+      ...caseResult.data,
+      assigned_to_label: caseResult.data.assigned_to_user_id
+        ? actorNameById.get(String(caseResult.data.assigned_to_user_id)) ?? 'Platform operator'
+        : null,
+    },
     events: (eventsResult.data ?? []).map((event) => ({
       ...event,
       actor_label: actorNameById.get(String(event.actor_user_id)) ?? 'Platform Owner',

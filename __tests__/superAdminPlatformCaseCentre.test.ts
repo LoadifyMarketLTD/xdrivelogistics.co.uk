@@ -69,6 +69,27 @@ describe('Super Admin Platform Case Centre foundation', () => {
     expect(detailPage).toContain('No case mutation was attempted.');
   });
 
+  it('shows persisted priority and ownership clearly in list and detail surfaces', () => {
+    const listPage = readRepoFile('app/super-admin/action-centre/page.tsx');
+    const detailPage = readRepoFile('app/super-admin/action-centre/[caseId]/page.tsx');
+    const listRoute = readRepoFile('app/api/super-admin/cases/route.ts');
+    const detailRoute = readRepoFile('app/api/super-admin/cases/[caseId]/route.ts');
+    expect(listPage).toContain('<th>Priority</th>');
+    expect(listPage).toContain('priorityLabel(item.priority_bucket)');
+    expect(listPage).toContain('Due soon');
+    expect(detailPage).toContain('Queue priority');
+    expect(detailPage).toContain("record.assigned_to_label ?? 'Unassigned'");
+    expect(listRoute).toContain(".order('priority_bucket', { ascending: true })");
+    expect(detailRoute).toContain('assigned_to_label');
+  });
+
+  it('keeps the Action Centre free of known mojibake markers', () => {
+    const listPage = readRepoFile('app/super-admin/action-centre/page.tsx');
+    for (const marker of ['Â', 'â€¦', 'â€”', 'Ã', '�']) {
+      expect(listPage).not.toContain(marker);
+    }
+  });
+
   it('does not pull unrelated company-governance inspector controls into Layer 2B1', () => {
     const detailPage = readRepoFile('app/super-admin/action-centre/[caseId]/page.tsx');
     expect(detailPage).not.toContain('CompanyGovernanceControls');

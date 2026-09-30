@@ -22,14 +22,24 @@ const toLocalInput = (value:string|null) => {
   return local.toISOString().slice(0,16);
 };
 const toIsoOrNull = (value:string) => value ? new Date(value).toISOString() : null;
+const priorityLabel = (bucket:number|null) => {
+  if (bucket === 10) return 'Breached P0';
+  if (bucket === 20) return 'Breached P1';
+  if (bucket === 30) return 'Unowned active';
+  if (bucket === 40) return 'SLA due soon';
+  if (bucket === 50) return 'Active';
+  if (bucket === 90) return 'Non-active';
+  return 'Unranked';
+};
 
 type CaseRecord = {
   id:string; reference:string; source:string; case_type:string; severity:'P0'|'P1'|'P2'|'P3'; status:PlatformCaseStatus; title:string; description:string|null;
-  entity_type:string; entity_id:string; entity_label:string; company_id:string|null; assigned_to_user_id:string|null; metadata:Record<string,unknown>|null;
+  entity_type:string; entity_id:string; entity_label:string; company_id:string|null; assigned_to_user_id:string|null; assigned_to_label:string|null; metadata:Record<string,unknown>|null;
   detected_at:string; acknowledged_at:string|null; resolved_at:string|null; closed_at:string|null; created_at:string; updated_at:string;
   sla_due_at:string|null; sla_breached_at:string|null; escalated_at:string|null; escalation_level:number;
   next_action:string|null; next_action_due_at:string|null; customer_update_due_at:string|null; customer_updated_at:string|null; customer_update_note:string|null;
   closure_due_at:string|null; closure_verified_at:string|null; closure_verified_by:string|null; closure_evidence:string|null;
+  priority_bucket:number|null; priority_updated_at:string|null;
 };
 type EventRecord = { id:string; event_type:string; actor_label:string; old_status:string|null; new_status:string|null; reason:string|null; created_at:string };
 type DetailPayload = { case?:CaseRecord; events?:EventRecord[]; readOnly?:boolean; error?:string };
@@ -193,7 +203,7 @@ export default function Page() {
         {feedback ? <div className={styles.feedback} data-tone={feedback.tone}>{feedback.message}</div> : null}
         <div className={styles.detailGrid}>
           <section className={styles.panel}><div className={styles.panelHeader}><div><h2 className={styles.panelTitle}>Case record</h2><p className={styles.panelSubtitle}>Stable identity, lifecycle and affected entity.</p></div></div><div className={styles.fields}>
-            <DataField label="Severity" value={record.severity}/><DataField label="Status" value={record.status.replace(/_/g,' ')}/><DataField label="Source" value={record.source}/><DataField label="Case type" value={record.case_type}/><DataField label="Detected" value={when(record.detected_at)}/><DataField label="Updated" value={when(record.updated_at)}/><DataField label="SLA due" value={record.sla_due_at ? when(record.sla_due_at) : '—'}/><DataField label="SLA state" value={record.sla_breached_at ? `Breached ${when(record.sla_breached_at)}` : 'Within SLA'}/><DataField label="Escalation" value={record.escalation_level > 0 ? `Level ${record.escalation_level}${record.escalated_at ? ` · ${when(record.escalated_at)}` : ''}` : 'Not escalated'}/><DataField label="Customer update" value={record.customer_update_due_at ? (record.customer_updated_at ? `Completed ${when(record.customer_updated_at)}` : `Due ${when(record.customer_update_due_at)}`) : 'Not required'}/><DataField label="Closure verification" value={record.closure_verified_at ? `Verified ${when(record.closure_verified_at)}` : 'Not verified'}/><DataField label="Case ID" value={record.id}/><DataField label="Company ID" value={record.company_id ?? '—'}/>
+            <DataField label="Severity" value={record.severity}/><DataField label="Status" value={record.status.replace(/_/g,' ')}/><DataField label="Queue priority" value={priorityLabel(record.priority_bucket)}/><DataField label="Owner" value={record.assigned_to_label ?? 'Unassigned'}/><DataField label="Source" value={record.source}/><DataField label="Case type" value={record.case_type}/><DataField label="Detected" value={when(record.detected_at)}/><DataField label="Updated" value={when(record.updated_at)}/><DataField label="SLA due" value={record.sla_due_at ? when(record.sla_due_at) : '-'}/><DataField label="SLA state" value={record.sla_breached_at ? `Breached ${when(record.sla_breached_at)}` : 'Within SLA'}/><DataField label="Escalation" value={record.escalation_level > 0 ? `Level ${record.escalation_level}${record.escalated_at ? ` / ${when(record.escalated_at)}` : ''}` : 'Not escalated'}/><DataField label="Customer update" value={record.customer_update_due_at ? (record.customer_updated_at ? `Completed ${when(record.customer_updated_at)}` : `Due ${when(record.customer_update_due_at)}`) : 'Not required'}/><DataField label="Closure verification" value={record.closure_verified_at ? `Verified ${when(record.closure_verified_at)}` : 'Not verified'}/><DataField label="Case ID" value={record.id}/><DataField label="Company ID" value={record.company_id ?? '-'}/>
           </div>{record.description ? <div className={styles.sectionBody}><strong>Description</strong><div style={{marginTop:5}}>{record.description}</div></div> : null}<div className={styles.sectionBody}><strong>Affected entity</strong><div style={{marginTop:6}}><PlatformEntityLink entityType={entityType(record.entity_type)} entityId={record.entity_id}>{record.entity_label}</PlatformEntityLink></div><div className={styles.muted}>{record.entity_type} · {record.entity_id}</div></div></section>
 
           <section className={styles.panel}><div className={styles.panelHeader}><div><h2 className={styles.panelTitle}>Semantic lifecycle actions</h2><p className={styles.panelSubtitle}>Only transitions valid for the current state are exposed.</p></div></div><div className={styles.actions}>
