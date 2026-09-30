@@ -1,5 +1,7 @@
 'use client';
 
+import { WORKSPACE_READINESS_CHANGED } from '../../../../lib/workspaceReadiness';
+
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
@@ -299,7 +301,7 @@ export default function SearchLoadsPage() {
         body: JSON.stringify({ jobId: quoteTarget.id, amount, message: quoteMessage.trim() }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
-      if (!response.ok) throw new Error(payload.error || 'Your quote could not be submitted.');
+      if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
       setNotice('Quote submitted successfully.');
       setQuoteTarget(null); setQuoteAmount(''); setQuoteMessage('');
       if (appliedFilters) await runSearch(appliedFilters, page);
@@ -452,6 +454,7 @@ export default function SearchLoadsPage() {
           amount={quoteAmount}
           message={quoteMessage}
           working={quoteWorking}
+          error={error}
           onAmountChange={setQuoteAmount}
           onMessageChange={setQuoteMessage}
           onSubmit={() => void submitQuote()}

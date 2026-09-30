@@ -33,6 +33,21 @@ export default function OnboardingTokenPage() {
   const [saving, setSaving] = useState(false);
   const [verifyingCompany, setVerifyingCompany] = useState(false);
   const [message, setMessage] = useState('');
+  const [requestedDocument, setRequestedDocument] = useState('');
+
+  useEffect(() => {
+    const target = new URLSearchParams(window.location.search).get('document') ?? '';
+    setRequestedDocument(/^[a-z0-9_]+$/i.test(target) ? target : '');
+  }, []);
+  useEffect(() => {
+    if (loading || !application || !requestedDocument) return;
+    const frame = window.requestAnimationFrame(() => {
+      const row = document.getElementById('onboarding-document-' + requestedDocument);
+      row?.scrollIntoView({ block: 'center' });
+      document.getElementById('onboarding-file-' + requestedDocument)?.focus({ preventScroll: true });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [application, loading, requestedDocument]);
   const [error, setError] = useState('');
 
   const accountType = application?.account_type;
@@ -424,7 +439,7 @@ export default function OnboardingTokenPage() {
   );
   const isRecoveryResume = token === 'resume';
   const visibleDocuments = isRecoveryResume
-    ? onboardingDocuments.filter((doc) => recoveryAssessment.missingDocuments.some((item) => item.type === doc.type))
+    ? onboardingDocuments.filter((doc) => doc.type === requestedDocument || recoveryAssessment.missingDocuments.some((item) => item.type === doc.type))
     : onboardingDocuments;
 
   const renderRecoveryMissingFields = () => (
@@ -519,9 +534,10 @@ export default function OnboardingTokenPage() {
             Required documents block activation until approved. Conditional documents are requested only when they apply to the person, vehicle or business.
           </p>
           {visibleDocuments.map((doc) => (
-            <div key={doc.type} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.9rem', alignItems: 'center' }}>
+            <div key={doc.type} id={'onboarding-document-' + doc.type} data-recovery-document={doc.type === requestedDocument || undefined} style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.75rem', marginBottom: '0.9rem', alignItems: 'center' }}>
               <div>
                 <div style={{ fontWeight: 600 }}>{doc.label}</div>
+                {doc.type === requestedDocument && <p role="status" style={{ margin: '4px 0', color: '#7a271a' }}>This evidence requires attention. Review its current validity before uploading a replacement. Uploading does not mean it has been approved.</p>}
                 <div style={{ fontSize: '0.8rem', color: doc.requirement === 'required' ? '#B91C1C' : '#6B7280' }}>
                   {formData[`doc_${doc.type}`] ? 'Uploaded' : doc.requirement === 'required' ? 'Required' : 'Conditional'}
                   {!formData[`doc_${doc.type}`] && doc.condition ? ` — ${doc.condition}` : ''}
@@ -529,6 +545,8 @@ export default function OnboardingTokenPage() {
               </div>
               <input
                 type="file"
+                id={'onboarding-file-' + doc.type}
+                aria-label={'Upload ' + doc.label}
                 accept="application/pdf,image/jpeg,image/png,image/webp"
                 disabled={saving || (requiresVerifiedCompany && !application.company_id)}
                 onChange={(event) => {

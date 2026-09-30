@@ -100,6 +100,12 @@ export default function DriverVehiclesPage() {
 
   useEffect(() => { if (user) void load(); }, [load, user]);
 
+  useEffect(() => {
+    if (canManageVehicles && new URLSearchParams(window.location.search).get('action') === 'add') {
+      setEditingId(null); setForm(EMPTY_FORM); setShowForm(true);
+    }
+  }, [canManageVehicles]);
+
   const assignedVehicles = useMemo(
     () => driverId ? vehicles.filter((vehicle) => vehicle.assigned_driver_id === driverId) : [],
     [driverId, vehicles],

@@ -4,9 +4,9 @@ import { useRef, useState } from 'react';
 import { startStripeCompanyOnboarding } from '../../../lib/startStripeCompanyOnboarding';
 import { ActionButton } from './WorkspaceUI';
 
-type Props = { companyId: string; getAccessToken: () => Promise<string | null> };
+type Props = { companyId: string; getAccessToken: () => Promise<string | null>; context?: 'post_load' | 'quote' | 'commercial' };
 
-export default function StripeSetupAction({ companyId, getAccessToken }: Props) {
+export default function StripeSetupAction({ companyId, getAccessToken, context = 'post_load' }: Props) {
   const inFlight = useRef(false);
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState('');
@@ -35,11 +35,11 @@ export default function StripeSetupAction({ companyId, getAccessToken }: Props) 
         </ActionButton>
       </div>
       <div style={{ fontWeight: 400, lineHeight: '18px' }}>
-        Stripe opens in a new tab. Keep this load form open to retain your details.
-        {' '}Once your company Stripe account is active, return here and publish the load again.
+        {context === 'post_load' ? 'Stripe opens in a new tab. Keep this load form open to retain your details.' : 'Stripe opens in a new tab. Keep this workspace open to retain your details.'}
+        {' '}{context === 'post_load' ? 'Once your company Stripe account is active, return here and publish the load again.' : 'Once the company Stripe account is active, return here and re-check the requirements. No quote or load is submitted automatically.'}
         {' '}Only a company owner or admin can complete Stripe setup.
       </div>
-      {opened && <div role="status">Stripe setup opened. The load has not been published.</div>}
+      {opened && <div role="status">{context === 'post_load' ? 'Stripe setup opened. The load has not been published.' : 'Stripe setup opened. No commercial action has been submitted.'}</div>}
       {error && <div role="alert">{error}</div>}
     </div>
   );

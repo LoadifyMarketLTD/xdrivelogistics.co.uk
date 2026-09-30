@@ -1,5 +1,8 @@
 'use client';
 
+import WorkspaceRestrictionBanner from '../../components/workspace/WorkspaceRestrictionBanner';
+import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
+
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -282,7 +285,7 @@ export default function AvailableLoadsPage() {
         body: JSON.stringify({ jobId: loadId, amount, message: bidMessage.trim() }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string; denialReasons?: string[] };
-      if (!response.ok) throw new Error(payload.error || 'Your quote could not be submitted.');
+      if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
       setBidLoadId(null); setBidAmount(''); setBidMessage(''); setSuccessMsg('Quote submitted successfully.'); window.setTimeout(() => setSuccessMsg(''), 3500);
       await fetchLoads({ background: true });
     } catch (reason) {
@@ -324,7 +327,7 @@ export default function AvailableLoadsPage() {
           <main className="main">
             <div className="head"><div><h1>Loads</h1><p>Search live freight, inspect privacy-safe details and prepare a quote</p></div></div>
             {successMsg && <div className="vision-note">{successMsg}</div>}
-            {error && <div className="vision-note">{error}</div>}
+            {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
             <div className="load-nav-unified">
               <div className="load-market-nav"><button type="button" className="active">Available Loads</button><button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button><button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button></div>
               <span className="load-nav-divider" aria-hidden="true" />

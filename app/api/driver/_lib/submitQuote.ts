@@ -5,6 +5,7 @@ import type { DriverContext } from '../mobile/_lib';
 import { resolveDriverBidEligibility } from './bidEligibility';
 import { getStripeCommercialReadiness } from '../../_lib/stripeCommercialReadiness';
 import { getCommercialLegalReadiness } from '../../_lib/commercialLegalReadiness';
+import { driverReadinessBlocker, resolveReadinessContext } from '../../../../lib/workspaceReadiness';
 
 type AdminClient = SupabaseClient;
 
@@ -220,8 +221,8 @@ export async function submitDriverQuote(
       error: 'Your carrier business must re-accept the current XDrive legal agreements before quoting for transport work.',
       denialReasons: ['commercial_legal_reacceptance_required'],
       code: 'COMMERCIAL_LEGAL_REACCEPTANCE_REQUIRED',
-      setupUrl: '/driver/account/legal-agreements',
-      actionLabel: 'Review legal agreements',
+      setupUrl: driver.driverType !== 'owner_driver' ? '/driver/support?reason=legal-company-setup' : '/driver/account/legal-agreements',
+      actionLabel: driver.driverType !== 'owner_driver' ? 'Get company setup help' : 'Review legal agreements',
     };
   }
 
@@ -241,8 +242,8 @@ export async function submitDriverQuote(
       error: 'Your carrier business must complete and activate Stripe before quoting for transport work.',
       denialReasons: ['stripe_commercial_readiness_required'],
       code: 'STRIPE_COMMERCIAL_READINESS_REQUIRED',
-      setupUrl: '/settings/payments',
-      actionLabel: 'Complete Stripe setup',
+      setupUrl: driver.driverType !== 'owner_driver' ? '/driver/support?reason=stripe-company-setup' : '/settings/payments',
+      actionLabel: driver.driverType !== 'owner_driver' ? 'Get company setup help' : 'Complete Stripe setup',
     };
   }
 
@@ -316,17 +317,12 @@ export async function submitDriverQuote(
 
     const readinessBlocked = eligibility.operational.blockers.length > 0;
     const operationalBlocker = eligibility.operational.blockers[0] ?? null;
-    const remediation = operationalBlocker === 'driver_onboarding_not_approved' || operationalBlocker === 'verified_driver_identity_missing'
-      ? { code: operationalBlocker, setupUrl: '/onboarding/resume', actionLabel: 'Complete onboarding' }
-      : operationalBlocker === 'driver_personal_compliance_not_current' || operationalBlocker?.startsWith('vehicle_document_missing_or_invalid:')
-        ? { code: operationalBlocker ?? undefined, setupUrl: '/driver/documents', actionLabel: 'Upload required documents' }
-        : operationalBlocker === 'canonical_vehicle_missing' || operationalBlocker === 'canonical_vehicle_ambiguous'
-          ? { code: operationalBlocker, setupUrl: '/driver/drivers-vehicles', actionLabel: 'Manage vehicle assignment' }
-          : operationalBlocker === 'commercial_bid_disabled'
-            ? { code: operationalBlocker, setupUrl: '/driver/settings?section=overview', actionLabel: 'Open account settings' }
-            : operationalBlocker
-              ? { code: operationalBlocker, setupUrl: '/help', actionLabel: 'Resolve account restriction' }
-              : {};
+    const recovery = operationalBlocker ? driverReadinessBlocker(operationalBlocker, resolveReadinessContext({
+      companyId: driver.companyId, driverType: driver.driverType,
+      // No company authority is inferred from driver type; the recovery page
+      // determines mutation permissions from the verified active membership.
+    })) : null;
+    const remediation = recovery ? {code: operationalBlocker ?? undefined, setupUrl: recovery.actionHref, actionLabel: recovery.actionLabel} : {};
     return {
       ok: false,
       status: readinessBlocked ? 403 : 409,
