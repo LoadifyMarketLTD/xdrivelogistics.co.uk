@@ -415,28 +415,34 @@
   letter-spacing: .02em !important;
 }
 
-/* Carrier dashboard control signals follow the measured 72px KPI target. */
-.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button {
-  min-height: 72px !important;
-  padding: 8px 10px !important;
+/* Carrier dashboard signals: canonical 56px operational signal contract. */
+.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] > * {
+  height: 56px !important;
+  min-height: 56px !important;
+  padding: 4px 10px !important;
 }
 
-.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button > span {
+.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] > * > span:first-child {
   font-size: 11px !important;
   line-height: 14px !important;
 }
 
-.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button > strong {
-  margin-top: 4px !important;
-  font-size: 22px !important;
-  line-height: 26px !important;
+.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] > * > strong {
+  margin-top: 0 !important;
+  font-size: 18px !important;
+  line-height: 20px !important;
 }
 
-/* Carrier filter rails inside this sticky 50px shell must never slide underneath it. */
+.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] > * > span:last-child {
+  font-size: 10px !important;
+  line-height: 12px !important;
+}
+
+/* 50px header + 40px primary nav + 12px page top padding. */
 .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_owner"] aside[aria-label="Search and filters"],
 .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_admin"] aside[aria-label="Search and filters"],
 .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"] {
-  top: 74px !important;
+  top: 102px !important;
 }
 
 .xdrive-operational-top-workspace .top-workspace-shell__content section {
@@ -462,6 +468,34 @@
   padding: 7px 8px !important;
   font-size: 12px !important;
   line-height: 16px !important;
+}
+
+/* Carrier dashboard tables use the exact 36px/44px execution contract. */
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_owner"] .top-workspace-shell__content th,
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_admin"] .top-workspace-shell__content th,
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="carrier_admin"] .top-workspace-shell__content th {
+  box-sizing: border-box !important;
+  height: 36px !important;
+  padding: 0 10px !important;
+  border-bottom: 0 !important;
+  background-image: linear-gradient(#D8DEE8, #D8DEE8);
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  background-size: 100% 1px;
+}
+
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_owner"] .top-workspace-shell__content td,
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="company_admin"] .top-workspace-shell__content td,
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="carrier_admin"] .top-workspace-shell__content td {
+  box-sizing: border-box !important;
+  height: 44px !important;
+  min-height: 44px !important;
+  padding: 6px 10px !important;
+  border-bottom: 0 !important;
+  background-image: linear-gradient(#E5E7EB, #E5E7EB);
+  background-repeat: no-repeat;
+  background-position: left bottom;
+  background-size: 100% 1px;
 }
 
 .xdrive-operational-top-workspace .top-workspace-shell__content input,

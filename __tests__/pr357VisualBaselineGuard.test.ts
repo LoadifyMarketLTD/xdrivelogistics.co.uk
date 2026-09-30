@@ -73,7 +73,7 @@ describe('PR #357 approved visual baseline', () => {
   it('keeps Carrier/Admin and Broker operational control surfaces', () => {
     expect(carrierDashboard).toContain('Carrier Control Desk');
     expect(carrierDashboard).toContain('Operational workboard');
-    expect(carrierDashboard).toContain('carrierControlSignals');
+    expect(carrierDashboard).toContain('CarrierControlSignals');
 
     expect(brokerDashboard).toContain('title="Transport control"');
     expect(brokerDashboard).toContain('broker-clean-kpis');

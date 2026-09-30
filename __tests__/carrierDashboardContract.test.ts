@@ -114,15 +114,13 @@ describe('carrier dashboard convergence contract', () => {
     expect(carrier).toContain("const awardedJobIds = new Set(carrierExecutionJobs.map((job) => job.id));");
     expect(carrier).toContain("normalise(bid.status) === 'accepted' && awardedJobIds.has(bid.job_id)");
     expect(carrier).toContain("metricValue(data, ['bids', 'jobs']");
-    expect(carrier).toContain("router.push('/admin/marketplace')");
     expect(carrier).toContain("router.push('/admin/live-availability')");
     expect(carrier).not.toContain("['submitted', 'pending']");
-    expect(carrier).toContain("normalise(bid.status) === 'submitted'");
-    expect(carrier).toContain("XDrive persists that driver's canonical active vehicle with the allocation");
-    expect(carrier).toContain("'Required vehicle'");
+    expect(carrier).not.toContain('Find marketplace work');
+    expect(carrier).not.toContain('Carrier workflow');
     expect(carrier).toContain('workspaceJobPresentationStatus(job)');
-    expect(carrier).toContain("jobStatus(job) === 'cancelled' ? 'grey'");
-    expect(carrier).toContain("'Partial job data'");
+    expect(carrier).toContain('className={carrierStyles.bookingCard}');
+    expect(carrier).toContain('className={carrierStyles.bookingStatus}');
     expect(carrier).not.toContain('vehicle planning remains advisory');
   });
 
@@ -142,11 +140,13 @@ describe('carrier dashboard convergence contract', () => {
     expect(carrier).not.toContain('new Date(invoice.due_date).getTime() < Date.now()');
   });
 
-  it('keeps expired documents visible in carrier readiness alerts', () => {
+  it('keeps expired and soon-to-expire documents visible as separate carrier compliance alerts', () => {
     const carrier = source('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
-    expect(carrier).toContain('return days !== null && days <= 30;');
-    expect(carrier).not.toContain('days >= 0 && days <= 30');
+    expect(carrier).toContain('const expiredDocuments = documentDays.filter((days) => days < 0).length;');
+    expect(carrier).toContain('const expiringDocuments = documentDays.filter((days) => days >= 0 && days <= 30).length;');
+    expect(carrier).toContain('label="Expired documents"');
+    expect(carrier).toContain('label="About to expire"');
   });
 
   it('keeps the carrier shell compact while preserving secondary actions under More', () => {
@@ -166,14 +166,20 @@ describe('carrier dashboard convergence contract', () => {
     expect(shell).not.toContain('title="Choose a carrier from Directory and send a Direct Booking"');
   });
 
-  it('keeps the carrier dashboard readable while preserving the approved operational geometry', () => {
+  it('keeps the Carrier dashboard on the CX-inspired management geometry', () => {
     const shellCss = source('app/components/workspace/top-workspace-shell.css');
+    const dashboardCss = source('app/components/workspace/CarrierDashboard.module.css');
+    const carrier = source('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
     expect(shellCss).toContain('height: 50px !important;');
-    expect(shellCss).toContain('.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button');
-    expect(shellCss).toContain('min-height: 72px !important;');
-    expect(shellCss).toContain('.top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"]');
-    expect(shellCss).toContain('top: 74px !important;');
-    expect(shellCss).toContain('font-size: 12px !important;');
+    expect(carrier).toContain('title="Reports & Statistics"');
+    expect(carrier).toContain('title="Activity at a glance"');
+    expect(carrier).toContain('title="Accounts Payable"');
+    expect(carrier).toContain('title="Reports"');
+    expect(carrier).toContain('title="Feedback in Last 90 Days"');
+    expect(carrier).toContain('title="Compliance - Drivers & Vehicles"');
+    expect(carrier).not.toContain('Operational workboard');
+    expect(dashboardCss).toContain('grid-template-columns: minmax(0, 0.43fr) minmax(0, 0.57fr);');
+    expect(dashboardCss).toMatch(/\.panelHeader\s*\{[\s\S]*?height:\s*36px;/);
   });
 });

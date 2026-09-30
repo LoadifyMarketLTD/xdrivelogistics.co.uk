@@ -244,16 +244,17 @@ export function MemberDirectoryPage({
   };
 
   const capped = Boolean(truncation.companies || truncation.drivers || truncation.vehicleEnrichment || truncation.reputation);
+  const directoryRecords = tab === 'companies' ? visibleCompanies : visibleDrivers;
+  const displayedCompanies = visibleCompanies.slice(0, directoryVisibleCount);
+  const displayedDrivers = visibleDrivers.slice(0, directoryVisibleCount);
+  const shownCount = Math.min(directoryVisibleCount, directoryRecords.length);
+  const canShowMore = directoryVisibleCount < directoryRecords.length;
   const capMessage = capped
     ? `Directory results may be incomplete because the current endpoint is capped at ${truncation.limits?.companies ?? 500} companies and ${truncation.limits?.drivers ?? 500} drivers${truncation.vehicleEnrichment ? `, with vehicle enrichment capped at ${truncation.limits?.vehicles ?? 1000} records` : ''}. Do not treat the visible list as the complete XDrive network.`
     : 'Part of the Directory enrichment is temporarily unavailable. Verified member records are still shown.';
 
   if (pathname.startsWith('/driver')) {
-    const records = tab === 'companies' ? visibleCompanies : visibleDrivers;
-    const displayedCompanies = visibleCompanies.slice(0, directoryVisibleCount);
-    const displayedDrivers = visibleDrivers.slice(0, directoryVisibleCount);
-    const shownCount = Math.min(directoryVisibleCount, records.length);
-    const canShowMore = directoryVisibleCount < records.length;
+    const records = directoryRecords;
     return (
       <section className="page driver-directory-prototype-page">
         <div className="subbar">
@@ -340,9 +341,12 @@ export function MemberDirectoryPage({
   }
 
   return (
-    <div style={{ display: 'grid', gap: 8 }}>
-      <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
-        <span><strong>{eyebrow}</strong> · {title}</span>
+    <div className="directory-workspace">
+      <div className="directory-register-header">
+        <div>
+          <strong>{title}</strong>
+          <span>{eyebrow}</span>
+        </div>
         <ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton>
       </div>
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
@@ -366,8 +370,6 @@ export function MemberDirectoryPage({
             {tab === 'drivers' ? <label>AVAILABILITY<select value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label> : null}
             <ActionButton tone="success" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find My Nearest</ActionButton>
             <ActionButton tone="secondary" onClick={clear}>Clear</ActionButton>
-            {reputationNote && <span style={{ color: '#475569', fontSize: 10, lineHeight: '13px' }}>{reputationNote}</span>}
-            {privacy && <span style={{ color: '#64748b', fontSize: 10, lineHeight: '13px' }}>{privacy}</span>}
           </div>
         </aside>
 
@@ -376,15 +378,36 @@ export function MemberDirectoryPage({
             <button type="button" data-active={tab === 'companies' ? 'true' : 'false'} onClick={() => setTab('companies')}>Companies {visibleCompanies.length}</button>
             <button type="button" data-active={tab === 'drivers' ? 'true' : 'false'} onClick={() => setTab('drivers')}>Drivers {visibleDrivers.length}</button>
           </div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{tab === 'companies' ? visibleCompanies.length : visibleDrivers.length}</strong> matching loaded record(s)</span><span>Click a company identity for Member Profile</span></div>
+          <div className="workspace-record-meta directory-register-meta">
+            <span><strong>{directoryRecords.length}</strong> matching loaded record(s)</span>
+            <span>Click a company identity for Member Profile</span>
+            <span className="directory-pagination">
+              <label>Items per Page
+                <select
+                  value={directoryPageSize}
+                  onChange={(event) => {
+                    const next = Number(event.target.value);
+                    setDirectoryPageSize(next);
+                    setDirectoryVisibleCount(next);
+                  }}
+                >
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </label>
+              <span>{directoryRecords.length ? `1-${shownCount} of ${directoryRecords.length}` : '0 results'}</span>
+              {canShowMore ? <button type="button" onClick={() => setDirectoryVisibleCount((current) => current + directoryPageSize)}>Next</button> : null}
+            </span>
+          </div>
 
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div>
           ) : tab === 'companies' ? (
             <div className="workspace-record-list">
-              {visibleCompanies.map((company) => (
-                <article key={company.companyId} className="workspace-operational-row">
-                  <div className="workspace-operational-row__top">
+              {displayedCompanies.map((company) => (
+                <article key={company.companyId} className="workspace-operational-row directory-operational-row">
+                  <div className="workspace-operational-row__top directory-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">MEMBER</div><strong><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></strong><div className="driver-cell-secondary">{company.memberId ? `Member ID ${company.memberId}` : 'Member ID not supplied'}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE / CAPABILITY</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Fleet capability not supplied'}{company.specialistServices?.length ? ` · ${company.specialistServices.join(', ')}` : ''}{company.maxPallets != null ? ` · up to ${company.maxPallets} pallets` : ''}</div></div>
@@ -393,13 +416,13 @@ export function MemberDirectoryPage({
                   </div>
                 </article>
               ))}
-              {visibleCompanies.length === 0 && <div className="workspace-panel"><EmptyState title="No companies match these loaded records" /></div>}
+              {visibleCompanies.length === 0 && <div className="workspace-panel"><EmptyState compact title="No companies match these loaded records" /></div>}
             </div>
           ) : (
             <div className="workspace-record-list">
-              {visibleDrivers.map((driver) => (
-                <article key={driver.driverId} className="workspace-operational-row">
-                  <div className="workspace-operational-row__top">
+              {displayedDrivers.map((driver) => (
+                <article key={driver.driverId} className="workspace-operational-row directory-operational-row">
+                  <div className="workspace-operational-row__top directory-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DRIVER / MEMBER</div><strong>{driver.displayName}</strong><div className="driver-cell-secondary">{driver.companyId ? <MemberIdentityLink companyId={driver.companyId}>{driver.companyName}</MemberIdentityLink> : driver.companyName}{driver.memberId ? ` · Member ID ${driver.memberId}` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[driver.city, driver.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">Broad member/company location only{driver.distanceMiles != null ? ` · ${driver.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">VEHICLE / CAPABILITY</div><strong>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}</strong><div className="driver-cell-secondary">{driver.hasTailLift ? 'Tail lift · ' : ''}{driver.palletsCapacity != null ? `${driver.palletsCapacity} pallets · ` : ''}{driver.specialistServices?.length ? driver.specialistServices.join(', ') : 'No specialist service declared'} · no live coordinates exposed</div></div>
@@ -408,11 +431,13 @@ export function MemberDirectoryPage({
                   </div>
                 </article>
               ))}
-              {visibleDrivers.length === 0 && <div className="workspace-panel"><EmptyState title="No drivers match these loaded records" /></div>}
+              {visibleDrivers.length === 0 && <div className="workspace-panel"><EmptyState compact title="No drivers match these loaded records" /></div>}
             </div>
           )}
         </main>
       </div>
+      {reputationNote ? <div className="workspace-record-meta directory-footnote">{reputationNote}</div> : null}
+      {privacy ? <div className="workspace-record-meta directory-footnote">{privacy}</div> : null}
     </div>
   );
 }
