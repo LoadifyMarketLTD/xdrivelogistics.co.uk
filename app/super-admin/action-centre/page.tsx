@@ -21,6 +21,7 @@ type ApiCaseRow = {
   sla_due_at:string|null; sla_breached_at:string|null; escalated_at:string|null; escalation_level:number; next_action:string|null; next_action_due_at:string|null;
 };
 type CasesPayload = { available?:boolean; readOnly?:boolean; rows?:ApiCaseRow[]; note?:string; pagination?:{total?:number}; error?:string };
+type ReconcilePayload = { reconciliation?:{detected:number;createdOrMatched:number;planned:number;errors:string[]}; error?:string };
 
 export default function Page() {
   const router = useRouter();
@@ -28,6 +29,8 @@ export default function Page() {
   const [available,setAvailable] = useState<boolean|null>(null);
   const [readOnly,setReadOnly] = useState(false);
   const [loading,setLoading] = useState(true);
+  const [reconciling,setReconciling] = useState(false);
+  const [reconcileMessage,setReconcileMessage] = useState<string|null>(null);
   const [error,setError] = useState<string|null>(null);
   const [note,setNote] = useState<string|null>(null);
   const [status,setStatus] = useState('active');
@@ -55,6 +58,22 @@ export default function Page() {
 
   useEffect(() => { void load(); },[load]);
 
+  const reconcile = useCallback(async () => {
+    if (readOnly) { setReconcileMessage('Deploy Preview is read-only. Reconciliation was not run.'); return; }
+    setReconciling(true); setReconcileMessage(null); setError(null);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) { setError('No active Platform Owner session.'); return; }
+      const response = await fetch('/api/super-admin/cases/reconcile', { method:'POST', headers:{Authorization:auth} });
+      const body = await response.json().catch(() => ({})) as ReconcilePayload;
+      if (!response.ok || !body.reconciliation) { setError(body.error ?? 'Exception reconciliation failed.'); return; }
+      const result = body.reconciliation;
+      setReconcileMessage(`Reconciliation complete: ${result.detected} detected, ${result.createdOrMatched} registered, ${result.planned} operational plans added.`);
+      await load();
+    } catch { setError('Exception reconciliation failed.'); }
+    finally { setReconciling(false); }
+  },[load,readOnly]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return cases;
@@ -81,6 +100,7 @@ export default function Page() {
       </div> : null}
 
       {readOnly ? <div className={styles.notice} data-tone="warning">This Deploy Preview is inspection-only. Case mutations are disabled server-side.</div> : null}
+      {reconcileMessage ? <div className={styles.notice}>{reconcileMessage}</div> : null}
       {note ? <div className={styles.notice} data-tone="warning">{note} No zero-valued registry metrics are inferred.</div> : null}
       {error ? <div className={styles.notice} data-tone="danger"><strong>Service unavailable.</strong> {error}</div> : null}
 
@@ -89,7 +109,8 @@ export default function Page() {
         <label className={styles.field}>Severity<select className={styles.select} value={severity} onChange={(event) => setSeverity(event.target.value)} disabled={loading || available === false}><option value="ALL">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></label>
         <label className={styles.field}>Ownership<select className={styles.select} value={assignee} onChange={(event) => setAssignee(event.target.value)} disabled={loading || available === false}><option value="all">All owners</option><option value="me">Assigned to me</option><option value="unassigned">Unassigned</option></select></label>
         <label className={styles.field}>Search<input className={styles.input} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Reference, title, entity or owner" disabled={available === false}/></label>
-        <button type="button" className={styles.button} onClick={() => void load()} disabled={loading}>{loading ? 'Loading…' : 'Refresh'}</button>
+        <button type="button" className={styles.buttonSecondary} onClick={() => void reconcile()} disabled={loading || reconciling || available === false || readOnly}>{reconciling ? 'Reconciling…' : 'Reconcile exceptions'}</button>
+        <button type="button" className={styles.button} onClick={() => void load()} disabled={loading || reconciling}>{loading ? 'Loading…' : 'Refresh'}</button>
       </section>
 
       <section className={styles.panel}>
