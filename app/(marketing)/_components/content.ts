@@ -123,20 +123,20 @@ export const platformModules = [
     key: 'operations',
     title: 'Operations Diary',
     summary:
-      'Manage collections, deliveries, active jobs, status updates, POD exceptions and dispatch visibility from one operational diary.',
+      'Manage collections, deliveries and active jobs while surfacing overdue work, stale driver signals, POD gaps and other exceptions that need follow-up.',
     previewDescription:
-      'A dispatch-focused view for managing collections, deliveries, active jobs, exceptions and delivery progress.',
-    bullets: ['Collections', 'Deliveries', 'Active jobs', 'Exceptions'],
+      'A dispatch-focused view for live work, exception control, next actions and delivery progress.',
+    bullets: ['Collections', 'Deliveries', 'Exception control', 'Closure tracking'],
     image: '/operations-dispatch-office.webp',
     imageAlt: 'Operations diary workspace showing dispatch coordination, scheduled jobs and live status updates',
     icon: ClipboardCheck,
     audience: 'Courier companies, dispatchers, operators and owner-led teams.',
     problem:
-      'Keeps daily execution visible so teams can manage collections, deliveries, changes and exception handling without losing track of job status.',
+      'Keeps daily execution visible and turns time-sensitive exceptions into owned follow-up work instead of leaving them buried in status lists.',
     actions: [
       'Track active jobs and time-sensitive collections or deliveries',
-      'Record status changes, exceptions and operational notes',
-      'Keep dispatch coordination visible across the working day',
+      'Surface overdue collections or deliveries, stale driver updates, stale GPS and imminent unallocated work',
+      'Follow next actions, SLA state, customer-update obligations and verified closure through the exception lifecycle',
     ],
     status: 'Functional early-access workflow',
     previewItems: [
@@ -145,12 +145,12 @@ export const platformModules = [
         desc: 'Collections, deliveries, time windows and current job status.',
       },
       {
-        label: 'Exceptions',
-        desc: 'Delays, missing PODs, failed delivery notes and operational issues.',
+        label: 'Exception Control',
+        desc: 'Overdue collections or deliveries, stale tracking, POD gaps, priority, owner, SLA and next action.',
       },
       {
-        label: 'Job Timeline',
-        desc: 'Request, quote, award, assign, collect, deliver and invoice history.',
+        label: 'Closure Tracking',
+        desc: 'Customer-update obligations, escalation state and verified closure evidence stay attached to the case history.',
       },
     ],
   },
@@ -228,20 +228,20 @@ export const platformModules = [
     key: 'finance',
     title: 'Finance',
     summary:
-      'Track invoices, POD verification, payment status, job finance history and dispute records without XDrive holding client funds.',
+      'Track invoices, POD readiness, payment status and finance exceptions, including delivered work without an invoice and overdue or disputed receivables.',
     previewDescription:
-      'A finance visibility area for invoices, POD verification, payment status and job-related records.',
-    bullets: ['Invoices', 'Payment status', 'History', 'Disputes'],
+      'A finance visibility area for invoice records, POD readiness, payment status and exception follow-up.',
+    bullets: ['Invoices', 'POD readiness', 'Payment exceptions', 'Disputes'],
     image: '/xdrive-finance-records-real.webp',
     imageAlt: 'Finance dashboard showing invoice records, POD checks and payment-status visibility',
     icon: CircleDollarSign,
     audience: 'Courier companies, transport customers, finance admins and owner operators.',
     problem:
-      'Keeps financial records tied to operational evidence so completed work, invoice status and disputes can be reviewed more clearly.',
+      'Keeps financial records tied to operational evidence and surfaces closure gaps so delivered work does not disappear between POD, invoice creation and payment follow-up.',
     actions: [
-      'Record invoice status and linked job finance history',
-      'Reference POD evidence before closing records',
-      'Track payment status and disputes without acting as a payment intermediary',
+      'Keep invoice status and linked job finance history connected to the completed delivery record',
+      'Surface delivered jobs without an invoice and persisted invoice-generation failures for follow-up',
+      'Track overdue or disputed payment records without XDrive acting as a payment intermediary',
     ],
     status: 'Early-access finance records',
     previewItems: [
@@ -250,12 +250,12 @@ export const platformModules = [
         desc: 'Invoice number, job reference, rate, VAT status and customer record.',
       },
       {
-        label: 'POD Verification',
-        desc: 'Confirm invoice readiness against completed delivery evidence.',
+        label: 'Invoice Readiness',
+        desc: 'Keep POD evidence and completed delivery records connected to invoice follow-up.',
       },
       {
-        label: 'Payment Status',
-        desc: 'Track unpaid, pending, paid or disputed job records.',
+        label: 'Finance Exceptions',
+        desc: 'Surface delivered-without-invoice, invoice-generation failures and overdue or disputed payment records.',
       },
     ],
   },
@@ -339,8 +339,12 @@ export const faqs = [
     a: 'The core platform areas include Marketplace, Operations Diary, Driver Workspace, Fleet Management, Finance, POD & Records and Super Admin Governance. These modules are intended to support the full movement of a job from request and quote to assignment, delivery, proof of delivery, invoice visibility and operational audit history.',
   },
   {
+    q: 'How does XDrive handle operational exceptions?',
+    a: 'XDrive can surface conditions such as overdue collections or deliveries, stale driver or GPS updates, imminent unallocated work, POD gaps and finance-closure failures. Exception records can carry severity, owner, SLA state, next action, customer-update obligations, escalation state and verified closure evidence so follow-up remains auditable.',
+  },
+  {
     q: 'How are POD records handled?',
-    a: 'XDrive is being designed so that proof of delivery records stay linked to the relevant job. Drivers or operators should be able to upload POD evidence, and the completed delivery record should remain connected to job history, invoice readiness and operational review. The goal is to reduce lost PODs and disconnected delivery evidence.',
+    a: 'Proof of delivery records stay linked to the relevant job and its operational history. Drivers or operators can upload POD evidence, while missing or rejected POD can be surfaced as an operational exception with a next action, due time and closure record.',
   },
   {
     q: 'Does XDrive hold customer funds?',
@@ -348,7 +352,7 @@ export const faqs = [
   },
   {
     q: 'How are invoices and payment records managed?',
-    a: 'XDrive is being designed to keep invoice records connected to the relevant completed job, POD evidence and payment status. The finance area is intended for visibility and record keeping, not for holding client funds. Users should be able to track whether work is unpaid, pending, paid or disputed.',
+    a: 'Invoice records stay connected to the relevant completed job, POD evidence and payment status. XDrive can surface delivered work without an invoice, persisted invoice-generation failures, overdue receivables and disputed payment records for follow-up. The finance area remains a visibility and record-keeping layer and does not hold client funds.',
   },
   {
     q: 'Is XDrive available across the UK?',
