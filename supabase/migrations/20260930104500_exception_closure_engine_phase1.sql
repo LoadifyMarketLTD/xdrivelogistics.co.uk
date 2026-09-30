@@ -1,4 +1,4 @@
-BEGIN;
+﻿BEGIN;
 
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '300s';
@@ -35,8 +35,7 @@ CREATE OR REPLACE FUNCTION public.platform_case_default_sla(
   p_detected_at timestamptz
 )
 RETURNS timestamptz
-LANGUAGE sql
-IMMUTABLE
+LANGUAGE sql`r`nSTABLE
 SET search_path = pg_catalog, public
 AS $$
   SELECT COALESCE(p_detected_at, now()) +
@@ -71,10 +70,6 @@ CREATE TRIGGER trg_platform_cases_sla_defaults
 BEFORE INSERT ON public.platform_cases
 FOR EACH ROW
 EXECUTE FUNCTION public.platform_case_apply_sla_defaults();
-
--- System reconciliation events do not impersonate a human actor.
-ALTER TABLE public.platform_case_events
-  ALTER COLUMN actor_user_id DROP NOT NULL;
 
 CREATE INDEX IF NOT EXISTS idx_platform_cases_active_sla
   ON public.platform_cases(sla_due_at, severity, detected_at)
@@ -113,7 +108,7 @@ BEGIN
       AND pc.sla_due_at IS NOT NULL
       AND pc.sla_due_at <= p_now
       AND pc.sla_breached_at IS NULL
-    RETURNING pc.id, pc.status, pc.sla_due_at
+    RETURNING pc.id, pc.status, pc.sla_due_at, pc.created_by_user_id
   ),
   events AS (
     INSERT INTO public.platform_case_events (
@@ -121,7 +116,7 @@ BEGIN
     )
     SELECT
       b.id,
-      NULL,
+      b.created_by_user_id,
       'sla_breached',
       b.status,
       b.status,
@@ -156,3 +151,4 @@ COMMENT ON COLUMN public.platform_cases.customer_update_due_at IS 'Deadline for 
 COMMENT ON COLUMN public.platform_cases.closure_due_at IS 'Deadline for verified operational/financial closure.';
 
 COMMIT;
+
