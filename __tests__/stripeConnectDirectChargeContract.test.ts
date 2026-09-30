@@ -5,9 +5,12 @@ import { describe, expect, it } from 'vitest';
 const source = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
 describe('XDrive Stripe Connect direct-charge contract', () => {
-  it('creates Standard connected accounts and keeps payout onboarding owner/admin gated', () => {
+  it('creates Stripe-controlled direct-charge accounts and keeps payout onboarding owner/admin gated', () => {
     const onboarding = source('app/api/payments/connect/onboarding/route.ts');
-    expect(onboarding).toContain("type: 'standard'");
+    expect(onboarding).toContain("'controller[fees][payer]': 'account'");
+    expect(onboarding).toContain("'controller[losses][payments]': 'stripe'");
+    expect(onboarding).toContain("'controller[requirement_collection]': 'stripe'");
+    expect(onboarding).toContain("'controller[stripe_dashboard][type]': 'full'");
     expect(onboarding).toContain("new Set(['owner', 'admin'])");
     expect(onboarding).toContain("type: 'account_onboarding'");
   });

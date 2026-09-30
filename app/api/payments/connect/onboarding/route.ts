@@ -73,9 +73,12 @@ async function createCompanyOnboarding(request: NextRequest) {
   } else {
     account = await stripeRequest<StripeAccount>('/accounts', {
       params: {
-        type: 'standard',
         country: 'GB',
         email: authData.user.email ?? undefined,
+        'controller[fees][payer]': 'account',
+        'controller[losses][payments]': 'stripe',
+        'controller[requirement_collection]': 'stripe',
+        'controller[stripe_dashboard][type]': 'full',
         'metadata[xdrive_company_id]': companyId,
         'metadata[xdrive_company_name]': typeof company.name === 'string' ? company.name : undefined,
       },
