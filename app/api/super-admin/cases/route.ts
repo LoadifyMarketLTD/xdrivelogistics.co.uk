@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
   let query = supabaseAdmin
     .from('platform_cases')
-    .select('id, reference, source, case_type, severity, status, title, description, entity_type, entity_id, entity_label, company_id, assigned_to_user_id, detected_at, sla_due_at, sla_breached_at, escalated_at, escalation_level, next_action, next_action_due_at, customer_update_due_at, closure_due_at, created_at, updated_at', { count: 'exact' })
+    .select('id, reference, source, case_type, severity, status, title, description, entity_type, entity_id, entity_label, company_id, assigned_to_user_id, detected_at, sla_due_at, sla_breached_at, escalated_at, escalation_level, next_action, next_action_due_at, customer_update_due_at, customer_updated_at, closure_due_at, closure_verified_at, created_at, updated_at', { count: 'exact' })
     .order('sla_breached_at', { ascending: false, nullsFirst: false })
     .order('sla_due_at', { ascending: true, nullsFirst: false })
     .order('updated_at', { ascending: false });
@@ -102,7 +102,9 @@ export async function GET(request: NextRequest) {
       next_action: row.next_action,
       next_action_due_at: row.next_action_due_at,
       customer_update_due_at: row.customer_update_due_at,
+      customer_updated_at: row.customer_updated_at,
       closure_due_at: row.closure_due_at,
+      closure_verified_at: row.closure_verified_at,
       created_at: row.created_at,
       updated_at: row.updated_at,
     })),

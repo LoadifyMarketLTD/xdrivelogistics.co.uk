@@ -8,7 +8,7 @@ const respond = (status: number, payload: Record<string, unknown>) => NextRespon
 const TABLE_MISSING_CODES = new Set(['42P01', 'PGRST202', 'PGRST205']);
 
 const mutationSchema = z.object({
-  action: z.enum(['assign', 'acknowledge', 'investigate', 'wait', 'resolve', 'close', 'reopen', 'plan']),
+  action: z.enum(['assign', 'acknowledge', 'investigate', 'wait', 'resolve', 'close', 'reopen', 'plan', 'customer_update', 'verify_closure']),
   reason: z.string().trim().max(5000).optional(),
   assignedToUserId: z.string().uuid().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
@@ -16,6 +16,9 @@ const mutationSchema = z.object({
   nextActionDueAt: z.string().datetime({ offset: true }).nullable().optional(),
   customerUpdateDueAt: z.string().datetime({ offset: true }).nullable().optional(),
   closureDueAt: z.string().datetime({ offset: true }).nullable().optional(),
+  customerUpdateNote: z.string().trim().max(5000).nullable().optional(),
+  customerUpdateChannel: z.string().trim().max(80).nullable().optional(),
+  closureEvidence: z.string().trim().max(5000).nullable().optional(),
 });
 
 const isTableMissing = (error: { code?: string } | null | undefined) =>
@@ -62,6 +65,9 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
+  if (isSuperAdminDeployPreviewReadOnly()) {
+    return respond(403, { error: 'Deploy Preview is read-only. Platform case mutation was not performed.' });
+  }
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
@@ -83,6 +89,23 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
       p_next_action_due_at: value.nextActionDueAt ?? null,
       p_customer_update_due_at: value.customerUpdateDueAt ?? null,
       p_closure_due_at: value.closureDueAt ?? null,
+    });
+    data = result.data;
+    error = result.error;
+  } else if (value.action === 'customer_update') {
+    const result = await supabaseAdmin.rpc('owner_record_platform_case_customer_update', {
+      p_actor_user_id: owner.id,
+      p_case_id: caseId,
+      p_note: value.customerUpdateNote ?? '',
+      p_channel: value.customerUpdateChannel ?? 'manual',
+    });
+    data = result.data;
+    error = result.error;
+  } else if (value.action === 'verify_closure') {
+    const result = await supabaseAdmin.rpc('owner_verify_platform_case_closure', {
+      p_actor_user_id: owner.id,
+      p_case_id: caseId,
+      p_evidence: value.closureEvidence ?? '',
     });
     data = result.data;
     error = result.error;

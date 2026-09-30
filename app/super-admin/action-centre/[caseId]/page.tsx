@@ -28,7 +28,8 @@ type CaseRecord = {
   entity_type:string; entity_id:string; entity_label:string; company_id:string|null; assigned_to_user_id:string|null; metadata:Record<string,unknown>|null;
   detected_at:string; acknowledged_at:string|null; resolved_at:string|null; closed_at:string|null; created_at:string; updated_at:string;
   sla_due_at:string|null; sla_breached_at:string|null; escalated_at:string|null; escalation_level:number;
-  next_action:string|null; next_action_due_at:string|null; customer_update_due_at:string|null; closure_due_at:string|null;
+  next_action:string|null; next_action_due_at:string|null; customer_update_due_at:string|null; customer_updated_at:string|null; customer_update_note:string|null;
+  closure_due_at:string|null; closure_verified_at:string|null; closure_verified_by:string|null; closure_evidence:string|null;
 };
 type EventRecord = { id:string; event_type:string; actor_label:string; old_status:string|null; new_status:string|null; reason:string|null; created_at:string };
 type DetailPayload = { case?:CaseRecord; events?:EventRecord[]; readOnly?:boolean; error?:string };
@@ -75,6 +76,11 @@ export default function Page() {
   const [nextActionDueAt,setNextActionDueAt] = useState('');
   const [customerUpdateDueAt,setCustomerUpdateDueAt] = useState('');
   const [closureDueAt,setClosureDueAt] = useState('');
+  const [customerUpdateNote,setCustomerUpdateNote] = useState('');
+  const [customerUpdateChannel,setCustomerUpdateChannel] = useState('manual');
+  const [closureEvidence,setClosureEvidence] = useState('');
+  const [recordingCustomerUpdate,setRecordingCustomerUpdate] = useState(false);
+  const [verifyingClosure,setVerifyingClosure] = useState(false);
   const [feedback,setFeedback] = useState<{tone:'success'|'danger';message:string}|null>(null);
 
   const load = useCallback(async () => {
@@ -140,6 +146,44 @@ export default function Page() {
     finally { setSavingPlan(false); }
   };
 
+  const recordCustomerUpdate = async () => {
+    const note = customerUpdateNote.trim();
+    if (note.length < 5) { setFeedback({tone:'danger',message:'Customer update evidence must contain at least 5 characters.'}); return; }
+    if (readOnly) { setFeedback({tone:'danger',message:'Deploy Preview is read-only. No case mutation was attempted.'}); return; }
+    setRecordingCustomerUpdate(true); setFeedback(null);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) throw new Error('No active Platform Owner session.');
+      const response = await fetch(`/api/super-admin/cases/${encodeURIComponent(caseId)}`, {
+        method:'PATCH', headers:{'Content-Type':'application/json',Authorization:auth},
+        body:JSON.stringify({action:'customer_update',customerUpdateNote:note,customerUpdateChannel}),
+      });
+      const body = await response.json().catch(() => ({})) as {error?:string};
+      if (!response.ok) throw new Error(body.error ?? 'Customer update evidence could not be recorded.');
+      setCustomerUpdateNote(''); setFeedback({tone:'success',message:'Customer update recorded.'}); await load();
+    } catch (cause) { setFeedback({tone:'danger',message:cause instanceof Error ? cause.message : 'Customer update evidence could not be recorded.'}); }
+    finally { setRecordingCustomerUpdate(false); }
+  };
+
+  const verifyClosure = async () => {
+    const evidence = closureEvidence.trim();
+    if (evidence.length < 5) { setFeedback({tone:'danger',message:'Closure evidence must contain at least 5 characters.'}); return; }
+    if (readOnly) { setFeedback({tone:'danger',message:'Deploy Preview is read-only. No case mutation was attempted.'}); return; }
+    setVerifyingClosure(true); setFeedback(null);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) throw new Error('No active Platform Owner session.');
+      const response = await fetch(`/api/super-admin/cases/${encodeURIComponent(caseId)}`, {
+        method:'PATCH', headers:{'Content-Type':'application/json',Authorization:auth},
+        body:JSON.stringify({action:'verify_closure',closureEvidence:evidence}),
+      });
+      const body = await response.json().catch(() => ({})) as {error?:string};
+      if (!response.ok) throw new Error(body.error ?? 'Closure verification failed.');
+      setClosureEvidence(''); setFeedback({tone:'success',message:'Closure evidence verified.'}); await load();
+    } catch (cause) { setFeedback({tone:'danger',message:cause instanceof Error ? cause.message : 'Closure verification failed.'}); }
+    finally { setVerifyingClosure(false); }
+  };
+
   return <ProtectedRoute allowedRoles={['owner']}>
     <div className={styles.page}>
       <Link href="/super-admin/action-centre" className={styles.back}>← Platform Action Centre</Link>
@@ -149,12 +193,12 @@ export default function Page() {
         {feedback ? <div className={styles.feedback} data-tone={feedback.tone}>{feedback.message}</div> : null}
         <div className={styles.detailGrid}>
           <section className={styles.panel}><div className={styles.panelHeader}><div><h2 className={styles.panelTitle}>Case record</h2><p className={styles.panelSubtitle}>Stable identity, lifecycle and affected entity.</p></div></div><div className={styles.fields}>
-            <DataField label="Severity" value={record.severity}/><DataField label="Status" value={record.status.replace(/_/g,' ')}/><DataField label="Source" value={record.source}/><DataField label="Case type" value={record.case_type}/><DataField label="Detected" value={when(record.detected_at)}/><DataField label="Updated" value={when(record.updated_at)}/><DataField label="SLA due" value={record.sla_due_at ? when(record.sla_due_at) : '—'}/><DataField label="SLA state" value={record.sla_breached_at ? `Breached ${when(record.sla_breached_at)}` : 'Within SLA'}/><DataField label="Escalation" value={record.escalation_level > 0 ? `Level ${record.escalation_level}${record.escalated_at ? ` · ${when(record.escalated_at)}` : ''}` : 'Not escalated'}/><DataField label="Case ID" value={record.id}/><DataField label="Company ID" value={record.company_id ?? '—'}/>
+            <DataField label="Severity" value={record.severity}/><DataField label="Status" value={record.status.replace(/_/g,' ')}/><DataField label="Source" value={record.source}/><DataField label="Case type" value={record.case_type}/><DataField label="Detected" value={when(record.detected_at)}/><DataField label="Updated" value={when(record.updated_at)}/><DataField label="SLA due" value={record.sla_due_at ? when(record.sla_due_at) : '—'}/><DataField label="SLA state" value={record.sla_breached_at ? `Breached ${when(record.sla_breached_at)}` : 'Within SLA'}/><DataField label="Escalation" value={record.escalation_level > 0 ? `Level ${record.escalation_level}${record.escalated_at ? ` · ${when(record.escalated_at)}` : ''}` : 'Not escalated'}/><DataField label="Customer update" value={record.customer_update_due_at ? (record.customer_updated_at ? `Completed ${when(record.customer_updated_at)}` : `Due ${when(record.customer_update_due_at)}`) : 'Not required'}/><DataField label="Closure verification" value={record.closure_verified_at ? `Verified ${when(record.closure_verified_at)}` : 'Not verified'}/><DataField label="Case ID" value={record.id}/><DataField label="Company ID" value={record.company_id ?? '—'}/>
           </div>{record.description ? <div className={styles.sectionBody}><strong>Description</strong><div style={{marginTop:5}}>{record.description}</div></div> : null}<div className={styles.sectionBody}><strong>Affected entity</strong><div style={{marginTop:6}}><PlatformEntityLink entityType={entityType(record.entity_type)} entityId={record.entity_id}>{record.entity_label}</PlatformEntityLink></div><div className={styles.muted}>{record.entity_type} · {record.entity_id}</div></div></section>
 
           <section className={styles.panel}><div className={styles.panelHeader}><div><h2 className={styles.panelTitle}>Semantic lifecycle actions</h2><p className={styles.panelSubtitle}>Only transitions valid for the current state are exposed.</p></div></div><div className={styles.actions}>
             {actions.some((action) => action.requiresReason) ? <label className={styles.field}>Operational reason<textarea className={styles.textarea} value={reason} onChange={(event) => setReason(event.target.value)} placeholder="Record the reason for this intervention…" disabled={readOnly || Boolean(running)}/></label> : null}
-            {actions.map((action) => <div className={styles.actionCard} key={action.id}><div className={styles.actionTitle}>{action.label}</div><div className={styles.actionDescription}>{action.description}</div><button type="button" className={styles.button} disabled={readOnly || Boolean(running)} onClick={() => void mutate(action)}>{running === action.id ? 'Working…' : action.label}</button></div>)}
+            {actions.map((action) => <div className={styles.actionCard} key={action.id}><div className={styles.actionTitle}>{action.label}</div><div className={styles.actionDescription}>{action.id === 'close' && !record.closure_verified_at ? 'Final closure evidence must be verified before this case can close.' : action.description}</div><button type="button" className={styles.button} disabled={readOnly || Boolean(running) || (action.id === 'close' && !record.closure_verified_at)} onClick={() => void mutate(action)}>{running === action.id ? 'Working…' : action.label}</button></div>)}
           </div></section>
         </div>
         <section className={styles.panel}>
@@ -169,6 +213,25 @@ export default function Page() {
             <button type="button" className={styles.button} onClick={() => void savePlan()} disabled={readOnly || savingPlan}>{savingPlan ? 'Saving…' : 'Save operational plan'}</button>
           </div>
         </section>
+        <div className={styles.detailGrid}>
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}><div><h2 className={styles.panelTitle}>Customer communication</h2><p className={styles.panelSubtitle}>Record evidence that the required customer update was completed.</p></div></div>
+            <div className={styles.actions}>
+              {record.customer_update_due_at ? <div className={styles.actionDescription}>{record.customer_updated_at ? `Completed ${when(record.customer_updated_at)}${record.customer_update_note ? ` · ${record.customer_update_note}` : ''}` : `Update due ${when(record.customer_update_due_at)}`}</div> : <div className={styles.actionDescription}>No customer update obligation is currently recorded.</div>}
+              <label className={styles.field}>Update channel<select className={styles.select} value={customerUpdateChannel} onChange={(event) => setCustomerUpdateChannel(event.target.value)} disabled={readOnly || recordingCustomerUpdate}><option value="manual">Manual</option><option value="email">Email</option><option value="phone">Phone</option><option value="sms">SMS</option><option value="platform">Platform message</option></select></label>
+              <label className={styles.field}>Update evidence<textarea className={styles.textarea} value={customerUpdateNote} onChange={(event) => setCustomerUpdateNote(event.target.value)} placeholder="What was communicated, to whom and what recovery/ETA was confirmed?" maxLength={5000} disabled={readOnly || recordingCustomerUpdate}/></label>
+              <button type="button" className={styles.button} onClick={() => void recordCustomerUpdate()} disabled={readOnly || recordingCustomerUpdate}>{recordingCustomerUpdate ? 'Recording…' : 'Record customer update'}</button>
+            </div>
+          </section>
+          <section className={styles.panel}>
+            <div className={styles.panelHeader}><div><h2 className={styles.panelTitle}>Verified closure</h2><p className={styles.panelSubtitle}>A resolved case cannot close until final closure evidence is verified.</p></div></div>
+            <div className={styles.actions}>
+              <div className={styles.actionDescription}>{record.closure_verified_at ? `Verified ${when(record.closure_verified_at)}${record.closure_evidence ? ` · ${record.closure_evidence}` : ''}` : record.status === 'resolved' ? 'Resolution is recorded; final closure evidence is still required.' : 'Resolve the case before final closure verification.'}</div>
+              <label className={styles.field}>Closure evidence<textarea className={styles.textarea} value={closureEvidence} onChange={(event) => setClosureEvidence(event.target.value)} placeholder="State the evidence that proves the operational exception is fully closed." maxLength={5000} disabled={readOnly || verifyingClosure || record.status !== 'resolved'}/></label>
+              <button type="button" className={styles.button} onClick={() => void verifyClosure()} disabled={readOnly || verifyingClosure || record.status !== 'resolved' || Boolean(record.closure_verified_at)}>{verifyingClosure ? 'Verifying…' : record.closure_verified_at ? 'Closure verified' : 'Verify closure evidence'}</button>
+            </div>
+          </section>
+        </div>
         <section className={styles.panel}><div className={styles.panelHeader}><div><h2 className={styles.panelTitle}>Audit timeline</h2><p className={styles.panelSubtitle}>Append-only case lifecycle events with actor and reason evidence.</p></div><span className={styles.count}>{events.length} events</span></div>{events.length === 0 ? <div className={styles.empty}>No case lifecycle events recorded.</div> : <ol className={styles.timeline}>{events.map((event) => <li className={styles.event} key={event.id}><div className={styles.eventHead}><span className={styles.eventAction}>{event.event_type.replace(/_/g,' ')}</span><span className={styles.eventTime}>{when(event.created_at)}</span></div><div className={styles.eventMeta}>by {event.actor_label}{event.reason ? ` · ${event.reason}` : ''}</div>{event.old_status || event.new_status ? <div className={styles.stateChange}>{event.old_status ?? '—'} → {event.new_status ?? '—'}</div> : null}</li>)}</ol>}</section>
       </>}
     </div>

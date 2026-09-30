@@ -94,7 +94,7 @@ export async function reconcileJobExceptions(
       p_entity_id: candidate.jobId,
       p_entity_label: candidate.entityLabel,
       p_company_id: candidate.companyId,
-      p_assigned_to_user_id: null,
+      p_assigned_to_user_id: actorUserId,
       p_dedupe_key: candidate.dedupeKey,
       p_metadata: candidate.metadata,
     });

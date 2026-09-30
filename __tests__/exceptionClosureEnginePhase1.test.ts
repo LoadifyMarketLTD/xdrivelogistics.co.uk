@@ -60,7 +60,7 @@ describe('Exception & Closure Engine Phase 1', () => {
     expect(detail).toContain('Operational plan');
     expect(detail).toContain('Customer update due');
     expect(detail).toContain('Verified closure due');
-    expect(detailApi).toContain("action: z.enum(['assign', 'acknowledge', 'investigate', 'wait', 'resolve', 'close', 'reopen', 'plan'])");
+    expect(detailApi).toContain("'plan', 'customer_update', 'verify_closure'");
     expect(detailApi).toContain("owner_set_platform_case_plan");
     const migration = readRepoFile(MIGRATION);
     expect(migration).toContain('owner_set_platform_case_plan');
