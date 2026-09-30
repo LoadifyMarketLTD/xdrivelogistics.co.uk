@@ -47,7 +47,7 @@ describe('job exception detectors', () => {
     const rows = detectJobExceptions([job], new Set(), new Map([[driverId, Date.parse('2026-09-30T09:59:00Z')]]), NOW);
     expect(rows.map((row) => row.caseType)).not.toContain('driver_gps_stale');
   });
-  it('detects POD remediation and delivered-without-invoice closure failures', () => {
+  it('detects missing POD and delivered-without-invoice closure failures', () => {
     const job = base({
       current_status: 'delivered',
       delivered_at: '2026-09-30T09:30:00Z',
@@ -58,9 +58,23 @@ describe('job exception detectors', () => {
     const rows = detectJobExceptions([job], new Set(), new Map(), NOW);
     expect(rows.map((row) => row.caseType)).toEqual(expect.arrayContaining([
       'pod_missing',
-      'pod_remediation',
       'delivered_without_invoice',
     ]));
+    expect(rows.filter((row) => row.caseType === 'pod_missing')).toHaveLength(1);
+  });
+
+  it('detects rejected POD as a dedicated P1 exception', () => {
+    const job = base({
+      current_status: 'delivered',
+      delivered_at: '2026-09-30T09:30:00Z',
+      pod_required: true,
+      pod_generated: true,
+      broker_pod_review_status: 'rejected',
+    });
+    const rows = detectJobExceptions([job], new Set([job.id]), new Map(), NOW);
+    const rejected = rows.find((row) => row.caseType === 'pod_rejected');
+    expect(rejected?.severity).toBe('P1');
+    expect(rejected?.customerUpdateDueMinutes).toBe(30);
   });
 
   it('does not flag delivered-without-invoice when invoice already exists', () => {

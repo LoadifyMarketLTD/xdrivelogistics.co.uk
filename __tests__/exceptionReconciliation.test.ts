@@ -13,7 +13,7 @@ describe('Exception reconciliation wiring', () => {
       'driver_status_stale',
       'driver_gps_stale',
       'pod_missing',
-      'pod_remediation',
+      'pod_rejected',
       'delivered_without_invoice',
       'job_unallocated_collection_imminent',
     ]) {
@@ -28,6 +28,14 @@ describe('Exception reconciliation wiring', () => {
     expect(service).toContain('service_reconcile_platform_case_sla');
     expect(service).toContain('driver_locations');
     expect(service).toContain('invoices');
+    expect(service).toContain('invoice_generation_failed');
+    expect(service).toContain('detectFinanceExceptions');
+  });
+
+  it('persists auto-invoice generation failures as canonical tracking evidence', () => {
+    const route = readRepoFile('app/api/admin/jobs/[id]/transition/route.ts');
+    expect(route).toContain("event_type: 'invoice_generation_failed'");
+    expect(route).toContain('Invoice generation failure event could not be persisted');
   });
 
   it('exposes an owner-only, deploy-preview-safe reconcile endpoint', () => {
