@@ -33,6 +33,8 @@ describe('Exception & Closure Engine Phase 1', () => {
     expect(migration).toContain('service_reconcile_platform_case_sla');
     expect(migration).toContain("event_type, old_status, new_status, reason, metadata");
     expect(migration).toContain("'sla_breached'");
+    expect(migration).toContain('b.created_by_user_id');
+    expect(migration).not.toContain('ALTER COLUMN actor_user_id DROP NOT NULL');
     expect(migration).toContain("sla_breached_at = COALESCE(pc.sla_breached_at, p_now)");
     expect(migration).toContain("escalated_at = COALESCE(pc.escalated_at, p_now)");
   });

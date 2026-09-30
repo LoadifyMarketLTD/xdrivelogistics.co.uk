@@ -1,4 +1,4 @@
-﻿BEGIN;
+BEGIN;
 
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '300s';
@@ -151,4 +151,3 @@ COMMENT ON COLUMN public.platform_cases.customer_update_due_at IS 'Deadline for 
 COMMENT ON COLUMN public.platform_cases.closure_due_at IS 'Deadline for verified operational/financial closure.';
 
 COMMIT;
-
