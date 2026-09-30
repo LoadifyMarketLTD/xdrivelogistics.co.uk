@@ -18,8 +18,12 @@ export const isSuperAdminDeployPreviewReadOnly = (request?: NextRequest) => {
     ?? request?.headers.get('host')
     ?? request?.nextUrl.hostname
     ?? '';
-  return process.env.CONTEXT === 'deploy-preview'
+  const context = String(process.env.CONTEXT ?? '').trim().toLowerCase();
+  return context === 'deploy-preview'
+    || context === 'branch-deploy'
+    || Boolean(process.env.REVIEW_ID)
     || Boolean(process.env.DEPLOY_PRIME_URL?.includes('deploy-preview-'))
+    || Boolean(process.env.DEPLOY_URL?.includes('deploy-preview-'))
     || Boolean(process.env.URL?.includes('deploy-preview-'))
     || host.includes('deploy-preview-');
 };
