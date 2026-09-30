@@ -61,9 +61,10 @@ describe('Super Admin Platform Case Centre foundation', () => {
     const detailRoute = readRepoFile('app/api/super-admin/cases/[caseId]/route.ts');
     const detailPage = readRepoFile('app/super-admin/action-centre/[caseId]/page.tsx');
     expect(verifier).toContain("const READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])");
-    expect(verifier).toContain('isSuperAdminDeployPreviewReadOnly() && !READ_ONLY_METHODS.has');
-    expect(listRoute).toContain('readOnly = isSuperAdminDeployPreviewReadOnly()');
-    expect(detailRoute).toContain('readOnly: isSuperAdminDeployPreviewReadOnly()');
+    expect(verifier).toContain('isSuperAdminDeployPreviewReadOnly(request) && !READ_ONLY_METHODS.has');
+    expect(verifier).toContain("host.includes('deploy-preview-')");
+    expect(listRoute).toContain('readOnly = isSuperAdminDeployPreviewReadOnly(request)');
+    expect(detailRoute).toContain('readOnly: isSuperAdminDeployPreviewReadOnly(request)');
     expect(detailPage).toContain('disabled={readOnly || Boolean(running)}');
     expect(detailPage).toContain('No case mutation was attempted.');
   });

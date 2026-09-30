@@ -13,10 +13,16 @@ export type VerifiedPlatformOwner = {
 
 const READ_ONLY_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
 
-export const isSuperAdminDeployPreviewReadOnly = () =>
-  process.env.CONTEXT === 'deploy-preview'
-  || Boolean(process.env.DEPLOY_PRIME_URL?.includes('deploy-preview-'))
-  || Boolean(process.env.URL?.includes('deploy-preview-'));
+export const isSuperAdminDeployPreviewReadOnly = (request?: NextRequest) => {
+  const host = request?.headers.get('x-forwarded-host')
+    ?? request?.headers.get('host')
+    ?? request?.nextUrl.hostname
+    ?? '';
+  return process.env.CONTEXT === 'deploy-preview'
+    || Boolean(process.env.DEPLOY_PRIME_URL?.includes('deploy-preview-'))
+    || Boolean(process.env.URL?.includes('deploy-preview-'))
+    || host.includes('deploy-preview-');
+};
 
 /**
  * Lightweight authentication-presence check for endpoints that must preserve
@@ -32,7 +38,7 @@ export async function verifyPlatformOwner(request: NextRequest): Promise<Verifie
   // Deploy Previews may be connected to Production-backed read sources for
   // truth validation. Fail closed before every Super Admin write method so a
   // preview can never become an accidental mutation surface.
-  if (isSuperAdminDeployPreviewReadOnly() && !READ_ONLY_METHODS.has(request.method.toUpperCase())) {
+  if (isSuperAdminDeployPreviewReadOnly(request) && !READ_ONLY_METHODS.has(request.method.toUpperCase())) {
     return null;
   }
 

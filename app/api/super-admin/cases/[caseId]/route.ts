@@ -52,7 +52,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const actorNameById = new Map((profiles ?? []).map((profile) => [String(profile.user_id), String(profile.full_name ?? 'Platform Owner')]));
 
   return respond(200, {
-    readOnly: isSuperAdminDeployPreviewReadOnly(),
+    readOnly: isSuperAdminDeployPreviewReadOnly(request),
     case: caseResult.data,
     events: (eventsResult.data ?? []).map((event) => ({
       ...event,
@@ -65,7 +65,7 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
-  if (isSuperAdminDeployPreviewReadOnly()) {
+  if (isSuperAdminDeployPreviewReadOnly(request)) {
     return respond(403, { error: 'Deploy Preview is read-only. Platform case mutation was not performed.' });
   }
   const owner = await verifyPlatformOwner(request);

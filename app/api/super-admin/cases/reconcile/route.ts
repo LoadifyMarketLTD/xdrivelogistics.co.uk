@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  if (isSuperAdminDeployPreviewReadOnly()) {
+  if (isSuperAdminDeployPreviewReadOnly(request)) {
     return respond(403, {
       error: 'Deploy Preview is read-only. Exception reconciliation was not performed.',
     });
