@@ -35,7 +35,8 @@ CREATE OR REPLACE FUNCTION public.platform_case_default_sla(
   p_detected_at timestamptz
 )
 RETURNS timestamptz
-LANGUAGE sql`r`nSTABLE
+LANGUAGE sql
+STABLE
 SET search_path = pg_catalog, public
 AS $$
   SELECT COALESCE(p_detected_at, now()) +
