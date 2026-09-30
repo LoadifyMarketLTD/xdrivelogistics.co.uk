@@ -16,6 +16,7 @@ describe('CX company operational settings parity contract', () => {
   const submitQuote = read('app/api/driver/_lib/submitQuote.ts');
   const jobCreate = read('app/api/jobs/create/route.ts');
   const jobManage = read('app/api/admin/jobs/[id]/manage/route.ts');
+  const adminBidAccept = read('app/api/admin/bids/[id]/accept/route.ts');
   const award = read('app/api/customer/bids/[id]/award/route.ts');
   const message = read('app/api/customer/bids/[id]/message/route.ts');
   const driverLoads = read('app/api/driver/marketplace/loads/route.ts');
@@ -123,6 +124,7 @@ describe('CX company operational settings parity contract', () => {
     expect(submitQuote).toContain('Commercial interaction with this company is blocked.');
     expect(jobCreate).toContain('Direct Booking is unavailable because commercial interaction between these companies is blocked.');
     expect(jobManage).toContain('Direct Booking is unavailable because commercial interaction between these companies is blocked.');
+    expect(adminBidAccept).toContain('This quote cannot be awarded because commercial interaction between these companies is blocked.');
     expect(award).toContain('This quote cannot be awarded because commercial interaction between these companies is blocked.');
     expect(message).toContain('Messaging is unavailable because commercial interaction between these companies is blocked.');
     expect(driverLoads).toContain('blockedResult.ids.has(companyId)');

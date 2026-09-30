@@ -10,6 +10,7 @@ import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/
 import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../../_lib/commercialLegalReadiness';
+import { areCompaniesBlocked } from '../../../../_lib/companyBlocks';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -90,6 +91,20 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json(
       { error: 'The selected carrier company could not be resolved for this quote.' },
       { status: 409 }
+    );
+  }
+
+  const blockState = await areCompaniesBlocked(supabaseAdmin, jobCompanyId, carrierCompanyId);
+  if (blockState.error) {
+    return NextResponse.json(
+      { error: 'Member block status could not be verified. Please retry.' },
+      { status: 503 }
+    );
+  }
+  if (blockState.blocked) {
+    return NextResponse.json(
+      { error: 'This quote cannot be awarded because commercial interaction between these companies is blocked.' },
+      { status: 403 }
     );
   }
 
