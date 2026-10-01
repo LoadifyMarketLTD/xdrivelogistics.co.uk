@@ -832,3 +832,31 @@
     flex-wrap:wrap!important;
   }
 }
+/* Diary operational action rail */
+.driver-diary-route .driver-diary-action-rail button[data-operation="primary"]{
+  background:#2faf4a!important;
+  border-color:#2faf4a!important;
+  color:#fff!important;
+  font-weight:700!important;
+}
+.driver-diary-route .driver-diary-action-rail button[data-operation="primary"]:hover:not(:disabled),
+.driver-diary-route .driver-diary-action-rail button[data-operation="primary"]:focus-visible:not(:disabled){
+  background:#24963d!important;
+  border-color:#24963d!important;
+}
+.driver-diary-route .driver-diary-action-rail button[data-operation="cancel"]{
+  background:#fff!important;
+  border-color:#cfd7e3!important;
+  color:#172033!important;
+  font-weight:650!important;
+}
+.driver-diary-route .driver-diary-action-rail button[data-operation="track"]{
+  background:#f4f6f8!important;
+  border-color:#cfd7e3!important;
+  color:#64748b!important;
+  font-weight:650!important;
+}
+.driver-diary-route .driver-diary-action-rail button[data-operation]:disabled{
+  opacity:.58!important;
+  cursor:not-allowed!important;
+}
