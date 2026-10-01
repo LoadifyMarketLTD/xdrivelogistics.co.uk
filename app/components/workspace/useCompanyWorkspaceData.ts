@@ -555,7 +555,7 @@ const buildWorkspaceError = (
 
 export function useCompanyWorkspaceData(): WorkspaceDataState {
   const pathname = usePathname() ?? '/';
-  const { user } = useAuth();
+  const { user, refreshUserContext } = useAuth();
   const userId = user?.id ?? null;
   const driverId = user?.driverId ?? null;
   const userCompanyId = user?.companyId ?? null;
@@ -629,6 +629,31 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
       setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
       setLoading(false);
       return;
+    }
+
+    if (userId) {
+      const sessionResult = await supabase.auth.getSession();
+      let session = sessionResult.data.session;
+      const expiresSoon = Boolean(
+        session?.expires_at && (session.expires_at * 1000) <= Date.now() + 60_000,
+      );
+
+      if (sessionResult.error || !session || expiresSoon) {
+        const refreshed = await supabase.auth.refreshSession();
+        session = refreshed.data.session;
+
+        if (refreshed.error || !session) {
+          const authRefresh = await refreshUserContext();
+          if (!authRefresh.success) {
+            setDatasets(nextDatasets);
+            setQueryErrors([]);
+            setPartialData(false);
+            setError('');
+            setLoading(false);
+            return;
+          }
+        }
+      }
     }
 
     if (!driverSurface && !companyId) {
@@ -972,7 +997,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setPartialData(Object.values(nextDatasets).some((dataset) => dataset.partialData));
     setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
     setLoading(false);
-  }, [companyId, plan, driverId, userId]);
+  }, [companyId, plan, driverId, refreshUserContext, userId]);
 
   useEffect(() => {
     setDatasets(createDatasetMap(plan.datasets));
