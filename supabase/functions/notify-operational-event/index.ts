@@ -300,6 +300,75 @@ async function handleJobAssigned(event: NotificationEvent) {
   return emailOk && pushOk;
 }
 
+async function handleCommercialAmendment(event: NotificationEvent) {
+  const jobId = String(event.payload.job_id ?? event.entity_id);
+  const amendmentId = String(event.payload.amendment_id ?? '');
+  const version = String(event.payload.version_number ?? '?');
+  const reason = String(event.payload.reason ?? 'Booking details changed.').trim();
+  const deepLink = `xdrive://job/${jobId}`;
+
+  if (event.event_type === 'commercial_amendment_proposed') {
+    const companyId = event.company_id
+      ?? (typeof event.payload.counterparty_company_id === 'string' ? event.payload.counterparty_company_id : null);
+    const userId = event.recipient_user_id;
+
+    const [companyEmailOk, pushOk] = await Promise.all([
+      companyId
+        ? emailCompanyOperators(
+          companyId,
+          event.event_type,
+          'Job change requires acceptance - XDrive Logistics',
+          (name) =>
+            `<h2>Job change requires acceptance</h2><p>Hi ${name},</p><p>Booking <strong>${escapeHtml(jobId)}</strong> has a proposed change (version ${escapeHtml(version)}).</p><p><strong>Reason:</strong> ${escapeHtml(reason)}</p><p>The original booking remains active until your company or the assigned driver accepts the change in XDrive.</p><p><a href="${escapeHtml(buildAppUrl('/carrier/diary'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
+          event.id,
+        )
+        : true,
+      userId
+        ? sendDriverPush(
+          userId,
+          'Job Change Requires Acceptance',
+          `Booking ${jobId} has changed. Open XDrive to review OLD → NEW details and accept or reject.`,
+          {
+            event_type: 'commercial_amendment_proposed',
+            job_id: jobId,
+            amendment_id: amendmentId,
+            deep_link: deepLink,
+          },
+        )
+        : true,
+    ]);
+    return companyEmailOk && pushOk;
+  }
+
+  const accepted = event.event_type === 'commercial_amendment_accepted';
+  const userId = event.recipient_user_id;
+  if (userId && await userEmailEnabled(userId, event.event_type)) {
+    const user = await getUserEmail(userId);
+    if (user) {
+      return sendEmail(
+        user.email,
+        accepted
+          ? 'Job change accepted - XDrive Logistics'
+          : 'Job change rejected - XDrive Logistics',
+        `<h2>Job change ${accepted ? 'accepted' : 'rejected'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>Booking <strong>${escapeHtml(jobId)}</strong> amendment version ${escapeHtml(version)} was <strong>${accepted ? 'accepted' : 'rejected'}</strong>.</p><p>${accepted ? 'The accepted version is now the active booking.' : 'The previously accepted booking remains active.'}</p><p><a href="${escapeHtml(buildAppUrl('/customer/jobs/' + encodeURIComponent(jobId)))}">Open booking history</a></p><p>XDrive Logistics</p>`,
+        notificationIdempotencyKey(event.id, userId),
+      );
+    }
+  }
+
+  const companyId = event.company_id;
+  return companyId
+    ? emailCompanyOperators(
+      companyId,
+      event.event_type,
+      accepted ? 'Job change accepted - XDrive Logistics' : 'Job change rejected - XDrive Logistics',
+      (name) =>
+        `<h2>Job change ${accepted ? 'accepted' : 'rejected'}</h2><p>Hi ${name},</p><p>Booking <strong>${escapeHtml(jobId)}</strong> amendment version ${escapeHtml(version)} was <strong>${accepted ? 'accepted' : 'rejected'}</strong>.</p><p>XDrive Logistics</p>`,
+      event.id,
+    )
+    : true;
+}
+
 async function handleBidAccepted(event: NotificationEvent) {
   const userId = typeof event.payload.bidder_user_id === 'string' ? event.payload.bidder_user_id : null;
   if (!userId) return true;
@@ -575,6 +644,11 @@ async function processEvent(event: NotificationEvent): Promise<void> {
   try {
     switch (event.event_type) {
       case 'job_assigned': success = await handleJobAssigned(event); break;
+      case 'commercial_amendment_proposed':
+      case 'commercial_amendment_accepted':
+      case 'commercial_amendment_rejected':
+        success = await handleCommercialAmendment(event);
+        break;
       case 'bid_accepted': success = await handleBidAccepted(event); break;
       case 'pod_uploaded': success = await handlePodUploaded(event); break;
       case 'load_alert': success = await handleLoadAlert(event); break;
