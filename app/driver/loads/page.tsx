@@ -324,8 +324,7 @@ export default function AvailableLoadsPage() {
             <div className="filter"><span className="label">Minimum Weight</span><input className="input" type="number" min="0" value={weightMinFilter} onChange={(event) => setWeightMinFilter(event.target.value)} placeholder="kg" /></div>
             <div className="filter"><span className="label">Preferences</span><label className="check"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} />Save as Default</label></div>
           </aside>
-          <main className="main">
-            <div className="head"><div><h1>Loads</h1><p>Search live freight, inspect privacy-safe details and prepare a quote</p></div></div>
+          <main className="main loads-main">
             {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
             <div className="load-nav-unified">
@@ -335,9 +334,9 @@ export default function AvailableLoadsPage() {
               <div className="load-posted">Show loads posted within last <select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">all</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
             </div>
             <div className="load-result-head">
-              <div><b>Search Loads Results</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
+              <div className="load-result-title"><b>Search Loads Results</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
               <div className="load-view-switch"><button type="button" className="active">List View</button><button type="button" disabled>Map View</button></div>
-              <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+              <div className="load-result-controls">
                 <button type="button" className="text-action" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }}>{expandAll ? 'Collapse all visible loads' : 'Expand all visible loads'}</button>
                 <label className="load-page-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
                 <span>{filteredLoads.length ? `1-${Math.min(visibleCount, filteredLoads.length)} of ${filteredLoads.length}` : '0 results'}</span>

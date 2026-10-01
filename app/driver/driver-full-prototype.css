@@ -3272,3 +3272,291 @@
   overflow:hidden!important;
   text-overflow:ellipsis!important;
 }
+/* FINAL Loads visual calibration — scoped to Driver Loads only */
+.driver-prototype-port .driver-loads-prototype .pagebody{
+  grid-template-columns:188px minmax(0,1fr)!important;
+}
+.driver-prototype-port .driver-loads-prototype .left{
+  width:188px!important;
+  min-width:188px!important;
+  max-width:188px!important;
+}
+.driver-prototype-port .driver-loads-prototype .left-title{
+  height:31px!important;
+  padding:0 9px!important;
+  font-size:11px!important;
+  font-weight:800!important;
+}
+.driver-prototype-port .driver-loads-prototype .filter{
+  padding:6px 8px!important;
+}
+.driver-prototype-port .driver-loads-prototype .label{
+  margin-bottom:3px!important;
+  font-size:9.4px!important;
+  line-height:12px!important;
+  letter-spacing:.03em!important;
+}
+.driver-prototype-port .driver-loads-prototype .input,
+.driver-prototype-port .driver-loads-prototype .select{
+  height:28px!important;
+  min-height:28px!important;
+  padding:0 7px!important;
+  font-size:10.5px!important;
+  border-radius:1px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-scope button{
+  height:27px!important;
+  font-size:10px!important;
+  font-weight:700!important;
+}
+.driver-prototype-port .driver-loads-prototype .loads-main{
+  padding:5px 7px 6px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-unified{
+  min-height:31px!important;
+  height:31px!important;
+  padding:0!important;
+  border:1px solid #c7d2dd!important;
+  background:#fff!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-unified .load-market-nav,
+.driver-prototype-port .driver-loads-prototype .load-nav-unified .load-tabs{
+  height:30px!important;
+  min-height:30px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-unified .load-market-nav>button,
+.driver-prototype-port .driver-loads-prototype .load-nav-unified .load-tabs>button{
+  height:30px!important;
+  min-height:30px!important;
+  padding:0 9px!important;
+  font-size:10px!important;
+  font-weight:700!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-divider{
+  height:20px!important;
+  margin:0 5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-posted{
+  padding:0 6px!important;
+  gap:4px!important;
+  font-size:9.5px!important;
+  font-weight:500!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-posted select{
+  height:25px!important;
+  min-height:25px!important;
+  width:74px!important;
+  font-size:10px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-head{
+  min-height:32px!important;
+  height:32px!important;
+  padding:0 6px!important;
+  gap:7px!important;
+  border-top:0!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-title{
+  display:flex!important;
+  align-items:baseline!important;
+  gap:7px!important;
+  min-width:145px!important;
+  flex:0 0 auto!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-title b{
+  font-size:10.5px!important;
+  line-height:12px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-title span{
+  font-size:9px!important;
+  line-height:12px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-view-switch{
+  margin-left:0!important;
+  flex:0 0 auto!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-view-switch button{
+  height:24px!important;
+  padding:0 8px!important;
+  font-size:9.5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-controls{
+  margin-left:auto!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  gap:6px!important;
+  flex-wrap:nowrap!important;
+  white-space:nowrap!important;
+  font-size:9.5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-controls .text-action{
+  font-size:9.5px!important;
+  font-weight:700!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-controls select{
+  height:24px!important;
+  min-height:24px!important;
+  font-size:9.5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-controls .btn,
+.driver-prototype-port .driver-loads-prototype .load-result-controls .rowbtn{
+  height:24px!important;
+  min-height:24px!important;
+  padding:0 7px!important;
+  font-size:9.5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-list{
+  gap:4px!important;
+  padding:4px!important;
+  background:#f4f6f8!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card{
+  border:1px solid #1f8cff!important;
+  border-radius:2px!important;
+  box-shadow:0 1px 2px rgba(15,23,42,.12)!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-primary{
+  grid-template-columns:minmax(0,35%) minmax(0,34%) minmax(0,31%)!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-times,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-member{
+  min-height:78px!important;
+  padding:7px 9px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-times{
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:flex-start!important;
+  gap:3px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-time-line{
+  min-height:17px!important;
+  display:grid!important;
+  grid-template-columns:42px minmax(0,1fr)!important;
+  gap:7px!important;
+  align-items:baseline!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-time-line{
+  grid-template-columns:48px minmax(0,1fr)!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line span,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-time-line span{
+  font-size:9.8px!important;
+  line-height:13px!important;
+  font-weight:500!important;
+  color:#6b7888!important;
+  text-transform:none!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line b,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-time-line b{
+  font-size:11.5px!important;
+  line-height:14px!important;
+  font-weight:800!important;
+  color:#23364d!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-member{
+  padding:28px 8px 6px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-type{
+  top:5px!important;
+  left:7px!important;
+  right:7px!important;
+  min-height:18px!important;
+  height:18px!important;
+  font-size:10.5px!important;
+  line-height:18px!important;
+  font-weight:700!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-postedby{
+  font-size:10.5px!important;
+  line-height:14px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-member .meta{
+  margin-top:1px!important;
+  font-size:9.5px!important;
+  line-height:13px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-vehicle{
+  font-size:10.5px!important;
+  line-height:13px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra{
+  grid-template-columns:minmax(0,35%) minmax(0,34%) minmax(0,31%)!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card.expanded .load-extra-col>div{
+  min-height:19px!important;
+  padding:1px 8px!important;
+  grid-template-columns:62px minmax(0,1fr)!important;
+  gap:5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card.expanded .load-extra-col b{
+  font-size:9.5px!important;
+  line-height:13px!important;
+  font-weight:600!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card.expanded .load-extra-col span{
+  font-size:10px!important;
+  line-height:13px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note{
+  min-height:0!important;
+  padding:5px 8px!important;
+  gap:1px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>b{
+  font-size:9.5px!important;
+  line-height:12px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>span{
+  font-size:10px!important;
+  line-height:13px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>small{
+  font-size:9px!important;
+  line-height:12px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-requirements{
+  min-height:25px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer{
+  min-height:25px!important;
+  height:25px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-expand{
+  width:18px!important;
+  min-width:18px!important;
+  height:24px!important;
+  font-size:10px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-quote-footer{
+  min-width:108px!important;
+  height:24px!important;
+  font-size:10.5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer .text-action{
+  font-size:9.8px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-footer-identity{
+  padding-right:7px!important;
+  font-size:9.3px!important;
+}
+@media(max-width:1280px){
+  .driver-prototype-port .driver-loads-prototype .pagebody{
+    grid-template-columns:174px minmax(0,1fr)!important;
+  }
+  .driver-prototype-port .driver-loads-prototype .left{
+    width:174px!important;
+    min-width:174px!important;
+    max-width:174px!important;
+  }
+  .driver-prototype-port .driver-loads-prototype .load-result-controls{
+    gap:4px!important;
+  }
+  .driver-prototype-port .driver-loads-prototype .cx-load-card .load-primary,
+  .driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra{
+    grid-template-columns:minmax(0,34%) minmax(0,34%) minmax(0,32%)!important;
+  }
+}
