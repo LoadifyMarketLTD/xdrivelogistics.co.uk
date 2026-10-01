@@ -5,7 +5,7 @@ const respond = (status: number, payload: Record<string, unknown>) => NextRespon
 
 export async function POST(
   request: NextRequest,
-  context: { params: Promise<{ id: string }> },
+  context: { params: Promise<{ jobId: string }> },
 ) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
@@ -17,7 +17,7 @@ export async function POST(
   const { data: auth, error: authError } = await supabaseAdmin.auth.getUser(token);
   if (authError || !auth.user) return respond(401, { error: 'Invalid session.' });
 
-  const { id } = await context.params;
+  const { jobId } = await context.params;
   const body = await request.json().catch(() => null) as { reason?: string } | null;
   const reason = body?.reason?.trim() ?? '';
   if (reason.length < 5) {
@@ -25,7 +25,7 @@ export async function POST(
   }
 
   const { data, error } = await supabaseAdmin.rpc('request_awarded_job_cancellation_atomic', {
-    p_job_id: id,
+    p_job_id: jobId,
     p_actor_user_id: auth.user.id,
     p_reason: reason,
   });
