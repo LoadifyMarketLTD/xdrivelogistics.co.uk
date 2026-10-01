@@ -25,6 +25,7 @@ import { resolveWorkspaceRole } from '../../lib/workspaceRole';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import { VEHICLE_TYPE_LABELS } from '../../lib/vehicleTypes';
 import DriverWorkspaceShell from './_components/DriverWorkspaceShell';
+import PendingBookingOffers from '../components/workspace/PendingBookingOffers';
 
 type DriverProfile = {
   availability_status: string | null;
@@ -588,6 +589,8 @@ export default function DriverDashboard() {
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/messages')}>Freight Messenger</ActionButton>
               </div>
             </OperationalToolbar>
+
+            <PendingBookingOffers onChanged={() => void refreshDashboard()} />
 
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)', gap: 12, alignItems: 'start' }}>
               <div style={{ display: 'grid', gap: 12 }}>
