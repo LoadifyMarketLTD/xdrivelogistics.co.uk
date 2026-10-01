@@ -25,6 +25,7 @@ type NearbyJobRow = {
   pickup_lng: number | null;
   pickup_datetime: string | null;
   pickup_time_slot: string | null;
+  collection_window_end?: string | null;
   delivery_location: string | null;
   delivery_postcode: string | null;
   delivery_lat: number | null;
@@ -69,7 +70,7 @@ type NearbyJobRow = {
 // Explicit company FK keeps PostgREST embedding deterministic for mobile loads.
 const nearbySelect = [
   'id', 'company_id', 'created_by', 'status', 'exchange_visibility', 'awarded_carrier_company_id', 'assigned_company_id', 'assigned_driver_id', 'direct_invite_company_id',
-  'pickup_location', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot',
+  'pickup_location', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot', 'collection_window_end',
   'delivery_location', 'delivery_postcode', 'delivery_lat', 'delivery_lng', 'delivery_datetime', 'delivery_time_slot',
   'pickup_country_code', 'delivery_country_code', 'service_mode', 'direct_delivery_required',
   'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label', 'cargo_type', 'requested_cargo_label',
@@ -86,6 +87,11 @@ function companyInfo(companies: NearbyJobRow['companies']) {
 function publicArea(postcode: unknown) {
   const outcode = publicOutcode(postcode);
   return outcode ? `Approx. area · ${outcode}` : 'Area disclosed after allocation';
+}
+
+function fullDisplayPostcode(postcode: unknown) {
+  const raw = String(postcode ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return raw || null;
 }
 
 function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: Record<string, unknown> = {}) {
@@ -105,14 +111,16 @@ function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: 
     pickup: {
       addressSummary: publicArea(row.pickup_postcode),
       postcode: publicOutcode(row.pickup_postcode),
+      fullPostcode: fullDisplayPostcode(row.pickup_postcode),
       latitude: null,
       longitude: null,
       collectionFrom: row.pickup_datetime || row.pickup_time_slot || null,
-      collectionTo: null,
+      collectionTo: row.collection_window_end || null,
     },
     delivery: {
       addressSummary: publicArea(row.delivery_postcode),
       postcode: publicOutcode(row.delivery_postcode),
+      fullPostcode: fullDisplayPostcode(row.delivery_postcode),
       latitude: null,
       longitude: null,
       deliveryFrom: row.delivery_datetime || row.delivery_time_slot || null,
@@ -140,6 +148,7 @@ function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: 
     pickupCountryCode: row.pickup_country_code || 'GB',
     deliveryCountryCode: row.delivery_country_code || 'GB',
     serviceMode: row.service_mode || null,
+    postedAt: row.exchange_posted_at || null,
     directDeliveryRequired: row.direct_delivery_required === true,
     ...extras,
   };
@@ -357,7 +366,7 @@ export async function GET(request: NextRequest) {
     ? {}
     : { canQuote: false, quoteWarning: 'Your account type does not permit commercial bidding.' };
 
-  const [{ data: latestDriverLocation }, { data: homeCompany }] = await Promise.all([
+  const [{ data: latestDriverLocation }, { data: availabilityPresence }, { data: homeCompany }] = await Promise.all([
     supabaseAdmin
       .from('driver_locations')
       .select('lat,lng,recorded_at')
@@ -365,15 +374,34 @@ export async function GET(request: NextRequest) {
       .order('recorded_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabaseAdmin
+      .from('driver_availability_presence')
+      .select('exact_lat,exact_lng,recorded_at,available_until')
+      .eq('driver_id', driver.driverId)
+      .maybeSingle(),
     driver.companyId
       ? supabaseAdmin.from('companies').select('postcode').eq('id', driver.companyId).maybeSingle()
       : Promise.resolve({ data: null, error: null }),
   ]);
   const latestDriverPosition = validCoordinates(latestDriverLocation?.lat, latestDriverLocation?.lng);
   const locationRecordedAt = latestDriverLocation?.recorded_at ? new Date(latestDriverLocation.recorded_at).getTime() : Number.NaN;
-  const currentLocationFresh = latestDriverPosition !== null
+  const jobLocationFresh = latestDriverPosition !== null
     && Number.isFinite(locationRecordedAt)
     && Date.now() - locationRecordedAt <= 120 * 60_000;
+  const availabilityPosition = validCoordinates(availabilityPresence?.exact_lat, availabilityPresence?.exact_lng);
+  const availabilityRecordedAt = availabilityPresence?.recorded_at
+    ? new Date(availabilityPresence.recorded_at).getTime()
+    : Number.NaN;
+  const availabilityUntil = availabilityPresence?.available_until
+    ? new Date(availabilityPresence.available_until).getTime()
+    : Number.NaN;
+  const availabilityLocationFresh = availabilityPosition !== null
+    && Number.isFinite(availabilityRecordedAt)
+    && Date.now() - availabilityRecordedAt <= 120 * 60_000
+    && Number.isFinite(availabilityUntil)
+    && availabilityUntil > Date.now();
+  const currentLocationFresh = jobLocationFresh || availabilityLocationFresh;
+  const liveDriverPosition = jobLocationFresh ? latestDriverPosition : availabilityLocationFresh ? availabilityPosition : null;
 
   const postcodeInputs = [
     ...rows.filter((row) => !validCoordinates(row.pickup_lat, row.pickup_lng)).map((row) => row.pickup_postcode),
@@ -381,7 +409,7 @@ export async function GET(request: NextRequest) {
   ];
   const postcodeFallbacks = await postcodeCoordinates(postcodeInputs);
   const homePosition = currentLocationFresh ? null : (postcodeFallbacks.get(postcodeKey(homeCompany?.postcode)) ?? null);
-  const driverPosition = currentLocationFresh ? latestDriverPosition : homePosition;
+  const driverPosition = currentLocationFresh ? liveDriverPosition : homePosition;
   const distanceOrigin = currentLocationFresh ? 'current_location' : homePosition ? 'home_location' : null;
   const pickupCoordinateFallbacks = postcodeFallbacks;
   const pickupCoordinatesByJob = new Map<string, Coordinates>();

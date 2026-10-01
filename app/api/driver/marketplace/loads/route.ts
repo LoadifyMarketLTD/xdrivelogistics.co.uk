@@ -88,10 +88,13 @@ function publicLoad(
     status: marketplaceText(job.status) ?? 'posted',
     pickup_area: publicAreaLabel(job.pickup_postcode, job.pickup_country_code, 'Collection area TBC'),
     pickup_postcode_area: publicOutcode(job.pickup_postcode),
+    pickup_postcode_full: marketplaceText(job.pickup_postcode),
     pickup_datetime: marketplaceText(job.pickup_datetime),
     pickup_time_slot: marketplaceText(job.pickup_time_slot),
+    collection_window_end: marketplaceText(job.collection_window_end),
     delivery_area: publicAreaLabel(job.delivery_postcode, job.delivery_country_code, 'Delivery area TBC'),
     delivery_postcode_area: publicOutcode(job.delivery_postcode),
+    delivery_postcode_full: marketplaceText(job.delivery_postcode),
     delivery_datetime: marketplaceText(job.delivery_datetime),
     delivery_time_slot: marketplaceText(job.delivery_time_slot),
     pickup_country_code: marketplaceText(job.pickup_country_code),
@@ -305,7 +308,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  const [{ data: latestDriverLocation }, { data: homeCompany }] = await Promise.all([
+  const [{ data: latestDriverLocation }, { data: availabilityPresence }] = await Promise.all([
     supabaseAdmin
       .from('driver_locations')
       .select('lat,lng,recorded_at')
@@ -313,9 +316,11 @@ export async function GET(request: NextRequest) {
       .order('recorded_at', { ascending: false })
       .limit(1)
       .maybeSingle(),
-    driver.companyId
-      ? supabaseAdmin.from('companies').select('postcode').eq('id', driver.companyId).maybeSingle()
-      : Promise.resolve({ data: null, error: null }),
+    supabaseAdmin
+      .from('driver_availability_presence')
+      .select('exact_lat,exact_lng,recorded_at,available_until')
+      .eq('driver_id', driver.driverId)
+      .maybeSingle(),
   ]);
 
   const validCoordinates = (lat: unknown, lng: unknown) => {
@@ -326,23 +331,27 @@ export async function GET(request: NextRequest) {
   const postcodeKey = (value: unknown) => String(value ?? '').replace(/\s+/g, '').toUpperCase();
   const latestPosition = validCoordinates(latestDriverLocation?.lat, latestDriverLocation?.lng);
   const recordedAt = latestDriverLocation?.recorded_at ? new Date(latestDriverLocation.recorded_at).getTime() : Number.NaN;
-  const fresh = latestPosition !== null && Number.isFinite(recordedAt) && Date.now() - recordedAt <= 120 * 60_000;
+  const jobLocationFresh = latestPosition !== null
+    && Number.isFinite(recordedAt)
+    && Date.now() - recordedAt <= 120 * 60_000;
+  const availabilityPosition = validCoordinates(availabilityPresence?.exact_lat, availabilityPresence?.exact_lng);
+  const availabilityRecordedAt = availabilityPresence?.recorded_at
+    ? new Date(availabilityPresence.recorded_at).getTime()
+    : Number.NaN;
+  const availabilityUntil = availabilityPresence?.available_until
+    ? new Date(availabilityPresence.available_until).getTime()
+    : Number.NaN;
+  const availabilityLocationFresh = availabilityPosition !== null
+    && Number.isFinite(availabilityRecordedAt)
+    && Date.now() - availabilityRecordedAt <= 120 * 60_000
+    && Number.isFinite(availabilityUntil)
+    && availabilityUntil > Date.now();
 
-  let driverPosition = fresh ? latestPosition : null;
-  if (!driverPosition && homeCompany?.postcode) {
-    try {
-      const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcodeKey(homeCompany.postcode))}`, {
-        signal: AbortSignal.timeout(5_000),
-        cache: 'no-store',
-      });
-      if (response.ok) {
-        const payload = await response.json() as { result?: { latitude?: number; longitude?: number } | null };
-        driverPosition = validCoordinates(payload.result?.latitude, payload.result?.longitude);
-      }
-    } catch {
-      // No driver-to-pickup metric is safer than an invented one.
-    }
-  }
+  const driverPosition = jobLocationFresh
+    ? latestPosition
+    : availabilityLocationFresh
+      ? availabilityPosition
+      : null;
 
   const loads = await Promise.all(jobs.map(async (job) => {
     let distanceToPickupMiles: number | null = null;
