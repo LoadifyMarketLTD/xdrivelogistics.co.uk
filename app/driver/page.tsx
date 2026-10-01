@@ -441,7 +441,7 @@ export default function DriverDashboard() {
       : myJobs.length;
 
   const renderJobSummary = (job: (typeof myJobs)[number]) => {
-    const status = workspaceJobPresentationStatus(job);
+    const status = canonicalJobStatus(job.current_status, job.status);
     return (
       <div className="driver-load-row">
         <div className="driver-load-row__top">
@@ -737,7 +737,7 @@ export default function DriverDashboard() {
                   <DataTable
                     columns={['Route', 'Pickup / Delivery', 'Vehicle', 'Status', 'Actions']}
                     rows={latestBookings.map((job) => {
-                      const status = workspaceJobPresentationStatus(job);
+                      const status = canonicalJobStatus(job.current_status, job.status);
                       const group = jobLifecyclePresentationGroup(status);
                       return [
                         <span key="route"><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><small style={{ display: 'block', color: workspaceTheme.muted }}>XDL-{job.id.slice(0, 8).toUpperCase()}</small></span>,
