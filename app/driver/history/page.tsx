@@ -8,6 +8,7 @@ import DriverInvoicePreviewModal from '../_components/DriverInvoicePreviewModal'
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
+import { nextDriverExecutionStatus } from '../../../lib/jobs/jobLifecyclePresentation';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
@@ -182,6 +183,19 @@ const STATUS_LABELS: Record<string, string> = {
   driver_declined: 'Declined', expired: 'Expired',
 };
 
+const DIARY_NEXT_ACTION_LABEL: Readonly<Record<string, string>> = {
+  accepted: 'Accept Job',
+  on_my_way: 'On my Way to Pickup',
+  on_site_pickup: 'On Site Pickup',
+  loaded: 'Confirm Loaded',
+  in_transit: 'On my Way to Delivery',
+  on_site_delivery: 'On Site Delivery',
+  delivered: 'Confirm Delivered',
+  completed: 'Complete Job',
+};
+
+const DIARY_DIRECT_TRANSITIONS = new Set(['accepted', 'on_my_way', 'on_site_pickup', 'in_transit', 'on_site_delivery', 'completed']);
+
 function normalizeCompany(value: CompanyRelation) { return !value ? null : Array.isArray(value) ? (value[0] ?? null) : value; }
 function fmtDate(value: string | null) {
   if (!value) return '—';
@@ -315,6 +329,8 @@ export default function JobHistoryPage() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [detailTabs, setDetailTabs] = useState<Record<string, DetailTab>>({});
   const [invoicePreview, setInvoicePreview] = useState<{ id: string; number: string | null } | null>(null);
+  const [workingJobId, setWorkingJobId] = useState<string | null>(null);
+  const [actionMessage, setActionMessage] = useState('');
 
   const fetchOrderSheet = useCallback(async (jobId: string) => {
     if (orderSheetsByJob[jobId] !== undefined || orderLoadingByJob[jobId]) return;
@@ -395,6 +411,66 @@ export default function JobHistoryPage() {
     setLoading(false);
   }, [authLoading, driverId]);
 
+  const runDiaryTransition = useCallback(async (job: HistoryJob, nextStatus: string) => {
+    if (!driverId) return;
+    setWorkingJobId(job.id);
+    setDetailWarning('');
+    setActionMessage('');
+    try {
+      const { error: transitionError } = await supabase.rpc('driver_update_job_status_atomic', {
+        p_driver_id: driverId,
+        p_job_id: job.id,
+        p_next_status: nextStatus,
+        p_driver_notes: null,
+      });
+      if (transitionError) throw transitionError;
+      setActionMessage(`Job updated: ${STATUS_LABELS[nextStatus] ?? human(nextStatus)}.`);
+      await fetchHistory();
+    } catch (reason) {
+      setDetailWarning(reason instanceof Error ? reason.message : 'Job status could not be updated.');
+    } finally {
+      setWorkingJobId(null);
+    }
+  }, [driverId, fetchHistory]);
+
+  const requestDiaryCancellation = useCallback(async (job: HistoryJob) => {
+    const rawReason = window.prompt('Reason for declining/cancelling this booking (minimum 5 characters):');
+    if (rawReason === null) return;
+    const reason = rawReason.trim();
+    if (reason.length < 5) {
+      setDetailWarning('A cancellation reason of at least 5 characters is required.');
+      return;
+    }
+
+    setWorkingJobId(job.id);
+    setDetailWarning('');
+    setActionMessage('');
+    try {
+      const { data } = await supabase.auth.getSession();
+      let token = data.session?.access_token;
+      if (!token) {
+        const refreshed = await supabase.auth.refreshSession();
+        token = refreshed.data.session?.access_token;
+      }
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+
+      const response = await fetch(`/api/driver/jobs/${encodeURIComponent(job.id)}/cancellation`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? 'Cancellation could not be requested.');
+
+      setActionMessage('Cancellation request submitted.');
+      await fetchHistory();
+    } catch (reasonValue) {
+      setDetailWarning(reasonValue instanceof Error ? reasonValue.message : 'Cancellation could not be requested.');
+    } finally {
+      setWorkingJobId(null);
+    }
+  }, [fetchHistory]);
+
   useEffect(() => { void fetchHistory(); }, [fetchHistory]);
 
   const searchedJobs = useMemo(() => jobs.filter((job) => {
@@ -444,6 +520,7 @@ export default function JobHistoryPage() {
       <DriverWorkspaceShell subtitle="Search, scan and expand every assigned booking from one operational diary." headerActions={<ActionButton tone="primary" onClick={() => void fetchHistory()} disabled={loading}>Refresh</ActionButton>}>
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
+        {actionMessage && <AlertBanner tone="success">{actionMessage}</AlertBanner>}
         <div className="xdrive-diary-layout">
           {filterRail}
           <main className="xdrive-diary-register">
@@ -474,6 +551,11 @@ export default function JobHistoryPage() {
                   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : (Array.isArray(job.delivery_photos) ? job.delivery_photos : []);
                   const hasPod = Boolean(job.pod_generated || podPhotos.length > 0); const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews); const expired = isDerivedExpired(job);
                   const currentStatus = effectiveStatus(job);
+                  const nextStatus = nextDriverExecutionStatus(currentStatus);
+                  const nextActionLabel = nextStatus ? (DIARY_NEXT_ACTION_LABEL[nextStatus] ?? human(nextStatus)) : null;
+                  const requiresFullExecution = nextStatus === 'loaded' || nextStatus === 'delivered';
+                  const canRequestCancellation = ['allocated', 'accepted'].includes(currentStatus);
+                  const canTrack = ['allocated', 'accepted', 'on_my_way', 'on_site_pickup', 'loaded', 'in_transit', 'on_site_delivery'].includes(currentStatus);
                   const historyRows = [
                     ...(Array.isArray(job.status_history) ? job.status_history.map((entry, index) => ({ key: `status-${index}`, label: STATUS_LABELS[entry.status ?? ''] ?? entry.status ?? 'Status update', at: entry.timestamp ?? entry.at ?? null, detail: 'Job status history' })) : []),
                     ...trackingEvents.map((event) => ({ key: event.id, label: event.event_type ? (STATUS_LABELS[event.event_type] ?? event.event_type.replace(/_/g, ' ')) : 'Tracking event', at: event.event_time, detail: event.message ?? event.notes ?? event.user_name ?? 'Operational event' })),
@@ -521,6 +603,41 @@ export default function JobHistoryPage() {
                       </div>
 
                       <div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
+                        {nextStatus && nextActionLabel ? (
+                          <button
+                            type="button"
+                            data-operation="primary"
+                            disabled={workingJobId === job.id}
+                            onClick={() => {
+                              if (requiresFullExecution || !DIARY_DIRECT_TRANSITIONS.has(nextStatus)) {
+                                router.push(`/driver/jobs/${job.id}`);
+                                return;
+                              }
+                              void runDiaryTransition(job, nextStatus);
+                            }}
+                          >
+                            {workingJobId === job.id ? 'Saving…' : nextActionLabel}
+                          </button>
+                        ) : null}
+                        {canRequestCancellation ? (
+                          <button
+                            type="button"
+                            data-operation="cancel"
+                            disabled={workingJobId === job.id}
+                            onClick={() => void requestDiaryCancellation(job)}
+                          >
+                            Decline
+                          </button>
+                        ) : null}
+                        {canTrack ? (
+                          <button
+                            type="button"
+                            data-operation="track"
+                            onClick={() => router.push('/driver/freight-vision')}
+                          >
+                            Track
+                          </button>
+                        ) : null}
                         {DETAIL_TABS.map((detailItem) => (
                           <button
                             key={detailItem.id}
