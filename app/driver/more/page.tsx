@@ -1,68 +1,110 @@
-﻿'use client';
+'use client';
 
+import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileText, Headphones, Lock, ShieldCheck, UserCircle } from 'lucide-react';
-import ProtectedRoute from '../../components/ProtectedRoute';
-import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+
 import { useAuth } from '../../components/AuthContext';
+import {
+  getVisibleWorkspaceNav,
+  resolveWorkspaceRole,
+  type WorkspaceNavGroup,
+  type WorkspaceRole,
+} from '../../../lib/workspaceRole';
 
-type Tool = {
-  label: string;
-  detail: string;
-  href: string;
-  icon: typeof FileText;
-};
+const OWNER_DRIVER_PRIMARY_HREFS = new Set([
+  '/driver',
+  '/driver/directory',
+  '/driver/availability/live',
+  '/driver/vehicles',
+  '/driver/returns',
+  '/driver/loads',
+  '/driver/quotes',
+  '/driver/history',
+  '/driver/freight-vision',
+  '/driver/drivers-vehicles',
+]);
 
-const tools: Tool[] = [
-  { label: 'Documents', detail: 'Licences, insurance and uploaded files', href: '/driver/documents', icon: FileText },
-  { label: 'Compliance', detail: 'Checks and expiry status', href: '/driver/documents', icon: ShieldCheck },
-  { label: 'Profile', detail: 'Your contact and driver details', href: '/driver/profile', icon: UserCircle },
-  { label: 'Password', detail: 'Security and login access', href: '/driver/change-password', icon: Lock },
-  { label: 'Support', detail: 'Get operational help', href: '/driver/profile', icon: Headphones },
-];
+const DRIVER_PRIMARY_HREFS = new Set([
+  '/driver',
+  '/driver/jobs',
+  '/driver/history',
+  '/driver/availability',
+  '/driver/vehicles',
+  '/driver/documents',
+  '/driver/settings',
+]);
+
+function getMoreGroups(role: WorkspaceRole): WorkspaceNavGroup[] {
+  const visible = getVisibleWorkspaceNav(role);
+  const primary = role === 'owner_driver' ? OWNER_DRIVER_PRIMARY_HREFS : DRIVER_PRIMARY_HREFS;
+
+  return visible
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => !primary.has(item.href)),
+    }))
+    .filter((group) => group.items.length > 0);
+}
 
 export default function DriverMorePage() {
   const router = useRouter();
-  const { logout } = useAuth();
+  const { user } = useAuth();
+  const resolvedRole = resolveWorkspaceRole(user);
+  const role: WorkspaceRole = resolvedRole === 'owner_driver' ? 'owner_driver' : 'driver';
+
+  const groups = useMemo(() => getMoreGroups(role), [role]);
+  const itemCount = groups.reduce((count, group) => count + group.items.length, 0);
 
   return (
-    <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell>
-        <section style={{ display: 'grid', gap: '0.85rem' }}>
-          <div>
-            <p style={{ margin: 0, color: '#facc15', fontSize: '0.75rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.08em' }}>More</p>
-            <h1 style={{ margin: '0.1rem 0 0', color: '#f8fafc', fontSize: '1.35rem', lineHeight: 1.15 }}>Personal tools</h1>
+    <section className="page driver-prototype-page-shell driver-more-page">
+      <div className="subbar">
+        <span className="crumb">Workspace &nbsp;/&nbsp; <b>More</b></span>
+        <div className="sub-actions">
+          <span className="driver-more-page__count">{itemCount} tools</span>
+        </div>
+      </div>
+
+      <div className="pagebody no-left">
+        <main className="main">
+          <div className="head driver-more-page__head">
+            <div>
+              <h1>More</h1>
+              <p>Additional workspace tools, account controls and business functions.</p>
+            </div>
           </div>
 
-          <div style={{ display: 'grid', gap: '0.65rem' }}>
-            {tools.map((tool) => {
-              const Icon = tool.icon;
-              return (
-                <button
-                  key={tool.label}
-                  onClick={() => router.push(tool.href)}
-                  style={{ minHeight: '72px', width: '100%', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '18px', background: '#111d2f', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '0.85rem', padding: '0.85rem', textAlign: 'left', cursor: 'pointer' }}
-                >
-                  <span style={{ width: '42px', height: '42px', borderRadius: '14px', background: 'rgba(250,204,21,0.13)', color: '#facc15', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
-                    <Icon size={22} />
-                  </span>
-                  <span style={{ flex: 1, minWidth: 0 }}>
-                    <span style={{ display: 'block', fontWeight: 800, fontSize: '0.98rem' }}>{tool.label}</span>
-                    <span style={{ display: 'block', color: '#94a3b8', fontSize: '0.78rem', marginTop: '0.15rem' }}>{tool.detail}</span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
+          <div className="driver-more-page__groups">
+            {groups.map((group) => (
+              <section key={group.id} className="driver-more-page__group">
+                <div className="driver-more-page__group-head">
+                  <strong>{group.label}</strong>
+                  <span>{group.items.length}</span>
+                </div>
 
-          <button
-            onClick={() => void logout()}
-            style={{ marginTop: '0.25rem', minHeight: '50px', borderRadius: '16px', border: '1px solid rgba(248,113,113,0.35)', background: 'rgba(239,68,68,0.12)', color: '#fecaca', fontWeight: 800, cursor: 'pointer' }}
-          >
-            Sign out
-          </button>
-        </section>
-      </DriverWorkspaceShell>
-    </ProtectedRoute>
+                <div className="driver-more-page__items">
+                  {group.items.map((item) => (
+                    <button
+                      key={`${group.id}:${item.id}:${item.href}`}
+                      type="button"
+                      className="driver-more-page__item"
+                      onClick={() => router.push(item.href)}
+                    >
+                      <span className="driver-more-page__item-icon" aria-hidden="true">
+                        {item.icon ?? '•'}
+                      </span>
+                      <span className="driver-more-page__item-copy">
+                        <strong>{item.label}</strong>
+                        <span>{group.label}</span>
+                      </span>
+                      <span className="driver-more-page__item-arrow" aria-hidden="true">→</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            ))}
+          </div>
+        </main>
+      </div>
+    </section>
   );
 }
