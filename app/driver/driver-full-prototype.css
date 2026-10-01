@@ -3122,3 +3122,153 @@
     max-width:none!important;
   }
 }
+/* Loads CX parity refinement 2026-10-01 */
+.driver-prototype-port .cx-load-card{
+  border:1px solid #1384ff!important;
+  border-radius:3px!important;
+  background:#fff!important;
+  overflow:hidden!important;
+  box-shadow:0 1px 3px rgba(15,23,42,.12)!important;
+}
+.driver-prototype-port .cx-load-card .load-primary{
+  grid-template-columns:minmax(0,36%) minmax(0,34%) minmax(300px,30%)!important;
+}
+.driver-prototype-port .cx-load-card .load-route,
+.driver-prototype-port .cx-load-card .load-times,
+.driver-prototype-port .cx-load-card .load-member{
+  min-height:82px!important;
+}
+.driver-prototype-port .cx-load-card .load-member{
+  position:relative!important;
+  padding:31px 10px 7px!important;
+}
+.driver-prototype-port .cx-load-card .load-type{
+  position:absolute!important;
+  top:6px!important;
+  left:8px!important;
+  right:8px!important;
+  min-height:20px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  background:#cde8fb!important;
+  border:1px solid #b4d7ef!important;
+  font-size:11px!important;
+  font-weight:800!important;
+  color:#0f2942!important;
+  text-transform:none!important;
+}
+.driver-prototype-port .cx-load-card .load-postedby{
+  font-size:11px!important;
+  line-height:16px!important;
+}
+.driver-prototype-port .cx-load-card .load-member .meta{
+  font-size:10px!important;
+  line-height:15px!important;
+}
+.driver-prototype-port .cx-load-card .load-vehicle{
+  margin-left:auto!important;
+  margin-top:auto!important;
+  font-size:11px!important;
+  font-weight:800!important;
+}
+.driver-prototype-port .cx-load-card .load-extra{
+  grid-template-columns:minmax(0,36%) minmax(0,34%) minmax(300px,30%)!important;
+  grid-template-rows:auto auto auto!important;
+  border-top:1px solid #d7e0ea!important;
+}
+.driver-prototype-port .cx-load-card .load-extra-col:first-child{
+  grid-column:2!important;
+  grid-row:1!important;
+  border-left:1px solid #d7e0ea!important;
+}
+.driver-prototype-port .cx-load-card .load-extra-col:nth-child(2){
+  grid-column:3!important;
+  grid-row:1!important;
+  border-left:1px solid #d7e0ea!important;
+}
+.driver-prototype-port .cx-load-card.expanded .load-extra-col>div{
+  min-height:22px!important;
+  padding:2px 9px!important;
+  display:grid!important;
+  grid-template-columns:68px minmax(0,1fr)!important;
+  gap:6px!important;
+  align-items:baseline!important;
+}
+.driver-prototype-port .cx-load-card.expanded .load-extra-col b{
+  font-size:10px!important;
+  line-height:14px!important;
+  color:#2474bb!important;
+}
+.driver-prototype-port .cx-load-card.expanded .load-extra-col span{
+  font-size:10.5px!important;
+  line-height:14px!important;
+  color:#25364b!important;
+}
+.driver-prototype-port .cx-load-card .load-extra-note{
+  grid-column:1 / -1!important;
+  grid-row:2!important;
+  min-height:48px!important;
+  padding:6px 10px!important;
+  border-top:1px solid #d7e0ea!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:2px!important;
+}
+.driver-prototype-port .cx-load-card .load-extra-note>b{
+  font-size:10.5px!important;
+  color:#2474bb!important;
+}
+.driver-prototype-port .cx-load-card .load-extra-note>span{
+  font-size:10.5px!important;
+  line-height:14px!important;
+  color:#25364b!important;
+}
+.driver-prototype-port .cx-load-card .load-extra-note>small{
+  font-size:9.5px!important;
+  line-height:13px!important;
+  color:#6b7c8f!important;
+}
+.driver-prototype-port .cx-load-card .load-extra-requirements{
+  grid-row:3!important;
+  min-height:32px!important;
+}
+.driver-prototype-port .cx-load-card .driver-inline-quote{
+  grid-column:1 / -1!important;
+}
+.driver-prototype-port .cx-load-card .load-card-footer{
+  min-height:27px!important;
+  height:27px!important;
+  padding:0!important;
+  border-top:1px solid #d7e0ea!important;
+  background:#fff!important;
+}
+.driver-prototype-port .cx-load-card .load-expand{
+  width:20px!important;
+  min-width:20px!important;
+  height:26px!important;
+  padding:0!important;
+  border-right:1px solid #d7e0ea!important;
+}
+.driver-prototype-port .cx-load-card .load-quote-footer{
+  min-width:110px!important;
+  height:26px!important;
+  border-radius:0!important;
+  border:0!important;
+  border-right:1px solid #d7e0ea!important;
+  background:#63c41f!important;
+  color:#fff!important;
+  font-size:11px!important;
+  font-weight:800!important;
+}
+.driver-prototype-port .cx-load-card .load-card-footer .text-action{
+  font-size:10.5px!important;
+  font-weight:800!important;
+}
+.driver-prototype-port .cx-load-card .load-footer-identity{
+  font-size:9.8px!important;
+  font-weight:650!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
