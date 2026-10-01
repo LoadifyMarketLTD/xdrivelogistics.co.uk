@@ -60,6 +60,23 @@ type DriverFinanceValues = {
   outstanding: number;
 };
 
+type DriverWatchlistItem = {
+  id: string;
+  companyId: string;
+  companyName: string;
+  memberId: string | null;
+  companyType: string | null;
+  compliance: 'fully_compliant' | 'about_to_expire' | 'updates_needed' | 'no_evidence';
+};
+
+type DriverWatchlistSummary = {
+  total: number;
+  fullyCompliant: number;
+  aboutToExpire: number;
+  updatesNeeded: number;
+  noEvidence: number;
+};
+
 type DriverCommercialSummary = {
   period: string;
   revenueGross: number;
@@ -149,13 +166,6 @@ const vehicleLabel = (value: string | null | undefined) =>
 const money = (value: number) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(value || 0));
 
-const daysUntil = (value: string | null | undefined) => {
-  if (!value) return null;
-  const timestamp = new Date(value).getTime();
-  if (!Number.isFinite(timestamp)) return null;
-  return Math.ceil((timestamp - Date.now()) / 86_400_000);
-};
-
 export default function DriverDashboard() {
   const router = useRouter();
   const { user } = useAuth();
@@ -179,6 +189,10 @@ export default function DriverDashboard() {
   const [commercialSummary, setCommercialSummary] = useState<DriverCommercialSummary | null>(null);
   const [commercialSummaryLoading, setCommercialSummaryLoading] = useState(false);
   const [commercialSummaryError, setCommercialSummaryError] = useState('');
+  const [watchlistItems, setWatchlistItems] = useState<DriverWatchlistItem[]>([]);
+  const [watchlistSummary, setWatchlistSummary] = useState<DriverWatchlistSummary | null>(null);
+  const [watchlistLoading, setWatchlistLoading] = useState(false);
+  const [watchlistError, setWatchlistError] = useState('');
   const [bookingMemberFilter, setBookingMemberFilter] = useState('');
   const [bookingLocationFilter, setBookingLocationFilter] = useState('');
   const [bookingReferenceFilter, setBookingReferenceFilter] = useState('');
@@ -278,6 +292,39 @@ export default function DriverDashboard() {
     }
   }, [ownerDriver]);
 
+  const loadWatchlist = useCallback(async () => {
+    if (!ownerDriver || !isSupabaseConfigured) return;
+    setWatchlistLoading(true);
+    setWatchlistError('');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setWatchlistError('Watchlist session could not be verified.');
+      setWatchlistLoading(false);
+      return;
+    }
+    try {
+      const response = await fetch('/api/driver/watchlist', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null) as {
+        items?: DriverWatchlistItem[];
+        summary?: DriverWatchlistSummary;
+        error?: string;
+      } | null;
+      if (!response.ok || !payload) throw new Error(payload?.error ?? 'Watchlist could not be loaded.');
+      setWatchlistItems(payload.items ?? []);
+      setWatchlistSummary(payload.summary ?? null);
+    } catch (reason) {
+      setWatchlistItems([]);
+      setWatchlistSummary(null);
+      setWatchlistError(reason instanceof Error ? reason.message : 'Watchlist could not be loaded.');
+    } finally {
+      setWatchlistLoading(false);
+    }
+  }, [ownerDriver]);
+
   const latestBookings = useMemo(() => {
     const memberNeedle = bookingMemberFilter.trim().toLowerCase();
     const locationNeedle = bookingLocationFilter.trim().toLowerCase();
@@ -294,17 +341,6 @@ export default function DriverDashboard() {
       .sort((a, b) => String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')))
       .slice(0, 4);
   }, [bookingLocationFilter, bookingMemberFilter, bookingReferenceFilter, myJobs]);
-
-  const documentSignals = useMemo(() => {
-    const days = data.driverDocuments
-      .map((document) => daysUntil(document.expiry_date))
-      .filter((value): value is number => value !== null);
-    return {
-      expired: days.filter((value) => value < 0).length,
-      expiring: days.filter((value) => value >= 0 && value <= 30).length,
-      total: data.driverDocuments.length,
-    };
-  }, [data.driverDocuments]);
 
   const wonWorkValue = useMemo(() => {
     const assignedJobIds = new Set(myJobs.map((job) => job.id));
@@ -390,14 +426,16 @@ export default function DriverDashboard() {
     if (ownerDriver) {
       void loadFinanceSummary();
       void loadCommercialSummary();
+      void loadWatchlist();
     }
-  }, [loadCommercialSummary, loadFinanceSummary, ownerDriver]);
+  }, [loadCommercialSummary, loadFinanceSummary, loadWatchlist, ownerDriver]);
 
   const refreshDashboard = async () => {
     const tasks: Promise<unknown>[] = [data.refresh(), loadDriverContext()];
     if (ownerDriver) {
       tasks.push(loadFinanceSummary());
       tasks.push(loadCommercialSummary());
+      tasks.push(loadWatchlist());
     }
     await Promise.all(tasks);
   };
@@ -788,32 +826,42 @@ export default function DriverDashboard() {
                   />
                 </OperationalCard>
 
-                <OperationalCard title="Compliance - Driver & Vehicle" subtitle="Equivalent control area for the owner-driver account.">
-                  <div style={{ display: 'grid', gridTemplateColumns: '110px minmax(0,1fr)', gap: 12, alignItems: 'center' }}>
-                    <button type="button" onClick={() => router.push('/driver/documents')} style={{ width: 100, height: 100, borderRadius: '50%', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, cursor: 'pointer' }}>
-                      <strong style={{ display: 'block', color: workspaceTheme.navy, fontSize: 22 }}>{documentSignals.expired + documentSignals.expiring}</strong>
-                      <span style={{ fontSize: 10, color: workspaceTheme.muted }}>document alerts</span>
-                    </button>
-                    <div>
-                      {[
-                        ['Expired documents', `${documentSignals.expired} expired`, '/driver/documents'],
-                        ['About to expire', `${documentSignals.expiring} due within 30 days`, '/driver/documents'],
-                        ['Driver documents', `${documentSignals.total} loaded`, '/driver/documents'],
-                        ['Active vehicle', vehicle?.reg_plate ?? 'Not assigned', '/driver/vehicles'],
-                      ].map(([label, detail, href]) => (
-                        <button key={label} type="button" onClick={() => router.push(href)} style={{ width: '100%', minHeight: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', cursor: 'pointer', textAlign: 'left' }}>
-                          <span>{label}</span><strong>{detail}</strong>
+                <OperationalCard
+                  title="Compliance - Manage Your Suppliers"
+                  subtitle="Members on your company watchlist, grouped by verified XDrive document evidence."
+                  actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/directory?watchlist=add')}>Add Members to My Watchlist</ActionButton>}
+                >
+                  {watchlistError ? <AlertBanner tone="warning">{watchlistError}</AlertBanner> : null}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 6 }}>
+                    {[
+                      ['Fully Compliant', watchlistSummary?.fullyCompliant ?? 0],
+                      ['About to Expire', watchlistSummary?.aboutToExpire ?? 0],
+                      ['Updates Needed', watchlistSummary?.updatesNeeded ?? 0],
+                      ['No Evidence', watchlistSummary?.noEvidence ?? 0],
+                    ].map(([label, value]) => (
+                      <button key={label} type="button" onClick={() => router.push('/driver/directory?watchlist=1')} style={{ minHeight: 54, padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
+                        <strong style={{ display: 'block', fontSize: 16, color: workspaceTheme.navy }}>{watchlistLoading ? '…' : value}</strong>
+                        <span style={{ display: 'block', marginTop: 2, fontSize: 10, color: workspaceTheme.muted }}>{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                  {watchlistItems.length ? (
+                    <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
+                      {watchlistItems.slice(0, 4).map((item) => (
+                        <button key={item.id} type="button" onClick={() => router.push(`/driver/network/${item.companyId}`)} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', minHeight: 30, border: 0, borderTop: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
+                          <span><strong>{item.companyName}</strong>{item.memberId ? <small style={{ marginLeft: 6, color: workspaceTheme.muted }}>{item.memberId}</small> : null}</span>
+                          <StatusBadge value={humanize(item.compliance)} tone={item.compliance === 'fully_compliant' ? 'green' : item.compliance === 'about_to_expire' ? 'orange' : item.compliance === 'updates_needed' ? 'red' : 'grey'} />
                         </button>
                       ))}
                     </div>
-                  </div>
+                  ) : !watchlistLoading ? <EmptyState compact title="No suppliers on your watchlist" description="Add members from Directory to monitor their compliance evidence here." /> : null}
                 </OperationalCard>
 
-                <OperationalCard title="Network & Freight Messenger" subtitle="CX watchlist/messenger equivalents already present in XDrive.">
+                <OperationalCard title="Freight Messenger">
                   <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <ActionButton tone="secondary" onClick={() => router.push('/driver/directory')}>Directory / Saved Networks</ActionButton>
-                    <ActionButton tone="secondary" onClick={() => router.push('/driver/messages')}>Freight Messenger</ActionButton>
+                    <ActionButton tone="secondary" onClick={() => router.push('/driver/messages')}>Open Freight Messenger</ActionButton>
                     <ActionButton tone="secondary" onClick={() => router.push('/driver/notifications')}>Notifications</ActionButton>
+                    <ActionButton tone="secondary" onClick={() => router.push('/driver/directory')}>Directory</ActionButton>
                   </div>
                 </OperationalCard>
               </div>
