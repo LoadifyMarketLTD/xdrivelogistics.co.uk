@@ -3,9 +3,10 @@ BEGIN;
 SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
 
--- has_capability() is used by the companies UPDATE RLS policy. Keep the
--- existing role/override model, but bind authority to the canonical active
--- company_memberships row, active actor profile and active company.
+-- has_capability() is used by company RLS. Fresh databases do not contain the
+-- hosted-only company_role_capabilities/member_capability_overrides tables at
+-- this point in history, so reproduce the hosted default role/capability map
+-- directly while binding authority to canonical active membership state.
 CREATE OR REPLACE FUNCTION public.has_capability(
   _company_id uuid,
   _capability text
@@ -17,7 +18,7 @@ SECURITY DEFINER
 SET search_path = pg_catalog, public
 AS $function$
   WITH me AS (
-    SELECT cm.id, cm.role_in_company::text AS company_role
+    SELECT cm.role_in_company::text AS company_role
     FROM public.company_memberships cm
     JOIN public.companies c
       ON c.id = cm.company_id
@@ -29,27 +30,23 @@ AS $function$
       AND COALESCE(c.status::text, '') = 'active'
       AND COALESCE(p.status::text, '') = 'active'
     LIMIT 1
-  ),
-  role_allow AS (
+  )
+  SELECT EXISTS (
     SELECT 1
     FROM me
-    JOIN public.company_role_capabilities crc
-      ON crc.company_role = me.company_role
-     AND crc.capability_key = _capability
-    LIMIT 1
-  ),
-  override_decision AS (
-    SELECT mco.is_allowed
-    FROM me
-    JOIN public.member_capability_overrides mco
-      ON mco.company_member_id = me.id
-     AND mco.capability_key = _capability
-    LIMIT 1
-  )
-  SELECT COALESCE(
-    (SELECT is_allowed FROM override_decision),
-    EXISTS (SELECT 1 FROM role_allow),
-    false
+    WHERE (company_role, _capability) IN (
+      ('admin', 'company.manage_members'),
+      ('admin', 'jobs.create'),
+      ('admin', 'jobs.track'),
+      ('broker_admin', 'jobs.create'),
+      ('dispatcher', 'jobs.allocate'),
+      ('dispatcher', 'jobs.track'),
+      ('driver', 'jobs.update_driver_status'),
+      ('owner', 'company.manage_members'),
+      ('owner', 'company.manage_settings'),
+      ('owner', 'jobs.create'),
+      ('viewer', 'loads.view_own')
+    )
   );
 $function$;
 

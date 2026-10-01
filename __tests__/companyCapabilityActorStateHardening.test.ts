@@ -23,10 +23,22 @@ describe('company capability actor-state hardening', () => {
     expect(migration).not.toContain('FROM public.company_members cm');
   });
 
-  it('retains the existing member capability override model', () => {
-    expect(migration).toContain('public.company_role_capabilities');
-    expect(migration).toContain('public.member_capability_overrides');
-    expect(migration).toContain('SELECT is_allowed FROM override_decision');
+  it('replays the hosted default role capability map without hosted-only tables', () => {
+    for (const entry of [
+      "('admin', 'company.manage_members')",
+      "('admin', 'jobs.create')",
+      "('admin', 'jobs.track')",
+      "('broker_admin', 'jobs.create')",
+      "('dispatcher', 'jobs.allocate')",
+      "('dispatcher', 'jobs.track')",
+      "('driver', 'jobs.update_driver_status')",
+      "('owner', 'company.manage_members')",
+      "('owner', 'company.manage_settings')",
+      "('owner', 'jobs.create')",
+      "('viewer', 'loads.view_own')",
+    ]) expect(migration).toContain(entry);
+    expect(migration).not.toContain('FROM public.company_role_capabilities');
+    expect(migration).not.toContain('FROM public.member_capability_overrides');
   });
 
   it('keeps anonymous execution closed', () => {
