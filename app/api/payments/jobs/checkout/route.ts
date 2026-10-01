@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { membershipHasCapability, resolveMembershipRole } from '../../../../../lib/membershipRole';
+import { XDRIVE_LOGISTICS_COMPANY_ID } from '../../../../../lib/activeWorkspace';
 import { getCanonicalSiteOrigin } from '../../../../../lib/siteUrl';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
 import { isStripeServerConfigured, stripeRequest } from '../../../_lib/stripeServer';
@@ -57,17 +58,28 @@ export async function POST(request: NextRequest) {
     return json(403, { error: 'Payments authority is required for this buyer company.' });
   }
 
-  const { data: connected, error: connectedError } = await supabaseAdmin
-    .from('stripe_connected_accounts')
-    .select('stripe_account_id, charges_enabled, payouts_enabled')
-    .eq('company_id', invoice.supplier_company_id)
-    .maybeSingle();
-  if (connectedError && ['PGRST205', '42P01'].includes(connectedError.code ?? '')) {
-    return json(503, { error: 'Stripe Connect schema is not available yet.', migrationRequired: true });
-  }
-  if (connectedError) return json(500, { error: connectedError.message });
-  if (!connected?.stripe_account_id || !connected.charges_enabled || !connected.payouts_enabled) {
-    return json(409, { error: 'The carrier has not completed Stripe payment and payout onboarding.' });
+  const supplierIsPlatform = invoice.supplier_company_id === XDRIVE_LOGISTICS_COMPANY_ID;
+  let stripeAccountId: string | null = null;
+  if (supplierIsPlatform) {
+    const platformAccount = await stripeRequest<{ id: string; charges_enabled?: boolean; payouts_enabled?: boolean }>('/account', { method: 'GET' });
+    if (!platformAccount.id || platformAccount.charges_enabled !== true || platformAccount.payouts_enabled !== true) {
+      return json(409, { error: 'XDrive platform Stripe payments are not fully active.' });
+    }
+    stripeAccountId = platformAccount.id;
+  } else {
+    const { data: connected, error: connectedError } = await supabaseAdmin
+      .from('stripe_connected_accounts')
+      .select('stripe_account_id, charges_enabled, payouts_enabled')
+      .eq('company_id', invoice.supplier_company_id)
+      .maybeSingle();
+    if (connectedError && ['PGRST205', '42P01'].includes(connectedError.code ?? '')) {
+      return json(503, { error: 'Stripe Connect schema is not available yet.', migrationRequired: true });
+    }
+    if (connectedError) return json(500, { error: connectedError.message });
+    if (!connected?.stripe_account_id || !connected.charges_enabled || !connected.payouts_enabled) {
+      return json(409, { error: 'The carrier has not completed Stripe payment and payout onboarding.' });
+    }
+    stripeAccountId = connected.stripe_account_id;
   }
 
   const amountPence = toMinorUnits(invoice.amount);
@@ -77,7 +89,7 @@ export async function POST(request: NextRequest) {
 
   const origin = getCanonicalSiteOrigin();
   const session = await stripeRequest<CheckoutSession>('/checkout/sessions', {
-    connectedAccount: connected.stripe_account_id,
+    connectedAccount: supplierIsPlatform ? null : stripeAccountId,
     idempotencyKey: `xdrive-job-payment:${invoice.id}`,
     params: {
       mode: 'payment',
@@ -106,7 +118,7 @@ export async function POST(request: NextRequest) {
     job_id: invoice.job_id,
     buyer_company_id: invoice.buyer_company_id,
     supplier_company_id: invoice.supplier_company_id,
-    stripe_connected_account_id: connected.stripe_account_id,
+    stripe_connected_account_id: stripeAccountId,
     stripe_checkout_session_id: session.id,
     amount_minor: amountPence,
     currency,
@@ -118,7 +130,7 @@ export async function POST(request: NextRequest) {
   return json(200, {
     checkoutUrl: session.url,
     checkoutSessionId: session.id,
-    paymentModel: 'stripe_connect_direct_charge',
+    paymentModel: supplierIsPlatform ? 'stripe_platform_direct_charge' : 'stripe_connect_direct_charge',
     platformCustodiesFunds: false,
     xdriveApplicationFee: 0,
   });

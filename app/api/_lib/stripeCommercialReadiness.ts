@@ -1,4 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { XDRIVE_LOGISTICS_COMPANY_ID } from '../../../lib/activeWorkspace';
+import { isStripeServerConfigured, stripeRequest } from './stripeServer';
 
 type AdminClient = SupabaseClient;
 
@@ -27,6 +29,33 @@ export async function getStripeCommercialReadiness(
       chargesEnabled: false,
       payoutsEnabled: false,
       onboardingStatus: null,
+      infrastructureAvailable: true,
+    };
+  }
+
+  if (companyId === XDRIVE_LOGISTICS_COMPANY_ID) {
+    if (!isStripeServerConfigured) {
+      return {
+        ready: false,
+        accountId: null,
+        detailsSubmitted: false,
+        chargesEnabled: false,
+        payoutsEnabled: false,
+        onboardingStatus: null,
+        infrastructureAvailable: false,
+      };
+    }
+    const account = await stripeRequest<{ id: string; details_submitted?: boolean; charges_enabled?: boolean; payouts_enabled?: boolean }>('/account', { method: 'GET' });
+    const detailsSubmitted = account.details_submitted === true;
+    const chargesEnabled = account.charges_enabled === true;
+    const payoutsEnabled = account.payouts_enabled === true;
+    return {
+      ready: Boolean(account.id && detailsSubmitted && chargesEnabled && payoutsEnabled),
+      accountId: account.id || null,
+      detailsSubmitted,
+      chargesEnabled,
+      payoutsEnabled,
+      onboardingStatus: detailsSubmitted && chargesEnabled && payoutsEnabled ? 'enabled' : 'restricted',
       infrastructureAvailable: true,
     };
   }

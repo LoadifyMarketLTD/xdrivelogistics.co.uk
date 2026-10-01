@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { stripeOnboardingFailure } from '../../../../../lib/stripeOnboardingFailure';
+import { XDRIVE_LOGISTICS_COMPANY_ID } from '../../../../../lib/activeWorkspace';
 
 import { getCanonicalSiteOrigin } from '../../../../../lib/siteUrl';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
@@ -54,6 +55,17 @@ async function createCompanyOnboarding(request: NextRequest) {
     .maybeSingle();
   if (companyError) return json(500, { error: companyError.message });
   if (!company) return json(404, { error: 'Company not found.' });
+
+  if (companyId === XDRIVE_LOGISTICS_COMPANY_ID) {
+    const platformAccount = await stripeRequest<StripeAccount>('/account', { method: 'GET' });
+    const active = platformAccount.details_submitted === true && platformAccount.charges_enabled === true && platformAccount.payouts_enabled === true;
+    return json(active ? 409 : 503, {
+      error: active
+        ? 'XDrive Logistics LTD already uses the active XDrive platform Stripe account. A separate Connected Account must not be created for this company.'
+        : 'The XDrive platform Stripe account requires attention before this company can use payments.',
+      code: active ? 'PLATFORM_STRIPE_ACCOUNT_IN_USE' : 'PLATFORM_STRIPE_ACCOUNT_NOT_READY',
+    });
+  }
 
   const { data: existing, error: existingError } = await supabaseAdmin
     .from('stripe_connected_accounts')

@@ -15,10 +15,10 @@ describe('XDrive Stripe Connect direct-charge contract', () => {
     expect(onboarding).toContain("type: 'account_onboarding'");
   });
 
-  it('creates transport Checkout directly on the supplier connected account with no XDrive fee', () => {
+  it('creates transport Checkout on the supplier account, including the XDrive platform account when XDrive is the supplier', () => {
     const checkout = source('app/api/payments/jobs/checkout/route.ts');
-    expect(checkout).toContain('connectedAccount: connected.stripe_account_id');
-    expect(checkout).toContain("paymentModel: 'stripe_connect_direct_charge'");
+    expect(checkout).toContain('connectedAccount: supplierIsPlatform ? null : stripeAccountId');
+    expect(checkout).toContain("supplierIsPlatform ? 'stripe_platform_direct_charge' : 'stripe_connect_direct_charge'");
     expect(checkout).toContain('platformCustodiesFunds: false');
     expect(checkout).toContain('xdriveApplicationFee: 0');
     expect(checkout).not.toContain('application_fee_amount');

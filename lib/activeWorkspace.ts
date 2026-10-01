@@ -21,8 +21,8 @@ const ACTIVE_COMPANY_STATUS = 'active';
 // XDrive platform owner has one explicit company-workspace grant in Supabase.
 // Keep the bridge scoped to this exact user + company + owner membership so no
 // other owner, standard company, or platform account inherits Broker access.
-const XDRIVE_PLATFORM_OWNER_USER_ID = '608f4f95-0121-40bd-8bab-43022c16a567';
-const XDRIVE_LOGISTICS_COMPANY_ID = '5587a84f-de1f-4e35-9991-3a6857de477d';
+export const XDRIVE_PLATFORM_OWNER_USER_ID = '608f4f95-0121-40bd-8bab-43022c16a567';
+export const XDRIVE_LOGISTICS_COMPANY_ID = '5587a84f-de1f-4e35-9991-3a6857de477d';
 
 export type ActiveCompanyContext = {
   membershipId: string;
