@@ -71,6 +71,20 @@ export default function DriverWorkspaceShell({
   const resolvedTitle = resolveDriverPageTitle(pathname, driverName);
   const accountPath = isDriverAccountPath(pathname);
 
+  if (pathname === '/driver/history') {
+    return (
+      <section className="page driver-prototype-page-shell driver-diary-page-shell">
+        <div className="subbar">
+          <span className="crumb">Workspace &nbsp;/&nbsp; <b>{resolvedTitle}</b></span>
+          <div className="sub-actions">{headerActions}</div>
+        </div>
+        <div className="driver-diary-shell-content">
+          {children}
+        </div>
+      </section>
+    );
+  }
+
   if (pathname !== '/driver' && !accountPath) {
     return (
       <section className="page driver-prototype-page-shell">
