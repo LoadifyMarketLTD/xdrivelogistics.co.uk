@@ -160,6 +160,7 @@ export default function DriverDashboard() {
   const [contextError, setContextError] = useState('');
   const [contextLoading, setContextLoading] = useState(true);
   const [transitioningJobId, setTransitioningJobId] = useState<string | null>(null);
+  const [decliningJobId, setDecliningJobId] = useState<string | null>(null);
   const [transitionError, setTransitionError] = useState('');
   const [transitionMessage, setTransitionMessage] = useState('');
   const [commercialSummary, setCommercialSummary] = useState<DriverCommercialSummary | null>(null);
@@ -372,6 +373,48 @@ export default function DriverDashboard() {
       tasks.push(loadWatchlist());
     }
     await Promise.all(tasks);
+  };
+
+  const requestJobCancellation = async (jobId: string) => {
+    const rawReason = window.prompt('Reason for declining this booking (minimum 5 characters):');
+    if (rawReason === null) return;
+    const reason = rawReason.trim();
+    if (reason.length < 5) {
+      setTransitionError('A cancellation reason of at least 5 characters is required.');
+      return;
+    }
+
+    setDecliningJobId(jobId);
+    setTransitionError('');
+    setTransitionMessage('');
+
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      let token = sessionData.session?.access_token;
+      if (!token) {
+        const refreshed = await supabase.auth.refreshSession();
+        token = refreshed.data.session?.access_token;
+      }
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+
+      const response = await fetch(`/api/driver/jobs/${jobId}/cancellation`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ reason }),
+      });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? 'Cancellation could not be requested.');
+
+      setTransitionMessage('Cancellation request submitted.');
+      await data.refresh();
+    } catch (reasonValue) {
+      setTransitionError(reasonValue instanceof Error ? reasonValue.message : 'Cancellation could not be requested.');
+    } finally {
+      setDecliningJobId(null);
+    }
   };
 
   const runCurrentAction = async () => {
@@ -697,7 +740,18 @@ export default function DriverDashboard() {
                         vehicleLabel(job.vehicle_type),
                         <StatusBadge key="status" value={humanize(status)} tone={group === 'completed' ? 'green' : group === 'active' ? 'blue' : group === 'cancelled' ? 'grey' : 'orange'} />,
                         <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                          <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>{group === 'completed' ? 'POD' : 'Open'}</ActionButton>
+                          <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>
+                            {group === 'completed' ? 'POD' : ['accepted', 'allocated', 'driver_accepted'].includes(status) ? 'Enter POD' : 'Open'}
+                          </ActionButton>
+                          {['accepted', 'allocated', 'driver_accepted'].includes(status) ? (
+                            <ActionButton
+                              tone="secondary"
+                              disabled={decliningJobId === job.id}
+                              onClick={() => void requestJobCancellation(job.id)}
+                            >
+                              {decliningJobId === job.id ? 'Sending…' : 'Decline'}
+                            </ActionButton>
+                          ) : null}
                           {group === 'active' ? <ActionButton tone="secondary" onClick={() => router.push('/driver/freight-vision')}>Track</ActionButton> : null}
                         </div>,
                       ];
