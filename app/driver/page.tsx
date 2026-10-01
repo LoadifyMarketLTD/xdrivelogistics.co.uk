@@ -11,7 +11,6 @@ import {
   DataTable,
   EmptyState,
   OperationalCard,
-  OperationalToolbar,
   StatusBadge,
   workspaceTheme,
 } from '../components/workspace/WorkspaceUI';
@@ -40,24 +39,6 @@ type DriverVehicle = {
   reg_plate: string | null;
   make: string | null;
   model: string | null;
-};
-
-type DriverFinanceSummary = {
-  total: number;
-  draft: number;
-  sent: number;
-  overdue: number;
-  paid: number;
-  disputed: number;
-  cancelled: number;
-};
-
-type DriverFinanceValues = {
-  net: number;
-  vat: number;
-  gross: number;
-  paid: number;
-  outstanding: number;
 };
 
 type DriverWatchlistItem = {
@@ -182,10 +163,6 @@ export default function DriverDashboard() {
   const [transitioningJobId, setTransitioningJobId] = useState<string | null>(null);
   const [transitionError, setTransitionError] = useState('');
   const [transitionMessage, setTransitionMessage] = useState('');
-  const [financeSummary, setFinanceSummary] = useState<DriverFinanceSummary | null>(null);
-  const [financeValues, setFinanceValues] = useState<DriverFinanceValues | null>(null);
-  const [financeLoading, setFinanceLoading] = useState(false);
-  const [financeError, setFinanceError] = useState('');
   const [commercialSummary, setCommercialSummary] = useState<DriverCommercialSummary | null>(null);
   const [commercialSummaryLoading, setCommercialSummaryLoading] = useState(false);
   const [commercialSummaryError, setCommercialSummaryError] = useState('');
@@ -259,39 +236,6 @@ export default function DriverDashboard() {
     }
   }, [ownerDriver]);
 
-  const loadFinanceSummary = useCallback(async () => {
-    if (!ownerDriver || !isSupabaseConfigured) return;
-    setFinanceLoading(true);
-    setFinanceError('');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    if (!token) {
-      setFinanceError('Finance session could not be verified.');
-      setFinanceLoading(false);
-      return;
-    }
-    try {
-      const response = await fetch('/api/driver/finance/invoices', {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => null) as {
-        invoiceSummary?: DriverFinanceSummary;
-        valueSummary?: DriverFinanceValues;
-        error?: string;
-      } | null;
-      if (!response.ok || !payload) throw new Error(payload?.error ?? 'Finance summary could not be loaded.');
-      setFinanceSummary(payload.invoiceSummary ?? null);
-      setFinanceValues(payload.valueSummary ?? null);
-    } catch (reason) {
-      setFinanceSummary(null);
-      setFinanceValues(null);
-      setFinanceError(reason instanceof Error ? reason.message : 'Finance summary could not be loaded.');
-    } finally {
-      setFinanceLoading(false);
-    }
-  }, [ownerDriver]);
-
   const loadWatchlist = useCallback(async () => {
     if (!ownerDriver || !isSupabaseConfigured) return;
     setWatchlistLoading(true);
@@ -341,13 +285,6 @@ export default function DriverDashboard() {
       .sort((a, b) => String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')))
       .slice(0, 4);
   }, [bookingLocationFilter, bookingMemberFilter, bookingReferenceFilter, myJobs]);
-
-  const wonWorkValue = useMemo(() => {
-    const assignedJobIds = new Set(myJobs.map((job) => job.id));
-    return data.bids
-      .filter((bid) => assignedJobIds.has(bid.job_id) && String(bid.status).toLowerCase() === 'accepted')
-      .reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
-  }, [data.bids, myJobs]);
 
   const loadDriverContext = useCallback(async () => {
     const driverId = user?.driverId?.trim() ?? '';
@@ -424,16 +361,14 @@ export default function DriverDashboard() {
 
   useEffect(() => {
     if (ownerDriver) {
-      void loadFinanceSummary();
       void loadCommercialSummary();
       void loadWatchlist();
     }
-  }, [loadCommercialSummary, loadFinanceSummary, loadWatchlist, ownerDriver]);
+  }, [loadCommercialSummary, loadWatchlist, ownerDriver]);
 
   const refreshDashboard = async () => {
     const tasks: Promise<unknown>[] = [data.refresh(), loadDriverContext()];
     if (ownerDriver) {
-      tasks.push(loadFinanceSummary());
       tasks.push(loadCommercialSummary());
       tasks.push(loadWatchlist());
     }
@@ -671,21 +606,7 @@ export default function DriverDashboard() {
 
         {ownerDriver ? (
           <>
-            {financeError ? <AlertBanner tone="warning">{financeError}</AlertBanner> : null}
             {commercialSummaryError ? <AlertBanner tone="warning">{commercialSummaryError}</AlertBanner> : null}
-            <OperationalToolbar>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-                <strong style={{ color: workspaceTheme.navy }}>Owner Driver business desk</strong>
-                <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>CX-style reports, latest bookings, finance, feedback, compliance and messaging</span>
-              </div>
-              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Finance</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>Diary</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Compliance</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/messages')}>Freight Messenger</ActionButton>
-              </div>
-            </OperationalToolbar>
-
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 6, marginBottom: 8 }} aria-label="Owner driver operating status">
               <button type="button" onClick={() => router.push('/driver/availability/live')} style={{ minHeight: 48, padding: '6px 8px', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface, textAlign: 'left', cursor: 'pointer' }}>
                 <span style={{ display: 'block', fontSize: 9, color: workspaceTheme.muted, textTransform: 'uppercase' }}>Availability</span>
@@ -745,7 +666,6 @@ export default function DriverDashboard() {
                       ['Bookings Sub-contracted', commercialSummary ? `${commercialSummary.bookingsSubcontracted} subcontracted` : commercialSummaryLoading ? 'Loading…' : 'Unavailable', '/driver/history'],
                       ['Loads Allocated', `${activeJobs.length + upcomingJobs.length} active/upcoming`, '/driver/history'],
                       ['Return Journeys', profile?.future_position ? profile.future_position : 'Open register', '/driver/returns'],
-                      ['Quotes', `${data.bids.length} loaded · ${money(wonWorkValue)} won`, '/driver/quotes'],
                     ].map(([label, detail, href]) => (
                       <button key={label} type="button" onClick={() => router.push(href)} style={{ width: '100%', minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
                         <span><strong style={{ display: 'block', fontSize: 12 }}>{label}</strong><small style={{ color: workspaceTheme.muted }}>{detail}</small></span>
@@ -754,22 +674,6 @@ export default function DriverDashboard() {
                     ))}
                   </OperationalCard>
                 </div>
-
-                <OperationalCard title="Invoice Receivables" subtitle="Invoices issued by the owner-driver company to customers.">
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 8 }}>
-                    {[
-                      ['Invoices', financeSummary ? String(financeSummary.total) : financeLoading ? '…' : '—'],
-                      ['Awaiting payment', financeSummary ? String(financeSummary.sent + financeSummary.overdue) : financeLoading ? '…' : '—'],
-                      ['Overdue', financeSummary ? String(financeSummary.overdue) : financeLoading ? '…' : '—'],
-                      ['Outstanding', financeValues ? money(financeValues.outstanding) : financeLoading ? '…' : '—'],
-                    ].map(([label, value]) => (
-                      <button key={label} type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 58, padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
-                        <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>{label}</span>
-                        <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 14 }}>{value}</strong>
-                      </button>
-                    ))}
-                  </div>
-                </OperationalCard>
 
                 <OperationalCard title="Feedback in Last 90 Days" subtitle="XDrive currently stores an overall review rating, not separate CX payment and delivery scores.">
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
