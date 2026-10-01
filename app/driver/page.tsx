@@ -8,7 +8,12 @@ import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorks
 import {
   ActionButton,
   AlertBanner,
+  DataTable,
   EmptyState,
+  OperationalCard,
+  OperationalToolbar,
+  StatusBadge,
+  workspaceTheme,
 } from '../components/workspace/WorkspaceUI';
 import { canonicalJobStatus, filterJobsForDriver } from '../../lib/driverDashboard';
 import {
@@ -34,6 +39,24 @@ type DriverVehicle = {
   reg_plate: string | null;
   make: string | null;
   model: string | null;
+};
+
+type DriverFinanceSummary = {
+  total: number;
+  draft: number;
+  sent: number;
+  overdue: number;
+  paid: number;
+  disputed: number;
+  cancelled: number;
+};
+
+type DriverFinanceValues = {
+  net: number;
+  vat: number;
+  gross: number;
+  paid: number;
+  outstanding: number;
 };
 
 type DriverAction = {
@@ -103,6 +126,16 @@ const formatDate = (value: string | null | undefined) => {
 const vehicleLabel = (value: string | null | undefined) =>
   value ? (VEHICLE_TYPE_LABELS[value] ?? humanize(value)) : 'Not assigned';
 
+const money = (value: number) =>
+  new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(value || 0));
+
+const daysUntil = (value: string | null | undefined) => {
+  if (!value) return null;
+  const timestamp = new Date(value).getTime();
+  if (!Number.isFinite(timestamp)) return null;
+  return Math.ceil((timestamp - Date.now()) / 86_400_000);
+};
+
 export default function DriverDashboard() {
   const router = useRouter();
   const { user } = useAuth();
@@ -119,6 +152,13 @@ export default function DriverDashboard() {
   const [transitioningJobId, setTransitioningJobId] = useState<string | null>(null);
   const [transitionError, setTransitionError] = useState('');
   const [transitionMessage, setTransitionMessage] = useState('');
+  const [financeSummary, setFinanceSummary] = useState<DriverFinanceSummary | null>(null);
+  const [financeValues, setFinanceValues] = useState<DriverFinanceValues | null>(null);
+  const [financeLoading, setFinanceLoading] = useState(false);
+  const [financeError, setFinanceError] = useState('');
+  const [bookingMemberFilter, setBookingMemberFilter] = useState('');
+  const [bookingLocationFilter, setBookingLocationFilter] = useState('');
+  const [bookingReferenceFilter, setBookingReferenceFilter] = useState('');
 
   const myJobs = useMemo(
     () => filterJobsForDriver(data.jobs, { driverId: user?.driverId, ownerDriver }),
@@ -154,6 +194,74 @@ export default function DriverDashboard() {
         mode: 'open' as const,
       }
     : null;
+
+  const loadFinanceSummary = useCallback(async () => {
+    if (!ownerDriver || !isSupabaseConfigured) return;
+    setFinanceLoading(true);
+    setFinanceError('');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setFinanceError('Finance session could not be verified.');
+      setFinanceLoading(false);
+      return;
+    }
+    try {
+      const response = await fetch('/api/driver/finance/invoices', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null) as {
+        invoiceSummary?: DriverFinanceSummary;
+        valueSummary?: DriverFinanceValues;
+        error?: string;
+      } | null;
+      if (!response.ok || !payload) throw new Error(payload?.error ?? 'Finance summary could not be loaded.');
+      setFinanceSummary(payload.invoiceSummary ?? null);
+      setFinanceValues(payload.valueSummary ?? null);
+    } catch (reason) {
+      setFinanceSummary(null);
+      setFinanceValues(null);
+      setFinanceError(reason instanceof Error ? reason.message : 'Finance summary could not be loaded.');
+    } finally {
+      setFinanceLoading(false);
+    }
+  }, [ownerDriver]);
+
+  const latestBookings = useMemo(() => {
+    const memberNeedle = bookingMemberFilter.trim().toLowerCase();
+    const locationNeedle = bookingLocationFilter.trim().toLowerCase();
+    const refNeedle = bookingReferenceFilter.trim().toLowerCase();
+    return [...myJobs]
+      .filter((job) => {
+        const memberText = `${job.client_name ?? ''}`.toLowerCase();
+        const locationText = `${job.pickup_location ?? ''} ${job.pickup_postcode ?? ''} ${job.delivery_location ?? ''} ${job.delivery_postcode ?? ''}`.toLowerCase();
+        const refText = `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase();
+        return (!memberNeedle || memberText.includes(memberNeedle))
+          && (!locationNeedle || locationText.includes(locationNeedle))
+          && (!refNeedle || refText.includes(refNeedle));
+      })
+      .sort((a, b) => String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')))
+      .slice(0, 4);
+  }, [bookingLocationFilter, bookingMemberFilter, bookingReferenceFilter, myJobs]);
+
+  const documentSignals = useMemo(() => {
+    const days = data.driverDocuments
+      .map((document) => daysUntil(document.expiry_date))
+      .filter((value): value is number => value !== null);
+    return {
+      expired: days.filter((value) => value < 0).length,
+      expiring: days.filter((value) => value >= 0 && value <= 30).length,
+      total: data.driverDocuments.length,
+    };
+  }, [data.driverDocuments]);
+
+  const wonWorkValue = useMemo(() => {
+    const assignedJobIds = new Set(myJobs.map((job) => job.id));
+    return data.bids
+      .filter((bid) => assignedJobIds.has(bid.job_id) && String(bid.status).toLowerCase() === 'accepted')
+      .reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
+  }, [data.bids, myJobs]);
 
   const loadDriverContext = useCallback(async () => {
     const driverId = user?.driverId?.trim() ?? '';
@@ -228,8 +336,14 @@ export default function DriverDashboard() {
     void loadDriverContext();
   }, [loadDriverContext]);
 
+  useEffect(() => {
+    if (ownerDriver) void loadFinanceSummary();
+  }, [loadFinanceSummary, ownerDriver]);
+
   const refreshDashboard = async () => {
-    await Promise.all([data.refresh(), loadDriverContext()]);
+    const tasks: Promise<unknown>[] = [data.refresh(), loadDriverContext()];
+    if (ownerDriver) tasks.push(loadFinanceSummary());
+    await Promise.all(tasks);
   };
 
   const runCurrentAction = async () => {
@@ -269,21 +383,11 @@ export default function DriverDashboard() {
   };
 
   const jobsDataset = data.datasets.jobs;
-  const invoicesDataset = data.datasets.invoices;
   const assignedWorkMetric = jobsDataset.availability !== 'available'
     ? '—'
     : jobsDataset.partialData || jobsDataset.limitedData
       ? 'Partial'
       : myJobs.length;
-  const ownerInvoices = ownerDriver ? data.invoices : [];
-  const ownerOutstandingInvoices = ownerInvoices.filter(
-    (invoice) => String(invoice.payment_status ?? invoice.status ?? '').toLowerCase() !== 'paid',
-  );
-  const ownerInvoiceMetric = invoicesDataset.availability !== 'available'
-    ? '—'
-    : invoicesDataset.partialData || invoicesDataset.limitedData
-      ? 'Partial'
-      : ownerOutstandingInvoices.length;
 
   const renderJobSummary = (job: (typeof myJobs)[number]) => {
     const status = workspaceJobPresentationStatus(job);
@@ -470,35 +574,146 @@ export default function DriverDashboard() {
         </section>
 
         {ownerDriver ? (
-          <section className="driver-dashboard-register">
-            <div className="driver-dashboard-register__head">
-              <div>
-                <strong>Owner Driver Commercial Position</strong>
-                <span>Business signals kept separate from employed-driver execution.</span>
+          <>
+            {financeError ? <AlertBanner tone="warning">{financeError}</AlertBanner> : null}
+            <OperationalToolbar>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <strong style={{ color: workspaceTheme.navy }}>Owner Driver business desk</strong>
+                <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>CX-style reports, latest bookings, finance, feedback, compliance and messaging</span>
+              </div>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Finance</ActionButton>
+                <ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>Diary</ActionButton>
+                <ActionButton tone="secondary" onClick={() => router.push('/driver/documents')}>Compliance</ActionButton>
+                <ActionButton tone="secondary" onClick={() => router.push('/driver/messages')}>Freight Messenger</ActionButton>
+              </div>
+            </OperationalToolbar>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)', gap: 12, alignItems: 'start' }}>
+              <div style={{ display: 'grid', gap: 12 }}>
+                <OperationalCard title="Reports & Statistics">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 8 }}>
+                    <button type="button" onClick={() => router.push('/driver/won-work')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
+                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Won work value</span>
+                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{money(wonWorkValue)}</strong>
+                      <small style={{ color: workspaceTheme.muted }}>Accepted quotes on assigned work</small>
+                    </button>
+                    <button type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
+                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Gross invoiced</span>
+                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{financeLoading ? 'Loading…' : financeValues ? money(financeValues.gross) : 'Unavailable'}</strong>
+                      <small style={{ color: workspaceTheme.muted }}>Verified Driver Finance summary</small>
+                    </button>
+                  </div>
+                </OperationalCard>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 12 }}>
+                  <OperationalCard title="Finance & Accounts" subtitle="Owner-driver invoice lifecycle and payment state.">
+                    {[
+                      ['Latest invoices', financeSummary ? `${financeSummary.total} total` : financeLoading ? 'Loading…' : 'Unavailable'],
+                      ['Invoices awaiting payment', financeSummary ? `${financeSummary.sent + financeSummary.overdue} awaiting` : financeLoading ? 'Loading…' : 'Unavailable'],
+                      ['Invoices overdue', financeSummary ? `${financeSummary.overdue} overdue` : financeLoading ? 'Loading…' : 'Unavailable'],
+                      ['Monthly totals', financeValues ? `${money(financeValues.paid)} paid` : financeLoading ? 'Loading…' : 'Unavailable'],
+                    ].map(([label, detail]) => (
+                      <button key={label} type="button" onClick={() => router.push('/driver/finance')} style={{ width: '100%', minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
+                        <span><strong style={{ display: 'block', fontSize: 12 }}>{label}</strong><small style={{ color: workspaceTheme.muted }}>{detail}</small></span>
+                        <span aria-hidden="true" style={{ color: workspaceTheme.blue }}>→</span>
+                      </button>
+                    ))}
+                  </OperationalCard>
+
+                  <OperationalCard title="Reports" subtitle="Direct routes to the operational registers behind each report.">
+                    {[
+                      ['Bookings Received', `${myJobs.length} assigned booking(s)`, '/driver/history'],
+                      ['Loads Allocated', `${activeJobs.length + upcomingJobs.length} active/upcoming`, '/driver/history'],
+                      ['Return Journeys', profile?.future_position ? profile.future_position : 'Open register', '/driver/returns'],
+                      ['Quotes', `${data.bids.length} loaded quote record(s)`, '/driver/quotes'],
+                    ].map(([label, detail, href]) => (
+                      <button key={label} type="button" onClick={() => router.push(href)} style={{ width: '100%', minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
+                        <span><strong style={{ display: 'block', fontSize: 12 }}>{label}</strong><small style={{ color: workspaceTheme.muted }}>{detail}</small></span>
+                        <span aria-hidden="true" style={{ color: workspaceTheme.blue }}>→</span>
+                      </button>
+                    ))}
+                  </OperationalCard>
+                </div>
+
+                <OperationalCard title="Feedback in Last 90 Days" subtitle="XDrive does not fabricate payment or delivery scores when the Driver feed has no verified score source.">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
+                    <button type="button" onClick={() => router.push('/driver/history')} style={{ minHeight: 64, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
+                      <strong style={{ display: 'block' }}>Received</strong>
+                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>Open Diary feedback records</span>
+                    </button>
+                    <button type="button" onClick={() => router.push('/driver/history')} style={{ minHeight: 64, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
+                      <strong style={{ display: 'block' }}>Given</strong>
+                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>Open completed bookings and feedback actions</span>
+                    </button>
+                  </div>
+                </OperationalCard>
+              </div>
+
+              <div style={{ display: 'grid', gap: 12 }}>
+                <OperationalCard
+                  title="Activity at a glance"
+                  subtitle="Latest assigned bookings"
+                  actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/history')}>View all…</ActionButton>}
+                  flush
+                >
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr)) auto', gap: 6, padding: 8, borderBottom: `1px solid ${workspaceTheme.border}` }}>
+                    <input aria-label="Member / Driver / ID" placeholder="Member / Driver / ID" value={bookingMemberFilter} onChange={(event) => setBookingMemberFilter(event.target.value)} style={{ minWidth: 0, height: 30, padding: '0 8px', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} />
+                    <input aria-label="Location" placeholder="Location" value={bookingLocationFilter} onChange={(event) => setBookingLocationFilter(event.target.value)} style={{ minWidth: 0, height: 30, padding: '0 8px', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} />
+                    <input aria-label="Load ID / Ref" placeholder="Load ID / Ref" value={bookingReferenceFilter} onChange={(event) => setBookingReferenceFilter(event.target.value)} style={{ minWidth: 0, height: 30, padding: '0 8px', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} />
+                    <ActionButton tone="secondary" onClick={() => { setBookingMemberFilter(''); setBookingLocationFilter(''); setBookingReferenceFilter(''); }}>Clear</ActionButton>
+                  </div>
+                  <DataTable
+                    columns={['Route', 'Pickup / Delivery', 'Vehicle', 'Status', 'Actions']}
+                    rows={latestBookings.map((job) => {
+                      const status = workspaceJobPresentationStatus(job);
+                      const group = jobLifecyclePresentationGroup(status);
+                      return [
+                        <span key="route"><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><small style={{ display: 'block', color: workspaceTheme.muted }}>XDL-{job.id.slice(0, 8).toUpperCase()}</small></span>,
+                        <span key="times"><strong>{formatDate(job.pickup_datetime)}</strong><small style={{ display: 'block', color: workspaceTheme.muted }}>{formatDate(job.delivery_datetime)}</small></span>,
+                        vehicleLabel(job.vehicle_type),
+                        <StatusBadge key="status" value={humanize(status)} tone={group === 'completed' ? 'green' : group === 'active' ? 'blue' : group === 'cancelled' ? 'grey' : 'orange'} />,
+                        <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                          <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>{group === 'completed' ? 'POD' : 'Open'}</ActionButton>
+                          {group === 'active' ? <ActionButton tone="secondary" onClick={() => router.push('/driver/freight-vision')}>Track</ActionButton> : null}
+                        </div>,
+                      ];
+                    })}
+                    empty={<EmptyState compact title="No bookings match these filters" />}
+                  />
+                </OperationalCard>
+
+                <OperationalCard title="Compliance - Driver & Vehicle" subtitle="Equivalent control area for the owner-driver account.">
+                  <div style={{ display: 'grid', gridTemplateColumns: '110px minmax(0,1fr)', gap: 12, alignItems: 'center' }}>
+                    <button type="button" onClick={() => router.push('/driver/documents')} style={{ width: 100, height: 100, borderRadius: '50%', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, cursor: 'pointer' }}>
+                      <strong style={{ display: 'block', color: workspaceTheme.navy, fontSize: 22 }}>{documentSignals.expired + documentSignals.expiring}</strong>
+                      <span style={{ fontSize: 10, color: workspaceTheme.muted }}>document alerts</span>
+                    </button>
+                    <div>
+                      {[
+                        ['Expired documents', `${documentSignals.expired} expired`, '/driver/documents'],
+                        ['About to expire', `${documentSignals.expiring} due within 30 days`, '/driver/documents'],
+                        ['Driver documents', `${documentSignals.total} loaded`, '/driver/documents'],
+                        ['Active vehicle', vehicle?.reg_plate ?? 'Not assigned', '/driver/vehicles'],
+                      ].map(([label, detail, href]) => (
+                        <button key={label} type="button" onClick={() => router.push(href)} style={{ width: '100%', minHeight: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', cursor: 'pointer', textAlign: 'left' }}>
+                          <span>{label}</span><strong>{detail}</strong>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </OperationalCard>
+
+                <OperationalCard title="Network & Freight Messenger" subtitle="CX watchlist/messenger equivalents already present in XDrive.">
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    <ActionButton tone="secondary" onClick={() => router.push('/driver/directory')}>Directory / Saved Networks</ActionButton>
+                    <ActionButton tone="secondary" onClick={() => router.push('/driver/messages')}>Freight Messenger</ActionButton>
+                    <ActionButton tone="secondary" onClick={() => router.push('/driver/notifications')}>Notifications</ActionButton>
+                  </div>
+                </OperationalCard>
               </div>
             </div>
-            <div className="driver-dashboard-readiness__grid">
-              <button type="button" onClick={() => router.push('/driver/finance')}>
-                <span>Invoice readiness</span>
-                <strong>{invoicesDataset.availability !== 'available'
-                  ? 'Unavailable'
-                  : invoicesDataset.partialData || invoicesDataset.limitedData
-                    ? 'Partial'
-                    : 'Ready'}</strong>
-                <small>Only complete finance data is presented as exact.</small>
-              </button>
-              <button type="button" onClick={() => router.push('/driver/finance')}>
-                <span>Outstanding</span>
-                <strong>{ownerInvoiceMetric}</strong>
-                <small>Owner-driver invoices requiring settlement.</small>
-              </button>
-              <button type="button" onClick={() => router.push('/driver/returns')}>
-                <span>Return capacity</span>
-                <strong>{profile?.future_position ?? 'Not published'}</strong>
-                <small>{profile?.future_position_date ? formatDate(profile.future_position_date) : 'No future destination published'}</small>
-              </button>
-            </div>
-          </section>
+          </>
         ) : null}
 
         {commercialAccess && !ownerDriver ? (
