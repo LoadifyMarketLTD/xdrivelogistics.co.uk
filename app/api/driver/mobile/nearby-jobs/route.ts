@@ -25,6 +25,7 @@ type NearbyJobRow = {
   pickup_lng: number | null;
   pickup_datetime: string | null;
   pickup_time_slot: string | null;
+  collection_window_end?: string | null;
   delivery_location: string | null;
   delivery_postcode: string | null;
   delivery_lat: number | null;
@@ -69,7 +70,7 @@ type NearbyJobRow = {
 // Explicit company FK keeps PostgREST embedding deterministic for mobile loads.
 const nearbySelect = [
   'id', 'company_id', 'created_by', 'status', 'exchange_visibility', 'awarded_carrier_company_id', 'assigned_company_id', 'assigned_driver_id', 'direct_invite_company_id',
-  'pickup_location', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot',
+  'pickup_location', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot', 'collection_window_end',
   'delivery_location', 'delivery_postcode', 'delivery_lat', 'delivery_lng', 'delivery_datetime', 'delivery_time_slot',
   'pickup_country_code', 'delivery_country_code', 'service_mode', 'direct_delivery_required',
   'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label', 'cargo_type', 'requested_cargo_label',
@@ -86,6 +87,11 @@ function companyInfo(companies: NearbyJobRow['companies']) {
 function publicArea(postcode: unknown) {
   const outcode = publicOutcode(postcode);
   return outcode ? `Approx. area · ${outcode}` : 'Area disclosed after allocation';
+}
+
+function fullDisplayPostcode(postcode: unknown) {
+  const raw = String(postcode ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
+  return raw || null;
 }
 
 function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: Record<string, unknown> = {}) {
@@ -105,14 +111,16 @@ function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: 
     pickup: {
       addressSummary: publicArea(row.pickup_postcode),
       postcode: publicOutcode(row.pickup_postcode),
+      fullPostcode: fullDisplayPostcode(row.pickup_postcode),
       latitude: null,
       longitude: null,
       collectionFrom: row.pickup_datetime || row.pickup_time_slot || null,
-      collectionTo: null,
+      collectionTo: row.collection_window_end || null,
     },
     delivery: {
       addressSummary: publicArea(row.delivery_postcode),
       postcode: publicOutcode(row.delivery_postcode),
+      fullPostcode: fullDisplayPostcode(row.delivery_postcode),
       latitude: null,
       longitude: null,
       deliveryFrom: row.delivery_datetime || row.delivery_time_slot || null,
@@ -140,6 +148,7 @@ function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: 
     pickupCountryCode: row.pickup_country_code || 'GB',
     deliveryCountryCode: row.delivery_country_code || 'GB',
     serviceMode: row.service_mode || null,
+    postedAt: row.exchange_posted_at || null,
     directDeliveryRequired: row.direct_delivery_required === true,
     ...extras,
   };
