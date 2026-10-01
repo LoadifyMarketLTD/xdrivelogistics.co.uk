@@ -8,7 +8,6 @@ import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorks
 import {
   ActionButton,
   AlertBanner,
-  DataTable,
   EmptyState,
   OperationalCard,
   StatusBadge,
@@ -729,35 +728,53 @@ export default function DriverDashboard() {
                     <input aria-label="Load ID / Ref" placeholder="Load ID / Ref" value={bookingReferenceFilter} onChange={(event) => setBookingReferenceFilter(event.target.value)} style={{ minWidth: 0, height: 30, padding: '0 8px', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} />
                     <ActionButton tone="secondary" onClick={() => { setBookingMemberFilter(''); setBookingLocationFilter(''); setBookingReferenceFilter(''); }}>Clear</ActionButton>
                   </div>
-                  <DataTable
-                    columns={['Route', 'Pickup / Delivery', 'Vehicle', 'Status', 'Actions']}
-                    rows={latestBookings.map((job) => {
+                  <div style={{ display: 'grid', gap: 6, padding: 8 }}>
+                    {latestBookings.length === 0 ? (
+                      <EmptyState compact title="No bookings match these filters" />
+                    ) : latestBookings.map((job) => {
                       const status = canonicalJobStatus(job.current_status, job.status);
                       const group = jobLifecyclePresentationGroup(status);
-                      return [
-                        <span key="route"><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><small style={{ display: 'block', color: workspaceTheme.muted }}>XDL-{job.id.slice(0, 8).toUpperCase()}</small></span>,
-                        <span key="times"><strong>{formatDate(job.pickup_datetime)}</strong><small style={{ display: 'block', color: workspaceTheme.muted }}>{formatDate(job.delivery_datetime)}</small></span>,
-                        vehicleLabel(job.vehicle_type),
-                        <StatusBadge key="status" value={humanize(status)} tone={group === 'completed' ? 'green' : group === 'active' ? 'blue' : group === 'cancelled' ? 'grey' : 'orange'} />,
-                        <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
-                          <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>
-                            {group === 'completed' ? 'POD' : ['accepted', 'allocated', 'driver_accepted'].includes(status) ? 'Enter POD' : 'Open'}
-                          </ActionButton>
-                          {['accepted', 'allocated', 'driver_accepted'].includes(status) ? (
-                            <ActionButton
-                              tone="secondary"
-                              disabled={decliningJobId === job.id}
-                              onClick={() => void requestJobCancellation(job.id)}
-                            >
-                              {decliningJobId === job.id ? 'Sending…' : 'Decline'}
+                      const accepted = ['accepted', 'allocated', 'driver_accepted'].includes(status);
+                      return (
+                        <article key={job.id} style={{ border: `1px solid ${group === 'completed' ? '#79c58a' : accepted ? '#e5a300' : workspaceTheme.border}`, background: workspaceTheme.surface, borderRadius: 4, overflow: 'hidden' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: '1.35fr 1fr .9fr', gap: 10, padding: '8px 10px 6px' }}>
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ display: 'grid', gridTemplateColumns: '34px minmax(0,1fr)', columnGap: 6, rowGap: 2, fontSize: 11 }}>
+                                <span style={{ color: workspaceTheme.muted }}>From:</span><strong>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'}</strong>
+                                <span style={{ color: workspaceTheme.muted }}>To:</span><strong>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong>
+                                <span style={{ color: workspaceTheme.muted }}>Veh:</span><span>{vehicleLabel(job.vehicle_type)}</span>
+                              </div>
+                            </div>
+                            <div style={{ minWidth: 0, fontSize: 11 }}>
+                              <div><span style={{ color: workspaceTheme.muted }}>Pickup: </span><strong>{formatDate(job.pickup_datetime)}</strong></div>
+                              <div style={{ marginTop: 3 }}><span style={{ color: workspaceTheme.muted }}>Deliver: </span><strong>{formatDate(job.delivery_datetime)}</strong></div>
+                            </div>
+                            <div style={{ minWidth: 0, fontSize: 11 }}>
+                              <StatusBadge value={humanize(status)} tone={group === 'completed' ? 'green' : group === 'active' ? 'blue' : group === 'cancelled' ? 'grey' : 'orange'} />
+                              <div style={{ marginTop: 5, color: workspaceTheme.muted }}>{job.client_name ?? 'Member not supplied'}</div>
+                              <div style={{ marginTop: 2 }}>Load ID: <strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong></div>
+                              {job.booking_reference || job.customer_reference ? <div style={{ marginTop: 2, color: workspaceTheme.muted }}>Ref: {job.booking_reference ?? job.customer_reference}</div> : null}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', padding: '5px 8px', borderTop: `1px solid ${workspaceTheme.divider}`, background: workspaceTheme.surfaceMuted }}>
+                            <ActionButton tone={accepted ? 'success' : 'secondary'} onClick={() => router.push(`/driver/jobs/${job.id}`)}>
+                              {group === 'completed' ? 'POD' : accepted ? 'Enter POD' : 'Open'}
                             </ActionButton>
-                          ) : null}
-                          {group === 'active' || ['accepted', 'allocated', 'driver_accepted'].includes(status) ? <ActionButton tone="secondary" onClick={() => router.push('/driver/freight-vision')}>Track</ActionButton> : null}
-                        </div>,
-                      ];
+                            {accepted ? (
+                              <ActionButton
+                                tone="secondary"
+                                disabled={decliningJobId === job.id}
+                                onClick={() => void requestJobCancellation(job.id)}
+                              >
+                                {decliningJobId === job.id ? 'Sending…' : 'Decline'}
+                              </ActionButton>
+                            ) : null}
+                            {group === 'active' || accepted ? <ActionButton tone="secondary" onClick={() => router.push('/driver/freight-vision')}>Track</ActionButton> : null}
+                          </div>
+                        </article>
+                      );
                     })}
-                    empty={<EmptyState compact title="No bookings match these filters" />}
-                  />
+                  </div>
                 </OperationalCard>
 
                 <OperationalCard
