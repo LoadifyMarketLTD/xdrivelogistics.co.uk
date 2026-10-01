@@ -873,15 +873,32 @@ export default function DriverDashboard() {
                   ) : !watchlistLoading ? <EmptyState compact title="No suppliers on your watchlist" description="Add members from Directory to monitor their compliance evidence here." /> : null}
                 </OperationalCard>
 
-                <OperationalCard title="Freight Messenger">
-                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                    <ActionButton tone="secondary" onClick={() => router.push('/driver/messages')}>Open Freight Messenger</ActionButton>
-                    <ActionButton tone="secondary" onClick={() => router.push('/driver/notifications')}>Notifications</ActionButton>
-                    <ActionButton tone="secondary" onClick={() => router.push('/driver/directory')}>Directory</ActionButton>
-                  </div>
-                </OperationalCard>
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={() => router.push('/driver/messages')}
+              aria-label="Open Freight Messenger"
+              style={{
+                position: 'fixed',
+                right: 14,
+                bottom: 10,
+                zIndex: 1200,
+                minHeight: 34,
+                padding: '7px 14px',
+                border: '1px solid #0B2F6B',
+                borderRadius: 4,
+                background: '#0B2F6B',
+                color: '#FFFFFF',
+                fontWeight: 700,
+                fontSize: 12,
+                boxShadow: '0 2px 8px rgba(0,0,0,.18)',
+                cursor: 'pointer',
+              }}
+            >
+              Freight Messenger
+            </button>
           </>
         ) : null}
 
