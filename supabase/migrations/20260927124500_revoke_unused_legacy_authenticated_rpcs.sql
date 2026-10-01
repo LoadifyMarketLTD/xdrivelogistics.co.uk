@@ -6,17 +6,23 @@ BEGIN;
 -- 24-hour window. Keep server-side execution available while removing direct
 -- signed-in browser/API exposure.
 
-REVOKE ALL ON FUNCTION public.get_my_role_status()
-FROM PUBLIC, anon, authenticated;
+DO $$
+BEGIN
+  IF to_regprocedure('public.get_my_role_status()') IS NOT NULL THEN
+    REVOKE ALL ON FUNCTION public.get_my_role_status()
+      FROM PUBLIC, anon, authenticated;
+    GRANT EXECUTE ON FUNCTION public.get_my_role_status()
+      TO service_role;
+  END IF;
 
-REVOKE ALL ON FUNCTION public.is_company_members_admin(uuid)
-FROM PUBLIC, anon, authenticated;
-
-GRANT EXECUTE ON FUNCTION public.get_my_role_status()
-TO service_role;
-
-GRANT EXECUTE ON FUNCTION public.is_company_members_admin(uuid)
-TO service_role;
+  IF to_regprocedure('public.is_company_members_admin(uuid)') IS NOT NULL THEN
+    REVOKE ALL ON FUNCTION public.is_company_members_admin(uuid)
+      FROM PUBLIC, anon, authenticated;
+    GRANT EXECUTE ON FUNCTION public.is_company_members_admin(uuid)
+      TO service_role;
+  END IF;
+END;
+$$;
 
 COMMIT;
 
