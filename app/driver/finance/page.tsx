@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
@@ -113,8 +113,10 @@ function paymentTone(status: PaymentStatus): 'green' | 'blue' | 'orange' | 'red'
 
 export default function DriverFinancePage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { user } = useAuth();
-  const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
+  const financeView = searchParams.get('view') === 'payables' ? 'payables' : 'receivables';
+  const canGenerateInvoices = (user?.membershipRole === 'owner' || user?.membershipRole === 'admin') && financeView === 'receivables';
   const [activeTab, setActiveTab] = useState<InvoiceStatus | 'All'>('All');
   const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [summary, setSummary] = useState<FinanceSummary | null>(null);
@@ -144,6 +146,7 @@ export default function DriverFinancePage() {
 
     try {
       const params = new URLSearchParams();
+      params.set('view', financeView);
       if (activeTab !== 'All') params.set('invoice_status', activeTab);
       const response = await fetch(`/api/driver/finance/invoices?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
@@ -168,7 +171,7 @@ export default function DriverFinancePage() {
     } finally {
       setLoading(false);
     }
-  }, [activeTab]);
+  }, [activeTab, financeView]);
 
   useEffect(() => { void loadInvoices(); }, [loadInvoices]);
 
@@ -244,8 +247,16 @@ export default function DriverFinancePage() {
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
       <DriverWorkspaceShell
-        subtitle="Track invoice lifecycle and payment state separately. Company owners and admins can generate invoices from completed jobs."
-        headerActions={canGenerateInvoices ? <ActionButton tone="primary" onClick={openJobPicker}>+ Generate Invoice</ActionButton> : undefined}
+        subtitle={financeView === 'payables'
+          ? 'Accounts Payable: supplier invoices received by your company and their settlement state.'
+          : 'Invoice Receivables: invoices issued by your company and their payment state.'}
+        headerActions={
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            <ActionButton tone={financeView === 'receivables' ? 'primary' : 'secondary'} onClick={() => router.push('/driver/finance')}>Receivables</ActionButton>
+            <ActionButton tone={financeView === 'payables' ? 'primary' : 'secondary'} onClick={() => router.push('/driver/finance?view=payables')}>Accounts Payable</ActionButton>
+            {canGenerateInvoices ? <ActionButton tone="primary" onClick={openJobPicker}>+ Generate Invoice</ActionButton> : null}
+          </div>
+        }
       >
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {generateError && <AlertBanner tone="danger">{generateError}</AlertBanner>}
@@ -317,7 +328,7 @@ export default function DriverFinancePage() {
                   <thead>
                     <tr>
                       <th>Invoice</th>
-                      <th>Customer / job</th>
+                      <th>{financeView === 'payables' ? 'Supplier / job' : 'Customer / job'}</th>
                       <th>Due</th>
                       <th>Total</th>
                       <th>Invoice state</th>
