@@ -446,7 +446,7 @@ export default function JobHistoryPage() {
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
         <div className="driver-diary-board diary-pagebody">
           {filterRail}
-          <main className="driver-board-main main diary-main">
+          <main className="driver-board-main diary-main">
             <div className="diary-tabs" role="tablist" aria-label="Diary states">
               {FILTERS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [], 'all')).length}</span></button>)}
             </div>
