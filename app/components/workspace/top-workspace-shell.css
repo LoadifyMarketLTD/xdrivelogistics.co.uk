@@ -724,3 +724,19 @@
   padding:0 8px!important;
   font-size:11px!important;
 }
+/* Fix primary-nav dropdown clipping: More state opened correctly but the menu was clipped by overflow-x:auto. */
+@media (min-width: 1025px) {
+  .xdrive-operational-top-workspace .top-workspace-nav--primary .top-workspace-nav__track {
+    overflow: visible !important;
+  }
+
+  .xdrive-operational-top-workspace .top-workspace-nav__group--menu {
+    z-index: 120 !important;
+  }
+
+  .xdrive-operational-top-workspace .top-workspace-nav__menu {
+    z-index: 121 !important;
+    max-height: min(70vh, 560px);
+    overflow-y: auto;
+  }
+}
