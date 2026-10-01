@@ -447,11 +447,10 @@ export default function JobHistoryPage() {
         <div className="xdrive-diary-layout">
           {filterRail}
           <main className="xdrive-diary-register">
-            <div className="diary-tabs" role="tablist" aria-label="Diary states">
-              {FILTERS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [], 'all')).length}</span></button>)}
-            </div>
-            <div className="diary-head diary-head-cx">
-              <span>{visibleFiltered.length} booking{visibleFiltered.length === 1 ? '' : 's'} · showing {visibleJobs.length}</span>
+            <div className="driver-diary-controlbar">
+              <div className="diary-tabs" role="tablist" aria-label="Diary states">
+                {FILTERS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [], 'all')).length}</span></button>)}
+              </div>
               <span className="driver-diary-summary-actions">
                 {statusFilter === 'feedback' && <label>Feedback:<select value={feedbackMode} onChange={(e) => setFeedbackMode(e.target.value as FeedbackMode)}><option value="all">All feedback</option><option value="awaiting">Awaiting feedback</option><option value="recent">Recent feedback</option></select></label>}
                 <button type="button" onClick={toggleExpandAll} disabled={!visibleJobs.length}>{allExpanded ? 'Collapse all' : 'Expand all'}</button>
@@ -460,6 +459,9 @@ export default function JobHistoryPage() {
                 <span>{visibleFiltered.length === 0 ? '0' : `${(safePage - 1) * itemsPerPage + 1}-${Math.min(safePage * itemsPerPage, visibleFiltered.length)} of ${visibleFiltered.length}`}</span>
                 <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>›</button>
               </span>
+            </div>
+            <div className="diary-head diary-head-cx">
+              <span>{visibleFiltered.length} booking{visibleFiltered.length === 1 ? '' : 's'} · showing {visibleJobs.length}</span>
             </div>
 
             {loading ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : (

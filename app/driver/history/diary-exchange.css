@@ -765,3 +765,70 @@
     flex-wrap:wrap!important;
   }
 }
+/* Diary controlbar: balanced status tabs + right-side list controls */
+.driver-diary-route .driver-diary-controlbar{
+  display:grid!important;
+  grid-template-columns:minmax(0,1fr) auto!important;
+  align-items:center!important;
+  gap:10px!important;
+  width:100%!important;
+  min-width:0!important;
+}
+.driver-diary-route .driver-diary-controlbar .diary-tabs{
+  display:grid!important;
+  grid-template-columns:repeat(8,minmax(72px,1fr))!important;
+  gap:4px!important;
+  width:100%!important;
+  min-width:0!important;
+  overflow:visible!important;
+  white-space:normal!important;
+}
+.driver-diary-route .driver-diary-controlbar .diary-tabs button{
+  width:100%!important;
+  min-width:0!important;
+  min-height:28px!important;
+  padding:0 7px!important;
+  justify-content:center!important;
+  text-align:center!important;
+  border:1px solid var(--ws-border,#cfd7e3)!important;
+  border-radius:2px!important;
+  background:#fff!important;
+  font-size:10.5px!important;
+}
+.driver-diary-route .driver-diary-controlbar .diary-tabs button[data-active="true"]{
+  background:#eef4ff!important;
+  border-color:var(--ws-blue,#1d57d8)!important;
+  color:var(--ws-navy,#0b2f6b)!important;
+}
+.driver-diary-route .driver-diary-controlbar .driver-diary-summary-actions{
+  display:inline-flex!important;
+  align-items:center!important;
+  justify-content:flex-end!important;
+  flex-wrap:nowrap!important;
+  gap:5px!important;
+  margin-left:auto!important;
+  white-space:nowrap!important;
+}
+.driver-diary-route .driver-diary-controlbar+.diary-head-cx{
+  min-height:24px!important;
+  padding:2px 4px!important;
+  border-top:0!important;
+}
+@media (max-width:1280px){
+  .driver-diary-route .driver-diary-controlbar{
+    grid-template-columns:1fr!important;
+  }
+  .driver-diary-route .driver-diary-controlbar .driver-diary-summary-actions{
+    justify-self:end!important;
+  }
+}
+@media (max-width:900px){
+  .driver-diary-route .driver-diary-controlbar .diary-tabs{
+    grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  }
+  .driver-diary-route .driver-diary-controlbar .driver-diary-summary-actions{
+    width:100%!important;
+    justify-content:space-between!important;
+    flex-wrap:wrap!important;
+  }
+}
