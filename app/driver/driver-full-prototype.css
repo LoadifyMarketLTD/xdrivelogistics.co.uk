@@ -3560,3 +3560,120 @@
     grid-template-columns:minmax(0,34%) minmax(0,34%) minmax(0,32%)!important;
   }
 }
+/* Loads toolbar order + readability correction */
+.driver-prototype-port .driver-loads-prototype .load-result-head-primary{
+  min-height:31px!important;
+  height:31px!important;
+  padding:0 7px!important;
+  border:1px solid #c7d2dd!important;
+  background:#fff!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-head-primary .load-result-title{
+  min-width:210px!important;
+  display:flex!important;
+  flex-direction:row!important;
+  align-items:baseline!important;
+  gap:8px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-head-primary .load-view-switch{
+  margin-left:18px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-controls-primary{
+  margin-left:auto!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-unified{
+  border-top:0!important;
+  justify-content:flex-start!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-unified .load-tabs{
+  flex:0 0 auto!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-unified .load-posted{
+  margin-left:8px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-controls-secondary{
+  margin-left:auto!important;
+  padding-right:5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-controls-secondary .load-page-text{
+  margin-left:0!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:4px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-times,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-member{
+  min-height:84px!important;
+  padding:8px 10px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line span,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-time-line span{
+  font-size:10.3px!important;
+  line-height:14px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line b,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-time-line b{
+  font-size:12.2px!important;
+  line-height:15px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-member{
+  padding:30px 9px 7px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-type{
+  min-height:20px!important;
+  height:20px!important;
+  line-height:20px!important;
+  font-size:10.8px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-postedby{
+  font-size:11px!important;
+  line-height:15px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-member .meta{
+  font-size:9.8px!important;
+  line-height:14px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-vehicle{
+  font-size:11px!important;
+  line-height:14px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card.expanded .load-extra-col>div{
+  min-height:21px!important;
+  padding:2px 9px!important;
+  grid-template-columns:64px minmax(0,1fr)!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card.expanded .load-extra-col b{
+  font-size:9.8px!important;
+  line-height:13.5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card.expanded .load-extra-col span{
+  font-size:10.4px!important;
+  line-height:13.5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note{
+  padding:6px 9px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>b{
+  font-size:9.8px!important;
+  line-height:13px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>span{
+  font-size:10.4px!important;
+  line-height:14px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>small{
+  font-size:9.2px!important;
+  line-height:12.5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer{
+  min-height:26px!important;
+  height:26px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-expand{
+  height:25px!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-quote-footer{
+  height:25px!important;
+  font-size:10.8px!important;
+}
