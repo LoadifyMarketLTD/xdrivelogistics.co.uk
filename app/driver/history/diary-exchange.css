@@ -1,3 +1,45 @@
+.driver-diary-route .xdrive-diary-layout {
+  display: grid !important;
+  grid-template-columns: 200px minmax(0, 1fr) !important;
+  gap: 8px !important;
+  align-items: start !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  overflow: visible !important;
+}
+
+.driver-diary-route .xdrive-diary-layout > .driver-filter-rail {
+  grid-column: 1 !important;
+  width: 200px !important;
+  min-width: 0 !important;
+  max-width: 200px !important;
+}
+
+.driver-diary-route .xdrive-diary-register {
+  grid-column: 2 !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 8px !important;
+  align-self: start !important;
+  overflow: visible !important;
+}
+
+@media (max-width: 1024px) {
+  .driver-diary-route .xdrive-diary-layout {
+    grid-template-columns: 1fr !important;
+  }
+  .driver-diary-route .xdrive-diary-layout > .driver-filter-rail,
+  .driver-diary-route .xdrive-diary-register {
+    grid-column: 1 !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+}
+
 /* Driver Diary — Master Plan v3 / Courier Exchange operational register.
  * Shared typography, controls, rows and shell geometry come from
  * workspace-measured-cx-baseline.css. This file owns Diary composition only.
