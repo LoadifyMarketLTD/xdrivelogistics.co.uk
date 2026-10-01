@@ -158,6 +158,7 @@ type OrderSheet = {
 type ReviewRow = { id: string; job_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
 type DocumentRow = { id: string; job_id: string | null; file_name: string | null; file_type: string | null; file_url: string | null; uploaded_at: string | null };
 type TrackingEventRow = { id: string; job_id: string | null; event_type: string | null; event_time: string | null; user_name: string | null; notes: string | null; message: string | null };
+type DiaryMemberRow = { jobId: string; companyId: string | null; name: string | null };
 type SearchFilters = { dateRange: DateRange; pickupWithin: TimeWindow; deliveryWithin: TimeWindow; loadRef: string; memberName: string; archive: ArchiveFilter };
 
 const EMPTY_SEARCH: SearchFilters = { dateRange: 'any', pickupWithin: 'any', deliveryWithin: 'any', loadRef: '', memberName: '', archive: 'all' };
@@ -357,8 +358,26 @@ export default function JobHistoryPage() {
       setError('Diary records could not be loaded. Please refresh and try again.'); setJobs([]); setLoading(false); return;
     }
     const normalized = ((data ?? []) as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>).map((job) => ({ ...job, companies: normalizeCompany(job.companies) }));
-    setJobs(normalized);
-    const jobIds = normalized.map((job) => job.id);
+    let resolvedJobs = normalized;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (token) {
+      const memberResponse = await fetch('/api/driver/diary/company-names', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const memberPayload = await memberResponse.json().catch(() => ({})) as { members?: DiaryMemberRow[] };
+      if (memberResponse.ok && Array.isArray(memberPayload.members)) {
+        const memberByJob = new Map(memberPayload.members.map((row) => [row.jobId, row]));
+        resolvedJobs = normalized.map((job) => {
+          if (job.companies?.name) return job;
+          const member = memberByJob.get(job.id);
+          return member?.name ? { ...job, companies: { name: member.name } } : job;
+        });
+      }
+    }
+    setJobs(resolvedJobs);
+    const jobIds = resolvedJobs.map((job) => job.id);
     if (!jobIds.length) {
       setReviewsByJob({}); setDocumentsByJob({}); setEventsByJob({}); setLoading(false); return;
     }
