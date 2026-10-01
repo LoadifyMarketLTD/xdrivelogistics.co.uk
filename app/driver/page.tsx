@@ -60,6 +60,20 @@ type DriverFinanceValues = {
   outstanding: number;
 };
 
+type DriverCommercialSummary = {
+  period: string;
+  revenueGross: number;
+  subcontractSpend: number;
+  recordedGrossMargin: number;
+  accountsPayable: {
+    received: number;
+    awaitingSettlement: number;
+    overdue: number;
+    totalGross: number;
+  };
+  bookingsSubcontracted: number;
+};
+
 type DriverAction = {
   label: string;
   description: string;
@@ -157,6 +171,9 @@ export default function DriverDashboard() {
   const [financeValues, setFinanceValues] = useState<DriverFinanceValues | null>(null);
   const [financeLoading, setFinanceLoading] = useState(false);
   const [financeError, setFinanceError] = useState('');
+  const [commercialSummary, setCommercialSummary] = useState<DriverCommercialSummary | null>(null);
+  const [commercialSummaryLoading, setCommercialSummaryLoading] = useState(false);
+  const [commercialSummaryError, setCommercialSummaryError] = useState('');
   const [bookingMemberFilter, setBookingMemberFilter] = useState('');
   const [bookingLocationFilter, setBookingLocationFilter] = useState('');
   const [bookingReferenceFilter, setBookingReferenceFilter] = useState('');
@@ -195,6 +212,33 @@ export default function DriverDashboard() {
         mode: 'open' as const,
       }
     : null;
+
+  const loadCommercialSummary = useCallback(async () => {
+    if (!ownerDriver || !isSupabaseConfigured) return;
+    setCommercialSummaryLoading(true);
+    setCommercialSummaryError('');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setCommercialSummaryError('Commercial summary session could not be verified.');
+      setCommercialSummaryLoading(false);
+      return;
+    }
+    try {
+      const response = await fetch('/api/driver/dashboard/commercial-summary?period=30d', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null) as (DriverCommercialSummary & { error?: string }) | null;
+      if (!response.ok || !payload) throw new Error(payload?.error ?? 'Commercial summary could not be loaded.');
+      setCommercialSummary(payload);
+    } catch (reason) {
+      setCommercialSummary(null);
+      setCommercialSummaryError(reason instanceof Error ? reason.message : 'Commercial summary could not be loaded.');
+    } finally {
+      setCommercialSummaryLoading(false);
+    }
+  }, [ownerDriver]);
 
   const loadFinanceSummary = useCallback(async () => {
     if (!ownerDriver || !isSupabaseConfigured) return;
@@ -338,12 +382,18 @@ export default function DriverDashboard() {
   }, [loadDriverContext]);
 
   useEffect(() => {
-    if (ownerDriver) void loadFinanceSummary();
-  }, [loadFinanceSummary, ownerDriver]);
+    if (ownerDriver) {
+      void loadFinanceSummary();
+      void loadCommercialSummary();
+    }
+  }, [loadCommercialSummary, loadFinanceSummary, ownerDriver]);
 
   const refreshDashboard = async () => {
     const tasks: Promise<unknown>[] = [data.refresh(), loadDriverContext()];
-    if (ownerDriver) tasks.push(loadFinanceSummary());
+    if (ownerDriver) {
+      tasks.push(loadFinanceSummary());
+      tasks.push(loadCommercialSummary());
+    }
     await Promise.all(tasks);
   };
 
@@ -577,6 +627,7 @@ export default function DriverDashboard() {
         {ownerDriver ? (
           <>
             {financeError ? <AlertBanner tone="warning">{financeError}</AlertBanner> : null}
+            {commercialSummaryError ? <AlertBanner tone="warning">{commercialSummaryError}</AlertBanner> : null}
             <OperationalToolbar>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <strong style={{ color: workspaceTheme.navy }}>Owner Driver business desk</strong>
@@ -596,26 +647,26 @@ export default function DriverDashboard() {
               <div style={{ display: 'grid', gap: 12 }}>
                 <OperationalCard title="Reports & Statistics">
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 8 }}>
-                    <button type="button" onClick={() => router.push('/driver/won-work')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
-                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Won work value</span>
-                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{money(wonWorkValue)}</strong>
-                      <small style={{ color: workspaceTheme.muted }}>Accepted quotes on assigned work</small>
+                    <button type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
+                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Gross Margin</span>
+                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{commercialSummaryLoading ? 'Loading…' : commercialSummary ? money(commercialSummary.recordedGrossMargin) : 'Unavailable'}</strong>
+                      <small style={{ color: workspaceTheme.muted }}>Recorded invoiced revenue minus recorded subcontract spend · 30 days</small>
                     </button>
                     <button type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
-                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Gross invoiced</span>
-                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{financeLoading ? 'Loading…' : financeValues ? money(financeValues.gross) : 'Unavailable'}</strong>
-                      <small style={{ color: workspaceTheme.muted }}>Verified Driver Finance summary</small>
+                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Sub-contract Spend</span>
+                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{commercialSummaryLoading ? 'Loading…' : commercialSummary ? money(commercialSummary.subcontractSpend) : 'Unavailable'}</strong>
+                      <small style={{ color: workspaceTheme.muted }}>Supplier invoices where this company is the buyer · 30 days</small>
                     </button>
                   </div>
                 </OperationalCard>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 12 }}>
-                  <OperationalCard title="Finance & Accounts" subtitle="Owner-driver invoice lifecycle and payment state.">
+                  <OperationalCard title="Accounts Payable" subtitle="Supplier invoices where the owner-driver company is the buyer.">
                     {[
-                      ['Latest invoices', financeSummary ? `${financeSummary.total} total` : financeLoading ? 'Loading…' : 'Unavailable'],
-                      ['Invoices awaiting payment', financeSummary ? `${financeSummary.sent + financeSummary.overdue} awaiting` : financeLoading ? 'Loading…' : 'Unavailable'],
-                      ['Invoices overdue', financeSummary ? `${financeSummary.overdue} overdue` : financeLoading ? 'Loading…' : 'Unavailable'],
-                      ['Monthly totals', financeValues ? `${money(financeValues.paid)} paid` : financeLoading ? 'Loading…' : 'Unavailable'],
+                      ['Latest invoices received', commercialSummary ? `${commercialSummary.accountsPayable.received} received` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
+                      ['Invoices due for payment', commercialSummary ? `${commercialSummary.accountsPayable.awaitingSettlement} awaiting settlement` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
+                      ['Invoices overdue', commercialSummary ? `${commercialSummary.accountsPayable.overdue} overdue` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
+                      ['Monthly totals', commercialSummary ? `${money(commercialSummary.accountsPayable.totalGross)} supplier gross` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
                     ].map(([label, detail]) => (
                       <button key={label} type="button" onClick={() => router.push('/driver/finance')} style={{ width: '100%', minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
                         <span><strong style={{ display: 'block', fontSize: 12 }}>{label}</strong><small style={{ color: workspaceTheme.muted }}>{detail}</small></span>
@@ -627,9 +678,10 @@ export default function DriverDashboard() {
                   <OperationalCard title="Reports" subtitle="Direct routes to the operational registers behind each report.">
                     {[
                       ['Bookings Received', `${myJobs.length} assigned booking(s)`, '/driver/history'],
+                      ['Bookings Sub-contracted', commercialSummary ? `${commercialSummary.bookingsSubcontracted} subcontracted` : commercialSummaryLoading ? 'Loading…' : 'Unavailable', '/driver/history'],
                       ['Loads Allocated', `${activeJobs.length + upcomingJobs.length} active/upcoming`, '/driver/history'],
                       ['Return Journeys', profile?.future_position ? profile.future_position : 'Open register', '/driver/returns'],
-                      ['Quotes', `${data.bids.length} loaded quote record(s)`, '/driver/quotes'],
+                      ['Quotes', `${data.bids.length} loaded · ${money(wonWorkValue)} won`, '/driver/quotes'],
                     ].map(([label, detail, href]) => (
                       <button key={label} type="button" onClick={() => router.push(href)} style={{ width: '100%', minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
                         <span><strong style={{ display: 'block', fontSize: 12 }}>{label}</strong><small style={{ color: workspaceTheme.muted }}>{detail}</small></span>
@@ -638,6 +690,22 @@ export default function DriverDashboard() {
                     ))}
                   </OperationalCard>
                 </div>
+
+                <OperationalCard title="Invoice Receivables" subtitle="Invoices issued by the owner-driver company to customers.">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 8 }}>
+                    {[
+                      ['Invoices', financeSummary ? String(financeSummary.total) : financeLoading ? '…' : '—'],
+                      ['Awaiting payment', financeSummary ? String(financeSummary.sent + financeSummary.overdue) : financeLoading ? '…' : '—'],
+                      ['Overdue', financeSummary ? String(financeSummary.overdue) : financeLoading ? '…' : '—'],
+                      ['Outstanding', financeValues ? money(financeValues.outstanding) : financeLoading ? '…' : '—'],
+                    ].map(([label, value]) => (
+                      <button key={label} type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 58, padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
+                        <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>{label}</span>
+                        <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 14 }}>{value}</strong>
+                      </button>
+                    ))}
+                  </div>
+                </OperationalCard>
 
                 <OperationalCard title="Feedback in Last 90 Days" subtitle="XDrive does not fabricate payment or delivery scores when the Driver feed has no verified score source.">
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
