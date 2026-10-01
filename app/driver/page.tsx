@@ -63,8 +63,8 @@ type DriverCommercialSummary = {
   recordedGrossMargin: number;
   accountsPayable: {
     received: number;
-    awaitingSettlement: number;
-    overdue: number;
+    dueForPayment: number;
+    awaitingPayment: number;
     totalGross: number;
   };
   bookingsSubcontracted: number;
@@ -165,6 +165,9 @@ export default function DriverDashboard() {
   const [commercialSummary, setCommercialSummary] = useState<DriverCommercialSummary | null>(null);
   const [commercialSummaryLoading, setCommercialSummaryLoading] = useState(false);
   const [commercialSummaryError, setCommercialSummaryError] = useState('');
+  const [commercialPeriod, setCommercialPeriod] = useState<'today' | '7d' | '30d' | 'all' | 'custom'>('today');
+  const [commercialFrom, setCommercialFrom] = useState(() => new Date().toISOString().slice(0, 10));
+  const [commercialTo, setCommercialTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [watchlistItems, setWatchlistItems] = useState<DriverWatchlistItem[]>([]);
   const [watchlistSummary, setWatchlistSummary] = useState<DriverWatchlistSummary | null>(null);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
@@ -220,7 +223,12 @@ export default function DriverDashboard() {
       return;
     }
     try {
-      const response = await fetch('/api/driver/dashboard/commercial-summary?period=30d', {
+      const params = new URLSearchParams({ period: commercialPeriod });
+      if (commercialPeriod === 'custom') {
+        params.set('from', commercialFrom);
+        params.set('to', commercialTo);
+      }
+      const response = await fetch(`/api/driver/dashboard/commercial-summary?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
@@ -233,7 +241,7 @@ export default function DriverDashboard() {
     } finally {
       setCommercialSummaryLoading(false);
     }
-  }, [ownerDriver]);
+  }, [commercialFrom, commercialPeriod, commercialTo, ownerDriver]);
 
   const loadWatchlist = useCallback(async () => {
     if (!ownerDriver || !isSupabaseConfigured) return;
@@ -648,17 +656,39 @@ export default function DriverDashboard() {
             {commercialSummaryError ? <AlertBanner tone="warning">{commercialSummaryError}</AlertBanner> : null}
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)', gap: 12, alignItems: 'start' }}>
               <div style={{ display: 'grid', gap: 12 }}>
-                <OperationalCard title="Reports & Statistics">
+                <OperationalCard
+                  title="Reports & Statistics"
+                  actions={(
+                    <select
+                      aria-label="Reports period"
+                      value={commercialPeriod}
+                      onChange={(event) => setCommercialPeriod(event.target.value as 'today' | '7d' | '30d' | 'all' | 'custom')}
+                      style={{ height: 30, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surface, padding: '0 8px' }}
+                    >
+                      <option value="today">Today</option>
+                      <option value="7d">Last 7 days</option>
+                      <option value="30d">Last 30 days</option>
+                      <option value="all">All time</option>
+                      <option value="custom">Select Dates</option>
+                    </select>
+                  )}
+                >
+                  {commercialPeriod === 'custom' ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
+                      <label style={{ fontSize: 10, color: workspaceTheme.muted }}>From<input type="date" value={commercialFrom} onChange={(event) => setCommercialFrom(event.target.value)} style={{ display: 'block', width: '100%', height: 30, marginTop: 3, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} /></label>
+                      <label style={{ fontSize: 10, color: workspaceTheme.muted }}>To<input type="date" value={commercialTo} onChange={(event) => setCommercialTo(event.target.value)} style={{ display: 'block', width: '100%', height: 30, marginTop: 3, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} /></label>
+                    </div>
+                  ) : null}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 8 }}>
-                    <button type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
+                    <button type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 118, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
                       <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Gross Margin</span>
-                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{commercialSummaryLoading ? 'Loading…' : commercialSummary ? money(commercialSummary.recordedGrossMargin) : 'Unavailable'}</strong>
-                      <small style={{ color: workspaceTheme.muted }}>Recorded invoiced revenue minus recorded subcontract spend · 30 days</small>
+                      <strong style={{ display: 'block', marginTop: 14, color: workspaceTheme.navy, fontSize: 20 }}>{commercialSummaryLoading ? 'Loading…' : commercialSummary ? money(commercialSummary.recordedGrossMargin) : 'Unavailable'}</strong>
+                      <small style={{ display: 'block', marginTop: 12, color: workspaceTheme.muted }}>Recorded invoiced revenue minus recorded subcontract spend.</small>
                     </button>
-                    <button type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
+                    <button type="button" onClick={() => router.push('/driver/finance?view=payables')} style={{ minHeight: 118, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
                       <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Sub-contract Spend</span>
-                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{commercialSummaryLoading ? 'Loading…' : commercialSummary ? money(commercialSummary.subcontractSpend) : 'Unavailable'}</strong>
-                      <small style={{ color: workspaceTheme.muted }}>Supplier invoices where this company is the buyer · 30 days</small>
+                      <strong style={{ display: 'block', marginTop: 14, color: workspaceTheme.navy, fontSize: 20 }}>{commercialSummaryLoading ? 'Loading…' : commercialSummary ? money(commercialSummary.subcontractSpend) : 'Unavailable'}</strong>
+                      <small style={{ display: 'block', marginTop: 12, color: workspaceTheme.muted }}>Recorded supplier cost excluding your own company.</small>
                     </button>
                   </div>
                 </OperationalCard>
@@ -667,9 +697,9 @@ export default function DriverDashboard() {
                   <OperationalCard title="Accounts Payable" subtitle="Supplier invoices where the owner-driver company is the buyer.">
                     {[
                       ['Latest invoices received', commercialSummary ? `${commercialSummary.accountsPayable.received} received` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
-                      ['Invoices due for payment', commercialSummary ? `${commercialSummary.accountsPayable.awaitingSettlement} awaiting settlement` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
-                      ['Invoices overdue', commercialSummary ? `${commercialSummary.accountsPayable.overdue} overdue` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
-                      ['Monthly totals', commercialSummary ? `${money(commercialSummary.accountsPayable.totalGross)} supplier gross` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
+                      ['Invoices due for Payment', commercialSummary ? `${commercialSummary.accountsPayable.dueForPayment} due` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
+                      ['Invoices Awaiting Payment', commercialSummary ? `${commercialSummary.accountsPayable.awaitingPayment} awaiting` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
+                      ['Monthly Totals', commercialSummary ? `${money(commercialSummary.accountsPayable.totalGross)} supplier gross` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
                     ].map(([label, detail]) => (
                       <button key={label} type="button" onClick={() => router.push('/driver/finance?view=payables')} style={{ width: '100%', minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
                         <span><strong style={{ display: 'block', fontSize: 12 }}>{label}</strong><small style={{ color: workspaceTheme.muted }}>{detail}</small></span>

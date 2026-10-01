@@ -61,11 +61,26 @@ export async function GET(request: NextRequest) {
     return respond(403, { error: 'Owner-driver or company admin access is required.' });
   }
 
-  const period = new URL(request.url).searchParams.get('period') ?? '30d';
-  if (!['today', '7d', '30d', 'all'].includes(period)) {
+  const searchParams = new URL(request.url).searchParams;
+  const period = searchParams.get('period') ?? 'today';
+  if (!['today', '7d', '30d', 'all', 'custom'].includes(period)) {
     return respond(400, { error: 'Unsupported period.' });
   }
-  const cutoff = periodStart(period);
+
+  let cutoff = periodStart(period);
+  let periodEnd: string | null = null;
+  if (period === 'custom') {
+    const from = searchParams.get('from');
+    const to = searchParams.get('to');
+    if (!from || !to) return respond(400, { error: 'Custom period requires from and to dates.' });
+    const fromDate = new Date(`${from}T00:00:00.000Z`);
+    const toDate = new Date(`${to}T23:59:59.999Z`);
+    if (!Number.isFinite(fromDate.getTime()) || !Number.isFinite(toDate.getTime()) || fromDate > toDate) {
+      return respond(400, { error: 'Invalid custom date range.' });
+    }
+    cutoff = fromDate.toISOString();
+    periodEnd = toDate.toISOString();
+  }
 
   let revenueQuery = supabaseAdmin
     .from('invoices')
@@ -87,6 +102,11 @@ export async function GET(request: NextRequest) {
     revenueQuery = revenueQuery.gte('created_at', cutoff);
     payableQuery = payableQuery.gte('created_at', cutoff);
     jobsQuery = jobsQuery.gte('created_at', cutoff);
+  }
+  if (periodEnd) {
+    revenueQuery = revenueQuery.lte('created_at', periodEnd);
+    payableQuery = payableQuery.lte('created_at', periodEnd);
+    jobsQuery = jobsQuery.lte('created_at', periodEnd);
   }
 
   const feedbackCutoff = new Date();
@@ -138,8 +158,8 @@ export async function GET(request: NextRequest) {
 
   const revenueGross = revenueRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
   const subcontractSpend = payableRows.reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
-  const awaitingSettlement = payableRows.filter((row) => !isSettled(row)).length;
-  const overduePayables = payableRows.filter(isOverdue).length;
+  const awaitingPayment = payableRows.filter((row) => !isSettled(row)).length;
+  const dueForPayment = payableRows.filter(isOverdue).length;
 
   const subcontractedBookings = (jobsResult.data ?? []).filter((row) =>
     row.awarded_carrier_company_id && row.awarded_carrier_company_id !== driver.company_id,
@@ -158,8 +178,8 @@ export async function GET(request: NextRequest) {
     recordedGrossMargin: revenueGross - subcontractSpend,
     accountsPayable: {
       received: payableRows.length,
-      awaitingSettlement,
-      overdue: overduePayables,
+      dueForPayment,
+      awaitingPayment,
       totalGross: subcontractSpend,
     },
     bookingsSubcontracted: subcontractedBookings,
