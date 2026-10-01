@@ -48,14 +48,6 @@ type DriverWatchlistItem = {
   compliance: 'fully_compliant' | 'about_to_expire' | 'updates_needed' | 'no_evidence';
 };
 
-type DriverWatchlistSummary = {
-  total: number;
-  fullyCompliant: number;
-  aboutToExpire: number;
-  updatesNeeded: number;
-  noEvidence: number;
-};
-
 type DriverCommercialSummary = {
   period: string;
   revenueGross: number;
@@ -169,8 +161,6 @@ export default function DriverDashboard() {
   const [commercialFrom, setCommercialFrom] = useState(() => new Date().toISOString().slice(0, 10));
   const [commercialTo, setCommercialTo] = useState(() => new Date().toISOString().slice(0, 10));
   const [watchlistItems, setWatchlistItems] = useState<DriverWatchlistItem[]>([]);
-  const [watchlistSummary, setWatchlistSummary] = useState<DriverWatchlistSummary | null>(null);
-  const [watchlistLoading, setWatchlistLoading] = useState(false);
   const [watchlistError, setWatchlistError] = useState('');
   const [memberNameByJob, setMemberNameByJob] = useState<Record<string, string>>({});
   const [bookingMemberFilter, setBookingMemberFilter] = useState('');
@@ -277,13 +267,11 @@ export default function DriverDashboard() {
 
   const loadWatchlist = useCallback(async () => {
     if (!ownerDriver || !isSupabaseConfigured) return;
-    setWatchlistLoading(true);
     setWatchlistError('');
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
     if (!token) {
       setWatchlistError('Watchlist session could not be verified.');
-      setWatchlistLoading(false);
       return;
     }
     try {
@@ -293,18 +281,13 @@ export default function DriverDashboard() {
       });
       const payload = await response.json().catch(() => null) as {
         items?: DriverWatchlistItem[];
-        summary?: DriverWatchlistSummary;
         error?: string;
       } | null;
       if (!response.ok || !payload) throw new Error(payload?.error ?? 'Watchlist could not be loaded.');
       setWatchlistItems(payload.items ?? []);
-      setWatchlistSummary(payload.summary ?? null);
     } catch (reason) {
       setWatchlistItems([]);
-      setWatchlistSummary(null);
       setWatchlistError(reason instanceof Error ? reason.message : 'Watchlist could not be loaded.');
-    } finally {
-      setWatchlistLoading(false);
     }
   }, [ownerDriver]);
 
@@ -848,21 +831,8 @@ export default function DriverDashboard() {
                   actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/directory?watchlist=add')}>Add Members to My Watchlist</ActionButton>}
                 >
                   {watchlistError ? <AlertBanner tone="warning">{watchlistError}</AlertBanner> : null}
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 6 }}>
-                    {[
-                      ['Fully Compliant', watchlistSummary?.fullyCompliant ?? 0],
-                      ['About to Expire', watchlistSummary?.aboutToExpire ?? 0],
-                      ['Updates Needed', watchlistSummary?.updatesNeeded ?? 0],
-                      ['No Evidence', watchlistSummary?.noEvidence ?? 0],
-                    ].map(([label, value]) => (
-                      <button key={label} type="button" onClick={() => router.push('/driver/directory?watchlist=1')} style={{ minHeight: 54, padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
-                        <strong style={{ display: 'block', fontSize: 16, color: workspaceTheme.navy }}>{watchlistLoading ? '…' : value}</strong>
-                        <span style={{ display: 'block', marginTop: 2, fontSize: 10, color: workspaceTheme.muted }}>{label}</span>
-                      </button>
-                    ))}
-                  </div>
                   {watchlistItems.length ? (
-                    <div style={{ marginTop: 8, display: 'grid', gap: 4 }}>
+                    <div style={{ display: 'grid', gap: 4 }}>
                       {watchlistItems.slice(0, 4).map((item) => (
                         <button key={item.id} type="button" onClick={() => router.push(`/driver/network/${item.companyId}`)} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', minHeight: 30, border: 0, borderTop: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
                           <span><strong>{item.companyName}</strong>{item.memberId ? <small style={{ marginLeft: 6, color: workspaceTheme.muted }}>{item.memberId}</small> : null}</span>
@@ -870,7 +840,7 @@ export default function DriverDashboard() {
                         </button>
                       ))}
                     </div>
-                  ) : !watchlistLoading ? <EmptyState compact title="No suppliers on your watchlist" description="Add members from Directory to monitor their compliance evidence here." /> : null}
+                  ) : null}
                 </OperationalCard>
 
               </div>
