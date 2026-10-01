@@ -31,13 +31,23 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
     let unauthorized = false;
     try {
       const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
+      let token = data.session?.access_token;
+      if (!token) {
+        const refreshed = await supabase.auth.refreshSession();
+        token = refreshed.data.session?.access_token;
+      }
       if (!token) { unauthorized = true; throw new Error('Your session has expired. Sign in again to check your requirements.'); }
       const params = new URLSearchParams();
       if (companyId) params.set('companyId', companyId);
-      const response = await fetch('/api/workspace/readiness?' + params.toString(), {
-        cache: 'no-store', signal: controller.signal, headers: { Authorization: 'Bearer ' + token },
+      const requestReadiness = (accessToken: string) => fetch('/api/workspace/readiness?' + params.toString(), {
+        cache: 'no-store', signal: controller.signal, headers: { Authorization: 'Bearer ' + accessToken },
       });
+      let response = await requestReadiness(token);
+      if (response.status === 401) {
+        const refreshed = await supabase.auth.refreshSession();
+        const refreshedToken = refreshed.data.session?.access_token;
+        if (refreshedToken) response = await requestReadiness(refreshedToken);
+      }
       const payload = await response.json().catch(() => null) as { blockers?: WorkspaceBlocker[]; ready?: boolean; error?: string } | null;
       unauthorized = response.status === 401;
       if (!response.ok) throw new Error(payload?.error || 'Your account requirements could not be checked. Retry the check.');
