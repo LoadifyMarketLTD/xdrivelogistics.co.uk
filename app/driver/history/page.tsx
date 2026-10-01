@@ -404,7 +404,7 @@ export default function JobHistoryPage() {
   };
 
   const filterRail = (
-    <aside className="left diary-filter-rail" aria-label="Diary search filters">
+    <aside className="left driver-filter-rail diary-filter-rail" aria-label="Diary search filters">
       <div className="left-title">Search Panel</div>
       <div className="diary-filter-body">
         <div className="filter"><span className="label">Booking Scope</span><select value="assigned" disabled aria-label="Diary source"><option value="assigned">Assigned driver jobs</option></select></div>
@@ -425,9 +425,9 @@ export default function JobHistoryPage() {
       <DriverWorkspaceShell subtitle="Search, scan and expand every assigned booking from one operational diary." headerActions={<ActionButton tone="primary" onClick={() => void fetchHistory()} disabled={loading}>Refresh</ActionButton>}>
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
-        <div className="pagebody diary-pagebody">
+        <div className="driver-diary-board diary-pagebody">
           {filterRail}
-          <main className="main diary-main">
+          <main className="driver-board-main main diary-main">
             <div className="diary-tabs" role="tablist" aria-label="Diary states">
               {FILTERS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [], 'all')).length}</span></button>)}
             </div>

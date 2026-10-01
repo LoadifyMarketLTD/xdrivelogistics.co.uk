@@ -185,6 +185,7 @@ const DRIVER_EXECUTION_NAV: WorkspaceNavGroup[] = [
 const OWNER_DRIVER_NAV: WorkspaceNavGroup[] = [
   ...DRIVER_EXECUTION_NAV,
   { id: 'commercial', label: 'Commercial', items: [
+    { id: 'live-availability', label: 'Live Availability', href: '/driver/availability/live', icon: '◷' },
     { id: 'loads', label: 'Loads', href: '/driver/loads', icon: '▦' },
     { id: 'quotes', label: 'Quotes', href: '/driver/quotes', icon: '◫' },
     { id: 'won-work', label: 'Won Work', href: '/driver/won-work', icon: '✓' },
