@@ -1,9 +1,9 @@
-﻿import { readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync(join(process.cwd(), 'supabase/migrations/20260926155130_commercial_agreement_amendments.sql'), 'utf8');
-const applyMigration = readFileSync(join(process.cwd(), 'supabase/migrations/20261001125500_apply_accepted_job_amendments.sql'), 'utf8');
+const applyMigration = readFileSync(join(process.cwd(), 'supabase/migrations/20261001145737_apply_accepted_job_amendments.sql'), 'utf8');
 const amendmentsApi = readFileSync(join(process.cwd(), 'app/api/workspace/jobs/[jobId]/amendments/route.ts'), 'utf8');
 const decisionApi = readFileSync(join(process.cwd(), 'app/api/workspace/jobs/[jobId]/amendments/[amendmentId]/decision/route.ts'), 'utf8');
 const autoInvoice = readFileSync(join(process.cwd(), 'app/api/_lib/autoGenerateMarketplaceInvoice.ts'), 'utf8');
