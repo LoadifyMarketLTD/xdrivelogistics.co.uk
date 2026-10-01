@@ -88,6 +88,7 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
   const current = snapshot?.key === contextKey ? snapshot : null;
   const blockers = (current?.blockers ?? []).filter((blocker) => !operation || blocker.operation === operation || blocker.operation === 'commercial');
   const error = current?.error ?? '';
+  if (loading && !current) return null;
   if (!error && blockers.length === 0 && current) return null;
   const root = role === 'driver' || role === 'owner_driver' ? '/driver' : role === 'customer' ? '/customer' : role === 'broker' ? '/broker' : '/admin';
   const buttonStyle = { border: 0, borderRadius: 6, padding: '8px 12px', background: '#0b2f6b', color: '#fff', fontWeight: 700, cursor: 'pointer', whiteSpace: 'normal' as const };

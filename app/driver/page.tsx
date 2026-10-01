@@ -24,7 +24,6 @@ import { resolveWorkspaceRole } from '../../lib/workspaceRole';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
 import { VEHICLE_TYPE_LABELS } from '../../lib/vehicleTypes';
 import DriverWorkspaceShell from './_components/DriverWorkspaceShell';
-import PendingBookingOffers from '../components/workspace/PendingBookingOffers';
 
 type DriverProfile = {
   availability_status: string | null;
@@ -453,19 +452,17 @@ export default function DriverDashboard() {
       <DriverWorkspaceShell
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
         driverName="Today"
-        subtitle={ownerDriver ? 'Business control centre for bookings, finance, reports, compliance and network activity.' : 'Your current job, next action and next booking.'}
-        headerActions={
-          <>
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() => void refreshDashboard()}
-              disabled={data.loading || contextLoading}
-            >
-              Refresh
-            </button>
-          </>
-        }
+        subtitle={ownerDriver ? undefined : 'Your current job, next action and next booking.'}
+        headerActions={ownerDriver ? undefined : (
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => void refreshDashboard()}
+            disabled={data.loading || contextLoading}
+          >
+            Refresh
+          </button>
+        )}
       >
         {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
         {contextError ? <AlertBanner tone="warning">{contextError}</AlertBanner> : null}
@@ -607,27 +604,6 @@ export default function DriverDashboard() {
         {ownerDriver ? (
           <>
             {commercialSummaryError ? <AlertBanner tone="warning">{commercialSummaryError}</AlertBanner> : null}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 6, marginBottom: 8 }} aria-label="Owner driver operating status">
-              <button type="button" onClick={() => router.push('/driver/availability/live')} style={{ minHeight: 48, padding: '6px 8px', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface, textAlign: 'left', cursor: 'pointer' }}>
-                <span style={{ display: 'block', fontSize: 9, color: workspaceTheme.muted, textTransform: 'uppercase' }}>Availability</span>
-                <strong style={{ display: 'block', fontSize: 12 }}>{humanize(profile?.availability_status)}</strong>
-              </button>
-              <button type="button" onClick={() => router.push('/driver/vehicles')} style={{ minHeight: 48, padding: '6px 8px', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface, textAlign: 'left', cursor: 'pointer' }}>
-                <span style={{ display: 'block', fontSize: 9, color: workspaceTheme.muted, textTransform: 'uppercase' }}>Active vehicle</span>
-                <strong style={{ display: 'block', fontSize: 12 }}>{vehicle?.reg_plate ?? 'Not assigned'}</strong>
-              </button>
-              <button type="button" onClick={() => router.push('/driver/history')} style={{ minHeight: 48, padding: '6px 8px', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface, textAlign: 'left', cursor: 'pointer' }}>
-                <span style={{ display: 'block', fontSize: 9, color: workspaceTheme.muted, textTransform: 'uppercase' }}>Assigned work</span>
-                <strong style={{ display: 'block', fontSize: 12 }}>{assignedWorkMetric}</strong>
-              </button>
-              <button type="button" onClick={() => currentJob ? router.push(`/driver/jobs/${currentJob.id}`) : router.push('/driver/history')} style={{ minHeight: 48, padding: '6px 8px', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface, textAlign: 'left', cursor: 'pointer' }}>
-                <span style={{ display: 'block', fontSize: 9, color: workspaceTheme.muted, textTransform: 'uppercase' }}>Current action</span>
-                <strong style={{ display: 'block', fontSize: 12 }}>{currentAction?.label ?? 'No active action'}</strong>
-              </button>
-            </div>
-
-            <PendingBookingOffers onChanged={() => void refreshDashboard()} />
-
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)', gap: 12, alignItems: 'start' }}>
               <div style={{ display: 'grid', gap: 12 }}>
                 <OperationalCard title="Reports & Statistics">
