@@ -91,6 +91,8 @@ describe('commercial agreement amendment/versioning contract', () => {
     expect(mobileAmendments).toContain("if (!['accept', 'reject'].includes(action))");
     expect(mobileAmendments).toContain("String(amendment.counterparty_company_id ?? '') !== executionCompanyId");
     expect(mobileAmendments).toContain("decided_by_user_id: driver.userId");
+    expect(mobileAmendments).toContain("event_type: 'commercial_amendment_' + nextStatus");
+    expect(mobileAmendments).toContain('recipient_user_id: amendment.proposed_by_user_id');
     expect(amendmentControls).toContain('Accept Changes');
     expect(amendmentControls).toContain('Reject Changes');
   });

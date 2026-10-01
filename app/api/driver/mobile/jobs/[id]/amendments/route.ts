@@ -13,7 +13,7 @@ async function requireAssignedJob(jobId: string, driverId: string) {
     .maybeSingle();
 }
 
-const amendmentSelect = 'id,agreement_id,job_id,version_number,proposed_by_company_id,counterparty_company_id,reason,change_summary,effective_agreed_amount,currency,payment_terms,pod_required,effective_job_snapshot,status,proposed_at,decided_at,decision_note,created_at' as const;
+const amendmentSelect = 'id,agreement_id,job_id,version_number,proposed_by_user_id,proposed_by_company_id,counterparty_company_id,reason,change_summary,effective_agreed_amount,currency,payment_terms,pod_required,effective_job_snapshot,status,proposed_at,decided_at,decision_note,created_at' as const;
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
@@ -98,5 +98,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     'note',
     'Commercial amendment v' + String(decided.version_number ?? '?') + ' ' + nextStatus + ' by assigned driver.',
   );
+
+  await supabaseAdmin.from('notification_events').insert({
+    event_type: 'commercial_amendment_' + nextStatus,
+    entity_type: 'job',
+    entity_id: id,
+    company_id: amendment.proposed_by_company_id,
+    recipient_user_id: amendment.proposed_by_user_id,
+    payload: {
+      job_id: id,
+      amendment_id: amendment.id,
+      version_number: amendment.version_number,
+      status: nextStatus,
+      decision_company_id: executionCompanyId,
+      decision_source: 'assigned_driver',
+      message: 'Job change v' + String(amendment.version_number ?? '?') + ' was ' + nextStatus + ' by the assigned driver.',
+    },
+  }).then(() => undefined, () => undefined);
+
   return respond(200, { ok: true, amendment: decided });
 }
