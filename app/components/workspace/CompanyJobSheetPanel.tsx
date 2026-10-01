@@ -6,6 +6,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from './MemberProfile';
 import WorkspaceJobReplay from './WorkspaceJobReplay';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
+import CommercialAmendmentControls from './CommercialAmendmentControls';
 
 type JobSheet = {
   jobId: string;
@@ -306,6 +307,20 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
               </div>
             )) : <EmptyState compact title="No contract amendments recorded" description={sheet.unavailable.amendments ?? undefined} />}
           </div>
+
+          <CommercialAmendmentControls
+            jobId={jobId}
+            mode={mode}
+            viewerCompanyId={sheet.viewerCompanyId ?? null}
+            ownerCompanyId={sheet.ownerCompany.companyId}
+            carrierCompanyId={sheet.carrier?.companyId ?? null}
+            currentAmount={sheet.commercial.carrierCost}
+            currency={sheet.commercial.currency}
+            paymentTerms={sheet.commercial.paymentTerms}
+            podRequired={sheet.pod.required}
+            pickup={sheet.route.pickup}
+            delivery={sheet.route.delivery}
+          />
 
           <div style={{ display: 'grid', gap: 6 }}>
             <strong>Approved extras / adjustments</strong>

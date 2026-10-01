@@ -88,13 +88,15 @@ function publicLoad(
     status: marketplaceText(job.status) ?? 'posted',
     pickup_area: publicAreaLabel(job.pickup_postcode, job.pickup_country_code, 'Collection area TBC'),
     pickup_postcode_area: publicOutcode(job.pickup_postcode),
-    pickup_postcode_full: marketplaceText(job.pickup_postcode),
+    // Pre-award marketplace privacy: never expose the exact pickup postcode to quoting drivers.
+    pickup_postcode_full: null,
     pickup_datetime: marketplaceText(job.pickup_datetime),
     pickup_time_slot: marketplaceText(job.pickup_time_slot),
     collection_window_end: marketplaceText(job.collection_window_end),
     delivery_area: publicAreaLabel(job.delivery_postcode, job.delivery_country_code, 'Delivery area TBC'),
     delivery_postcode_area: publicOutcode(job.delivery_postcode),
-    delivery_postcode_full: marketplaceText(job.delivery_postcode),
+    // Pre-award marketplace privacy: never expose the exact delivery postcode to quoting drivers.
+    delivery_postcode_full: null,
     delivery_datetime: marketplaceText(job.delivery_datetime),
     delivery_time_slot: marketplaceText(job.delivery_time_slot),
     pickup_country_code: marketplaceText(job.pickup_country_code),

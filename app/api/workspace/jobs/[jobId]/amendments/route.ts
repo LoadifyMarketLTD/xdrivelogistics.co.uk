@@ -28,12 +28,17 @@ const proposalSchema = z.object({
   paymentTerms: z.enum(['Pay now', '14 days', '30 days']).optional(),
   podRequired: z.boolean().optional(),
   jobPatch: jobPatchSchema,
+  verbalAgreementConfirmed: z.boolean().optional().default(false),
+  verbalAgreementNote: z.string().trim().max(1000).optional(),
 }).superRefine((value, ctx) => {
   if (value.agreedAmount == null && value.paymentTerms == null && value.podRequired == null && !value.jobPatch) {
     ctx.addIssue({ code: 'custom', message: 'At least one contractual change is required.' });
   }
   if (value.jobPatch && JSON.stringify(value.jobPatch).length > 20_000) {
     ctx.addIssue({ code: 'custom', message: 'Job amendment payload is too large.' });
+  }
+  if (value.verbalAgreementNote && !value.verbalAgreementConfirmed) {
+    ctx.addIssue({ code: 'custom', message: 'Confirm the verbal agreement before adding a verbal agreement note.' });
   }
 });
 
@@ -60,14 +65,36 @@ const asObject = (value: unknown): Record<string, unknown> => value && typeof va
   ? { ...(value as Record<string, unknown>) }
   : {};
 
+const JOB_PATCH_SECTIONS = ['pickup', 'delivery', 'cargo', 'requirements', 'references'] as const;
+
 const mergeJobSnapshot = (base: unknown, patch: z.infer<typeof jobPatchSchema>) => {
   const next = asObject(base);
   if (!patch) return next;
-  for (const key of ['pickup', 'delivery', 'cargo', 'requirements', 'references'] as const) {
+  for (const key of JOB_PATCH_SECTIONS) {
     if (!patch[key]) continue;
     next[key] = { ...asObject(next[key]), ...patch[key] };
   }
   return next;
+};
+
+const describeJobPatch = (base: unknown, patch: z.infer<typeof jobPatchSchema>) => {
+  const baseSnapshot = asObject(base);
+  const changes: Record<string, Record<string, { from: unknown; to: unknown }>> = {};
+  if (!patch) return changes;
+
+  for (const section of JOB_PATCH_SECTIONS) {
+    const proposed = patch[section];
+    if (!proposed) continue;
+    const current = asObject(baseSnapshot[section]);
+    const sectionChanges: Record<string, { from: unknown; to: unknown }> = {};
+    for (const [field, to] of Object.entries(proposed)) {
+      const from = Object.prototype.hasOwnProperty.call(current, field) ? current[field] : null;
+      if (JSON.stringify(from ?? null) === JSON.stringify(to ?? null)) continue;
+      sectionChanges[field] = { from: from ?? null, to: to ?? null };
+    }
+    if (Object.keys(sectionChanges).length) changes[section] = sectionChanges;
+  }
+  return changes;
 };
 
 const numberValue = (value: unknown) => {
@@ -172,8 +199,20 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (Math.abs(nextAmount - currentAmount) > 0.009) summary.agreedAmount = { from: currentAmount, to: nextAmount };
   if (nextPaymentTerms !== agreement.payment_terms) summary.paymentTerms = { from: agreement.payment_terms, to: nextPaymentTerms };
   if (nextPodRequired !== agreement.pod_required) summary.podRequired = { from: agreement.pod_required, to: nextPodRequired };
-  if (parsed.data.jobPatch && JSON.stringify(nextJobSnapshot) !== JSON.stringify(asObject(agreement.job_snapshot))) summary.jobPatch = parsed.data.jobPatch;
-  if (!Object.keys(summary).length) return respond(400, { error: 'The proposal does not change the current effective contract.' });
+  const jobChanges = describeJobPatch(agreement.job_snapshot, parsed.data.jobPatch);
+  if (parsed.data.jobPatch && Object.keys(jobChanges).length) {
+    summary.jobPatch = parsed.data.jobPatch;
+    summary.jobChanges = jobChanges;
+  }
+  if (parsed.data.verbalAgreementConfirmed) {
+    summary.verbalAgreement = {
+      confirmed: true,
+      note: parsed.data.verbalAgreementNote || null,
+      confirmedByUserId: auth.user.id,
+      confirmedAt: new Date().toISOString(),
+    };
+  }
+  if (!Object.keys(summary).some((key) => key !== 'verbalAgreement')) return respond(400, { error: 'The proposal does not change the current effective contract.' });
 
   const { data: amendment, error } = await supabaseAdmin!
     .from('job_commercial_agreement_amendments')
@@ -211,6 +250,40 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     created_by: auth.user.id,
     message: `Commercial amendment v${amendment.version_number} proposed.`,
     meta: { amendment_id: amendment.id, version_number: amendment.version_number, proposed_by_company_id: actingCompanyId, change_summary: summary },
+  }).then(() => undefined, () => undefined);
+
+  const { data: assignedJob } = await supabaseAdmin!
+    .from('jobs')
+    .select('assigned_driver_id')
+    .eq('id', jobId)
+    .maybeSingle();
+  let assignedDriverUserId: string | null = null;
+  if (assignedJob?.assigned_driver_id) {
+    const { data: assignedDriver } = await supabaseAdmin!
+      .from('drivers')
+      .select('user_id')
+      .eq('id', assignedJob.assigned_driver_id)
+      .maybeSingle();
+    assignedDriverUserId = String(assignedDriver?.user_id ?? '').trim() || null;
+  }
+
+  await supabaseAdmin!.from('notification_events').insert({
+    event_type: 'commercial_amendment_proposed',
+    entity_type: 'job',
+    entity_id: jobId,
+    company_id: amendment.counterparty_company_id,
+    recipient_user_id: assignedDriverUserId,
+    payload: {
+      job_id: jobId,
+      amendment_id: amendment.id,
+      version_number: amendment.version_number,
+      reason: parsed.data.reason,
+      effective_agreed_amount: nextAmount,
+      currency: agreement.currency,
+      proposed_by_company_id: actingCompanyId,
+      counterparty_company_id: amendment.counterparty_company_id,
+      message: `Job change v${amendment.version_number} requires acceptance. Open XDrive to review the changes.`,
+    },
   }).then(() => undefined, () => undefined);
 
   return respond(201, { amendment });

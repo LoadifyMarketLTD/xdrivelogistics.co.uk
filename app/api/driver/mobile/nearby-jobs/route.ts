@@ -89,11 +89,6 @@ function publicArea(postcode: unknown) {
   return outcode ? `Approx. area · ${outcode}` : 'Area disclosed after allocation';
 }
 
-function fullDisplayPostcode(postcode: unknown) {
-  const raw = String(postcode ?? '').trim().toUpperCase().replace(/\s+/g, ' ');
-  return raw || null;
-}
-
 function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: Record<string, unknown> = {}) {
   const proposedPrice = proposedPriceAmount(row.budget_amount);
   const hasProposedPrice = proposedPrice !== null;
@@ -111,7 +106,8 @@ function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: 
     pickup: {
       addressSummary: publicArea(row.pickup_postcode),
       postcode: publicOutcode(row.pickup_postcode),
-      fullPostcode: fullDisplayPostcode(row.pickup_postcode),
+      // Pre-award Alerts privacy: exact collection postcode is withheld until allocation.
+      fullPostcode: null,
       latitude: null,
       longitude: null,
       collectionFrom: row.pickup_datetime || row.pickup_time_slot || null,
@@ -120,7 +116,8 @@ function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: 
     delivery: {
       addressSummary: publicArea(row.delivery_postcode),
       postcode: publicOutcode(row.delivery_postcode),
-      fullPostcode: fullDisplayPostcode(row.delivery_postcode),
+      // Pre-award Alerts privacy: exact delivery postcode is withheld until allocation.
+      fullPostcode: null,
       latitude: null,
       longitude: null,
       deliveryFrom: row.delivery_datetime || row.delivery_time_slot || null,

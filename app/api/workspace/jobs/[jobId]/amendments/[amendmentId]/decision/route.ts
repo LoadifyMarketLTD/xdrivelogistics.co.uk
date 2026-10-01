@@ -39,7 +39,7 @@ export async function POST(
 
   const { data: amendment, error: amendmentError } = await supabaseAdmin!
     .from('job_commercial_agreement_amendments')
-    .select('id,agreement_id,job_id,version_number,proposed_by_company_id,counterparty_company_id,status,effective_snapshot_hash')
+    .select('id,agreement_id,job_id,version_number,proposed_by_user_id,proposed_by_company_id,counterparty_company_id,status,effective_snapshot_hash')
     .eq('id', amendmentId)
     .eq('job_id', jobId)
     .maybeSingle();
@@ -63,11 +63,36 @@ export async function POST(
     .eq('status', 'active')
     .maybeSingle();
   if (membershipError) return respond(500, { error: membershipError.message });
-  if (!membership || !DECISION_ROLES.has(String(membership.role_in_company ?? '').trim().toLowerCase())) {
+  let authorisedDecisionMaker = Boolean(
+    membership && DECISION_ROLES.has(String(membership.role_in_company ?? '').trim().toLowerCase()),
+  );
+
+  if (!authorisedDecisionMaker && parsed.data.action !== 'cancel') {
+    const { data: job, error: jobError } = await supabaseAdmin!
+      .from('jobs')
+      .select('assigned_driver_id,awarded_carrier_company_id,assigned_company_id')
+      .eq('id', jobId)
+      .maybeSingle();
+    if (jobError) return respond(500, { error: jobError.message });
+    const executionCompanyId = String(job?.awarded_carrier_company_id ?? job?.assigned_company_id ?? '');
+    const assignedDriverId = String(job?.assigned_driver_id ?? '');
+    if (assignedDriverId && executionCompanyId === requiredCompanyId) {
+      const { data: assignedDriver, error: driverError } = await supabaseAdmin!
+        .from('drivers')
+        .select('id,user_id')
+        .eq('id', assignedDriverId)
+        .eq('user_id', auth.user.id)
+        .maybeSingle();
+      if (driverError) return respond(500, { error: driverError.message });
+      authorisedDecisionMaker = Boolean(assignedDriver);
+    }
+  }
+
+  if (!authorisedDecisionMaker) {
     return respond(403, {
       error: parsed.data.action === 'cancel'
         ? 'Only an authorised member of the proposing company may cancel this amendment.'
-        : 'Only an authorised member of the contractual counterparty may accept or reject this amendment.',
+        : 'Only the assigned driver or an authorised member of the contractual counterparty may accept or reject this amendment.',
     });
   }
 
@@ -105,6 +130,22 @@ export async function POST(
       version_number: amendment.version_number,
       decision_company_id: requiredCompanyId,
       effective_snapshot_hash: amendment.effective_snapshot_hash,
+    },
+  }).then(() => undefined, () => undefined);
+
+  await supabaseAdmin!.from('notification_events').insert({
+    event_type: `commercial_amendment_${nextStatus}`,
+    entity_type: 'job',
+    entity_id: jobId,
+    company_id: amendment.proposed_by_company_id,
+    recipient_user_id: amendment.proposed_by_user_id,
+    payload: {
+      job_id: jobId,
+      amendment_id: amendment.id,
+      version_number: amendment.version_number,
+      status: nextStatus,
+      decision_company_id: requiredCompanyId,
+      message: `Job change v${amendment.version_number} was ${nextStatus}. Open XDrive to review the booking history.`,
     },
   }).then(() => undefined, () => undefined);
 
