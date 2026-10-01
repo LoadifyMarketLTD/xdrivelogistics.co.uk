@@ -3087,3 +3087,38 @@
     max-width:none!important;
   }
 }
+/* 2026-10-01 P0: Diary structural fallback in the global Driver bundle. */
+.driver-prototype-port .driver-diary-board.diary-pagebody{
+  display:grid!important;
+  grid-template-columns:200px minmax(0,1fr)!important;
+  gap:8px!important;
+  align-items:start!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+}
+.driver-prototype-port .driver-diary-board.diary-pagebody>.driver-filter-rail{
+  grid-column:1!important;
+  width:200px!important;
+  min-width:0!important;
+  max-width:200px!important;
+}
+.driver-prototype-port .driver-diary-board.diary-pagebody>.driver-board-main{
+  grid-column:2!important;
+  width:100%!important;
+  min-width:0!important;
+  max-width:none!important;
+  display:flex!important;
+  flex-direction:column!important;
+  align-self:start!important;
+  overflow:visible!important;
+}
+@media(max-width:1024px){
+  .driver-prototype-port .driver-diary-board.diary-pagebody{grid-template-columns:1fr!important}
+  .driver-prototype-port .driver-diary-board.diary-pagebody>.driver-filter-rail,
+  .driver-prototype-port .driver-diary-board.diary-pagebody>.driver-board-main{
+    grid-column:1!important;
+    width:100%!important;
+    max-width:none!important;
+  }
+}
