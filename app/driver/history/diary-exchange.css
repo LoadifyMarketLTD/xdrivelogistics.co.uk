@@ -618,3 +618,88 @@
 .driver-diary-route .driver-diary-pagination{
   gap:5px!important;
 }
+/* CX booking status column polish */
+.driver-diary-route .driver-diary-status-cell{
+  padding:6px 8px!important;
+  display:flex!important;
+  flex-direction:column!important;
+  gap:2px!important;
+}
+.driver-diary-route .driver-diary-status-band{
+  min-height:22px!important;
+  display:flex!important;
+  align-items:center!important;
+  justify-content:center!important;
+  padding:0 8px!important;
+  border:1px solid var(--ws-border,#cfd7e3)!important;
+  font-size:11px!important;
+  line-height:14px!important;
+  font-weight:700!important;
+  text-align:center!important;
+  background:#eef2f6!important;
+  color:var(--ws-text,#172033)!important;
+}
+.driver-diary-route .driver-diary-status-band[data-tone="green"]{
+  background:#dff4df!important;
+  border-color:#7dbb75!important;
+}
+.driver-diary-route .driver-diary-status-band[data-tone="blue"]{
+  background:#e8f0ff!important;
+  border-color:#8daee8!important;
+}
+.driver-diary-route .driver-diary-status-band[data-tone="orange"]{
+  background:#fff4db!important;
+  border-color:#e3b95c!important;
+}
+.driver-diary-route .driver-diary-status-band[data-tone="red"]{
+  background:#fde7e7!important;
+  border-color:#d79a9a!important;
+}
+.driver-diary-route .driver-diary-status-band[data-tone="grey"]{
+  background:#eceff2!important;
+  border-color:#b9c0c8!important;
+}
+.driver-diary-route .driver-diary-status-band[data-tone="purple"]{
+  background:#f0e8ff!important;
+  border-color:#b69be8!important;
+}
+.driver-diary-route .driver-diary-member-line{
+  margin-top:2px!important;
+  font-size:10.5px!important;
+  line-height:13px!important;
+  font-weight:600!important;
+}
+.driver-diary-route .driver-diary-load-link{
+  align-self:flex-start!important;
+  min-height:0!important;
+  padding:0!important;
+  border:0!important;
+  background:transparent!important;
+  color:var(--ws-text,#172033)!important;
+  font-size:10.5px!important;
+  line-height:13px!important;
+  font-weight:600!important;
+  text-decoration:none!important;
+  cursor:pointer!important;
+}
+.driver-diary-route .driver-diary-load-link:hover,
+.driver-diary-route .driver-diary-load-link:focus-visible{
+  color:var(--ws-blue,#1d57d8)!important;
+  text-decoration:underline!important;
+  outline:none!important;
+}
+.driver-diary-route .driver-diary-vehicle-line,
+.driver-diary-route .driver-diary-ref-line{
+  font-size:9.5px!important;
+  line-height:12px!important;
+  color:var(--ws-muted,#64748b)!important;
+}
+.driver-diary-route .driver-diary-signal-row{
+  display:flex!important;
+  flex-wrap:wrap!important;
+  gap:3px!important;
+  margin-top:2px!important;
+}
+.driver-diary-route .driver-diary-signal-row:empty{
+  display:none!important;
+}

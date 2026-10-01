@@ -497,12 +497,25 @@ export default function JobHistoryPage() {
                         <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{formatExecutionAddress(job.pickup_location, job.pickup_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.pickup_location, job.pickup_postcode)}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.delivery_location, job.delivery_postcode)}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Timing / load</span><strong className="driver-cell-primary">Pickup {fmtDate(job.pickup_datetime ?? job.collection_window_start)}</strong><span className="driver-cell-secondary">Deliver {fmtDate(job.delivery_datetime ?? job.delivery_window_start)} · {human(job.vehicle_type)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Status / member</span><strong className="driver-cell-primary">{expired ? 'Expired' : (STATUS_LABELS[currentStatus] ?? human(currentStatus))}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={job.company_id}>{job.companies?.name ?? 'Member not supplied'}</MemberIdentityLink> · Commercial terms in Order</span></div>
-                      </div>
-                      <div className="driver-load-row__meta">
-                        <span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking: {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
-                        <StatusBadge value={expired ? 'Expired' : (STATUS_LABELS[currentStatus] ?? human(currentStatus))} tone={expired ? 'grey' : statusTone(job)} />{hasPod && <StatusBadge value="POD captured" tone="green" />}{awaitingFeedback && <StatusBadge value="Awaiting feedback" tone="orange" />}{feedbackReceived && <StatusBadge value="Feedback received" tone="green" />}
-                        <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand) void fetchOrderSheet(job.id); }}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</ActionButton></div>
+                        <div className="driver-load-cell driver-diary-status-cell">
+                          <div className="driver-diary-status-band" data-tone={expired ? 'grey' : statusTone(job)}>
+                            {expired ? 'Expired' : (STATUS_LABELS[currentStatus] ?? human(currentStatus))}
+                          </div>
+                          <div className="driver-diary-member-line">
+                            <MemberIdentityLink companyId={job.company_id}>{job.companies?.name ?? 'Member not supplied'}</MemberIdentityLink>
+                          </div>
+                          <button type="button" className="driver-diary-load-link" onClick={() => router.push(`/driver/jobs/${job.id}`)}>
+                            Load ID: {job.id.slice(0, 8).toUpperCase()}
+                          </button>
+                          <div className="driver-diary-vehicle-line">{human(job.vehicle_type)}</div>
+                          {job.booking_reference ? <div className="driver-diary-ref-line">Booking: {job.booking_reference}</div> : null}
+                          {job.customer_reference ? <div className="driver-diary-ref-line">Customer ref: {job.customer_reference}</div> : null}
+                          <div className="driver-diary-signal-row">
+                            {hasPod && <StatusBadge value="POD captured" tone="green" />}
+                            {awaitingFeedback && <StatusBadge value="Awaiting feedback" tone="orange" />}
+                            {feedbackReceived && <StatusBadge value="Feedback received" tone="green" />}
+                          </div>
+                        </div>
                       </div>
 
                       <div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
