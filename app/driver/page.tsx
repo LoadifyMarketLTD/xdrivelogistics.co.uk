@@ -172,6 +172,7 @@ export default function DriverDashboard() {
   const [watchlistSummary, setWatchlistSummary] = useState<DriverWatchlistSummary | null>(null);
   const [watchlistLoading, setWatchlistLoading] = useState(false);
   const [watchlistError, setWatchlistError] = useState('');
+  const [memberNameByJob, setMemberNameByJob] = useState<Record<string, string>>({});
   const [bookingMemberFilter, setBookingMemberFilter] = useState('');
   const [bookingLocationFilter, setBookingLocationFilter] = useState('');
   const [bookingReferenceFilter, setBookingReferenceFilter] = useState('');
@@ -243,6 +244,37 @@ export default function DriverDashboard() {
     }
   }, [commercialFrom, commercialPeriod, commercialTo, ownerDriver]);
 
+  const loadDashboardMemberNames = useCallback(async () => {
+    if (!ownerDriver || !isSupabaseConfigured) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setMemberNameByJob({});
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/driver/diary/company-names', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null) as {
+        members?: Array<{ jobId: string; name: string | null }>;
+      } | null;
+      if (!response.ok || !payload?.members) {
+        setMemberNameByJob({});
+        return;
+      }
+      setMemberNameByJob(Object.fromEntries(
+        payload.members
+          .filter((row) => row.name)
+          .map((row) => [row.jobId, row.name as string]),
+      ));
+    } catch {
+      setMemberNameByJob({});
+    }
+  }, [ownerDriver]);
+
   const loadWatchlist = useCallback(async () => {
     if (!ownerDriver || !isSupabaseConfigured) return;
     setWatchlistLoading(true);
@@ -282,7 +314,7 @@ export default function DriverDashboard() {
     const refNeedle = bookingReferenceFilter.trim().toLowerCase();
     return [...myJobs]
       .filter((job) => {
-        const memberText = `${job.client_name ?? ''}`.toLowerCase();
+        const memberText = `${memberNameByJob[job.id] ?? job.client_name ?? ''}`.toLowerCase();
         const locationText = `${job.pickup_location ?? ''} ${job.pickup_postcode ?? ''} ${job.delivery_location ?? ''} ${job.delivery_postcode ?? ''}`.toLowerCase();
         const refText = `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase();
         return (!memberNeedle || memberText.includes(memberNeedle))
@@ -291,7 +323,7 @@ export default function DriverDashboard() {
       })
       .sort((a, b) => String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')))
       .slice(0, 4);
-  }, [bookingLocationFilter, bookingMemberFilter, bookingReferenceFilter, myJobs]);
+  }, [bookingLocationFilter, bookingMemberFilter, bookingReferenceFilter, memberNameByJob, myJobs]);
 
   const loadDriverContext = useCallback(async () => {
     const driverId = user?.driverId?.trim() ?? '';
@@ -370,14 +402,16 @@ export default function DriverDashboard() {
     if (ownerDriver) {
       void loadCommercialSummary();
       void loadWatchlist();
+      void loadDashboardMemberNames();
     }
-  }, [loadCommercialSummary, loadWatchlist, ownerDriver]);
+  }, [loadCommercialSummary, loadDashboardMemberNames, loadWatchlist, ownerDriver]);
 
   const refreshDashboard = async () => {
     const tasks: Promise<unknown>[] = [data.refresh(), loadDriverContext()];
     if (ownerDriver) {
       tasks.push(loadCommercialSummary());
       tasks.push(loadWatchlist());
+      tasks.push(loadDashboardMemberNames());
     }
     await Promise.all(tasks);
   };
@@ -781,7 +815,7 @@ export default function DriverDashboard() {
                             </div>
                             <div style={{ minWidth: 0, fontSize: 11 }}>
                               <StatusBadge value={humanize(status)} tone={group === 'completed' ? 'green' : group === 'active' ? 'blue' : group === 'cancelled' ? 'grey' : 'orange'} />
-                              <div style={{ marginTop: 5, color: workspaceTheme.muted }}>{job.client_name ?? 'Member not supplied'}</div>
+                              <div style={{ marginTop: 5, color: workspaceTheme.muted }}>{memberNameByJob[job.id] ?? job.client_name ?? 'Member not supplied'}</div>
                               <div style={{ marginTop: 2 }}>Load ID: <strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong></div>
                               {job.booking_reference || job.customer_reference ? <div style={{ marginTop: 2, color: workspaceTheme.muted }}>Ref: {job.booking_reference ?? job.customer_reference}</div> : null}
                             </div>
