@@ -26,10 +26,12 @@ describe('reviewer and member-management SECURITY DEFINER hardening', () => {
     expect(migration).toContain('ON cm.company_id = evidence.company_id');
   });
 
-  it('requires active company authority for legacy company member management', () => {
+  it('requires canonical active company authority for company member management', () => {
     expect(migration).toContain('CREATE OR REPLACE FUNCTION public.can_manage_company_members');
+    expect(migration).toContain("public.active_company_membership_role(_company_id, auth.uid()) IN ('owner','admin')");
     expect(migration).toContain("COALESCE(c.status::text, '') = 'active'");
     expect(migration).toContain('OR public.is_owner(auth.uid())');
+    expect(migration).not.toContain('FROM public.company_members cm');
     expect(migration).not.toContain("and p.role = 'owner'");
   });
 

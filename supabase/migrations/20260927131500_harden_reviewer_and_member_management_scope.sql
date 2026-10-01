@@ -93,16 +93,9 @@ AS $function$
     _company_id IS NOT NULL
     AND auth.uid() IS NOT NULL
     AND (
-      EXISTS (
-        SELECT 1
-        FROM public.company_members cm
-        JOIN public.companies c ON c.id = cm.company_id
-        WHERE cm.company_id = _company_id
-          AND cm.user_id = auth.uid()
-          AND COALESCE(cm.is_active, true) = true
-          AND COALESCE(cm.company_role, cm.member_role::text)
-              IN ('owner','admin','broker_admin','carrier_admin')
-          AND COALESCE(c.status::text, '') = 'active'
+      COALESCE(
+        public.active_company_membership_role(_company_id, auth.uid()) IN ('owner','admin'),
+        false
       )
       OR EXISTS (
         SELECT 1
