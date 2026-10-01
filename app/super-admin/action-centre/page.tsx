@@ -14,12 +14,25 @@ const entityType = (value: string): PlatformEntityType => ENTITY_TYPES.has(value
 const severityColor: Record<'P0'|'P1'|'P2'|'P3', string> = { P0:'#D92D20', P1:'#9A6700', P2:'#1D57D8', P3:'#667085' };
 const statusColor: Record<PlatformCaseStatus, string> = { open:'#D92D20', acknowledged:'#9A6700', investigating:'#1D57D8', waiting:'#9A6700', resolved:'#168553', closed:'#667085' };
 const when = (value: string) => { const date = new Date(value); return Number.isNaN(date.getTime()) ? value : date.toLocaleString('en-GB',{dateStyle:'short',timeStyle:'short'}); };
+const priorityLabel = (bucket: number | null) => {
+  if (bucket === 10) return 'BREACHED P0';
+  if (bucket === 20) return 'BREACHED P1';
+  if (bucket === 30) return 'UNOWNED';
+  if (bucket === 40) return 'DUE SOON';
+  if (bucket === 50) return 'ACTIVE';
+  if (bucket === 90) return 'NON-ACTIVE';
+  return 'UNRANKED';
+};
 
 type ApiCaseRow = {
   id:string; reference:string; severity:'P0'|'P1'|'P2'|'P3'; status:PlatformCaseStatus; title:string; description:string|null;
   entity_type:string; entity_id:string; entity_label:string; assigned_to_label:string|null; detected_at:string; updated_at:string;
+  sla_due_at:string|null; sla_breached_at:string|null; escalated_at:string|null; escalation_level:number; next_action:string|null; next_action_due_at:string|null;
+  customer_update_due_at:string|null; customer_updated_at:string|null; closure_due_at:string|null; closure_verified_at:string|null;
+  priority_bucket:number|null; priority_updated_at:string|null;
 };
 type CasesPayload = { available?:boolean; readOnly?:boolean; rows?:ApiCaseRow[]; note?:string; pagination?:{total?:number}; error?:string };
+type ReconcilePayload = { reconciliation?:{detected:number;createdOrMatched:number;planned:number;autoAssigned:number;customerUpdateEscalated:number;closureEscalated:number;errors:string[]}; error?:string };
 
 export default function Page() {
   const router = useRouter();
@@ -27,6 +40,8 @@ export default function Page() {
   const [available,setAvailable] = useState<boolean|null>(null);
   const [readOnly,setReadOnly] = useState(false);
   const [loading,setLoading] = useState(true);
+  const [reconciling,setReconciling] = useState(false);
+  const [reconcileMessage,setReconcileMessage] = useState<string|null>(null);
   const [error,setError] = useState<string|null>(null);
   const [note,setNote] = useState<string|null>(null);
   const [status,setStatus] = useState('active');
@@ -54,6 +69,22 @@ export default function Page() {
 
   useEffect(() => { void load(); },[load]);
 
+  const reconcile = useCallback(async () => {
+    if (readOnly) { setReconcileMessage('Deploy Preview is read-only. Reconciliation was not run.'); return; }
+    setReconciling(true); setReconcileMessage(null); setError(null);
+    try {
+      const auth = await getAuthHeader();
+      if (!auth) { setError('No active Platform Owner session.'); return; }
+      const response = await fetch('/api/super-admin/cases/reconcile', { method:'POST', headers:{Authorization:auth} });
+      const body = await response.json().catch(() => ({})) as ReconcilePayload;
+      if (!response.ok || !body.reconciliation) { setError(body.error ?? 'Exception reconciliation failed.'); return; }
+      const result = body.reconciliation;
+      setReconcileMessage(`Reconciliation complete: ${result.detected} detected, ${result.createdOrMatched} registered, ${result.planned} operational plans added, ${result.autoAssigned} auto-assigned, ${result.customerUpdateEscalated + result.closureEscalated} escalated.`);
+      await load();
+    } catch { setError('Exception reconciliation failed.'); }
+    finally { setReconciling(false); }
+  },[load,readOnly]);
+
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return cases;
@@ -65,20 +96,24 @@ export default function Page() {
     high: visible.filter((item) => item.severity === 'P0' || item.severity === 'P1').length,
     unassigned: visible.filter((item) => !item.assigned_to_label).length,
     waiting: visible.filter((item) => item.status === 'waiting').length,
+    breached: visible.filter((item) => Boolean(item.sla_breached_at)).length,
+    dueSoon: visible.filter((item) => item.priority_bucket === 40).length,
+    customerUpdateOverdue: visible.filter((item) => item.customer_update_due_at && !item.customer_updated_at && new Date(item.customer_update_due_at).getTime() <= Date.now()).length,
   }),[visible]);
 
   return <ProtectedRoute allowedRoles={['owner']}>
     <div className={styles.page}>
       <header className={styles.header}>
         <div><div className={styles.eyebrow}>Support & Cases</div><h1 className={styles.title}>Platform Action Centre</h1><p className={styles.description}>Persistent cross-domain exception cases for Platform Owner triage, investigation and verified closure. Domain records remain authoritative.</p></div>
-        <div className={styles.badges}><span className={styles.badge}>Case Centre · SA-02</span>{readOnly ? <span className={styles.badge} data-tone="warning">Deploy Preview · read only</span> : null}</div>
+        <div className={styles.badges}><span className={styles.badge}>Case Centre / SA-02</span>{readOnly ? <span className={styles.badge} data-tone="warning">Deploy Preview / read only</span> : null}</div>
       </header>
 
       {available === true ? <div className={styles.metrics}>
-        <Metric label="Visible cases" value={summary.visible}/><Metric label="P0 / P1 visible" value={summary.high}/><Metric label="Unassigned visible" value={summary.unassigned}/><Metric label="Waiting visible" value={summary.waiting}/>
+        <Metric label="Visible cases" value={summary.visible}/><Metric label="P0 / P1 visible" value={summary.high}/><Metric label="SLA breached" value={summary.breached}/><Metric label="Due soon" value={summary.dueSoon}/><Metric label="Customer update overdue" value={summary.customerUpdateOverdue}/><Metric label="Unassigned visible" value={summary.unassigned}/><Metric label="Waiting visible" value={summary.waiting}/>
       </div> : null}
 
       {readOnly ? <div className={styles.notice} data-tone="warning">This Deploy Preview is inspection-only. Case mutations are disabled server-side.</div> : null}
+      {reconcileMessage ? <div className={styles.notice}>{reconcileMessage}</div> : null}
       {note ? <div className={styles.notice} data-tone="warning">{note} No zero-valued registry metrics are inferred.</div> : null}
       {error ? <div className={styles.notice} data-tone="danger"><strong>Service unavailable.</strong> {error}</div> : null}
 
@@ -87,17 +122,24 @@ export default function Page() {
         <label className={styles.field}>Severity<select className={styles.select} value={severity} onChange={(event) => setSeverity(event.target.value)} disabled={loading || available === false}><option value="ALL">All</option><option value="P0">P0</option><option value="P1">P1</option><option value="P2">P2</option><option value="P3">P3</option></select></label>
         <label className={styles.field}>Ownership<select className={styles.select} value={assignee} onChange={(event) => setAssignee(event.target.value)} disabled={loading || available === false}><option value="all">All owners</option><option value="me">Assigned to me</option><option value="unassigned">Unassigned</option></select></label>
         <label className={styles.field}>Search<input className={styles.input} value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Reference, title, entity or owner" disabled={available === false}/></label>
-        <button type="button" className={styles.button} onClick={() => void load()} disabled={loading}>{loading ? 'Loading…' : 'Refresh'}</button>
+        <button type="button" className={styles.buttonSecondary} onClick={() => void reconcile()} disabled={loading || reconciling || available === false || readOnly}>{reconciling ? 'Reconciling...' : 'Reconcile exceptions'}</button>
+        <button type="button" className={styles.button} onClick={() => void load()} disabled={loading || reconciling}>{loading ? 'Loading...' : 'Refresh'}</button>
       </section>
 
       <section className={styles.panel}>
         <div className={styles.panelHeader}><div><h2 className={styles.panelTitle}>Platform Case Centre</h2><p className={styles.panelSubtitle}>Human-owned exceptions with semantic lifecycle and durable event history.</p></div><span className={styles.count}>{loading ? 'Loading' : `${visible.length} visible`}</span></div>
-        {loading ? <div className={styles.empty}>Loading persistent cases…</div> : available === false ? <div className={styles.empty}>Persistent case registry is not applied in this environment.</div> : visible.length === 0 ? <div className={styles.empty}>No persistent cases match the current filters.</div> : <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Severity</th><th>Case</th><th>Entity</th><th>Status</th><th>Owner</th><th>Updated</th><th></th></tr></thead><tbody>{visible.map((item) => <tr key={item.id}>
+        {loading ? <div className={styles.empty}>Loading persistent cases...</div> : available === false ? <div className={styles.empty}>Persistent case registry is not applied in this environment.</div> : visible.length === 0 ? <div className={styles.empty}>No persistent cases match the current filters.</div> : <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Priority</th><th>Severity</th><th>Case</th><th>Entity</th><th>Status</th><th>Owner</th><th>SLA</th><th>Customer update</th><th>Next action</th><th>Updated</th><th></th></tr></thead><tbody>{visible.map((item) => <tr key={item.id}>
+          <td><span className={styles.status}>{priorityLabel(item.priority_bucket)}</span></td>
           <td><span className={styles.severity} style={{color:severityColor[item.severity]}}>{item.severity}</span></td>
-          <td><div className={styles.caseTitle}>{item.reference} · {item.title}</div>{item.description ? <div className={styles.muted}>{item.description}</div> : null}</td>
+          <td><div className={styles.caseTitle}>{item.reference} / {item.title}</div>{item.description ? <div className={styles.muted}>{item.description}</div> : null}</td>
           <td><PlatformEntityLink compact entityType={entityType(item.entity_type)} entityId={item.entity_id}>{item.entity_label}</PlatformEntityLink></td>
           <td><span className={styles.status} style={{color:statusColor[item.status]}}>{item.status.replace(/_/g,' ')}</span></td>
-          <td>{item.assigned_to_label ?? 'Unassigned'}</td><td>{when(item.updated_at)}</td><td><button type="button" className={styles.buttonSecondary} onClick={() => router.push(`/super-admin/action-centre/${item.id}`)}>Open case</button></td>
+          <td>{item.assigned_to_label ?? 'Unassigned'}</td>
+          <td>{item.sla_breached_at ? <span className={styles.status} style={{color:'#D92D20'}}>BREACHED / {when(item.sla_breached_at)}</span> : item.sla_due_at ? when(item.sla_due_at) : '-'}</td>
+          <td>{item.customer_update_due_at ? item.customer_updated_at ? <span className={styles.status} style={{color:'#168553'}}>COMPLETED / {when(item.customer_updated_at)}</span> : <span className={styles.status} style={{color:new Date(item.customer_update_due_at).getTime() <= Date.now() ? '#D92D20' : '#9A6700'}}>{new Date(item.customer_update_due_at).getTime() <= Date.now() ? 'OVERDUE' : 'DUE'} / {when(item.customer_update_due_at)}</span> : '-'}</td>
+          <td>{item.next_action ? <><div className={styles.caseTitle}>{item.next_action}</div>{item.next_action_due_at ? <div className={styles.muted}>Due {when(item.next_action_due_at)}</div> : null}</> : '-'}</td>
+          <td>{when(item.updated_at)}</td>
+          <td><button type="button" className={styles.buttonSecondary} onClick={() => router.push(`/super-admin/action-centre/${item.id}`)}>Open case</button></td>
         </tr>)}</tbody></table></div>}
       </section>
     </div>

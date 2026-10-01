@@ -43,7 +43,15 @@ GRANT EXECUTE ON FUNCTION public.active_company_membership_role(uuid, uuid)
 TO authenticated, service_role;
 
 -- Accepting an old invite into a suspended/inactive company must fail closed.
--- Identity binding, token expiry and invite status checks remain unchanged.
+-- This legacy RPC exists only on hosted histories that still contain the retired
+-- invites/company_members tables. Fresh canonical schemas intentionally omit
+-- those tables, so guard the hardening instead of recreating legacy storage.
+DO $legacy_invite$
+BEGIN
+  IF to_regclass('public.invites') IS NOT NULL
+     AND to_regclass('public.company_members') IS NOT NULL
+     AND to_regclass('public.profiles') IS NOT NULL THEN
+    EXECUTE $ddl$
 CREATE OR REPLACE FUNCTION public.accept_driver_invite(
   p_token text,
   p_full_name text DEFAULT NULL::text,
@@ -150,11 +158,12 @@ BEGIN
   RETURN NEXT;
 END;
 $function$;
-
-REVOKE ALL ON FUNCTION public.accept_driver_invite(text, text, text)
-FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.accept_driver_invite(text, text, text)
-TO authenticated, service_role;
+$ddl$;
+    EXECUTE 'REVOKE ALL ON FUNCTION public.accept_driver_invite(text, text, text) FROM PUBLIC, anon';
+    EXECUTE 'GRANT EXECUTE ON FUNCTION public.accept_driver_invite(text, text, text) TO authenticated, service_role';
+  END IF;
+END;
+$legacy_invite$;
 
 COMMIT;
 

@@ -12,17 +12,33 @@ const migration = fs
   .replace(/\r\n/g, '\n');
 
 describe('company capability actor-state hardening', () => {
-  it('binds company settings capability to active company and profile state', () => {
+  it('binds company settings capability to canonical active membership, company and profile state', () => {
+    expect(migration).toContain('FROM public.company_memberships cm');
+    expect(migration).toContain('cm.role_in_company::text AS company_role');
+    expect(migration).toContain("COALESCE(cm.status::text, '') = 'active'");
     expect(migration).toContain('JOIN public.companies c');
     expect(migration).toContain('JOIN public.profiles p');
     expect(migration).toContain("COALESCE(c.status::text, '') = 'active'");
     expect(migration).toContain("COALESCE(p.status::text, '') = 'active'");
+    expect(migration).not.toContain('FROM public.company_members cm');
   });
 
-  it('retains the existing member capability override model', () => {
-    expect(migration).toContain('public.company_role_capabilities');
-    expect(migration).toContain('public.member_capability_overrides');
-    expect(migration).toContain('SELECT is_allowed FROM override_decision');
+  it('replays the hosted default role capability map without hosted-only tables', () => {
+    for (const entry of [
+      "('admin', 'company.manage_members')",
+      "('admin', 'jobs.create')",
+      "('admin', 'jobs.track')",
+      "('broker_admin', 'jobs.create')",
+      "('dispatcher', 'jobs.allocate')",
+      "('dispatcher', 'jobs.track')",
+      "('driver', 'jobs.update_driver_status')",
+      "('owner', 'company.manage_members')",
+      "('owner', 'company.manage_settings')",
+      "('owner', 'jobs.create')",
+      "('viewer', 'loads.view_own')",
+    ]) expect(migration).toContain(entry);
+    expect(migration).not.toContain('FROM public.company_role_capabilities');
+    expect(migration).not.toContain('FROM public.member_capability_overrides');
   });
 
   it('keeps anonymous execution closed', () => {

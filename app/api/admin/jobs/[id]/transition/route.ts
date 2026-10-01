@@ -191,10 +191,25 @@ export async function POST(
         idempotencyKey: `auto-pod-${id}`,
       });
     } catch (reason) {
+      const failureMessage = reason instanceof Error ? reason.message : String(reason);
       console.error(
         'Job transition succeeded but auto invoice generation failed:',
-        reason instanceof Error ? reason.message : reason
+        failureMessage
       );
+      const { error: invoiceFailureEventError } = await supabaseAdmin.from('job_tracking_events').insert({
+        job_id: id,
+        event_type: 'invoice_generation_failed',
+        created_by: authData.user.id,
+        message: `Automatic invoice generation failed after ${parsed.data.nextStatus}: ${failureMessage}`,
+        meta: {
+          next_status: parsed.data.nextStatus,
+          supplier_company_id: job.awarded_carrier_company_id,
+          source: 'admin_job_transition',
+        },
+      });
+      if (invoiceFailureEventError) {
+        console.error('Invoice generation failure event could not be persisted:', invoiceFailureEventError.message);
+      }
     }
   }
 

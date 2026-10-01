@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
 
-  const readOnly = isSuperAdminDeployPreviewReadOnly();
+  const readOnly = isSuperAdminDeployPreviewReadOnly(request);
   const { searchParams } = new URL(request.url);
   const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
   const limit = Math.min(100, Math.max(1, Number(searchParams.get('limit') ?? '50') || 50));
@@ -43,7 +43,9 @@ export async function GET(request: NextRequest) {
 
   let query = supabaseAdmin
     .from('platform_cases')
-    .select('id, reference, source, case_type, severity, status, title, description, entity_type, entity_id, entity_label, company_id, assigned_to_user_id, detected_at, created_at, updated_at', { count: 'exact' })
+    .select('id, reference, source, case_type, severity, status, title, description, entity_type, entity_id, entity_label, company_id, assigned_to_user_id, detected_at, sla_due_at, sla_breached_at, escalated_at, escalation_level, next_action, next_action_due_at, customer_update_due_at, customer_updated_at, closure_due_at, closure_verified_at, priority_bucket, priority_updated_at, created_at, updated_at', { count: 'exact' })
+    .order('priority_bucket', { ascending: true })
+    .order('sla_due_at', { ascending: true, nullsFirst: false })
     .order('updated_at', { ascending: false });
 
   if (status === 'active') query = query.in('status', [...ACTIVE_CASE_STATUSES]);
@@ -93,6 +95,18 @@ export async function GET(request: NextRequest) {
       assigned_to_user_id: row.assigned_to_user_id,
       assigned_to_label: row.assigned_to_user_id ? nameByUserId.get(row.assigned_to_user_id) ?? 'Platform operator' : null,
       detected_at: row.detected_at,
+      sla_due_at: row.sla_due_at,
+      sla_breached_at: row.sla_breached_at,
+      escalated_at: row.escalated_at,
+      escalation_level: row.escalation_level,
+      next_action: row.next_action,
+      next_action_due_at: row.next_action_due_at,
+      customer_update_due_at: row.customer_update_due_at,
+      customer_updated_at: row.customer_updated_at,
+      closure_due_at: row.closure_due_at,
+      closure_verified_at: row.closure_verified_at,
+      priority_bucket: row.priority_bucket,
+      priority_updated_at: row.priority_updated_at,
       created_at: row.created_at,
       updated_at: row.updated_at,
     })),
@@ -111,7 +125,7 @@ export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
   const owner = await verifyPlatformOwner(request);
   if (!owner) {
-    if (isSuperAdminDeployPreviewReadOnly()) return respond(403, { error: 'Deploy Preview is read-only. Platform case creation was not performed.' });
+    if (isSuperAdminDeployPreviewReadOnly(request)) return respond(403, { error: 'Deploy Preview is read-only. Platform case creation was not performed.' });
     return respond(403, { error: 'Forbidden: active Platform Owner required.' });
   }
 

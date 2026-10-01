@@ -23,7 +23,12 @@ describe('membership role and driver invite hardening', () => {
     expect(migration).toContain("COALESCE(p.status::text, '') = 'active'");
   });
 
-  it('rejects driver invites whose target company is not active', () => {
+  it('guards the retired legacy invite RPC on fresh canonical schemas', () => {
+    expect(migration).toContain("to_regclass('public.invites') IS NOT NULL");
+    expect(migration).toContain("to_regclass('public.company_members') IS NOT NULL");
+  });
+
+  it('rejects legacy driver invites whose target company is not active when that schema exists', () => {
     expect(migration).toContain("v_company_status IS DISTINCT FROM 'active'");
     expect(migration).toContain('Invite company is not active.');
   });

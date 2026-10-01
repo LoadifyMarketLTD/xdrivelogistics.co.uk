@@ -277,7 +277,7 @@ export function MarketingDetailPage({
           <div className="mx-auto max-w-[1440px]">
             <p className="text-[#D8E4F3]">XDrive operates the platform as an intermediary unless it expressly contracts to provide a transport service itself. No client funds are held by XDrive under the current platform model.</p>
             <div className="mt-4 flex flex-col gap-2 border-t border-white/10 pt-4 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-[#D8E4F3]">© 2021 XDrive Logistics Ltd. All Rights Reserved.</p>
+              <p className="text-[#D8E4F3]">&copy; 2021 XDrive Logistics Ltd. All Rights Reserved.</p>
               <p className="font-black text-white">Move Freight. Manage Operations. <span className="text-[#F5A300]">Grow Your Network.</span></p>
             </div>
           </div>

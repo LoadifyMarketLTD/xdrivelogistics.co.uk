@@ -8,10 +8,17 @@ const respond = (status: number, payload: Record<string, unknown>) => NextRespon
 const TABLE_MISSING_CODES = new Set(['42P01', 'PGRST202', 'PGRST205']);
 
 const mutationSchema = z.object({
-  action: z.enum(['assign', 'acknowledge', 'investigate', 'wait', 'resolve', 'close', 'reopen']),
+  action: z.enum(['assign', 'acknowledge', 'investigate', 'wait', 'resolve', 'close', 'reopen', 'plan', 'customer_update', 'verify_closure']),
   reason: z.string().trim().max(5000).optional(),
   assignedToUserId: z.string().uuid().nullable().optional(),
   metadata: z.record(z.string(), z.unknown()).optional(),
+  nextAction: z.string().trim().max(1000).nullable().optional(),
+  nextActionDueAt: z.string().datetime({ offset: true }).nullable().optional(),
+  customerUpdateDueAt: z.string().datetime({ offset: true }).nullable().optional(),
+  closureDueAt: z.string().datetime({ offset: true }).nullable().optional(),
+  customerUpdateNote: z.string().trim().max(5000).nullable().optional(),
+  customerUpdateChannel: z.string().trim().max(80).nullable().optional(),
+  closureEvidence: z.string().trim().max(5000).nullable().optional(),
 });
 
 const isTableMissing = (error: { code?: string } | null | undefined) =>
@@ -37,7 +44,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   if (!caseResult.data) return respond(404, { error: 'Platform case not found.' });
   if (eventsResult.error) return respond(500, { error: eventsResult.error.message });
 
-  const actorIds = Array.from(new Set((eventsResult.data ?? []).map((event) => event.actor_user_id).filter(Boolean)));
+  const actorIds = Array.from(new Set([
+    ...(eventsResult.data ?? []).map((event) => event.actor_user_id),
+    caseResult.data.assigned_to_user_id,
+  ].filter(Boolean)));
   const { data: profiles, error: profileError } = actorIds.length
     ? await supabaseAdmin.from('profiles').select('user_id, full_name').in('user_id', actorIds)
     : { data: [], error: null };
@@ -45,8 +55,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const actorNameById = new Map((profiles ?? []).map((profile) => [String(profile.user_id), String(profile.full_name ?? 'Platform Owner')]));
 
   return respond(200, {
-    readOnly: isSuperAdminDeployPreviewReadOnly(),
-    case: caseResult.data,
+    readOnly: isSuperAdminDeployPreviewReadOnly(request),
+    case: {
+      ...caseResult.data,
+      assigned_to_label: caseResult.data.assigned_to_user_id
+        ? actorNameById.get(String(caseResult.data.assigned_to_user_id)) ?? 'Platform operator'
+        : null,
+    },
     events: (eventsResult.data ?? []).map((event) => ({
       ...event,
       actor_label: actorNameById.get(String(event.actor_user_id)) ?? 'Platform Owner',
@@ -57,6 +72,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 export async function PATCH(request: NextRequest, { params }: { params: Promise<{ caseId: string }> }) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Server auth is not configured.' });
+  }
+  if (isSuperAdminDeployPreviewReadOnly(request)) {
+    return respond(403, { error: 'Deploy Preview is read-only. Platform case mutation was not performed.' });
   }
   const owner = await verifyPlatformOwner(request);
   if (!owner) return respond(403, { error: 'Forbidden: active Platform Owner required.' });
@@ -69,14 +87,48 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   const { caseId } = await params;
   const value = parsed.data;
-  const { data, error } = await supabaseAdmin.rpc('owner_mutate_platform_case', {
-    p_actor_user_id: owner.id,
-    p_case_id: caseId,
-    p_action: value.action,
-    p_reason: value.reason ?? null,
-    p_assigned_to_user_id: value.assignedToUserId ?? null,
-    p_metadata: value.metadata ?? {},
-  });
+  let data: unknown = null;
+  let error: { code?: string; message: string } | null = null;
+  if (value.action === 'plan') {
+    const result = await supabaseAdmin.rpc('owner_set_platform_case_plan', {
+      p_actor_user_id: owner.id,
+      p_case_id: caseId,
+      p_next_action: value.nextAction ?? null,
+      p_next_action_due_at: value.nextActionDueAt ?? null,
+      p_customer_update_due_at: value.customerUpdateDueAt ?? null,
+      p_closure_due_at: value.closureDueAt ?? null,
+    });
+    data = result.data;
+    error = result.error;
+  } else if (value.action === 'customer_update') {
+    const result = await supabaseAdmin.rpc('owner_record_platform_case_customer_update', {
+      p_actor_user_id: owner.id,
+      p_case_id: caseId,
+      p_note: value.customerUpdateNote ?? '',
+      p_channel: value.customerUpdateChannel ?? 'manual',
+    });
+    data = result.data;
+    error = result.error;
+  } else if (value.action === 'verify_closure') {
+    const result = await supabaseAdmin.rpc('owner_verify_platform_case_closure', {
+      p_actor_user_id: owner.id,
+      p_case_id: caseId,
+      p_evidence: value.closureEvidence ?? '',
+    });
+    data = result.data;
+    error = result.error;
+  } else {
+    const result = await supabaseAdmin.rpc('owner_mutate_platform_case', {
+      p_actor_user_id: owner.id,
+      p_case_id: caseId,
+      p_action: value.action,
+      p_reason: value.reason ?? null,
+      p_assigned_to_user_id: value.assignedToUserId ?? null,
+      p_metadata: value.metadata ?? {},
+    });
+    data = result.data;
+    error = result.error;
+  }
 
   if (error) {
     if (isTableMissing(error)) return respond(503, { error: 'Platform Case Centre schema is not applied in this environment.' });
