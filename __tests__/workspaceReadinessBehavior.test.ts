@@ -154,9 +154,9 @@ describe('individual restrictions always have a truthful recovery action', () =>
     state.tables.onboarding_applications = table([application, { ...application, id: 'another-application' }]);
     const { payload } = await request(); expect(payload.ready).toBe(false); expect(payload.blockers[0].actionLabel).toBe('Contact support');
   });
-  it('starts or recovers missing onboarding instead of linking a nonexistent session', async () => {
+  it('does not require separate onboarding for an active non-driver company member', async () => {
     state.tables.onboarding_applications = table([]);
-    expect((await request()).payload.blockers).toContainEqual(expect.objectContaining({ code: 'ONBOARDING_APPLICATION_REQUIRED', actionHref: '/onboarding/resume' }));
+    expect((await request()).payload.blockers).not.toContainEqual(expect.objectContaining({ code: 'ONBOARDING_APPLICATION_REQUIRED' }));
   });
   it('initializes onboarding when both company membership and application are absent', async () => {
     state.tables.profiles = table({ user_id: USER, company_id: null, role: 'customer', status: 'active' });

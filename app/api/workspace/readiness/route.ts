@@ -79,9 +79,9 @@ export async function GET(request: NextRequest) {
     ));
     if (applicationsResult.error) addUnavailable('Onboarding');
     else if (matchingApplications.length > 1) blockers.push(support('ONBOARDING_APPLICATION_CONFLICT', 'Onboarding records need reconciliation', 'Multiple onboarding applications match this account and company. Support must reconcile these records before a document can be uploaded safely.'));
-    else if (!application && companyId && (context.canManageCompany || isDriver)) blockers.push({
+    else if (!application && companyId && isDriver) blockers.push({
       code: 'ONBOARDING_APPLICATION_REQUIRED', title: 'Onboarding application is missing',
-      message: 'Start or recover the onboarding application for your account. Existing company membership does not replace the required onboarding evidence.',
+      message: 'Start or recover the driver onboarding application for this account. Company membership does not replace driver-specific onboarding evidence.',
       operation, actionType: 'link', actionLabel: 'Start / recover onboarding', actionHref: '/onboarding/resume',
     });
     if (!companyId) blockers.push({
