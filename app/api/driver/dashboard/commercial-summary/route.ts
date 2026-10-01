@@ -89,15 +89,32 @@ export async function GET(request: NextRequest) {
     jobsQuery = jobsQuery.gte('created_at', cutoff);
   }
 
-  const [revenueResult, payableResult, jobsResult] = await Promise.all([
+  const feedbackCutoff = new Date();
+  feedbackCutoff.setDate(feedbackCutoff.getDate() - 90);
+
+  const [revenueResult, payableResult, jobsResult, receivedFeedbackResult, givenFeedbackResult] = await Promise.all([
     revenueQuery,
     payableQuery,
     jobsQuery,
+    supabaseAdmin
+      .from('reviews')
+      .select('id, rating, created_at')
+      .eq('company_id', driver.company_id)
+      .gte('created_at', feedbackCutoff.toISOString())
+      .limit(1000),
+    supabaseAdmin
+      .from('reviews')
+      .select('id, rating, created_at')
+      .eq('reviewer_company_id', driver.company_id)
+      .gte('created_at', feedbackCutoff.toISOString())
+      .limit(1000),
   ]);
 
   if (revenueResult.error) return respond(500, { error: revenueResult.error.message });
   if (payableResult.error) return respond(500, { error: payableResult.error.message });
   if (jobsResult.error) return respond(500, { error: jobsResult.error.message });
+  if (receivedFeedbackResult.error) return respond(500, { error: receivedFeedbackResult.error.message });
+  if (givenFeedbackResult.error) return respond(500, { error: givenFeedbackResult.error.message });
 
   const cancelled = new Set(['cancelled', 'canceled', 'void']);
   const revenueRows = (revenueResult.data ?? []).filter((row) => !cancelled.has(normalise(row.status)));
@@ -128,6 +145,12 @@ export async function GET(request: NextRequest) {
     row.awarded_carrier_company_id && row.awarded_carrier_company_id !== driver.company_id,
   ).length;
 
+  const receivedFeedback = receivedFeedbackResult.data ?? [];
+  const givenFeedback = givenFeedbackResult.data ?? [];
+  const receivedRatingAverage = receivedFeedback.length
+    ? receivedFeedback.reduce((sum, row) => sum + Number(row.rating ?? 0), 0) / receivedFeedback.length
+    : null;
+
   return respond(200, {
     period,
     revenueGross,
@@ -140,5 +163,10 @@ export async function GET(request: NextRequest) {
       totalGross: subcontractSpend,
     },
     bookingsSubcontracted: subcontractedBookings,
+    feedback90Days: {
+      received: receivedFeedback.length,
+      given: givenFeedback.length,
+      receivedRatingAverage,
+    },
   });
 }

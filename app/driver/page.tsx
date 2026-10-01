@@ -72,6 +72,11 @@ type DriverCommercialSummary = {
     totalGross: number;
   };
   bookingsSubcontracted: number;
+  feedback90Days: {
+    received: number;
+    given: number;
+    receivedRatingAverage: number | null;
+  };
 };
 
 type DriverAction = {
@@ -707,15 +712,23 @@ export default function DriverDashboard() {
                   </div>
                 </OperationalCard>
 
-                <OperationalCard title="Feedback in Last 90 Days" subtitle="XDrive does not fabricate payment or delivery scores when the Driver feed has no verified score source.">
+                <OperationalCard title="Feedback in Last 90 Days" subtitle="XDrive currently stores an overall review rating, not separate CX payment and delivery scores.">
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
                     <button type="button" onClick={() => router.push('/driver/history')} style={{ minHeight: 64, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
                       <strong style={{ display: 'block' }}>Received</strong>
-                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>Open Diary feedback records</span>
+                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>
+                        {commercialSummaryLoading
+                          ? 'Loading…'
+                          : commercialSummary
+                            ? `${commercialSummary.feedback90Days.received} review(s) · ${commercialSummary.feedback90Days.receivedRatingAverage === null ? 'No average yet' : `${commercialSummary.feedback90Days.receivedRatingAverage.toFixed(1)}/5 average`}`
+                            : 'Unavailable'}
+                      </span>
                     </button>
                     <button type="button" onClick={() => router.push('/driver/history')} style={{ minHeight: 64, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
                       <strong style={{ display: 'block' }}>Given</strong>
-                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>Open completed bookings and feedback actions</span>
+                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>
+                        {commercialSummaryLoading ? 'Loading…' : commercialSummary ? `${commercialSummary.feedback90Days.given} review(s) given` : 'Unavailable'}
+                      </span>
                     </button>
                   </div>
                 </OperationalCard>
