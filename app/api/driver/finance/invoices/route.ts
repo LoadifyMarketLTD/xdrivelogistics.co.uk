@@ -76,16 +76,20 @@ export async function GET(request: NextRequest) {
   // invoice lifecycle only; payment filtering has its own explicit dimension.
   const invoiceStatusFilter = searchParams.get('invoice_status') || searchParams.get('status');
   const paymentStatusFilter = searchParams.get('payment_status');
+  const view = searchParams.get('view') === 'payables' ? 'payables' : 'receivables';
   const limit = Math.min(Number(searchParams.get('limit') ?? 100) || 100, 500);
 
-  const query = supabaseAdmin
+  let query = supabaseAdmin
     .from('invoices')
     .select(
-      'id, invoice_number, job_ref, job_id, invoice_date, due_date, status, payment_status, client_name, amount, net_amount, vat_amount, currency, submitted_at, approved_at, disputed_at, paid_at, created_at, updated_at'
+      'id, invoice_number, job_ref, job_id, invoice_date, due_date, status, payment_status, client_name, amount, net_amount, vat_amount, currency, submitted_at, approved_at, disputed_at, paid_at, created_at, updated_at, supplier_company_id, buyer_company_id'
     )
-    .eq('company_id', driver.companyId)
     .order('created_at', { ascending: false })
     .limit(limit);
+
+  query = view === 'payables'
+    ? query.eq('buyer_company_id', driver.companyId).neq('supplier_company_id', driver.companyId)
+    : query.eq('company_id', driver.companyId);
 
 
   const { data, error } = await query;
@@ -111,6 +115,22 @@ export async function GET(request: NextRequest) {
     };
   });
 
+  const supplierNameById = new Map<string, string>();
+  if (view === 'payables') {
+    const supplierIds = [...new Set(
+      allRows
+        .map((row) => String((row as Record<string, unknown>).supplier_company_id ?? ''))
+        .filter(Boolean),
+    )];
+    if (supplierIds.length) {
+      const suppliers = await supabaseAdmin.from('companies').select('id, name').in('id', supplierIds);
+      if (suppliers.error) return respond(500, { error: suppliers.error.message });
+      for (const supplier of suppliers.data ?? []) {
+        supplierNameById.set(String(supplier.id), String(supplier.name ?? 'Supplier'));
+      }
+    }
+  }
+
   const invoiceIds = allRows.map((row) => String((row as Record<string, unknown>).id)).filter(Boolean);
   const paidByInvoice = new Map<string, number>();
   if (invoiceIds.length) {
@@ -129,7 +149,15 @@ export async function GET(request: NextRequest) {
   const enrichedRows = allRows.map((row) => {
     const paidAmount = paidByInvoice.get(String((row as Record<string, unknown>).id)) ?? 0;
     const grossAmount = Number((row as Record<string, unknown>).amount ?? 0);
-    return { ...row, paid_amount: paidAmount, outstanding_amount: Math.max(0, grossAmount - paidAmount) };
+    const supplierCompanyId = String((row as Record<string, unknown>).supplier_company_id ?? '');
+    return {
+      ...row,
+      client_name: view === 'payables'
+        ? supplierNameById.get(supplierCompanyId) ?? 'Supplier'
+        : (row as Record<string, unknown>).client_name,
+      paid_amount: paidAmount,
+      outstanding_amount: Math.max(0, grossAmount - paidAmount),
+    };
   });
   const invoiceSummary = buildInvoiceStatusSummary(enrichedRows.map((row) => row.status as CanonicalInvoiceStatus));
   const payments = paymentSummary(enrichedRows.map((row) => row.payment_status as CanonicalPaymentStatus));

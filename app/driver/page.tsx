@@ -673,7 +673,7 @@ export default function DriverDashboard() {
                       ['Invoices overdue', commercialSummary ? `${commercialSummary.accountsPayable.overdue} overdue` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
                       ['Monthly totals', commercialSummary ? `${money(commercialSummary.accountsPayable.totalGross)} supplier gross` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
                     ].map(([label, detail]) => (
-                      <button key={label} type="button" onClick={() => router.push('/driver/finance')} style={{ width: '100%', minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
+                      <button key={label} type="button" onClick={() => router.push('/driver/finance?view=payables')} style={{ width: '100%', minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
                         <span><strong style={{ display: 'block', fontSize: 12 }}>{label}</strong><small style={{ color: workspaceTheme.muted }}>{detail}</small></span>
                         <span aria-hidden="true" style={{ color: workspaceTheme.blue }}>→</span>
                       </button>
