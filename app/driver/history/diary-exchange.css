@@ -8,17 +8,24 @@
 }
 
 .driver-diary-route .driver-diary-board {
-  display: grid;
-  grid-template-columns: var(--driver-diary-rail) minmax(0, 1fr);
+  display: grid !important;
+  grid-template-columns: var(--driver-diary-rail) minmax(0, 1fr) !important;
   gap: var(--ws-gap-grid, 12px);
   align-items: start;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
 }
 
 .driver-diary-route .driver-board-main {
-  min-width: 0;
-  display: grid;
+  grid-column: 2;
+  min-width: 0 !important;
+  width: 100% !important;
+  max-width: none !important;
+  display: grid !important;
   gap: var(--ws-gap-internal, 8px);
   align-content: start;
+  overflow: visible !important;
 }
 
 .driver-diary-route .driver-filter-rail {
