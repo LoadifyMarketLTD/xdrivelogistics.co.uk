@@ -1,3 +1,11 @@
+.driver-diary-route .driver-diary-shell-content {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: 0 !important;
+  padding: 8px 10px !important;
+  overflow: visible !important;
+}
+
 .driver-diary-route .xdrive-diary-layout {
   display: grid !important;
   grid-template-columns: 200px minmax(0, 1fr) !important;
