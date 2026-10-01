@@ -1185,3 +1185,32 @@
     margin-bottom: 8px !important;
   }
 }
+/* Driver More dropdown — canonical readable sizing */
+@media (min-width: 1280px) {
+  .xdrive-driver-workspace .top-workspace-nav__group--menu:last-child .top-workspace-nav__menu {
+    width: 270px !important;
+    padding: 5px !important;
+    border-radius: 3px !important;
+    box-shadow: 0 6px 16px rgba(15, 23, 42, 0.10) !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-nav__menu-item {
+    min-height: 36px !important;
+    grid-template-columns: 20px minmax(0, 1fr) !important;
+    gap: 8px !important;
+    padding: 0 9px !important;
+    font-size: 13px !important;
+    line-height: 17px !important;
+    font-weight: 600 !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-nav__menu-icon {
+    width: 20px !important;
+    height: 20px !important;
+    font-size: 11px !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-nav__menu-item[data-active="true"] {
+    font-weight: 700 !important;
+  }
+}
