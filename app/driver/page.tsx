@@ -752,7 +752,7 @@ export default function DriverDashboard() {
                               {decliningJobId === job.id ? 'Sending…' : 'Decline'}
                             </ActionButton>
                           ) : null}
-                          {group === 'active' ? <ActionButton tone="secondary" onClick={() => router.push('/driver/freight-vision')}>Track</ActionButton> : null}
+                          {group === 'active' || ['accepted', 'allocated', 'driver_accepted'].includes(status) ? <ActionButton tone="secondary" onClick={() => router.push('/driver/freight-vision')}>Track</ActionButton> : null}
                         </div>,
                       ];
                     })}
