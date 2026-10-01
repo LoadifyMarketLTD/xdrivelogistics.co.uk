@@ -114,6 +114,51 @@ export const runPlatformHealthChecks = async () => {
       if (typeof count !== 'number') throw new Error('Notification store exact-count health probe returned an incomplete snapshot.');
       return `Notification event store is reachable (${count.toLocaleString()} events).`;
     }),
+    timed('Stats API', async () => {
+      const { error } = await client.from('companies').select('id').limit(1);
+      if (error) throw new Error(error.message);
+      return 'Backing data source responded successfully.';
+    }),
+    timed('Operations API', async () => {
+      const { error } = await client.from('jobs').select('id').limit(1);
+      if (error) throw new Error(error.message);
+      return 'Backing data source responded successfully.';
+    }),
+    timed('Finance API', async () => {
+      const { error } = await client.from('invoices').select('id').limit(1);
+      if (error) throw new Error(error.message);
+      return 'Backing data source responded successfully.';
+    }),
+    timed('Compliance API', async () => {
+      const { error } = await client.from('driver_documents').select('id').limit(1);
+      if (error) throw new Error(error.message);
+      return 'Backing data source responded successfully.';
+    }),
+    timed('Marketplace API', async () => {
+      const { error } = await client.from('jobs').select('id').limit(1);
+      if (error) throw new Error(error.message);
+      return 'Backing data source responded successfully.';
+    }),
+    timed('Notifications API', async () => {
+      const { error } = await client.from('notification_events').select('id').limit(1);
+      if (error) throw new Error(error.message);
+      return 'Backing data source responded successfully.';
+    }),
+    timed('Users API', async () => {
+      const { error } = await client.from('profiles').select('user_id').limit(1);
+      if (error) throw new Error(error.message);
+      return 'Backing data source responded successfully.';
+    }),
+    timed('Support API', async () => {
+      const { error } = await client.from('support_tickets').select('id').limit(1);
+      if (error) throw new Error(error.message);
+      return 'Backing data source responded successfully.';
+    }),
+    timed('Governance API', async () => {
+      const { error } = await client.from('company_memberships').select('id').limit(1);
+      if (error) throw new Error(error.message);
+      return 'Backing data source responded successfully.';
+    }),
     assessed('Membership Billing', async () => {
       const problemStatuses = ['past_due', 'unpaid', 'incomplete', 'incomplete_expired'];
       const { count, error } = await client

@@ -39,23 +39,6 @@ export default function Page() {
     const auth = await getAuthHeader();
     if (!auth) { setError('No active Platform Owner session.'); setLoading(false); return; }
 
-    const apiChecks = [
-      ['Stats API', '/api/super-admin/stats'],
-      ['Operations API', '/api/super-admin/operations?section=jobs&limit=1'],
-      ['Finance API', '/api/super-admin/finance?section=invoices&limit=1'],
-      ['Compliance API', '/api/super-admin/compliance?section=documents&limit=1'],
-      ['Marketplace API', '/api/super-admin/marketplace?limit=1'],
-      ['Notifications API', '/api/super-admin/notifications?limit=1'],
-      ['Users API', '/api/super-admin/users?limit=1'],
-      ['Support API', '/api/super-admin/support?section=tickets&limit=1'],
-      ['Governance API', '/api/super-admin/governance?section=memberships&limit=1'],
-    ] as const;
-
-    const checkApi = async ([service, url]: readonly [string, string]): Promise<ServiceCheck> => {
-      const start = Date.now();
-      try { const response = await fetchWithTimeout(url, { headers: { Authorization: auth } }); return response.ok ? { service, status: 'healthy', latencyMs: Date.now() - start, detail: 'Endpoint responded successfully.' } : { service, status: 'error', latencyMs: Date.now() - start, detail: 'Endpoint unavailable.' }; }
-      catch { return { service, status: 'error', latencyMs: Date.now() - start, detail: 'Endpoint unavailable or timed out.' }; }
-    };
     const checkGovernance = async (service: string, url: string, failureField: string): Promise<ServiceCheck> => {
       const start = Date.now();
       try {
@@ -70,12 +53,11 @@ export default function Page() {
     };
 
     try {
-      const [infraResponse, emailResponse, billingCheck, webhookCheck, ...apiResults] = await Promise.all([
+      const [infraResponse, emailResponse, billingCheck, webhookCheck] = await Promise.all([
         fetchWithTimeout('/api/super-admin/health', { headers: { Authorization: auth } }),
         fetchWithTimeout('/api/super-admin/email-readiness', { headers: { Authorization: auth } }),
         checkGovernance('Membership Billing', '/api/super-admin/governance?section=subscriptions&limit=100', 'status'),
         checkGovernance('Stripe Webhook Processing', '/api/super-admin/governance?section=stripe-webhooks&limit=100', 'processing_status'),
-        ...apiChecks.map(checkApi),
       ]);
       const infra = await infraResponse.json().catch(() => ({})) as InfraPayload;
       if (!infraResponse.ok || !Array.isArray(infra.checks) || !Array.isArray(infra.integrations)) throw new Error('Invalid platform health contract.');
@@ -85,7 +67,7 @@ export default function Page() {
         : email.readinessStatus === 'degraded'
           ? { service: 'Email Delivery', status: 'degraded', detail: email.readinessMessage ?? 'Email delivery has warnings.' }
           : { service: 'Email Delivery', status: 'healthy', detail: email.readinessMessage ?? 'Email delivery is operational.' };
-      setChecks([...infra.checks, emailCheck, billingCheck, webhookCheck, ...apiResults]);
+      setChecks([...infra.checks, emailCheck, billingCheck, webhookCheck]);
       setIntegrations(infra.integrations);
       setCheckedAt(infra.checkedAt ?? new Date().toISOString());
     } catch {
