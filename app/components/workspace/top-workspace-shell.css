@@ -900,3 +900,288 @@
     min-height: calc(100vh - 100px) !important;
   }
 }
+/* CANONICAL PLATFORM WORKSPACE BASELINE — applies to Driver, Admin/Carrier, Broker, Customer only. Super Admin is intentionally unmarked/excluded. */
+@media (min-width: 1280px) {
+  .xdrive-canonical-workspace .top-workspace-shell__header {
+    height: 50px !important;
+    min-height: 50px !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-nav--primary,
+  .xdrive-canonical-workspace .top-workspace-nav--primary .top-workspace-nav__track,
+  .xdrive-canonical-workspace .top-workspace-nav__item {
+    height: 50px !important;
+    min-height: 50px !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-nav--primary {
+    top: 50px !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-nav--primary .top-workspace-nav__track {
+    justify-content: center !important;
+    gap: 10px !important;
+    padding: 0 18px !important;
+    overflow: visible !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-nav__item {
+    padding: 0 9px !important;
+    font-size: 14px !important;
+    line-height: 20px !important;
+    font-weight: 600 !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-nav__item[data-active="true"],
+  .xdrive-canonical-workspace .top-workspace-nav__item.is-active {
+    font-weight: 700 !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-nav__menu {
+    top: 52px !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-shell__content {
+    min-height: calc(100vh - 100px) !important;
+  }
+
+  .xdrive-canonical-workspace .xdrive-page-frame {
+    padding: 8px 10px 12px !important;
+  }
+
+  .xdrive-canonical-workspace .xdrive-page-header,
+  .xdrive-canonical-workspace .xdrive-dashboard-home-header {
+    min-height: 50px !important;
+    margin-bottom: 8px !important;
+    gap: 10px !important;
+    align-items: center !important;
+  }
+
+  .xdrive-canonical-workspace .xdrive-page-header h1,
+  .xdrive-canonical-workspace .xdrive-dashboard-home-header__title {
+    margin: 0 !important;
+    font-size: 21px !important;
+    line-height: 26px !important;
+    font-weight: 700 !important;
+  }
+
+  .xdrive-canonical-workspace .xdrive-page-header p,
+  .xdrive-canonical-workspace .xdrive-dashboard-home-header__description {
+    margin-top: 2px !important;
+    font-size: 12.5px !important;
+    line-height: 16px !important;
+    font-weight: 500 !important;
+  }
+
+  .xdrive-canonical-workspace .xdrive-page-header > div:first-child > div:first-child,
+  .xdrive-canonical-workspace .xdrive-dashboard-home-header__eyebrow {
+    margin-bottom: 2px !important;
+    font-size: 11.5px !important;
+    line-height: 14px !important;
+    font-weight: 700 !important;
+    letter-spacing: .04em !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-shell__content section {
+    border-radius: 3px !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-shell__content table {
+    font-size: 12.5px !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-shell__content th {
+    height: 36px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    line-height: 14px !important;
+    font-weight: 700 !important;
+    vertical-align: middle !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-shell__content td {
+    min-height: 46px !important;
+    padding: 6px 8px !important;
+    font-size: 12.5px !important;
+    line-height: 16px !important;
+    font-weight: 500 !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-shell__content input,
+  .xdrive-canonical-workspace .top-workspace-shell__content select {
+    min-height: 32px !important;
+    height: 32px !important;
+    font-size: 12.5px !important;
+    line-height: 16px !important;
+    font-weight: 600 !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-shell__content button {
+    font-size: 12px;
+  }
+
+  .xdrive-canonical-workspace .workspace-list-controls {
+    min-height: 38px !important;
+    padding: 4px 8px !important;
+    gap: 6px !important;
+    border-radius: 3px !important;
+    font-size: 12px !important;
+  }
+
+  .xdrive-canonical-workspace .workspace-list-controls button,
+  .xdrive-canonical-workspace .workspace-list-controls select {
+    min-height: 30px !important;
+    height: 30px !important;
+    font-size: 11.5px !important;
+  }
+
+  /* Broker dashboard */
+  .xdrive-canonical-workspace .broker-clean-dashboard {
+    gap: 8px !important;
+  }
+
+  .xdrive-canonical-workspace .broker-clean-kpis {
+    gap: 8px !important;
+  }
+
+  .xdrive-canonical-workspace .broker-clean-kpis button {
+    min-height: 78px !important;
+    padding: 9px 10px !important;
+    border-radius: 3px !important;
+  }
+
+  .xdrive-canonical-workspace .broker-clean-kpis span,
+  .xdrive-canonical-workspace .broker-clean-commercial span {
+    font-size: 11.5px !important;
+    line-height: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  .xdrive-canonical-workspace .broker-clean-kpis strong,
+  .xdrive-canonical-workspace .broker-clean-commercial strong {
+    margin-top: 3px !important;
+    font-size: 21px !important;
+    line-height: 24px !important;
+  }
+
+  .xdrive-canonical-workspace .broker-clean-kpis small,
+  .xdrive-canonical-workspace .broker-clean-commercial small {
+    margin-top: 2px !important;
+    font-size: 11px !important;
+    line-height: 14px !important;
+  }
+
+  .xdrive-canonical-workspace .broker-clean-grid {
+    gap: 8px !important;
+  }
+
+  .xdrive-canonical-workspace .broker-clean-box {
+    border-radius: 3px !important;
+  }
+
+  .xdrive-canonical-workspace .broker-clean-box__head {
+    min-height: 38px !important;
+    padding: 6px 10px !important;
+  }
+
+  .xdrive-canonical-workspace .broker-clean-box__head > div > strong {
+    font-size: 13px !important;
+    line-height: 18px !important;
+    font-weight: 800 !important;
+  }
+
+  .xdrive-canonical-workspace .broker-clean-box__head > div > span {
+    margin-top: 1px !important;
+    font-size: 11px !important;
+    line-height: 14px !important;
+  }
+
+  .xdrive-canonical-workspace .broker-clean-box__body {
+    padding: 8px 10px !important;
+  }
+
+  /* Customer dashboard */
+  .xdrive-canonical-workspace .customer-operational-page {
+    display: grid !important;
+    gap: 8px !important;
+  }
+
+  .xdrive-canonical-workspace .customer-dash-metrics {
+    gap: 8px !important;
+  }
+
+  .xdrive-canonical-workspace .customer-dash-metric {
+    min-height: 78px !important;
+    padding: 9px 10px !important;
+    border-radius: 3px !important;
+  }
+
+  .xdrive-canonical-workspace .customer-dash-box {
+    border-radius: 3px !important;
+  }
+
+  .xdrive-canonical-workspace .customer-dash-box__head {
+    min-height: 38px !important;
+    padding: 6px 10px !important;
+  }
+
+  .xdrive-canonical-workspace .customer-dash-box__head strong {
+    font-size: 13px !important;
+    line-height: 18px !important;
+    font-weight: 800 !important;
+  }
+
+  .xdrive-canonical-workspace .customer-dash-box__body {
+    padding: 8px 10px !important;
+  }
+
+  .xdrive-canonical-workspace .customer-dashboard-clean-grid {
+    gap: 8px !important;
+  }
+
+  /* Admin/Carrier dashboards built from DashboardHomePrimitives + operational primitives */
+  .xdrive-canonical-workspace [aria-label="Carrier control signals"] {
+    margin-bottom: 8px !important;
+    border-radius: 3px !important;
+  }
+
+  .xdrive-canonical-workspace [aria-label="Carrier control signals"] button {
+    min-height: 72px !important;
+    padding: 8px 10px !important;
+  }
+
+  .xdrive-canonical-workspace [aria-label="Carrier control signals"] button > span {
+    font-size: 11.5px !important;
+    line-height: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  .xdrive-canonical-workspace [aria-label="Carrier control signals"] button > strong {
+    margin-top: 3px !important;
+    font-size: 21px !important;
+    line-height: 24px !important;
+    font-weight: 800 !important;
+  }
+}
+/* Canonical admin-role dashboard geometry */
+@media (min-width: 1280px) {
+  .xdrive-canonical-workspace .xdrive-admin-dashboard-home {
+    width: 100% !important;
+    padding: 8px 10px 12px !important;
+    box-sizing: border-box !important;
+  }
+
+  .xdrive-canonical-workspace [aria-label="Operational key performance indicators"] {
+    gap: 8px !important;
+  }
+
+  .xdrive-canonical-workspace [aria-label="Operational key performance indicators"] > * {
+    min-height: 72px !important;
+    max-height: 80px !important;
+  }
+
+  .xdrive-canonical-workspace .xdrive-dashboard-home-header + [role="alert"],
+  .xdrive-canonical-workspace .xdrive-page-header + [role="alert"] {
+    margin-bottom: 8px !important;
+  }
+}

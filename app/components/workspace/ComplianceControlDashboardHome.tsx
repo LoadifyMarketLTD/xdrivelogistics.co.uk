@@ -93,7 +93,7 @@ export default function ComplianceControlDashboardHome() {
   const incidentsUnavailable = unavailable(data, ['jobs']);
 
   return (
-    <div style={{ width: '100%', padding: '12px 12px 16px' }}>
+    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '12px 12px 16px' }}>
       <DashboardHomeHeader
         eyebrow="Compliance control"
         title="Compliance Dashboard"

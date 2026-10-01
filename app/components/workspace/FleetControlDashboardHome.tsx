@@ -337,7 +337,7 @@ export default function FleetControlDashboardHome() {
   };
 
   return (
-    <div style={{ width: '100%', padding: '10px 12px 16px' }}>
+    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '10px 12px 16px' }}>
       <DashboardHomeHeader
         eyebrow="Fleet operations"
         title="My Fleet"

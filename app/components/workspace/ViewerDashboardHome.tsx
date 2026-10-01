@@ -37,7 +37,7 @@ export default function ViewerDashboardHome() {
   );
 
   return (
-    <div style={{ width: '100%', padding: '12px 12px 16px' }}>
+    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '12px 12px 16px' }}>
       <DashboardHomeHeader
         eyebrow="Read-only operations"
         title="Viewer Dashboard"

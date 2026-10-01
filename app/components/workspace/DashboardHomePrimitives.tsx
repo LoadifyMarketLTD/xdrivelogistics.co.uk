@@ -18,6 +18,7 @@ export function DashboardHomeHeader({
 }) {
   return (
     <header
+      className="xdrive-dashboard-home-header"
       style={{
         minHeight: '52px',
         display: 'flex',
@@ -28,8 +29,9 @@ export function DashboardHomeHeader({
         flexWrap: 'wrap',
       }}
     >
-      <div style={{ minWidth: 0, flex: '1 1 520px' }}>
+      <div className="xdrive-dashboard-home-header__copy" style={{ minWidth: 0, flex: '1 1 520px' }}>
         <div
+          className="xdrive-dashboard-home-header__eyebrow"
           style={{
             color: workspaceTheme.blue,
             fontSize: '11px',
@@ -44,6 +46,7 @@ export function DashboardHomeHeader({
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <h1
+            className="xdrive-dashboard-home-header__title"
             style={{
               margin: 0,
               color: workspaceTheme.navy,
@@ -73,6 +76,7 @@ export function DashboardHomeHeader({
           ) : null}
         </div>
         <p
+          className="xdrive-dashboard-home-header__description"
           style={{
             margin: '4px 0 0',
             maxWidth: '900px',

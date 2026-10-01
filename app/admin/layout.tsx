@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-measured xdrive-operational-top-workspace">
+    <div className="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace">
       <AdminPlatformShell>{children}</AdminPlatformShell>
     </div>
   );
