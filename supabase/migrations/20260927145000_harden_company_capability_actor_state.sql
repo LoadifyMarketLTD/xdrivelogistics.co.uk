@@ -4,8 +4,8 @@ SET LOCAL lock_timeout = '10s';
 SET LOCAL statement_timeout = '120s';
 
 -- has_capability() is used by the companies UPDATE RLS policy. Keep the
--- existing role/override model, but bind authority to an active actor profile,
--- active legacy member row and active company.
+-- existing role/override model, but bind authority to the canonical active
+-- company_memberships row, active actor profile and active company.
 CREATE OR REPLACE FUNCTION public.has_capability(
   _company_id uuid,
   _capability text
@@ -17,15 +17,15 @@ SECURITY DEFINER
 SET search_path = pg_catalog, public
 AS $function$
   WITH me AS (
-    SELECT cm.id, cm.company_role
-    FROM public.company_members cm
+    SELECT cm.id, cm.role_in_company::text AS company_role
+    FROM public.company_memberships cm
     JOIN public.companies c
       ON c.id = cm.company_id
     JOIN public.profiles p
       ON p.user_id = cm.user_id
     WHERE cm.company_id = _company_id
       AND cm.user_id = auth.uid()
-      AND COALESCE(cm.is_active, true) = true
+      AND COALESCE(cm.status::text, '') = 'active'
       AND COALESCE(c.status::text, '') = 'active'
       AND COALESCE(p.status::text, '') = 'active'
     LIMIT 1

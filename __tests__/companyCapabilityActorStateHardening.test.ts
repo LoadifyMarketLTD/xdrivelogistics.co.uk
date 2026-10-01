@@ -12,11 +12,15 @@ const migration = fs
   .replace(/\r\n/g, '\n');
 
 describe('company capability actor-state hardening', () => {
-  it('binds company settings capability to active company and profile state', () => {
+  it('binds company settings capability to canonical active membership, company and profile state', () => {
+    expect(migration).toContain('FROM public.company_memberships cm');
+    expect(migration).toContain('cm.role_in_company::text AS company_role');
+    expect(migration).toContain("COALESCE(cm.status::text, '') = 'active'");
     expect(migration).toContain('JOIN public.companies c');
     expect(migration).toContain('JOIN public.profiles p');
     expect(migration).toContain("COALESCE(c.status::text, '') = 'active'");
     expect(migration).toContain("COALESCE(p.status::text, '') = 'active'");
+    expect(migration).not.toContain('FROM public.company_members cm');
   });
 
   it('retains the existing member capability override model', () => {
