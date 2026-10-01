@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 const DRIVER_PRIMARY_PAGE_TITLES: Readonly<Record<string, string>> = {
-  '/driver': 'Driver Dashboard',
+  '/driver': 'Dashboard',
   '/driver/loads': 'Loads',
   '/driver/quotes': 'Quotes',
   '/driver/jobs': 'Jobs',
