@@ -5,33 +5,32 @@ BEGIN;
 -- layer aligned with that design so anon/authenticated cannot reach them over
 -- the Data API even if policies are added accidentally later.
 
-REVOKE ALL PRIVILEGES
-ON TABLE public.backup_20260721221000_auth_users_metadata
-FROM anon, authenticated;
-
-REVOKE ALL PRIVILEGES
-ON TABLE public.company_membership_workspace_access
-FROM anon, authenticated;
-
--- Feature flags are consumed by server-side APIs / database code. The canonical
--- migration explicitly documents "no browser access", so direct SELECT grants
--- to anon/authenticated are unnecessary and widen the exposed surface.
-REVOKE ALL PRIVILEGES
-ON TABLE public.platform_feature_flags
-FROM anon, authenticated;
-
--- Preserve server-side access explicitly.
-GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-ON TABLE public.backup_20260721221000_auth_users_metadata
-TO service_role;
-
-GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-ON TABLE public.company_membership_workspace_access
-TO service_role;
-
-GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER
-ON TABLE public.platform_feature_flags
-TO service_role;
+-- Fresh databases do not run the production-only backup ops script, so the
+-- backup table can legitimately be absent. Harden each internal table only
+-- when it exists instead of making a fresh-schema migration fail closed.
+DO $$
+DECLARE
+  relation_name text;
+BEGIN
+  FOREACH relation_name IN ARRAY ARRAY[
+    'backup_20260721221000_auth_users_metadata',
+    'company_membership_workspace_access',
+    'platform_feature_flags'
+  ]
+  LOOP
+    IF to_regclass(format('public.%I', relation_name)) IS NOT NULL THEN
+      EXECUTE format(
+        'REVOKE ALL PRIVILEGES ON TABLE public.%I FROM anon, authenticated',
+        relation_name
+      );
+      EXECUTE format(
+        'GRANT SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER ON TABLE public.%I TO service_role',
+        relation_name
+      );
+    END IF;
+  END LOOP;
+END;
+$$;
 
 COMMIT;
 
