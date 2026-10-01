@@ -84,12 +84,21 @@ BEGIN
 END;
 $legacy_invites$;
 
-DROP POLICY IF EXISTS workspace_audit_select_company_member ON public.workspace_switch_audit;
-CREATE POLICY workspace_audit_select_company_member
-ON public.workspace_switch_audit
-FOR SELECT
-TO authenticated
-USING (
-  target_company_id IS NULL
-  OR public.active_company_membership_role(target_company_id, auth.uid()) IS NOT NULL
-);
+-- workspace_switch_audit is also hosted-only on older histories.
+DO $workspace_audit$
+BEGIN
+  IF to_regclass('public.workspace_switch_audit') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS workspace_audit_select_company_member ON public.workspace_switch_audit';
+    EXECUTE $policy$
+      CREATE POLICY workspace_audit_select_company_member
+      ON public.workspace_switch_audit
+      FOR SELECT
+      TO authenticated
+      USING (
+        target_company_id IS NULL
+        OR public.active_company_membership_role(target_company_id, auth.uid()) IS NOT NULL
+      )
+    $policy$;
+  END IF;
+END;
+$workspace_audit$;
