@@ -3797,3 +3797,187 @@
   font-size:10.3px!important;
   font-weight:700!important;
 }
+/* CANONICAL DRIVER PAGE GEOMETRY — use Drivers & Vehicles proportions across prototype pages */
+@media (min-width: 1280px) {
+  .driver-prototype-port .driver-prototype-page-shell > .subbar {
+    height: 42px !important;
+    min-height: 42px !important;
+    padding: 0 12px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+  }
+
+  .driver-prototype-port .driver-prototype-page-shell > .subbar .crumb {
+    font-size: 13px !important;
+    line-height: 18px !important;
+    font-weight: 600 !important;
+  }
+
+  .driver-prototype-port .driver-prototype-page-shell > .subbar .crumb b {
+    font-size: 13.5px !important;
+    line-height: 18px !important;
+    font-weight: 800 !important;
+  }
+
+  .driver-prototype-port .driver-prototype-page-shell > .subbar .sub-actions {
+    margin-left: auto !important;
+    gap: 8px !important;
+  }
+
+  .driver-prototype-port .driver-prototype-page-shell > .subbar .sub-actions .btn {
+    height: 34px !important;
+    min-height: 34px !important;
+    padding: 0 12px !important;
+    font-size: 13px !important;
+    line-height: 18px !important;
+    font-weight: 700 !important;
+  }
+
+  .driver-prototype-port .pagebody {
+    grid-template-columns: 185px minmax(0, 1fr) !important;
+  }
+
+  .driver-prototype-port .pagebody.no-left {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .driver-prototype-port .left {
+    width: 185px !important;
+    min-width: 185px !important;
+    max-width: 185px !important;
+  }
+
+  .driver-prototype-port .left-title {
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 10px !important;
+    font-size: 13px !important;
+    line-height: 18px !important;
+    font-weight: 800 !important;
+  }
+
+  .driver-prototype-port .filter {
+    padding: 8px 10px !important;
+  }
+
+  .driver-prototype-port .label {
+    margin-bottom: 4px !important;
+    font-size: 11px !important;
+    line-height: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  .driver-prototype-port .input,
+  .driver-prototype-port .select {
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 8px !important;
+    font-size: 12.5px !important;
+    line-height: 16px !important;
+    font-weight: 600 !important;
+  }
+
+  .driver-prototype-port .main {
+    padding: 8px 10px 8px !important;
+  }
+
+  .driver-prototype-port .head {
+    height: 50px !important;
+    min-height: 50px !important;
+  }
+
+  .driver-prototype-port .head h1 {
+    font-size: 21px !important;
+    line-height: 26px !important;
+    font-weight: 700 !important;
+  }
+
+  .driver-prototype-port .head p {
+    margin-top: 2px !important;
+    font-size: 12.5px !important;
+    line-height: 16px !important;
+    font-weight: 500 !important;
+  }
+
+  .driver-prototype-port .tabs {
+    height: 38px !important;
+    min-height: 38px !important;
+  }
+
+  .driver-prototype-port .tab {
+    padding: 0 12px !important;
+    font-size: 12.5px !important;
+    line-height: 17px !important;
+    font-weight: 700 !important;
+  }
+
+  .driver-prototype-port .toolbar {
+    min-height: 38px !important;
+    height: 38px !important;
+    padding: 0 8px !important;
+    gap: 6px !important;
+    font-size: 12px !important;
+  }
+
+  .driver-prototype-port .toolbar .input,
+  .driver-prototype-port .toolbar .select {
+    height: 32px !important;
+    min-height: 32px !important;
+    font-size: 12px !important;
+  }
+
+  .driver-prototype-port .panel,
+  .driver-prototype-port .card,
+  .driver-prototype-port .tablewrap {
+    border-color: #cfd7e3 !important;
+  }
+
+  .driver-prototype-port .cardhead {
+    height: 38px !important;
+    min-height: 38px !important;
+    padding: 0 10px !important;
+    font-size: 13px !important;
+    line-height: 18px !important;
+    font-weight: 800 !important;
+  }
+
+  .driver-prototype-port th {
+    height: 36px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    line-height: 14px !important;
+    font-weight: 700 !important;
+  }
+
+  .driver-prototype-port td {
+    height: 46px !important;
+    padding: 6px 8px !important;
+    font-size: 12.5px !important;
+    line-height: 16px !important;
+    font-weight: 500 !important;
+  }
+
+  .driver-prototype-port .meta,
+  .driver-prototype-port .small,
+  .driver-prototype-port .muted {
+    font-size: 11px !important;
+    line-height: 14px !important;
+  }
+
+  .driver-prototype-port .btn {
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 10px !important;
+    font-size: 12.5px !important;
+    font-weight: 700 !important;
+  }
+
+  .driver-prototype-port .rowbtn {
+    height: 28px !important;
+    min-height: 28px !important;
+    padding: 0 8px !important;
+    font-size: 11.5px !important;
+    font-weight: 700 !important;
+  }
+}
