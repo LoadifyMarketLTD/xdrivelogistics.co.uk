@@ -57,6 +57,7 @@ export default function DriverWorkspaceShell({
   driverName,
   availabilityLabel,
   personaLabel,
+  hideHeader = false,
 }: {
   children: ReactNode;
   subtitle?: string;
@@ -64,6 +65,7 @@ export default function DriverWorkspaceShell({
   driverName?: string;
   availabilityLabel?: string;
   personaLabel?: string;
+  hideHeader?: boolean;
 }) {
   const pathname = usePathname();
   const resolvedTitle = resolveDriverPageTitle(pathname, driverName);
@@ -94,7 +96,7 @@ export default function DriverWorkspaceShell({
   return (
     <PageFrame>
       <div className="driver-operational-page">
-        {(resolvedTitle || subtitle || availabilityLabel || personaLabel || headerActions) && (
+        {!hideHeader && (resolvedTitle || subtitle || availabilityLabel || personaLabel || headerActions) && (
           <PageHeader
             eyebrow={pathname === '/driver' ? undefined : (personaLabel ?? 'Driver workspace')}
             title={resolvedTitle}

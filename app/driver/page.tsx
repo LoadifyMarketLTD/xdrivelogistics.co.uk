@@ -535,6 +535,7 @@ export default function DriverDashboard() {
     <div className="driver-reference-dashboard driver-prototype-dashboard driver-exact-prototype">
       <DriverWorkspaceShell
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
+        hideHeader={ownerDriver}
         driverName="Today"
         subtitle={ownerDriver ? undefined : 'Your current job, next action and next booking.'}
         headerActions={ownerDriver ? undefined : (
