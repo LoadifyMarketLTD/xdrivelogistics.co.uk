@@ -39,15 +39,6 @@ type DriverVehicle = {
   model: string | null;
 };
 
-type DriverWatchlistItem = {
-  id: string;
-  companyId: string;
-  companyName: string;
-  memberId: string | null;
-  companyType: string | null;
-  compliance: 'fully_compliant' | 'about_to_expire' | 'updates_needed' | 'no_evidence';
-};
-
 type DriverCommercialSummary = {
   period: string;
   revenueGross: number;
@@ -160,8 +151,6 @@ export default function DriverDashboard() {
   const [commercialPeriod, setCommercialPeriod] = useState<'today' | '7d' | '30d' | 'all' | 'custom'>('today');
   const [commercialFrom, setCommercialFrom] = useState(() => new Date().toISOString().slice(0, 10));
   const [commercialTo, setCommercialTo] = useState(() => new Date().toISOString().slice(0, 10));
-  const [watchlistItems, setWatchlistItems] = useState<DriverWatchlistItem[]>([]);
-  const [watchlistError, setWatchlistError] = useState('');
   const [memberNameByJob, setMemberNameByJob] = useState<Record<string, string>>({});
   const [bookingMemberFilter, setBookingMemberFilter] = useState('');
   const [bookingLocationFilter, setBookingLocationFilter] = useState('');
@@ -265,32 +254,6 @@ export default function DriverDashboard() {
     }
   }, [ownerDriver]);
 
-  const loadWatchlist = useCallback(async () => {
-    if (!ownerDriver || !isSupabaseConfigured) return;
-    setWatchlistError('');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    if (!token) {
-      setWatchlistError('Watchlist session could not be verified.');
-      return;
-    }
-    try {
-      const response = await fetch('/api/driver/watchlist', {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => null) as {
-        items?: DriverWatchlistItem[];
-        error?: string;
-      } | null;
-      if (!response.ok || !payload) throw new Error(payload?.error ?? 'Watchlist could not be loaded.');
-      setWatchlistItems(payload.items ?? []);
-    } catch (reason) {
-      setWatchlistItems([]);
-      setWatchlistError(reason instanceof Error ? reason.message : 'Watchlist could not be loaded.');
-    }
-  }, [ownerDriver]);
-
   const latestBookings = useMemo(() => {
     const memberNeedle = bookingMemberFilter.trim().toLowerCase();
     const locationNeedle = bookingLocationFilter.trim().toLowerCase();
@@ -384,16 +347,14 @@ export default function DriverDashboard() {
   useEffect(() => {
     if (ownerDriver) {
       void loadCommercialSummary();
-      void loadWatchlist();
       void loadDashboardMemberNames();
     }
-  }, [loadCommercialSummary, loadDashboardMemberNames, loadWatchlist, ownerDriver]);
+  }, [loadCommercialSummary, loadDashboardMemberNames, ownerDriver]);
 
   const refreshDashboard = async () => {
     const tasks: Promise<unknown>[] = [data.refresh(), loadDriverContext()];
     if (ownerDriver) {
       tasks.push(loadCommercialSummary());
-      tasks.push(loadWatchlist());
       tasks.push(loadDashboardMemberNames());
     }
     await Promise.all(tasks);
@@ -823,24 +784,6 @@ export default function DriverDashboard() {
                       );
                     })}
                   </div>
-                </OperationalCard>
-
-                <OperationalCard
-                  title="Compliance - Manage Your Suppliers"
-                  subtitle="Members on your company watchlist, grouped by verified XDrive document evidence."
-                  actions={<ActionButton tone="secondary" onClick={() => router.push('/driver/directory?watchlist=add')}>Add Members to My Watchlist</ActionButton>}
-                >
-                  {watchlistError ? <AlertBanner tone="warning">{watchlistError}</AlertBanner> : null}
-                  {watchlistItems.length ? (
-                    <div style={{ display: 'grid', gap: 4 }}>
-                      {watchlistItems.slice(0, 4).map((item) => (
-                        <button key={item.id} type="button" onClick={() => router.push(`/driver/network/${item.companyId}`)} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, alignItems: 'center', minHeight: 30, border: 0, borderTop: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
-                          <span><strong>{item.companyName}</strong>{item.memberId ? <small style={{ marginLeft: 6, color: workspaceTheme.muted }}>{item.memberId}</small> : null}</span>
-                          <StatusBadge value={humanize(item.compliance)} tone={item.compliance === 'fully_compliant' ? 'green' : item.compliance === 'about_to_expire' ? 'orange' : item.compliance === 'updates_needed' ? 'red' : 'grey'} />
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
                 </OperationalCard>
 
               </div>
