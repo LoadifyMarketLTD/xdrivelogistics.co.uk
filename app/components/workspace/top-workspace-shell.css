@@ -740,3 +740,79 @@
     overflow-y: auto;
   }
 }
+/* Drivers & Vehicles — flatten breadcrumb + primary nav + page actions into one desktop row. */
+@media (min-width: 1400px) {
+  .xdrive-operational-top-workspace:has(.driver-drivers-vehicles-prototype) .top-workspace-nav--primary {
+    overflow: visible !important;
+  }
+
+  .xdrive-operational-top-workspace:has(.driver-drivers-vehicles-prototype) .top-workspace-nav--primary .top-workspace-nav__track {
+    justify-content: flex-start !important;
+    padding-left: 220px !important;
+    padding-right: 250px !important;
+    gap: 1px !important;
+    overflow: visible !important;
+  }
+
+  .xdrive-operational-top-workspace:has(.driver-drivers-vehicles-prototype) .top-workspace-nav__item {
+    padding-left: 8px !important;
+    padding-right: 8px !important;
+    font-size: 11.5px !important;
+  }
+
+  .xdrive-operational-top-workspace:has(.driver-drivers-vehicles-prototype) .driver-drivers-vehicles-prototype > .subbar {
+    position: fixed !important;
+    top: 50px !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 100 !important;
+    height: 40px !important;
+    min-height: 40px !important;
+    padding: 0 !important;
+    border: 0 !important;
+    background: transparent !important;
+    pointer-events: none !important;
+  }
+
+  .xdrive-operational-top-workspace:has(.driver-drivers-vehicles-prototype) .driver-drivers-vehicles-prototype > .subbar .crumb {
+    position: absolute !important;
+    left: 14px !important;
+    top: 0 !important;
+    height: 40px !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 3px !important;
+    color: #64748b !important;
+    font-size: 10.5px !important;
+    font-weight: 600 !important;
+    white-space: nowrap !important;
+    pointer-events: auto !important;
+  }
+
+  .xdrive-operational-top-workspace:has(.driver-drivers-vehicles-prototype) .driver-drivers-vehicles-prototype > .subbar .crumb b {
+    color: #172033 !important;
+    font-size: 11.5px !important;
+    font-weight: 800 !important;
+  }
+
+  .xdrive-operational-top-workspace:has(.driver-drivers-vehicles-prototype) .driver-drivers-vehicles-prototype > .subbar .sub-actions {
+    position: absolute !important;
+    top: 4px !important;
+    right: 14px !important;
+    height: 32px !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    pointer-events: auto !important;
+  }
+
+  .xdrive-operational-top-workspace:has(.driver-drivers-vehicles-prototype) .driver-drivers-vehicles-prototype > .subbar .sub-actions .btn {
+    height: 32px !important;
+    min-height: 32px !important;
+    padding: 0 10px !important;
+    font-size: 11px !important;
+    font-weight: 750 !important;
+    white-space: nowrap !important;
+  }
+}
