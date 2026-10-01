@@ -515,6 +515,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
         referenceId?: string;
+        reason?: string;
+        resolution?: string;
         setupCompanyId?: string;
         setupUrl?: string;
         code?: string;
@@ -538,7 +540,10 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           if (url && (payload.code !== 'COMMERCIAL_LEGAL_REACCEPTANCE_REQUIRED' || ['owner', 'admin'].includes(user?.membershipRole ?? ''))) setRemediationAction({ url, label });
         }
         const baseMessage = payload?.error ?? 'The load could not be saved.';
-        throw new Error(payload?.referenceId ? `${baseMessage} Error reference: ${payload.referenceId}.` : baseMessage);
+        const reasonText = payload?.reason ? ` Cause: ${payload.reason}` : '';
+        const resolutionText = payload?.resolution ? ` Resolution: ${payload.resolution}` : '';
+        const referenceText = payload?.referenceId ? ` Error reference: ${payload.referenceId}.` : '';
+        throw new Error(`${baseMessage}${reasonText}${resolutionText}${referenceText}`);
       }
 
       if (documentFiles.length > 0) {

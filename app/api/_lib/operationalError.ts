@@ -7,6 +7,8 @@ export type OperationalErrorOptions = {
   context: string;
   cause?: unknown;
   retryable?: boolean;
+  reason?: string;
+  resolution?: string;
 };
 
 export function operationalError({
@@ -15,6 +17,8 @@ export function operationalError({
   context,
   cause,
   retryable = status >= 500,
+  reason,
+  resolution,
 }: OperationalErrorOptions) {
   const referenceId = `XD-${randomUUID().slice(0, 8).toUpperCase()}`;
 
@@ -25,6 +29,8 @@ export function operationalError({
       error: message,
       referenceId,
       retryable,
+      ...(reason ? { reason } : {}),
+      ...(resolution ? { resolution } : {}),
     },
     { status },
   );

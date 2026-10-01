@@ -366,11 +366,12 @@ export async function POST(request: NextRequest) {
   };
 
   const ensureCreationEvent = async (job: { id: string; status: unknown }) => {
-    const eventType = String(job.status) === 'draft'
+    const creationAction = String(job.status) === 'draft'
       ? 'load_draft_saved'
       : directInviteTarget
         ? 'direct_booking_sent'
         : 'load_published';
+    const eventType = 'created';
     const { data: existingEvent, error: existingEventError } = await adminClient
       .from('job_tracking_events')
       .select('id')
@@ -386,6 +387,8 @@ export async function POST(request: NextRequest) {
         context: `jobs.create.audit-check.job:${job.id}`,
         cause: existingEventError,
         retryable: true,
+        reason: 'The platform could not verify the audit history for this saved load.',
+        resolution: 'Retry once. If the warning returns, the saved load remains intact and XDrive support can use the error reference to repair the audit record.',
       });
     }
     if (existingEvent) return null;
@@ -393,19 +396,20 @@ export async function POST(request: NextRequest) {
     const eventTime = new Date().toISOString();
     const { error: eventError } = await adminClient.from('job_tracking_events').insert({
       job_id: job.id,
-      load_id: job.id,
+      load_id: null,
       event_type: eventType,
       event_time: eventTime,
       user_id: authData.user.id,
       created_by: authData.user.id,
-      message: eventType === 'load_draft_saved'
+      message: creationAction === 'load_draft_saved'
         ? 'Load draft saved.'
-        : eventType === 'direct_booking_sent'
+        : creationAction === 'direct_booking_sent'
           ? 'Direct Booking sent to the selected carrier.'
           : 'Load published to the carrier marketplace.',
       meta: {
         company_id: input.companyId,
         source: input.mode,
+        creation_action: creationAction,
         visibility: directInviteTarget ? 'direct' : (input.publish ? 'exchange' : 'private'),
       },
     });
@@ -416,6 +420,8 @@ export async function POST(request: NextRequest) {
         context: `jobs.create.audit-insert.job:${job.id}`,
         cause: eventError,
         retryable: true,
+        reason: 'The load itself was saved, but the separate audit-history record was rejected by the audit store.',
+        resolution: 'Do not repost the load. Retry once to repair the missing audit event; if it still fails, use the error reference shown here.',
       });
     }
     return null;

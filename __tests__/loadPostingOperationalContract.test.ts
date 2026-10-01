@@ -136,11 +136,14 @@ describe('load posting operational contract', () => {
     expect(form).toContain('StripeSetupAction');
   });
 
-  it('records an idempotent creation event for Customer Event Log history', () => {
+  it('records an idempotent schema-valid creation event for Customer Event Log history', () => {
     expect(createApi).toContain("from('job_tracking_events')");
+    expect(createApi).toContain("const eventType = 'created'");
     expect(createApi).toContain("'load_draft_saved'");
     expect(createApi).toContain("'load_published'");
     expect(createApi).toContain("'direct_booking_sent'");
+    expect(createApi).toContain('creation_action: creationAction');
+    expect(createApi).toContain('load_id: null');
     expect(createApi).toContain('ensureCreationEvent(existingResult.data)');
     expect(createApi).toContain('ensureCreationEvent(createdJob)');
   });
