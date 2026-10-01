@@ -1,6 +1,6 @@
 'use client';
 
-import { Fragment, useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import ReturnJourneyMap from '../_components/ReturnJourneyMap';
 import { useAuth } from '../../components/AuthContext';
@@ -364,8 +364,7 @@ export default function ReturnJourneysPage() {
             {tab === 'mine' && <div className="filter"><div className="linkrow active">Journeys<span className="count">{total}</span></div><div className="linkrow">Live status<span className="count">{liveStatus}</span></div><div className="linkrow">Future position<span className="count">{driver?.future_position ?? 'None'}</span></div></div>}
             {tab === 'add' && <form onSubmit={(event) => void saveFuturePosition(event)}><div className="filter"><span className="label">Future location</span><input className="input" value={futurePosition} onChange={(event) => setFuturePosition(event.target.value)} placeholder="e.g. Birmingham B1" /></div><div className="filter"><span className="label">Available from</span><input className="input" type="datetime-local" value={futureDate} onChange={(event) => setFutureDate(event.target.value)} /></div><button type="submit" className="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save Position'}</button></form>}
           </aside>
-          <main className="main">
-            <div className="head"><div><h1>Return Journeys</h1><p>Search, track and advertise empty vehicle journeys and future capacity</p></div></div>
+          <main className="main returns-main">
             {error && <AlertBanner tone="danger">{error}</AlertBanner>}
             {successMsg && <AlertBanner tone="success">{successMsg}</AlertBanner>}
             <div className="return-tabs">
@@ -403,14 +402,51 @@ export default function ReturnJourneysPage() {
               <>
                 <div className="toolbar"><b>{tab === 'mine' ? 'My Return Journeys' : 'Available Return Journeys'}</b><span className="spacer muted small">{generatedAt ? `Updated ${new Date(generatedAt).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}` : ''}</span>{view === 'list' && <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!journeys.length} onToggle={toggleExpandAll} noun="return journeys" />}</div>
                 {loading ? <div className="xd2-calm-empty"><b>Loading journeys…</b><span>Refreshing exchange results.</span></div> : journeys.length === 0 ? <div className="xd2-calm-empty"><b>No matching journeys</b><span>{tab === 'mine' ? 'Publish a return journey to advertise your empty vehicle.' : 'Adjust the search or publish a new empty-vehicle journey.'}</span></div> : (
-                  <div className="tablewrap">
-                    <table style={{ minWidth: 1380 }}><thead><tr><th>Journey</th><th>Route</th><th>Departs At</th><th>ETA</th><th>Vehicle</th><th>Distance</th><th>Member</th><th>Actions</th></tr></thead><tbody>
-                      {journeys.map((journey) => {
-                        const open = expanded[journey.id] === true;
-                        return <Fragment key={journey.id}><tr className="return-row"><td><b>{journey.id.slice(0,8).toUpperCase()}</b><span className="meta">{journey.journeyKind === 'regular' ? 'Regular Journey' : 'Empty Vehicle Journey'}</span></td><td><span className="route">{journey.from || 'Not set'} <span>→</span> {journey.goAnywhere ? 'Go Anywhere' : journey.to || 'Not set'}</span></td><td>{fmtDate(journey.availableFrom)}</td><td>Unavailable</td><td>{vehicleLabel(journey.vehicleType)}<span className="meta">{journey.bodyType || 'Body not specified'}</span></td><td>{journey.journeyDistanceMiles != null ? `${journey.journeyDistanceMiles} miles` : 'Unavailable'}</td><td><b><MemberIdentityLink companyId={journey.companyId}>{journey.member.name}</MemberIdentityLink></b><span className="meta">{journey.member.code ? `Member ID ${journey.member.code}` : journey.driverName ?? 'Exchange member'}</span></td><td><button type="button" className="rowbtn blue" onClick={() => setExpanded((current) => ({ ...current, [journey.id]: !open }))}>{open ? 'Close' : 'Track'}</button>{tab === 'mine' && journey.status !== 'cancelled' && <button type="button" className="rowbtn" onClick={() => void cancelJourney(journey.id)}>Cancel</button>}</td></tr>
-                        {open && <tr className="return-row-detail"><td colSpan={8}><div className="fleet-inspector"><div><b>Journey details</b><span className="meta">Via: {journey.viaLocations.length ? journey.viaLocations.join(' → ') : 'Direct / not specified'} · Weight: {journey.weightKg != null ? `${journey.weightKg} kg` : 'Not supplied'} · Space: {journey.spaceUnits ?? 'Not supplied'} · Posted: {fmtDate(journey.createdAt)}</span></div><a className="rowbtn blue" href={routeUrl(journey)} target="_blank" rel="noopener noreferrer">Open Route</a></div></td></tr>}</Fragment>;
-                      })}
-                    </tbody></table>
+                  <div className="return-card-list">
+                    {journeys.map((journey) => {
+                      const open = expanded[journey.id] === true;
+                      const destination = journey.goAnywhere ? 'Go Anywhere' : journey.to || 'Not set';
+                      return (
+                        <article key={journey.id} className={`return-card${open ? ' expanded' : ''}`}>
+                          <div className="return-card-main">
+                            <div className="return-card-route">
+                              <div><span>From:</span><strong>{journey.from || 'Not set'}</strong></div>
+                              <div><span>To:</span><strong>{destination}</strong></div>
+                              <div className="return-posted"><span>Posted:</span><strong>{fmtDate(journey.createdAt)}</strong></div>
+                            </div>
+                            <div className="return-card-timing">
+                              <div><span>Departs At:</span><strong>{fmtDate(journey.availableFrom)}</strong></div>
+                              <div><span>ETA:</span><strong>{journey.availableTo ? fmtDate(journey.availableTo) : 'Not supplied'}</strong></div>
+                              <div className="return-capacity-grid">
+                                <div><span>Weight:</span><strong>{journey.weightKg != null ? `${journey.weightKg} kg` : 'Not supplied'}</strong></div>
+                                <div><span>Space:</span><strong>{journey.spaceUnits ?? 'Not supplied'}</strong></div>
+                                <div><span>Dist:</span><strong>{journey.journeyDistanceMiles != null ? `${journey.journeyDistanceMiles} miles` : 'Unavailable'}</strong></div>
+                              </div>
+                            </div>
+                            <div className="return-card-vehicle">
+                              <div className="return-vehicle-title">Empty Vehicle</div>
+                              <div className="return-journey-id">Journey ID: {journey.id.slice(0,8).toUpperCase()}</div>
+                              <strong className="return-vehicle-type">{vehicleLabel(journey.vehicleType)}</strong>
+                              <span className="return-body-type">{journey.bodyType || 'Body not specified'}{journey.goAnywhere ? ' · Go Anywhere' : ''}</span>
+                            </div>
+                          </div>
+                          {open ? (
+                            <div className="return-card-detail">
+                              <div><span>Via:</span><strong>{journey.viaLocations.length ? journey.viaLocations.join(' → ') : 'Direct / not specified'}</strong></div>
+                              <div><span>Type:</span><strong>{journey.journeyKind === 'regular' ? 'Regular' : 'Ad Hoc'}</strong></div>
+                              {journey.notes ? <div className="return-notes"><span>Notes:</span><strong>{journey.notes}</strong></div> : null}
+                            </div>
+                          ) : null}
+                          <div className="return-card-footer">
+                            <button type="button" className="return-expand" onClick={() => setExpanded((current) => ({ ...current, [journey.id]: !open }))} aria-label={open ? 'Collapse journey' : 'Expand journey'}>{open ? '▴' : '▾'}</button>
+                            <a className="return-action return-action-track" href={routeUrl(journey)} target="_blank" rel="noopener noreferrer">Track</a>
+                            {tab === 'mine' && journey.status !== 'cancelled' ? <button type="button" className="return-action" onClick={() => void cancelJourney(journey.id)}>Cancel</button> : null}
+                            <span className="return-footer-spacer" />
+                            <span className="return-member"><MemberIdentityLink companyId={journey.companyId}>{journey.member.code ? `(${journey.member.code}) ` : ''}{journey.member.name}</MemberIdentityLink>{journey.member.phone ? ` · ${journey.member.phone}` : ''}</span>
+                          </div>
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </>
