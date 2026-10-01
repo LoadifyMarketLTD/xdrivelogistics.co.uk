@@ -480,7 +480,7 @@ export default function DriverDashboard() {
       <DriverWorkspaceShell
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
         driverName="Today"
-        subtitle="Your current job, next action and next booking."
+        subtitle={ownerDriver ? 'Business control centre for bookings, finance, reports, compliance and network activity.' : 'Your current job, next action and next booking.'}
         headerActions={
           <>
             <button
@@ -499,6 +499,7 @@ export default function DriverDashboard() {
         {transitionError ? <AlertBanner tone="danger">{transitionError}</AlertBanner> : null}
         {transitionMessage ? <AlertBanner tone="success">{transitionMessage}</AlertBanner> : null}
 
+        {!ownerDriver ? <>
         <section className="driver-dashboard-statusbar" aria-label="Driver status">
           <button type="button" onClick={() => router.push('/driver/availability')}>
             <span>Availability</span>
@@ -628,6 +629,7 @@ export default function DriverDashboard() {
             </button>
           </div>
         </section>
+        </> : null}
 
         {ownerDriver ? (
           <>
@@ -645,6 +647,25 @@ export default function DriverDashboard() {
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/messages')}>Freight Messenger</ActionButton>
               </div>
             </OperationalToolbar>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(0,1fr))', gap: 6, marginBottom: 8 }} aria-label="Owner driver operating status">
+              <button type="button" onClick={() => router.push('/driver/availability/live')} style={{ minHeight: 48, padding: '6px 8px', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface, textAlign: 'left', cursor: 'pointer' }}>
+                <span style={{ display: 'block', fontSize: 9, color: workspaceTheme.muted, textTransform: 'uppercase' }}>Availability</span>
+                <strong style={{ display: 'block', fontSize: 12 }}>{humanize(profile?.availability_status)}</strong>
+              </button>
+              <button type="button" onClick={() => router.push('/driver/vehicles')} style={{ minHeight: 48, padding: '6px 8px', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface, textAlign: 'left', cursor: 'pointer' }}>
+                <span style={{ display: 'block', fontSize: 9, color: workspaceTheme.muted, textTransform: 'uppercase' }}>Active vehicle</span>
+                <strong style={{ display: 'block', fontSize: 12 }}>{vehicle?.reg_plate ?? 'Not assigned'}</strong>
+              </button>
+              <button type="button" onClick={() => router.push('/driver/history')} style={{ minHeight: 48, padding: '6px 8px', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface, textAlign: 'left', cursor: 'pointer' }}>
+                <span style={{ display: 'block', fontSize: 9, color: workspaceTheme.muted, textTransform: 'uppercase' }}>Assigned work</span>
+                <strong style={{ display: 'block', fontSize: 12 }}>{assignedWorkMetric}</strong>
+              </button>
+              <button type="button" onClick={() => currentJob ? router.push(`/driver/jobs/${currentJob.id}`) : router.push('/driver/history')} style={{ minHeight: 48, padding: '6px 8px', border: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surface, textAlign: 'left', cursor: 'pointer' }}>
+                <span style={{ display: 'block', fontSize: 9, color: workspaceTheme.muted, textTransform: 'uppercase' }}>Current action</span>
+                <strong style={{ display: 'block', fontSize: 12 }}>{currentAction?.label ?? 'No active action'}</strong>
+              </button>
+            </div>
 
             <PendingBookingOffers onChanged={() => void refreshDashboard()} />
 
