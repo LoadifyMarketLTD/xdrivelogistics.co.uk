@@ -6,7 +6,6 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
-import { autoGenerateMarketplaceInvoice } from '../../../../_lib/autoGenerateMarketplaceInvoice';
 
 const bodySchema = z.object({
   nextStatus: z.enum([
@@ -124,9 +123,9 @@ export async function POST(
   if (!job.assigned_driver_id) {
     return respond(409, { error: 'Assign an approved driver before starting job execution.' });
   }
-  if (parsed.data.nextStatus === 'delivered' && job.pod_required !== false && !hasCompletePod(job as Record<string, unknown>)) {
+  if (parsed.data.nextStatus === 'completed' && !hasCompletePod(job as Record<string, unknown>)) {
     return respond(409, {
-      error: 'Complete POD is required before delivery: provide at least one photo or document, recipient signature and recipient name.',
+      error: 'Complete POD before completing this job: provide at least one delivery photo or POD document, recipient signature and recipient name.',
     });
   }
 
@@ -175,27 +174,6 @@ export async function POST(
   });
   if (trackingError) {
     console.error('Job transition succeeded but tracking event insert failed:', trackingError.message);
-  }
-
-  if (
-    (parsed.data.nextStatus === 'delivered' || parsed.data.nextStatus === 'completed')
-    && typeof job.awarded_carrier_company_id === 'string'
-    && job.awarded_carrier_company_id
-  ) {
-    try {
-      await autoGenerateMarketplaceInvoice({
-        supabase: supabaseAdmin,
-        jobId: id,
-        supplierCompanyId: job.awarded_carrier_company_id,
-        actorUserId: authData.user.id,
-        idempotencyKey: `auto-pod-${id}`,
-      });
-    } catch (reason) {
-      console.error(
-        'Job transition succeeded but auto invoice generation failed:',
-        reason instanceof Error ? reason.message : reason
-      );
-    }
   }
 
   return respond(200, { success: true, job: updated });
