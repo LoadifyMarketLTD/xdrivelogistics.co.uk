@@ -357,7 +357,7 @@ export function mapJob(row: MobileJobRow) {
     paymentTerms: row.payment_terms || '',
     distanceMiles: Number.isFinite(distance) && distance > 0 ? distance : null,
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
-    podRequired: row.pod_required !== false,
+    podRequired: true,
     hardCopyPod: row.hard_copy_pod || '',
     collectionPassRequired: row.collection_pass_required === true,
     podGenerated: hasPod(row),
