@@ -36,7 +36,9 @@ describe('Driver canonical dashboard convergence contract', () => {
 
   it('keeps role separation and degraded data truthful', () => {
     expect(page).toContain("const ownerDriver = workspaceRole === 'owner_driver'");
-    expect(page).toContain('Owner Driver Commercial Position');
+    expect(page).toContain('{ownerDriver ? (');
+    expect(page).toContain('Gross Margin');
+    expect(page).toContain('Sub-contract Spend');
     expect(page).toContain('Assignment data unavailable');
     expect(page).toContain('Assignment data is partial');
     expect(page).toContain("fetch('/api/driver/vehicles'");

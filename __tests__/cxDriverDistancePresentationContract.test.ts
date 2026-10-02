@@ -31,8 +31,10 @@ describe('CX-style driver distance presentation contract', () => {
     expect(assignedJobs).toContain('jobDistanceMinutes: Number(row.job_distance_minutes');
   });
 
-  it('labels the two metrics separately throughout the driver UI', () => {
-    for (const source of [loadBoard, loadDetail, quotes, wonWork]) {
+  it('keeps the approved load-board card compact while separating both metrics on detail and work views', () => {
+    expect(loadBoard).toContain('const jobDistance = load.distance_miles');
+    expect(loadBoard).toContain('load-quickfacts');
+    for (const source of [loadDetail, quotes, wonWork]) {
       expect(source).toContain('To Collection');
       expect(source).toContain('Job Distance');
     }
