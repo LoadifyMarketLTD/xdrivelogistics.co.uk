@@ -9,6 +9,19 @@ SET LOCAL statement_timeout = '120s';
 -- the POD endpoint; the atomic lifecycle blocks completed until that evidence
 -- is present on the canonical job.
 
+-- Invoice creation is an explicit post-POD action. Remove the legacy trigger
+-- that created Marketplace invoices automatically from job lifecycle updates.
+DROP TRIGGER IF EXISTS trg_generate_invoice_on_job_completion ON public.jobs;
+
+-- POD is a platform rule, not a per-job opt-out. Normalise existing jobs and
+-- default future rows to mandatory digital POD.
+UPDATE public.jobs
+SET pod_required = true
+WHERE pod_required IS DISTINCT FROM true;
+
+ALTER TABLE public.jobs
+  ALTER COLUMN pod_required SET DEFAULT true;
+
 CREATE OR REPLACE FUNCTION public.driver_update_job_status_atomic(
   p_driver_id uuid,
   p_job_id uuid,
