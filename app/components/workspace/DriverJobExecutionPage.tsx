@@ -10,6 +10,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
 import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge, TwoColumn } from './WorkspaceUI';
 import WorkspaceJobReplay from './WorkspaceJobReplay';
+import DriverPodCapturePanel from './DriverPodCapturePanel';
 
 const statusLabel: Record<string, string> = {
   awarded: 'Awarded', allocated: 'Allocated', accepted: 'Accepted', on_my_way: 'On my way to pickup',
@@ -152,13 +153,8 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const [message, setMessage] = useState('');
   const [notes, setNotes] = useState('');
   const [collectionPhotos, setCollectionPhotos] = useState<string[]>([]);
-  const [deliveryPhotos, setDeliveryPhotos] = useState<string[]>([]);
-  const [recipientName, setRecipientName] = useState('');
-  const [signing, setSigning] = useState(false);
-  const signatureRef = useRef<HTMLCanvasElement>(null);
   const collectionCameraInput = useRef<HTMLInputElement>(null);
   const collectionGalleryInput = useRef<HTMLInputElement>(null);
-  const deliveryInput = useRef<HTMLInputElement>(null);
 
   const authHeader = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -187,8 +183,6 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
         ? [row.collection_photo_url]
         : [];
     setCollectionPhotos([...new Set(pickupPhotos)].slice(0, 10));
-    setDeliveryPhotos(Array.isArray(row.delivery_photos) ? row.delivery_photos : []);
-    setRecipientName(row.client_signature_name ?? '');
 
     const auth = await authHeader();
     if (auth) {
@@ -205,16 +199,6 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
   useEffect(() => { void loadJob(); }, [loadJob]);
 
-  const uploadImage = async (file: File, kind: 'collection' | 'delivery') => {
-    if (!companyId) throw new Error('Company context is missing.');
-    if (!file.type.startsWith('image/')) throw new Error('Only image files can be uploaded here.');
-    if (file.size > 15 * 1024 * 1024) throw new Error('Images must be 15 MB or smaller.');
-    const extension = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'jpg';
-    const path = `${companyId}/${jobId}/${kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
-    const { error: uploadError } = await supabase.storage.from('pod-photos').upload(path, file, { upsert: false, contentType: file.type });
-    if (uploadError) throw new Error(uploadError.message);
-    return path;
-  };
 
   const uploadCollectionEvidence = async (file: File) => {
     if (!['image/jpeg', 'image/png'].includes(file.type)) throw new Error('Collection photos must be JPEG or PNG images.');
@@ -257,59 +241,9 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       await loadJob();
     } finally { setWorking(false); }
   };
-  const selectDeliveryPhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(event.target.files ?? []);
-    if (!files.length) return;
-    setWorking(true); setError('');
-    try {
-      const paths: string[] = [];
-      for (const file of files) paths.push(await uploadImage(file, 'delivery'));
-      setDeliveryPhotos((current) => [...current, ...paths]);
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Delivery photo upload failed.'); }
-    finally { setWorking(false); }
-  };
-
-  const pointer = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    const canvas = signatureRef.current;
-    if (!canvas) return null;
-    const rect = canvas.getBoundingClientRect();
-    const source = 'touches' in event ? event.touches[0] : event;
-    return { x: source.clientX - rect.left, y: source.clientY - rect.top };
-  };
-
-  const startSignature = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    const point = pointer(event);
-    const context = signatureRef.current?.getContext('2d');
-    if (!point || !context) return;
-    setSigning(true); context.beginPath(); context.moveTo(point.x, point.y);
-  };
-
-  const drawSignature = (event: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!signing) return;
-    event.preventDefault();
-    const point = pointer(event);
-    const context = signatureRef.current?.getContext('2d');
-    if (!point || !context) return;
-    context.lineWidth = 2; context.lineCap = 'round'; context.strokeStyle = '#0b2f6b'; context.lineTo(point.x, point.y); context.stroke();
-  };
-
-  const clearSignature = () => {
-    const canvas = signatureRef.current;
-    canvas?.getContext('2d')?.clearRect(0, 0, canvas.width, canvas.height);
-  };
-
-  const signatureData = () => {
-    const canvas = signatureRef.current;
-    const context = canvas?.getContext('2d');
-    if (!canvas || !context) return null;
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    return pixels.some((value, index) => index % 4 !== 3 && value !== 0) ? canvas.toDataURL('image/png') : null;
-  };
-
   const moveStatus = async (nextStatus: string) => {
     if (!job || !driverId) return;
     setWorking(true); setError(''); setMessage('');
-    const fields: Record<string, unknown> = {};
     if (nextStatus === 'loaded') {
       if (!collectionPhotos.length) { setError('At least one collection photo is required before the job can be marked loaded.'); setWorking(false); return; }
       const auth = await authHeader();
@@ -333,17 +267,14 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       await loadJob();
       setWorking(false);
       return;
-    }    if (nextStatus === 'delivered') {
-      const signature = signatureData();
-      if (!deliveryPhotos.length) { setError('At least one delivery photo is required.'); setWorking(false); return; }
-      if (!recipientName.trim()) { setError('Recipient name is required.'); setWorking(false); return; }
-      if (!signature) { setError('Recipient signature is required.'); setWorking(false); return; }
-      fields.p_delivery_photos = deliveryPhotos;
-      fields.p_delivery_signature_data = signature;
-      fields.p_client_signature_name = recipientName.trim();
+    }
+    if (nextStatus === 'delivered') {
+      setError('Complete the POD panel before marking this job delivered.');
+      setWorking(false);
+      return;
     }
     const { error: transitionError } = await supabase.rpc('driver_update_job_status_atomic', {
-      p_driver_id: driverId, p_job_id: job.id, p_next_status: nextStatus, p_driver_notes: notes.trim() || null, ...fields,
+      p_driver_id: driverId, p_job_id: job.id, p_next_status: nextStatus, p_driver_notes: notes.trim() || null,
     });
     if (transitionError) setError(transitionError.message);
     else { setMessage(`Job updated: ${statusLabel[nextStatus] ?? nextStatus}.`); await loadJob(); }
@@ -353,6 +284,13 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   if (loading) return <PageFrame><EmptyState title="Loading assigned job…" /></PageFrame>;
   if (!job) return <PageFrame><AlertBanner tone="danger">{error || 'Job not found.'}</AlertBanner></PageFrame>;
 
+  const podJob = job as DbJob & {
+    damage_photos?: string[] | null;
+    pod_photos?: string[] | null;
+    pod_required?: boolean | null;
+    pod_generated?: boolean | null;
+    pod_generated_at?: string | null;
+  };
   const currentStatus = canonicalExecutionStatus(job.current_status ?? job.status);
   const nextStatus = nextDriverExecutionStatus(currentStatus);
   const nextLabel = nextStatus ? nextActionLabel[nextStatus] ?? statusLabel[nextStatus] ?? nextStatus : null;
@@ -479,7 +417,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 8 }}>
-          {nextStatus && nextLabel && <ActionButton tone="success" disabled={working} onClick={() => void moveStatus(nextStatus)}>{working ? 'Saving…' : nextLabel}</ActionButton>}
+          {nextStatus && nextLabel && nextStatus !== 'delivered' && <ActionButton tone="success" disabled={working} onClick={() => void moveStatus(nextStatus)}>{working ? 'Saving…' : nextLabel}</ActionButton>}
           {navigationStage && navigationAddress && <>
             <a href={mapsUrl(navigationAddress, navigationPostcode)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Google Maps ? {navigationStage === 'pickup' ? 'Pickup' : 'Delivery'}</a>
             <a href={wazeUrl(navigationAddress, navigationPostcode)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Waze ? {navigationStage === 'pickup' ? 'Pickup' : 'Delivery'}</a>
@@ -513,7 +451,25 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
               {collectionPhotos.length > 0 && <div style={{ marginTop: 6, color: '#64748b', fontSize: 11 }}>Verified collection evidence: {collectionPhotos.length}/10 photos.</div>}
             </Panel>
           )}
-          {currentStatus === 'on_site_delivery' && <Panel title="Delivery evidence" description="Photo, recipient name and signature are all required."><input ref={deliveryInput} type="file" accept="image/*" capture="environment" multiple hidden onChange={selectDeliveryPhotos} /><div style={{ display: 'grid', gap: 7 }}><ActionButton tone="secondary" disabled={working} onClick={() => deliveryInput.current?.click()}>Add delivery photos ({deliveryPhotos.length})</ActionButton><input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} /><canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} /><ActionButton tone="secondary" onClick={clearSignature}>Clear signature</ActionButton></div></Panel>}
+          {currentStatus === 'on_site_delivery' && (
+            <DriverPodCapturePanel
+              jobId={job.id}
+              podRequired={sheet?.podRequired ?? podJob.pod_required ?? true}
+              hardCopyPod={sheet?.hardCopyPod}
+              existingDeliveryPhotos={Array.isArray(job.delivery_photos) ? job.delivery_photos : []}
+              existingDamagePhotos={Array.isArray(podJob.damage_photos) ? podJob.damage_photos : []}
+              existingDocuments={Array.isArray(podJob.pod_photos) ? podJob.pod_photos : []}
+              existingRecipientName={job.client_signature_name}
+              existingSignature={Boolean(job.delivery_signature_data)}
+              driverNotes={notes}
+              onError={setError}
+              onSaved={async (notice) => {
+                setError('');
+                setMessage(notice);
+                await loadJob();
+              }}
+            />
+          )}
         </div>
 
         <div style={{ display: 'grid', gap: 8, alignContent: 'start' }}>
@@ -521,7 +477,21 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
           <Panel title="Journey Replay" description="GPS route, tracked distance, speed evidence and lifecycle events for this assigned job."><WorkspaceJobReplay jobId={jobId} /></Panel>
           <Panel title="Notes" description="Driver operational notes remain separate from the awarded Order confirmation."><textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} placeholder="Loading condition, waiting time, access issue or delivery note" style={{ ...inputStyle, resize: 'vertical' }} /></Panel>
           <Panel title="Documents"><div style={{ display: 'grid', gap: 5 }}>{sheet?.documents.length ? sheet.documents.map((document) => <div key={document.id ?? `${document.type}-${document.createdAt}`} className="driver-detail-item"><span>{document.type}</span><strong>{document.fileName ?? 'Job document'}</strong><small>{formatDateTime(document.createdAt)}</small></div>) : <EmptyState title="No job documents" />}</div></Panel>
-          <Panel title="POD and invoice"><div className="driver-detail-grid"><div className="driver-detail-item"><span>Delivery photos</span><strong>{deliveryPhotos.length}</strong></div><div className="driver-detail-item"><span>Recipient</span><strong>{job.client_signature_name ?? 'Not captured'}</strong></div><div className="driver-detail-item"><span>Invoice</span><strong>{sheet?.invoices[0]?.number ?? 'Not generated'}</strong><small>{sheet?.invoices[0]?.paymentStatus ?? sheet?.invoices[0]?.status ?? ''}</small></div></div></Panel>
+          <Panel title="POD and invoice">
+            <div className="driver-detail-grid">
+              <div className="driver-detail-item">
+                <span>POD status</span>
+                <strong>{podJob.pod_generated ? 'Captured' : 'Not completed'}</strong>
+                <small>{podJob.pod_generated_at ? formatDateTime(podJob.pod_generated_at) : 'No POD completion timestamp'}</small>
+              </div>
+              <div className="driver-detail-item"><span>Delivery photos</span><strong>{Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0}</strong></div>
+              <div className="driver-detail-item"><span>Damage photos</span><strong>{Array.isArray(podJob.damage_photos) ? podJob.damage_photos.length : 0}</strong></div>
+              <div className="driver-detail-item"><span>POD documents</span><strong>{Array.isArray(podJob.pod_photos) ? podJob.pod_photos.length : 0}</strong></div>
+              <div className="driver-detail-item"><span>Recipient</span><strong>{job.client_signature_name ?? 'Not captured'}</strong></div>
+              <div className="driver-detail-item"><span>Signature</span><strong>{job.delivery_signature_data ? 'Captured' : 'Not captured'}</strong></div>
+              <div className="driver-detail-item"><span>Invoice</span><strong>{sheet?.invoices[0]?.number ?? 'Not generated'}</strong><small>{sheet?.invoices[0]?.paymentStatus ?? sheet?.invoices[0]?.status ?? ''}</small></div>
+            </div>
+          </Panel>
         </div>
       </TwoColumn>
     </PageFrame>
