@@ -16,7 +16,7 @@ export default function DriversVehiclesRedirectPage() {
   }, [router]);
 
   return (
-    <div style={{ minHeight: '100vh', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+    <div className="carrier-redirect-page" style={{ minHeight: '100vh', background: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
       <p style={{ color: '#6b7280', fontSize: '0.95rem' }}>Opening Drivers &amp; Vehicles…</p>
     </div>
   );

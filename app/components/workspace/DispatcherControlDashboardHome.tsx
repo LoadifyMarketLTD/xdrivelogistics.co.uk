@@ -100,7 +100,7 @@ export default function DispatcherControlDashboardHome() {
   const trackingUnavailable = unavailable(data, ['drivers', 'locations']);
 
   return (
-    <div style={{ width: '100%', padding: '12px 12px 16px' }}>
+    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '8px 10px 12px' }}>
       <DashboardHomeHeader
         eyebrow="Operations control"
         title="Dispatcher Dashboard"
@@ -183,7 +183,7 @@ export default function DispatcherControlDashboardHome() {
           </>
         }
         aside={
-          <div style={{ display: 'grid', gap: '12px' }}>
+          <div style={{ display: 'grid', gap: '8px' }}>
             <OperationalAttentionRail
               title="Live exceptions"
               subtitle="Operational exceptions and stale driver positions."

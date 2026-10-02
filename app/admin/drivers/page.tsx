@@ -331,7 +331,7 @@ This permanently removes only an inactive Driver with no protected operational d
 
   return (
     <ProtectedRoute>
-      <div style={{ background: '#eef2f7', minHeight: '100vh', padding: '1rem' }}>
+      <div className="carrier-register-page carrier-register-page--drivers" style={{ background: '#eef2f7', minHeight: '100vh', padding: '1rem' }}>
         <div style={{ background: '#111827', color: '#e5e7eb', borderRadius: '14px', border: '1px solid #1f2937', padding: '0.8rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontWeight: '600' }}>
             <span style={{ width: '0.6rem', height: '0.6rem', borderRadius: '999px', background: '#4ade80' }} />
@@ -428,13 +428,13 @@ This permanently removes only an inactive Driver with no protected operational d
             </div>
 
             {!companyResolved || loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+              <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
             ) : !companyId ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+              <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                 <p>Company profile not available. Drivers are hidden until company access resolves.</p>
               </div>
             ) : filteredDrivers.length === 0 ? (
-              <div style={{ padding: '3rem', display: 'grid', placeItems: 'center' }}>
+              <div className="carrier-register-empty" style={{ padding: '3rem', display: 'grid', placeItems: 'center' }}>
                 <div style={{ width: '100%', maxWidth: '560px', border: '1px dashed #cbd5e1', borderRadius: '16px', background: '#f8fafc', padding: '2.2rem', textAlign: 'center', color: '#64748b' }}>
                   <div style={{ fontSize: '2.3rem', marginBottom: '0.85rem' }}>🚚</div>
                   <p style={{ margin: 0, fontWeight: '600', color: '#334155' }}>

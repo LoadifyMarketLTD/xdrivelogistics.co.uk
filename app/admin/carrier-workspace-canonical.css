@@ -1,0 +1,556 @@
+/* Carrier workspace canonical geometry.
+ * Scoped to /admin only. Owner Driver and Super Admin are intentionally untouched. */
+.xdrive-workspace-measured.xdrive-carrier-workspace {
+  --ws-page-x: 10px;
+  --ws-page-y: 8px;
+  --ws-gap-grid: 8px;
+  --ws-gap-section: 8px;
+  --ws-filter-rail-w: 185px;
+  --ws-control-h: 32px;
+  --ws-tab-h: 38px;
+  --ws-panel-head-h: 38px;
+  --ws-table-head-h: 36px;
+  --ws-table-row-h: 46px;
+  --ws-font-page-title: 21px;
+  --ws-font-body: 12.5px;
+  --ws-font-label: 11.5px;
+  --ws-font-meta: 11px;
+  --ws-font-micro: 11px;
+  --ws-radius: 3px;
+}
+
+.xdrive-carrier-workspace .top-workspace-shell__content {
+  background: #f4f6f8;
+  color: #1a1f2b;
+}
+
+.xdrive-carrier-workspace .carrier-register-page,
+.xdrive-carrier-workspace .carrier-detail-page,
+.xdrive-carrier-workspace .carrier-redirect-page {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  background: #f4f6f8 !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page {
+  min-height: calc(100vh - 100px) !important;
+  padding: 8px 10px 12px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page > div:first-child {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page h1,
+.xdrive-carrier-workspace .carrier-register-page > div > div:first-child h2 {
+  margin: 0 !important;
+  color: #172033 !important;
+  font-size: 21px !important;
+  line-height: 26px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page h1 + p,
+.xdrive-carrier-workspace .carrier-register-page > div > div:first-child h2 + p {
+  margin-top: 2px !important;
+  color: #64748b !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page > div > header,
+.xdrive-carrier-workspace .carrier-register-page > div > form,
+.xdrive-carrier-workspace .carrier-register-page > div > section {
+  border: 1px solid #cfd7e3 !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page > div > header {
+  padding: 8px 10px !important;
+  margin-bottom: 8px !important;
+  background: #fff !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page > div > form {
+  padding: 8px 10px !important;
+  margin-bottom: 8px !important;
+  gap: 8px !important;
+  background: #fff !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page > div > section {
+  background: #fff !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page button {
+  min-height: 30px;
+  border-radius: 3px !important;
+  font-size: 12px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page textarea {
+  border: 1px solid #cbd5e1 !important;
+  border-radius: 3px !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page--drivers > div:first-child {
+  min-height: 38px;
+  padding: 6px 10px !important;
+  margin-bottom: 8px !important;
+  border: 1px solid #cfd7e3 !important;
+  border-radius: 3px !important;
+  background: #fff !important;
+  color: #172033 !important;
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-redirect-page {
+  min-height: calc(100vh - 100px) !important;
+  padding: 10px !important;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+}
+
+.xdrive-carrier-workspace .carrier-redirect-page p {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid #cfd7e3;
+  border-radius: 3px;
+  background: #fff;
+  font-size: 12.5px !important;
+}
+
+.xdrive-carrier-workspace .carrier-detail-page {
+  min-height: calc(100vh - 100px) !important;
+  padding: 8px 10px 12px !important;
+}
+
+.xdrive-carrier-workspace .carrier-detail-page__header {
+  padding: 8px 10px !important;
+  margin-bottom: 8px !important;
+  border: 1px solid #cfd7e3 !important;
+  border-radius: 3px !important;
+  background: #fff !important;
+  color: #172033 !important;
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-detail-page__header > div {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+.xdrive-carrier-workspace .carrier-detail-page__header h1 {
+  margin: 0 !important;
+  color: #172033 !important;
+  font-size: 21px !important;
+  line-height: 26px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-carrier-workspace .carrier-detail-page__header p {
+  margin-top: 2px !important;
+  color: #64748b !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+  opacity: 1 !important;
+}
+
+.xdrive-carrier-workspace .carrier-detail-page__header a,
+.xdrive-carrier-workspace .carrier-detail-page__header button {
+  min-height: 32px !important;
+  padding: 0 9px !important;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid #cfd7e3 !important;
+  border-radius: 3px !important;
+  background: #fff !important;
+  color: #1d57d8 !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  text-decoration: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-detail-page__body {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.xdrive-carrier-workspace .carrier-detail-page input,
+.xdrive-carrier-workspace .carrier-detail-page select {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 8px !important;
+  border-width: 1px !important;
+  border-radius: 3px !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-detail-page textarea {
+  padding: 7px 8px !important;
+  border-width: 1px !important;
+  border-radius: 3px !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-detail-page button {
+  border-radius: 3px !important;
+  font-size: 12px !important;
+}
+
+.xdrive-carrier-workspace .carrier-detail-page__body section,
+.xdrive-carrier-workspace .carrier-detail-page__body form {
+  border-radius: 3px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page table {
+  width: 100%;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page th {
+  height: 36px !important;
+  padding: 0 8px !important;
+  font-size: 11px !important;
+  line-height: 14px !important;
+  font-weight: 700 !important;
+  vertical-align: middle !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page td {
+  height: 46px !important;
+  padding: 6px 8px !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+  vertical-align: middle !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page input,
+.xdrive-carrier-workspace .carrier-register-page select {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 8px !important;
+  border-width: 1px !important;
+  border-radius: 3px !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page > div:first-child > div {
+  border-radius: 3px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page [role="dialog"] {
+  border-radius: 4px !important;
+}
+
+.xdrive-carrier-workspace .xdrive-page-header,
+.xdrive-carrier-workspace .xdrive-dashboard-home-header {
+  min-height: 42px !important;
+  margin-bottom: 8px !important;
+}
+
+.xdrive-carrier-workspace .workspace-tab-strip,
+.xdrive-carrier-workspace [role="tablist"] {
+  min-height: 38px !important;
+}
+
+.xdrive-carrier-workspace .workspace-tab-strip button,
+.xdrive-carrier-workspace [role="tablist"] > button {
+  min-height: 38px !important;
+  height: 38px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page h2 {
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page p,
+.xdrive-carrier-workspace .carrier-register-page label {
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page button {
+  min-height: 32px !important;
+  padding: 0 9px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page > div > section,
+.xdrive-carrier-workspace .carrier-register-page > div > aside,
+.xdrive-carrier-workspace .carrier-register-page > section,
+.xdrive-carrier-workspace .carrier-register-page > aside {
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page--drivers > div:nth-child(2) {
+  grid-template-columns: 185px minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page--drivers > div:nth-child(2) > aside {
+  padding: 8px 10px !important;
+  gap: 8px !important;
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page--drivers > div:nth-child(2) > section {
+  border-radius: 3px !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 980px) {
+  .xdrive-carrier-workspace .carrier-register-page--drivers > div:nth-child(2) {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Jobs create/edit workspace: same dense operational grammar as the Carrier shell. */
+.xdrive-carrier-workspace .carrier-job-create-modal {
+  background: #f4f6f8 !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-workspace {
+  min-height: 100vh !important;
+  background: #f4f6f8 !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-header {
+  min-height: 50px;
+  padding: 7px 10px !important;
+  gap: 8px !important;
+  border-bottom: 1px solid #cfd7e3 !important;
+  background: #fff !important;
+  color: #172033 !important;
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-header h2 {
+  color: #172033 !important;
+  font-size: 20px !important;
+  line-height: 26px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-header h2 + div {
+  margin-top: 1px !important;
+  color: #64748b !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+.xdrive-carrier-workspace .carrier-job-create-header button {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 9px !important;
+  border: 1px solid #cfd7e3 !important;
+  border-radius: 4px !important;
+  background: #fff !important;
+  color: #1d57d8 !important;
+  font-size: 12px !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-body {
+  padding: 8px 10px 58px !important;
+  background: #f4f6f8 !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-body .admin-job-section {
+  padding: 10px !important;
+  margin-bottom: 8px !important;
+  border: 1px solid #d8dee8 !important;
+  border-radius: 4px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-body .admin-job-section h3 {
+  margin-top: 0 !important;
+  margin-bottom: 8px !important;
+  color: #1a1f2b !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-body .admin-job-section h4 {
+  margin-bottom: 6px !important;
+  color: #1a1f2b !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+.xdrive-carrier-workspace .carrier-job-create-body label {
+  margin-bottom: 4px !important;
+  color: #475569 !important;
+  font-size: 11.5px !important;
+  line-height: 14px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-body input:not([type="checkbox"]),
+.xdrive-carrier-workspace .carrier-job-create-body select {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 8px !important;
+  border-width: 1px !important;
+  border-radius: 4px !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-body textarea {
+  padding: 7px 8px !important;
+  border-width: 1px !important;
+  border-radius: 4px !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-body .admin-job-section > div {
+  gap: 8px !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-actions {
+  min-height: 50px;
+  padding: 7px 10px !important;
+  gap: 6px !important;
+  border-top: 1px solid #cfd7e3 !important;
+  background: rgba(255, 255, 255, .98) !important;
+  box-shadow: none !important;
+}
+.xdrive-carrier-workspace .carrier-job-create-actions button {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 10px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-actions > div {
+  padding: 6px 8px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-invite-modal {
+  padding: 10px !important;
+  border: 1px solid #cfd7e3 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-invite-modal h2 {
+  font-size: 18px !important;
+  line-height: 24px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-invite-modal input,
+.xdrive-carrier-workspace .carrier-job-invite-modal select {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 8px !important;
+  border-radius: 4px !important;
+  font-size: 12.5px !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-invite-modal button {
+  min-height: 32px !important;
+  padding: 0 9px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+}
+@media (max-width: 767px) {
+  .xdrive-carrier-workspace .carrier-job-create-header {
+    align-items: flex-start !important;
+  }
+
+  .xdrive-carrier-workspace .carrier-job-create-body {
+    padding: 8px 8px 66px !important;
+  }
+
+  .xdrive-carrier-workspace .admin-job-mobile-stepper {
+    min-height: 38px;
+    gap: 4px !important;
+    padding: 4px 8px !important;
+  }
+
+  .xdrive-carrier-workspace .admin-job-mobile-stepper button {
+    min-height: 30px !important;
+    padding: 0 8px !important;
+    border-radius: 4px !important;
+    font-size: 11px !important;
+  }
+
+  .xdrive-carrier-workspace .carrier-job-create-actions {
+    flex-wrap: wrap;
+  }
+}
+
+.xdrive-carrier-workspace .carrier-register-empty {
+  min-height: 52px !important;
+  padding: 10px !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  background: #fff !important;
+  color: #64748b !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-empty > div:first-child {
+  max-width: none !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-empty > div:first-child > div:first-child {
+  display: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-empty p {
+  margin: 0 !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page [style*="position: fixed"] > div {
+  max-height: calc(100vh - 24px);
+  padding: 10px !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page [style*="box-shadow"] {
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page [style*="padding: 1.5rem"] {
+  padding: 10px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page [style*="margin-bottom: 1.5rem"] {
+  margin-bottom: 8px !important;
+}

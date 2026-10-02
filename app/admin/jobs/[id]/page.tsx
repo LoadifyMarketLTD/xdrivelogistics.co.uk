@@ -443,34 +443,38 @@ export default function JobDetailPage() {
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: '0.75rem',
-    border: '2px solid #e5e7eb',
-    borderRadius: '6px',
-    fontSize: '0.95rem',
+    minHeight: '32px',
+    padding: '6px 8px',
+    border: '1px solid #cbd5e1',
+    borderRadius: '3px',
+    fontSize: '12.5px',
+    lineHeight: '16px',
     outline: 'none',
     transition: 'border-color 0.2s',
   };
 
   const labelStyle: React.CSSProperties = {
     display: 'block',
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: '0.5rem',
+    fontSize: '11.5px',
+    lineHeight: '14px',
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: '4px',
   };
 
   const sectionStyle: React.CSSProperties = {
     backgroundColor: 'white',
-    padding: '1.5rem',
-    borderRadius: '12px',
-    marginBottom: '1.5rem',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+    padding: '10px',
+    border: '1px solid #cfd7e3',
+    borderRadius: '3px',
+    marginBottom: '8px',
+    boxShadow: 'none',
   };
 
   if (!job || !formData) {
     return (
       <ProtectedRoute>
-        <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div className="carrier-redirect-page" style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <div style={{ textAlign: 'center', color: '#6b7280' }}>
             {saveMessage || 'Loading...'}
           </div>
@@ -481,9 +485,10 @@ export default function JobDetailPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
+      <div className="carrier-detail-page" style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
         {/* Header */}
         <div
+          className="carrier-detail-page__header"
           style={{
             backgroundColor: '#0A2239',
             color: 'white',
@@ -532,7 +537,7 @@ export default function JobDetailPage() {
         </div>
 
         {/* Main Content */}
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+        <div className="carrier-detail-page__body" style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
           {/* Actions Bar */}
           <div style={sectionStyle}>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>

@@ -243,7 +243,7 @@ export default function DispatchersPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1rem' }}>
+      <div className="carrier-register-page" style={{ minHeight: '100vh', backgroundColor: '#f3f4f6', padding: '1rem' }}>
         <div style={{ width: '100%' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
             <div>
@@ -285,13 +285,13 @@ export default function DispatchersPage() {
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.1)', overflow: 'hidden' }}>
             {!companyResolved || loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+              <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
             ) : !companyId ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+              <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                 <p>Company profile not available. Dispatcher onboarding is hidden until company access resolves.</p>
               </div>
             ) : dispatchers.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+              <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                 <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>🎛️</div>
                 <p>No dispatchers onboarded yet. Add your first dispatcher.</p>
               </div>

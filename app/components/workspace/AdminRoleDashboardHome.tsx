@@ -16,7 +16,7 @@ import ViewerDashboardHome from './ViewerDashboardHome';
 function BlockedAdminDashboardHome({ reason, homeHref }: { reason: string; homeHref: string | null }) {
   const router = useRouter();
   return (
-    <div style={{ width: '100%', padding: '12px 12px 16px' }}>
+    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '8px 10px 12px' }}>
       <DashboardHomeHeader
         eyebrow="Workspace boundary"
         title="Admin dashboard unavailable"

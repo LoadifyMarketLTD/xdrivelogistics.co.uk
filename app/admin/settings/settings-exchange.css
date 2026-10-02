@@ -359,8 +359,8 @@
 .settings-exchange-nav-group > span {
   padding: 8px 10px 5px;
   color: #64748b;
-  font-size: 10px;
-  line-height: 12px;
+  font-size: 11px;
+  line-height: 14px;
   font-weight: 800;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -372,8 +372,8 @@
 
 .settings-exchange-nav-group button small {
   color: #7b8a9a;
-  font-size: 10px;
-  line-height: 13px;
+  font-size: 11px;
+  line-height: 14px;
   font-weight: 500;
 }
 

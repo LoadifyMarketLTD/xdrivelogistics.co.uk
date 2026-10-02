@@ -266,7 +266,7 @@ export default function DocumentsPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ background: '#f5f7fa', minHeight: '100vh', padding: '0.85rem' }}>
+      <div className="carrier-register-page" style={{ background: '#f5f7fa', minHeight: '100vh', padding: '0.85rem' }}>
         <div style={{ width: '100%' }}>
           <div style={{ marginBottom: '1rem' }}>
             <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Fleet Compliance Documents</h1>
@@ -387,9 +387,9 @@ export default function DocumentsPage() {
 
           <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
             {loading ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+              <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
             ) : visibleDocs.length === 0 ? (
-              <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+              <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
                 <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>📄</div>
                 <p style={{ margin: 0 }}>{pendingOnly ? 'No pending documents found.' : 'No compliance documents found.'}</p>
               </div>

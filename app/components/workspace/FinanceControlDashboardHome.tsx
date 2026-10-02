@@ -113,7 +113,7 @@ export default function FinanceControlDashboardHome() {
   };
 
   return (
-    <div style={{ width: '100%', padding: '12px 12px 16px' }}>
+    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '8px 10px 12px' }}>
       <DashboardHomeHeader
         eyebrow="Finance control"
         title="Finance Dashboard"
@@ -199,7 +199,7 @@ export default function FinanceControlDashboardHome() {
           </>
         }
         aside={
-          <div style={{ display: 'grid', gap: '12px' }}>
+          <div style={{ display: 'grid', gap: '8px' }}>
             <OperationalCard title="Financial exposure" subtitle="Amounts that need finance attention.">
               <FinancialSummaryPanel
                 items={[
