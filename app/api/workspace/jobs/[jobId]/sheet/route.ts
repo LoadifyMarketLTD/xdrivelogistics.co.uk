@@ -275,7 +275,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const brokerMargin = rawCustomerPrice != null && rawCarrierCost != null ? rawCustomerPrice - rawCarrierCost : null;
   const rawPaymentTerms = text(agreement.payment_terms) ?? text(job.payment_terms);
   const paymentTerms = commercialAwardVisible ? rawPaymentTerms : null;
-  const podRequired = boolValue(agreement.pod_required) ?? boolValue(job.pod_required);
+  // Digital POD is a platform requirement for every job. Historical contract
+  // flags are retained in storage but cannot make execution POD optional.
+  const podRequired = true;
 
   const timeline = trackingResult.error ? [] : (trackingResult.data ?? []).map((entry: Record<string, unknown>) => ({
     id: text(entry.id),
