@@ -1439,3 +1439,15 @@
     flex:0 0 auto;
   }
 }
+
+.xdrive-driver-workspace .driver-owner-commercial-position__grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+
+@media(max-width:900px){
+  .xdrive-driver-workspace .driver-owner-commercial-position__grid{
+    grid-template-columns:1fr;
+  }
+}

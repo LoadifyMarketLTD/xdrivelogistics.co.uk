@@ -234,8 +234,10 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
     ['owner-driver-loads-primary', 'Loads', '/driver/loads'],
     ['owner-driver-quotes-primary', 'Quotes', '/driver/quotes'],
     ['owner-driver-diary-primary', 'Diary', '/driver/history'],
+    ['owner-driver-event-log-primary', 'Event Log', '/driver/event-log'],
     ['owner-driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision'],
     ['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles'],
+    ['owner-driver-settings-primary', 'Settings', '/driver/settings'],
   ] : [
     ['driver-dashboard-primary', 'Dashboard', '/driver'],
     ['driver-jobs-primary', 'My Jobs', '/driver/jobs'],

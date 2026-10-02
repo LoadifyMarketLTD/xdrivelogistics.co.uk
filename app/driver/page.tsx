@@ -589,6 +589,49 @@ export default function DriverDashboard() {
               </div>
             </OperationalToolbar>
 
+            <OperationalCard
+              title="Owner Driver Commercial Position"
+              subtitle="A compact view of invoice readiness, outstanding value and return capacity for the owner-driver account."
+            >
+              <div className="driver-owner-commercial-position__grid">
+                <button
+                  type="button"
+                  onClick={() => router.push('/driver/finance')}
+                  style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}
+                >
+                  <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Invoice readiness</span>
+                  <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>
+                    {financeLoading ? 'Loading…' : financeSummary ? `${financeSummary.draft} draft` : 'Unavailable'}
+                  </strong>
+                  <small style={{ color: workspaceTheme.muted }}>Open Finance to review and issue invoices</small>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/driver/finance')}
+                  style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}
+                >
+                  <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Outstanding</span>
+                  <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>
+                    {financeLoading ? 'Loading…' : financeValues ? money(financeValues.outstanding) : 'Unavailable'}
+                  </strong>
+                  <small style={{ color: workspaceTheme.muted }}>Verified unpaid invoice value</small>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => router.push('/driver/returns')}
+                  style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}
+                >
+                  <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Return capacity</span>
+                  <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>
+                    {profile?.future_position ?? 'Not set'}
+                  </strong>
+                  <small style={{ color: workspaceTheme.muted }}>
+                    {profile?.future_position_date ? `Available from ${formatDate(profile.future_position_date)}` : 'Set a future position for return work'}
+                  </small>
+                </button>
+              </div>
+            </OperationalCard>
+
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)', gap: 12, alignItems: 'start' }}>
               <div style={{ display: 'grid', gap: 12 }}>
                 <OperationalCard title="Reports & Statistics">
