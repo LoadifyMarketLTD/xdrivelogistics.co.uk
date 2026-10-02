@@ -159,13 +159,17 @@ describe('individual restrictions always have a truthful recovery action', () =>
     state.tables.onboarding_applications = table([]);
     expect((await request()).payload.blockers).not.toContainEqual(expect.objectContaining({ code: 'ONBOARDING_APPLICATION_REQUIRED' }));
   });
-  it('inherits platform Stripe for XDrive Logistics LTD member workspaces instead of asking for another Stripe account', async () => {
-    state.tables.profiles = table({ user_id: USER, company_id: XDRIVE_LOGISTICS_COMPANY_ID, role: 'customer', status: 'active' });
-    state.tables.company_memberships = table([{ company_id: XDRIVE_LOGISTICS_COMPANY_ID, role_in_company: 'admin', status: 'active' }]);
+  it.each([
+    ['customer', 'admin', 'customer'],
+    ['company_admin', 'dispatcher', 'dispatcher'],
+    ['broker', 'member', 'broker'],
+  ])('inherits platform Stripe for XDrive Logistics LTD %s / %s workspace', async (profileRole, membershipRole, expectedRole) => {
+    state.tables.profiles = table({ user_id: USER, company_id: XDRIVE_LOGISTICS_COMPANY_ID, role: profileRole, status: 'active' });
+    state.tables.company_memberships = table([{ company_id: XDRIVE_LOGISTICS_COMPANY_ID, role_in_company: membershipRole, status: 'active' }]);
     state.tables.companies = table({ id: XDRIVE_LOGISTICS_COMPANY_ID, name: 'XDRIVE LOGISTICS LTD', status: 'active', company_type: 'standard' });
     state.tables.onboarding_applications = table([]);
     const { payload } = await request('?companyId=' + XDRIVE_LOGISTICS_COMPANY_ID);
-    expect(payload.role).toBe('customer');
+    expect(payload.role).toBe(expectedRole);
     expect(state.stripe).not.toHaveBeenCalled();
     expect(payload.blockers).not.toContainEqual(expect.objectContaining({ code: 'STRIPE_COMMERCIAL_READINESS_REQUIRED' }));
     expect(payload.blockers).not.toContainEqual(expect.objectContaining({ code: 'READINESS_UNAVAILABLE_STRIPE' }));
