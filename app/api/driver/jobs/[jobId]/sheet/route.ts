@@ -125,8 +125,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const paymentTerms = text(agreement.payment_terms)
     ?? text(job.payment_terms)
     ?? null;
-  const podRequired = boolValue(agreement.pod_required)
-    ?? boolValue(job.pod_required);
+  // XDrive requires digital POD for every job. Historical agreement/job flags
+  // no longer make POD optional; hard-copy POD remains a separate instruction.
+  const podRequired = true;
   const acceptedAt = text(agreement.accepted_at)
     ?? text(agreement.agreed_at)
     ?? text(acceptedBid.updated_at)
@@ -165,11 +166,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const requestedCargo = text(job.requested_cargo_label) ?? text(job.cargo_type);
   const requirements = requirementFlags(job, vehicle);
   const hardCopyPod = text(job.hard_copy_pod)
-    ?? (podRequired === true
-      ? 'POD required; hard-copy requirement not separately supplied'
-      : podRequired === false
-        ? 'Not required'
-        : 'Not supplied');
+    ?? 'No additional hard-copy POD requirement supplied';
   const contractualExtras = extrasResult.error ? [] : ((extrasResult.data ?? []) as Record<string, unknown>[]).map((entry) => ({
     id: text(entry.id),
     type: text(entry.extra_type),
