@@ -15,7 +15,9 @@ describe('Operational list controls placement contract', () => {
       expect(source).toContain('Items per Page');
     }
 
-    expect(loads).toContain("justifyContent: 'flex-end'");
+    expect(loads).toContain('load-result-controls load-result-controls-primary');
+    expect(loads).toContain('load-result-controls load-result-controls-secondary');
+    expect(loads).toContain('Items per Page');
     expect(loads).not.toContain('<div className="footer"><span>1-');
     expect(quotes).toContain("justifyContent: 'flex-end'");
     expect(quotes).not.toContain('<div className="footer"><span>Items per Page:');

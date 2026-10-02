@@ -113,7 +113,8 @@ describe('XDrive member identity contract', () => {
     expect(memberProfileUi).not.toContain('Company no. ${profile.member.memberId}');
 
     expect(returnsUi).toContain('Member / Driver');
-    expect(returnsUi).toContain('Member ID ${journey.member.code}');
+    expect(returnsUi).toContain('<MemberIdentityLink');
+    expect(returnsUi).toContain("journey.member.code ? `(${journey.member.code}) ` : ''");
     expect(returnsUi).not.toContain('Company no. ${journey.member.code}');
 
     expect(historyUi).toContain('Member ID ${sheet.memberCode}');
