@@ -14,6 +14,7 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
   const router = useRouter();
   const pathname = usePathname();
   const role = suppliedRole ?? resolveWorkspaceRole(user);
+  const driverScope = role === 'driver' || role === 'owner_driver';
   const companyId = suppliedCompanyId === undefined ? user?.companyId : suppliedCompanyId;
   const contextKey = [user?.id, companyId, role].join(':');
   const [snapshot, setSnapshot] = useState<{ key: string; blockers: WorkspaceBlocker[]; error: string; unauthorized: boolean } | null>(null);
@@ -32,7 +33,7 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
     try {
       const { data } = await supabase.auth.getSession();
       let token = data.session?.access_token;
-      if (!token) {
+      if (!token && driverScope) {
         const refreshed = await supabase.auth.refreshSession();
         token = refreshed.data.session?.access_token;
       }
@@ -43,7 +44,7 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
         cache: 'no-store', signal: controller.signal, headers: { Authorization: 'Bearer ' + accessToken },
       });
       let response = await requestReadiness(token);
-      if (response.status === 401) {
+      if (driverScope && response.status === 401) {
         const refreshed = await supabase.auth.refreshSession();
         const refreshedToken = refreshed.data.session?.access_token;
         if (refreshedToken) response = await requestReadiness(refreshedToken);
@@ -63,7 +64,7 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
       window.clearTimeout(timeout);
       if (current === sequence.current) setLoading(false);
     }
-  }, [companyId, contextKey, role, user?.id]);
+  }, [companyId, contextKey, driverScope, role, user?.id]);
 
   const cancelPending = useCallback(() => {
     ++sequence.current;
@@ -88,7 +89,7 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
   const current = snapshot?.key === contextKey ? snapshot : null;
   const blockers = (current?.blockers ?? []).filter((blocker) => !operation || blocker.operation === operation || blocker.operation === 'commercial');
   const error = current?.error ?? '';
-  if (loading && !current) return null;
+  if (driverScope && loading && !current) return null;
   if (!error && blockers.length === 0 && current) return null;
   const root = role === 'driver' || role === 'owner_driver' ? '/driver' : role === 'customer' ? '/customer' : role === 'broker' ? '/broker' : '/admin';
   const buttonStyle = { border: 0, borderRadius: 6, padding: '8px 12px', background: '#0b2f6b', color: '#fff', fontWeight: 700, cursor: 'pointer', whiteSpace: 'normal' as const };

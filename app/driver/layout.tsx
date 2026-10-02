@@ -31,7 +31,7 @@ export const metadata: Metadata = {
 
 export default function DriverLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-driver-workspace">
+    <div className="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-driver-workspace xdrive-canonical-workspace">
       <ProtectedRoute allowedRoles={['driver', 'company_admin', 'company_staff']}>
         <DriverTopWorkspaceShell>{children}</DriverTopWorkspaceShell>
       </ProtectedRoute>

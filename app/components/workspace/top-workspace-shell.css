@@ -726,15 +726,15 @@
 }
 /* Fix primary-nav dropdown clipping: More state opened correctly but the menu was clipped by overflow-x:auto. */
 @media (min-width: 1025px) {
-  .xdrive-operational-top-workspace .top-workspace-nav--primary .top-workspace-nav__track {
+  .xdrive-driver-workspace .top-workspace-nav--primary .top-workspace-nav__track {
     overflow: visible !important;
   }
 
-  .xdrive-operational-top-workspace .top-workspace-nav__group--menu {
+  .xdrive-driver-workspace .top-workspace-nav__group--menu {
     z-index: 120 !important;
   }
 
-  .xdrive-operational-top-workspace .top-workspace-nav__menu {
+  .xdrive-driver-workspace .top-workspace-nav__menu {
     z-index: 121 !important;
     max-height: min(70vh, 560px);
     overflow-y: auto;
@@ -900,7 +900,7 @@
     min-height: calc(100vh - 100px) !important;
   }
 }
-/* Driver More dropdown � canonical readable sizing */
+/* Driver More dropdown — canonical readable sizing */
 @media (min-width: 1280px) {
   .xdrive-driver-workspace .top-workspace-nav__group--menu:last-child .top-workspace-nav__menu {
     width: 270px !important;
@@ -927,5 +927,94 @@
 
   .xdrive-driver-workspace .top-workspace-nav__menu-item[data-active="true"] {
     font-weight: 700 !important;
+  }
+}
+
+/* DRIVER-ONLY PAGE BASELINE — preserves the approved reference without affecting other workspaces. */
+@media (min-width: 1280px) {
+  .xdrive-driver-workspace .xdrive-page-frame {
+    padding: 8px 10px 12px !important;
+  }
+
+  .xdrive-driver-workspace .xdrive-page-header {
+    min-height: 50px !important;
+    margin-bottom: 8px !important;
+    gap: 10px !important;
+    align-items: center !important;
+  }
+
+  .xdrive-driver-workspace .xdrive-page-header h1 {
+    margin: 0 !important;
+    font-size: 21px !important;
+    line-height: 26px !important;
+    font-weight: 700 !important;
+  }
+
+  .xdrive-driver-workspace .xdrive-page-header p {
+    margin-top: 2px !important;
+    font-size: 12.5px !important;
+    line-height: 16px !important;
+    font-weight: 500 !important;
+  }
+
+  .xdrive-driver-workspace .xdrive-page-header > div:first-child > div:first-child {
+    margin-bottom: 2px !important;
+    font-size: 11.5px !important;
+    line-height: 14px !important;
+    font-weight: 700 !important;
+    letter-spacing: .04em !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-shell__content section {
+    border-radius: 3px !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-shell__content table {
+    font-size: 12.5px !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-shell__content th {
+    height: 36px !important;
+    padding: 0 8px !important;
+    font-size: 11px !important;
+    line-height: 14px !important;
+    font-weight: 700 !important;
+    vertical-align: middle !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-shell__content td {
+    min-height: 46px !important;
+    padding: 6px 8px !important;
+    font-size: 12.5px !important;
+    line-height: 16px !important;
+    font-weight: 500 !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-shell__content input,
+  .xdrive-driver-workspace .top-workspace-shell__content select {
+    min-height: 32px !important;
+    height: 32px !important;
+    font-size: 12.5px !important;
+    line-height: 16px !important;
+    font-weight: 600 !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-shell__content button {
+    font-size: 12px;
+  }
+
+  .xdrive-driver-workspace .workspace-list-controls {
+    min-height: 38px !important;
+    padding: 4px 8px !important;
+    gap: 6px !important;
+    border-radius: 3px !important;
+    font-size: 12px !important;
+  }
+
+  .xdrive-driver-workspace .workspace-list-controls button,
+  .xdrive-driver-workspace .workspace-list-controls select {
+    min-height: 30px !important;
+    height: 30px !important;
+    font-size: 11.5px !important;
   }
 }
