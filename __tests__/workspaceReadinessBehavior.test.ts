@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { NextRequest } from 'next/server';
 import { companyRecoveryAction, documentRecoveryHref, isSafeRecoveryHref, resolveReadinessContext } from '../lib/workspaceReadiness';
+import { XDRIVE_LOGISTICS_COMPANY_ID } from '../lib/activeWorkspace';
 
 const state = vi.hoisted(() => ({
   token: 'test-token' as string | null,
@@ -157,6 +158,17 @@ describe('individual restrictions always have a truthful recovery action', () =>
   it('does not require separate onboarding for an active non-driver company member', async () => {
     state.tables.onboarding_applications = table([]);
     expect((await request()).payload.blockers).not.toContainEqual(expect.objectContaining({ code: 'ONBOARDING_APPLICATION_REQUIRED' }));
+  });
+  it('inherits platform Stripe for XDrive Logistics LTD member workspaces instead of asking for another Stripe account', async () => {
+    state.tables.profiles = table({ user_id: USER, company_id: XDRIVE_LOGISTICS_COMPANY_ID, role: 'customer', status: 'active' });
+    state.tables.company_memberships = table([{ company_id: XDRIVE_LOGISTICS_COMPANY_ID, role_in_company: 'admin', status: 'active' }]);
+    state.tables.companies = table({ id: XDRIVE_LOGISTICS_COMPANY_ID, name: 'XDRIVE LOGISTICS LTD', status: 'active', company_type: 'standard' });
+    state.tables.onboarding_applications = table([]);
+    const { payload } = await request('?companyId=' + XDRIVE_LOGISTICS_COMPANY_ID);
+    expect(payload.role).toBe('customer');
+    expect(state.stripe).not.toHaveBeenCalled();
+    expect(payload.blockers).not.toContainEqual(expect.objectContaining({ code: 'STRIPE_COMMERCIAL_READINESS_REQUIRED' }));
+    expect(payload.blockers).not.toContainEqual(expect.objectContaining({ code: 'READINESS_UNAVAILABLE_STRIPE' }));
   });
   it('initializes onboarding when both company membership and application are absent', async () => {
     state.tables.profiles = table({ user_id: USER, company_id: null, role: 'customer', status: 'active' });

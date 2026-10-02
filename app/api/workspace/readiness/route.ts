@@ -4,6 +4,7 @@ import { getCommercialLegalReadiness } from '../../_lib/commercialLegalReadiness
 import { getStripeCommercialReadiness } from '../../_lib/stripeCommercialReadiness';
 import { getTransportBuyerRiskSnapshot } from '../../_lib/transportBuyerRisk';
 import { resolveDriverOperationalEligibility } from '../../driver/_lib/operationalEligibility';
+import { XDRIVE_LOGISTICS_COMPANY_ID } from '../../../../lib/activeWorkspace';
 import {
   companyRecoveryAction, documentRecoveryHref, driverReadinessBlocker,
   resolveReadinessContext, unavailableReadinessBlocker,
@@ -138,6 +139,11 @@ export async function GET(request: NextRequest) {
           } catch { addUnavailable('Legal agreements'); }
         })(),
         (async () => {
+          // XDrive Logistics LTD is the platform-owner company. Its member workspaces
+          // inherit the platform Stripe account and must never be asked to create or
+          // repair a separate company Connected Account. Transaction endpoints still
+          // enforce the canonical platform Stripe readiness when money actually moves.
+          if (companyId === XDRIVE_LOGISTICS_COMPANY_ID) return;
           try {
             const stripe = await getStripeCommercialReadiness(admin, companyId);
             if (!stripe.infrastructureAvailable) addUnavailable('Stripe');
