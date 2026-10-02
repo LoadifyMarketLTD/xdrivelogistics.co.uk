@@ -237,7 +237,7 @@ type WorkflowStripProps = {
   marginBottom?: string;
 };
 
-export function WorkflowStageStrip({ activeStage, counts, marginBottom = '1rem' }: WorkflowStripProps) {
+export function WorkflowStageStrip({ activeStage, counts, marginBottom = '8px' }: WorkflowStripProps) {
   const router = useRouter();
   const pathname = usePathname();
 
@@ -246,15 +246,15 @@ export function WorkflowStageStrip({ activeStage, counts, marginBottom = '1rem' 
       style={{
         background: '#ffffff',
         border: '1px solid #e2e8f0',
-        borderRadius: '12px',
-        padding: '0.75rem',
+        borderRadius: '4px',
+        padding: '8px 10px',
         marginBottom,
       }}
     >
-      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: '#64748b', marginBottom: '0.5rem', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+      <div style={{ fontSize: '11.5px', lineHeight: '14px', fontWeight: 700, color: '#64748b', marginBottom: '6px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
         Business flow
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '0.5rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '8px' }}>
         {WORKFLOW_STAGES.map((stage) => {
           const isActive = activeStage ? stage.id === activeStage : pathname === stage.href;
           const count = counts?.[stage.id];
@@ -265,17 +265,17 @@ export function WorkflowStageStrip({ activeStage, counts, marginBottom = '1rem' 
               style={{
                 border: isActive ? '1px solid #2563eb' : '1px solid #dbe4ef',
                 background: isActive ? '#eff6ff' : '#f8fafc',
-                borderRadius: '10px',
-                padding: '0.55rem 0.6rem',
+                borderRadius: '4px',
+                padding: '8px 10px',
                 textAlign: 'left',
                 cursor: 'pointer',
                 minHeight: '64px',
               }}
             >
-              <div style={{ fontSize: '0.73rem', color: isActive ? '#1d4ed8' : '#64748b', fontWeight: 700, marginBottom: '0.2rem' }}>
+              <div style={{ fontSize: '11.5px', lineHeight: '14px', color: isActive ? '#1d4ed8' : '#64748b', fontWeight: 700, marginBottom: '3px' }}>
                 {stage.label}
               </div>
-              <div style={{ fontSize: '0.78rem', color: '#0f172a', fontWeight: 700 }}>{typeof count === 'number' ? count : 'Open'}</div>
+              <div style={{ fontSize: '12.5px', lineHeight: '16px', color: '#0f172a', fontWeight: 700 }}>{typeof count === 'number' ? count : 'Open'}</div>
             </button>
           );
         })}

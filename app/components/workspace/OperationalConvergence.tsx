@@ -91,7 +91,7 @@ export function OperationalControlGrid({
   controlLabel?: string;
 }) {
   return (
-    <div className={styles.controlGrid}>
+    <div className={`xdrive-operational-control-grid ${styles.controlGrid}`}>
       <aside className={styles.controlAside} aria-label={controlLabel}>{control}</aside>
       <main className={styles.controlMain}>{main}</main>
     </div>

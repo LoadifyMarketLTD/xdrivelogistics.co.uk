@@ -42,13 +42,13 @@ export function PageFrame({ children, maxWidth }: { children: ReactNode; maxWidt
 export function PageHeader({ eyebrow, title, description, actions, meta }: { eyebrow?: string; title: string; description?: string; actions?: ReactNode; meta?: ReactNode }) {
   return (
     <header className="xdrive-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
-      <div style={{ minWidth: 0, flex: '1 1 520px' }}>
-        {eyebrow && <div style={{ color: workspaceTheme.blue, fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px', lineHeight: '16px' }}>{eyebrow}</div>}
-        <h1 style={{ margin: 0, color: workspaceTheme.text, fontSize: '20px', fontWeight: 600, lineHeight: '26px' }}>{title}</h1>
-        {description && <p style={{ margin: '4px 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '12px', lineHeight: '16px' }}>{description}</p>}
-        {meta && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>{meta}</div>}
+      <div className="xdrive-page-header__copy" style={{ minWidth: 0, flex: '1 1 520px' }}>
+        {eyebrow && <div className="xdrive-page-header__eyebrow" style={{ color: workspaceTheme.blue, fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px', lineHeight: '16px' }}>{eyebrow}</div>}
+        <h1 className="xdrive-page-header__title" style={{ margin: 0, color: workspaceTheme.text, fontSize: '20px', fontWeight: 600, lineHeight: '26px' }}>{title}</h1>
+        {description && <p className="xdrive-page-header__description" style={{ margin: '4px 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '12px', lineHeight: '16px' }}>{description}</p>}
+        {meta && <div className="xdrive-page-header__meta" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>{meta}</div>}
       </div>
-      {actions && <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>{actions}</div>}
+      {actions && <div className="xdrive-page-header__actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>{actions}</div>}
     </header>
   );
 }
@@ -65,7 +65,7 @@ export function ActionButton({ children, onClick, tone = 'primary', disabled = f
     danger: { bg: '#fff', color: workspaceTheme.red, border: '#fecaca' },
     secondary: { bg: '#fff', color: workspaceTheme.text, border: workspaceTheme.borderStrong },
   }[tone];
-  return <button title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '4px', padding: '0 12px', height: '32px', fontSize: '12px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}>{children}</button>;
+  return <button className="owner-ref-hook-action-button" title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '4px', padding: '0 12px', height: '32px', fontSize: '12px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}>{children}</button>;
 }
 
 export function KpiGrid({ children }: { children: ReactNode }) {
@@ -254,9 +254,9 @@ export function ActionCard({
 
 export function Panel({ title, description, actions, children, style, flush = false }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; style?: CSSProperties; flush?: boolean }) {
   return (
-    <section style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
-      {(title || description || actions) && <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap', background: workspaceTheme.surfaceMuted }}><div>{title && <h2 style={{ margin: 0, color: workspaceTheme.text, fontSize: '13px', fontWeight: 600, lineHeight: '18px' }}>{title}</h2>}{description && <p style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{description}</p>}</div>{actions && <div style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
-      <div style={{ padding: flush ? 0 : '10px' }}>{children}</div>
+    <section className="xdrive-panel" style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
+      {(title || description || actions) && <div className="xdrive-panel__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap', background: workspaceTheme.surfaceMuted }}><div>{title && <h2 className="xdrive-panel__title" style={{ margin: 0, color: workspaceTheme.text, fontSize: '13px', fontWeight: 600, lineHeight: '18px' }}>{title}</h2>}{description && <p className="xdrive-panel__description" style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{description}</p>}</div>{actions && <div className="xdrive-panel__actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
+      <div className="xdrive-panel__body" style={{ padding: flush ? 0 : '10px' }}>{children}</div>
     </section>
   );
 }
@@ -288,21 +288,21 @@ export function OperationalPageLayout({
 }) {
   return (
     <div
-      className={styles.operationalPageLayout}
+      className={`xdrive-operational-page-layout ${styles.operationalPageLayout}`}
       style={{ ...(typeof maxWidth === 'number' ? { ['--xdrive-page-max-width' as string]: `${maxWidth}px` } : {}), ...style } as CSSProperties}
     >
       {searchPanel ? (
-        <div className={styles.operationalPageLayoutTwoPanel}>
+        <div className={`xdrive-operational-page-layout__two-panel ${styles.operationalPageLayoutTwoPanel}`}>
           <aside
-            className={styles.operationalPageLayoutSearchAside}
+            className={`xdrive-operational-page-layout__search-aside ${styles.operationalPageLayoutSearchAside}`}
             aria-label="Search and filters"
           >
             {searchPanel}
           </aside>
-          <main className={styles.operationalPageLayoutMain}>{children}</main>
+          <main className={`xdrive-operational-page-layout__main ${styles.operationalPageLayoutMain}`}>{children}</main>
         </div>
       ) : (
-        <main className={styles.operationalPageLayoutMain}>{children}</main>
+        <main className={`xdrive-operational-page-layout__main ${styles.operationalPageLayoutMain}`}>{children}</main>
       )}
     </div>
   );
@@ -341,9 +341,9 @@ export function OperationalCard({
   as?: 'section' | 'article' | 'div';
 }) {
   return (
-    <Tag className={styles.operationalCard} style={style}>
+    <Tag className={`xdrive-operational-card ${styles.operationalCard}`} style={style}>
       {(title || subtitle || actions) && (
-        <div className={styles.operationalCardHeader}>
+        <div className={`xdrive-operational-card__header ${styles.operationalCardHeader}`}>
           <div className={styles.operationalCardHeaderText}>
             {title && <h3 className={styles.operationalCardTitle}>{title}</h3>}
             {subtitle && <p className={styles.operationalCardSubtitle}>{subtitle}</p>}
@@ -353,7 +353,7 @@ export function OperationalCard({
           )}
         </div>
       )}
-      <div className={flush ? styles.operationalCardBodyFlush : styles.operationalCardBody}>
+      <div className={`xdrive-operational-card__body ${flush ? styles.operationalCardBodyFlush : styles.operationalCardBody}`}>
         {children}
       </div>
       {footer && <div className={styles.operationalCardFooter}>{footer}</div>}
@@ -512,7 +512,7 @@ export function OperationalFilters({
   footer?: ReactNode;
 }) {
   return (
-    <aside className={styles.operationalFilters} aria-label={title}>
+    <aside className={`xdrive-operational-filters ${styles.operationalFilters}`} aria-label={title}>
       <div className={styles.operationalFiltersHeader}>
         <h2 className={styles.operationalFiltersTitle}>{title}</h2>
       </div>
@@ -861,20 +861,20 @@ export function SemanticStatusBadge({ label, tone = 'neutral', ariaLabel }: { la
 }
 
 export function EmptyState({ title, description, action, icon, compact = false }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode; compact?: boolean }) {
-  const defaultIcon = <div style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div>;
+  const defaultIcon = <div className="owner-ref-hook-empty-state__icon" style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div>;
   if (compact) {
     return (
-      <div style={{ padding: '10px', color: workspaceTheme.muted, fontSize: '12px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div className="owner-ref-hook-empty-state owner-ref-hook-empty-state--compact" data-compact="true" style={{ padding: '10px', color: workspaceTheme.muted, fontSize: '12px' }}>
+        <div className="xdrive-empty-state__content" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span aria-hidden="true">—</span>
-          <span style={{ fontWeight: 600, color: workspaceTheme.text }}>{title}</span>
-          {action && <span style={{ marginLeft: '4px' }}>{action}</span>}
+          <span className="owner-ref-hook-empty-state__title" style={{ fontWeight: 600, color: workspaceTheme.text }}>{title}</span>
+          {action && <span className="owner-ref-hook-empty-state__action" style={{ marginLeft: '4px' }}>{action}</span>}
         </div>
-        {description && <p style={{ margin: '4px 0 0 16px', fontSize: '11px', color: workspaceTheme.muted, lineHeight: 1.4 }}>{description}</p>}
+        {description && <p className="xdrive-empty-state__description" style={{ margin: '4px 0 0 16px', fontSize: '11px', color: workspaceTheme.muted, lineHeight: 1.4 }}>{description}</p>}
       </div>
     );
   }
-  return <div style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div>{icon ?? defaultIcon}<h3 style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.95rem' }}>{title}</h3>{description && <p style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.78rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
+  return <div className="owner-ref-hook-empty-state" data-compact="false" style={{ minHeight: '160px', display: 'grid', placeItems: 'center', textAlign: 'center', padding: '1.7rem' }}><div className="owner-ref-hook-empty-state__content">{icon ?? defaultIcon}<h3 className="owner-ref-hook-empty-state__title" style={{ margin: 0, color: workspaceTheme.text, fontSize: '0.95rem' }}>{title}</h3>{description && <p className="xdrive-empty-state__description" style={{ margin: '0.3rem auto 0', color: workspaceTheme.muted, fontSize: '0.78rem', maxWidth: '500px', lineHeight: 1.45 }}>{description}</p>}{action && <div className="owner-ref-hook-empty-state__action" style={{ marginTop: '0.72rem' }}>{action}</div>}</div></div>;
 }
 
 // ─── Standardized state primitives ──────────────────────────────────────────
@@ -1102,7 +1102,7 @@ export function DataTable({ columns, rows, empty }: { columns: string[]; rows: R
 
 export function AlertBanner({ tone = 'warning', children }: { tone?: 'warning' | 'danger' | 'success' | 'info'; children: ReactNode }) {
   const alertStyles = { warning: { bg: '#fffbeb', border: '#fde68a', color: '#92400e' }, danger: { bg: '#fef2f2', border: '#fecaca', color: '#991b1b' }, success: { bg: '#f0fdf4', border: '#bbf7d0', color: '#166534' }, info: { bg: '#eff6ff', border: '#bfdbfe', color: '#1e40af' } }[tone];
-  return <div style={{ background: alertStyles.bg, border: `1px solid ${alertStyles.border}`, color: alertStyles.color, borderRadius: '8px', padding: '0.65rem 0.78rem', fontSize: '0.76rem', fontWeight: 650, marginBottom: '0.75rem', lineHeight: 1.45 }}>{children}</div>;
+  return <div className="xdrive-alert-banner" style={{ background: alertStyles.bg, border: `1px solid ${alertStyles.border}`, color: alertStyles.color, borderRadius: '8px', padding: '0.65rem 0.78rem', fontSize: '0.76rem', fontWeight: 650, marginBottom: '0.75rem', lineHeight: 1.45 }}>{children}</div>;
 }
 
 export function QuickActions({ actions }: { actions: Array<{ label: string; description?: string; onClick: () => void; badge?: ReactNode }> }) {
@@ -1209,7 +1209,7 @@ export function ActionCentreItemCard({ item }: { item: ActionCentreItem }) {
         </div>
         <div className={styles.actionCentreItemBadges}>
           <span
-            className={styles.actionCentreBadge}
+            className={`xdrive-action-centre-badge ${styles.actionCentreBadge}`}
             style={{
               ['--xdrive-action-badge-bg' as const]: priorityPalette.bg,
               ['--xdrive-action-badge-color' as const]: priorityPalette.color,
@@ -1219,7 +1219,7 @@ export function ActionCentreItemCard({ item }: { item: ActionCentreItem }) {
             {ACTION_CENTRE_PRIORITY_LABELS[item.priority]}
           </span>
           <span
-            className={styles.actionCentreBadge}
+            className={`xdrive-action-centre-badge ${styles.actionCentreBadge}`}
             style={{
               ['--xdrive-action-badge-bg' as const]: statusPalette.bg,
               ['--xdrive-action-badge-color' as const]: statusPalette.color,
@@ -1367,7 +1367,7 @@ export function OperationalTable<TRow>({
       })
       : rows;
   return (
-    <section className={styles.operationalTableContainer}>
+    <section className={`xdrive-operational-table-container ${styles.operationalTableContainer}`}>
       {(searchSlot || filterSlot || actionsSlot || typeof resultsCount === 'number') && (
         <div className={styles.operationalTableToolbar}>
           <div className={styles.operationalTableFilters}>
@@ -1382,7 +1382,7 @@ export function OperationalTable<TRow>({
       )}
       <div className={styles.operationalTableScroll} style={{ overflowX: 'auto' }}>
         <table
-          className={`${styles.operationalTable} ${styles.operationalTableMinWidth}`}
+          className={`xdrive-operational-table ${styles.operationalTable} ${styles.operationalTableMinWidth}`}
           style={{ ['--xdrive-operational-table-min-width' as const]: `${Math.max(columns.length * 138, 440)}px` } as CSSProperties}
         >
         {caption && (
@@ -1396,7 +1396,7 @@ export function OperationalTable<TRow>({
               <th
                 key={col.id}
                 scope="col"
-                className={`${styles.operationalTableHeadCell} ${col.isAction ? styles.operationalTableActionHeadCell : ''}`}
+                className={`xdrive-operational-table__head-cell ${styles.operationalTableHeadCell} ${col.isAction ? styles.operationalTableActionHeadCell : ''}`}
                 style={{ textAlign: col.align ?? 'left', ...(col.width ? { width: col.width } : {}) }}
               >
                 {col.sortable ? (
@@ -1435,7 +1435,7 @@ export function OperationalTable<TRow>({
               {columns.map((col) => (
                 <td
                   key={col.id}
-                  className={`${styles.operationalTableCell} ${col.isAction ? styles.operationalTableActionCell : ''}`}
+                  className={`xdrive-operational-table__cell ${styles.operationalTableCell} ${col.isAction ? styles.operationalTableActionCell : ''}`}
                   style={{ textAlign: col.align ?? 'left' }}
                 >
                   {(() => {

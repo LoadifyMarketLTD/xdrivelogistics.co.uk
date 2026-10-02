@@ -75,7 +75,7 @@ function AwardConfirmation({
         role="dialog"
         aria-modal="true"
         aria-labelledby="customer-award-confirmation-title"
-        style={{ width: 'min(620px, calc(100vw - 32px))', overflow: 'hidden', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', boxShadow: '0 16px 48px rgba(15, 23, 42, 0.22)' }}
+        style={{ width: 'min(620px, calc(100vw - 32px))', overflow: 'hidden', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', boxShadow: 'none' }}
       >
         <header style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f4f6f8' }}>
           <strong id="customer-award-confirmation-title" style={{ display: 'block', fontSize: 14, lineHeight: '20px', color: '#0f172a' }}>Confirm carrier award</strong>
@@ -147,7 +147,7 @@ function MessageParticipantDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="customer-bid-message-title"
-        style={{ width: 'min(620px, calc(100vw - 32px))', overflow: 'hidden', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', boxShadow: '0 16px 48px rgba(15, 23, 42, 0.22)' }}
+        style={{ width: 'min(620px, calc(100vw - 32px))', overflow: 'hidden', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', boxShadow: 'none' }}
       >
         <header style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f4f6f8' }}>
           <strong id="customer-bid-message-title" style={{ display: 'block', fontSize: 14, lineHeight: '20px', color: '#0f172a' }}>Message {candidate.displayName}</strong>

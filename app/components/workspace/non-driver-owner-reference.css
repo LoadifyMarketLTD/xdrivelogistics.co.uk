@@ -1,0 +1,274 @@
+/* Owner Driver visual-reference adapter for non-driver operational workspaces only.
+ * Imported by Admin/Carrier, Broker and Customer layouts. Driver and Super Admin are excluded. */
+.xdrive-owner-reference-workspace {
+  --owner-ref-page-x: 10px;
+  --owner-ref-page-y: 8px;
+  --owner-ref-gap: 8px;
+  --owner-ref-rail: 185px;
+  --owner-ref-control: 32px;
+  --owner-ref-tab: 38px;
+  --owner-ref-panel-head: 38px;
+  --owner-ref-table-head: 36px;
+  --owner-ref-table-row: 46px;
+  --owner-ref-title: 21px;
+  --owner-ref-body: 12.5px;
+  --owner-ref-label: 11.5px;
+  --owner-ref-meta: 11px;
+  --owner-ref-radius: 4px;
+}
+
+.xdrive-owner-reference-workspace .xdrive-page-frame,
+.xdrive-owner-reference-workspace .xdrive-operational-page-layout {
+  padding: 8px 10px 12px !important;
+  box-sizing: border-box;
+}
+.xdrive-owner-reference-workspace .xdrive-page-header,
+.xdrive-owner-reference-workspace .xdrive-dashboard-home-header {
+  min-height: 42px !important;
+  margin-bottom: 8px !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-page-header__title,
+.xdrive-owner-reference-workspace .xdrive-dashboard-home-header__title {
+  margin: 0 !important;
+  font-size: 21px !important;
+  line-height: 26px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-page-header__description,
+.xdrive-owner-reference-workspace .xdrive-dashboard-home-header__description {
+  margin-top: 2px !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+}
+.xdrive-owner-reference-workspace .xdrive-page-header__eyebrow,
+.xdrive-owner-reference-workspace .xdrive-dashboard-home-header__eyebrow {
+  margin-bottom: 2px !important;
+  font-size: 11.5px !important;
+  line-height: 14px !important;
+  font-weight: 700 !important;
+  letter-spacing: .04em !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-page-header__meta {
+  margin-top: 4px !important;
+  gap: 6px !important;
+  font-size: 11px !important;
+  line-height: 14px !important;
+}
+
+.xdrive-owner-reference-workspace .owner-ref-hook-action-button {
+  height: 32px !important;
+  min-height: 32px !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+}
+.xdrive-owner-reference-workspace .xdrive-panel,
+.xdrive-owner-reference-workspace .xdrive-operational-card,
+.xdrive-owner-reference-workspace .xdrive-operational-table-container {
+  border-radius: 4px !important;
+  box-shadow: none !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-panel__header,
+.xdrive-owner-reference-workspace .xdrive-operational-card__header {
+  min-height: 38px !important;
+  padding: 6px 10px !important;
+  gap: 8px !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-panel__body,
+.xdrive-owner-reference-workspace .xdrive-operational-card__body {
+  padding: 10px !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-operational-page-layout__two-panel {
+  grid-template-columns: 185px minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-operational-page-layout__search-aside {
+  width: 185px !important;
+}
+.xdrive-owner-reference-workspace .xdrive-operational-table__head-cell,
+.xdrive-owner-reference-workspace .top-workspace-shell__content table th {
+  height: 36px !important;
+  padding: 0 8px !important;
+  font-size: 11px !important;
+  line-height: 14px !important;
+  font-weight: 700 !important;
+  vertical-align: middle !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-operational-table__cell,
+.xdrive-owner-reference-workspace .top-workspace-shell__content table td {
+  height: 46px !important;
+  padding: 6px 8px !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+  vertical-align: middle !important;
+}
+
+.xdrive-owner-reference-workspace .top-workspace-shell__content input,
+.xdrive-owner-reference-workspace .top-workspace-shell__content select {
+  min-height: 32px;
+  font-size: 12.5px;
+}
+.xdrive-owner-reference-workspace .workspace-tab-strip,
+.xdrive-owner-reference-workspace [role="tablist"] {
+  min-height: 38px !important;
+}
+
+.xdrive-owner-reference-workspace .workspace-tab-strip > button,
+.xdrive-owner-reference-workspace [role="tablist"] > button {
+  min-height: 38px !important;
+  height: 38px !important;
+}
+
+.xdrive-owner-reference-workspace .owner-ref-hook-empty-state {
+  min-height: 52px !important;
+  padding: 10px !important;
+  color: #64748b !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-owner-reference-workspace .owner-ref-hook-empty-state__icon {
+  display: none !important;
+}
+
+.xdrive-owner-reference-workspace .owner-ref-hook-empty-state__title {
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 600 !important;
+}
+.xdrive-owner-reference-workspace .owner-ref-hook-empty-state__description {
+  margin-top: 2px !important;
+  font-size: 11.5px !important;
+  line-height: 14px !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-loading-state {
+  min-height: 52px !important;
+  padding: 10px !important;
+}
+
+@media (max-width: 1024px) {
+  .xdrive-owner-reference-workspace .xdrive-operational-page-layout__two-panel {
+    grid-template-columns: 1fr !important;
+  }
+
+  .xdrive-owner-reference-workspace .xdrive-operational-page-layout__search-aside {
+    width: 100% !important;
+    position: static !important;
+  }
+}
+
+.xdrive-owner-reference-workspace .xdrive-action-centre-badge,
+.xdrive-owner-reference-workspace .xdrive-jobs-status-meta {
+  font-size: 11px !important;
+  line-height: 14px !important;
+}
+.xdrive-owner-reference-workspace .xdrive-operational-control-grid {
+  grid-template-columns: 185px minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+
+.xdrive-owner-reference-workspace .role-settings-layout {
+  grid-template-columns: 185px minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+
+.xdrive-owner-reference-workspace .role-settings-nav {
+  min-height: 0 !important;
+}
+
+.xdrive-owner-reference-workspace .role-settings-company {
+  padding: 8px 10px !important;
+}
+
+.xdrive-owner-reference-workspace .role-settings-company span,
+.xdrive-owner-reference-workspace .role-settings-kv span,
+.xdrive-owner-reference-workspace .role-settings-links span {
+  font-size: 11px !important;
+  line-height: 14px !important;
+}
+.xdrive-owner-reference-workspace .role-settings-nav button {
+  min-height: 34px !important;
+  padding: 0 9px !important;
+  font-size: 11.5px !important;
+}
+
+.xdrive-owner-reference-workspace .role-settings-overview,
+.xdrive-owner-reference-workspace .role-settings-form {
+  gap: 8px !important;
+}
+
+.xdrive-owner-reference-workspace .role-settings-form input {
+  min-height: 32px !important;
+  height: 32px !important;
+}
+
+.xdrive-owner-reference-workspace .role-settings-links button {
+  min-height: 46px !important;
+  padding: 6px 0 !important;
+}
+
+@media (max-width: 1024px) {
+  .xdrive-owner-reference-workspace .xdrive-operational-control-grid,
+  .xdrive-owner-reference-workspace .role-settings-layout {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+.xdrive-owner-reference-workspace .xdrive-operational-filters {
+  width: 100% !important;
+  max-width: 185px !important;
+}
+@media (max-width: 1024px) {
+  .xdrive-owner-reference-workspace .xdrive-operational-filters {
+    max-width: none !important;
+  }
+}
+
+.xdrive-owner-reference-workspace .xdrive-alert-banner {
+  margin-bottom: 8px !important;
+  padding: 8px 10px !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-error-state,
+.xdrive-owner-reference-workspace .xdrive-permission-denied-state {
+  min-height: 52px !important;
+  padding: 10px !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-error-state h3,
+.xdrive-owner-reference-workspace .xdrive-permission-denied-state h3 {
+  font-size: 13px !important;
+  line-height: 18px !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-error-state p,
+.xdrive-owner-reference-workspace .xdrive-permission-denied-state p {
+  font-size: 11.5px !important;
+  line-height: 14px !important;
+}
+
+.xdrive-owner-reference-workspace .xdrive-error-state button,
+.xdrive-owner-reference-workspace .xdrive-permission-denied-state button {
+  min-height: 32px !important;
+  height: 32px !important;
+  padding: 0 9px !important;
+  border-radius: 4px !important;
+  font-size: 12px !important;
+}

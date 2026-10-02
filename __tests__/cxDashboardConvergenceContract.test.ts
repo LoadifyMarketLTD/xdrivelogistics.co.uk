@@ -20,7 +20,7 @@ describe('Customer canonical dashboard convergence contract', () => {
     expect(source).toContain('metricState(bidsDataset');
     expect(source).toContain('metricState(invoicesDataset');
     expect(source).toContain('metrics.documentAlertJobs.length');
-    expect(source).toContain('job.pod_required === true');
+    expect(source).toContain("stage === 'completed' && job.pod_generated !== true");
     expect(source).toContain('broker_pod_review_status');
     expect(source).not.toContain('CUS-201');
   });

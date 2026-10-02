@@ -554,3 +554,37 @@
 .xdrive-carrier-workspace .carrier-register-page [style*="margin-bottom: 1.5rem"] {
   margin-bottom: 8px !important;
 }
+
+.xdrive-carrier-workspace .carrier-exchange-rail {
+  flex: 0 0 185px !important;
+  min-width: 185px !important;
+  max-width: 185px !important;
+}
+
+.xdrive-carrier-workspace .carrier-exchange-primary-tabs,
+.xdrive-carrier-workspace .carrier-exchange-secondary-tabs {
+  min-height: 38px !important;
+}
+
+.xdrive-carrier-workspace .carrier-exchange-table th {
+  height: 36px !important;
+  padding: 0 8px !important;
+  font-size: 11px !important;
+  line-height: 14px !important;
+}
+
+.xdrive-carrier-workspace .carrier-exchange-table td {
+  height: 46px !important;
+  padding: 6px 8px !important;
+  font-size: 12.5px !important;
+  line-height: 16px !important;
+}
+
+@media (max-width: 1024px) {
+  .xdrive-carrier-workspace .carrier-exchange-rail {
+    flex: 1 1 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+    width: 100% !important;
+  }
+}

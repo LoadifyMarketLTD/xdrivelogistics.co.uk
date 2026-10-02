@@ -4,6 +4,7 @@ import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
+import '../components/workspace/non-driver-owner-reference.css';
 import './broker-dashboard-convergence.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
@@ -18,7 +19,7 @@ export const metadata: Metadata = {
 
 export default function BrokerLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-broker-workspace">
+    <div className="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-owner-reference-workspace xdrive-broker-workspace">
       <TopWorkspaceShell forcedRole="broker">{children}</TopWorkspaceShell>
     </div>
   );
