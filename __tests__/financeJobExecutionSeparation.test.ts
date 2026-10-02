@@ -14,11 +14,13 @@ const triggerNumbering = read('supabase/migrations/20260819152500_align_legacy_i
 const workspaceStage = read('lib/jobs/workspaceJobStage.ts');
 
 describe('invoice lifecycle stays separate from canonical job execution', () => {
-  it('generates marketplace invoices from both Driver and Operator delivery boundaries', () => {
-    expect(driverAction).toContain('autoGenerateMarketplaceInvoice({');
-    expect(driverAction).toContain("if (action === 'delivered')");
-    expect(operatorTransition).toContain('autoGenerateMarketplaceInvoice({');
-    expect(operatorTransition).toContain("parsed.data.nextStatus === 'delivered' || parsed.data.nextStatus === 'completed'");
+  it('keeps delivery transitions separate from invoice creation until mandatory POD is complete', () => {
+    expect(driverAction).not.toContain('autoGenerateMarketplaceInvoice({');
+    expect(operatorTransition).not.toContain('autoGenerateMarketplaceInvoice({');
+    expect(jobInvoice).toContain('hasCompletePodEvidence(job)');
+    expect(jobInvoice).toContain('POD_REQUIRED_BEFORE_INVOICE');
+    expect(autoInvoice).toContain('hasCompletePodEvidence(job)');
+    expect(autoInvoice).toContain('POD is mandatory for every job');
   });
 
   it('fails closed on canonical invoice-number generation across every server creation path', () => {

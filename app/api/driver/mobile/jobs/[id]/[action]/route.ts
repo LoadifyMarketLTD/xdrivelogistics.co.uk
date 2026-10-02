@@ -199,6 +199,12 @@ function nowDateUtc() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function requiresHardCopyPod(value: unknown) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!normalized) return false;
+  return !['no', 'none', 'not required', 'not supplied', 'false', '0', 'n/a'].includes(normalized);
+}
+
 async function savePod(
   request: NextRequest,
   jobId: string,
@@ -248,8 +254,9 @@ async function savePod(
   if (itemCount !== null && (!Number.isFinite(itemCount) || itemCount < 0 || itemCount > 100000)) {
     return respond(400, { error: 'Enter a valid delivered item count.' });
   }
-  if (String(job.hard_copy_pod ?? '').trim() && !hardCopyAcknowledged) {
-    return respond(409, { error: 'Confirm the hard-copy POD requirement before completing delivery.' });
+  const hardCopyRequired = requiresHardCopyPod(job.hard_copy_pod);
+  if (hardCopyRequired && !hardCopyAcknowledged) {
+    return respond(409, { error: 'Confirm the hard-copy POD requirement before completing POD.' });
   }
   if (recipientName.length > 200) return respond(400, { error: 'Recipient name is too long.' });
   if (rawPhotoUris.length + rawDamagePhotoUris.length > 10 || rawDocumentUris.length > 10) {
@@ -326,7 +333,7 @@ async function savePod(
 
   const podNotes = [
     typeof body.notes === 'string' ? body.notes.trim().slice(0, 5000) : '',
-    String(job.hard_copy_pod ?? '').trim() && hardCopyAcknowledged ? 'Hard-copy POD requirement acknowledged by assigned driver.' : '',
+    hardCopyRequired && hardCopyAcknowledged ? 'Hard-copy POD requirement acknowledged by assigned driver.' : '',
   ].filter(Boolean).join(' | ') || null;
   const podPayload = {
     delivered_on: deliveredOn,
@@ -353,7 +360,7 @@ async function savePod(
   if (podWrite.error) return respond(500, { error: podWrite.error.message });
 
   await insertTrackingEvent(jobId, userId, 'note', 'Persistent POD evidence uploaded');
-  if (String(job.hard_copy_pod ?? '').trim() && hardCopyAcknowledged) {
+  if (hardCopyRequired && hardCopyAcknowledged) {
     await insertTrackingEvent(jobId, userId, 'note', 'Hard-copy POD requirement acknowledged by assigned driver.');
   }
 

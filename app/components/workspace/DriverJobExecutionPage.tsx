@@ -139,11 +139,18 @@ const vehicleName = (value: string | null | undefined) => value
   ? (VEHICLE_TYPE_LABELS[value] ?? value.replace(/_/g, ' '))
   : 'Not supplied';
 
+const requiresHardCopyPod = (value: string | null | undefined) => {
+  const normalized = value?.trim().toLowerCase() ?? '';
+  if (!normalized) return false;
+  return !['no', 'none', 'not required', 'not supplied', 'false', '0', 'n/a'].includes(normalized);
+};
+
 export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const router = useRouter();
   const { user } = useAuth();
   const driverId = user?.driverId?.trim() ?? '';
   const companyId = user?.companyId ?? '';
+  const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const [job, setJob] = useState<DbJob | null>(null);
   const [sheet, setSheet] = useState<JobSheet | null>(null);
   const [loading, setLoading] = useState(true);
@@ -153,7 +160,9 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const [notes, setNotes] = useState('');
   const [collectionPhotos, setCollectionPhotos] = useState<string[]>([]);
   const [deliveryPhotos, setDeliveryPhotos] = useState<string[]>([]);
+  const [pendingPodPhotos, setPendingPodPhotos] = useState<string[]>([]);
   const [recipientName, setRecipientName] = useState('');
+  const [hardCopyAcknowledged, setHardCopyAcknowledged] = useState(false);
   const [signing, setSigning] = useState(false);
   const signatureRef = useRef<HTMLCanvasElement>(null);
   const collectionCameraInput = useRef<HTMLInputElement>(null);
@@ -188,7 +197,9 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
         : [];
     setCollectionPhotos([...new Set(pickupPhotos)].slice(0, 10));
     setDeliveryPhotos(Array.isArray(row.delivery_photos) ? row.delivery_photos : []);
+    setPendingPodPhotos([]);
     setRecipientName(row.client_signature_name ?? '');
+    setHardCopyAcknowledged(false);
 
     const auth = await authHeader();
     if (auth) {
@@ -210,7 +221,8 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     if (!file.type.startsWith('image/')) throw new Error('Only image files can be uploaded here.');
     if (file.size > 15 * 1024 * 1024) throw new Error('Images must be 15 MB or smaller.');
     const extension = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'jpg';
-    const path = `${companyId}/${jobId}/${kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
+    const evidenceFolder = kind === 'delivery' ? 'photos' : 'collection';
+    const path = `${companyId}/${jobId}/${evidenceFolder}/${kind}-${Date.now()}-${crypto.randomUUID()}.${extension}`;
     const { error: uploadError } = await supabase.storage.from('pod-photos').upload(path, file, { upsert: false, contentType: file.type });
     if (uploadError) throw new Error(uploadError.message);
     return path;
@@ -259,12 +271,18 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   };
   const selectDeliveryPhotos = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(event.target.files ?? []);
+    event.target.value = '';
     if (!files.length) return;
-    setWorking(true); setError('');
+    const remaining = Math.max(0, 10 - deliveryPhotos.length);
+    if (remaining === 0) { setError('A maximum of 10 delivery photos can be attached to POD.'); return; }
+    if (files.length > remaining) { setError(`You can add up to ${remaining} more POD photo${remaining === 1 ? '' : 's'}.`); return; }
+    setWorking(true); setError(''); setMessage('');
     try {
       const paths: string[] = [];
       for (const file of files) paths.push(await uploadImage(file, 'delivery'));
-      setDeliveryPhotos((current) => [...current, ...paths]);
+      setDeliveryPhotos((current) => [...new Set([...current, ...paths])].slice(0, 10));
+      setPendingPodPhotos((current) => [...new Set([...current, ...paths])].slice(0, 10));
+      setMessage(`${paths.length} POD photo${paths.length === 1 ? '' : 's'} added.`);
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Delivery photo upload failed.'); }
     finally { setWorking(false); }
   };
@@ -306,9 +324,106 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     return pixels.some((value, index) => index % 4 !== 3 && value !== 0) ? canvas.toDataURL('image/png') : null;
   };
 
+  const completePod = async () => {
+    if (!job || !driverId) return;
+    const status = canonicalExecutionStatus(job.current_status ?? job.status);
+    if (!['delivered', 'completed', 'invoiced'].includes(status)) {
+      setError('Mark the job Delivered before completing POD.');
+      return;
+    }
+    if (job.pod_generated === true) {
+      setMessage('POD is already complete. Invoice creation is now available.');
+      return;
+    }
+    if (!deliveryPhotos.length) {
+      setError('At least one delivery photo is required to complete POD.');
+      return;
+    }
+    if (!recipientName.trim()) {
+      setError('Recipient name is required to complete POD.');
+      return;
+    }
+    const newSignature = signatureData();
+    const storedSignature = job.delivery_signature_data;
+    const hasStoredSignature = typeof storedSignature === 'string'
+      ? storedSignature.trim().length > 0
+      : Boolean(storedSignature && typeof storedSignature === 'object');
+    if (!newSignature && !hasStoredSignature) {
+      setError('Recipient signature is required to complete POD.');
+      return;
+    }
+
+    const hardCopyRequired = requiresHardCopyPod(job.hard_copy_pod);
+    if (hardCopyRequired && !hardCopyAcknowledged) {
+      setError('Confirm the hard-copy POD requirement before completing POD.');
+      return;
+    }
+
+    setWorking(true); setError(''); setMessage('');
+    try {
+      const auth = await authHeader();
+      if (!auth) throw new Error('Your XDrive session is not available. Please sign in again.');
+      const response = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(job.id)}/pod`, {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          recipientName: recipientName.trim(),
+          signatureData: newSignature ?? '',
+          photoUris: pendingPodPhotos,
+          damagePhotoUris: [],
+          documentUris: [],
+          deliveryStatus: 'Completed Delivery',
+          hardCopyAcknowledged: hardCopyRequired ? hardCopyAcknowledged : false,
+          notes: notes.trim() || undefined,
+        }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'POD could not be completed.');
+      setMessage('POD completed. Invoice creation is now available.');
+      clearSignature();
+      await loadJob();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'POD could not be completed.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const createInvoice = async () => {
+    if (!job || !canGenerateInvoices) return;
+    if (job.pod_generated !== true) {
+      setError('Complete POD before creating an invoice.');
+      return;
+    }
+
+    setWorking(true); setError(''); setMessage('');
+    try {
+      const auth = await authHeader();
+      if (!auth) throw new Error('Your XDrive session is not available. Please sign in again.');
+      const response = await fetch(`/api/driver/finance/jobs/${encodeURIComponent(job.id)}/generate-invoice`, {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idempotency_key: crypto.randomUUID() }),
+      });
+      const payload = await response.json().catch(() => ({})) as { invoice?: { id?: string }; error?: string };
+      if (!response.ok || !payload.invoice?.id) throw new Error(payload.error || 'Invoice could not be created.');
+      setMessage('Draft invoice created.');
+      router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Invoice could not be created.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
   const moveStatus = async (nextStatus: string) => {
     if (!job || !driverId) return;
     setWorking(true); setError(''); setMessage('');
+    if (nextStatus === 'completed' && job.pod_generated !== true) {
+      setError('Complete POD before completing this job.');
+      setWorking(false);
+      return;
+    }
     const fields: Record<string, unknown> = {};
     if (nextStatus === 'loaded') {
       if (!collectionPhotos.length) { setError('At least one collection photo is required before the job can be marked loaded.'); setWorking(false); return; }
@@ -356,6 +471,9 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const currentStatus = canonicalExecutionStatus(job.current_status ?? job.status);
   const nextStatus = nextDriverExecutionStatus(currentStatus);
   const nextLabel = nextStatus ? nextActionLabel[nextStatus] ?? statusLabel[nextStatus] ?? nextStatus : null;
+  const podComplete = job.pod_generated === true;
+  const hardCopyRequired = requiresHardCopyPod(job.hard_copy_pod ?? sheet?.hardCopyPod);
+  const canShowLifecycleAction = !(nextStatus === 'completed' && !podComplete);
   const navigationStage = currentStatus === 'on_my_way' ? 'pickup' : currentStatus === 'in_transit' ? 'delivery' : null;
   const navigationAddress = navigationStage === 'pickup'
     ? (sheet?.pickup.address ?? job.pickup_location ?? '')
@@ -479,7 +597,20 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 8 }}>
-          {nextStatus && nextLabel && <ActionButton tone="success" disabled={working} onClick={() => void moveStatus(nextStatus)}>{working ? 'Saving…' : nextLabel}</ActionButton>}
+          {currentStatus === 'delivered' && !podComplete && (
+            <ActionButton tone="success" disabled={working} onClick={() => void completePod()}>
+              {working ? 'Saving POD…' : 'Complete POD'}
+            </ActionButton>
+          )}
+          {podComplete && !sheet?.invoices[0]?.id && canGenerateInvoices && (
+            <ActionButton tone="primary" disabled={working} onClick={() => void createInvoice()}>
+              {working ? 'Creating…' : 'Create Invoice'}
+            </ActionButton>
+          )}
+          {podComplete && !sheet?.invoices[0]?.id && !canGenerateInvoices && (
+            <StatusBadge value="POD complete · invoice ready for owner/admin" tone="green" />
+          )}
+          {canShowLifecycleAction && nextStatus && nextLabel && <ActionButton tone="success" disabled={working} onClick={() => void moveStatus(nextStatus)}>{working ? 'Saving…' : nextLabel}</ActionButton>}
           {navigationStage && navigationAddress && <>
             <a href={mapsUrl(navigationAddress, navigationPostcode)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Google Maps ? {navigationStage === 'pickup' ? 'Pickup' : 'Delivery'}</a>
             <a href={wazeUrl(navigationAddress, navigationPostcode)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Waze ? {navigationStage === 'pickup' ? 'Pickup' : 'Delivery'}</a>
@@ -513,7 +644,38 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
               {collectionPhotos.length > 0 && <div style={{ marginTop: 6, color: '#64748b', fontSize: 11 }}>Verified collection evidence: {collectionPhotos.length}/10 photos.</div>}
             </Panel>
           )}
-          {currentStatus === 'on_site_delivery' && <Panel title="Delivery evidence" description="Photo, recipient name and signature are all required."><input ref={deliveryInput} type="file" accept="image/*" capture="environment" multiple hidden onChange={selectDeliveryPhotos} /><div style={{ display: 'grid', gap: 7 }}><ActionButton tone="secondary" disabled={working} onClick={() => deliveryInput.current?.click()}>Add delivery photos ({deliveryPhotos.length})</ActionButton><input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} /><canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} /><ActionButton tone="secondary" onClick={clearSignature}>Clear signature</ActionButton></div></Panel>}
+          {(currentStatus === 'on_site_delivery' || (currentStatus === 'delivered' && !podComplete)) && (
+            <Panel
+              title={currentStatus === 'delivered' ? 'Complete Proof of Delivery (POD)' : 'Delivery evidence'}
+              description={currentStatus === 'delivered'
+                ? 'POD is mandatory for every job. Confirm the recipient, evidence and signature before invoice creation.'
+                : 'Photo, recipient name and signature are all required before marking the job Delivered.'}
+            >
+              <input ref={deliveryInput} type="file" accept="image/*" capture="environment" multiple hidden onChange={selectDeliveryPhotos} />
+              <div style={{ display: 'grid', gap: 7 }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <StatusBadge value="POD required" tone="orange" />
+                  <StatusBadge value={deliveryPhotos.length ? `${deliveryPhotos.length} delivery photo${deliveryPhotos.length === 1 ? '' : 's'}` : 'Delivery photo missing'} tone={deliveryPhotos.length ? 'green' : 'orange'} />
+                  {job.delivery_signature_data ? <StatusBadge value="Signature recorded" tone="green" /> : null}
+                </div>
+                <ActionButton tone="secondary" disabled={working || deliveryPhotos.length >= 10} onClick={() => deliveryInput.current?.click()}>Add delivery photos ({deliveryPhotos.length}/10)</ActionButton>
+                <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} />
+                <canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} />
+                <ActionButton tone="secondary" onClick={clearSignature}>Clear new signature</ActionButton>
+                {hardCopyRequired && (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700 }}>
+                    <input type="checkbox" checked={hardCopyAcknowledged} onChange={(event) => setHardCopyAcknowledged(event.target.checked)} />
+                    Hard-copy POD requirement completed
+                  </label>
+                )}
+                {currentStatus === 'delivered' && (
+                  <ActionButton tone="success" disabled={working} onClick={() => void completePod()}>
+                    {working ? 'Saving POD…' : 'Complete POD'}
+                  </ActionButton>
+                )}
+              </div>
+            </Panel>
+          )}
         </div>
 
         <div style={{ display: 'grid', gap: 8, alignContent: 'start' }}>
@@ -521,7 +683,16 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
           <Panel title="Journey Replay" description="GPS route, tracked distance, speed evidence and lifecycle events for this assigned job."><WorkspaceJobReplay jobId={jobId} /></Panel>
           <Panel title="Notes" description="Driver operational notes remain separate from the awarded Order confirmation."><textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} placeholder="Loading condition, waiting time, access issue or delivery note" style={{ ...inputStyle, resize: 'vertical' }} /></Panel>
           <Panel title="Documents"><div style={{ display: 'grid', gap: 5 }}>{sheet?.documents.length ? sheet.documents.map((document) => <div key={document.id ?? `${document.type}-${document.createdAt}`} className="driver-detail-item"><span>{document.type}</span><strong>{document.fileName ?? 'Job document'}</strong><small>{formatDateTime(document.createdAt)}</small></div>) : <EmptyState title="No job documents" />}</div></Panel>
-          <Panel title="POD and invoice"><div className="driver-detail-grid"><div className="driver-detail-item"><span>Delivery photos</span><strong>{deliveryPhotos.length}</strong></div><div className="driver-detail-item"><span>Recipient</span><strong>{job.client_signature_name ?? 'Not captured'}</strong></div><div className="driver-detail-item"><span>Invoice</span><strong>{sheet?.invoices[0]?.number ?? 'Not generated'}</strong><small>{sheet?.invoices[0]?.paymentStatus ?? sheet?.invoices[0]?.status ?? ''}</small></div></div></Panel>
+          <Panel title="POD and invoice" description="POD is mandatory for every job. Invoice creation is available only after POD is complete.">
+            <div className="driver-detail-grid">
+              <div className="driver-detail-item"><span>POD required</span><strong>Yes</strong></div>
+              <div className="driver-detail-item"><span>POD status</span><strong>{podComplete ? 'Complete' : 'Pending'}</strong><small>{job.pod_generated_at ? formatDateTime(job.pod_generated_at) : 'Complete POD after delivery'}</small></div>
+              <div className="driver-detail-item"><span>Delivery photos</span><strong>{deliveryPhotos.length}</strong></div>
+              <div className="driver-detail-item"><span>Recipient</span><strong>{(job.client_signature_name ?? recipientName) || 'Not captured'}</strong></div>
+              <div className="driver-detail-item"><span>Hard-copy POD</span><strong>{hardCopyRequired ? 'Required' : 'No additional hard-copy requirement'}</strong></div>
+              <div className="driver-detail-item"><span>Invoice</span><strong>{sheet?.invoices[0]?.number ?? (podComplete ? 'Ready to create' : 'Locked until POD')}</strong><small>{sheet?.invoices[0]?.paymentStatus ?? sheet?.invoices[0]?.status ?? (podComplete ? 'POD complete' : 'POD pending')}</small></div>
+            </div>
+          </Panel>
         </div>
       </TwoColumn>
     </PageFrame>

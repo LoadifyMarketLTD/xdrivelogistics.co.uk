@@ -70,7 +70,7 @@ const hasCompletePod = (job: Record<string, unknown>) => {
     ? job.client_signature_name.trim()
     : '';
 
-  return deliveryPhotos.length + podDocuments.length > 0 && hasSignature && recipientName.length > 0;
+  return job.pod_generated === true && deliveryPhotos.length + podDocuments.length > 0 && hasSignature && recipientName.length > 0;
 };
 
 export async function POST(

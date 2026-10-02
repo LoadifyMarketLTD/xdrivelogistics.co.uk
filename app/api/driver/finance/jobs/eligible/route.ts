@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { hasCompletePodEvidence } from '../../../../../../lib/jobs/podCompletion';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
   const statuses = completedStatuses.join(',');
   const { data: jobs, error: jobsError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, pickup_location, delivery_location, pickup_datetime, delivery_datetime, budget_amount, currency, client_name, status, current_status, customer_reference, updated_at')
+    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, pickup_location, delivery_location, pickup_datetime, delivery_datetime, budget_amount, currency, client_name, status, current_status, customer_reference, updated_at, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
     .or(`company_id.eq.${driver.companyId},awarded_carrier_company_id.eq.${driver.companyId}`)
     .or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`)
     .order('updated_at', { ascending: false })
@@ -106,6 +107,8 @@ export async function GET(request: NextRequest) {
   );
 
   const rows = (jobs ?? []).flatMap((job) => {
+    if (!hasCompletePodEvidence(job)) return [];
+
     const exchangeVisibility = String(job.exchange_visibility ?? '').toLowerCase();
     const marketplace = exchangeVisibility === 'exchange' || exchangeVisibility === 'direct';
     const agreement = agreementByJob.get(String(job.id)) ?? null;

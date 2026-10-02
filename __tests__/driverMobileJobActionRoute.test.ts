@@ -171,7 +171,7 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
     expect(mocks.getFeatureFlag.mock.calls.map(([, key]) => key)).toEqual(['driver_mobile_app', 'pod_capture']);
   });
 
-  it('keeps delivered transitions successful when the shared invoice boundary reports disabled', async () => {
+  it('keeps delivered transitions successful without creating an invoice before POD completion', async () => {
     mocks.getFeatureFlag.mockResolvedValue(true);
     const { POST } = await import('../app/api/driver/mobile/jobs/[id]/[action]/route');
 
@@ -186,12 +186,6 @@ describe('POST /api/driver/mobile/jobs/[id]/[action]', () => {
       p_job_id: 'job-1',
       p_next_status: 'delivered',
     }));
-    expect(mocks.autoGenerateMarketplaceInvoice).toHaveBeenCalledWith({
-      supabase: expect.anything(),
-      jobId: 'job-1',
-      supplierCompanyId: 'carrier-1',
-      actorUserId: 'user-1',
-      idempotencyKey: 'auto-pod-job-1',
-    });
+    expect(mocks.autoGenerateMarketplaceInvoice).not.toHaveBeenCalled();
   });
 });

@@ -310,6 +310,7 @@ export default function JobHistoryPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
+  const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const [jobs, setJobs] = useState<HistoryJob[]>([]);
   const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>({});
   const [documentsByJob, setDocumentsByJob] = useState<Record<string, DocumentRow[]>>({});
@@ -433,6 +434,48 @@ export default function JobHistoryPage() {
     }
   }, [driverId, fetchHistory]);
 
+  const createInvoiceForJob = async (job: HistoryJob) => {
+    if (!canGenerateInvoices) {
+      setDetailWarning('Company owner or admin access is required to create invoices.');
+      return;
+    }
+    if (job.pod_generated !== true) {
+      setDetailWarning('Complete POD before creating an invoice. POD is mandatory for every job.');
+      router.push(`/driver/jobs/${job.id}`);
+      return;
+    }
+
+    setWorkingJobId(job.id);
+    setDetailWarning('');
+    setActionMessage('');
+    try {
+      const { data } = await supabase.auth.getSession();
+      let token = data.session?.access_token;
+      if (!token) {
+        const refreshed = await supabase.auth.refreshSession();
+        token = refreshed.data.session?.access_token;
+      }
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+
+      const response = await fetch(`/api/driver/finance/jobs/${encodeURIComponent(job.id)}/generate-invoice`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idempotency_key: crypto.randomUUID() }),
+      });
+      const payload = await response.json().catch(() => null) as { invoice?: { id?: string }; error?: string } | null;
+      if (!response.ok || !payload?.invoice?.id) {
+        throw new Error(payload?.error ?? 'Invoice could not be created.');
+      }
+
+      setActionMessage('Draft invoice created.');
+      router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+    } catch (reason) {
+      setDetailWarning(reason instanceof Error ? reason.message : 'Invoice could not be created.');
+    } finally {
+      setWorkingJobId(null);
+    }
+  };
+
   const requestDiaryCancellation = useCallback(async (job: HistoryJob) => {
     const rawReason = window.prompt('Reason for declining/cancelling this booking (minimum 5 characters):');
     if (rawReason === null) return;
@@ -549,7 +592,7 @@ export default function JobHistoryPage() {
                   const sheet = orderSheetsByJob[job.id]; const orderLoading = orderLoadingByJob[job.id] === true; const orderError = orderErrorsByJob[job.id] || '';
                   const invoice = sheet?.invoices?.[0] ?? null;
                   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : (Array.isArray(job.delivery_photos) ? job.delivery_photos : []);
-                  const hasPod = Boolean(job.pod_generated || podPhotos.length > 0); const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews); const expired = isDerivedExpired(job);
+                  const hasPod = job.pod_generated === true; const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews); const expired = isDerivedExpired(job);
                   const currentStatus = effectiveStatus(job);
                   const nextStatus = nextDriverExecutionStatus(currentStatus);
                   const nextActionLabel = nextStatus ? (DIARY_NEXT_ACTION_LABEL[nextStatus] ?? human(nextStatus)) : null;
@@ -603,7 +646,15 @@ export default function JobHistoryPage() {
                       </div>
 
                       <div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
-                        {nextStatus && nextActionLabel ? (
+                        {currentStatus === 'delivered' && !hasPod ? (
+                          <button
+                            type="button"
+                            data-operation="primary"
+                            onClick={() => router.push(`/driver/jobs/${job.id}`)}
+                          >
+                            Complete POD
+                          </button>
+                        ) : nextStatus && nextActionLabel ? (
                           <button
                             type="button"
                             data-operation="primary"
@@ -638,22 +689,35 @@ export default function JobHistoryPage() {
                             Track
                           </button>
                         ) : null}
-                        {DETAIL_TABS.map((detailItem) => (
-                          <button
-                            key={detailItem.id}
-                            type="button"
-                            data-active={expanded && detailTab === detailItem.id ? 'true' : 'false'}
-                            onClick={() => {
-                              if (detailItem.id === 'invoice' && invoice?.id) {
-                                setInvoicePreview({ id: invoice.id, number: invoice.number });
-                                return;
-                              }
-                              openDetail(job.id, detailItem.id);
-                            }}
-                          >
-                            {detailItem.id === 'documents' && documents.length > 0 ? `${detailItem.label} ${documents.length}` : detailItem.id === 'invoice' && invoice?.id ? 'View invoice (£)' : detailItem.label}
-                          </button>
-                        ))}
+                        {DETAIL_TABS
+                          .filter((detailItem) => detailItem.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices))
+                          .map((detailItem) => (
+                            <button
+                              key={detailItem.id}
+                              type="button"
+                              data-active={expanded && detailTab === detailItem.id ? 'true' : 'false'}
+                              disabled={workingJobId === job.id && detailItem.id === 'invoice'}
+                              onClick={() => {
+                                if (detailItem.id === 'invoice' && invoice?.id) {
+                                  setInvoicePreview({ id: invoice.id, number: invoice.number });
+                                  return;
+                                }
+                                if (detailItem.id === 'invoice' && hasPod) {
+                                  void createInvoiceForJob(job);
+                                  return;
+                                }
+                                openDetail(job.id, detailItem.id);
+                              }}
+                            >
+                              {detailItem.id === 'documents' && documents.length > 0
+                                ? `${detailItem.label} ${documents.length}`
+                                : detailItem.id === 'invoice' && invoice?.id
+                                  ? 'View invoice (£)'
+                                  : detailItem.id === 'invoice' && hasPod
+                                    ? 'Create Invoice'
+                                    : detailItem.label}
+                            </button>
+                          ))}
                         {feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
                       </div>
 
@@ -698,7 +762,7 @@ export default function JobHistoryPage() {
                             {detailTab === 'notes' && (orderLoading ? <EmptyState compact title="Loading notes…" /> : noteRows.length ? <div className="driver-diary-note-list">{noteRows.map(([label, value]) => <div key={label} className="driver-diary-text-block"><strong>{label}</strong><span>{value}</span></div>)}</div> : <EmptyState compact title="No notes recorded" />)}
                             {detailTab === 'history' && (historyRows.length ? <div className="driver-diary-history-list">{historyRows.slice(0, 50).map((row) => <div key={row.key} className="driver-diary-history-row"><strong>{row.label}</strong><span>{fmtDate(row.at)}</span><span>{row.detail}</span></div>)}</div> : <EmptyState compact title="No history events recorded" />)}
                             {detailTab === 'documents' && (documents.length ? <div className="driver-diary-document-list">{documents.map((document) => <div key={document.id} className="driver-diary-document-row"><span><strong>{document.file_name ?? document.file_type ?? 'Document'}</strong><small>{document.file_type ?? 'File'} · {fmtDate(document.uploaded_at)}</small></span>{document.file_url && <button type="button" onClick={() => window.open(document.file_url ?? '', '_blank', 'noopener,noreferrer')}>Open</button>}</div>)}</div> : <EmptyState compact title="No documents attached" />)}
-                            {detailTab === 'pod' && <div className="driver-detail-grid"><div className="driver-detail-item"><span>POD required</span><strong>{(sheet?.podRequired ?? job.pod_required) ? 'Yes' : 'No'}</strong></div><div className="driver-detail-item"><span>POD status</span><strong>{hasPod ? 'Captured' : 'Pending'}</strong></div><div className="driver-detail-item"><span>Photos</span><strong>{podPhotos.length}</strong></div><div className="driver-detail-item"><span>Generated</span><strong>{job.pod_generated_at ? fmtDate(job.pod_generated_at) : '—'}</strong></div><div className="driver-detail-item"><span>Broker review</span><strong>{human(job.broker_pod_review_status ?? 'Not reviewed')}</strong></div><div className="driver-detail-item driver-diary-detail-action"><span>Execution record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open POD / job</ActionButton></div></div>}
+                            {detailTab === 'pod' && <div className="driver-detail-grid"><div className="driver-detail-item"><span>POD required</span><strong>Yes</strong><small>Mandatory for every XDrive job</small></div><div className="driver-detail-item"><span>POD status</span><strong>{hasPod ? 'Captured' : 'Pending'}</strong></div><div className="driver-detail-item"><span>Photos</span><strong>{podPhotos.length}</strong></div><div className="driver-detail-item"><span>Generated</span><strong>{job.pod_generated_at ? fmtDate(job.pod_generated_at) : '—'}</strong></div><div className="driver-detail-item"><span>Broker review</span><strong>{human(job.broker_pod_review_status ?? 'Not reviewed')}</strong></div><div className="driver-detail-item driver-diary-detail-action"><span>Execution record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open POD / job</ActionButton></div></div>}
                             {detailTab === 'invoice' && (orderLoading ? <EmptyState compact title="Loading carrier invoice…" /> : orderError ? <div className="driver-diary-empty-action"><AlertBanner tone="warning">{orderError}</AlertBanner><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div> : invoice ? <div className="driver-detail-grid"><div className="driver-detail-item"><span>Invoice</span><strong>{invoice.number ?? invoice.id?.slice(0, 8).toUpperCase() ?? 'Invoice'}</strong></div><div className="driver-detail-item"><span>Amount</span><strong>{invoice.amount != null ? money(invoice.amount, invoice.currency) : 'Not supplied'}</strong></div><div className="driver-detail-item"><span>Status</span><strong>{human(invoice.status)}</strong></div><div className="driver-detail-item"><span>Payment</span><strong>{human(invoice.paymentStatus)}</strong></div><div className="driver-detail-item"><span>Due</span><strong>{invoice.dueDate ? fmtDate(invoice.dueDate) : '—'}</strong></div>{invoice.id && <div className="driver-detail-item driver-diary-detail-action"><span>Invoice record</span><ActionButton tone="secondary" onClick={() => setInvoicePreview({ id: invoice.id as string, number: invoice.number })}>View invoice (£)</ActionButton></div>}</div> : <div className="driver-diary-empty-action"><EmptyState compact title="No carrier invoice generated for this booking" /><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div>)}
                           </div>
 

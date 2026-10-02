@@ -108,7 +108,7 @@ export default function CustomerDashboardHome() {
     );
     const documentAlertJobs = data.jobs.filter((job) => {
       const stage = classifyWorkspaceJobStage(job);
-      const podMissing = stage === 'completed' && job.pod_required === true && job.pod_generated !== true;
+      const podMissing = stage === 'completed' && job.pod_generated !== true;
       const deliveryEvidenceMissing = stage === 'completed' && job.has_delivery_evidence === false;
       const podRejected = String(job.broker_pod_review_status ?? '').trim().toLowerCase() === 'rejected';
       return podMissing || deliveryEvidenceMissing || podRejected;

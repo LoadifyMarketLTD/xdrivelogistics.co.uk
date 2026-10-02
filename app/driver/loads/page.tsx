@@ -370,7 +370,7 @@ export default function AvailableLoadsPage() {
                       <div className="load-extra-col">
                         <div><b>Requested</b><span>{selectedVehicleLabel}</span></div>
                         <div><b>Payment Terms</b><span>{load.payment_terms ?? 'Not supplied'}</span></div>
-                        <div><b>Hard copy POD</b><span>{load.hard_copy_pod ?? (load.pod_required == null ? 'Not supplied' : load.pod_required ? 'Required' : 'Not required')}</span></div>
+                        <div><b>POD</b><span>Digital required · Hard-copy: {load.hard_copy_pod ?? 'No additional requirement'}</span></div>
                       </div>
                       <div className="load-extra-note"><b>Load Notes</b><span>{load.public_quote_notes ?? 'No public quote notes supplied.'}</span><small>Pre-award execution contacts and exact private addresses remain protected until authorised award/allocation.</small></div>
                       {load.handling_requirements.length > 0 && <div className="load-extra-note load-extra-requirements"><b>Requirements</b><span>{load.handling_requirements.join(' · ')}</span></div>}

@@ -289,9 +289,14 @@ export interface DbJob {
   } | null;
   delivery_photos: string[] | null;
   delivery_signature_data: string | null;
+  client_signature_name: string | null;
+  hard_copy_pod: string | null;
+  pod_required: boolean | null;
+  pod_generated: boolean | null;
+  pod_generated_at: string | null;
+  pod_photos: string[] | null;
   status_history: Array<{ status: string; timestamp: string; note?: string }> | null;
   driver_notes: string | null;
-  client_signature_name: string | null;
   exchange_visibility: 'private' | 'exchange' | 'direct' | null;
   awarded_carrier_company_id: string | null;
   direct_invite_company_id: string | null;
