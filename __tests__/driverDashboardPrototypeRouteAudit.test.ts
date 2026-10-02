@@ -35,7 +35,8 @@ describe('Driver execution dashboard contract', () => {
   it('shows commercial tools only when commercial authority exists', () => {
     expect(page).toContain("const commercialAccess = ownerDriver || user?.canCommercialBid === true");
     expect(page).toContain("{ownerDriver ? (");
-    expect(page).toContain('Owner Driver Commercial Position');
+    expect(page).toContain('Gross Margin');
+    expect(page).toContain('Sub-contract Spend');
     expect(page).toContain('{commercialAccess && !ownerDriver ? (');
     for (const route of ['/driver/loads','/driver/quotes','/driver/won-work','/driver/nearby','/driver/returns']) expect(page + shell).toContain(route);
     expect(page).not.toContain('Owner-driver commercial tools');
