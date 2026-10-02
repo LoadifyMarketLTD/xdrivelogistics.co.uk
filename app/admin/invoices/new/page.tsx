@@ -330,8 +330,8 @@ export default function NewInvoicePage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', background: '#f1f5f9' }}>
-        <div style={{ background: '#1e293b', color: '#fff', padding: '1.5rem 2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
+      <div className="carrier-detail-page" style={{ minHeight: '100vh', background: '#f1f5f9' }}>
+        <div className="carrier-detail-page__header" style={{ background: '#1e293b', color: '#fff', padding: '1.5rem 2rem', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}>
           <div style={{ maxWidth: '1200px', margin: '0 auto', display: 'flex', justifyContent: 'space-between', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}>
             <div>
               <h1 style={{ margin: '0 0 0.25rem 0', fontSize: '1.75rem' }}>Create New Invoice</h1>
@@ -353,7 +353,7 @@ export default function NewInvoicePage() {
           </div>
         </div>
 
-        <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1.5rem' }}>
+        <div className="carrier-detail-page__body" style={{ maxWidth: '1200px', margin: '0 auto', padding: '1.5rem' }}>
           <WorkflowStageStrip activeStage="invoice" marginBottom="1rem" />
 
           {(jobLoadError || saveError) && (

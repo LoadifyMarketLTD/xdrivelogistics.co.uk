@@ -1,3 +1,22 @@
+.xdrive-workspace-measured.xdrive-customer-workspace {
+  --ws-page-x: 10px;
+  --ws-page-y: 8px;
+  --ws-gap-grid: 8px;
+  --ws-gap-section: 8px;
+  --ws-filter-rail-w: 185px;
+  --ws-control-h: 32px;
+  --ws-tab-h: 38px;
+  --ws-panel-head-h: 38px;
+  --ws-table-head-h: 36px;
+  --ws-table-row-h: 46px;
+  --ws-font-page-title: 21px;
+  --ws-font-body: 12.5px;
+  --ws-font-label: 11.5px;
+  --ws-font-meta: 11px;
+  --ws-font-micro: 11px;
+  --ws-radius: 3px;
+}
+
 /* Customer dashboard visual contract.
  * Mirrors the confirmed Driver workspace density, rhythm and panel language.
  * Scoped to /customer only. Super Admin is intentionally excluded.
@@ -5,14 +24,14 @@
 
 .customer-operational-page {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   align-content: start;
 }
 
 .customer-dash-metrics {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
 }
 
 .customer-dash-metric {
@@ -49,8 +68,8 @@
 
 .customer-dash-metric strong {
   color: #172033;
-  font-size: 22px;
-  line-height: 26px;
+  font-size: 21px;
+  line-height: 24px;
   font-weight: 800;
 }
 
@@ -65,8 +84,8 @@
 
 .customer-exchange-dashboard {
   display: grid;
-  grid-template-columns: 315px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: 185px minmax(0, 1fr);
+  gap: 8px;
   align-items: start;
 }
 
@@ -87,12 +106,12 @@
 }
 
 .customer-dash-box__head {
-  min-height: 36px;
+  min-height: 38px;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-bottom: 1px solid #d8dee8;
   background: #f2f4f7;
 }
@@ -111,7 +130,7 @@
 }
 
 .customer-dash-box__body {
-  padding: 10px 12px;
+  padding: 8px 10px;
 }
 
 .customer-attention-list,
@@ -124,7 +143,7 @@
 .customer-action-row {
   width: 100%;
   min-width: 0;
-  min-height: 40px;
+  min-height: 46px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
@@ -180,7 +199,8 @@
   border-radius: 999px;
   background: #eef4ff;
   color: #0b2f6b;
-  font-size: 10px;
+  font-size: 11px;
+  line-height: 14px;
   font-weight: 800;
 }
 
@@ -212,8 +232,8 @@
 }
 
 .customer-dash-table th {
-  height: 40px;
-  padding: 0 10px;
+  height: 36px;
+  padding: 0 8px;
   border-bottom: 1px solid #d8dee8;
   background: #f7f8fa;
   color: #0b2f6b;
@@ -225,12 +245,13 @@
 }
 
 .customer-dash-table td {
-  height: 42px;
-  padding: 8px 10px;
+  height: 46px;
+  padding: 6px 8px;
   border-bottom: 1px solid #e5e7eb;
   color: #1a1f2b;
-  font-size: 12px;
-  line-height: 17px;
+  font-size: 12.5px;
+  line-height: 16px;
+  font-weight: 500;
   vertical-align: middle;
 }
 
@@ -326,9 +347,9 @@
 
 .customer-filter-field > span {
   color: #64748b;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 14px;
-  font-weight: 800;
+  font-weight: 700;
   letter-spacing: 0.03em;
 }
 
@@ -337,13 +358,14 @@
   width: 100%;
   min-width: 0;
   height: 32px;
-  padding: 0 9px;
+  padding: 0 8px;
   border: 1px solid #cfd8e6;
   border-radius: 3px;
   background: #fff;
   color: #1a1f2b;
   font: inherit;
-  font-size: 11px;
+  font-size: 12.5px;
+  font-weight: 600;
 }
 
 .customer-filter-field input:focus,
@@ -367,7 +389,7 @@
   }
 
   .customer-exchange-dashboard {
-    grid-template-columns: 300px minmax(0, 1fr);
+    grid-template-columns: 185px minmax(0, 1fr);
   }
 }
 
@@ -389,7 +411,7 @@
 .customer-dashboard-clean-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 12px;
+  gap: 8px;
 }
 
 .customer-table-wrap {
@@ -405,23 +427,36 @@
 
 .customer-transport-table th,
 .customer-transport-table td {
-  padding: 12px 14px;
+  padding: 0 8px;
   border-bottom: 1px solid #e5e7eb;
   text-align: left;
   vertical-align: middle;
 }
 
 .customer-transport-table th {
+  height: 36px;
+}
+
+.customer-transport-table td {
+  height: 46px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.customer-transport-table th {
   color: #64748b;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
 .customer-transport-table td {
   color: #1a1f2b;
-  font-size: 12px;
+  font-size: 12.5px;
+  line-height: 16px;
+  font-weight: 500;
 }
 
 .customer-transport-table td:first-child {
@@ -442,19 +477,19 @@
 .customer-dashboard-footer-links {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  gap: 6px;
   padding-top: 2px;
 }
 
 .customer-dashboard-footer-links button {
-  min-height: 34px;
-  padding: 0 12px;
+  min-height: 32px;
+  padding: 0 9px;
   border: 1px solid #d8dee9;
-  border-radius: 4px;
+  border-radius: 3px;
   background: #fff;
   color: #334155;
   font: inherit;
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   cursor: pointer;
 }
@@ -473,4 +508,21 @@
   .customer-dashboard-clean-grid {
     grid-template-columns: 1fr;
   }
+}
+
+.xdrive-customer-workspace .xdrive-page-header,
+.xdrive-customer-workspace .xdrive-dashboard-home-header {
+  min-height: 42px !important;
+  margin-bottom: 8px !important;
+}
+
+.xdrive-customer-workspace .workspace-tab-strip,
+.xdrive-customer-workspace [role="tablist"] {
+  min-height: 38px !important;
+}
+
+.xdrive-customer-workspace .workspace-tab-strip button,
+.xdrive-customer-workspace [role="tablist"] > button {
+  min-height: 38px !important;
+  height: 38px !important;
 }

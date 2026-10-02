@@ -37,7 +37,7 @@ export default function ViewerDashboardHome() {
   );
 
   return (
-    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '12px 12px 16px' }}>
+    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '8px 10px 12px' }}>
       <DashboardHomeHeader
         eyebrow="Read-only operations"
         title="Viewer Dashboard"
@@ -58,7 +58,7 @@ export default function ViewerDashboardHome() {
         title="Recent operational work"
         description="Latest jobs available to this read-only workspace."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>All jobs</ActionButton>}
-        style={{ marginTop: '12px' }}
+        style={{ marginTop: '8px' }}
       >
         <DataTable
           columns={['Route', 'Pickup', 'Delivery', 'Status', 'Open']}

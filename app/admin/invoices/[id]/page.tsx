@@ -603,29 +603,33 @@ export default function InvoiceDetailPage() {
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
-    padding: '0.75rem',
-    border: '2px solid #e5e7eb',
-    borderRadius: '6px',
-    fontSize: '0.95rem',
+    minHeight: '32px',
+    padding: '6px 8px',
+    border: '1px solid #cbd5e1',
+    borderRadius: '3px',
+    fontSize: '12.5px',
+    lineHeight: '16px',
     outline: 'none',
     transition: 'border-color 0.2s',
   };
 
   const labelStyle: React.CSSProperties = {
     display: 'block',
-    fontSize: '0.875rem',
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: '0.5rem',
+    fontSize: '11.5px',
+    lineHeight: '14px',
+    fontWeight: '700',
+    color: '#475569',
+    marginBottom: '4px',
   };
   const totalPaid = paymentHistory.reduce((sum, item) => sum + Number(item.amount || 0), 0);
   const outstandingBalance = Math.max(0, Number(formData.amount || 0) - totalPaid);
 
   return (
     <ProtectedRoute>
-      <div style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
+      <div className="carrier-detail-page" style={{ minHeight: '100vh', backgroundColor: '#f3f4f6' }}>
         {/* Header */}
         <div
+          className="carrier-detail-page__header"
           style={{
             backgroundColor: '#1e293b',
             color: 'white',
@@ -674,7 +678,7 @@ export default function InvoiceDetailPage() {
         </div>
 
         {/* Main Content */}
-        <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
+        <div className="carrier-detail-page__body" style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr', gap: '2rem' }}>
             {/* Form Section */}
             <div>

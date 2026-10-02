@@ -26,10 +26,10 @@ describe('Customer canonical dashboard convergence contract', () => {
   });
   it('keeps the measured customer control column and dense table contract', () => {
     const css = read('app/customer/customer-dashboard.css');
-    expect(css).toContain('grid-template-columns: repeat(6, minmax(0, 1fr));');
-    expect(css).toContain('grid-template-columns: 315px minmax(0, 1fr);');
-    expect(css).toContain('height: 42px;');
-    expect(css).toContain('min-height: 40px;');
+    expect(css).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
+    expect(css).toContain('grid-template-columns: 185px minmax(0, 1fr);');
+    expect(css).toContain('height: 46px;');
+    expect(css).toContain('min-height: 46px;');
     expect(css).toContain('border-radius: 4px;');
   });
 });

@@ -792,6 +792,7 @@ function JobsPageInner() {
  {/* Full-screen Create Job Workspace */}
  {showModal && (
  <div
+ className="carrier-job-create-modal"
  style={{
  position: 'fixed',
  inset: 0,
@@ -802,6 +803,7 @@ function JobsPageInner() {
  }}
  >
  <div
+ className="carrier-job-create-workspace"
  style={{
  backgroundColor: 'white',
  width: '100%',
@@ -819,7 +821,7 @@ function JobsPageInner() {
  }
  `}</style>
  {/* Workspace Header */}
- <div style={{
+ <div className="carrier-job-create-header" style={{
  padding: '1rem 1.5rem',
  borderBottom: '1px solid #e5e7eb',
  backgroundColor: '#111827',
@@ -867,7 +869,7 @@ function JobsPageInner() {
  </div>
 
  {/* Workspace Body */}
- <div style={{ flex: 1, overflow: 'auto', padding: '1.25rem 1.5rem 7rem', backgroundColor: '#f8fafc' }}>
+ <div className="carrier-job-create-body" style={{ flex: 1, overflow: 'auto', padding: '1.25rem 1.5rem 7rem', backgroundColor: '#f8fafc' }}>
  {/* Client Information */}
  <div className={jobFormStep === 0 ? 'admin-job-section active' : 'admin-job-section'} style={{ backgroundColor: 'white', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '1rem', marginBottom: '1rem' }}>
  <h3 style={{ fontSize: '1.1rem', fontWeight: '600', color: '#1f2937', marginBottom: '1rem' }}>Client Information</h3>
@@ -1098,7 +1100,7 @@ function JobsPageInner() {
  </div>
 
  {/* Fixed Action Bar */}
- <div style={{
+ <div className="carrier-job-create-actions" style={{
  position: 'fixed',
  left: 0,
  right: 0,
@@ -1189,8 +1191,8 @@ function JobsPageInner() {
 
  {/* Direct Carrier Invitation Modal */}
  {directInviteJob && (
- <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
- <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '460px', padding: '1.5rem' }}>
+ <div className="carrier-job-invite-backdrop" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
+ <div className="carrier-job-invite-modal" style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '460px', padding: '1.5rem' }}>
  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
  <h2 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#1f2937' }}>Invite Carrier Directly</h2>
  <button onClick={() => setDirectInviteJob(null)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', color: '#6b7280' }}>x</button>

@@ -93,7 +93,7 @@ export default function ComplianceControlDashboardHome() {
   const incidentsUnavailable = unavailable(data, ['jobs']);
 
   return (
-    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '12px 12px 16px' }}>
+    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '8px 10px 12px' }}>
       <DashboardHomeHeader
         eyebrow="Compliance control"
         title="Compliance Dashboard"
@@ -156,7 +156,7 @@ export default function ComplianceControlDashboardHome() {
           </>
         }
         aside={
-          <div style={{ display: 'grid', gap: '12px' }}>
+          <div style={{ display: 'grid', gap: '8px' }}>
             <OperationalCard title="Compliance coverage" subtitle="Recorded document signals across the current driver and vehicle document set.">
               <ComplianceSummaryPanel
                 total={documents.length}

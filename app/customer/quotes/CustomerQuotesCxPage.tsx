@@ -100,7 +100,7 @@ function AwardConfirmation({
               ['Load ref', `XDL-${candidate.job.id.slice(0, 8).toUpperCase()}`],
             ].map(([label, value]) => (
               <div key={label} style={{ minHeight: 54, padding: '8px 9px', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-                <span style={{ display: 'block', color: '#64748b', fontSize: 10, lineHeight: '13px', textTransform: 'uppercase', fontWeight: 700 }}>{label}</span>
+                <span style={{ display: 'block', color: '#64748b', fontSize: 11, lineHeight: '14px', textTransform: 'uppercase', fontWeight: 700 }}>{label}</span>
                 <strong style={{ display: 'block', marginTop: 3, color: '#0f172a', fontSize: 12, lineHeight: '16px' }}>{value}</strong>
               </div>
             ))}
@@ -170,7 +170,7 @@ function MessageParticipantDialog({
               style={{ width: '100%', padding: 8, border: '1px solid #cbd5e1', borderRadius: 4, font: 'inherit', resize: 'vertical' }}
             />
           </label>
-          <span style={{ fontSize: 10, color: '#64748b' }}>{body.length}/4000 · messages are immutable once sent</span>
+          <span style={{ fontSize: 11, lineHeight: '14px', color: '#64748b' }}>{body.length}/4000 · messages are immutable once sent</span>
         </div>
         <footer style={{ padding: '8px 12px', display: 'flex', justifyContent: 'flex-end', gap: 6, borderTop: '1px solid #e2e8f0', background: '#f4f6f8' }}>
           <ActionButton tone="secondary" disabled={working} onClick={onCancel}>Cancel</ActionButton>

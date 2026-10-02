@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace">
+    <div className="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-customer-workspace">
       <ProtectedRoute allowedRoles={['customer']}>
         <TopWorkspaceShell forcedRole="customer">{children}</TopWorkspaceShell>
       </ProtectedRoute>

@@ -242,7 +242,7 @@ export default function BidsPage() {
 
   return (
     <ProtectedRoute>
-      <div style={{ background: '#f5f7fa', padding: '0.85rem' }}>
+      <div className="carrier-register-page" style={{ background: '#f5f7fa', padding: '0.85rem' }}>
         <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
 
           {/* Header */}
@@ -268,9 +268,9 @@ export default function BidsPage() {
 
           {/* Content */}
           {loading ? (
-            <div style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+            <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
           ) : jobGroups.length === 0 ? (
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '3rem', textAlign: 'center', color: '#6b7280', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
+            <div className="carrier-register-empty" style={{ backgroundColor: 'white', borderRadius: '12px', padding: '3rem', textAlign: 'center', color: '#6b7280', boxShadow: '0 1px 4px rgba(0,0,0,0.06)' }}>
               <p style={{ margin: 0 }}>No bids received yet. Publish loads to the exchange to start receiving bids.</p>
             </div>
           ) : (

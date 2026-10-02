@@ -125,10 +125,10 @@ export default function FleetMap({ pins, style }: FleetMapProps) {
           alignItems: 'center',
           justifyContent: 'center',
           background: '#f1f5f9',
-          borderRadius: '12px',
+          borderRadius: '3px',
           border: '1px solid #e2e8f0',
           color: '#94a3b8',
-          fontSize: '0.9rem',
+          fontSize: '12.5px',
           fontWeight: 600,
         }}
       >
@@ -142,7 +142,7 @@ export default function FleetMap({ pins, style }: FleetMapProps) {
       ref={containerRef}
       style={{
         ...style,
-        borderRadius: '12px',
+        borderRadius: '3px',
         overflow: 'hidden',
         border: '1px solid #e2e8f0',
       }}

@@ -292,7 +292,7 @@ export default function CarrierOperationsDashboardHome() {
       : 'Change the control view or clear the filters.';
 
   return (
-    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '12px 12px 16px' }}>
+    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '8px 10px 12px' }}>
       <DashboardHomeHeader
         eyebrow="Carrier operations"
         title="Carrier Control Desk"
@@ -372,8 +372,8 @@ export default function CarrierOperationsDashboardHome() {
           <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of a partial job dataset` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register →</button></div>
         </section>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.35fr)', gap: '12px', marginTop: '12px', alignItems: 'start' }}>
-          <div style={{ display: 'grid', gap: '12px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.35fr)', gap: '8px', marginTop: '12px', alignItems: 'start' }}>
+          <div style={{ display: 'grid', gap: '8px' }}>
             <OperationalCard title="Commercial position" subtitle="CX-style commercial signals using only verified XDrive records.">
               <CommercialRow label="Won work value" detail="Accepted carrier quotes backed by an award" value={metricValue(data, ['bids', 'jobs'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/won-work')} />
               <CommercialRow label="Overdue invoices" detail="Past-due carrier invoices" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
@@ -389,7 +389,7 @@ export default function CarrierOperationsDashboardHome() {
             </OperationalCard>
           </div>
 
-          <div style={{ display: 'grid', gap: '12px' }}>
+          <div style={{ display: 'grid', gap: '8px' }}>
             <OperationalCard title="Activity at a glance" subtitle="Latest carrier-awarded bookings with the same operational priority CX gives recent work." flush>
               <DataTable
                 columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Evidence', 'Action']}

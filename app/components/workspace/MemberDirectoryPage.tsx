@@ -366,8 +366,8 @@ export function MemberDirectoryPage({
             {tab === 'drivers' ? <label>AVAILABILITY<select value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label> : null}
             <ActionButton tone="success" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find My Nearest</ActionButton>
             <ActionButton tone="secondary" onClick={clear}>Clear</ActionButton>
-            {reputationNote && <span style={{ color: '#475569', fontSize: 10, lineHeight: '13px' }}>{reputationNote}</span>}
-            {privacy && <span style={{ color: '#64748b', fontSize: 10, lineHeight: '13px' }}>{privacy}</span>}
+            {reputationNote && <span style={{ color: '#475569', fontSize: 11, lineHeight: '14px' }}>{reputationNote}</span>}
+            {privacy && <span style={{ color: '#64748b', fontSize: 11, lineHeight: '14px' }}>{privacy}</span>}
           </div>
         </aside>
 
@@ -393,7 +393,7 @@ export function MemberDirectoryPage({
                   </div>
                 </article>
               ))}
-              {visibleCompanies.length === 0 && <div className="workspace-panel"><EmptyState title="No companies match these loaded records" /></div>}
+              {visibleCompanies.length === 0 && <div className="workspace-panel"><EmptyState compact title="No companies match these loaded records" /></div>}
             </div>
           ) : (
             <div className="workspace-record-list">
@@ -408,7 +408,7 @@ export function MemberDirectoryPage({
                   </div>
                 </article>
               ))}
-              {visibleDrivers.length === 0 && <div className="workspace-panel"><EmptyState title="No drivers match these loaded records" /></div>}
+              {visibleDrivers.length === 0 && <div className="workspace-panel"><EmptyState compact title="No drivers match these loaded records" /></div>}
             </div>
           )}
         </main>

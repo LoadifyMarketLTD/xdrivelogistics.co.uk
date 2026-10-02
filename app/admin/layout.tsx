@@ -3,6 +3,7 @@ import AdminPlatformShell from './AdminPlatformShell';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
+import './carrier-workspace-canonical.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Next.js can only apply that nonce to framework/page scripts when the route is
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic';
 
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace">
+    <div className="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-carrier-workspace">
       <AdminPlatformShell>{children}</AdminPlatformShell>
     </div>
   );

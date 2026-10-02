@@ -102,7 +102,7 @@ export default function FleetManagersPage() {
 
   return (
     <ProtectedRoute>
-      <main className="min-h-screen bg-[#F4F6F8] p-4 md:p-6">
+      <main className="carrier-register-page min-h-screen bg-[#F4F6F8] p-4 md:p-6">
         <div className="mx-auto max-w-6xl space-y-5">
           <header className="rounded-2xl bg-white p-5 shadow-sm">
             <p className="text-xs font-black uppercase tracking-widest text-[#F5A300]">Fleet administration</p>
