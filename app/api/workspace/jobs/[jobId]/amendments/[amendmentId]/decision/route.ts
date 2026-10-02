@@ -39,7 +39,7 @@ export async function POST(
 
   const { data: amendment, error: amendmentError } = await supabaseAdmin!
     .from('job_commercial_agreement_amendments')
-    .select('id,agreement_id,job_id,version_number,proposed_by_user_id,proposed_by_company_id,counterparty_company_id,status,effective_snapshot_hash')
+    .select('id,agreement_id,job_id,version_number,proposed_by_user_id,proposed_by_company_id,counterparty_company_id,status,effective_snapshot_hash,pod_required')
     .eq('id', amendmentId)
     .eq('job_id', jobId)
     .maybeSingle();
@@ -50,6 +50,11 @@ export async function POST(
   }
   if (!amendment) return respond(404, { error: 'Commercial amendment not found.' });
   if (amendment.status !== 'proposed') return respond(409, { error: 'This commercial amendment has already been decided.' });
+  if (parsed.data.action === 'accept' && amendment.pod_required !== true) {
+    return respond(409, {
+      error: 'This amendment cannot be accepted because electronic POD is mandatory for every job.',
+    });
+  }
 
   const requiredCompanyId = parsed.data.action === 'cancel'
     ? String(amendment.proposed_by_company_id)

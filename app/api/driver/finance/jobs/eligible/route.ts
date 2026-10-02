@@ -9,6 +9,27 @@ const positiveAmount = (value: unknown) => {
   return Number.isFinite(amount) && amount > 0 ? amount : null;
 };
 
+const hasCompletePod = (job: Record<string, unknown>) => {
+  const deliveryPhotos = Array.isArray(job.delivery_photos)
+    ? job.delivery_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
+    : [];
+  const podDocuments = Array.isArray(job.pod_photos)
+    ? job.pod_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
+    : [];
+  const signature = job.delivery_signature_data;
+  const hasSignature = typeof signature === 'string'
+    ? signature.trim().length > 0
+    : Boolean(signature && typeof signature === 'object');
+  const recipient = typeof job.client_signature_name === 'string'
+    ? job.client_signature_name.trim()
+    : '';
+
+  return job.pod_generated === true
+    && deliveryPhotos.length + podDocuments.length > 0
+    && hasSignature
+    && recipient.length > 0;
+};
+
 async function resolveFinanceOwner(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
   const token = getBearerToken(request);
@@ -68,7 +89,7 @@ export async function GET(request: NextRequest) {
   const statuses = completedStatuses.join(',');
   const { data: jobs, error: jobsError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, pickup_location, delivery_location, pickup_datetime, delivery_datetime, budget_amount, currency, client_name, status, current_status, customer_reference, updated_at')
+    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, pickup_location, delivery_location, pickup_datetime, delivery_datetime, budget_amount, currency, client_name, status, current_status, customer_reference, updated_at, pod_generated, pod_generated_at, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
     .or(`company_id.eq.${driver.companyId},awarded_carrier_company_id.eq.${driver.companyId}`)
     .or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`)
     .order('updated_at', { ascending: false })
@@ -115,6 +136,11 @@ export async function GET(request: NextRequest) {
     const agreedCurrency = String(agreement?.currency ?? '').trim();
     const agreedTerms = String(agreement?.payment_terms ?? '').trim();
     const directInvoiceAmount = positiveAmount(job.budget_amount);
+
+    // POD is mandatory for every invoiced job. A delivered/completed job is not
+    // invoice-ready until the canonical POD record has recipient, signature and
+    // persisted delivery evidence.
+    if (!hasCompletePod(job as Record<string, unknown>)) return [];
 
     // A posting/buyer company must not see its own marketplace load as supplier
     // invoice work merely because jobs.company_id matches its company id.

@@ -207,21 +207,12 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
     ['Public quote notes retained on booking', sheet.notes.publicQuoteNotes],
     ['Private execution instructions', sheet.notes.executionInstructions],
   ].filter((entry): entry is [string, string] => Boolean(entry[1]));
-  const hardCopyPod = sheet.pod.hardCopy
-    ?? (sheet.pod.required === true
-      ? 'POD required; hard-copy requirement not separately supplied'
-      : sheet.pod.required === false
-        ? 'Not required'
-        : 'Not supplied');
+  const hardCopyPod = sheet.pod.hardCopy ?? 'Not separately required';
   const podState = sheet.pod.generated
     ? { label: 'POD generated', tone: 'green' as const, detail: sheet.pod.photoCount > 0 ? `${sheet.pod.photoCount} evidence file(s)` : 'Generated POD record' }
     : sheet.pod.photoCount > 0
-      ? { label: 'Delivery evidence', tone: 'blue' as const, detail: `${sheet.pod.photoCount} photo/evidence file(s); generated POD not confirmed` }
-      : sheet.pod.required === false
-        ? { label: 'Not required', tone: 'grey' as const, detail: 'This booking does not require POD evidence.' }
-        : sheet.pod.required === true
-          ? { label: 'Pending', tone: 'orange' as const, detail: 'POD is required and no generated POD or delivery evidence is recorded.' }
-          : { label: 'Requirement not supplied', tone: 'grey' as const, detail: 'The booking does not state whether POD is required; no evidence is inferred.' };
+      ? { label: 'Delivery evidence', tone: 'blue' as const, detail: `${sheet.pod.photoCount} photo/evidence file(s); completed POD not yet confirmed` }
+      : { label: 'Pending', tone: 'orange' as const, detail: 'Electronic POD is mandatory for every job and has not yet been completed.' };
   const carrierMode = mode === 'carrier';
   const presentationStatus = workspaceJobPresentationStatus({
     status: sheet.status,
@@ -317,7 +308,6 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
             currentAmount={sheet.commercial.carrierCost}
             currency={sheet.commercial.currency}
             paymentTerms={sheet.commercial.paymentTerms}
-            podRequired={sheet.pod.required}
             pickup={sheet.route.pickup}
             delivery={sheet.route.delivery}
           />
@@ -394,7 +384,7 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
         </div>
       )}
 
-      {tab === 'pod' && <div className="workspace-detail-grid"><Detail label="POD required" value={sheet.pod.required == null ? 'Not supplied' : sheet.pod.required ? 'Yes' : 'No'} /><Detail label="Hard-copy POD" value={hardCopyPod} /><Detail label="POD status" value={<StatusBadge value={podState.label} tone={podState.tone} />} detail={podState.detail} /><Detail label="Evidence files" value={sheet.pod.photoCount} /><Detail label="Generated" value={sheet.pod.generated ? when(sheet.pod.generatedAt) : 'Not confirmed'} /><Detail label="Review" value={human(sheet.pod.reviewStatus)} detail={sheet.pod.reviewNote ?? undefined} /></div>}
+      {tab === 'pod' && <div className="workspace-detail-grid"><Detail label="Electronic POD" value="Required" /><Detail label="Hard-copy POD" value={hardCopyPod} /><Detail label="POD status" value={<StatusBadge value={podState.label} tone={podState.tone} />} detail={podState.detail} /><Detail label="Evidence files" value={sheet.pod.photoCount} /><Detail label="Generated" value={sheet.pod.generated ? when(sheet.pod.generatedAt) : 'Not confirmed'} /><Detail label="Review" value={human(sheet.pod.reviewStatus)} detail={sheet.pod.reviewNote ?? undefined} /></div>}
 
       {tab === 'invoice' && (sheet.invoices.length ? <div style={{ display: 'grid' }}>{sheet.invoices.map((invoice, index) => <div key={invoice.id ?? `${invoice.number}-${index}`} className="workspace-record-meta"><span><strong>{invoice.number ?? 'Invoice'}</strong></span><span>{money(invoice.amount, invoice.currency)}</span><span>{human(invoice.paymentStatus ?? invoice.status)}</span><span>{invoice.dueDate ? `Due ${when(invoice.dueDate)}` : 'No due date'}</span></div>)}</div> : <EmptyState compact title="No authorised invoice linked to this booking" />)}
 

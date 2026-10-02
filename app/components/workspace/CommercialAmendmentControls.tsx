@@ -36,7 +36,6 @@ type Props = {
   currentAmount: number | null;
   currency: string;
   paymentTerms: string | null;
-  podRequired: boolean | null;
   pickup: RoutePoint;
   delivery: RoutePoint;
 };

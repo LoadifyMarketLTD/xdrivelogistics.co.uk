@@ -214,7 +214,7 @@ export function DriverJobSheetPanel({ jobId }: { jobId: string }) {
             <Detail label="Dimensions" value={dimensions} />
             <Detail label="Cargo value" value={money(sheet.cargo.cargoValueGbp)} />
             <Detail label="Distance" value={sheet.distanceMiles != null ? `${sheet.distanceMiles} miles` : 'Not supplied'} />
-            <Detail label="Hard-copy POD" value={sheet.hardCopyPod} />
+            <Detail label="Hard-copy POD" value={sheet.hardCopyPod || 'Not separately required'} />
             <Detail label="Extras" value="Not supplied" detail={sheet.unavailable.extras} />
           </div>
 
@@ -234,8 +234,8 @@ export function DriverJobSheetPanel({ jobId }: { jobId: string }) {
 
       {tab === 'pod' && (
         <div className="workspace-detail-grid">
-          <Detail label="POD required" value={sheet.podRequired == null ? 'Not supplied' : sheet.podRequired ? 'Yes' : 'No'} />
-          <Detail label="Hard-copy POD" value={sheet.hardCopyPod} />
+          <Detail label="Electronic POD" value="Required" />
+          <Detail label="Hard-copy POD" value={sheet.hardCopyPod || 'Not separately required'} />
           <Detail label="Collection photo" value={sheet.pod.collectionPhotoRecorded ? 'Recorded' : 'Not recorded'} />
           <Detail label="Delivery photos" value={sheet.pod.photoCount} />
           <Detail label="Receiver" value={sheet.pod.receiverName ?? 'Not supplied'} />

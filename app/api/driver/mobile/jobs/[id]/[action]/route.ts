@@ -1,7 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextRequest } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
-import { autoGenerateMarketplaceInvoice } from '../../../../../_lib/autoGenerateMarketplaceInvoice';
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
 import {
   insertTrackingEvent,
@@ -22,6 +21,7 @@ const actionToCanonicalStatus: Record<string, string> = {
   'on-my-way-delivery': 'in_transit',
   'arrived-delivery': 'on_site_delivery',
   delivered: 'delivered',
+  completed: 'completed',
 };
 
 const terminalStopStatuses = new Set(['completed', 'skipped']);
@@ -133,9 +133,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const driverNotes = typeof body.driverNotes === 'string' ? body.driverNotes.trim().slice(0, 5000) || null : null;
 
   // Physical evidence is server-authoritative. Collection evidence is linked by
-  // /evidence before Loaded; final POD links verified delivery evidence before
-  // Delivered. The lifecycle request itself never injects storage paths or a
-  // signature/recipient identity supplied by the client.
+  // /evidence before Loaded. Delivered is a lifecycle checkpoint; mandatory POD
+  // is captured afterwards through /pod, and Completed is rejected until both
+  // persistent POD and the executing company's invoice exist. The lifecycle
+  // request itself never injects storage paths or recipient identity.
   const { error: lifecycleError } = await scoped.rpc('driver_update_job_status_atomic', {
     p_driver_id: driver.driverId,
     p_job_id: id,
@@ -161,28 +162,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (refreshError) return respond(500, { error: refreshError.message });
 
   const updatedJob = updated as unknown as MobileJobRow;
-  if (action === 'delivered') {
-    const carrierCompanyId = typeof updatedJob.awarded_carrier_company_id === 'string'
-      ? updatedJob.awarded_carrier_company_id
-      : null;
-    if (carrierCompanyId) {
-      try {
-        await autoGenerateMarketplaceInvoice({
-          supabase: supabaseAdmin,
-          jobId: id,
-          supplierCompanyId: carrierCompanyId,
-          actorUserId: driver.userId,
-          idempotencyKey: `auto-pod-${id}`,
-        });
-      } catch (reason) {
-        console.error(
-          'Driver lifecycle update succeeded but auto invoice generation failed:',
-          reason instanceof Error ? reason.message : reason
-        );
-      }
-    }
-  }
-
   return respond(200, { ok: true, job: mapJob(updatedJob) });
 }
 
@@ -247,6 +226,11 @@ async function savePod(
   if (!existing) return respond(404, { error: 'Job not found.' });
 
   const job = existing as unknown as MobileJobWithDamageEvidence;
+  const currentStatus = String(job.current_status ?? job.status ?? '').toLowerCase();
+  if (!['delivered', 'completed', 'invoiced'].includes(currentStatus)) {
+    return respond(409, { error: 'Mark the job Delivered before completing POD.' });
+  }
+
   const recipientName = typeof body.recipientName === 'string' ? body.recipientName.trim() : '';
   const rawSignature = typeof body.signatureData === 'string' ? body.signatureData.trim() : '';
   const rawPhotoUris = safeArray(body.photoUris);
@@ -296,20 +280,12 @@ async function savePod(
   const existingDocuments = safeArray(job.pod_photos).filter((item): item is string => typeof item === 'string');
   const signatureData = rawSignature || job.delivery_signature_data || null;
   const effectivePhotoCount = new Set([...existingPhotos, ...photoPaths]).size;
-  const hasAnyEvidence = Boolean(signatureData)
-    || effectivePhotoCount > 0
-    || new Set([...existingDamagePhotos, ...damagePhotoPaths]).size > 0
-    || new Set([...existingDocuments, ...documentPaths]).size > 0;
 
-  if (job.pod_required !== false) {
-    if (effectivePhotoCount === 0) {
-      return respond(400, { error: 'At least one delivery photo is required for POD.' });
-    }
-    if (!signatureData) {
-      return respond(400, { error: 'Recipient signature is required for POD.' });
-    }
-  } else if (!hasAnyEvidence) {
-    return respond(400, { error: 'A recipient signature, POD photo, damage photo or POD document is required.' });
+  if (effectivePhotoCount === 0) {
+    return respond(400, { error: 'At least one delivery photo is required for POD.' });
+  }
+  if (!signatureData) {
+    return respond(400, { error: 'Recipient signature is required for POD.' });
   }
 
   try {
@@ -328,28 +304,6 @@ async function savePod(
   }
 
   const now = new Date().toISOString();
-  const { data: updated, error: updateError } = await supabaseAdmin!
-    .from('jobs')
-    .update({
-      delivery_photos: Array.from(new Set([...existingPhotos, ...photoPaths])),
-      damage_photos: Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths])),
-      pod_photos: Array.from(new Set([...existingDocuments, ...documentPaths])),
-      delivery_signature_data: signatureData,
-      client_signature_name: recipientName,
-      driver_notes: typeof body.notes === 'string' && body.notes.trim()
-        ? body.notes.trim().slice(0, 5000)
-        : null,
-      pod_generated: true,
-      pod_generated_at: now,
-      updated_at: now,
-    })
-    .eq('id', jobId)
-    .eq('assigned_driver_id', driverId)
-    .select(jobSelect)
-    .single();
-
-  if (updateError) return respond(500, { error: updateError.message });
-
   const podNotes = [
     typeof body.notes === 'string' ? body.notes.trim().slice(0, 5000) : '',
     String(job.hard_copy_pod ?? '').trim() && hardCopyAcknowledged ? 'Hard-copy POD requirement acknowledged by assigned driver.' : '',
@@ -377,6 +331,28 @@ async function savePod(
     ? await supabaseAdmin!.from('proof_of_delivery').update(podPayload).eq('id', existingPod.id)
     : await supabaseAdmin!.from('proof_of_delivery').insert({ job_id: jobId, ...podPayload });
   if (podWrite.error) return respond(500, { error: podWrite.error.message });
+
+  const { data: updated, error: updateError } = await supabaseAdmin!
+    .from('jobs')
+    .update({
+      delivery_photos: Array.from(new Set([...existingPhotos, ...photoPaths])),
+      damage_photos: Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths])),
+      pod_photos: Array.from(new Set([...existingDocuments, ...documentPaths])),
+      delivery_signature_data: signatureData,
+      client_signature_name: recipientName,
+      driver_notes: typeof body.notes === 'string' && body.notes.trim()
+        ? body.notes.trim().slice(0, 5000)
+        : null,
+      pod_generated: true,
+      pod_generated_at: now,
+      updated_at: now,
+    })
+    .eq('id', jobId)
+    .eq('assigned_driver_id', driverId)
+    .select(jobSelect)
+    .single();
+
+  if (updateError) return respond(500, { error: updateError.message });
 
   await insertTrackingEvent(jobId, userId, 'note', 'Persistent POD evidence uploaded');
   if (String(job.hard_copy_pod ?? '').trim() && hardCopyAcknowledged) {

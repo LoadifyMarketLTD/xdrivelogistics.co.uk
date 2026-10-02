@@ -193,7 +193,7 @@ function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = []) {
   if (tab === 'expired') return stage === 'expired';
   if (tab === 'awaiting_feedback') return isAwaitingFeedback(job, reviews);
   if (tab === 'recent_feedback') return hasRecentFeedback(reviews);
-  return stage === 'completed' && (job.pod_generated === true || (job.delivery_photos?.length ?? 0) > 0);
+  return stage === 'completed' && job.pod_generated === true;
 }
 
 function stageTone(job: JobRow): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' {
@@ -838,7 +838,7 @@ export default function OperationsDiaryPage() {
                         <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>Load #{job.id.slice(0, 8).toUpperCase()} · {job.client_name ?? 'Customer not supplied'}</div>
                         {detail?.ownerCompanyName && <div style={{ color: '#475569', fontSize: 10, marginTop: 3 }}>Posted by <strong>{detail.ownerCompanyName}</strong>{bookedTo ? <> · Booked to <strong>{bookedTo}</strong></> : null}{counterpartyPhone ? <> · <a href={`tel:${counterpartyPhone.replace(/\s+/g, '')}`} style={{ color: '#1d57d8', fontWeight: 800, textDecoration: 'none' }}>{counterpartyPhone}</a></> : null}</div>}
                         {(agreedRate || detail?.paymentTerms) && <div style={{ color: '#475569', fontSize: 10, marginTop: 2 }}>{agreedRate ? <>Agreed rate <strong>{agreedRate}</strong></> : null}{agreedRate && detail?.paymentTerms ? ' · ' : ''}{detail?.paymentTerms ? <>Payment terms <strong>{detail.paymentTerms}</strong></> : null}</div>}
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>{job.pod_generated ? <StatusBadge value="POD generated" tone="green" /> : evidenceCount > 0 ? <StatusBadge value={String(evidenceCount) + ' evidence file(s)'} tone="blue" /> : job.pod_required ? <StatusBadge value="POD pending" tone="orange" /> : null}{isAwaitingFeedback(job, reviewsByJob[job.id] ?? []) && <StatusBadge value="Awaiting feedback" tone="orange" />}{hasRecentFeedback(reviewsByJob[job.id] ?? []) && <StatusBadge value="Recent feedback" tone="green" />}</div>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>{job.pod_generated ? <StatusBadge value="POD generated" tone="green" /> : evidenceCount > 0 ? <StatusBadge value={String(evidenceCount) + ' evidence file(s) · POD pending'} tone="orange" /> : <StatusBadge value="POD pending" tone="orange" />}{isAwaitingFeedback(job, reviewsByJob[job.id] ?? []) && <StatusBadge value="Awaiting feedback" tone="orange" />}{hasRecentFeedback(reviewsByJob[job.id] ?? []) && <StatusBadge value="Recent feedback" tone="green" />}</div>
                       </section>
                     </div>
                     <div className="workspace-record-meta" style={{ minHeight: 28 }}>

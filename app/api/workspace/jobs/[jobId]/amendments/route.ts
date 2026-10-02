@@ -31,7 +31,10 @@ const proposalSchema = z.object({
   verbalAgreementConfirmed: z.boolean().optional().default(false),
   verbalAgreementNote: z.string().trim().max(1000).optional(),
 }).superRefine((value, ctx) => {
-  if (value.agreedAmount == null && value.paymentTerms == null && value.podRequired == null && !value.jobPatch) {
+  if (value.podRequired != null) {
+    ctx.addIssue({ code: 'custom', path: ['podRequired'], message: 'Electronic POD is mandatory for every job and cannot be amended.' });
+  }
+  if (value.agreedAmount == null && value.paymentTerms == null && !value.jobPatch) {
     ctx.addIssue({ code: 'custom', message: 'At least one contractual change is required.' });
   }
   if (value.jobPatch && JSON.stringify(value.jobPatch).length > 20_000) {
@@ -192,13 +195,12 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!currentAmount) return respond(409, { error: 'The effective agreement amount is invalid.' });
   const nextAmount = parsed.data.agreedAmount ?? currentAmount;
   const nextPaymentTerms = parsed.data.paymentTerms ?? agreement.payment_terms;
-  const nextPodRequired = parsed.data.podRequired ?? agreement.pod_required;
+  const nextPodRequired = true;
   const nextJobSnapshot = mergeJobSnapshot(agreement.job_snapshot, parsed.data.jobPatch);
 
   const summary: Record<string, unknown> = {};
   if (Math.abs(nextAmount - currentAmount) > 0.009) summary.agreedAmount = { from: currentAmount, to: nextAmount };
   if (nextPaymentTerms !== agreement.payment_terms) summary.paymentTerms = { from: agreement.payment_terms, to: nextPaymentTerms };
-  if (nextPodRequired !== agreement.pod_required) summary.podRequired = { from: agreement.pod_required, to: nextPodRequired };
   const jobChanges = describeJobPatch(agreement.job_snapshot, parsed.data.jobPatch);
   if (parsed.data.jobPatch && Object.keys(jobChanges).length) {
     summary.jobPatch = parsed.data.jobPatch;

@@ -207,7 +207,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                   <div className="driver-detail-item"><span>Cargo value</span><strong>{load.cargo_value_gbp != null ? money(load.cargo_value_gbp) : 'Not supplied'}</strong></div>
                   <div className="driver-detail-item"><span>Stackable</span><strong>{load.pallet_stackable == null ? 'Not supplied' : load.pallet_stackable ? 'Yes' : 'No'}</strong></div>
                   <div className="driver-detail-item"><span>Payment terms</span><strong>{load.payment_terms ?? 'Not supplied on this job'}</strong></div>
-                  <div className="driver-detail-item"><span>POD requirement</span><strong>{load.hard_copy_pod ?? (load.pod_required == null ? 'Not supplied' : load.pod_required ? 'POD required' : 'Not required')}</strong></div>
+                  <div className="driver-detail-item"><span>Electronic POD</span><strong>Required</strong><small>Hard-copy POD: {load.hard_copy_pod ?? 'Not separately required'}</small></div>
                 </div>
 
                 {load.handling_requirements.length > 0 && <div style={{ padding: '7px 8px', border: '1px solid #e5e7eb', borderRadius: 4, background: '#f8fafc', color: '#1a1f2b', fontSize: 11, lineHeight: '15px' }}><strong>Quote-safe requirements: </strong>{load.handling_requirements.join(' · ')}</div>}

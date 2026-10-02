@@ -97,6 +97,7 @@ export type DriverContext = {
   driverType: string | null;
   canCommercialBid: boolean;
   companyStatus: string | null;
+  canManageFinance: boolean;
 };
 
 export type MobileJobRow = {
@@ -224,14 +225,27 @@ export async function requireDriver(
     ? driverRow.company_id.trim()
     : null;
   let companyStatus: string | null = null;
+  let canManageFinance = false;
   if (companyId) {
-    const { data: companyRow, error: companyError } = await supabaseAdmin
-      .from('companies')
-      .select('status')
-      .eq('id', companyId)
-      .maybeSingle();
-    if (companyError) return respond(500, { error: companyError.message });
-    companyStatus = String(companyRow?.status ?? '').trim().toLowerCase() || null;
+    const [companyResult, membershipResult] = await Promise.all([
+      supabaseAdmin
+        .from('companies')
+        .select('status')
+        .eq('id', companyId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('company_memberships')
+        .select('role_in_company')
+        .eq('company_id', companyId)
+        .eq('user_id', authData.user.id)
+        .eq('status', 'active')
+        .maybeSingle(),
+    ]);
+    if (companyResult.error) return respond(500, { error: companyResult.error.message });
+    if (membershipResult.error) return respond(500, { error: membershipResult.error.message });
+    companyStatus = String(companyResult.data?.status ?? '').trim().toLowerCase() || null;
+    const membershipRole = String(membershipResult.data?.role_in_company ?? '').trim().toLowerCase();
+    canManageFinance = membershipRole === 'owner' || membershipRole === 'admin';
   }
 
   return {
@@ -243,6 +257,7 @@ export async function requireDriver(
     driverType: typeof driverRow.driver_type === 'string' ? driverRow.driver_type : null,
     canCommercialBid: driverRow.can_commercial_bid === true,
     companyStatus,
+    canManageFinance,
   };
 }
 
@@ -313,7 +328,9 @@ export function appendStatusHistory(existingHistory: unknown, entry: Record<stri
 }
 
 export function hasPod(job: Pick<MobileJobRow, 'delivery_photos' | 'pod_photos' | 'delivery_signature_data' | 'pod_generated'>) {
-  return Boolean(job.pod_generated) || safeArray(job.delivery_photos).length > 0 || safeArray(job.pod_photos).length > 0 || Boolean(job.delivery_signature_data);
+  // Fail closed: evidence fragments do not equal a completed POD. The canonical
+  // POD endpoint sets pod_generated only after the persistent POD record succeeds.
+  return job.pod_generated === true;
 }
 
 export function toMoney(value: number | string | null | undefined) {
@@ -357,7 +374,7 @@ export function mapJob(row: MobileJobRow) {
     paymentTerms: row.payment_terms || '',
     distanceMiles: Number.isFinite(distance) && distance > 0 ? distance : null,
     priority: ['delayed', 'disputed', 'failed'].includes(String(row.status ?? '').toLowerCase()) ? 'high' : 'normal',
-    podRequired: row.pod_required !== false,
+    podRequired: true,
     hardCopyPod: row.hard_copy_pod || '',
     collectionPassRequired: row.collection_pass_required === true,
     podGenerated: hasPod(row),

@@ -29,6 +29,27 @@ const optionalNonNegativeInteger = (value: unknown) => {
 const validEmail = (value: string | null) =>
   Boolean(value && value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value));
 
+const hasCompletePod = (job: Record<string, unknown>) => {
+  const deliveryPhotos = Array.isArray(job.delivery_photos)
+    ? job.delivery_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
+    : [];
+  const podDocuments = Array.isArray(job.pod_photos)
+    ? job.pod_photos.filter((value) => typeof value === 'string' && value.trim().length > 0)
+    : [];
+  const signature = job.delivery_signature_data;
+  const hasSignature = typeof signature === 'string'
+    ? signature.trim().length > 0
+    : Boolean(signature && typeof signature === 'object');
+  const recipient = typeof job.client_signature_name === 'string'
+    ? job.client_signature_name.trim()
+    : '';
+
+  return job.pod_generated === true
+    && deliveryPhotos.length + podDocuments.length > 0
+    && hasSignature
+    && recipient.length > 0;
+};
+
 const resolveDueDays = (terms: string | null, explicitDays: unknown) => {
   const supplied = optionalNonNegativeInteger(explicitDays);
   if (supplied !== null) return supplied;
@@ -118,7 +139,7 @@ export async function POST(
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, status, current_status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount, customer_reference')
+    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, status, current_status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount, customer_reference, pod_generated, pod_generated_at, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
     .eq('id', jobId)
     .or(`company_id.eq.${actor.companyId},awarded_carrier_company_id.eq.${actor.companyId}`)
     .maybeSingle();
@@ -130,6 +151,12 @@ export async function POST(
   if (!['delivered', 'completed', 'invoiced'].includes(jobStatus)) {
     return respond(409, {
       error: `Invoice can only be generated after delivery. Current job status: "${jobStatus || 'unknown'}".`,
+    });
+  }
+
+  if (!hasCompletePod(job as Record<string, unknown>)) {
+    return respond(409, {
+      error: 'Complete POD before creating the invoice. Recipient name, signature and delivery evidence are required for every job.',
     });
   }
 

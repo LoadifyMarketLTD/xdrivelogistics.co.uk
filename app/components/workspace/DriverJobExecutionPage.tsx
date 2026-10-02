@@ -104,6 +104,8 @@ type JobSheet = {
   documentChecklist: string[];
   timeline: Array<{ id: string | null; eventType: string; message: string | null; meta: unknown; createdAt: string | null }>;
   documents: Array<{ id: string | null; type: string; fileName: string | null; filePath: string | null; createdAt: string | null }>;
+  invoicePresent: boolean;
+  canManageFinance: boolean;
   invoices: Array<{ id: string | null; number: string | null; status: string | null; paymentStatus: string | null; amount: number | null; currency: string; dueDate: string | null }>;
   partial: boolean;
   unavailable: {
@@ -268,8 +270,13 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       setWorking(false);
       return;
     }
-    if (nextStatus === 'delivered') {
-      setError('Complete the POD panel before marking this job delivered.');
+    if (nextStatus === 'completed' && !(job as DbJob & { pod_generated?: boolean | null }).pod_generated) {
+      setError('Complete POD before completing this job.');
+      setWorking(false);
+      return;
+    }
+    if (nextStatus === 'completed' && !sheet?.invoicePresent) {
+      setError('An invoice must be created before this job can be completed.');
       setWorking(false);
       return;
     }
@@ -279,6 +286,31 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     if (transitionError) setError(transitionError.message);
     else { setMessage(`Job updated: ${statusLabel[nextStatus] ?? nextStatus}.`); await loadJob(); }
     setWorking(false);
+  };
+
+  const createInvoice = async () => {
+    if (!job) return;
+    setWorking(true);
+    setError('');
+    setMessage('');
+    try {
+      const auth = await authHeader();
+      if (!auth) throw new Error('Your XDrive session is not available. Please sign in again.');
+      const response = await fetch(`/api/driver/finance/jobs/${encodeURIComponent(job.id)}/generate-invoice`, {
+        method: 'POST',
+        headers: { Authorization: auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idempotency_key: crypto.randomUUID() }),
+      });
+      const payload = await response.json().catch(() => ({})) as { invoice?: { id: string }; error?: string };
+      if (!response.ok || !payload.invoice?.id) {
+        throw new Error(payload.error || 'Invoice could not be created.');
+      }
+      router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Invoice could not be created.');
+    } finally {
+      setWorking(false);
+    }
   };
 
   if (loading) return <PageFrame><EmptyState title="Loading assigned job…" /></PageFrame>;
@@ -417,15 +449,23 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
         </div>
 
         <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap', marginTop: 8 }}>
-          {nextStatus && nextLabel && nextStatus !== 'delivered' && <ActionButton tone="success" disabled={working} onClick={() => void moveStatus(nextStatus)}>{working ? 'Saving…' : nextLabel}</ActionButton>}
+          {nextStatus && nextLabel && (nextStatus !== 'completed' || (podJob.pod_generated && sheet?.invoicePresent)) && <ActionButton tone="success" disabled={working} onClick={() => void moveStatus(nextStatus)}>{working ? 'Saving…' : nextLabel}</ActionButton>}
           {navigationStage && navigationAddress && <>
             <a href={mapsUrl(navigationAddress, navigationPostcode)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Google Maps ? {navigationStage === 'pickup' ? 'Pickup' : 'Delivery'}</a>
             <a href={wazeUrl(navigationAddress, navigationPostcode)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Waze ? {navigationStage === 'pickup' ? 'Pickup' : 'Delivery'}</a>
           </>}
           <a href={routeMapUrl(job)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Route / Track</a>
           {sheet?.memberPhone && <a href={`tel:${sheet.memberPhone.replace(/\s+/g, '')}`} style={linkButtonStyle}>Call Member</a>}
-          {sheet?.invoices[0]?.id && <ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View invoice (£)</ActionButton>}
+          {podJob.pod_generated && sheet?.canManageFinance && !sheet?.invoicePresent && <ActionButton tone="primary" disabled={working} onClick={() => void createInvoice()}>{working ? 'Creating…' : 'Create Invoice'}</ActionButton>}
+          {sheet?.canManageFinance && sheet?.invoices[0]?.id && <ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View invoice (£)</ActionButton>}
         </div>
+        {currentStatus === 'delivered' && podJob.pod_generated && !sheet?.invoicePresent && (
+          <AlertBanner tone="warning">
+            {sheet?.canManageFinance
+              ? 'POD completed. Create the invoice to unlock job completion.'
+              : 'POD completed. Waiting for the company owner or admin to create the invoice before this job can be completed.'}
+          </AlertBanner>
+        )}
       </Panel>
 
       <TwoColumn>
@@ -451,10 +491,9 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
               {collectionPhotos.length > 0 && <div style={{ marginTop: 6, color: '#64748b', fontSize: 11 }}>Verified collection evidence: {collectionPhotos.length}/10 photos.</div>}
             </Panel>
           )}
-          {currentStatus === 'on_site_delivery' && (
+          {currentStatus === 'delivered' && !podJob.pod_generated && (
             <DriverPodCapturePanel
               jobId={job.id}
-              podRequired={sheet?.podRequired ?? podJob.pod_required ?? true}
               hardCopyPod={sheet?.hardCopyPod}
               existingDeliveryPhotos={Array.isArray(job.delivery_photos) ? job.delivery_photos : []}
               existingDamagePhotos={Array.isArray(podJob.damage_photos) ? podJob.damage_photos : []}
@@ -489,7 +528,13 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
               <div className="driver-detail-item"><span>POD documents</span><strong>{Array.isArray(podJob.pod_photos) ? podJob.pod_photos.length : 0}</strong></div>
               <div className="driver-detail-item"><span>Recipient</span><strong>{job.client_signature_name ?? 'Not captured'}</strong></div>
               <div className="driver-detail-item"><span>Signature</span><strong>{job.delivery_signature_data ? 'Captured' : 'Not captured'}</strong></div>
-              <div className="driver-detail-item"><span>Invoice</span><strong>{sheet?.invoices[0]?.number ?? 'Not generated'}</strong><small>{sheet?.invoices[0]?.paymentStatus ?? sheet?.invoices[0]?.status ?? ''}</small></div>
+              <div className="driver-detail-item">
+                <span>Invoice</span>
+                <strong>{sheet?.canManageFinance ? (sheet?.invoices[0]?.number ?? (sheet?.invoicePresent ? 'Created' : 'Not generated')) : (sheet?.invoicePresent ? 'Created by company' : 'Waiting for company')}</strong>
+                <small>{sheet?.canManageFinance
+                  ? (sheet?.invoices[0]?.paymentStatus ?? sheet?.invoices[0]?.status ?? '')
+                  : 'Company drivers cannot create or view invoices.'}</small>
+              </div>
             </div>
           </Panel>
         </div>

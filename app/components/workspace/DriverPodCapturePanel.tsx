@@ -13,7 +13,6 @@ type DeliveryStatus =
 
 type Props = {
   jobId: string;
-  podRequired: boolean;
   hardCopyPod?: string | null;
   existingDeliveryPhotos?: string[];
   existingDamagePhotos?: string[];
@@ -46,7 +45,6 @@ const inputStyle: React.CSSProperties = {
 
 export default function DriverPodCapturePanel({
   jobId,
-  podRequired,
   hardCopyPod,
   existingDeliveryPhotos = [],
   existingDamagePhotos = [],
@@ -229,27 +227,16 @@ export default function DriverPodCapturePanel({
   const submitPod = async () => {
     const signature = signatureData();
     const deliveryPhotoCount = existingDeliveryPhotos.length + deliveryPhotos.length;
-    const evidenceCount =
-      deliveryPhotoCount +
-      existingDamagePhotos.length +
-      damagePhotos.length +
-      existingDocuments.length +
-      documents.length;
-
     if (!recipientName.trim()) {
       onError('Recipient name is required for POD.');
       return;
     }
-    if (podRequired && deliveryPhotoCount === 0) {
+    if (deliveryPhotoCount === 0) {
       onError('At least one delivery photo is required for POD.');
       return;
     }
-    if (podRequired && !signature && !existingSignature) {
+    if (!signature && !existingSignature) {
       onError('Recipient signature is required for POD.');
-      return;
-    }
-    if (!podRequired && evidenceCount === 0 && !signature && !existingSignature) {
-      onError('Add POD evidence or a recipient signature before saving.');
       return;
     }
     setBusy(true);
@@ -282,31 +269,11 @@ export default function DriverPodCapturePanel({
         throw new Error(podPayload.error || 'POD could not be saved.');
       }
 
-      const finalisable = deliveryStatus === 'Completed Delivery' || deliveryStatus === 'Left Safe';
-      if (!finalisable) {
-        await onSaved(
-          `POD saved as ${deliveryStatus}. Job remains at delivery stage for operational resolution.`,
-        );
-        return;
-      }
-      const deliveredResponse = await fetch(
-        `/api/driver/mobile/jobs/${encodeURIComponent(jobId)}/delivered`,
-        {
-          method: 'POST',
-          headers: { Authorization: auth, 'Content-Type': 'application/json' },
-          body: JSON.stringify({ driverNotes: driverNotes.trim() || null }),
-        },
+      await onSaved(
+        deliveryStatus === 'Completed Delivery' || deliveryStatus === 'Left Safe'
+          ? 'POD completed. The job remains open until the required invoice exists.'
+          : `POD saved as ${deliveryStatus}. Resolve the delivery exception before invoicing.`,
       );
-      const deliveredPayload = await deliveredResponse.json().catch(() => ({})) as {
-        error?: string;
-      };
-      if (!deliveredResponse.ok) {
-        throw new Error(
-          deliveredPayload.error || 'POD was saved, but the job could not be marked delivered.',
-        );
-      }
-
-      await onSaved('POD saved and job updated: Delivered.');
     } catch (reason) {
       onError(reason instanceof Error ? reason.message : 'POD could not be completed.');
     } finally {
@@ -319,13 +286,13 @@ export default function DriverPodCapturePanel({
   const totalDocuments = existingDocuments.length + documents.length;
   const submitLabel =
     deliveryStatus === 'Completed Delivery' || deliveryStatus === 'Left Safe'
-      ? 'Save POD & Mark Delivered'
+      ? 'Complete POD'
       : 'Save POD Exception';
 
   return (
     <Panel
       title="Proof of Delivery (POD)"
-      description="Capture delivery outcome, recipient, signature and evidence before finalising the job."
+      description="POD is mandatory for every delivered job. Capture recipient, signature and delivery evidence before invoicing."
     >
       <input
         ref={deliveryInput}

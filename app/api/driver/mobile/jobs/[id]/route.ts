@@ -158,7 +158,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const multiDropPartial = Boolean(stopsResult.error);
   const driverInstructionsPartial = Boolean(instructionsResult.error);
   const invoicePresentationPartial = Boolean(invoiceResult.error);
-  const existingInvoice = invoiceResult.error || !invoiceResult.data
+  const invoicePresent = !invoiceResult.error && Boolean(invoiceResult.data?.id);
+  const existingInvoice = !driver.canManageFinance || invoiceResult.error || !invoiceResult.data
     ? null
     : {
         id: String(invoiceResult.data.id ?? ''),
@@ -185,7 +186,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       specialInstructions,
       attachments,
       pod,
-      podCompleted: Boolean(pod),
+      podRequired: true,
+      podCompleted: Boolean(pod) && row.pod_generated === true,
+      invoicePresent,
+      canManageFinance: driver.canManageFinance,
       price: toMoney(agreedRate),
       agreedRateAmount: agreedRate,
       budgetAmount: agreedRate,

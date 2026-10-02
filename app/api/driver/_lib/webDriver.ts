@@ -80,14 +80,27 @@ export async function requireWebDriver(
     ? driverRow.company_id.trim()
     : null;
   let companyStatus: string | null = null;
+  let canManageFinance = false;
   if (companyId) {
-    const { data: companyRow, error: companyError } = await supabaseAdmin
-      .from('companies')
-      .select('status')
-      .eq('id', companyId)
-      .maybeSingle();
-    if (companyError) return respond(500, { error: companyError.message });
-    companyStatus = String(companyRow?.status ?? '').trim().toLowerCase() || null;
+    const [companyResult, membershipResult] = await Promise.all([
+      supabaseAdmin
+        .from('companies')
+        .select('status')
+        .eq('id', companyId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('company_memberships')
+        .select('role_in_company')
+        .eq('company_id', companyId)
+        .eq('user_id', authData.user.id)
+        .eq('status', 'active')
+        .maybeSingle(),
+    ]);
+    if (companyResult.error) return respond(500, { error: companyResult.error.message });
+    if (membershipResult.error) return respond(500, { error: membershipResult.error.message });
+    companyStatus = String(companyResult.data?.status ?? '').trim().toLowerCase() || null;
+    const membershipRole = String(membershipResult.data?.role_in_company ?? '').trim().toLowerCase();
+    canManageFinance = membershipRole === 'owner' || membershipRole === 'admin';
   }
 
   return {
@@ -99,5 +112,6 @@ export async function requireWebDriver(
     driverType: typeof driverRow.driver_type === 'string' ? driverRow.driver_type : null,
     canCommercialBid: driverRow.can_commercial_bid === true,
     companyStatus,
+    canManageFinance,
   };
 }

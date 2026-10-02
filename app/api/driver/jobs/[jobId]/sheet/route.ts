@@ -87,10 +87,30 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ? supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('company_id', driver.companyId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle()
     : supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('bidder_driver_id', driver.driverId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle();
 
-  // Driver assignment is not, by itself, an invoice visibility grant. Driver
-  // finance remains governed by its canonical invoice access contract rather
-  // than being bypassed through this service-role enrichment endpoint.
-  const invoicePromise = Promise.resolve({ data: [], error: null });
+  // Driver assignment is not, by itself, an invoice visibility grant.
+  // Company drivers only receive an invoice-presence signal so workflow closure
+  // can be gated without exposing finance data. Owners/admins may receive the
+  // invoice summary because they are authorised to create/manage it.
+  const membershipResult = driver.companyId
+    ? await supabaseAdmin
+        .from('company_memberships')
+        .select('role_in_company')
+        .eq('company_id', driver.companyId)
+        .eq('user_id', driver.userId)
+        .eq('status', 'active')
+        .maybeSingle()
+    : { data: null, error: null };
+  const financeRole = String(membershipResult.data?.role_in_company ?? '').toLowerCase();
+  const canManageFinance = financeRole === 'owner' || financeRole === 'admin';
+  const invoicePromise = driver.companyId
+    ? supabaseAdmin
+        .from('invoices')
+        .select('id, invoice_number, status, payment_status, amount, total, currency, due_date, created_at')
+        .eq('job_id', jobId)
+        .eq('company_id', driver.companyId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+    : Promise.resolve({ data: [], error: null });
 
   const [companyResult, posterProfileResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult, extrasResult] = await Promise.all([
     originCompanyId ? supabaseAdmin.from('companies').select('*').eq('id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
@@ -125,8 +145,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const paymentTerms = text(agreement.payment_terms)
     ?? text(job.payment_terms)
     ?? null;
-  const podRequired = boolValue(agreement.pod_required)
-    ?? boolValue(job.pod_required);
   const acceptedAt = text(agreement.accepted_at)
     ?? text(agreement.agreed_at)
     ?? text(acceptedBid.updated_at)
@@ -147,7 +165,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     filePath: text(entry.file_path) ?? text(entry.file_url),
     createdAt: text(entry.created_at) ?? text(entry.uploaded_at),
   }));
-  const invoices = invoiceResult.error ? [] : (invoiceResult.data ?? []).map((entry: Record<string, unknown>) => ({
+  const invoicePresent = !invoiceResult.error && (invoiceResult.data ?? []).length > 0;
+  const invoices = !canManageFinance || invoiceResult.error ? [] : (invoiceResult.data ?? []).map((entry: Record<string, unknown>) => ({
     id: text(entry.id),
     number: text(entry.invoice_number),
     status: text(entry.status),
@@ -164,12 +183,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ?? text(job.vehicle_type);
   const requestedCargo = text(job.requested_cargo_label) ?? text(job.cargo_type);
   const requirements = requirementFlags(job, vehicle);
-  const hardCopyPod = text(job.hard_copy_pod)
-    ?? (podRequired === true
-      ? 'POD required; hard-copy requirement not separately supplied'
-      : podRequired === false
-        ? 'Not required'
-        : 'Not supplied');
+  const hardCopyPod = text(job.hard_copy_pod);
   const contractualExtras = extrasResult.error ? [] : ((extrasResult.data ?? []) as Record<string, unknown>[]).map((entry) => ({
     id: text(entry.id),
     type: text(entry.extra_type),
@@ -239,7 +253,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       },
       requirements,
       hardCopyPod,
-      podRequired,
+      podRequired: true,
       pickup: {
         address: text(job.pickup_location),
         postcode: text(job.pickup_postcode),
@@ -275,6 +289,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       documentChecklist: Array.isArray(job.document_checklist) ? job.document_checklist : [],
       timeline,
       documents,
+      invoicePresent,
+      canManageFinance,
       invoices,
       extras: contractualExtras,
       partial: Boolean(
@@ -283,6 +299,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         || bidResult.error
         || agreementResult.error
         || trackingResult.error
+        || membershipResult.error
         || invoiceResult.error
         || documentsResult.error
         || vehicleResult.error
