@@ -264,11 +264,11 @@ export default function DriverFinancePage() {
             </div>
             {showJobPicker && canGenerateInvoices && (
               <section className="driver-row-details" aria-label="Generate invoice from completed job">
-                <div className="driver-detail-tabs"><strong>Completed jobs ready for invoicing</strong></div>
+                <div className="driver-detail-tabs"><strong>POD-complete jobs ready for invoicing</strong></div>
                 {jobsLoading ? (
                   <EmptyState compact title="Loading completed jobs…" />
                 ) : eligibleJobs.length === 0 ? (
-                  <EmptyState compact title="No eligible jobs" description="No delivered or completed jobs are currently available for invoice generation." />
+                  <EmptyState compact title="No eligible jobs" description="No delivered jobs with completed POD are currently available for invoice generation." />
                 ) : (
                   <div className="finance-register">
                     {eligibleJobs.map((job) => {

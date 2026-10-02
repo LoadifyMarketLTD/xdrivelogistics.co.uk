@@ -10,6 +10,7 @@ import {
   validateInvoiceVatTotals,
 } from '../../../lib/invoiceVat';
 import { getFeatureFlag } from './platformFlags';
+import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 
 type SupabaseAdminClient = SupabaseClient;
 
@@ -69,7 +70,7 @@ export async function autoGenerateMarketplaceInvoice({
   const [{ data: job, error: jobError }, { data: buyer, error: buyerError }] = await Promise.all([
     supabase
       .from('jobs')
-      .select('id, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, customer_reference, currency, client_name, client_email, pod_required, pod_generated, pod_generated_at, delivery_photos, pod_photos, client_signature_name')
+      .select('id, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, customer_reference, currency, client_name, client_email, pod_required, pod_generated, pod_generated_at, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
       .eq('id', jobId)
       .maybeSingle(),
     supabase
@@ -82,6 +83,13 @@ export async function autoGenerateMarketplaceInvoice({
   if (jobError) throw new Error(jobError.message);
   if (!job) return { created: false, invoiceId: null, reason: 'Job not found.' };
   if (buyerError) throw new Error(buyerError.message);
+  if (!hasCompletePodEvidence(job)) {
+    return {
+      created: false,
+      invoiceId: null,
+      reason: 'Complete POD before creating an invoice. POD is mandatory for every job.',
+    };
+  }
 
   const clientName = cleanText(job.client_name) || cleanText(buyer?.name);
   const clientEmail = (cleanText(job.client_email) || cleanText(buyer?.email) || null)?.toLowerCase() ?? null;

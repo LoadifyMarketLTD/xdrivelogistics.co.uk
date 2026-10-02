@@ -114,7 +114,7 @@ describe('POST /api/admin/jobs/[id]/transition', () => {
     });
   });
 
-  it('keeps the transition successful while routing delivered jobs through the shared disabled invoice boundary', async () => {
+  it('keeps the delivered transition successful without creating an invoice before POD completion', async () => {
     const { POST } = await import('../app/api/admin/jobs/[id]/transition/route');
 
     const res = await POST(
@@ -130,12 +130,6 @@ describe('POST /api/admin/jobs/[id]/transition', () => {
     );
 
     expect(res.status).toBe(200);
-    expect(mocks.autoGenerateMarketplaceInvoice).toHaveBeenCalledWith({
-      supabase: expect.anything(),
-      jobId: 'job-1',
-      supplierCompanyId: 'carrier-1',
-      actorUserId: 'user-1',
-      idempotencyKey: 'auto-pod-job-1',
-    });
+    expect(mocks.autoGenerateMarketplaceInvoice).not.toHaveBeenCalled();
   });
 });

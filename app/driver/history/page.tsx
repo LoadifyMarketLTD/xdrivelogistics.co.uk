@@ -296,6 +296,7 @@ export default function JobHistoryPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
+  const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
   const [jobs, setJobs] = useState<HistoryJob[]>([]);
   const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>({});
   const [documentsByJob, setDocumentsByJob] = useState<Record<string, DocumentRow[]>>({});
@@ -315,6 +316,7 @@ export default function JobHistoryPage() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [detailTabs, setDetailTabs] = useState<Record<string, DetailTab>>({});
   const [invoicePreview, setInvoicePreview] = useState<{ id: string; number: string | null } | null>(null);
+  const [invoiceCreatingJobId, setInvoiceCreatingJobId] = useState<string | null>(null);
 
   const fetchOrderSheet = useCallback(async (jobId: string) => {
     if (orderSheetsByJob[jobId] !== undefined || orderLoadingByJob[jobId]) return;
@@ -395,6 +397,46 @@ export default function JobHistoryPage() {
     setLoading(false);
   }, [authLoading, driverId]);
 
+  const createInvoiceForJob = async (job: HistoryJob) => {
+    if (!canGenerateInvoices) {
+      setDetailWarning('Company owner or admin access is required to create invoices.');
+      return;
+    }
+    if (job.pod_generated !== true) {
+      setDetailWarning('Complete POD before creating an invoice. POD is mandatory for every job.');
+      router.push(`/driver/jobs/${job.id}`);
+      return;
+    }
+
+    setInvoiceCreatingJobId(job.id);
+    setDetailWarning('');
+    try {
+      const { data } = await supabase.auth.getSession();
+      let token = data.session?.access_token;
+      if (!token) {
+        const refreshed = await supabase.auth.refreshSession();
+        token = refreshed.data.session?.access_token;
+      }
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+
+      const response = await fetch(`/api/driver/finance/jobs/${encodeURIComponent(job.id)}/generate-invoice`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idempotency_key: crypto.randomUUID() }),
+      });
+      const payload = await response.json().catch(() => null) as { invoice?: { id?: string }; error?: string } | null;
+      if (!response.ok || !payload?.invoice?.id) {
+        throw new Error(payload?.error ?? 'Invoice could not be created.');
+      }
+
+      router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+    } catch (reason) {
+      setDetailWarning(reason instanceof Error ? reason.message : 'Invoice could not be created.');
+    } finally {
+      setInvoiceCreatingJobId(null);
+    }
+  };
+
   useEffect(() => { void fetchHistory(); }, [fetchHistory]);
 
   const searchedJobs = useMemo(() => jobs.filter((job) => {
@@ -470,7 +512,7 @@ export default function JobHistoryPage() {
                   const sheet = orderSheetsByJob[job.id]; const orderLoading = orderLoadingByJob[job.id] === true; const orderError = orderErrorsByJob[job.id] || '';
                   const invoice = sheet?.invoices?.[0] ?? null;
                   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : (Array.isArray(job.delivery_photos) ? job.delivery_photos : []);
-                  const hasPod = Boolean(job.pod_generated || podPhotos.length > 0); const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews); const expired = isDerivedExpired(job);
+                  const hasPod = job.pod_generated === true; const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews); const expired = isDerivedExpired(job);
                   const currentStatus = effectiveStatus(job);
                   const historyRows = [
                     ...(Array.isArray(job.status_history) ? job.status_history.map((entry, index) => ({ key: `status-${index}`, label: STATUS_LABELS[entry.status ?? ''] ?? entry.status ?? 'Status update', at: entry.timestamp ?? entry.at ?? null, detail: 'Job status history' })) : []),
@@ -506,22 +548,44 @@ export default function JobHistoryPage() {
                       </div>
 
                       <div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
-                        {DETAIL_TABS.map((detailItem) => (
+                        {currentStatus === 'delivered' && !hasPod ? (
                           <button
-                            key={detailItem.id}
                             type="button"
-                            data-active={expanded && detailTab === detailItem.id ? 'true' : 'false'}
-                            onClick={() => {
-                              if (detailItem.id === 'invoice' && invoice?.id) {
-                                setInvoicePreview({ id: invoice.id, number: invoice.number });
-                                return;
-                              }
-                              openDetail(job.id, detailItem.id);
-                            }}
+                            data-operation="primary"
+                            onClick={() => router.push(`/driver/jobs/${job.id}`)}
                           >
-                            {detailItem.id === 'documents' && documents.length > 0 ? `${detailItem.label} ${documents.length}` : detailItem.id === 'invoice' && invoice?.id ? 'View invoice (£)' : detailItem.label}
+                            Complete POD
                           </button>
-                        ))}
+                        ) : null}
+                        {DETAIL_TABS
+                          .filter((detailItem) => detailItem.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices))
+                          .map((detailItem) => (
+                            <button
+                              key={detailItem.id}
+                              type="button"
+                              data-active={expanded && detailTab === detailItem.id ? 'true' : 'false'}
+                              disabled={invoiceCreatingJobId === job.id && detailItem.id === 'invoice'}
+                              onClick={() => {
+                                if (detailItem.id === 'invoice' && invoice?.id) {
+                                  setInvoicePreview({ id: invoice.id, number: invoice.number });
+                                  return;
+                                }
+                                if (detailItem.id === 'invoice' && hasPod) {
+                                  void createInvoiceForJob(job);
+                                  return;
+                                }
+                                openDetail(job.id, detailItem.id);
+                              }}
+                            >
+                              {detailItem.id === 'documents' && documents.length > 0
+                                ? `${detailItem.label} ${documents.length}`
+                                : detailItem.id === 'invoice' && invoice?.id
+                                  ? 'View invoice (£)'
+                                  : detailItem.id === 'invoice' && hasPod
+                                    ? (invoiceCreatingJobId === job.id ? 'Creating Invoice…' : 'Create Invoice')
+                                    : detailItem.label}
+                            </button>
+                          ))}
                         {feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
                       </div>
 
@@ -543,7 +607,7 @@ export default function JobHistoryPage() {
                                   <div className="driver-detail-item"><span>Agreed rate</span><strong>{sheet?.agreedRate != null ? money(sheet.agreedRate, sheet.currency) : 'Not supplied'}</strong><small>{sheet?.agreedGross != null ? `Gross ${money(sheet.agreedGross, sheet.currency)}${sheet.vatRate != null ? ` · VAT ${sheet.vatRate}%` : ''}` : sheet?.commercialSnapshotAvailable ? 'Agreed rate recorded at award' : 'Historical agreed-rate record unavailable'}</small></div>
                                   <div className="driver-detail-item"><span>Extras</span><strong>Not supplied</strong><small>{sheet?.unavailable.extras ?? 'No historical extras record is available for this booking.'}</small></div>
                                   <div className="driver-detail-item"><span>Payment terms</span><strong>{sheet?.paymentTerms ?? 'Historical terms unavailable'}</strong><small>{sheet?.paymentDueDays != null ? `${sheet.paymentDueDays} day(s)` : 'Due-day value not supplied'}</small></div>
-                                  <div className="driver-detail-item"><span>Hard-copy POD</span><strong>{sheet?.hardCopyPod ?? job.hard_copy_pod ?? (job.pod_required ? 'Required' : 'Requirement not supplied')}</strong></div>
+                                  <div className="driver-detail-item"><span>POD</span><strong>Digital POD mandatory</strong><small>Hard-copy: {sheet?.hardCopyPod ?? job.hard_copy_pod ?? 'No additional requirement supplied'}</small></div>
                                   <div className="driver-detail-item"><span>Customer</span><strong>{sheet?.customerName ?? 'Not supplied'}</strong></div>
                                   <div className="driver-detail-item"><span>Customer ref</span><strong>{sheet?.customerReference ?? job.customer_reference ?? 'Not supplied'}</strong></div>
                                   <div className="driver-detail-item"><span>PO number</span><strong>{sheet?.purchaseOrderNumber ?? job.purchase_order_number ?? 'Not supplied'}</strong></div>
@@ -558,7 +622,7 @@ export default function JobHistoryPage() {
                                   <div className="driver-diary-text-block"><strong>Delivery</strong><span>{formatExecutionAddress(deliveryAddress, deliveryPostcode)} · {transportSchedule(sheet?.delivery.dateTime ?? job.delivery_datetime ?? job.delivery_window_start, sheet?.delivery.slot ?? null)}</span><span>Company context: {sheet?.customerName ?? 'Not separately supplied'}</span><span>Contact: {sheet?.delivery.contactName ?? job.delivery_contact_name ?? 'Not supplied'} · {sheet?.delivery.contactPhone ?? job.delivery_contact_phone ?? 'Phone not supplied'}</span>{sheet?.delivery.notes && <span>Notes: {sheet.delivery.notes}</span>}</div>
                                 </div>
                                 {(sheet?.publicQuoteNotes || sheet?.executionInstructions) && <div className="driver-diary-note-list">{sheet.publicQuoteNotes && <div className="driver-diary-text-block"><strong>Public quote notes</strong><span>{sheet.publicQuoteNotes}</span></div>}{sheet.executionInstructions && <div className="driver-diary-text-block"><strong>Private execution instructions</strong><span>{sheet.executionInstructions}</span></div>}</div>}
-                                {((sheet?.requirements.length ?? 0) > 0 || (sheet?.documentChecklist.length ?? 0) > 0) && <div className="driver-diary-text-block"><strong>Working &amp; paperwork requirements</strong>{sheet?.requirements.map((instruction) => <span key={instruction}>{instruction}</span>)}{sheet?.documentChecklist.length ? <span>Paperwork: {sheet.documentChecklist.join(' · ')}</span> : null}<span>POD: {sheet?.hardCopyPod ?? 'Not supplied'}</span></div>}
+                                {((sheet?.requirements.length ?? 0) > 0 || (sheet?.documentChecklist.length ?? 0) > 0) && <div className="driver-diary-text-block"><strong>Working &amp; paperwork requirements</strong>{sheet?.requirements.map((instruction) => <span key={instruction}>{instruction}</span>)}{sheet?.documentChecklist.length ? <span>Paperwork: {sheet.documentChecklist.join(' · ')}</span> : null}<span>Digital POD: mandatory · Hard-copy: {sheet?.hardCopyPod ?? 'No additional requirement supplied'}</span></div>}
                                 <div className="driver-diary-text-block"><strong>Booking footer / working instructions</strong><span>{sheet?.unavailable.bookingFooter ?? 'Not available for this historical booking.'}</span></div>
                               </>
                             ))}
@@ -566,7 +630,7 @@ export default function JobHistoryPage() {
                             {detailTab === 'notes' && (orderLoading ? <EmptyState compact title="Loading notes…" /> : noteRows.length ? <div className="driver-diary-note-list">{noteRows.map(([label, value]) => <div key={label} className="driver-diary-text-block"><strong>{label}</strong><span>{value}</span></div>)}</div> : <EmptyState compact title="No notes recorded" />)}
                             {detailTab === 'history' && (historyRows.length ? <div className="driver-diary-history-list">{historyRows.slice(0, 50).map((row) => <div key={row.key} className="driver-diary-history-row"><strong>{row.label}</strong><span>{fmtDate(row.at)}</span><span>{row.detail}</span></div>)}</div> : <EmptyState compact title="No history events recorded" />)}
                             {detailTab === 'documents' && (documents.length ? <div className="driver-diary-document-list">{documents.map((document) => <div key={document.id} className="driver-diary-document-row"><span><strong>{document.file_name ?? document.file_type ?? 'Document'}</strong><small>{document.file_type ?? 'File'} · {fmtDate(document.uploaded_at)}</small></span>{document.file_url && <button type="button" onClick={() => window.open(document.file_url ?? '', '_blank', 'noopener,noreferrer')}>Open</button>}</div>)}</div> : <EmptyState compact title="No documents attached" />)}
-                            {detailTab === 'pod' && <div className="driver-detail-grid"><div className="driver-detail-item"><span>POD required</span><strong>{(sheet?.podRequired ?? job.pod_required) ? 'Yes' : 'No'}</strong></div><div className="driver-detail-item"><span>POD status</span><strong>{hasPod ? 'Captured' : 'Pending'}</strong></div><div className="driver-detail-item"><span>Photos</span><strong>{podPhotos.length}</strong></div><div className="driver-detail-item"><span>Generated</span><strong>{job.pod_generated_at ? fmtDate(job.pod_generated_at) : '—'}</strong></div><div className="driver-detail-item"><span>Broker review</span><strong>{human(job.broker_pod_review_status ?? 'Not reviewed')}</strong></div><div className="driver-detail-item driver-diary-detail-action"><span>Execution record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open POD / job</ActionButton></div></div>}
+                            {detailTab === 'pod' && <div className="driver-detail-grid"><div className="driver-detail-item"><span>POD required</span><strong>Yes</strong><small>Mandatory for every XDrive job</small></div><div className="driver-detail-item"><span>POD status</span><strong>{hasPod ? 'Captured' : 'Pending'}</strong></div><div className="driver-detail-item"><span>Photos</span><strong>{podPhotos.length}</strong></div><div className="driver-detail-item"><span>Generated</span><strong>{job.pod_generated_at ? fmtDate(job.pod_generated_at) : '—'}</strong></div><div className="driver-detail-item"><span>Broker review</span><strong>{human(job.broker_pod_review_status ?? 'Not reviewed')}</strong></div><div className="driver-detail-item driver-diary-detail-action"><span>Execution record</span><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open POD / job</ActionButton></div></div>}
                             {detailTab === 'invoice' && (orderLoading ? <EmptyState compact title="Loading carrier invoice…" /> : orderError ? <div className="driver-diary-empty-action"><AlertBanner tone="warning">{orderError}</AlertBanner><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div> : invoice ? <div className="driver-detail-grid"><div className="driver-detail-item"><span>Invoice</span><strong>{invoice.number ?? invoice.id?.slice(0, 8).toUpperCase() ?? 'Invoice'}</strong></div><div className="driver-detail-item"><span>Amount</span><strong>{invoice.amount != null ? money(invoice.amount, invoice.currency) : 'Not supplied'}</strong></div><div className="driver-detail-item"><span>Status</span><strong>{human(invoice.status)}</strong></div><div className="driver-detail-item"><span>Payment</span><strong>{human(invoice.paymentStatus)}</strong></div><div className="driver-detail-item"><span>Due</span><strong>{invoice.dueDate ? fmtDate(invoice.dueDate) : '—'}</strong></div>{invoice.id && <div className="driver-detail-item driver-diary-detail-action"><span>Invoice record</span><ActionButton tone="secondary" onClick={() => setInvoicePreview({ id: invoice.id as string, number: invoice.number })}>View invoice (£)</ActionButton></div>}</div> : <div className="driver-diary-empty-action"><EmptyState compact title="No carrier invoice generated for this booking" /><ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Open Finance</ActionButton></div>)}
                           </div>
 

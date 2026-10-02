@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
 import { getFeatureFlag, getGlobalSettingNumber } from '../../../../../_lib/platformFlags';
+import { hasCompletePodEvidence } from '../../../../../../../lib/jobs/podCompletion';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -118,7 +119,7 @@ export async function POST(
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, status, current_status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount, customer_reference')
+    .select('id, company_id, awarded_carrier_company_id, exchange_visibility, status, current_status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount, customer_reference, pod_generated, pod_generated_at, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
     .eq('id', jobId)
     .or(`company_id.eq.${actor.companyId},awarded_carrier_company_id.eq.${actor.companyId}`)
     .maybeSingle();
@@ -130,6 +131,12 @@ export async function POST(
   if (!['delivered', 'completed', 'invoiced'].includes(jobStatus)) {
     return respond(409, {
       error: `Invoice can only be generated after delivery. Current job status: "${jobStatus || 'unknown'}".`,
+    });
+  }
+  if (!hasCompletePodEvidence(job)) {
+    return respond(409, {
+      error: 'Complete POD before creating an invoice. POD is mandatory for every job and must include evidence, recipient signature and recipient name.',
+      code: 'POD_REQUIRED_BEFORE_INVOICE',
     });
   }
 
