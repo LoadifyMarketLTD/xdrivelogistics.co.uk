@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import { classifyWorkspaceJobStage, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { useCompanyWorkspaceData, type WorkspaceJob } from './useCompanyWorkspaceData';
+import PodWorkspaceViewer from './PodWorkspaceViewer';
 import {
   ActionButton,
   AlertBanner,
@@ -45,6 +46,7 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   const rows = useMemo(
     () =>
@@ -152,6 +154,13 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
         <KpiCard label="Jobs in register" value={rows.length} tone="navy" />
       </KpiGrid>
 
+      {selectedJobId ? (
+        <PodWorkspaceViewer
+          jobId={selectedJobId}
+          title={customerMode ? 'Customer POD viewer' : 'Broker POD viewer'}
+        />
+      ) : null}
+
       <Panel
         title={customerMode ? 'Delivery evidence register' : 'Delivery evidence review queue'}
         description="Links expire automatically and are issued only after server-side job and company checks. Photo evidence is not presented here as proof that the complete POD contract is satisfied."
@@ -159,8 +168,8 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
         <DataTable
           columns={
             customerMode
-              ? ['Load', 'Route', 'Delivery', 'Job status', 'Evidence status', 'Files']
-              : ['Load', 'Route', 'Delivery', 'Job status', 'Evidence status', 'Files', 'Review decision']
+              ? ['Load', 'Route', 'Delivery', 'Job status', 'Evidence status', 'Files', 'POD']
+              : ['Load', 'Route', 'Delivery', 'Job status', 'Evidence status', 'Files', 'POD', 'Review decision']
           }
           rows={rows.map((job) => {
             const paths = photoPaths(job);
@@ -195,6 +204,17 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
                 </div>
               ) : (
                 'No photo uploaded'
+              ),
+              job.pod_generated ? (
+                <ActionButton
+                  key="pod-view"
+                  tone="secondary"
+                  onClick={() => setSelectedJobId(job.id)}
+                >
+                  View POD
+                </ActionButton>
+              ) : (
+                <StatusBadge key="pod-view" value="POD pending" tone="orange" />
               ),
             ];
 

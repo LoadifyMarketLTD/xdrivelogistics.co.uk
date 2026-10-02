@@ -28,6 +28,12 @@ export type WorkspaceJob = {
   awarded_carrier_company_id?: string | null;
   budget_amount?: number | null;
   delivery_photos?: string[] | null;
+  damage_photos?: string[] | null;
+  pod_photos?: string[] | null;
+  delivery_signature_data?: unknown;
+  client_signature_name?: string | null;
+  pod_generated_at?: string | null;
+  driver_notes?: string | null;
   pod_required?: boolean | null;
   pod_generated?: boolean | null;
   has_delivery_evidence?: boolean | null;
@@ -259,10 +265,10 @@ const uniqueById = <T extends { id: string }>(rows: T[]): T[] => {
 };
 
 const CARRIER_DASHBOARD_JOB_SELECT =
-  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, created_at, updated_at, client_name';
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, pod_generated_at, driver_notes, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, created_at, updated_at, client_name';
 
 const EXECUTION_JOB_SELECT =
-  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, booking_reference, customer_reference, created_at, updated_at, client_name';
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, pod_generated_at, driver_notes, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, booking_reference, customer_reference, created_at, updated_at, client_name';
 
 const LEGACY_EXECUTION_JOB_SELECT = EXECUTION_JOB_SELECT
   .split(',')

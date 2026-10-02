@@ -14,6 +14,12 @@ const stringArray = (value: unknown): string[] =>
     ? value.filter((item): item is string => typeof item === 'string' && item.length > 0)
     : [];
 
+const signatureEvidencePath = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return null;
+  const raw = (value as Record<string, unknown>).evidence_path;
+  return typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null;
+};
+
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return json(503, { error: 'POD service is not configured.' });
@@ -42,7 +48,7 @@ export async function GET(request: NextRequest) {
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
     .select(
-      'id, company_id, awarded_carrier_company_id, created_by, delivery_photos, pod_photos'
+      'id, company_id, awarded_carrier_company_id, assigned_company_id, created_by, delivery_photos, damage_photos, pod_photos, delivery_signature_data'
     )
     .eq('id', jobId)
     .maybeSingle();
@@ -50,16 +56,23 @@ export async function GET(request: NextRequest) {
   if (jobError) return json(500, { error: jobError.message });
   if (!job) return json(404, { error: 'Job not found.' });
 
+  const signaturePath = signatureEvidencePath(job.delivery_signature_data);
   const permittedPaths = new Set([
     ...stringArray(job.delivery_photos),
+    ...stringArray(job.damage_photos),
     ...stringArray(job.pod_photos),
+    ...(signaturePath ? [signaturePath] : []),
   ]);
 
   if (!permittedPaths.has(objectPath)) {
     return json(404, { error: 'POD file is not linked to this job.' });
   }
 
-  const companyIds = [job.company_id, job.awarded_carrier_company_id].filter(
+  const companyIds = [
+    job.company_id,
+    job.awarded_carrier_company_id,
+    job.assigned_company_id,
+  ].filter(
     (value): value is string => typeof value === 'string' && value.length > 0
   );
 

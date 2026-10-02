@@ -55,6 +55,12 @@ function storedSignatureText(value: unknown) {
   return undefined;
 }
 
+function storedSignatureEvidencePath(value: unknown) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return undefined;
+  const candidate = (value as Record<string, unknown>).evidence_path;
+  return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : undefined;
+}
+
 function tenantJobStoragePath(companyId: string | null, jobId: string, value: unknown): value is string {
   if (!companyId || typeof value !== 'string') return false;
   const path = value.trim();
@@ -121,6 +127,11 @@ export async function buildSignedPodPresentations(rows: PodPresentationRow[], co
     const documents = evidencePaths(row, companyId, row.pod_photos);
     evidenceByJob.set(row.id, { delivery, damage, documents });
     [...delivery, ...damage, ...documents].forEach((path) => allPaths.add(path));
+
+    const signaturePath = storedSignatureEvidencePath(row.delivery_signature_data);
+    if (tenantJobStoragePath(companyId, row.id, signaturePath)) {
+      allPaths.add(signaturePath);
+    }
   }
 
   const signedByPath = new Map<string, string>();
@@ -156,7 +167,10 @@ export async function buildSignedPodPresentations(rows: PodPresentationRow[], co
   const presentations = new Map<string, Record<string, unknown> | null>();
   for (const row of rows) {
     const evidence = evidenceByJob.get(row.id) ?? { delivery: [], damage: [], documents: [] };
-    const signatureData = storedSignatureText(row.delivery_signature_data);
+    const signaturePath = storedSignatureEvidencePath(row.delivery_signature_data);
+    const signatureData =
+      storedSignatureText(row.delivery_signature_data) ??
+      (signaturePath ? signedByPath.get(signaturePath) : undefined);
     const proof = proofByJob.get(row.id);
     const hasEvidence = Boolean(row.pod_generated)
       || Boolean(signatureData)

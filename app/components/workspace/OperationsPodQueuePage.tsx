@@ -10,6 +10,7 @@ import {
 } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { useCompanyWorkspaceData, type WorkspaceJob } from './useCompanyWorkspaceData';
+import PodWorkspaceViewer from './PodWorkspaceViewer';
 import {
   ActionButton,
   AlertBanner,
@@ -45,6 +46,7 @@ export default function OperationsPodQueuePage() {
   const workspace = useCompanyWorkspaceData();
   const router = useRouter();
   const [openingKey, setOpeningKey] = useState<string | null>(null);
+  const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const jobs = useMemo(
@@ -103,6 +105,10 @@ export default function OperationsPodQueuePage() {
         <KpiCard label="Delivery photos available" value={availableCount} tone="green" />
         <KpiCard label="Delivery photos missing" value={missingCount} tone={missingCount > 0 ? 'orange' : 'green'} />
       </KpiGrid>
+
+      {selectedJobId ? (
+        <PodWorkspaceViewer jobId={selectedJobId} title="Company POD viewer" />
+      ) : null}
 
       <Panel
         title="Proof-of-delivery inspection"
@@ -165,6 +171,16 @@ export default function OperationsPodQueuePage() {
                         </ActionButton>
                       );
                     })}
+                    {job.pod_generated ? (
+                      <ActionButton
+                        tone="secondary"
+                        onClick={() => setSelectedJobId(job.id)}
+                      >
+                        View POD
+                      </ActionButton>
+                    ) : (
+                      <StatusBadge value="POD pending" tone="orange" />
+                    )}
                     <ActionButton
                       tone="secondary"
                       onClick={() => router.push(`/admin/jobs/${job.id}`)}
