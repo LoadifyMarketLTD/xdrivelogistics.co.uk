@@ -10,6 +10,7 @@ import { COMPANY_CONFIG } from '../../../config/company';
 import { isSupabaseConfigured, supabase } from '../../../../lib/supabaseClient';
 import { resolveActiveCompanyId } from '../../../../lib/activeCompany';
 import type { Invoice } from '../../../../lib/types/database';
+import { hasCompletePodEvidence } from '../../../../lib/jobs/podCompletion';
 
 type JobPrefill = {
   id: string;
@@ -27,6 +28,13 @@ type JobPrefill = {
   special_requirements: string | null;
   budget_amount: number | null;
   currency: string | null;
+  status: string | null;
+  current_status: string | null;
+  pod_generated: boolean | null;
+  delivery_photos: string[] | null;
+  pod_photos: string[] | null;
+  delivery_signature_data: unknown;
+  client_signature_name: string | null;
 };
 
 type CommercialAgreementPrefill = {
@@ -92,6 +100,7 @@ export default function NewInvoicePage() {
   const [jobLoadError, setJobLoadError] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState('');
+  const [jobPodReady, setJobPodReady] = useState<boolean | null>(null);
 
   const [jobId, setJobId] = useState(firstNonEmpty(searchParams.get('job_id'), searchParams.get('jobId')));
   const [jobRef, setJobRef] = useState(firstNonEmpty(searchParams.get('reference'), searchParams.get('jobRef'), searchParams.get('ref')));
@@ -158,7 +167,7 @@ export default function NewInvoicePage() {
 
       const { data, error } = await supabase
         .from('jobs')
-        .select('id, company_id, assigned_company_id, awarded_carrier_company_id, customer_reference, client_name, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, special_requirements, budget_amount, currency')
+        .select('id, company_id, assigned_company_id, awarded_carrier_company_id, customer_reference, client_name, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, special_requirements, budget_amount, currency, status, current_status, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
         .eq('id', jobId)
         .or(`company_id.eq.${companyId},assigned_company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`)
         .maybeSingle();
@@ -172,6 +181,12 @@ export default function NewInvoicePage() {
       }
 
       const job = data as JobPrefill;
+      const jobStatus = String(job.current_status ?? job.status ?? '').trim().toLowerCase();
+      const podReady =
+        ['delivered', 'completed', 'invoiced'].includes(jobStatus) &&
+        hasCompletePodEvidence(job);
+      setJobPodReady(podReady);
+
       const fallbackJobRef = `JOB-${job.id.slice(0, 8).toUpperCase()}`;
       if (!jobRef) setJobRef(firstNonEmpty(job.customer_reference, fallbackJobRef));
       if (!clientName && job.client_name) setClientName(job.client_name);
@@ -253,8 +268,9 @@ export default function NewInvoicePage() {
     if (!jobRef.trim()) missing.push('reference/job ref');
     if (!clientName.trim()) missing.push('client name');
     if (!(amount > 0)) missing.push('amount');
+    if (jobId && jobPodReady !== true) missing.push('completed POD');
     return missing;
-  }, [amount, clientName, companyId, invoiceNumber, jobRef]);
+  }, [amount, clientName, companyId, invoiceNumber, jobId, jobPodReady, jobRef]);
 
   const invoiceDate = new Date().toISOString().split('T')[0];
   const dueDate = computeDueDate(invoiceDate, paymentTerms);
@@ -365,11 +381,18 @@ export default function NewInvoicePage() {
           <div style={{ marginBottom: '1rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem' }}>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.45rem' }}>Creation Context</div>
             <div style={{ color: '#334155', fontSize: '0.9rem', lineHeight: 1.5 }}>
-              {loadingJob ? 'Loading job and accepted commercial agreement...' : 'Query params and optional job context have been applied to this draft.'}
+              {loadingJob ? 'Loading job, POD and accepted commercial agreement...' : 'Query params and job context have been applied to this draft.'}
             </div>
+            {jobId ? (
+              <div style={{ marginTop: '0.55rem', color: jobPodReady === true ? '#166534' : '#b45309', fontSize: '0.9rem', fontWeight: 700 }}>
+                {jobPodReady === true
+                  ? 'POD complete — invoice creation is unlocked.'
+                  : 'POD required — complete delivery photo evidence, recipient signature and recipient name before creating the invoice.'}
+              </div>
+            ) : null}
             <div style={{ marginTop: '0.65rem', color: missingRequiredData.length ? '#b45309' : '#166534', fontSize: '0.9rem' }}>
               {missingRequiredData.length
-                ? `Missing required data: ${missingRequiredData.join(', ')}. Complete the fields below before saving.`
+                ? `Missing required data: ${missingRequiredData.join(', ')}. Complete the requirements below before saving.`
                 : 'All required data is present. You can create the invoice now.'}
             </div>
           </div>
@@ -450,7 +473,7 @@ export default function NewInvoicePage() {
             <div style={{ marginTop: '1rem', display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
               <button
                 onClick={() => void handleCreateInvoice()}
-                disabled={saving}
+                disabled={saving || loadingJob || (Boolean(jobId) && jobPodReady !== true)}
                 style={{
                   padding: '0.7rem 1.1rem',
                   borderRadius: '8px',

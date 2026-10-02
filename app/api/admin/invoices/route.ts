@@ -7,6 +7,7 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
+import { hasCompletePodEvidence } from '../../../../lib/jobs/podCompletion';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -77,7 +78,7 @@ export async function POST(request: NextRequest) {
   if (parsed.data.jobId) {
     const { data: job, error: jobError } = await supabaseAdmin
       .from('jobs')
-      .select('id, company_id, assigned_company_id, awarded_carrier_company_id')
+      .select('id, company_id, assigned_company_id, awarded_carrier_company_id, status, current_status, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
       .eq('id', parsed.data.jobId)
       .maybeSingle();
     if (jobError) return respond(500, { error: 'The related job could not be verified.' });
@@ -89,6 +90,20 @@ export async function POST(request: NextRequest) {
     ].filter(Boolean).map(String));
     if (!allowedCompanyIds.has(parsed.data.companyId)) {
       return respond(403, { error: 'This company is not a party to the related job.' });
+    }
+
+    const jobStatus = String(job.current_status ?? job.status ?? '').trim().toLowerCase();
+    if (!['delivered', 'completed', 'invoiced'].includes(jobStatus)) {
+      return respond(409, {
+        error: 'Invoice can only be created after the job is delivered and POD is completed.',
+        code: 'JOB_NOT_DELIVERED',
+      });
+    }
+    if (!hasCompletePodEvidence(job)) {
+      return respond(409, {
+        error: 'Complete POD before creating an invoice. POD is mandatory for every job and must include delivery evidence, recipient signature and recipient name.',
+        code: 'POD_REQUIRED_BEFORE_INVOICE',
+      });
     }
   }
 
