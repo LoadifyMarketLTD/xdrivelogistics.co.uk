@@ -267,16 +267,19 @@ export default function CustomerDashboardHome() {
                 </div>
               ) : attentionUnavailable ? (
                 <EmptyState
+                  compact
                   title="Attention data unavailable"
                   description="The dashboard cannot confirm that there are no customer actions until loads, quotes and invoices are available."
                 />
               ) : attentionPartial ? (
                 <EmptyState
+                  compact
                   title="Attention data is partial"
                   description="The visible records are incomplete, so the dashboard does not claim that there are no customer actions."
                 />
               ) : (
                 <EmptyState
+                  compact
                   title="Nothing needs attention"
                   description="There are no urgent customer actions right now."
                 />
@@ -342,16 +345,19 @@ export default function CustomerDashboardHome() {
               </div>
             ) : jobsDataset.availability !== 'available' ? (
               <EmptyState
+                compact
                 title="Transport data unavailable"
                 description="Recent transport cannot be confirmed until the jobs source is available."
               />
             ) : jobsDataset.partialData || jobsDataset.limitedData ? (
               <EmptyState
+                compact
                 title="Transport data is partial"
                 description="The visible jobs dataset is incomplete, so the dashboard does not claim that there is no transport yet."
               />
             ) : (
               <EmptyState
+                compact
                 title="No transport yet"
                 description="Post your first load when you are ready to request carrier quotes."
               />
