@@ -73,10 +73,21 @@ describe('Owner Driver More page audit contract', () => {
     expect(availability).toContain('className="driver-availability-main"');
     expect(availabilityCss).toContain('grid-template-columns: var(--availability-rail) minmax(0, 1fr);');
     expect(nearby).toContain("const [viewMode, setViewMode] = useState<'map' | 'list'>('map');");
+    expect(nearby).toContain("const [audience, setAudience] = useState<'all' | 'drivers-subcontractors' | 'other-drivers'>('all');");
     expect(nearby).toContain("onClick={() => setViewMode('map')}");
     expect(nearby).toContain("onClick={() => setViewMode('list')}");
+    expect(nearby).toContain("onClick={() => setAudience('drivers-subcontractors')}");
+    expect(nearby).toContain("onClick={() => setAudience('other-drivers')}");
+    expect(nearby).toContain('onClick={openVisibleMap}');
     expect(nearby).toContain('id="availMap"');
     expect(nearby).toContain('id="availList"');
-    expect(nearby).not.toContain('className="avail-audience"');
+    expect(nearby).toContain('<DriverNearbyMap');
+    expect(nearby).not.toContain('className="map availmap"');
+
+    const nearbyMap = read('app/driver/_components/DriverNearbyMap.tsx');
+    expect(nearbyMap).toContain("import 'leaflet/dist/leaflet.css';");
+    expect(nearbyMap).toContain("L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'");
+    expect(nearbyMap).toContain('L.circleMarker([point.lat, point.lng]');
+    expect(nearbyMap).toContain('Privacy-rounded exchange availability');
   });
 });

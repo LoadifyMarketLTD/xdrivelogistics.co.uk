@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { supabase } from '../../../lib/supabaseClient';
 import { StatusBadge } from '../../components/workspace/WorkspaceUI';
+import DriverNearbyMap from '../_components/DriverNearbyMap';
 
 type NearbyPosition = {
   company_id: string | null;
@@ -47,6 +48,7 @@ export default function DriverNearbyPage() {
   const [search, setSearch] = useState('');
   const [vehicle, setVehicle] = useState('all');
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
+  const [audience, setAudience] = useState<'all' | 'drivers-subcontractors' | 'other-drivers'>('all');
 
   const loadNearby = useCallback(async () => {
     setLoading(true);
@@ -87,6 +89,10 @@ export default function DriverNearbyPage() {
     const needle = search.trim().toLowerCase();
     return positions.filter((position) => {
       if (vehicle !== 'all' && position.vehicle_type !== vehicle) return false;
+      const memberType = String(position.member_type ?? '').trim().toLowerCase();
+      const driverOrSubcontractor = ['owner_driver', 'owner driver', 'carrier', 'fleet', 'courier', 'subcontractor', 'sub-contractor'].some((token) => memberType.includes(token));
+      if (audience === 'drivers-subcontractors' && !driverOrSubcontractor) return false;
+      if (audience === 'other-drivers' && driverOrSubcontractor) return false;
       if (!needle) return true;
       return [position.member_name, position.member_code, position.member_type, position.vehicle_type]
         .filter(Boolean)
@@ -94,11 +100,19 @@ export default function DriverNearbyPage() {
         .toLowerCase()
         .includes(needle);
     });
-  }, [positions, search, vehicle]);
+  }, [audience, positions, search, vehicle]);
 
   const openApproximateArea = (position: NearbyPosition) => {
     if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
-    window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${position.lat},${position.lng}`)}`, '_blank', 'noopener,noreferrer');
+    window.open(`https://www.openstreetmap.org/?mlat=${position.lat}&mlon=${position.lng}#map=11/${position.lat}/${position.lng}`, '_blank', 'noopener,noreferrer');
+  };
+
+  const openVisibleMap = () => {
+    const mapped = visible.filter((position) => Number.isFinite(position.lat) && Number.isFinite(position.lng));
+    const lat = mapped.length ? mapped.reduce((sum, position) => sum + position.lat, 0) / mapped.length : 54.5;
+    const lng = mapped.length ? mapped.reduce((sum, position) => sum + position.lng, 0) / mapped.length : -3.0;
+    const zoom = mapped.length <= 1 ? 11 : mapped.length <= 6 ? 8 : 6;
+    window.open(`https://www.openstreetmap.org/#map=${zoom}/${lat}/${lng}`, '_blank', 'noopener,noreferrer');
   };
 
   return (
@@ -107,8 +121,8 @@ export default function DriverNearbyPage() {
         <div className="subbar">
           <span className="crumb">Workspace &nbsp;/&nbsp; <b>Who's Nearby</b></span>
           <div className="sub-actions">
-            <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); }}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => void loadNearby()} disabled={loading}>{loading ? 'Refreshing…' : 'Search'}</button>
+            <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); setAudience('all'); }}>Clear</button>
+            <button type="button" className="btn primary" onClick={() => void loadNearby()} disabled={loading}>{loading ? 'Refreshing...' : 'Search'}</button>
           </div>
         </div>
 
@@ -126,12 +140,25 @@ export default function DriverNearbyPage() {
             {error && <div className="vision-note">{error}</div>}
             <div className="avail-topbar">
               <div className="avail-view-tabs" role="tablist" aria-label="Nearby presentation"><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-selected={viewMode === 'map'} onClick={() => setViewMode('map')}>Map View</button><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-selected={viewMode === 'list'} onClick={() => setViewMode('list')}>List View</button></div>
-              <span className="avail-scope-label">Exchange-visible members only</span>
+              <div className="avail-audience" role="group" aria-label="Nearby audience"><button type="button" className={audience === 'all' ? 'active' : ''} aria-pressed={audience === 'all'} onClick={() => setAudience('all')}>All</button><button type="button" className={audience === 'drivers-subcontractors' ? 'active' : ''} aria-pressed={audience === 'drivers-subcontractors'} onClick={() => setAudience('drivers-subcontractors')}>Drivers & Sub-contractors</button><button type="button" className={audience === 'other-drivers' ? 'active' : ''} aria-pressed={audience === 'other-drivers'} onClick={() => setAudience('other-drivers')}>Other Drivers</button></div>
+              <button type="button" className="text-action" onClick={openVisibleMap}>Open map in new window</button>
             </div>
             <div className="toolbar"><b>Who's Nearby</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button></div>
             <div className={`availgrid ${viewMode === 'list' ? 'list-only' : ''}`}>
-              <div id="availMap" className="map availmap">
-                <div className="mapnote">Privacy-rounded exchange availability. Exact driver coordinates remain protected.</div>
+              <div id="availMap" className="availmap">
+                <DriverNearbyMap
+                  points={visible.map((position) => ({
+                    companyId: position.company_id,
+                    memberName: position.member_name ?? 'Exchange member',
+                    memberCode: position.member_code ?? null,
+                    lat: position.lat,
+                    lng: position.lng,
+                    vehicleType: position.vehicle_type ?? null,
+                    payloadKg: position.payload_kg ?? null,
+                    palletsCapacity: position.pallets_capacity ?? null,
+                    recordedAt: position.recorded_at ?? null,
+                  }))}
+                />
               </div>
               <div id="availList" style={{ overflow: 'auto' }}>
                 <div className="tablewrap avail-tablewrap">
@@ -146,7 +173,7 @@ export default function DriverNearbyPage() {
                           <td><span className="link">Privacy-rounded area</span></td>
                           <td>Not published</td>
                           <td>{fresh.label}</td>
-                          <td>—</td>
+                          <td>-</td>
                           <td><StatusBadge value="Available" tone="green" /></td>
                           <td><button type="button" className="rowbtn blue" onClick={() => openApproximateArea(position)}>View Map</button></td>
                         </tr>;
