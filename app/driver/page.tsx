@@ -310,13 +310,6 @@ export default function DriverDashboard() {
     };
   }, [data.driverDocuments]);
 
-  const wonWorkValue = useMemo(() => {
-    const assignedJobIds = new Set(myJobs.map((job) => job.id));
-    return data.bids
-      .filter((bid) => assignedJobIds.has(bid.job_id) && String(bid.status).toLowerCase() === 'accepted')
-      .reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
-  }, [data.bids, myJobs]);
-
   const loadDriverContext = useCallback(async () => {
     const driverId = user?.driverId?.trim() ?? '';
     if (!driverId || !isSupabaseConfigured) {
@@ -595,7 +588,7 @@ export default function DriverDashboard() {
                     >
                       {transitioningJobId === currentJob.id ? 'Saving…' : currentAction.label}
                     </ActionButton>
-                    {['allocated', 'accepted'].includes(currentStatus) ? (
+                    {currentStatus != null && ['allocated', 'accepted'].includes(currentStatus) ? (
                       <ActionButton
                         tone="secondary"
                         disabled={decliningJobId === currentJob.id || transitioningJobId === currentJob.id}
