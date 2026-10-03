@@ -11,4 +11,12 @@ describe('CX Driver Freight Vision live refresh parity', () => {
     expect(source).toContain('window.clearInterval(timer)');
     expect(source).toContain('Auto refresh 60s');
   });
+
+  it('renders a real tracking map instead of the prototype silhouette', () => {
+    expect(source).toContain('<DriverFreightVisionMap');
+    expect(source).toContain('/api/tracking/jobs/');
+    expect(source).toContain('Open Freight Vision in new window');
+    expect(source).not.toContain('className="map vision-map"');
+    expect(source).not.toContain('className="mapnote"');
+  });
 });

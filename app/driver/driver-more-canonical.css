@@ -270,3 +270,61 @@
   .driver-live-topbar .driver-more-segment{overflow-x:auto}
   .driver-live-map-panel,.driver-live-map-panel .driver-nearby-map-shell,.driver-live-map-panel .driver-nearby-map-canvas,.driver-live-map-panel .leaflet-container{min-height:300px!important;height:300px!important}
 }
+
+/* Freight Vision: canonical full-width operational desk with a real Leaflet base map. */
+.xdrive-driver-workspace .driver-more-canonical-page .driver-freight-vision-canonical{width:100%;min-width:0;display:grid;grid-template-columns:230px minmax(0,1fr);gap:10px;align-items:start}
+.driver-freight-filter-rail{position:sticky;top:104px}
+.driver-freight-check{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:700;color:#334960}
+.driver-freight-check input{width:16px!important;height:16px!important;min-height:0!important;margin:0!important}
+.driver-freight-main{width:100%;min-width:0}
+.driver-freight-toolbar{min-height:42px;display:flex;align-items:center;gap:7px;flex-wrap:wrap;padding:5px 7px;background:#f6f8fa;border:1px solid #d4dce5}
+.driver-freight-open-map{margin-left:auto}
+.driver-freight-auto-refresh{font-size:10px;color:#657285;white-space:nowrap}
+.driver-freight-kpis{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1px solid #d4dce5;border-top:0;background:#fff}
+.driver-freight-kpis button{min-height:62px;border:0;border-right:1px solid #d9e1ea;background:#fff;padding:8px 10px;text-align:left;cursor:default}
+.driver-freight-kpis button:last-child{border-right:0}
+.driver-freight-kpis button[data-active='true']{background:#f7f9fc;box-shadow:inset 0 -2px 0 #1d57d8}
+.driver-freight-kpis span{display:block;color:#657285;font-size:10px;font-weight:800;text-transform:uppercase}
+.driver-freight-kpis b{display:block;margin-top:4px;color:#0b2f6b;font-size:21px;line-height:24px}
+.driver-freight-split{width:100%;min-width:0;display:grid;grid-template-columns:330px minmax(0,1fr);min-height:520px;border:1px solid #d4dce5;border-top:0;background:#fff}
+.driver-freight-split.is-list{grid-template-columns:minmax(0,1fr)}
+.driver-freight-split.is-list .driver-freight-map-pane{display:none}
+.driver-freight-split.is-map{grid-template-columns:minmax(0,1fr)}
+.driver-freight-split.is-map .driver-freight-list{display:none}
+.driver-freight-list{min-width:0;border-right:1px solid #d4dce5;background:#fff;overflow:auto;max-height:560px}
+.driver-freight-list-head{min-height:38px;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 9px;border-bottom:1px solid #d4dce5;background:#f7f9fb;color:#2f465f;font-size:11px}
+.driver-freight-list-head span{color:#657285;font-weight:700}
+.driver-freight-job{width:100%;min-height:76px;display:flex;align-items:center;justify-content:space-between;gap:10px;border:0;border-bottom:1px solid #e3e8ee;background:#fff;padding:9px 10px;text-align:left;cursor:pointer}
+.driver-freight-job:hover{background:#f5f8fc}
+.driver-freight-job>div:first-child{min-width:0;display:grid;gap:2px}
+.driver-freight-job b{color:#18324e;font-size:12px}
+.driver-freight-job span{color:#657285;font-size:10px;line-height:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.driver-freight-map-pane{min-width:0;min-height:520px;background:#dbe5ee;overflow:hidden}
+.driver-freight-map-shell{position:relative;width:100%;height:100%;min-height:520px;background:#dbe5ee;overflow:hidden}
+.driver-freight-map-canvas{width:100%;height:100%;min-height:520px;z-index:1}
+.driver-freight-map-shell .leaflet-container{width:100%;height:100%;min-height:520px;background:#dbe5ee;font:12px/1.35 "Segoe UI",Arial,sans-serif}
+.driver-freight-map-empty{position:absolute;left:50%;top:16px;z-index:500;transform:translateX(-50%);max-width:calc(100% - 32px);padding:7px 10px;border:1px solid #cbd5e1;background:rgba(255,255,255,.96);color:#475569;font-size:11px;font-weight:700;text-align:center;box-shadow:0 3px 10px rgba(15,23,42,.1);pointer-events:none}
+.driver-freight-map-warning{position:absolute;left:12px;right:12px;top:12px;z-index:600;padding:8px 10px;border:1px solid #f59e0b;background:rgba(255,251,235,.97);color:#92400e;font-size:11px;font-weight:700;box-shadow:0 4px 12px rgba(15,23,42,.12)}
+.driver-freight-note{padding:9px 10px;border:1px solid #d4dce5;border-top:0;background:#f8fafc;color:#617184;font-size:10px;line-height:15px}
+
+@media(max-width:1180px){
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-freight-vision-canonical{grid-template-columns:220px minmax(0,1fr)}
+  .driver-freight-split{grid-template-columns:300px minmax(0,1fr)}
+}
+@media(max-width:980px){
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-freight-vision-canonical{grid-template-columns:1fr}
+  .driver-freight-filter-rail{position:static;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .driver-freight-filter-rail>.driver-more-rail__title{grid-column:1/-1}
+  .driver-freight-split{grid-template-columns:1fr}
+  .driver-freight-list{border-right:0;border-bottom:1px solid #d4dce5;max-height:320px}
+  .driver-freight-map-pane,.driver-freight-map-shell,.driver-freight-map-canvas,.driver-freight-map-shell .leaflet-container{min-height:380px}
+}
+@media(max-width:680px){
+  .driver-freight-filter-rail{grid-template-columns:1fr}
+  .driver-freight-filter-rail>.driver-more-rail__title{grid-column:auto}
+  .driver-freight-toolbar{align-items:stretch;flex-direction:column}
+  .driver-freight-open-map{margin-left:0;align-self:flex-start}
+  .driver-freight-kpis{grid-template-columns:1fr 1fr}
+  .driver-freight-kpis button:nth-child(5){grid-column:1/-1}
+  .driver-freight-map-pane,.driver-freight-map-shell,.driver-freight-map-canvas,.driver-freight-map-shell .leaflet-container{min-height:320px}
+}

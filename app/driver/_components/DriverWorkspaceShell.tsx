@@ -47,6 +47,7 @@ const DRIVER_MORE_PATHS = new Set([
   '/driver/finance',
   '/driver/messages',
   '/driver/availability/live',
+  '/driver/freight-vision',
 ]);
 
 function isDriverAccountPath(pathname: string | null) {

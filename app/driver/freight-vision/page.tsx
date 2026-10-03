@@ -1,10 +1,13 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase } from '../../../lib/supabaseClient';
 import { StatusBadge } from '../../components/workspace/WorkspaceUI';
+import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+import DriverFreightVisionMap, { type DriverFreightVisionPoint } from '../_components/DriverFreightVisionMap';
 
 type JobRow = {
   id: string;
@@ -17,16 +20,42 @@ type JobRow = {
   status: string | null;
 };
 
+type TrackingSnapshot = {
+  job_id: string;
+  phase?: string | null;
+  tracking_active?: boolean;
+  fresh?: boolean;
+  driver?: { id?: string | null; display_name?: string | null } | null;
+  location?: { lat?: number | null; lng?: number | null; recorded_at?: string | null; speed_mph?: number | null; heading?: number | null } | null;
+  eta_risk?: { level?: 'on_time' | 'at_risk' | 'late'; late_by_minutes?: number | null } | null;
+  planned_delivery_at?: string | null;
+  reason?: string | null;
+};
+
 const human = (value: string | null | undefined) => (value ?? 'Unknown')
   .replace(/_/g, ' ')
   .replace(/\b\w/g, (character) => character.toUpperCase());
 
-const route = (place: string | null, postcode: string | null) =>
+const routeLabel = (place: string | null, postcode: string | null) =>
   [place, postcode].filter(Boolean).join(' ') || 'Not supplied';
+
+const activeJob = (job: JobRow) => {
+  const status = String(job.current_status ?? job.status ?? '').toLowerCase();
+  return !['delivered', 'completed', 'cancelled', 'expired', 'paid', 'invoiced'].includes(status);
+};
+
+const when = (value: string | null | undefined) => {
+  if (!value) return 'Not supplied';
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? 'Not supplied' : date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+};
+
 export default function DriverFreightVisionPage() {
+  const router = useRouter();
   const { user } = useAuth();
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
   const [jobs, setJobs] = useState<JobRow[]>([]);
+  const [trackingByJob, setTrackingByJob] = useState<Record<string, TrackingSnapshot>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [view, setView] = useState<'split' | 'list' | 'map'>('split');
@@ -36,23 +65,54 @@ export default function DriverFreightVisionPage() {
   const load = useCallback(async () => {
     if (!driverId) {
       setJobs([]);
+      setTrackingByJob({});
       setLoading(false);
       return;
     }
     setLoading(true);
     setError('');
+
     const { data, error: queryError } = await supabase
       .from('jobs')
       .select('id,pickup_location,pickup_postcode,delivery_location,delivery_postcode,delivery_datetime,current_status,status')
       .eq('assigned_driver_id', driverId)
       .order('pickup_datetime', { ascending: false })
       .limit(100);
+
     if (queryError) {
       setJobs([]);
+      setTrackingByJob({});
       setError('Freight Vision could not load the current Driver job register.');
-    } else {
-      setJobs((data ?? []) as JobRow[]);
+      setLoading(false);
+      return;
     }
+
+    const nextJobs = (data ?? []) as JobRow[];
+    setJobs(nextJobs);
+
+    const live = nextJobs.filter(activeJob);
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token ?? null;
+    if (!token || live.length === 0) {
+      setTrackingByJob({});
+      setLoading(false);
+      return;
+    }
+
+    const snapshots = await Promise.all(live.map(async (job) => {
+      try {
+        const response = await fetch(`/api/tracking/jobs/${job.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        if (!response.ok) return null;
+        return await response.json() as TrackingSnapshot;
+      } catch {
+        return null;
+      }
+    }));
+
+    setTrackingByJob(Object.fromEntries(snapshots.filter((snapshot): snapshot is TrackingSnapshot => Boolean(snapshot?.job_id)).map((snapshot) => [snapshot.job_id, snapshot])));
     setLoading(false);
   }, [driverId]);
 
@@ -62,85 +122,123 @@ export default function DriverFreightVisionPage() {
     return () => window.clearInterval(timer);
   }, [load]);
 
-  const liveJobs = useMemo(() => jobs.filter((job) => {
-    const status = String(job.current_status ?? job.status ?? '').toLowerCase();
-    return !['delivered', 'completed', 'cancelled', 'expired', 'paid'].includes(status);
-  }), [jobs]);
+  const liveJobs = useMemo(() => jobs.filter(activeJob), [jobs]);
 
   const visible = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return liveJobs.filter((job) => {
+      const snapshot = trackingByJob[job.id];
+      if (scope === 'tracked' && !snapshot?.location) return false;
       if (!needle) return true;
       return [job.id, job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode, job.current_status, job.status]
-        .filter(Boolean).join(' ').toLowerCase().includes(needle);
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+        .includes(needle);
     });
-  }, [liveJobs, search]);
+  }, [liveJobs, scope, search, trackingByJob]);
 
-  const trackedVisible = scope === 'tracked' ? [] : visible;
+  const mapPoints = useMemo<DriverFreightVisionPoint[]>(() => visible.flatMap((job) => {
+    const snapshot = trackingByJob[job.id];
+    const lat = Number(snapshot?.location?.lat);
+    const lng = Number(snapshot?.location?.lng);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return [];
+    return [{
+      jobId: job.id,
+      label: `${routeLabel(job.pickup_location, job.pickup_postcode)} to ${routeLabel(job.delivery_location, job.delivery_postcode)}`,
+      lat,
+      lng,
+      recordedAt: snapshot?.location?.recorded_at ?? null,
+      fresh: snapshot?.fresh === true,
+    }];
+  }), [trackingByJob, visible]);
+
+  const countRisk = (level: 'on_time' | 'at_risk' | 'late') => visible.filter((job) => trackingByJob[job.id]?.eta_risk?.level === level).length;
+  const notTracked = visible.filter((job) => !trackingByJob[job.id]?.location).length;
+
+  const openMap = () => {
+    const first = mapPoints[0];
+    const url = first
+      ? `https://www.openstreetmap.org/?mlat=${first.lat}&mlon=${first.lng}#map=9/${first.lat}/${first.lng}`
+      : 'https://www.openstreetmap.org/#map=6/54.5/-3.0';
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <section className="page driver-freight-vision-prototype">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Freight Vision</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" disabled title="Payment Report is handled in Finance">Payment Report</button>
-            <button type="button" className="btn" onClick={() => setSearch('')}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => void load()} disabled={loading}>Refresh</button>
-          </div>
-        </div>
-        <div className="pagebody">
-          <aside className="left">
-            <div className="left-title">Search Panel</div>
-            <div className="filter"><span className="label">Booking Scope</span><div className="vision-scope"><button type="button" className="active">My Driver Jobs</button></div></div>
-            <div className="filter"><span className="label">Load ID / Ref</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Load ID / ref" /></div>
-            <div className="filter"><span className="label">Live state</span><label className="check"><input type="checkbox" checked={scope === 'tracked'} onChange={(event) => setScope(event.target.checked ? 'tracked' : 'all')} />Live tracked only</label></div>
+      <DriverWorkspaceShell
+        subtitle="Live tracked jobs, tracking freshness and delivery-risk visibility from approved XDrive tracking data."
+        headerActions={
+          <>
+            <button type="button" className="driver-more-button" onClick={() => router.push('/driver/finance')}>Payment Report</button>
+            <button type="button" className="driver-more-button" onClick={() => { setSearch(''); setScope('all'); }}>Clear</button>
+            <button type="button" className="driver-more-button driver-more-button--primary" onClick={() => void load()} disabled={loading}>{loading ? 'Refreshing...' : 'Refresh'}</button>
+          </>
+        }
+      >
+        <div className="driver-freight-vision-canonical">
+          <aside className="driver-more-rail driver-freight-filter-rail">
+            <div className="driver-more-rail__title">Search Panel</div>
+            <div className="driver-more-filter"><span>Booking Scope</span><div className="driver-more-static-value">My Driver Jobs</div></div>
+            <label className="driver-more-filter"><span>Load ID / Ref</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Load ID / ref" /></label>
+            <div className="driver-more-filter">
+              <span>Live State</span>
+              <label className="driver-freight-check"><input type="checkbox" checked={scope === 'tracked'} onChange={(event) => setScope(event.target.checked ? 'tracked' : 'all')} />Live tracked only</label>
+            </div>
           </aside>
-          <main className="main">
-            <div className="head"><div><h1>Freight Vision</h1><p>Live tracked jobs, traffic-aware ETA and proactive exception visibility</p></div></div>
-            {error && <div className="vision-note">{error}</div>}
-            <div className="vision-head">
-              <div className="vision-view">
-                <button type="button" className={view === 'split' ? 'active' : ''} onClick={() => setView('split')}>Split View</button>
-                <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button>
-                <button type="button" className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>Map View</button>
+
+          <section className="driver-more-main driver-freight-main">
+            {error && <div className="driver-more-alert driver-more-alert--danger">{error}</div>}
+
+            <div className="driver-freight-toolbar">
+              <div className="driver-more-segment" role="tablist" aria-label="Freight Vision presentation">
+                <button type="button" data-active={view === 'split'} aria-selected={view === 'split'} onClick={() => setView('split')}>Split View</button>
+                <button type="button" data-active={view === 'list'} aria-selected={view === 'list'} onClick={() => setView('list')}>List View</button>
+                <button type="button" data-active={view === 'map'} aria-selected={view === 'map'} onClick={() => setView('map')}>Map View</button>
               </div>
-              <div className="vision-live-tabs"><button type="button" className="active">All In Progress</button></div>
-              <button type="button" className="text-action spacer" disabled>Open Freight Vision in new window</button>
-              <span className="vision-auto-refresh">Auto refresh 60s</span>
-              <button type="button" className="btn" onClick={() => void load()} disabled={loading}>Refresh</button>
+              <div className="driver-more-segment"><button type="button" data-active="true" aria-pressed="true" disabled>All In Progress</button></div>
+              <button type="button" className="driver-more-link-button driver-freight-open-map" onClick={openMap}>Open Freight Vision in new window</button>
+              <span className="driver-freight-auto-refresh">Auto refresh 60s</span>
+              <button type="button" className="driver-more-button driver-more-button--compact" onClick={() => void load()} disabled={loading}>Refresh</button>
             </div>
-            <div className="vision-kpis">
-              <button type="button" className="active"><span>Total</span><b>{trackedVisible.length}</b></button>
-              <button type="button"><span>On Time</span><b>—</b></button>
-              <button type="button"><span>Behind ETA</span><b>—</b></button>
-              <button type="button"><span>Late</span><b>—</b></button>
-              <button type="button"><span>Not Tracked / Not Started</span><b>{trackedVisible.length}</b></button>
+
+            <div className="driver-freight-kpis">
+              <button type="button" data-active="true"><span>Total</span><b>{visible.length}</b></button>
+              <button type="button"><span>On Time</span><b>{countRisk('on_time')}</b></button>
+              <button type="button"><span>Behind ETA</span><b>{countRisk('at_risk')}</b></button>
+              <button type="button"><span>Late</span><b>{countRisk('late')}</b></button>
+              <button type="button"><span>Not Tracked / Not Started</span><b>{notTracked}</b></button>
             </div>
-            <div className={'split vision-split ' + (view === 'list' ? 'vision-list-only' : view === 'map' ? 'vision-map-only' : '')}>
-              <div className="splitlist">
-                <div className="cardhead">Freight Vision <span className="spacer">{trackedVisible.length} loads</span></div>
-                {trackedVisible.map((job) => (
-                  <button key={job.id} type="button" className="vision-job">
-                    <div className="grow">
-                      <b>{job.id.slice(0, 8).toUpperCase()}</b>
-                      <span className="meta">{route(job.pickup_location, job.pickup_postcode)} → {route(job.delivery_location, job.delivery_postcode)}</span>
-                      <span className="meta">ETA {job.delivery_datetime ? new Date(job.delivery_datetime).toLocaleString('en-GB') : 'Not supplied'}</span>
-                    </div>
-                    <StatusBadge value={human(job.current_status ?? job.status)} />
-                  </button>
-                ))}
-                {!loading && trackedVisible.length === 0 && <div className="xd2-calm-empty"><b>No visible Driver jobs</b><span>{scope === 'tracked' ? 'No approved live tracking positions are available.' : 'Allocated or executing work will appear here.'}</span></div>}
+
+            <div className={`driver-freight-split${view === 'list' ? ' is-list' : view === 'map' ? ' is-map' : ''}`}>
+              <div className="driver-freight-list">
+                <div className="driver-freight-list-head"><strong>Freight Vision</strong><span>{visible.length} loads</span></div>
+                {visible.map((job) => {
+                  const snapshot = trackingByJob[job.id];
+                  return (
+                    <button key={job.id} type="button" className="driver-freight-job" onClick={() => router.push(`/driver/jobs/${job.id}`)}>
+                      <div>
+                        <b>{job.id.slice(0, 8).toUpperCase()}</b>
+                        <span>{routeLabel(job.pickup_location, job.pickup_postcode)} to {routeLabel(job.delivery_location, job.delivery_postcode)}</span>
+                        <span>Delivery target {when(job.delivery_datetime)}</span>
+                        {snapshot?.location && <span>Position {when(snapshot.location.recorded_at)}{snapshot.location.speed_mph != null ? ` · ${snapshot.location.speed_mph} mph` : ''}</span>}
+                      </div>
+                      <StatusBadge value={human(job.current_status ?? job.status)} tone={snapshot?.fresh ? 'green' : snapshot?.location ? 'orange' : 'grey'} />
+                    </button>
+                  );
+                })}
+                {!loading && visible.length === 0 && <div className="driver-more-empty"><b>No visible Driver jobs</b><span>{scope === 'tracked' ? 'No approved live tracking positions are available.' : 'Allocated or executing work will appear here.'}</span></div>}
               </div>
-              <div className="splitmain">
-                <div className="map vision-map">
-                  <div className="mapnote">Live map positions are shown only when an approved tracking source is available. No position is fabricated.</div>
-                </div>
+
+              <div className="driver-freight-map-pane">
+                <DriverFreightVisionMap points={mapPoints} />
               </div>
             </div>
-            <div className="vision-note">XDrive Freight Vision uses authoritative Driver job status. Traffic-aware ETA and live tracking remain unavailable when no approved tracking or traffic source is present.</div>
-          </main>
+
+            <div className="driver-freight-note">XDrive Freight Vision uses authoritative Driver job status and approved live tracking. Traffic-aware ETA is shown only when a server-side traffic snapshot exists; no position or ETA is fabricated.</div>
+          </section>
         </div>
-      </section>
+      </DriverWorkspaceShell>
     </ProtectedRoute>
   );
 }
