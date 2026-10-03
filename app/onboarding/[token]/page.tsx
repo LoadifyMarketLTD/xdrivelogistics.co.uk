@@ -336,6 +336,7 @@ export default function OnboardingTokenPage() {
       <h2>Customer / Shipper Details</h2>
       <Field label="Full Name" value={formData.full_name ?? ''} onChange={(value) => updateField('full_name', value)} />
       <Field label="Email" value={formData.contact_email ?? ''} onChange={(value) => updateField('contact_email', value)} />
+      <Field label="Website" value={formData.website ?? ''} onChange={(value) => updateField('website', value)} />
       <Field label="Phone" value={formData.contact_phone ?? ''} onChange={(value) => updateField('contact_phone', value)} />
       <Field label="Company Name" value={formData.company_name ?? ''} onChange={(value) => updateField('company_name', value)} />
       <Field label="Billing Address" value={formData.billing_address ?? ''} onChange={(value) => updateField('billing_address', value)} />
@@ -354,6 +355,7 @@ export default function OnboardingTokenPage() {
       <Field label="Contact Person" value={formData.contact_person ?? ''} onChange={(value) => updateField('contact_person', value)} />
       <Field label="Finance Contact" value={formData.finance_contact ?? ''} onChange={(value) => updateField('finance_contact', value)} />
       <Field label="Email" value={formData.contact_email ?? ''} onChange={(value) => updateField('contact_email', value)} />
+      <Field label="Website" value={formData.website ?? ''} onChange={(value) => updateField('website', value)} />
       <Field label="Phone" value={formData.contact_phone ?? ''} onChange={(value) => updateField('contact_phone', value)} />
     </section>
   );
@@ -368,6 +370,9 @@ export default function OnboardingTokenPage() {
       <Field label="Registered Address" value={formData.registered_address ?? ''} onChange={(value) => updateField('registered_address', value)} />
       <Field label="Trading Address" value={formData.trading_address ?? ''} onChange={(value) => updateField('trading_address', value)} />
       <Field label="Contact Person" value={formData.contact_person ?? ''} onChange={(value) => updateField('contact_person', value)} />
+      <Field label="Business Email" value={formData.contact_email ?? ''} onChange={(value) => updateField('contact_email', value)} />
+      <Field label="Business Phone" value={formData.contact_phone ?? ''} onChange={(value) => updateField('contact_phone', value)} />
+      <Field label="Website" value={formData.website ?? ''} onChange={(value) => updateField('website', value)} />
       <Field label="Compliance Contact" value={formData.compliance_contact ?? ''} onChange={(value) => updateField('compliance_contact', value)} />
       <Field label="Transport Contact" value={formData.transport_contact ?? formData.transport_manager ?? ''} onChange={(value) => updateField('transport_contact', value)} />
     </section>
