@@ -59,6 +59,40 @@ describe('Owner Driver More contract', () => {
     }
   });
 
+  it('keeps More items grouped so section headers appear exactly once and in canonical order', () => {
+    const moreStart = owner.indexOf("], 'owner-driver-more', 'More', [");
+    const moreEnd = owner.indexOf(']);', moreStart);
+    const moreBlock = owner.slice(moreStart, moreEnd);
+    const orderedRoutes = [
+      '/driver/jobs',
+      '/driver/won-work',
+      '/driver/availability',
+      '/driver/load-alerts',
+      '/driver/nearby',
+      '/driver/documents',
+      '/driver/finance',
+      '/driver/messages',
+    ];
+    let cursor = -1;
+    for (const href of orderedRoutes) {
+      const next = moreBlock.indexOf(`'${href}'`);
+      expect(next, href).toBeGreaterThan(cursor);
+      cursor = next;
+    }
+
+    const sectionMap: Record<string, string> = {
+      '/driver/jobs': 'Work',
+      '/driver/won-work': 'Work',
+      '/driver/availability': 'Matching & Availability',
+      '/driver/load-alerts': 'Matching & Availability',
+      '/driver/nearby': 'Matching & Availability',
+      '/driver/documents': 'Business',
+      '/driver/finance': 'Business',
+      '/driver/messages': 'Business',
+    };
+    const visibleSections = orderedRoutes.filter((href, index) => index === 0 || sectionMap[href] !== sectionMap[orderedRoutes[index - 1]]).map((href) => sectionMap[href]);
+    expect(visibleSections).toEqual(['Work', 'Matching & Availability', 'Business']);
+  });
   it('uses labels that clearly distinguish secondary availability and matching from primary Live Availability', () => {
     expect(owner).toContain("label: 'Availability & Schedule'");
     expect(owner).toContain("label: 'Load Matching & Alerts'");

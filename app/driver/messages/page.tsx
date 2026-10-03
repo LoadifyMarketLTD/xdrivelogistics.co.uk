@@ -194,7 +194,7 @@ export default function DriverMessagesPage() {
 
           <main className="driver-board-main">
             <div className="driver-tab-strip" role="tablist" aria-label="Messaging workspace">
-              <button type="button" data-active="true">Conversations <span>{threads.length}</span></button>
+              <button type="button" data-active="true" aria-selected="true" disabled>Conversations <span>{threads.length}</span></button>
             </div>
             <div className="driver-board-summary">
               <span>{threads.length} conversation{threads.length === 1 ? '' : 's'} · no fabricated read-state</span>

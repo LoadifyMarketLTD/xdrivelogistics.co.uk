@@ -46,6 +46,7 @@ export default function DriverNearbyPage() {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [vehicle, setVehicle] = useState('all');
+  const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
 
   const loadNearby = useCallback(async () => {
     setLoading(true);
@@ -114,26 +115,25 @@ export default function DriverNearbyPage() {
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Panel</div>
-            <div className="filter"><span className="label">Mode</span><div className="avail-mode"><button type="button" className="active">Live</button><button type="button" onClick={() => router.push('/driver/returns')}>Future</button></div></div>
-            <div className="filter"><span className="label">Scope</span><select className="select" defaultValue="UK only"><option>UK only</option></select></div>
+            <div className="filter"><span className="label">Mode</span><div className="avail-mode"><button type="button" className="active" aria-pressed="true" disabled>Live</button><button type="button" onClick={() => router.push('/driver/returns')}>Future</button></div></div>
+            <div className="filter"><span className="label">Scope</span><div className="driver-static-filter-value">UK only</div></div>
             <div className="filter"><span className="label">Member / Vehicle</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, member ID or vehicle" /></div>
             <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="all">Any vehicle</option>{vehicleOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}</select></div>
-            <div className="filter"><span className="label">Groups</span><label className="check"><input type="checkbox" checked readOnly />Exchange visible</label></div>
+            <div className="filter"><span className="label">Groups</span><div className="driver-static-filter-value">Exchange visible</div></div>
           </aside>
           <main className="main">
             <div className="head"><div><h1>Who's Nearby</h1><p>Find exchange-visible nearby vehicle capacity by location, member and vehicle</p></div></div>
             {error && <div className="vision-note">{error}</div>}
             <div className="avail-topbar">
-              <div className="avail-view-tabs"><button type="button" className="active">Map View</button><button type="button">List View</button></div>
-              <div className="avail-audience"><button type="button" className="active">All</button><button type="button">Drivers & Sub-contractors</button><button type="button">Other Drivers</button></div>
-              <button type="button" className="text-action" disabled>Open map in new window</button>
+              <div className="avail-view-tabs" role="tablist" aria-label="Nearby presentation"><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-selected={viewMode === 'map'} onClick={() => setViewMode('map')}>Map View</button><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-selected={viewMode === 'list'} onClick={() => setViewMode('list')}>List View</button></div>
+              <span className="avail-scope-label">Exchange-visible members only</span>
             </div>
             <div className="toolbar"><b>Who's Nearby</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button></div>
-            <div className="availgrid">
-              <div className="map availmap">
+            <div className={`availgrid ${viewMode === 'list' ? 'list-only' : ''}`}>
+              <div id="availMap" className="map availmap">
                 <div className="mapnote">Privacy-rounded exchange availability. Exact driver coordinates remain protected.</div>
               </div>
-              <div style={{ overflow: 'auto' }}>
+              <div id="availList" style={{ overflow: 'auto' }}>
                 <div className="tablewrap avail-tablewrap">
                   <table className="avail-table" style={{ minWidth: 1050 }}>
                     <thead><tr><th>Member (ID)</th><th>Vehicle Size</th><th>Current Location</th><th>Home Location</th><th>Location Received</th><th>Journeys</th><th>Status</th><th>Action</th></tr></thead>

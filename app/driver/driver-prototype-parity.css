@@ -3,6 +3,7 @@
  * It maps the approved CX-reference prototype density onto real data/components only.
  */
 
+.xdrive-driver-workspace .top-workspace-shell__content,
 .xdrive-driver-workspace .driver-top-shell__content {
   --driver-prototype-rail: 245px;
   --driver-prototype-head-h: 42px;

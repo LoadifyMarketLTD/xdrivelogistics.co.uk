@@ -266,8 +266,8 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
     ['owner-driver-settings-primary', 'Settings', '/driver/settings'],
   ], 'owner-driver-more', 'More', [
     '/driver/jobs',
-    '/driver/availability',
     '/driver/won-work',
+    '/driver/availability',
     '/driver/load-alerts',
     '/driver/nearby',
     '/driver/documents',
