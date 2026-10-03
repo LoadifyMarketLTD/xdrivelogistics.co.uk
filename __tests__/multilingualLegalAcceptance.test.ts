@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildControlledLegalDocument, CONTROLLED_LEGAL_VERSION, LEGAL_LANGUAGES } from '../lib/legal/controlledLegalDocuments';
 import { buildCurrentLegalEvidence, buildCurrentLegalRequirement } from '../lib/legal/legalAgreementState';
-import { REGISTRATION_LEGAL_CONFIG } from '../lib/legal/registrationAgreements';
+import { getRegistrationLegalConfig, REGISTRATION_LEGAL_CONFIG } from '../lib/legal/registrationAgreements';
 import { buildRegistrationLegalEvidence } from '../lib/legal/registrationEvidence';
 
 const migration = readFileSync(join(process.cwd(),'supabase/migrations/20260926144804_multilingual_legal_acceptance_snapshot.sql'),'utf8');
@@ -97,6 +97,30 @@ describe('multilingual controlled legal acceptance',()=>{
     const roMarketplace=buildControlledLegalDocument('marketplace_transport_terms','ro');
     expect(roMarketplace.sections.some((section)=>section.title.includes('Controale de risc și expunere'))).toBe(true);
     expect(roMarketplace.sections.every((section)=>!section.title.includes('Transport buyer risk and exposure controls'))).toBe(true);
+  });
+
+  it('renders Romanian legal labels and section headings in Romanian when Romanian is selected',()=>{
+    const config=getRegistrationLegalConfig('owner_operator','ro');
+    expect(config.agreements.map((item)=>item.label)).toEqual([
+      'Termenii Platformei XDrive',
+      'Termeni Owner Driver / Transportator',
+      'Termeni Comerciali Marketplace și Transport',
+      'Termeni de Membru și Abonament',
+    ]);
+    const membership=buildControlledLegalDocument('membership_subscription_terms','ro');
+    expect(membership.sections.map((section)=>section.title)).toEqual([
+      '1. Eligibilitate și acces',
+      '2. Perioade gratuite și plătite',
+      '3. Reînnoire și anulare',
+      '4. Tarife de transport',
+    ]);
+    const privacy=buildControlledLegalDocument('privacy_policy','ro');
+    expect(privacy.sections[0].title).toBe('1. Datele pe care le prelucrăm');
+    expect(privacy.sections[1].title).toBe('2. Date privind operațiunile de transport');
+    const owner=buildControlledLegalDocument('owner_driver_terms','ro');
+    expect(owner.sections.some((section)=>section.title.includes('Conformitatea transportatorului'))).toBe(true);
+    expect(owner.sections.some((section)=>section.title.includes('Amendamente și costuri suplimentare aprobate'))).toBe(true);
+    expect(owner.sections.every((section)=>!section.title.includes('Carrier compliance'))).toBe(true);
   });
 
   it('renders every controlled language document deterministically',()=>{

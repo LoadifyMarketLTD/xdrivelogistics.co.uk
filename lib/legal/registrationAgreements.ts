@@ -1,5 +1,5 @@
 import { type RoleTradingTermsCode } from './roleTradingTerms';
-import { CONTROLLED_LEGAL_ROUTES, CONTROLLED_LEGAL_VERSION, CONTROLLED_PRIVACY_VERSION, normalizeLegalLanguage } from './controlledLegalDocuments';
+import { buildControlledLegalDocument, CONTROLLED_LEGAL_ROUTES, CONTROLLED_LEGAL_VERSION, CONTROLLED_PRIVACY_VERSION, normalizeLegalLanguage } from './controlledLegalDocuments';
 import { getLocalizedRegistrationDeclarations } from './registrationDeclarations';
 
 export type RegistrationLegalRole =
@@ -146,6 +146,10 @@ export const getRegistrationLegalConfig = (role: RegistrationLegalRole, language
   });
   return {
     ...base,
+    agreements: base.agreements.map((agreement) => ({
+      ...agreement,
+      label: buildControlledLegalDocument(agreement.code, language).title,
+    })),
     authorityDeclaration: declarations.authority,
     roleDeclaration: declarations.role,
     privacyAcknowledgement: declarations.privacy,

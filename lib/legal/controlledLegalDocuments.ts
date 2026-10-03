@@ -1,4 +1,4 @@
-﻿export const LEGAL_LANGUAGES = ['en','ro','fr','es','pl'] as const;
+export const LEGAL_LANGUAGES = ['en','ro','fr','es','pl'] as const;
 export type LegalLanguage = typeof LEGAL_LANGUAGES[number];
 
 export type ControlledLegalDocumentCode =
@@ -80,12 +80,12 @@ const shared = {
 
 const titles: Record<ControlledLegalDocumentCode,Record<LegalLanguage,string>> = {
   platform_terms: { en:'XDrive Platform Terms', ro:'Termenii Platformei XDrive', fr:'Conditions de la plateforme XDrive', es:'Términos de la plataforma XDrive', pl:'Warunki platformy XDrive' },
-  membership_subscription_terms: { en:'Membership & Subscription Terms', ro:'Termeni de Membership și Abonament', fr:'Conditions d’adhésion et d’abonnement', es:'Términos de membresía y suscripción', pl:'Warunki członkostwa i subskrypcji' },
+  membership_subscription_terms: { en:'Membership & Subscription Terms', ro:'Termeni de Membru și Abonament', fr:'Conditions d’adhésion et d’abonnement', es:'Términos de membresía y suscripción', pl:'Warunki członkostwa i subskrypcji' },
   marketplace_transport_terms: { en:'Marketplace & Transport Trading Terms', ro:'Termeni Comerciali Marketplace și Transport', fr:'Conditions commerciales de marketplace et transport', es:'Términos comerciales de marketplace y transporte', pl:'Warunki handlowe marketplace i transportu' },
-  customer_shipper_terms: { en:'Customer / Shipper Trading Terms', ro:'Termeni Comerciali Customer / Shipper', fr:'Conditions commerciales Client / Expéditeur', es:'Términos comerciales Cliente / Cargador', pl:'Warunki handlowe Klient / Zleceniodawca' },
+  customer_shipper_terms: { en:'Customer / Shipper Trading Terms', ro:'Termeni Comerciali Client / Expeditor', fr:'Conditions commerciales Client / Expéditeur', es:'Términos comerciales Cliente / Cargador', pl:'Warunki handlowe Klient / Zleceniodawca' },
   broker_terms: { en:'Transport Broker Trading Terms', ro:'Termeni Comerciali Broker de Transport', fr:'Conditions commerciales Courtier de transport', es:'Términos comerciales Broker de transporte', pl:'Warunki handlowe Brokera transportowego' },
-  owner_driver_terms: { en:'Owner Driver / Carrier Terms', ro:'Termeni Owner Driver / Carrier', fr:'Conditions Chauffeur-propriétaire / Transporteur', es:'Términos Conductor propietario / Transportista', pl:'Warunki Właściciel-kierowca / Przewoźnik' },
-  carrier_fleet_terms: { en:'Carrier / Fleet Trading Terms', ro:'Termeni Comerciali Carrier / Fleet', fr:'Conditions commerciales Transporteur / Flotte', es:'Términos comerciales Transportista / Flota', pl:'Warunki handlowe Przewoźnik / Flota' },
+  owner_driver_terms: { en:'Owner Driver / Carrier Terms', ro:'Termeni Owner Driver / Transportator', fr:'Conditions Chauffeur-propriétaire / Transporteur', es:'Términos Conductor propietario / Transportista', pl:'Warunki Właściciel-kierowca / Przewoźnik' },
+  carrier_fleet_terms: { en:'Carrier / Fleet Trading Terms', ro:'Termeni Comerciali Transportator / Flotă', fr:'Conditions commerciales Transporteur / Flotte', es:'Términos comerciales Transportista / Flota', pl:'Warunki handlowe Przewoźnik / Flota' },
   privacy_policy: { en:'Privacy Policy', ro:'Politica de Confidențialitate', fr:'Politique de confidentialité', es:'Política de privacidad', pl:'Polityka prywatności' },
 };
 
@@ -124,12 +124,28 @@ const membershipBody: Record<LegalLanguage,string[]> = {
   pl:['Dostęp do członkostwa i kwalifikacja zależą od planu, onboardingu i wymogów zgodności przedstawionych przez XDrive.','Każdy bezpłatny okres ma charakter promocyjny i nie ma wartości pieniężnej. Płatne członkostwo rozpoczyna się wyłącznie zgodnie z przedstawionym planem i sposobem rozliczeń.','Płatne członkostwo może odnawiać się zgodnie z podanym cyklem do chwili anulowania. Anulowanie zatrzymuje przyszłe odnowienia, ale zwykle nie cofa już rozpoczętego okresu rozliczeniowego, chyba że wymaga tego prawo lub XDrive postanowi inaczej.','W obecnym modelu XDrive nie pobiera procentowej prowizji od wartości transportu, chyba że wyraźnie wprowadzi na piśmie inny produkt.'],
 };
 
+const membershipHeadings: Record<LegalLanguage,string[]> = {
+  en:['Eligibility and access','Free and paid periods','Renewal and cancellation','Transport fees'],
+  ro:['Eligibilitate și acces','Perioade gratuite și plătite','Reînnoire și anulare','Tarife de transport'],
+  fr:['Éligibilité et accès','Périodes gratuites et payantes','Renouvellement et résiliation','Frais de transport'],
+  es:['Elegibilidad y acceso','Periodos gratuitos y de pago','Renovación y cancelación','Tarifas de transporte'],
+  pl:['Kwalifikowalność i dostęp','Okresy bezpłatne i płatne','Odnowienie i anulowanie','Opłaty transportowe'],
+};
+
 const privacyBodies: Record<LegalLanguage,string[]> = {
   en:['XDrive processes account identity, contact, company, device and security data to create and protect accounts and provide the service.','Transport operations may involve collection and delivery contacts, locations, messages, photographs, signatures, POD and other evidence. Users must only provide personal data that is lawful, accurate and relevant to the booking.','XDrive may disclose necessary data to authorised booking participants, service providers and authorities where required to operate the service, protect users or comply with law.','Retention depends on the type of record, contractual and legal obligations, dispute needs and security requirements. Rights requests may be submitted through the contact details in the public Privacy Policy.'],
   ro:['XDrive prelucrează date despre identitatea contului, contact, companie, dispozitiv și securitate pentru crearea și protejarea conturilor și furnizarea serviciului.','Operațiunile de transport pot include contacte de colectare și livrare, locații, mesaje, fotografii, semnături, POD și alte dovezi. Utilizatorii trebuie să furnizeze doar date personale legale, corecte și relevante pentru rezervare.','XDrive poate comunica datele necesare participanților autorizați la rezervare, furnizorilor de servicii și autorităților atunci când este necesar pentru operarea serviciului, protejarea utilizatorilor sau respectarea legii.','Perioada de păstrare depinde de tipul înregistrării, obligațiile contractuale și legale, necesitățile privind disputele și securitatea. Cererile privind drepturile pot fi trimise prin datele de contact din Politica publică de Confidențialitate.'],
   fr:['XDrive traite les données d’identité de compte, de contact, d’entreprise, d’appareil et de sécurité afin de créer et protéger les comptes et fournir le service.','Les opérations de transport peuvent inclure des contacts d’enlèvement et de livraison, des lieux, messages, photos, signatures, POD et autres preuves. Les utilisateurs doivent fournir uniquement des données personnelles licites, exactes et pertinentes pour la réservation.','XDrive peut communiquer les données nécessaires aux participants autorisés, prestataires et autorités lorsque cela est requis pour exploiter le service, protéger les utilisateurs ou respecter la loi.','La durée de conservation dépend du type de dossier, des obligations contractuelles et légales, des besoins en matière de litige et de sécurité. Les demandes relatives aux droits peuvent être envoyées via les coordonnées de la Politique de confidentialité publique.'],
   es:['XDrive trata datos de identidad de cuenta, contacto, empresa, dispositivo y seguridad para crear y proteger cuentas y prestar el servicio.','Las operaciones de transporte pueden incluir contactos de recogida y entrega, ubicaciones, mensajes, fotografías, firmas, POD y otras pruebas. Los usuarios solo deben aportar datos personales lícitos, exactos y pertinentes para la reserva.','XDrive puede comunicar los datos necesarios a participantes autorizados de la reserva, proveedores y autoridades cuando sea necesario para operar el servicio, proteger a usuarios o cumplir la ley.','La conservación depende del tipo de registro, obligaciones contractuales y legales, necesidades de disputas y seguridad. Las solicitudes de derechos pueden enviarse mediante los datos de contacto de la Política de privacidad pública.'],
   pl:['XDrive przetwarza dane dotyczące tożsamości konta, kontaktów, firmy, urządzenia i bezpieczeństwa w celu tworzenia i ochrony kont oraz świadczenia usługi.','Operacje transportowe mogą obejmować kontakty odbioru i dostawy, lokalizacje, wiadomości, zdjęcia, podpisy, POD i inne dowody. Użytkownicy powinni przekazywać wyłącznie zgodne z prawem, prawidłowe i istotne dane osobowe.','XDrive może przekazywać niezbędne dane upoważnionym uczestnikom rezerwacji, dostawcom usług i organom, gdy jest to konieczne do działania usługi, ochrony użytkowników lub przestrzegania prawa.','Okres przechowywania zależy od rodzaju danych, obowiązków umownych i prawnych, potrzeb związanych ze sporami i bezpieczeństwem. Żądania dotyczące praw można składać za pomocą danych kontaktowych z publicznej Polityki prywatności.'],
+};
+
+const privacyHeadings: Record<LegalLanguage,string[]> = {
+  en:['Data we process','Transport-operation data','Sharing and disclosures','Retention and rights'],
+  ro:['Datele pe care le prelucrăm','Date privind operațiunile de transport','Partajare și divulgări','Păstrare și drepturi'],
+  fr:['Données que nous traitons','Données des opérations de transport','Partage et divulgations','Conservation et droits'],
+  es:['Datos que tratamos','Datos de operaciones de transporte','Compartición y divulgaciones','Conservación y derechos'],
+  pl:['Dane, które przetwarzamy','Dane operacji transportowych','Udostępnianie i ujawnianie','Przechowywanie i prawa'],
 };
 
 const commercialClauses: Record<LegalLanguage, {
@@ -213,9 +229,9 @@ export const buildControlledLegalDocument = (code: ControlledLegalDocumentCode, 
   const version = code === 'privacy_policy' ? CONTROLLED_PRIVACY_VERSION : CONTROLLED_LEGAL_VERSION;
   let sections: ControlledLegalSection[];
   if (code === 'membership_subscription_terms') {
-    sections = membershipBody[language].map((body,index)=>({title:`${index + 1}. ${['Eligibility and access','Free and paid periods','Renewal and cancellation','Transport fees'][index]}`,body}));
+    sections = membershipBody[language].map((body,index)=>({title:`${index + 1}. ${membershipHeadings[language][index]}`,body}));
   } else if (code === 'privacy_policy') {
-    sections = privacyBodies[language].map((body,index)=>({title:`${index + 1}. ${['Data we process','Transport-operation data','Sharing and disclosures','Retention and rights'][index]}`,body}));
+    sections = privacyBodies[language].map((body,index)=>({title:`${index + 1}. ${privacyHeadings[language][index]}`,body}));
   } else {
     sections = [
       {title:`1. ${h.business}`,body:s.business},
@@ -233,7 +249,7 @@ export const buildControlledLegalDocument = (code: ControlledLegalDocumentCode, 
       sections.push(
         { title: `8. ${ch.paymentAck}`, body: c.paymentAck },
         { title: `9. ${ch.buyerRisk}`, body: c.buyerRisk },
-        { title: '10. Amendments and approved extras', body: c.amendmentsExtras },
+        { title: `10. ${ch.amendmentsExtras}`, body: c.amendmentsExtras },
         { title: `11. ${ch.collectionEvidence}`, body: c.collectionEvidence },
       );
     } else if (code === 'customer_shipper_terms') {
@@ -249,9 +265,9 @@ export const buildControlledLegalDocument = (code: ControlledLegalDocumentCode, 
       );
     } else if (code === 'owner_driver_terms') {
       sections.push(
-        { title: '8. Carrier compliance', body: c.carrierCompliance },
+        { title: `8. ${ch.carrierCompliance}`, body: c.carrierCompliance },
         { title: `9. ${ch.collectionEvidence}`, body: c.collectionEvidence },
-        { title: '10. Amendments and approved extras', body: c.amendmentsExtras },
+        { title: `10. ${ch.amendmentsExtras}`, body: c.amendmentsExtras },
       );
     } else if (code === 'carrier_fleet_terms') {
       sections.push(

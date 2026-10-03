@@ -8,6 +8,7 @@ import {
   type RegistrationLegalRole,
 } from '../../lib/legal/registrationAgreements';
 import { getAgreementAcceptanceLead, getTransportControlHeading, getTransportControlNotice } from '../../lib/legal/registrationDeclarations';
+import { getLegalUiCopy } from '../../lib/legal/legalUiCopy';
 
 export type RegistrationAgreementGateValue = {
   agreementsAccepted: boolean;
@@ -40,6 +41,7 @@ export default function RegistrationAgreementGate({ role, value, onChange, langu
   const transportControlNotice = getTransportControlNotice(language);
   const transportControlHeading = getTransportControlHeading(language);
   const agreementAcceptanceLead = getAgreementAcceptanceLead(language);
+  const copy = getLegalUiCopy(language);
 
   const set = <K extends keyof RegistrationAgreementGateValue>(key: K, nextValue: RegistrationAgreementGateValue[K]) => {
     onChange({ ...value, [key]: nextValue });
@@ -53,9 +55,9 @@ export default function RegistrationAgreementGate({ role, value, onChange, langu
             <ShieldCheck className="h-4 w-4" />
           </span>
           <div>
-            <p className="text-xs font-black uppercase tracking-wider text-[#173B73]">Agreements & declarations</p>
+            <p className="text-xs font-black uppercase tracking-wider text-[#173B73]">{copy.agreementsHeading}</p>
             <p className="mt-1 text-xs font-semibold leading-5 text-[#667B94]">
-              These confirmations apply to the XDrive role you selected. Nothing is pre-selected.
+              {copy.agreementsDescription}
             </p>
           </div>
         </div>
@@ -63,13 +65,13 @@ export default function RegistrationAgreementGate({ role, value, onChange, langu
 
       <div className="space-y-3 p-4">
         <label className="block rounded-xl border border-[#DDE5EF] bg-white p-3 text-xs font-semibold text-[#526983]">
-          <span className="mb-2 block font-black text-[#173B73]">Full legal name of signer</span>
-          <input type="text" value={value.signerFullName} onChange={(event) => set('signerFullName', event.target.value)} disabled={disabled} maxLength={120} autoComplete="name" className="w-full rounded-lg border border-[#D8E1EC] bg-white px-3 py-2 font-bold text-[#173B73]" placeholder="Enter your full legal name" />
-          <span className="mt-2 block text-[11px] leading-4 text-[#71849A]">Typing your full name and completing the confirmations below forms your electronic signature for this agreement package.</span>
+          <span className="mb-2 block font-black text-[#173B73]">{copy.signerName}</span>
+          <input type="text" value={value.signerFullName} onChange={(event) => set('signerFullName', event.target.value)} disabled={disabled} maxLength={120} autoComplete="name" className="w-full rounded-lg border border-[#D8E1EC] bg-white px-3 py-2 font-bold text-[#173B73]" placeholder={copy.signerPlaceholder} />
+          <span className="mt-2 block text-[11px] leading-4 text-[#71849A]">{copy.signerExplanation}</span>
         </label>
 
         <label className="block rounded-xl border border-[#DDE5EF] bg-white p-3 text-xs font-semibold text-[#526983]">
-          <span className="mb-2 block font-black text-[#173B73]">Legal document language</span>
+          <span className="mb-2 block font-black text-[#173B73]">{copy.languageLabel}</span>
           <select value={language} onChange={(event) => onLanguageChange(event.target.value as LegalLanguage)} disabled={disabled} className="w-full rounded-lg border border-[#D8E1EC] bg-white px-3 py-2 font-bold text-[#173B73]">
             {LEGAL_LANGUAGES.map((item) => <option key={item} value={item}>{LEGAL_LANGUAGE_LABELS[item]}</option>)}
           </select>
@@ -133,13 +135,13 @@ export default function RegistrationAgreementGate({ role, value, onChange, langu
           <span>
             {config.privacyAcknowledgement} {' '}
             <Link href={`/legal/privacy?lang=${language}`} target="_blank" className="font-black text-[#173B73] underline underline-offset-2">
-              Read Privacy Policy
+              {copy.privacyLinkLabel}
             </Link>.
           </span>
         </label>
 
         <div className="rounded-xl border border-[#E2E8F0] bg-white px-3 py-2 text-[11px] font-semibold leading-5 text-[#71849A]">
-          Agreement versions are controlled by XDrive and recorded separately from optional marketing consent. Role-specific operational eligibility remains subject to onboarding and compliance checks.
+          {copy.legalControlFooter}
         </div>
       </div>
     </section>
