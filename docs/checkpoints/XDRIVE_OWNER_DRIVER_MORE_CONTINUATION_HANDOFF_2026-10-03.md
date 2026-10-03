@@ -407,3 +407,407 @@ The task is complete only when:
    - final main commit.
 
 Do not stop at analysis. Implement and verify.
+
+## 12. Reconciliation update after repository / preview / database audit
+
+This section was added after re-auditing the real repository state on 2026-10-03. Where this section conflicts with earlier historical wording, this section is authoritative.
+
+### A. Latest verified main state
+
+Latest fetched `origin/main`:
+
+- `2fe58ece docs handoff owner driver More continuation`
+
+Relevant main sequence immediately below it:
+
+- `45748635 repair More navigation across operational workspaces`
+- `36212d74 repair owner driver navbar and commercial position`
+- `ad564033 scope owner reference alignment to non-driver workspaces`
+- `94f0f945 align operational workspaces to owner reference`
+- `58413ea3 enforce_pod_before_invoice_and_share_pod`
+- `e9ee786f enforce_mandatory_pod_before_invoice`
+- `3e337fd4 make driver POD mandatory after delivery`
+- `d18f2a34 enforce POD before completion and remove auto invoice`
+- `2a448d52 disable automatic invoice trigger and normalise POD requirement`
+- `31c9f381 remove POD from commercial amendment options`
+- `28436ba8 make mobile POD requirement unconditional`
+- `d02cef60 make workspace job sheet POD mandatory`
+- `e5b60e2e make driver job sheet POD mandatory`
+- `aa22cc04 enforce mandatory POD after delivery before completion`
+- `eb3feaeb test platform stripe inheritance for carrier and broker`
+- `170ba2b1 fix customer workspace platform stripe inheritance`
+
+Do not re-cherry-pick equivalent commits from older working branches into main. The functionality above is already present on main under these SHAs.
+
+### B. Current legacy working branch / PR #656 state
+
+The older working tree remains:
+
+`C:\Users\Danny\Desktop\XDrive-Local\worktree\driver-dashboard-offers`
+
+Branch:
+
+`fix/driver-dashboard-booking-offers-20261001`
+
+Current branch HEAD verified during this audit:
+
+`b4286d24294ed7f0587b858628686ff12ad1eed6`
+
+Commit:
+
+`b4286d24 enforce_pod_before_invoice_and_share_pod`
+
+Remote branch points to the same SHA.
+
+PR:
+
+- PR #656
+- title: `Dashboard parity: complete CX vs XDrive Dashboard audit and fixes`
+- state: open
+- head: `fix/driver-dashboard-booking-offers-20261001`
+- head SHA: `b4286d24...`
+- commits reported by GitHub: 51
+- changed files reported by GitHub: 87
+
+Netlify status for `b4286d24`:
+
+- `netlify/xdrivelogistics/deploy-preview`: success
+- preview: `https://deploy-preview-656--xdrivelogistics.netlify.app`
+
+Important divergence:
+
+- branch is 51 commits ahead of current `origin/main`
+- branch is 17 commits behind current `origin/main`
+- branch HEAD is not an ancestor of main
+
+Therefore:
+
+**Do not merge PR #656 or this branch wholesale into main without reconciliation.**
+Most critical POD and workspace/More changes already exist on main under different SHAs. A blind merge would risk replaying old dashboard work and reintroducing conflicts.
+
+### C. Equivalent POD commits on the legacy branch
+
+The current legacy branch contains the same POD direction under different SHAs:
+
+- `463c7736 enforce mandatory POD after delivery before completion`
+- `57299906 make driver job sheet POD mandatory`
+- `32b4ddbc make workspace job sheet POD mandatory`
+- `e0c6ad3e make mobile POD requirement unconditional`
+- `1ff38b70 remove POD from commercial amendment options`
+- `3d2db772 disable automatic invoice trigger and normalise POD requirement`
+- `ffd8fdef enforce POD before completion and remove auto invoice`
+- `ad370660 make driver POD mandatory after delivery`
+- `8a710d27 enforce_mandatory_pod_before_invoice`
+- `b4286d24 enforce_pod_before_invoice_and_share_pod`
+
+These are useful historical references only. Main already contains their canonical equivalents listed in 12.A.
+
+## 13. POD contract - verified implementation and live database state
+
+The user's explicit rule is canonical:
+
+**POD is mandatory for every job. There is no optional-POD path. The order is: delivered -> complete POD -> completed -> Create Invoice.**
+
+Do not reintroduce any `if POD required` / optional POD branch.
+
+### A. Code-level canonical enforcement
+
+Current code includes:
+
+`lib/jobs/podCompletion.ts`
+
+`hasCompletePodEvidence(record)` requires all of:
+
+- `pod_generated === true`
+- at least one delivery/POD evidence item
+- stored recipient signature
+- non-empty recipient name
+
+Invoice generation route:
+
+`app/api/driver/finance/jobs/[jobId]/generate-invoice/route.ts`
+
+It rejects invoice creation before complete POD with:
+
+- HTTP 409
+- code `POD_REQUIRED_BEFORE_INVOICE`
+- message explaining that POD is mandatory for every job and must include evidence, recipient signature and recipient name
+
+### B. Driver execution UI enforcement
+
+`app/components/workspace/DriverJobExecutionPage.tsx` currently enforces:
+
+- at least one delivery photo before POD completion
+- recipient name before POD completion
+- recipient signature before POD completion
+- hard-copy POD acknowledgement when the job also has a hard-copy requirement
+- no `completed` transition while `pod_generated !== true`
+- no Create Invoice action while `pod_generated !== true`
+
+Observed code messages include:
+
+- `At least one delivery photo is required to complete POD.`
+- `Recipient name is required to complete POD.`
+- `Recipient signature is required to complete POD.`
+- `Complete POD before completing this job.`
+- `Complete POD before creating an invoice.`
+
+At `delivered` with incomplete POD, the UI exposes the POD completion action rather than allowing the lifecycle to bypass it.
+
+### C. Shared POD viewer
+
+Main / branch code includes:
+
+`app/components/workspace/PodWorkspaceViewer.tsx`
+
+and authorised API:
+
+`app/api/workspace/jobs/[jobId]/pod/route.ts`
+
+The shared workspace POD presentation exposes authorised parties to canonical POD information including:
+
+- recipient
+- completion date/time
+- signature
+- delivery photos
+- damage evidence
+- POD documents
+- delivery / receiver / driver notes when present
+
+The API checks workspace membership against job owner / awarded carrier / assigned company boundaries before returning POD.
+
+### D. Production Supabase verification
+
+Supabase project verified:
+
+- project: `xdrivelogistics`
+- project ref: `jqxlauexhkonixtjvljw`
+
+Migration list contains:
+
+- `20261002203237 enforce_pod_after_delivery_before_completion`
+
+Production database was queried read-only during this audit and returned:
+
+- legacy auto-invoice trigger `trg_generate_invoice_on_job_completion`: **absent**
+- `jobs.pod_required` default: **true**
+- jobs where `pod_required IS DISTINCT FROM true`: **0**
+
+The live `public.driver_update_job_status_atomic` function was also inspected and currently requires, before transition to `completed`:
+
+- at least one delivery photo
+- recipient signature
+- recipient name
+- signature evidence consistency where the signature is stored as structured evidence
+
+This proves the database is aligned with the mandatory POD lifecycle and that automatic invoice creation is not currently active through the old completion trigger.
+
+## 14. Validation state discovered during this audit
+
+### A. Typecheck
+
+Recorded file:
+
+`.pod-typecheck.exit`
+
+Value:
+
+`0`
+
+Recorded command:
+
+`npm run typecheck`
+
+Result: PASS for the recorded POD validation run.
+
+### B. Production build
+
+Recorded `.pod-build.log` shows:
+
+- Next.js 15.5.25
+- optimized production build compiled successfully
+- lint/type validation stage completed
+- static generation completed: 173/173 pages
+
+The log contains repeated expected local-build warnings that `SUPABASE_SERVICE_ROLE_KEY` is not set for build-time admin operations.
+
+There is no separate persisted `.pod-build.exit` marker in this worktree, so do not claim a stored numeric build exit code from that log alone.
+
+### C. Full unit suite is NOT currently green on the legacy branch
+
+Recorded:
+
+`.full-unit.exit` = `1`
+
+Summary from `.full-unit.log`:
+
+- Test Files: 19 failed | 387 passed (406)
+- Tests: 19 failed | 2484 passed (2503)
+
+Do not report the legacy branch full suite as PASS.
+
+At least some failures are stale contract expectations that conflict with intentionally changed behaviour. Example:
+
+`__tests__/workspaceJobSheetPodTruth.test.ts`
+
+still expected the older optional-POD semantics and fails because the implementation now correctly treats POD as mandatory.
+
+Other failures include older Driver navigation/dashboard contracts that were subsequently repaired on main.
+
+Do not assume all 19 failures are stale. On the next clean main-based change, rerun the relevant targeted contracts and the full suite, then classify any remaining failures individually.
+
+### D. Untracked validation artifacts
+
+The legacy branch working tree contains these untracked logs only:
+
+- `.full-unit.exit`
+- `.full-unit.log`
+- `.pod-build.log`
+- `.pod-typecheck.exit`
+- `.pod-typecheck.log`
+
+They are evidence/log artifacts, not product source. Do not commit them unless there is an explicit reason.
+
+## 15. Owner Driver More - exact current status after reconciliation
+
+### A. General More repair is already on main
+
+`45748635 repair More navigation across operational workspaces`
+
+remains the canonical implementation.
+
+The old branch commit:
+
+`e7fd3fd6 driver_more_full_audit_and_rebuild`
+
+is not the canonical final form because main later retired the standalone card-based `/driver/more` experience and made the shared shell dropdown canonical.
+
+### B. Dedicated Owner Driver second pass is still outstanding
+
+The existing local branch:
+
+`fix/owner-driver-more-20261003`
+
+was verified to point at:
+
+`457486354d528f68a6bdd4b4a91f79cfa22352b3`
+
+It has:
+
+- 0 unique commits ahead of main
+- it is 1 commit behind main (the handoff commit itself)
+- no worktree is currently attached to it
+
+Therefore the dedicated Owner Driver More second pass described in sections 5-11 has **not** produced a new implementation commit yet.
+
+Do not report it as completed.
+
+### C. Correct continuation for More
+
+Start from latest `origin/main`, not from PR #656.
+
+The existing `fix/owner-driver-more-20261003` branch may be reused only after:
+
+1. fetch latest main
+2. verify it still has no unique commits
+3. fast-forward it to current main, or create a clean branch if safer
+4. attach a clean worktree
+
+Do not restore the retired standalone `/driver/more` card page.
+
+The canonical More UX remains the shared shell dropdown.
+
+## 16. All-workspace alignment - current status
+
+The platform-wide operational alignment work is already present on main through:
+
+- `94f0f945 align operational workspaces to owner reference`
+- `ad564033 scope owner reference alignment to non-driver workspaces`
+- `36212d74 repair owner driver navbar and commercial position`
+- `45748635 repair More navigation across operational workspaces`
+
+Scope already covered:
+
+- Owner Driver / Driver shell reference
+- Carrier/Admin
+- Fleet
+- Dispatcher
+- Finance
+- Compliance
+- Viewer
+- Broker
+- Customer/Shipper
+
+Super Admin remains intentionally excluded.
+
+Do not redo global workspace alignment from the older PR #656 branch unless a new regression is demonstrated on current main.
+
+## 17. Next-chat priority and source-of-truth rules
+
+### Priority 1 - Owner Driver More dedicated second pass
+
+Continue sections 5-11 of this same handoff from latest `origin/main`.
+
+Required outcome:
+
+- independently re-audit the retained Owner Driver More links
+- remove only proven duplicates / redirect-only / misleading items
+- verify retained permissions
+- verify desktop 1440x900
+- verify tablet 768x1024
+- verify mobile 390x844
+- verify click / outside click / Escape / focus / active state
+- add or strengthen Owner Driver-specific regression protection
+- keep the shared dropdown canonical
+- leave Super Admin unchanged
+
+### Priority 2 - POD only if the user asks to continue POD work
+
+Do **not** re-implement mandatory POD. It is already in main and verified in the live database.
+
+If continuing POD, focus on end-to-end runtime verification:
+
+1. take a real test job through `delivered`
+2. verify completion is blocked before POD
+3. complete POD with photo + recipient name + signature
+4. verify canonical POD is visible to authorised workspace parties
+5. verify `completed` becomes available only after POD
+6. verify Create Invoice is blocked before POD and available after complete POD
+7. verify no invoice is auto-created merely by delivery/completion
+8. verify generated invoice remains Draft until explicit submit/send workflow
+9. verify Customer/Broker/Carrier views see the correct POD data without leaking unauthorised evidence
+
+Do not copy Courier Exchange visual identity. CX is workflow / information hierarchy reference only.
+
+### Priority 3 - test reconciliation
+
+On a clean branch from latest main:
+
+- run the targeted More contracts listed earlier
+- run relevant POD contracts if POD is touched
+- run ESLint on changed files
+- run `git diff --check`
+- run `npm run typecheck`
+- run `npm run build`
+- run full unit suite
+- classify every failure; update a test only when its old expectation is demonstrably obsolete because of an approved product rule
+
+Never weaken tests solely to make the suite green.
+
+## 18. Final continuity warning
+
+There are now two different histories representing similar work:
+
+1. canonical main history with More/alignment/POD already merged
+2. legacy PR #656 branch with older dashboard commits and equivalent POD commits under different SHAs
+
+For all new Owner Driver More work:
+
+**use latest origin/main as source of truth.**
+
+For forensic comparison only:
+
+- PR #656 preview is still useful because it is live and green at `b4286d24`
+- do not use it as the base for the dedicated More continuation
+
+Do not merge or cherry-pick the legacy POD sequence into main again.
