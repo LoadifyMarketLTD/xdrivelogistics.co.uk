@@ -4,7 +4,7 @@ This is a Next.js project for XDrive Logistics Ltd, built with modern web techno
 
 ## Legal entity and repository ownership
 
-**XDrive Logistics Ltd (Company No. 13171804)** is the canonical UK legal entity associated with this platform. The GitHub namespace **LoadifyMarketLTD** is a technical repository namespace only and is not a separate legal entity or the legal owner of the platform. See [`docs/legal/LEGAL_ENTITY_AND_IP_OWNERSHIP.md`](./docs/legal/LEGAL_ENTITY_AND_IP_OWNERSHIP.md).
+**XDrive Logistics Ltd (Company No. 13171804)** is the canonical UK legal entity associated with this platform. The GitHub namespace **XDriveLogisticsLtd** is a technical repository namespace only and is not a separate legal entity or the legal owner of the platform. See [`docs/legal/LEGAL_ENTITY_AND_IP_OWNERSHIP.md`](./docs/legal/LEGAL_ENTITY_AND_IP_OWNERSHIP.md).
 
 ## Tech Stack
 

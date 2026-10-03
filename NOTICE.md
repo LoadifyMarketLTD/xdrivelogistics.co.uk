@@ -6,7 +6,7 @@ Copyright © XDrive Logistics Ltd. All rights reserved.
 
 The XDrive Logistics and Loadify Market technology repositories are associated with **XDrive Logistics Ltd**, Company No. **13171804**, incorporated in England and Wales.
 
-The current GitHub namespace `LoadifyMarketLTD` is a technical hosting namespace only. It is not a separate legal entity and does not replace XDrive Logistics Ltd as the canonical UK legal entity for repository, funding, accounting, valuation or IP-evidence purposes.
+The current GitHub namespace `XDriveLogisticsLtd` is a technical hosting namespace only. It is not a separate legal entity and does not replace XDrive Logistics Ltd as the canonical UK legal entity for repository, funding, accounting, valuation or IP-evidence purposes.
 
 ## Proprietary software
 
