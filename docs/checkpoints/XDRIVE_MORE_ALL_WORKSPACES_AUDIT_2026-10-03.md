@@ -23,13 +23,15 @@ Super Admin remains out of scope and unchanged.
 Primary navigation remains:
 Dashboard, Directory, Live Availability, My Fleet, Return Journeys, Loads, Quotes, Diary, Event Log, Freight Vision, Drivers & Vehicles, Settings.
 
-`More` is now intentionally limited to two sections.
+`More` remains intentionally limited to eight secondary destinations, now separated into three clearer sections after the dedicated Owner Driver second pass.
 
-### Work & matching
+### Work
 - My Jobs
 - Won Work
-- My Availability
-- Auto-match & Alerts
+
+### Matching & availability
+- Availability & Schedule
+- Load Matching & Alerts
 - Who's Nearby
 
 ### Business
@@ -58,9 +60,7 @@ Removed from Owner Driver `More` as duplicated:
 
 ## Visual and responsive verification
 
-Automated Playwright verification was run at:
-- desktop 1440 × 900
-- mobile 390 × 844
+The general audit verified desktop 1440 × 900 and mobile 390 × 844. The dedicated Owner Driver second pass added tablet 768 × 1024.
 
 Final state:
 - Carrier: 12 More items
@@ -74,9 +74,16 @@ Final state:
 - Compliance: no More
 - Viewer: no More
 
-All remaining menus fit inside the viewport on both sizes and no duplicate labels were detected.
+Owner Driver dedicated verification now confirms:
+- desktop: compact 252px menu, fully inside viewport;
+- tablet: compact 280px right-aligned menu, fully inside viewport;
+- mobile: fluid menu with 8px side margins, fully inside viewport;
+- all eight rows remain 32px high with no wrapped labels;
+- Escape closes and restores focus to More;
+- Arrow Up/Down plus Home/End move focus between menu items;
+- outside click closes the menu.
 
-Owner Driver menu height after repair: 315px on desktop and mobile, down from the previous 14-item overflow menu.
+The Owner Driver menu is 346px high because it now carries three explicit section headers instead of the former two-section grouping.
 
 ## Regression protection
 
@@ -88,3 +95,5 @@ Owner Driver menu height after repair: 315px on desktop and mobile, down from th
 - Owner Driver curated More membership and labels;
 - employed Driver Settings access;
 - retirement of the legacy standalone Driver More page.
+
+`__tests__/ownerDriverMoreContract.test.ts` adds dedicated protection for exact Owner Driver More membership, non-redirect route existence, permission coverage, section boundaries, keyboard/focus behavior and Owner Driver-specific responsive geometry.

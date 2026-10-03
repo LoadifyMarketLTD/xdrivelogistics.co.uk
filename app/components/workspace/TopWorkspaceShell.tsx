@@ -4,7 +4,7 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import type { ReactNode } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '../AuthContext';
@@ -279,7 +279,8 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
     : {
         ...group,
         items: group.items.map((item) => {
-          if (item.href === '/driver/availability') return { ...item, label: 'My Availability' };
+          if (item.href === '/driver/availability') return { ...item, label: 'Availability & Schedule' };
+          if (item.href === '/driver/load-alerts') return { ...item, label: 'Load Matching & Alerts' };
           if (item.href === '/driver/finance') return { ...item, label: 'Finance & Invoices' };
           return item;
         }),
@@ -332,11 +333,23 @@ function composeCompliancePrimaryNav(groups: WorkspaceNavGroup[]) {
   ], 'compliance-more');
 }
 
-function moreMenuSectionLabel(groupId: string, href: string, index: number) {
+const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
+  '/driver/jobs': 'Work',
+  '/driver/won-work': 'Work',
+  '/driver/availability': 'Matching & availability',
+  '/driver/load-alerts': 'Matching & availability',
+  '/driver/nearby': 'Matching & availability',
+  '/driver/finance': 'Business',
+  '/driver/documents': 'Business',
+  '/driver/messages': 'Business',
+};
+
+function moreMenuSectionLabel(groupId: string, href: string, previousHref?: string) {
   if (groupId !== 'owner-driver-more') return null;
-  if (index === 0) return 'Work & matching';
-  if (href === '/driver/finance') return 'Business';
-  return null;
+  const section = OWNER_DRIVER_MORE_SECTIONS[href] ?? null;
+  if (!section) return null;
+  const previousSection = previousHref ? OWNER_DRIVER_MORE_SECTIONS[previousHref] ?? null : null;
+  return section !== previousSection ? section : null;
 }
 
 function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
@@ -608,6 +621,7 @@ export default function TopWorkspaceShell({
   const [unreadCount, setUnreadCount] = useState(0);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
+  const menuTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const navigationTargets = useMemo(
     () =>
@@ -712,9 +726,10 @@ export default function TopWorkspaceShell({
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpenGroupId(null);
-      }
+      if (event.key !== 'Escape' || !openGroupId) return;
+      const trigger = menuTriggerRefs.current[openGroupId];
+      setOpenGroupId(null);
+      window.requestAnimationFrame(() => trigger?.focus());
     };
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (!(event.target instanceof Node)) return;
@@ -727,7 +742,7 @@ export default function TopWorkspaceShell({
       window.removeEventListener('keydown', closeOnEscape);
       window.removeEventListener('pointerdown', closeOnOutsidePointer);
     };
-  }, []);
+  }, [openGroupId]);
 
   const isActive = (href: string) => {
     const [baseHref] = href.split('?');
@@ -739,6 +754,31 @@ export default function TopWorkspaceShell({
   const openRoute = (href: string) => {
     setOpenGroupId(null);
     router.push(href);
+  };
+
+  const focusMenuItem = (groupId: string, edge: 'first' | 'last' = 'first') => {
+    window.requestAnimationFrame(() => {
+      const menu = document.getElementById(`workspace-menu-${groupId}`);
+      const items = menu
+        ? Array.from(menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+        : [];
+      const target = edge === 'last' ? items.at(-1) : items[0];
+      target?.focus();
+    });
+  };
+
+  const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+    if (!items.length) return;
+    const currentIndex = Math.max(0, items.indexOf(document.activeElement as HTMLButtonElement));
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % items.length;
+    if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + items.length) % items.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = items.length - 1;
+    event.preventDefault();
+    items[nextIndex]?.focus();
   };
 
   const driverPrototypeScope = role === 'driver' || role === 'owner_driver';
@@ -868,18 +908,34 @@ export default function TopWorkspaceShell({
                   className="top-workspace-nav__item top-workspace-nav__trigger"
                   data-active={groupActive ? 'true' : 'false'}
                   data-open={open ? 'true' : 'false'}
+                  id={`workspace-menu-trigger-${group.id}`}
+                  ref={(node) => { menuTriggerRefs.current[group.id] = node; }}
                   aria-expanded={open}
                   aria-haspopup="menu"
+                  aria-controls={`workspace-menu-${group.id}`}
                   onClick={() => setOpenGroupId(open ? null : group.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                      event.preventDefault();
+                      setOpenGroupId(group.id);
+                      focusMenuItem(group.id, event.key === 'ArrowUp' ? 'last' : 'first');
+                    }
+                  }}
                 >
                   <span>{group.label}</span>
                   <span aria-hidden="true" className="top-workspace-nav__caret">▾</span>
                 </button>
                 {open && (
-                  <div className="top-workspace-nav__menu" role="menu" aria-label={group.label}>
+                  <div
+                    id={`workspace-menu-${group.id}`}
+                    className="top-workspace-nav__menu"
+                    role="menu"
+                    aria-labelledby={`workspace-menu-trigger-${group.id}`}
+                    onKeyDown={handleMenuKeyDown}
+                  >
                     {group.items.map((item, itemIndex) => {
                       const active = isActive(item.href);
-                      const sectionLabel = moreMenuSectionLabel(group.id, item.href, itemIndex);
+                      const sectionLabel = moreMenuSectionLabel(group.id, item.href, group.items[itemIndex - 1]?.href);
                       return (
                         <Fragment key={item.id}>
                           {sectionLabel && (

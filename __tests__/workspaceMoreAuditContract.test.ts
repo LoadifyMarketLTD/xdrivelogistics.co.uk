@@ -74,10 +74,12 @@ describe('workspace More audit contract', () => {
     for (const duplicate of ['/driver/notifications', '/driver/change-password', '/driver/profile', '/driver/settings?section=company', '/driver/settings?section=overview', '/settings/billing']) {
       expect(owner).not.toContain(`'${duplicate}'`);
     }
-    expect(owner).toContain("label: 'My Availability'");
+    expect(owner).toContain("label: 'Availability & Schedule'");
+    expect(owner).toContain("label: 'Load Matching & Alerts'");
     expect(owner).toContain("label: 'Finance & Invoices'");
-    expect(shell).toContain("return 'Work & matching'");
-    expect(shell).toContain("return 'Business'");
+    expect(shell).toContain("'/driver/jobs': 'Work'");
+    expect(shell).toContain("'/driver/availability': 'Matching & availability'");
+    expect(shell).toContain("'/driver/finance': 'Business'");
   });
 
   it('allows employed Driver Settings because the primary navbar exposes it', () => {
