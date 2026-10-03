@@ -79,7 +79,7 @@ function publicLoad(
   const createdBy = marketplaceText(job.created_by);
   const posterProfile = createdBy ? profileByUserId.get(createdBy) ?? null : null;
   const postedBy = posterProfile?.full_name ?? null;
-  const memberId = posterProfile?.xd_id ?? company?.xd_id ?? null;
+  const memberId = company?.xd_id ?? null;
   const bid = bidByJobId.get(String(job.id)) ?? null;
 
   return {

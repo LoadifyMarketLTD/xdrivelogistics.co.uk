@@ -13,6 +13,7 @@ const bodySchema = z.object({
   vat_number: z.string().trim().max(80).nullable().optional(),
   email: z.string().trim().email().max(320).nullable().optional().or(z.literal('')),
   phone: z.string().trim().max(80).nullable().optional(),
+  contact_name: z.string().trim().max(200).nullable().optional(),
   address_line1: z.string().trim().max(300).nullable().optional(),
   city: z.string().trim().max(120).nullable().optional(),
   postcode: z.string().trim().max(30).nullable().optional(),
@@ -52,6 +53,7 @@ export async function PATCH(
     vat_number: nullable(parsed.data.vat_number),
     email: nullable(parsed.data.email),
     phone: nullable(parsed.data.phone),
+    contact_name: nullable(parsed.data.contact_name),
     address_line1: nullable(parsed.data.address_line1),
     city: nullable(parsed.data.city),
     postcode: nullable(parsed.data.postcode)?.toUpperCase() ?? null,
@@ -60,7 +62,7 @@ export async function PATCH(
     .from('companies')
     .update(updatePayload)
     .eq('id', admin.companyId)
-    .select('id, name, company_number, vat_number, email, phone, address_line1, city, postcode, created_at')
+    .select('id, name, company_number, vat_number, email, phone, contact_name, address_line1, city, postcode, created_at')
     .maybeSingle();
 
   if (updateError) return respond(500, { error: updateError.message });

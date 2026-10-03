@@ -88,7 +88,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const { data: company, error: companyError } = await supabaseAdmin
     .from('companies')
-    .select('id, name, xd_id, phone, company_type, status, created_at')
+    .select('id, name, xd_id, phone, contact_name, email, address_line1, address_line2, city, postcode, company_type, status, created_at')
     .eq('id', companyId)
     .maybeSingle();
 
@@ -105,10 +105,10 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     return respond(404, { error: 'This trading member is not available.' });
   }
 
-  const [settingsResult, specialistResult, reviewsResult] = await Promise.all([
+  const [settingsResult, specialistResult, reviewsResult, vehiclesResult] = await Promise.all([
     supabaseAdmin
       .from('company_settings')
-      .select('booking_footer,waiting_time_terms,loading_time_terms,cancellation_terms,other_charges')
+      .select('booking_footer,waiting_time_terms,loading_time_terms,cancellation_terms,other_charges,operator_licence_number,finance_email,secondary_phone,email_visible_to_members,default_payment_terms')
       .eq('company_id', companyId)
       .maybeSingle(),
     supabaseAdmin
@@ -120,15 +120,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .from('reviews')
       .select('id,rating,comment,created_at,reviewer_company_id')
       .eq('company_id', companyId)
+      .gte('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: false })
       .limit(50),
+    supabaseAdmin
+      .from('vehicles')
+      .select('type,vehicle_type')
+      .eq('company_id', companyId)
+      .eq('status', 'active')
+      .limit(200),
   ]);
-  if (settingsResult.error || specialistResult.error || reviewsResult.error) {
+  if (settingsResult.error || specialistResult.error || reviewsResult.error || vehiclesResult.error) {
     return operationalError({
       status: 503,
       message: 'Member commercial profile details could not be loaded.',
       context: `member-profile.commercial:${companyId}`,
-      cause: settingsResult.error ?? specialistResult.error ?? reviewsResult.error,
+      cause: settingsResult.error ?? specialistResult.error ?? reviewsResult.error ?? vehiclesResult.error,
       retryable: true,
     });
   }
@@ -144,6 +151,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     .filter((row) => row.verification_required !== true || String(row.verification_status ?? '').toLowerCase() === 'verified')
     .map((row) => specialistLabels[String(row.capability_code)] ?? String(row.capability_code).replaceAll('_', ' '));
   const settings = settingsResult.data;
+  const emailVisible = settings?.email_visible_to_members === true;
+  const fleet = [...new Set(
+    (vehiclesResult.data ?? [])
+      .map((vehicle) => String(vehicle.vehicle_type ?? vehicle.type ?? '').trim())
+      .filter(Boolean),
+  )];
   const chargeLines = [
     settings?.waiting_time_terms ? `Waiting Time: ${settings.waiting_time_terms}` : null,
     settings?.loading_time_terms ? `Loading Time: ${settings.loading_time_terms}` : null,
@@ -170,6 +183,25 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       name: company.name,
       memberId: company.xd_id ?? null,
       businessPhone: company.phone ?? null,
+      phone2: settings?.secondary_phone ?? null,
+      contactName: company.contact_name ?? null,
+      email: emailVisible ? company.email ?? null : null,
+      email2: emailVisible ? settings?.finance_email ?? null : null,
+      postcode: company.postcode ?? null,
+      fax: null,
+      fleet: fleet.length ? fleet.join(', ') : null,
+      operatorLicence: settings?.operator_licence_number ?? null,
+      paymentTerms: settings?.default_payment_terms ?? null,
+      billingAddress: {
+        line1: company.address_line1 ?? null,
+        line2: company.address_line2 ?? null,
+        town: company.city ?? null,
+        postcode: company.postcode ?? null,
+      },
+      feedbackLast90Days: {
+        count: ratings.length,
+        averageRating,
+      },
       memberType: publicMemberType(company.company_type),
       memberSince: company.created_at ?? null,
       status: 'active',

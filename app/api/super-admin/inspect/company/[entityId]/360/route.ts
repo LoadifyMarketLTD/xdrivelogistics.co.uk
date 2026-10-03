@@ -47,7 +47,7 @@ export async function GET(request: NextRequest, context: { params: Promise<{ ent
 
   const companyResult = await supabaseAdmin
     .from('companies')
-    .select('id, name, legal_name, trading_name, status, company_type, company_number, vat_number, email, phone, website, address_line1, address_line2, city, postcode, country, description, xd_id, international_work_approved, created_by, review_notes, reviewed_by, reviewed_at, created_at, updated_at')
+    .select('id, name, legal_name, trading_name, status, company_type, company_number, vat_number, email, phone, contact_name, website, address_line1, address_line2, city, postcode, country, description, xd_id, international_work_approved, created_by, review_notes, reviewed_by, reviewed_at, created_at, updated_at')
     .eq('id', entityId)
     .maybeSingle();
   if (companyResult.error) return respond(500, { error: companyResult.error.message });

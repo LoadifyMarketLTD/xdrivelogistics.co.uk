@@ -24,6 +24,7 @@ type CompanySettingsRow = {
   vat_number: string | null;
   email: string | null;
   phone: string | null;
+  contact_name: string | null;
   address_line1: string | null;
   address_line2: string | null;
   city: string | null;
@@ -37,6 +38,7 @@ type CompanySettingsForm = {
   name: string;
   email: string;
   phone: string;
+  contact_name: string;
   address_line1: string;
   address_line2: string;
   city: string;
@@ -64,6 +66,7 @@ const EMPTY_FORM: CompanySettingsForm = {
   name: '',
   email: '',
   phone: '',
+  contact_name: '',
   address_line1: '',
   address_line2: '',
   city: '',
@@ -93,6 +96,7 @@ const toForm = (row: CompanySettingsRow): CompanySettingsForm => ({
   name: row.name ?? '',
   email: row.email ?? '',
   phone: row.phone ?? '',
+  contact_name: row.contact_name ?? '',
   address_line1: row.address_line1 ?? '',
   address_line2: row.address_line2 ?? '',
   city: row.city ?? '',
@@ -130,7 +134,7 @@ export function BrokerCompanySettingsPage() {
     const { data: row, error: queryError } = await supabase
       .from('companies')
       .select(
-        'id, name, company_number, vat_number, email, phone, address_line1, address_line2, city, postcode, country, status, company_type'
+        'id, name, company_number, vat_number, email, phone, contact_name, address_line1, address_line2, city, postcode, country, status, company_type'
       )
       .eq('id', data.companyId)
       .maybeSingle();
@@ -172,6 +176,7 @@ export function BrokerCompanySettingsPage() {
       name: form.name.trim(),
       email: nullable(form.email),
       phone: nullable(form.phone),
+      contact_name: nullable(form.contact_name),
       address_line1: nullable(form.address_line1),
       address_line2: nullable(form.address_line2),
       city: nullable(form.city),
@@ -184,7 +189,7 @@ export function BrokerCompanySettingsPage() {
       .update(payload)
       .eq('id', data.companyId)
       .select(
-        'id, name, company_number, vat_number, email, phone, address_line1, address_line2, city, postcode, country, status, company_type'
+        'id, name, company_number, vat_number, email, phone, contact_name, address_line1, address_line2, city, postcode, country, status, company_type'
       )
       .maybeSingle();
 
@@ -239,6 +244,10 @@ export function BrokerCompanySettingsPage() {
               <label style={labelStyle}>
                 Company name
                 <input style={fieldStyle} value={form.name} onChange={(event) => updateField('name', event.target.value)} />
+              </label>
+              <label style={labelStyle}>
+                Contact person
+                <input style={fieldStyle} value={form.contact_name} onChange={(event) => updateField('contact_name', event.target.value)} />
               </label>
               <label style={labelStyle}>
                 Email
