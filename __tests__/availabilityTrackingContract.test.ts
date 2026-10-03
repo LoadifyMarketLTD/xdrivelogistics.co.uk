@@ -24,6 +24,12 @@ describe('opt-in availability tracking contract', () => {
     expect(page).toContain('Start live availability');
     expect(page).toContain('Stop live availability');
     expect(page).toContain('OFF by default');
+    expect(page).toContain('driver-live-availability-canonical');
+    expect(page).toContain('<DriverNearbyMap');
+    expect(page).toContain('/api/availability/nearby');
+    expect(page).toContain('Near postcode / outcode');
+    expect(page).toContain('Radius Search');
+    expect(page).toContain('Drivers & Sub-contractors');
   });
 
   it('suppresses availability for active jobs and non-available drivers', () => {
