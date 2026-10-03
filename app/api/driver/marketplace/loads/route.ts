@@ -132,7 +132,7 @@ function publicLoad(
     currency: marketplaceText(job.currency) ?? 'GBP',
     exchange_posted_at: marketplaceText(job.exchange_posted_at),
     hard_copy_pod: marketplaceText(job.hard_copy_pod),
-    pod_required: typeof job.pod_required === 'boolean' ? job.pod_required : null,
+    pod_required: true,
     payment_terms: marketplaceText(job.payment_terms),
     public_quote_notes: publicQuoteNotes(job.load_details),
     member: {

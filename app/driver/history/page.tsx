@@ -9,6 +9,7 @@ import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
 import { nextDriverExecutionStatus } from '../../../lib/jobs/jobLifecyclePresentation';
+import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
@@ -65,6 +66,8 @@ type HistoryJob = {
   pod_generated_at: string | null;
   pod_photos: unknown[] | null;
   delivery_photos: string[] | null;
+  delivery_signature_data: unknown;
+  client_signature_name: string | null;
   status_history: StatusHistoryEntry[] | null;
   feedback_status: string | null;
   broker_pod_review_status: string | null;
@@ -366,7 +369,7 @@ export default function JobHistoryPage() {
 
     const { data, error: fetchError } = await supabase
       .from('jobs')
-      .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)')
+      .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)')
       .eq('assigned_driver_id', driverId)
       .order('updated_at', { ascending: false })
       .limit(250);
@@ -439,8 +442,8 @@ export default function JobHistoryPage() {
       setDetailWarning('Company owner or admin access is required to create invoices.');
       return;
     }
-    if (job.pod_generated !== true) {
-      setDetailWarning('Complete POD before creating an invoice. POD is mandatory for every job.');
+    if (!hasCompletePodEvidence(job)) {
+      setDetailWarning('Complete POD before creating an invoice. POD is mandatory for every job and must include delivery evidence, recipient name and signature.');
       router.push(`/driver/jobs/${job.id}`);
       return;
     }
@@ -592,7 +595,7 @@ export default function JobHistoryPage() {
                   const sheet = orderSheetsByJob[job.id]; const orderLoading = orderLoadingByJob[job.id] === true; const orderError = orderErrorsByJob[job.id] || '';
                   const invoice = sheet?.invoices?.[0] ?? null;
                   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : (Array.isArray(job.delivery_photos) ? job.delivery_photos : []);
-                  const hasPod = job.pod_generated === true; const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews); const expired = isDerivedExpired(job);
+                  const hasPod = hasCompletePodEvidence(job); const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews); const expired = isDerivedExpired(job);
                   const currentStatus = effectiveStatus(job);
                   const nextStatus = nextDriverExecutionStatus(currentStatus);
                   const nextActionLabel = nextStatus ? (DIARY_NEXT_ACTION_LABEL[nextStatus] ?? human(nextStatus)) : null;
@@ -739,7 +742,7 @@ export default function JobHistoryPage() {
                                   <div className="driver-detail-item"><span>Agreed rate</span><strong>{sheet?.agreedRate != null ? money(sheet.agreedRate, sheet.currency) : 'Not supplied'}</strong><small>{sheet?.agreedGross != null ? `Gross ${money(sheet.agreedGross, sheet.currency)}${sheet.vatRate != null ? ` · VAT ${sheet.vatRate}%` : ''}` : sheet?.commercialSnapshotAvailable ? 'Agreed rate recorded at award' : 'Historical agreed-rate record unavailable'}</small></div>
                                   <div className="driver-detail-item"><span>Extras</span><strong>Not supplied</strong><small>{sheet?.unavailable.extras ?? 'No historical extras record is available for this booking.'}</small></div>
                                   <div className="driver-detail-item"><span>Payment terms</span><strong>{sheet?.paymentTerms ?? 'Historical terms unavailable'}</strong><small>{sheet?.paymentDueDays != null ? `${sheet.paymentDueDays} day(s)` : 'Due-day value not supplied'}</small></div>
-                                  <div className="driver-detail-item"><span>Hard-copy POD</span><strong>{sheet?.hardCopyPod ?? job.hard_copy_pod ?? (job.pod_required ? 'Required' : 'Requirement not supplied')}</strong></div>
+                                  <div className="driver-detail-item"><span>Hard-copy POD</span><strong>{sheet?.hardCopyPod ?? job.hard_copy_pod ?? 'No separate hard-copy requirement supplied'}</strong></div>
                                   <div className="driver-detail-item"><span>Customer</span><strong>{sheet?.customerName ?? 'Not supplied'}</strong></div>
                                   <div className="driver-detail-item"><span>Customer ref</span><strong>{sheet?.customerReference ?? job.customer_reference ?? 'Not supplied'}</strong></div>
                                   <div className="driver-detail-item"><span>PO number</span><strong>{sheet?.purchaseOrderNumber ?? job.purchase_order_number ?? 'Not supplied'}</strong></div>

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import type { DbJob } from '../../../lib/types/database';
 import { getLoadDetailSections } from '../../../lib/loadPostingDetails';
 import { canonicalExecutionStatus, nextDriverExecutionStatus } from '../../../lib/jobs/jobLifecyclePresentation';
+import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { supabase } from '../../../lib/supabaseClient';
 import { useAuth } from '../AuthContext';
@@ -331,7 +332,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       setError('Mark the job Delivered before completing POD.');
       return;
     }
-    if (job.pod_generated === true) {
+    if (hasCompletePodEvidence(job)) {
       setMessage('POD is already complete. Invoice creation is now available.');
       return;
     }
@@ -391,8 +392,8 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
   const createInvoice = async () => {
     if (!job || !canGenerateInvoices) return;
-    if (job.pod_generated !== true) {
-      setError('Complete POD before creating an invoice.');
+    if (!hasCompletePodEvidence(job)) {
+      setError('Complete POD before creating an invoice. POD must include delivery evidence, recipient name and signature.');
       return;
     }
 
@@ -419,7 +420,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const moveStatus = async (nextStatus: string) => {
     if (!job || !driverId) return;
     setWorking(true); setError(''); setMessage('');
-    if (nextStatus === 'completed' && job.pod_generated !== true) {
+    if (nextStatus === 'completed' && !hasCompletePodEvidence(job)) {
       setError('Complete POD before completing this job.');
       setWorking(false);
       return;
@@ -471,7 +472,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const currentStatus = canonicalExecutionStatus(job.current_status ?? job.status);
   const nextStatus = nextDriverExecutionStatus(currentStatus);
   const nextLabel = nextStatus ? nextActionLabel[nextStatus] ?? statusLabel[nextStatus] ?? nextStatus : null;
-  const podComplete = job.pod_generated === true;
+  const podComplete = hasCompletePodEvidence(job);
   const hardCopyRequired = requiresHardCopyPod(job.hard_copy_pod ?? sheet?.hardCopyPod);
   const canShowLifecycleAction = !(nextStatus === 'completed' && !podComplete);
   const navigationStage = currentStatus === 'on_my_way' ? 'pickup' : currentStatus === 'in_transit' ? 'delivery' : null;
@@ -540,7 +541,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
           <div className="driver-detail-item"><span>Agreed rate</span><strong>{money(sheet?.agreedRate, sheet?.currency ?? job.currency)}</strong><small>{sheet?.commercialSnapshotAvailable ? 'Commercial agreement snapshot available' : 'Accepted bid / job source; no commercial agreement snapshot'}</small></div>
           <div className="driver-detail-item"><span>Extras</span><strong>Unavailable</strong><small>{sheet?.unavailable.extras ?? 'No immutable extras snapshot is available.'}</small></div>
           <div className="driver-detail-item"><span>Payment terms</span><strong>{sheet?.paymentTerms ?? 'Historical terms unavailable'}</strong><small>{sheet?.paymentDueDays != null ? `${sheet.paymentDueDays} day(s)` : sheet?.commercialSnapshotAvailable ? 'Agreement snapshot' : 'No payment-term snapshot metadata supplied'}</small></div>
-          <div className="driver-detail-item"><span>Hard-copy POD</span><strong>{sheet?.hardCopyPod ?? (sheet?.podRequired === false ? 'Not required' : 'Requirement not supplied')}</strong></div>
+          <div className="driver-detail-item"><span>Hard-copy POD</span><strong>{sheet?.hardCopyPod ?? 'No separate hard-copy requirement supplied'}</strong></div>
           <div className="driver-detail-item"><span>Customer reference</span><strong>{sheet?.customerReference ?? job.customer_reference ?? 'Not supplied'}</strong></div>
           <div className="driver-detail-item"><span>PO number</span><strong>{sheet?.purchaseOrderNumber ?? job.purchase_order_number ?? 'Not supplied'}</strong></div>
           <div className="driver-detail-item"><span>Customer / load</span><strong>{sheet?.customerName ?? job.client_name ?? 'Not supplied'}</strong></div>

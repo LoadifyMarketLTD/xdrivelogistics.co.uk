@@ -317,7 +317,6 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
             currentAmount={sheet.commercial.carrierCost}
             currency={sheet.commercial.currency}
             paymentTerms={sheet.commercial.paymentTerms}
-            podRequired={sheet.pod.required}
             pickup={sheet.route.pickup}
             delivery={sheet.route.delivery}
           />

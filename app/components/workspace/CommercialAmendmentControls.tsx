@@ -36,7 +36,6 @@ type Props = {
   currentAmount: number | null;
   currency: string;
   paymentTerms: string | null;
-  podRequired: boolean | null;
   pickup: RoutePoint;
   delivery: RoutePoint;
 };
@@ -134,7 +133,7 @@ const amendmentChangeLines = (row: AmendmentRow) => {
       }
     }
   }
-  for (const [key, label] of [['paymentTerms', 'Payment terms'], ['podRequired', 'POD required']] as const) {
+  for (const [key, label] of [['paymentTerms', 'Payment terms']] as const) {
     const raw = summary[key];
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) continue;
     const change = raw as Record<string, unknown>;

@@ -6,7 +6,6 @@ const migration = readFileSync(join(process.cwd(), 'supabase/migrations/20260926
 const applyMigration = readFileSync(join(process.cwd(), 'supabase/migrations/20261001145737_apply_accepted_job_amendments.sql'), 'utf8');
 const amendmentsApi = readFileSync(join(process.cwd(), 'app/api/workspace/jobs/[jobId]/amendments/route.ts'), 'utf8');
 const decisionApi = readFileSync(join(process.cwd(), 'app/api/workspace/jobs/[jobId]/amendments/[amendmentId]/decision/route.ts'), 'utf8');
-const autoInvoice = readFileSync(join(process.cwd(), 'app/api/_lib/autoGenerateMarketplaceInvoice.ts'), 'utf8');
 const driverInvoice = readFileSync(join(process.cwd(), 'app/api/driver/finance/jobs/[jobId]/generate-invoice/route.ts'), 'utf8');
 const workspaceSheet = readFileSync(join(process.cwd(), 'app/api/workspace/jobs/[jobId]/sheet/route.ts'), 'utf8');
 const mobileAmendments = readFileSync(join(process.cwd(), 'app/api/driver/mobile/jobs/[id]/amendments/route.ts'), 'utf8');
@@ -46,11 +45,11 @@ describe('commercial agreement amendment/versioning contract', () => {
     expect(migration).toContain('COALESCE(amendment.effective_snapshot_hash, agreement.contract_snapshot_hash) AS contract_snapshot_hash');
   });
 
-  it('moves marketplace invoice generation and integrity validation onto effective terms', () => {
+  it('moves manual marketplace invoice generation and integrity validation onto effective terms', () => {
     expect(migration).toContain('FROM public.job_commercial_agreements_effective agreement');
     expect(migration).toContain('FROM public.job_commercial_agreements_effective');
-    expect(autoInvoice).toContain(".from('job_commercial_agreements_effective')");
     expect(driverInvoice).toContain(".from('job_commercial_agreements_effective')");
+    expect(driverInvoice).toContain('hasCompletePodEvidence(job)');
     expect(workspaceSheet).toContain("from('job_commercial_agreements_effective')");
   });
 
@@ -95,6 +94,11 @@ describe('commercial agreement amendment/versioning contract', () => {
     expect(mobileAmendments).toContain('recipient_user_id: amendment.proposed_by_user_id');
     expect(amendmentControls).toContain('Accept Changes');
     expect(amendmentControls).toContain('Reject Changes');
+  });
+
+  it('keeps mandatory POD outside negotiable amendment terms', () => {
+    expect(amendmentsApi).toContain('const nextPodRequired = true;');
+    expect(amendmentControls).not.toContain("['podRequired', 'POD required']");
   });
 
   it('records explicit OLD to NEW field deltas and price adjustments for the audit trail', () => {
