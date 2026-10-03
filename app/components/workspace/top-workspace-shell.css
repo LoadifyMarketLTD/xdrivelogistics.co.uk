@@ -724,3 +724,34 @@
   padding:0 8px!important;
   font-size:11px!important;
 }
+
+/* Owner Driver More — Preview #656 (02 Oct) repair.
+ * Keep the menu outside the horizontally scrolling nav track so it cannot be clipped. */
+.xdrive-driver-workspace .top-workspace-nav__group[data-group-id="owner-driver-more"] .top-workspace-nav__menu {
+  position: fixed;
+  top: 92px !important;
+  right: 16px !important;
+  left: auto !important;
+  width: 248px !important;
+  max-height: calc(100vh - 104px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.xdrive-driver-workspace .top-workspace-nav__group[data-group-id="owner-driver-more"] .top-workspace-nav__menu-item[data-section-start="true"] {
+  margin-top: 4px;
+  padding-top: 4px !important;
+  border-top: 1px solid #e5e7eb;
+  min-height: 36px !important;
+}
+
+@media (max-width: 768px) {
+  .xdrive-driver-workspace .top-workspace-nav__group[data-group-id="owner-driver-more"] .top-workspace-nav__menu {
+    top: 92px !important;
+    right: 8px !important;
+    left: 8px !important;
+    width: auto !important;
+    max-height: calc(100vh - 104px);
+  }
+}

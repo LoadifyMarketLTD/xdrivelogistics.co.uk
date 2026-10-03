@@ -169,12 +169,14 @@ function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
 }
 
 type PrimaryNavEntry = [id: string, label: string, href: string];
+type MoreNavEntry = [href: string, label?: string];
 
 function composeRolePrimaryNav(
   groups: WorkspaceNavGroup[],
   direct: PrimaryNavEntry[],
   moreId: string,
   moreLabel = 'More',
+  preferredMore?: readonly MoreNavEntry[],
 ) {
   const items = uniqueNavItems(groups);
   const used = new Set<string>();
@@ -188,8 +190,16 @@ function composeRolePrimaryNav(
   }
 
   const more: WorkspaceNavItem[] = [];
-  for (const [href, item] of items.entries()) {
-    if (!used.has(href)) more.push(item);
+  if (preferredMore) {
+    for (const [href, label] of preferredMore) {
+      const item = items.get(href);
+      if (!item || used.has(href)) continue;
+      more.push(label ? { ...item, label } : item);
+    }
+  } else {
+    for (const [href, item] of items.entries()) {
+      if (!used.has(href)) more.push(item);
+    }
   }
 
   return more.length ? [...primary, { id: moreId, label: moreLabel, items: more }] : primary;
@@ -246,7 +256,17 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
     ['driver-vehicle-primary', 'Vehicle', '/driver/vehicles'],
     ['driver-documents-primary', 'Documents', '/driver/documents'],
     ['driver-settings-primary', 'Settings', '/driver/settings'],
-  ], ownerDriver ? 'owner-driver-more' : 'driver-more');
+  ], ownerDriver ? 'owner-driver-more' : 'driver-more', 'More', ownerDriver ? [
+    ['/driver/jobs', 'My Jobs'],
+    ['/driver/availability', 'My Availability'],
+    ['/driver/won-work', 'Won Work'],
+    ['/driver/load-alerts', 'Auto-match & Alerts'],
+    ['/driver/nearby', "Who's Nearby"],
+    ['/driver/documents', 'Documents'],
+    ['/driver/finance', 'Invoices'],
+    ['/driver/messages', 'Messages'],
+    ['/driver/profile', 'Account'],
+  ] : undefined);
 }
 
 function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
@@ -815,6 +835,7 @@ export default function TopWorkspaceShell({
                 key={group.id}
                 className="top-workspace-nav__group top-workspace-nav__group--menu"
                 data-first={groupIndex === 0 ? 'true' : 'false'}
+                data-group-id={group.id}
               >
                 <button
                   type="button"
@@ -839,6 +860,7 @@ export default function TopWorkspaceShell({
                           role="menuitem"
                           className="top-workspace-nav__menu-item"
                           data-active={active ? 'true' : 'false'}
+                          data-section-start={group.id === 'owner-driver-more' && item.href === '/driver/documents' ? 'true' : undefined}
                           onClick={() => openRoute(item.href)}
                         >
                           <span className="top-workspace-nav__menu-icon" aria-hidden="true">
