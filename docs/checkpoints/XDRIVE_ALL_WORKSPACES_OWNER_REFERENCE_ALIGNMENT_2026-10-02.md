@@ -112,3 +112,19 @@ Full unit suite:
 
 Final forbidden-scope check must remain empty:
 `git diff --name-only -- app/driver app/super-admin`
+
+## Main integration verification
+
+The `origin/main` integration was rebuilt from the current main line rather than merging the working branch wholesale.
+Owner Driver and Super Admin remain excluded from the visual adapter. Shared workspace primitives use isolated non-driver hooks so existing Driver selectors are not activated.
+
+Final gates on the main integration candidate:
+- 118 Admin/Broker/Customer route pages classified by the page audit
+- 29 workspace contract files / 176 tests passed
+- targeted ESLint passed
+- `git diff --check` passed
+- `tsc --noEmit` passed
+- production `next build` passed
+- forbidden-scope diff for `app/driver/**` and `app/super-admin/**` is empty
+
+Three unrelated contract assertions (`operationalShellRecoveryContract`, `unifiedWorkspaceNavbarContract`, `dashboardConnectedWorkspaceContract`) also fail unchanged on clean `origin/main`; they target pre-existing Driver/navigation expectations and were not modified because Owner Driver is explicitly reference-only in this task.

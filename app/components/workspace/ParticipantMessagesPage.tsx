@@ -215,8 +215,8 @@ export default function ParticipantMessagesPage({
                   }}
                 >
                   <strong style={{ display: 'block', fontSize: 12, lineHeight: '16px', color: '#0f172a' }}>{thread.counterpartName}</strong>
-                  <span style={{ display: 'block', fontSize: 10, lineHeight: '14px', color: '#475569' }}>{thread.context ? `${thread.context.kind === 'quote' ? 'Quote' : 'Job'} · ${thread.context.loadRef}` : thread.counterpartCompanyName ?? 'Participant conversation'}</span>
-                  <span style={{ display: 'block', marginTop: 2, fontSize: 10, lineHeight: '14px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <span style={{ display: 'block', fontSize: 11, lineHeight: '14px', color: '#475569' }}>{thread.context ? `${thread.context.kind === 'quote' ? 'Quote' : 'Job'} · ${thread.context.loadRef}` : thread.counterpartCompanyName ?? 'Participant conversation'}</span>
+                  <span style={{ display: 'block', marginTop: 2, fontSize: 11, lineHeight: '14px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {thread.latestBody || 'Message'} · {fmtDateTime(thread.latestAt)}
                   </span>
                 </button>
@@ -291,7 +291,7 @@ export default function ParticipantMessagesPage({
                     />
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontSize: 10, color: '#64748b' }}>{reply.length}/4000 · messages are immutable once sent</span>
+                    <span style={{ fontSize: 11, lineHeight: '14px', color: '#64748b' }}>{reply.length}/4000 · messages are immutable once sent</span>
                     <ActionButton tone="primary" disabled={sending || !reply.trim()} onClick={() => void sendReply()}>{sending ? 'Sending…' : 'Send Reply'}</ActionButton>
                   </div>
                 </div>

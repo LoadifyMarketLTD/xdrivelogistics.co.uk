@@ -120,7 +120,7 @@ export default function DriverDriversVehiclesPage() {
 
             {tab === 'documents' && <div className="dv-panel active"><div className="toolbar"><b>Vehicle & Driver Documents</b><span className="spacer" /><button type="button" className="btn primary" onClick={() => router.push('/driver/documents')}>Open Documents</button></div><div className="xd2-calm-empty"><b>Documents remain server-authoritative</b><span>Open the Driver Documents register to review or upload real records.</span></div></div>}
 
-            {tab === 'events' && <div className="dv-panel active"><div className="toolbar"><b>Event Log</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/event-log')}>Open Event Log</button></div><div className="xd2-calm-empty"><b>Operational history</b><span>Open the real Event Log; no prototype events are injected here.</span></div></div>}
+            {tab === 'events' && <div className="dv-panel active"><div className="toolbar"><b>Event Log</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/event-log')}>Open Event Log</button></div><div className="xd2-calm-empty"><b>Operational history</b><span>Open the Event Log to review recorded operational activity for this workspace.</span></div></div>}
           </main>
         </div>
       </section>

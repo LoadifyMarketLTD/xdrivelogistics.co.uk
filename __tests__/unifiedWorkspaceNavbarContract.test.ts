@@ -58,9 +58,14 @@ describe('Unified workspace navbar contract', () => {
     expect(shell).toContain("customer-loads-primary', 'View All Loads', '/customer/loads'");
   });
 
-  it('uses distinct owner-driver settings labels inside More', () => {
+  it('keeps one Owner Driver Settings primary entry and avoids duplicating settings sections inside More', () => {
     expect(workspaceRole).toContain("label: 'Driver Settings', href: '/driver/settings'");
     expect(workspaceRole).toContain("label: 'Company Settings', href: '/driver/settings?section=overview'");
+    expect(shell).toContain("['owner-driver-settings-primary', 'Settings', '/driver/settings']");
+    const owner = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
+    expect(owner).not.toContain("'/driver/settings?section=company'");
+    expect(owner).not.toContain("'/driver/settings?section=overview'");
+    expect(owner).not.toContain("'/settings/billing'");
   });
 
   it('preserves the driver prototype scope needed by CX-converged page CSS', () => {

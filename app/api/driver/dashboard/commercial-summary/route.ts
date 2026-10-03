@@ -41,11 +41,14 @@ export async function GET(request: NextRequest) {
 
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id')
+    .select('id, company_id, driver_type, can_commercial_bid')
     .eq('user_id', authData.user.id)
     .maybeSingle();
   if (driverError) return respond(500, { error: driverError.message });
   if (!driver?.company_id) return respond(403, { error: 'Driver company context is unavailable.' });
+  if (normalise(driver.driver_type) !== 'owner_driver' || driver.can_commercial_bid !== true) {
+    return respond(403, { error: 'Owner Driver commercial access is required.' });
+  }
 
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
@@ -57,8 +60,8 @@ export async function GET(request: NextRequest) {
   if (membershipError) return respond(500, { error: membershipError.message });
 
   const role = normalise(membership?.role_in_company);
-  if (role !== 'owner' && role !== 'admin') {
-    return respond(403, { error: 'Owner-driver or company admin access is required.' });
+  if (role !== 'owner') {
+    return respond(403, { error: 'Owner Driver company-owner access is required.' });
   }
 
   const searchParams = new URL(request.url).searchParams;

@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
+import { useAuth } from '../AuthContext';
 import { MemberIdentityLink } from './MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
 
@@ -67,6 +69,11 @@ type DirectoryResponse = {
   error?: string;
 };
 
+type SavedNetworkResponse = {
+  items?: Array<{ companyId: string }>;
+  error?: string;
+};
+
 const normalise = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 
 export function MemberDirectoryPage({
@@ -78,6 +85,8 @@ export function MemberDirectoryPage({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth();
+  const ownerDriver = resolveWorkspaceRole(user) === 'owner_driver';
   const [companies, setCompanies] = useState<DirectoryCompany[]>([]);
   const [drivers, setDrivers] = useState<DirectoryDriver[]>([]);
   const [tab, setTab] = useState<'companies' | 'drivers'>('companies');
@@ -102,6 +111,10 @@ export function MemberDirectoryPage({
   const [reputationNote, setReputationNote] = useState('');
   const [directoryPageSize, setDirectoryPageSize] = useState(25);
   const [directoryVisibleCount, setDirectoryVisibleCount] = useState(25);
+  const [savedCompanyIds, setSavedCompanyIds] = useState<Set<string>>(new Set());
+  const [savedOnly, setSavedOnly] = useState(false);
+  const [savedNetworkLoading, setSavedNetworkLoading] = useState(false);
+  const [savedNetworkError, setSavedNetworkError] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -133,7 +146,69 @@ export function MemberDirectoryPage({
     }
   }, [nearestQuery.near, nearestQuery.radius]);
 
+  const loadSavedNetwork = useCallback(async () => {
+    if (!pathname.startsWith('/driver') || !ownerDriver) {
+      setSavedCompanyIds(new Set());
+      setSavedOnly(false);
+      setSavedNetworkError('');
+      return;
+    }
+
+    setSavedNetworkLoading(true);
+    setSavedNetworkError('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+      const response = await fetch('/api/driver/watchlist', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => ({})) as SavedNetworkResponse;
+      if (!response.ok) throw new Error(payload.error || 'Saved Networks could not be loaded.');
+      setSavedCompanyIds(new Set((payload.items ?? []).map((item) => item.companyId)));
+    } catch (reason) {
+      setSavedCompanyIds(new Set());
+      setSavedNetworkError(reason instanceof Error ? reason.message : 'Saved Networks could not be loaded.');
+    } finally {
+      setSavedNetworkLoading(false);
+    }
+  }, [ownerDriver, pathname]);
+
+  const toggleSavedCompany = async (companyId: string) => {
+    if (!ownerDriver) return;
+    const currentlySaved = savedCompanyIds.has(companyId);
+    setSavedNetworkError('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+      const response = await fetch(
+        currentlySaved ? `/api/driver/watchlist?companyId=${encodeURIComponent(companyId)}` : '/api/driver/watchlist',
+        {
+          method: currentlySaved ? 'DELETE' : 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            ...(currentlySaved ? {} : { 'Content-Type': 'application/json' }),
+          },
+          ...(currentlySaved ? {} : { body: JSON.stringify({ companyId }) }),
+        },
+      );
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Saved Network could not be updated.');
+      setSavedCompanyIds((current) => {
+        const next = new Set(current);
+        if (currentlySaved) next.delete(companyId);
+        else next.add(companyId);
+        return next;
+      });
+    } catch (reason) {
+      setSavedNetworkError(reason instanceof Error ? reason.message : 'Saved Network could not be updated.');
+    }
+  };
+
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void loadSavedNetwork(); }, [loadSavedNetwork]);
 
   const countries = useMemo(() => Array.from(new Set(
     companies.concat(drivers.map((driver) => ({ country: driver.country } as DirectoryCompany)))
@@ -198,9 +273,10 @@ export function MemberDirectoryPage({
         && (!serviceNeedle || serviceText.includes(serviceNeedle))
         && (!tailLiftOnly || serviceText.includes('tail lift'))
         && (!deliveryThreshold || (company.deliveryReliability.score != null && company.deliveryReliability.score >= deliveryThreshold))
-        && (!paymentThreshold || (company.paymentReliability.score != null && company.paymentReliability.score >= paymentThreshold));
+        && (!paymentThreshold || (company.paymentReliability.score != null && company.paymentReliability.score >= paymentThreshold))
+        && (!savedOnly || savedCompanyIds.has(company.companyId));
     });
-  }, [companies, country, deliveryMin, location, member, memberType, paymentMin, specialistService, tailLiftOnly, vehicle]);
+  }, [companies, country, deliveryMin, location, member, memberType, paymentMin, savedCompanyIds, savedOnly, specialistService, tailLiftOnly, vehicle]);
 
   const visibleDrivers = useMemo(() => {
     const memberNeedle = normalise(member);
@@ -223,9 +299,10 @@ export function MemberDirectoryPage({
         && (!serviceNeedle || serviceText.includes(serviceNeedle))
         && (!tailLiftOnly || driver.hasTailLift === true)
         && (!deliveryThreshold || (driver.deliveryReliability.score != null && driver.deliveryReliability.score >= deliveryThreshold))
-        && (!paymentThreshold || (driver.paymentReliability.score != null && driver.paymentReliability.score >= paymentThreshold));
+        && (!paymentThreshold || (driver.paymentReliability.score != null && driver.paymentReliability.score >= paymentThreshold))
+        && (!savedOnly || Boolean(driver.companyId && savedCompanyIds.has(driver.companyId)));
     });
-  }, [availability, country, deliveryMin, drivers, location, member, paymentMin, specialistService, tailLiftOnly, vehicle]);
+  }, [availability, country, deliveryMin, drivers, location, member, paymentMin, savedCompanyIds, savedOnly, specialistService, tailLiftOnly, vehicle]);
 
   const clear = () => {
     setMember('');
@@ -241,6 +318,7 @@ export function MemberDirectoryPage({
     setNearestLocation('');
     setNearestRadius('50');
     setNearestQuery({ near: '', radius: '50' });
+    setSavedOnly(false);
   };
 
   const capped = Boolean(truncation.companies || truncation.drivers || truncation.vehicleEnrichment || truncation.reputation);
@@ -259,7 +337,16 @@ export function MemberDirectoryPage({
         <div className="subbar">
           <span className="crumb">Workspace &nbsp;/&nbsp; <b>Directory</b></span>
           <div className="sub-actions">
-            <button type="button" className="btn" disabled title="Saved Networks is not yet backed by a Driver API">Saved Networks</button>
+            {ownerDriver ? (
+              <button
+                type="button"
+                className={savedOnly ? 'btn primary' : 'btn'}
+                disabled={savedNetworkLoading}
+                onClick={() => setSavedOnly((current) => !current)}
+              >
+                {savedNetworkLoading ? 'Loading Saved…' : `Saved Networks (${savedCompanyIds.size})`}
+              </button>
+            ) : null}
             <button type="button" className="btn" onClick={clear}>Clear</button>
             <button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find Nearest</button>
           </div>
@@ -280,6 +367,7 @@ export function MemberDirectoryPage({
           <main className="main">
             <div className="head"><div><h1>Directory</h1><p>Search the XDrive member network by identity, location, capability, vehicle and performance</p></div></div>
             {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+            {savedNetworkError && <AlertBanner tone="warning">{savedNetworkError}</AlertBanner>}
             {partial && <AlertBanner tone="warning">{capMessage}</AlertBanner>}
             <div className="directory-hero">
               <div><b>XDrive Member Network</b><span>Companies and drivers · capability · trust · reliability</span></div>
@@ -313,7 +401,7 @@ export function MemberDirectoryPage({
                         <td>{company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}<span className="meta">{company.deliveryReliability.evidenceCount} timed delivery record(s)</span></td>
                         <td>{company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`}<span className="meta">{company.paymentReliability.evidenceCount} due/settlement record(s)</span></td>
                         <td><StatusBadge value="Not advertised" /></td>
-                        <td><button type="button" className="rowbtn blue" onClick={() => router.push(`/driver/network/${company.companyId}`)}>Profile</button>{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
+                        <td><button type="button" className="rowbtn blue" onClick={() => router.push(`/driver/network/${company.companyId}`)}>Profile</button>{ownerDriver && <button type="button" className="rowbtn" onClick={() => void toggleSavedCompany(company.companyId)}>{savedCompanyIds.has(company.companyId) ? 'Remove Saved' : 'Save Network'}</button>}{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
                       </tr>
                     )) : displayedDrivers.map((driver) => (
                       <tr key={driver.driverId} className="dir-row">

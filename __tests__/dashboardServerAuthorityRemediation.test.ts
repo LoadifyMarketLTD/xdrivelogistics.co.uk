@@ -76,7 +76,7 @@ describe('dashboard server-authority remediation contract', () => {
     const workspaceData = readRepoFile('app/components/workspace/useCompanyWorkspaceData.ts');
 
     expect(dashboard).toContain('metrics.documentAlertJobs.length');
-    expect(dashboard).toContain('job.pod_required === true');
+    expect(dashboard).toContain("stage === 'completed' && job.pod_generated !== true");
     expect(dashboard).toContain("broker_pod_review_status");
     expect(workspaceData).toContain('pod_generated, has_delivery_evidence, broker_pod_review_status');
   });

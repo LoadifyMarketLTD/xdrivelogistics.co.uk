@@ -9,7 +9,7 @@ describe('Customer clean workspace contract', () => {
   const dashboard = read('app/customer/CustomerDashboardHome.tsx');
 
   it('keeps the complete Customer navigation available without duplicating it in the dashboard', () => {
-    for (const label of ['Customer Dashboard','Action Centre','My Loads','Quotes','Awards','Bookings','Deliveries','Tracking','POD & Documents','Diary','Updates','Network','Messages','Disputes','Event Log','Invoices','Team','Settings']) {
+    for (const label of ['Customer Dashboard','Action Centre','My Loads','Quotes','Bookings','Deliveries','Tracking','POD & Documents','Diary','Updates','Directory','Messages','Disputes','Event Log','Invoices','Team','Settings']) {
       expect(shell).toContain(`label: '${label}'`);
     }
     expect(roles).toContain("primaryAction: { label: 'Post Load', href: '/customer/post-load', capability: 'loads.create' }");

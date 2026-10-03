@@ -382,7 +382,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/driver/post-load', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/support', workspace: 'owner_operator' },
   { prefix: '/driver/vehicle-readiness', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
-  { prefix: '/driver/settings', workspace: 'owner_operator', roles: ['owner_driver'] },
+  { prefix: '/driver/settings', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
   { prefix: '/driver/load-alerts', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/directory', workspace: 'owner_operator' },

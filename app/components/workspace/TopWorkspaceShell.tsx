@@ -4,8 +4,8 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import type { ReactNode } from 'react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '../AuthContext';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
@@ -112,13 +112,17 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
   });
 
   const morePreferred = [
-    '/admin/invoices',
-    '/admin/fleet/drivers',
+    '/admin/won-work',
     '/admin/jobs',
-    '/admin/fleet/vehicles',
-    '/admin/messages',
+    '/admin/fleet/assignments',
+    '/admin/pod',
+    '/admin/quotes',
+    '/admin/invoices',
     '/admin/documents',
+    '/admin/messages',
     '/admin/event-log',
+    '/admin/fleet/managers',
+    '/settings/billing',
   ];
   const more: WorkspaceNavItem[] = [
     { id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre', icon: '!' },
@@ -127,13 +131,6 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
       return item && !directHrefs.has(href) ? [item] : [];
     }),
   ];
-  const seenMore = new Set(more.map((item) => item.href));
-  for (const [href, item] of items.entries()) {
-    if (!directHrefs.has(href) && !seenMore.has(href)) {
-      more.push(item);
-      seenMore.add(href);
-    }
-  }
 
   return more.length ? [...primary, { id: 'carrier-more', label: 'More', items: more }] : primary;
 }
@@ -161,10 +158,22 @@ function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
     primary.push(singleGroup(id, label, item));
   }
 
-  const more: WorkspaceNavItem[] = [];
-  for (const [href, item] of items.entries()) {
-    if (!used.has(href)) more.push(item);
-  }
+  const morePreferred = [
+    '/admin/fleet/assignments',
+    '/admin/fleet/availability',
+    '/admin/fleet/future-availability',
+    '/admin/fleet/positions',
+    '/admin/fleet/maintenance',
+    '/admin/incidents',
+    '/admin/messages',
+    '/admin/event-log',
+    '/admin/invoices',
+    '/admin/fleet/compliance',
+  ];
+  const more = morePreferred.flatMap((href) => {
+    const item = items.get(href);
+    return item && !used.has(href) ? [item] : [];
+  });
   return more.length ? [...primary, { id: 'fleet-more', label: 'More', items: more }] : primary;
 }
 
@@ -175,6 +184,7 @@ function composeRolePrimaryNav(
   direct: PrimaryNavEntry[],
   moreId: string,
   moreLabel = 'More',
+  moreHrefs?: readonly string[],
 ) {
   const items = uniqueNavItems(groups);
   const used = new Set<string>();
@@ -188,8 +198,11 @@ function composeRolePrimaryNav(
   }
 
   const more: WorkspaceNavItem[] = [];
-  for (const [href, item] of items.entries()) {
-    if (!used.has(href)) more.push(item);
+  const secondaryEntries = moreHrefs
+    ? moreHrefs.map((href) => [href, items.get(href)] as const)
+    : [...items.entries()];
+  for (const [href, item] of secondaryEntries) {
+    if (item && !used.has(href)) more.push(item);
   }
 
   return more.length ? [...primary, { id: moreId, label: moreLabel, items: more }] : primary;
@@ -225,7 +238,19 @@ function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
 }
 
 function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boolean) {
-  return composeRolePrimaryNav(groups, ownerDriver ? [
+  if (!ownerDriver) {
+    return composeRolePrimaryNav(groups, [
+      ['driver-dashboard-primary', 'Dashboard', '/driver'],
+      ['driver-jobs-primary', 'My Jobs', '/driver/jobs'],
+      ['driver-diary-primary', 'Diary', '/driver/history'],
+      ['driver-availability-primary', 'Availability', '/driver/availability'],
+      ['driver-vehicle-primary', 'Vehicle', '/driver/vehicles'],
+      ['driver-documents-primary', 'Documents', '/driver/documents'],
+      ['driver-settings-primary', 'Settings', '/driver/settings'],
+    ], 'driver-more');
+  }
+
+  const ownerNav = composeRolePrimaryNav(groups, [
     ['owner-driver-dashboard-primary', 'Dashboard', '/driver'],
     ['owner-driver-directory-primary', 'Directory', '/driver/directory'],
     ['owner-driver-live-availability-primary', 'Live Availability', '/driver/availability/live'],
@@ -234,17 +259,32 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
     ['owner-driver-loads-primary', 'Loads', '/driver/loads'],
     ['owner-driver-quotes-primary', 'Quotes', '/driver/quotes'],
     ['owner-driver-diary-primary', 'Diary', '/driver/history'],
+    ['owner-driver-event-log-primary', 'Event Log', '/driver/event-log'],
     ['owner-driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision'],
     ['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles'],
-  ] : [
-    ['driver-dashboard-primary', 'Dashboard', '/driver'],
-    ['driver-jobs-primary', 'My Jobs', '/driver/jobs'],
-    ['driver-diary-primary', 'Diary', '/driver/history'],
-    ['driver-availability-primary', 'Availability', '/driver/availability'],
-    ['driver-vehicle-primary', 'Vehicle', '/driver/vehicles'],
-    ['driver-documents-primary', 'Documents', '/driver/documents'],
-    ['driver-settings-primary', 'Settings', '/driver/settings'],
-  ], ownerDriver ? 'owner-driver-more' : 'driver-more');
+    ['owner-driver-settings-primary', 'Settings', '/driver/settings'],
+  ], 'owner-driver-more', 'More', [
+    '/driver/jobs',
+    '/driver/won-work',
+    '/driver/availability',
+    '/driver/load-alerts',
+    '/driver/nearby',
+    '/driver/finance',
+    '/driver/documents',
+    '/driver/messages',
+  ]);
+
+  return ownerNav.map((group) => group.id !== 'owner-driver-more'
+    ? group
+    : {
+        ...group,
+        items: group.items.map((item) => {
+          if (item.href === '/driver/availability') return { ...item, label: 'Availability & Schedule' };
+          if (item.href === '/driver/load-alerts') return { ...item, label: 'Load Matching & Alerts' };
+          if (item.href === '/driver/finance') return { ...item, label: 'Finance & Invoices' };
+          return item;
+        }),
+      });
 }
 
 function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
@@ -257,7 +297,15 @@ function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['dispatcher-deliveries-primary', 'Deliveries', '/admin/deliveries'],
     ['dispatcher-positions-primary', 'Live Positions', '/admin/fleet/positions'],
     ['dispatcher-settings-primary', 'Settings', '/admin/settings'],
-  ], 'dispatcher-more');
+  ], 'dispatcher-more', 'More', [
+    '/admin/incidents',
+    '/admin/pod',
+    '/admin/freight-vision',
+    '/admin/live-availability',
+    '/admin/fleet/resources',
+    '/admin/messages',
+    '/admin/event-log',
+  ]);
 }
 
 function composeFinancePrimaryNav(groups: WorkspaceNavGroup[]) {
@@ -285,6 +333,25 @@ function composeCompliancePrimaryNav(groups: WorkspaceNavGroup[]) {
   ], 'compliance-more');
 }
 
+const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
+  '/driver/jobs': 'Work',
+  '/driver/won-work': 'Work',
+  '/driver/availability': 'Matching & availability',
+  '/driver/load-alerts': 'Matching & availability',
+  '/driver/nearby': 'Matching & availability',
+  '/driver/finance': 'Business',
+  '/driver/documents': 'Business',
+  '/driver/messages': 'Business',
+};
+
+function moreMenuSectionLabel(groupId: string, href: string, previousHref?: string) {
+  if (groupId !== 'owner-driver-more') return null;
+  const section = OWNER_DRIVER_MORE_SECTIONS[href] ?? null;
+  if (!section) return null;
+  const previousSection = previousHref ? OWNER_DRIVER_MORE_SECTIONS[previousHref] ?? null : null;
+  return section !== previousSection ? section : null;
+}
+
 function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
   return [
     { id: 'broker-home', label: 'Broker', items: [
@@ -298,8 +365,6 @@ function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
     ] },
     { id: 'broker-commercial', label: 'Commercial', items: [
       { id: 'broker-carrier-quotes', label: 'Carrier Quotes', href: '/broker/bids', icon: '▣' },
-      { id: 'broker-compare-quotes', label: 'Compare Quotes', href: '/broker/compare-quotes', icon: '≡' },
-      { id: 'broker-awards', label: 'Awards', href: '/broker/awards', icon: '✓' },
       { id: 'broker-margin', label: 'Margin / Profit', href: '/broker/margins', icon: '%' },
     ] },
     { id: 'broker-operations', label: 'Operations', items: [
@@ -311,7 +376,7 @@ function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
     { id: 'broker-collaboration', label: 'Collaboration', items: [
       { id: 'broker-messages', label: 'Messages', href: '/broker/messages', icon: '◫' },
       { id: 'broker-event-log', label: 'Event Log', href: '/broker/event-log', icon: '≡' },
-      { id: 'broker-network', label: 'Carrier Network', href: '/broker/carrier-network', icon: '⊕' },
+      { id: 'broker-network', label: 'Directory', href: '/broker/carrier-network', icon: '⊕' },
     ] },
     { id: 'broker-finance', label: 'Finance', items: [
       { id: 'broker-finance-home', label: 'Finance', href: '/broker/finance', icon: '£' },
@@ -369,9 +434,6 @@ function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
     { id: 'customer-quotes', label: 'Quotes', items: [
       { id: 'customer-quotes-page', label: 'Quotes', href: '/customer/quotes', icon: '▣' },
     ] },
-    { id: 'customer-awards', label: 'Awards', items: [
-      { id: 'customer-awards-page', label: 'Awards', href: '/customer/awards', icon: '✓' },
-    ] },
     { id: 'customer-bookings', label: 'Bookings', items: [
       { id: 'customer-bookings-page', label: 'Bookings', href: '/customer/bookings', icon: '✓' },
     ] },
@@ -383,7 +445,7 @@ function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
       { id: 'customer-updates', label: 'Updates', href: '/customer/updates', icon: '●' },
     ] },
     { id: 'customer-collaboration', label: 'Collaboration', items: [
-      { id: 'customer-network', label: 'Network', href: '/customer/network', icon: '○' },
+      { id: 'customer-network', label: 'Directory', href: '/customer/network', icon: '○' },
       { id: 'customer-messages', label: 'Messages', href: '/customer/messages', icon: '◫' },
       { id: 'customer-disputes', label: 'Disputes', href: '/customer/disputes', icon: '!' },
       { id: 'customer-event-log', label: 'Event Log', href: '/customer/event-log', icon: '≡' },
@@ -559,6 +621,7 @@ export default function TopWorkspaceShell({
   const [unreadCount, setUnreadCount] = useState(0);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
+  const menuTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
 
   const navigationTargets = useMemo(
     () =>
@@ -663,9 +726,10 @@ export default function TopWorkspaceShell({
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
-        setOpenGroupId(null);
-      }
+      if (event.key !== 'Escape' || !openGroupId) return;
+      const trigger = menuTriggerRefs.current[openGroupId];
+      setOpenGroupId(null);
+      window.requestAnimationFrame(() => trigger?.focus());
     };
     const closeOnOutsidePointer = (event: PointerEvent) => {
       if (!(event.target instanceof Node)) return;
@@ -678,7 +742,7 @@ export default function TopWorkspaceShell({
       window.removeEventListener('keydown', closeOnEscape);
       window.removeEventListener('pointerdown', closeOnOutsidePointer);
     };
-  }, []);
+  }, [openGroupId]);
 
   const isActive = (href: string) => {
     const [baseHref] = href.split('?');
@@ -690,6 +754,31 @@ export default function TopWorkspaceShell({
   const openRoute = (href: string) => {
     setOpenGroupId(null);
     router.push(href);
+  };
+
+  const focusMenuItem = (groupId: string, edge: 'first' | 'last' = 'first') => {
+    window.requestAnimationFrame(() => {
+      const menu = document.getElementById(`workspace-menu-${groupId}`);
+      const items = menu
+        ? Array.from(menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+        : [];
+      const target = edge === 'last' ? items.at(-1) : items[0];
+      target?.focus();
+    });
+  };
+
+  const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+    if (!items.length) return;
+    const currentIndex = Math.max(0, items.indexOf(document.activeElement as HTMLButtonElement));
+    let nextIndex = currentIndex;
+    if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % items.length;
+    if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + items.length) % items.length;
+    if (event.key === 'Home') nextIndex = 0;
+    if (event.key === 'End') nextIndex = items.length - 1;
+    event.preventDefault();
+    items[nextIndex]?.focus();
   };
 
   const driverPrototypeScope = role === 'driver' || role === 'owner_driver';
@@ -819,31 +908,54 @@ export default function TopWorkspaceShell({
                   className="top-workspace-nav__item top-workspace-nav__trigger"
                   data-active={groupActive ? 'true' : 'false'}
                   data-open={open ? 'true' : 'false'}
+                  id={`workspace-menu-trigger-${group.id}`}
+                  ref={(node) => { menuTriggerRefs.current[group.id] = node; }}
                   aria-expanded={open}
                   aria-haspopup="menu"
+                  aria-controls={`workspace-menu-${group.id}`}
                   onClick={() => setOpenGroupId(open ? null : group.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                      event.preventDefault();
+                      setOpenGroupId(group.id);
+                      focusMenuItem(group.id, event.key === 'ArrowUp' ? 'last' : 'first');
+                    }
+                  }}
                 >
                   <span>{group.label}</span>
                   <span aria-hidden="true" className="top-workspace-nav__caret">▾</span>
                 </button>
                 {open && (
-                  <div className="top-workspace-nav__menu" role="menu" aria-label={group.label}>
-                    {group.items.map((item) => {
+                  <div
+                    id={`workspace-menu-${group.id}`}
+                    className="top-workspace-nav__menu"
+                    role="menu"
+                    aria-labelledby={`workspace-menu-trigger-${group.id}`}
+                    onKeyDown={handleMenuKeyDown}
+                  >
+                    {group.items.map((item, itemIndex) => {
                       const active = isActive(item.href);
+                      const sectionLabel = moreMenuSectionLabel(group.id, item.href, group.items[itemIndex - 1]?.href);
                       return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          role="menuitem"
-                          className="top-workspace-nav__menu-item"
-                          data-active={active ? 'true' : 'false'}
-                          onClick={() => openRoute(item.href)}
-                        >
-                          <span className="top-workspace-nav__menu-icon" aria-hidden="true">
-                            {item.icon ?? '•'}
-                          </span>
-                          <span>{item.label}</span>
-                        </button>
+                        <Fragment key={item.id}>
+                          {sectionLabel && (
+                            <div className="top-workspace-nav__menu-section" role="presentation">
+                              {sectionLabel}
+                            </div>
+                          )}
+                          <button
+                            type="button"
+                            role="menuitem"
+                            className="top-workspace-nav__menu-item"
+                            data-active={active ? 'true' : 'false'}
+                            onClick={() => openRoute(item.href)}
+                          >
+                            <span className="top-workspace-nav__menu-icon" aria-hidden="true">
+                              {item.icon ?? '•'}
+                            </span>
+                            <span>{item.label}</span>
+                          </button>
+                        </Fragment>
                       );
                     })}
                   </div>

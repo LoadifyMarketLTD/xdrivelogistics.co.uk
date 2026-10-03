@@ -312,7 +312,7 @@ export function JobsOperationalTable({
                       <tr className={`${styles.operationalTableRow} ${styles.jobsOperationalRow}`} onClick={() => onViewJob(job.id)}>
                         <td className={styles.operationalTableCell}>
                           <span className={styles.jobsStatusBadge} style={s}>{statusLabel(job.status)}</span>
-                          {job.exchange_visibility && job.exchange_visibility !== 'private' && <div className={styles.jobsStatusMeta}>{job.exchange_visibility}</div>}
+                          {job.exchange_visibility && job.exchange_visibility !== 'private' && <div className={`xdrive-jobs-status-meta ${styles.jobsStatusMeta}`}>{job.exchange_visibility}</div>}
                         </td>
                         <td className={styles.operationalTableCell}>
                           <span className={styles.jobsRefValue}>{job.jobRef}</span>

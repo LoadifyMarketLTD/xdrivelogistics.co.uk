@@ -1,4 +1,4 @@
--- CX-style company watchlist used by the Owner Driver dashboard and Directory.
+-- XDrive Owner Driver saved network used by the Owner Driver dashboard and Directory.
 create table if not exists public.company_watchlist (
   id uuid primary key default gen_random_uuid(),
   owner_company_id uuid not null references public.companies(id) on delete cascade,

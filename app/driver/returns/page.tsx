@@ -442,7 +442,7 @@ export default function ReturnJourneysPage() {
                             <a className="return-action return-action-track" href={routeUrl(journey)} target="_blank" rel="noopener noreferrer">Track</a>
                             {tab === 'mine' && journey.status !== 'cancelled' ? <button type="button" className="return-action" onClick={() => void cancelJourney(journey.id)}>Cancel</button> : null}
                             <span className="return-footer-spacer" />
-                            <span className="return-member"><MemberIdentityLink companyId={journey.companyId}>{journey.member.code ? `(${journey.member.code}) ` : ''}{journey.member.name}</MemberIdentityLink>{journey.member.phone ? ` · ${journey.member.phone}` : ''}</span>
+                            <span className="return-member"><MemberIdentityLink companyId={journey.companyId}>{journey.member.code ? `Member ID ${journey.member.code} · ` : ''}{journey.member.name}</MemberIdentityLink>{journey.member.phone ? ` · ${journey.member.phone}` : ''}</span>
                           </div>
                         </article>
                       );

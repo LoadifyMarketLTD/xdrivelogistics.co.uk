@@ -7,7 +7,7 @@ describe('CX-density Loads and Quotes workspaces', () => {
   it('keeps Loads as a filter-sidebar plus operational result-card workspace', () => {
     expect(source).toContain('Search Loads');
     expect(source).toContain('Advanced Search');
-    expect(source).toContain("flex: '0 1 250px'");
+    expect(source).toContain("flex: '0 0 185px'");
     expect(source).toContain('Quote Now');
     expect(source).toContain('Load Notes:');
     expect(source).toContain('Open Route');

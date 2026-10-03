@@ -324,24 +324,25 @@ export default function AvailableLoadsPage() {
             <div className="filter"><span className="label">Minimum Weight</span><input className="input" type="number" min="0" value={weightMinFilter} onChange={(event) => setWeightMinFilter(event.target.value)} placeholder="kg" /></div>
             <div className="filter"><span className="label">Preferences</span><label className="check"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} />Save as Default</label></div>
           </aside>
-          <main className="main loads-main">
+          <main className="main">
+            <div className="head"><div><h1>Loads</h1><p>Search live freight, inspect privacy-safe details and prepare a quote</p></div></div>
             {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
-            <div className="load-result-head load-result-head-primary">
-              <div className="load-result-title"><b>Search Loads Results</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
-              <div className="load-view-switch"><button type="button" className="active">List View</button><button type="button" disabled>Map View</button></div>
-              <div className="load-result-controls load-result-controls-primary">
-                <button type="button" className="text-action" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }}>{expandAll ? 'Collapse all visible loads' : 'Expand all visible loads'}</button>
-                <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
-              </div>
-            </div>
             <div className="load-nav-unified">
+              <div className="load-market-nav"><button type="button" className="active">Available Loads</button><button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button><button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button></div>
+              <span className="load-nav-divider" aria-hidden="true" />
               <div className="load-tabs"><button type="button" className={loadTypeFilter === 'all' ? 'active' : ''} onClick={() => setLoadTypeFilter('all')}>All Live</button><button type="button" className={loadTypeFilter === 'on_demand' ? 'active' : ''} onClick={() => setLoadTypeFilter('on_demand')}>On Demand</button><button type="button" className={loadTypeFilter === 'regular_load' ? 'active' : ''} onClick={() => setLoadTypeFilter('regular_load')}>Regular Load</button><button type="button" className={loadTypeFilter === 'daily_hire' ? 'active' : ''} onClick={() => setLoadTypeFilter('daily_hire')}>Daily Hire</button></div>
               <div className="load-posted">Show loads posted within last <select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">all</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
-              <div className="load-result-controls load-result-controls-secondary">
-                <label className="load-page-text">Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+            </div>
+            <div className="load-result-head">
+              <div><b>Search Loads Results</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
+              <div className="load-view-switch"><button type="button" className="active">List View</button><button type="button" disabled>Map View</button></div>
+              <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                <button type="button" className="text-action" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }}>{expandAll ? 'Collapse all visible loads' : 'Expand all visible loads'}</button>
+                <label className="load-page-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
                 <span>{filteredLoads.length ? `1-${Math.min(visibleCount, filteredLoads.length)} of ${filteredLoads.length}` : '0 results'}</span>
                 {canLoadMore && <button type="button" className="rowbtn blue" onClick={() => setVisibleCount((current) => current + pageSize)}>Next</button>}
+                <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
               </div>
             </div>
             {loading ? <div className="xd2-calm-empty"><b>Loading exchange loads…</b><span>Refreshing live freight.</span></div> : loads.length === 0 ? <div className="xd2-calm-empty"><b>No exchange loads available right now</b><span>Refresh the board or keep your availability and return journey current.</span></div> : filteredLoads.length === 0 ? <div className="xd2-calm-empty"><b>No loads match these filters</b><span>Broaden the route, vehicle, freight or date criteria.</span></div> : (
@@ -352,28 +353,20 @@ export default function AvailableLoadsPage() {
                   const selectedVehicleLabel = load.requested_vehicle_label ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g,' ')) : 'Any vehicle');
                   const cargoLabel = load.requested_cargo_label ?? load.cargo_type?.replace(/_/g,' ') ?? 'Freight';
                   const dim = dimensions(load);
+                  const toCollection = load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} miles${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available';
                   const jobDistance = load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available';
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
-                  return <article key={load.id} className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}>
+                  return <article key={load.id} className="load-card cx-load-card">
                     <div className="load-primary">
                       <div className="load-route"><div className="load-route-line"><span>From:</span><b>{load.pickup_area}</b></div><div className="load-route-line"><span>To:</span><b>{load.delivery_area}</b></div><div className="load-quickfacts"><span>{jobDistance}</span><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Weight not supplied'}</span></div></div>
                       <div className="load-times"><div className="load-time-line"><span>Pickup:</span><b>{fmtDate(load.pickup_datetime)}</b></div><div className="load-time-line"><span>Deliver:</span><b>{fmtDate(load.delivery_datetime)}</b></div><div className="load-requested"><span>Requested:</span><b>{selectedVehicleLabel}</b></div></div>
                       <div className="load-member"><span className="load-type">{load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace')}</span><div className="load-postedby">Posted by <b>{load.member.postedBy ?? load.member.name}</b></div><span className="meta">{fmtDate(load.exchange_posted_at)} · Load ID: {load.id.slice(0,8).toUpperCase()}</span><span className="load-vehicle">{selectedVehicleLabel}</span></div>
                     </div>
                     <div className={'load-extra cx-load-extra ' + (expanded ? '' : 'hidden')}>
-                      <div className="load-extra-col">
-                        <div><b>Dist</b><span>{jobDistance}</span></div>
-                        <div><b>Weight</b><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</span></div>
-                        <div><b>Packaging</b><span>{cargoLabel}</span></div>
-                        <div><b>Dims</b><span>{dim ?? 'Not supplied'}</span></div>
-                      </div>
-                      <div className="load-extra-col">
-                        <div><b>Requested</b><span>{selectedVehicleLabel}</span></div>
-                        <div><b>Payment Terms</b><span>{load.payment_terms ?? 'Not supplied'}</span></div>
-                        <div><b>POD</b><span>Digital required · Hard-copy: {load.hard_copy_pod ?? 'No additional requirement'}</span></div>
-                      </div>
+                      <div className="load-extra-col"><div><b>To Collection</b><span>{toCollection}</span></div><div><b>Job Distance</b><span>{jobDistance}</span></div><div><b>Weight</b><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</span></div><div><b>Packaging</b><span>{cargoLabel}</span></div></div>
+                      <div className="load-extra-col"><div><b>Dimensions</b><span>{dim ?? 'Not supplied'}</span></div><div><b>Requested</b><span>{selectedVehicleLabel}</span></div><div><b>Payment Terms</b><span>{load.payment_terms ?? 'Not supplied'}</span></div><div><b>POD</b><span>Digital required · Hard-copy: {load.hard_copy_pod ?? 'No additional requirement'}</span></div></div>
                       <div className="load-extra-note"><b>Load Notes</b><span>{load.public_quote_notes ?? 'No public quote notes supplied.'}</span><small>Pre-award execution contacts and exact private addresses remain protected until authorised award/allocation.</small></div>
-                      {load.handling_requirements.length > 0 && <div className="load-extra-note load-extra-requirements"><b>Requirements</b><span>{load.handling_requirements.join(' · ')}</span></div>}
+                      {load.handling_requirements.length > 0 && <div className="load-extra-note"><b>Requirements</b><span>{load.handling_requirements.join(' · ')}</span></div>}
                       {bidLoadId === load.id && !quoted && <div className="driver-inline-quote"><div className="driver-filter-field"><label>Your quote (£)</label><input type="number" min="1" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} /></div><div className="driver-filter-field"><label>Message</label><textarea rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} /></div><ActionButton tone="success" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit(load.id)}>{bidLoading ? 'Submitting…' : 'Submit Quote'}</ActionButton><ActionButton tone="secondary" onClick={() => setBidLoadId(null)}>Cancel</ActionButton></div>}
                     </div>
                     <div className="load-card-footer"><button type="button" className="load-expand" onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '⌃' : '⌄'}</button>{!quoted && <button type="button" className="load-quote-footer" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}<span className="load-footer-spacer" /><button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button><span className="load-footer-identity">{load.member.memberId ?? 'Member ID unavailable'} · {load.member.name}{load.member.phone ? ` · ${load.member.phone}` : ''}</span></div>

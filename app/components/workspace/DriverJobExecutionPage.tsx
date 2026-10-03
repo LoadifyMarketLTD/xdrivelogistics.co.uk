@@ -79,7 +79,7 @@ type JobSheet = {
   };
   requirements: string[];
   hardCopyPod: string;
-  podRequired: boolean | null;
+  podRequired: boolean;
   pickup: {
     address: string | null;
     postcode: string | null;

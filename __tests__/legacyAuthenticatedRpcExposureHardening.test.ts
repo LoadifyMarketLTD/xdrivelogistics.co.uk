@@ -19,11 +19,7 @@ describe('legacy authenticated RPC exposure hardening', () => {
   });
 
   it('keeps service-role execution for controlled server-side compatibility', () => {
-    expect(migration).toContain(
-      'GRANT EXECUTE ON FUNCTION public.get_my_role_status()\nTO service_role',
-    );
-    expect(migration).toContain(
-      'GRANT EXECUTE ON FUNCTION public.is_company_members_admin(uuid)\nTO service_role',
-    );
+    expect(migration).toMatch(/GRANT EXECUTE ON FUNCTION public\.get_my_role_status\(\)\s+TO service_role/);
+    expect(migration).toMatch(/GRANT EXECUTE ON FUNCTION public\.is_company_members_admin\(uuid\)\s+TO service_role/);
   });
 });

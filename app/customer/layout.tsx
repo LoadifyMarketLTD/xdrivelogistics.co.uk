@@ -5,6 +5,7 @@ import TopWorkspaceShell from '../components/workspace/TopWorkspaceShell';
 import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
+import '../components/workspace/non-driver-owner-reference.css';
 import './customer-dashboard.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-customer-workspace">
+    <div className="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-owner-reference-workspace xdrive-customer-workspace">
       <ProtectedRoute allowedRoles={['customer']}>
         <TopWorkspaceShell forcedRole="customer">{children}</TopWorkspaceShell>
       </ProtectedRoute>

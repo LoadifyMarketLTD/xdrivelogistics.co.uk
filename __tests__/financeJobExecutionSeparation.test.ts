@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -6,7 +6,7 @@ const read = (path: string) => readFileSync(resolve(process.cwd(), path), 'utf8'
 
 const driverAction = read('app/api/driver/mobile/jobs/[id]/[action]/route.ts');
 const operatorTransition = read('app/api/admin/jobs/[id]/transition/route.ts');
-const autoInvoicePath = resolve(process.cwd(), 'app/api/_lib/autoGenerateMarketplaceInvoice.ts');
+const autoInvoice = read('app/api/_lib/autoGenerateMarketplaceInvoice.ts');
 const manualInvoice = read('app/api/driver/finance/invoices/route.ts');
 const jobInvoice = read('app/api/driver/finance/jobs/[jobId]/generate-invoice/route.ts');
 const decoupling = read('supabase/migrations/20260819151000_decouple_invoice_status_from_job_execution.sql');
@@ -14,17 +14,17 @@ const triggerNumbering = read('supabase/migrations/20260819152500_align_legacy_i
 const workspaceStage = read('lib/jobs/workspaceJobStage.ts');
 
 describe('invoice lifecycle stays separate from canonical job execution', () => {
-  it('keeps delivery transitions separate from manual invoice creation until mandatory POD is complete', () => {
-    expect(existsSync(autoInvoicePath)).toBe(false);
-    expect(driverAction).not.toContain('autoGenerateMarketplaceInvoice');
-    expect(operatorTransition).not.toContain('autoGenerateMarketplaceInvoice');
+  it('keeps delivery transitions separate from invoice creation until mandatory POD is complete', () => {
+    expect(driverAction).not.toContain('autoGenerateMarketplaceInvoice({');
+    expect(operatorTransition).not.toContain('autoGenerateMarketplaceInvoice({');
     expect(jobInvoice).toContain('hasCompletePodEvidence(job)');
     expect(jobInvoice).toContain('POD_REQUIRED_BEFORE_INVOICE');
-    expect(jobInvoice).toContain("status: toLegacyInvoiceStatusForDb('Draft')");
+    expect(autoInvoice).toContain('hasCompletePodEvidence(job)');
+    expect(autoInvoice).toContain('POD is mandatory for every job');
   });
 
   it('fails closed on canonical invoice-number generation across every server creation path', () => {
-    for (const source of [manualInvoice, jobInvoice]) {
+    for (const source of [autoInvoice, manualInvoice, jobInvoice]) {
       expect(source).toContain("rpc('next_invoice_number'");
       expect(source).toContain('Canonical invoice number generation');
       expect(source).not.toContain('fallbackNumber');

@@ -15,7 +15,7 @@ const labelStyle = { display: 'grid', gap: 4, color: '#334155', fontSize: 11, li
 const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 } as const;
 const microButtonStyle = { minHeight: 26, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 7px', background: '#fff', color: '#334155', fontSize: 11, fontWeight: 700, cursor: 'pointer' } as const;
 const invalidStyle = { border: '1px solid #dc2626', background: '#fffafa' };
-const errorTextStyle = { color: '#b91c1c', fontSize: 10, fontWeight: 700 } as const;
+const errorTextStyle = { color: '#b91c1c', fontSize: 11, lineHeight: '14px', fontWeight: 700 } as const;
 
 const normalizePostcode = (value: string) => {
   const compact = value.toUpperCase().replace(/\s+/g, '').trim();

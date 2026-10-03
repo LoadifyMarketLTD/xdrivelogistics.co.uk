@@ -217,7 +217,7 @@ export default function CustomerCompanySettingsPage() {
             { id: 'notifications', label: 'Notifications', detail: 'Workspace notifications', onClick: () => router.push('/customer/notifications') },
             { id: 'settings', label: 'Settings', detail: 'Workspace preferences', onClick: () => router.push('/customer/settings') },
           ]}
-          footer={<span style={{ color: '#64748b', fontSize: 10, lineHeight: '13px' }}>Only preferences available for this account can be edited here.</span>}
+          footer={<span style={{ color: '#64748b', fontSize: 11, lineHeight: '14px' }}>Only preferences available for this account can be edited here.</span>}
         />
 
         <main style={{ minWidth: 0, display: 'grid', gap: 8 }}>

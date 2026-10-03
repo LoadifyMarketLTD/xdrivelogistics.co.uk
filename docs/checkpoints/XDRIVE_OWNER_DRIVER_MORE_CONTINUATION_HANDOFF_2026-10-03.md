@@ -1,0 +1,830 @@
+# XDrive Owner Driver More - continuation handoff
+
+Date: 2026-10-03
+
+Owner request: repair More in Owner Driver visually, functionally and structurally, then self-verify before reporting.
+
+Mode: autonomous. Do not ask the user for intermediate approvals. Do not use Opera unless explicitly requested. Work in code and verify with PowerShell, Playwright and tests.
+
+## 1. Canonical repository and source of truth
+
+Repository:
+C:\Users\Danny\Desktop\XDrive-Local\worktree\driver-dashboard-offers
+
+Remote:
+https://github.com/LoadifyMarketLTD/xdrivelogistics.co.uk
+
+Canonical branch:
+origin/main
+
+Canonical code state immediately before this handoff:
+45748635 repair More navigation across operational workspaces
+
+Important: do not continue from local branch fix/driver-dashboard-booking-offers-20261001. It contains unrelated POD work and local logs. Create a clean worktree from the latest origin/main.
+
+Suggested PowerShell start:
+
+    Set-Location 'C:\Users\Danny\Desktop\XDrive-Local\worktree\driver-dashboard-offers'
+    git fetch origin main
+    git worktree add -b fix/owner-driver-more-final-20261003 'C:\Users\Danny\Desktop\XDrive-Local\worktree\owner-driver-more-final-20261003' origin/main
+
+If that branch or path already exists, inspect it first. Do not overwrite unknown work.
+
+## 2. Mandatory reference documents
+
+Read these before modifying Owner Driver More:
+
+1. docs/checkpoints/XDRIVE_MORE_ALL_WORKSPACES_AUDIT_2026-10-03.md
+2. docs/checkpoints/XDRIVE_ALL_WORKSPACES_OWNER_REFERENCE_ALIGNMENT_2026-10-02.md
+3. docs/checkpoints/XDRIVE_MASTER_HANDOFF_2026-09-28.md
+4. docs/benchmarks/XDRIVE_OPERATIONAL_WORKSPACE_SHELL_CANONICAL_2026-09-28.md
+5. docs/benchmarks/CX_ROLE_FUNCTION_MASTER_BLUEPRINT_2026-09-25.md
+6. docs/benchmarks/XDRIVE_DASHBOARD_ROLE_MASTER_BLUEPRINT_2026-09-26.md
+7. docs/ui/cx/driver-dashboard.md
+8. docs/design/CX_TO_XDRIVE_VISUAL_OPERATIONAL_BLUEPRINT.md
+
+Do not copy Courier Exchange visual identity. Use CX only for functional and information hierarchy reference. XDrive visual identity and current shell remain canonical.
+
+## 3. What has already been completed
+
+### A. Workspace alignment
+
+Already merged to main:
+
+- 94f0f945 align operational workspaces to owner reference
+- ad564033 scope owner reference alignment to non-driver workspaces
+
+Carrier/Admin, Fleet, Dispatcher, Finance, Compliance, Viewer, Broker and Customer were aligned to the Owner Driver reference while Super Admin was excluded.
+
+### B. Owner Driver navbar/dashboard contract repair
+
+Already merged to main:
+
+- 36212d74 repair owner driver navbar and commercial position
+
+This added or fixed:
+- Owner Driver Settings in primary navigation.
+- Owner Driver Event Log in primary navigation.
+- Owner Driver Commercial Position dashboard block.
+- Invoice readiness.
+- Outstanding.
+- Return capacity.
+- responsive stacking for that block.
+
+The previously failing legacy Owner Driver/navbar contracts were repaired as real functionality, not by suppressing tests.
+
+### C. More audit across all operational workspaces
+
+Already merged to main:
+
+- 45748635 repair More navigation across operational workspaces
+
+That commit changed:
+- app/components/workspace/TopWorkspaceShell.tsx
+- app/components/workspace/top-workspace-shell.css
+- app/driver/more/page.tsx
+- lib/roleCapabilities.ts
+- related navigation tests
+- __tests__/workspaceMoreAuditContract.test.ts
+- docs/checkpoints/XDRIVE_MORE_ALL_WORKSPACES_AUDIT_2026-10-03.md
+
+Already done in that audit:
+- Carrier/Admin More pruned.
+- Fleet More pruned.
+- Dispatcher More pruned.
+- Broker compatibility-only duplicates removed.
+- Customer compatibility-only duplicates removed.
+- Driver standalone card-based /driver/more retired; compatibility route redirects to /driver.
+- employed Driver Settings permission aligned with navbar.
+- Finance/Compliance/Viewer no longer render useless one-item More dropdowns.
+- More dropdown moved to viewport-safe fixed positioning with internal scroll.
+- desktop 1440x900 and mobile 390x844 were checked.
+- Super Admin remained unchanged.
+
+## 4. Current Owner Driver navigation on main
+
+Current Owner Driver primary navigation in composeDriverPrimaryNav with ownerDriver=true:
+
+1. Dashboard - /driver
+2. Directory - /driver/directory
+3. Live Availability - /driver/availability/live
+4. My Fleet - /driver/vehicles
+5. Return Journeys - /driver/returns
+6. Loads - /driver/loads
+7. Quotes - /driver/quotes
+8. Diary - /driver/history
+9. Event Log - /driver/event-log
+10. Freight Vision - /driver/freight-vision
+11. Drivers & Vehicles - /driver/drivers-vehicles
+12. Settings - /driver/settings
+
+Current first-pass Owner Driver More:
+
+### Work & matching
+- My Jobs - /driver/jobs
+- Won Work - /driver/won-work
+- My Availability - /driver/availability
+- Auto-match & Alerts - /driver/load-alerts
+- Who's Nearby - /driver/nearby
+
+### Business
+- Finance & Invoices - /driver/finance
+- Documents - /driver/documents
+- Messages - /driver/messages
+
+The More section labels are generated by moreMenuSectionLabel.
+
+Items intentionally removed from Owner Driver More in the general audit:
+- Notifications - header already exposes notifications.
+- Security - Settings owns it.
+- Account / My Profile - Settings owns it.
+- Company Profile - Settings owns it.
+- Company Settings - Settings owns it.
+- Membership & Billing - Settings overview owns it.
+
+The user has now explicitly requested a dedicated second pass on Owner Driver More. Do not stop just because the general checkpoint calls the structure final. Re-audit it independently.
+
+## 5. Exact remaining task
+
+The next chat must repair Owner Driver More only, visually, functionally and structurally.
+
+The goal is not to add more links. The goal is to make More contain only useful secondary Owner Driver operations, with no duplicates, dead routes, misleading labels, permission mismatches, redirect-only entries, visual clipping, or inconsistent behavior.
+
+### In scope
+
+- Owner Driver More menu.
+- Owner Driver-specific primary-vs-secondary navigation relationship.
+- Owner Driver permissions for retained More routes.
+- shared More dropdown implementation only where a change is necessary for Owner Driver and does not regress other workspaces.
+- responsive and keyboard/click behavior.
+- Owner Driver route destinations represented by More.
+
+### Out of scope
+
+- Super Admin.
+- redesigning other workspaces that were already completed.
+- unrelated POD workflow.
+- unrelated native mobile app.
+- resurrecting the old standalone Driver More card page.
+
+## 6. Required Owner Driver More audit
+
+### Step 1 - Reconstruct current Owner Driver More from code
+
+Inspect:
+- app/components/workspace/TopWorkspaceShell.tsx
+- lib/workspaceRole.ts
+- lib/roleCapabilities.ts
+- app/driver/layout.tsx
+- app/driver/more/page.tsx
+- every current Owner Driver More target route.
+
+Verify the current 8-item More list from code. Do not rely only on this handoff.
+
+### Step 2 - Check every More destination for actual usefulness
+
+For each current item:
+- verify its page exists.
+- verify it is not only a redirect to a primary destination.
+- verify Owner Driver has permission.
+- verify the destination actually provides a distinct Owner Driver task.
+- verify it is not already available directly in primary nav, header controls, Dashboard actions or Settings.
+- verify label matches actual page behavior.
+
+Current routes to inspect:
+- /driver/jobs
+- /driver/won-work
+- /driver/availability
+- /driver/load-alerts
+- /driver/nearby
+- /driver/finance
+- /driver/documents
+- /driver/messages
+
+Do not assume all 8 must remain. Remove or consolidate only when code or evidence shows redundancy.
+
+### Step 3 - Check primary navigation duplication
+
+For each More item ask:
+- Is this genuinely secondary?
+- Is a near-identical function already primary?
+- Does it belong under Settings instead?
+- Does a consolidated hub make the link redundant?
+- Is the distinction between Live Availability and My Availability clear and functional?
+- Is the distinction between Loads, My Jobs, and Won Work clear in both naming and destination?
+- Does Finance & Invoices duplicate Owner Driver Commercial Position or is it correctly the full finance workspace?
+- Does Documents belong in More or Drivers & Vehicles / Settings?
+- Does Messages need to remain in More given any header messaging control?
+
+Do not remove a useful operational function just to make the menu shorter.
+
+### Step 4 - Structural audit
+
+Verify:
+- section order is logical.
+- section names are useful.
+- no empty section headers.
+- no one-item artificial grouping unless justified.
+- no repeated labels.
+- no repeated hrefs.
+- active state is correct when current route is inside More.
+- More button indicates open state correctly.
+- menu closes after navigation.
+- click outside closes.
+- Escape closes if supported by current shell; if absent and appropriate, implement it without breaking other roles.
+- focus and keyboard behavior remain usable.
+- current selection is visually distinguishable.
+- no nested unnecessary navigation levels.
+
+### Step 5 - Visual audit
+
+Use code and Playwright, not Opera.
+
+Required viewports:
+- 1440x900 desktop
+- 768x1024 tablet
+- 390x844 mobile
+
+Capture screenshots with Owner Driver More open.
+
+Verify:
+- menu is not clipped.
+- menu does not cover the top header incorrectly.
+- menu remains inside viewport.
+- section labels have correct visual hierarchy.
+- item height and density match the Owner Driver shell.
+- border radius remains compact.
+- no oversized cards or padding.
+- text does not wrap unnecessarily.
+- no horizontal overflow.
+- scrollbar appears only when needed.
+- More trigger stays usable on mobile.
+- primary nav horizontal scrolling does not hide or detach the dropdown.
+- active and hover/focus states are readable.
+
+The general More audit used 1440x900 and 390x844. This dedicated pass must add the 768x1024 tablet check.
+
+### Step 6 - Functional navigation test
+
+For every retained Owner Driver More item:
+- click it from the fixture/runtime.
+- confirm the expected route.
+- confirm no 404.
+- confirm no immediate redirect to an unrelated primary route.
+- confirm permission guard allows Owner Driver.
+- confirm route can return to Owner Driver shell.
+
+If authentication makes production-like route navigation impractical, verify route existence plus permission resolver plus page source and document the limitation. Do not invent a successful runtime result.
+
+### Step 7 - Legacy route rule
+
+app/driver/more/page.tsx intentionally redirects to /driver.
+
+Do not recreate the old card-based standalone More page.
+
+The canonical More experience is the shared shell dropdown.
+
+### Step 8 - Regression protection
+
+Existing test:
+- __tests__/workspaceMoreAuditContract.test.ts
+
+Also run:
+- __tests__/unifiedWorkspaceNavbarContract.test.ts
+- __tests__/cxDriverTopNavigationContract.test.ts
+- __tests__/cxDriverPrimaryNavParityContract.test.ts
+- __tests__/operationalShellRecoveryContract.test.ts
+- __tests__/dashboardConnectedWorkspaceContract.test.ts
+- relevant driverWorkspaceMode, Driver dashboard and role permission tests.
+
+Add a dedicated Owner Driver More contract if the generic contract does not fully protect:
+- exact retained hrefs.
+- exact labels.
+- no primary duplicates.
+- no Settings/header duplicates.
+- section boundaries.
+- permission coverage.
+- viewport-safe CSS hooks where relevant.
+
+Do not weaken tests simply to match an implementation regression.
+
+### Step 9 - Quality gates
+
+Before commit:
+- targeted tests PASS.
+- ESLint PASS for changed TS/TSX.
+- git diff --check PASS.
+- npm run typecheck PASS.
+- npm run build PASS.
+- confirm no Super Admin diff.
+- inspect final diff manually.
+
+Before push:
+
+    git fetch origin main
+    git rev-list --left-right --count origin/main...HEAD
+
+Rebase onto current origin/main if needed, rerun relevant tests after conflict resolution, then push.
+
+## 7. Existing More behavior that must not be regressed
+
+From commit 45748635:
+
+- More dropdown uses viewport-safe fixed positioning.
+- More has a max height with vertical scrolling.
+- desktop and mobile clipping issue was repaired.
+- Carrier/Fleet/Dispatcher/Broker/Customer cleanup is already in main.
+- Finance/Compliance/Viewer intentionally have no More when only one secondary route would remain.
+- Driver /driver/more standalone cards were retired.
+- Driver Settings permission includes both driver and owner_driver.
+
+If shared shell changes are necessary, rerun the all-workspace More contract to prove these still work.
+
+## 8. Current known relevant commits on main
+
+Relevant sequence:
+- 58413ea3 enforce_pod_before_invoice_and_share_pod
+- 94f0f945 align operational workspaces to owner reference
+- ad564033 scope owner reference alignment to non-driver workspaces
+- 36212d74 repair owner driver navbar and commercial position
+- 45748635 repair More navigation across operational workspaces
+
+The next Owner Driver More repair must be based on the latest origin/main, not an older SHA.
+
+## 9. User operating instructions
+
+The user has repeatedly required:
+
+- Work autonomously.
+- Do not ask for intermediate approval when the repository and handoff provide the answer.
+- Self-check after every meaningful change.
+- Do not claim PASS, final or complete without actual verification.
+- Use PowerShell and code for this task.
+- Owner Driver is now explicitly allowed to be modified for the More repair.
+- Super Admin remains excluded.
+- Do not mix unrelated work into the Owner Driver More commit.
+- Report only what was actually changed and verified.
+
+## 10. Do not confuse this with unrelated branches
+
+The local worktree:
+C:\Users\Danny\Desktop\XDrive-Local\worktree\driver-dashboard-offers
+
+is on:
+fix/driver-dashboard-booking-offers-20261001
+
+and contains unrelated POD history and local log artifacts. Do not use it as the write target for this continuation.
+
+A branch named fix/owner-driver-more-20261003 may exist locally and currently points at the same state as main with no unique diff. Treat it as non-authoritative unless a fresh status and diff prove otherwise.
+
+Always start with:
+
+    git fetch origin main
+    git log -5 --oneline origin/main
+    git status --short
+    git worktree list
+
+## 11. Completion definition
+
+The task is complete only when:
+
+1. Owner Driver More has been independently audited.
+2. Any real visual, functional or structural defects found are fixed.
+3. Every retained item has a distinct useful purpose.
+4. No primary, header, Settings or redirect duplicates remain.
+5. All retained routes and permissions are verified.
+6. Desktop, tablet and mobile menu behavior is verified.
+7. Owner Driver-specific regression protection exists.
+8. Super Admin is unchanged.
+9. Typecheck, build, tests and diff check pass.
+10. Changes are committed and pushed to main.
+11. Final response lists exactly:
+   - what was removed,
+   - what was renamed,
+   - what was moved,
+   - what was fixed structurally,
+   - tests and gates with counts,
+   - final main commit.
+
+Do not stop at analysis. Implement and verify.
+
+## 12. Reconciliation update after repository / preview / database audit
+
+This section was added after re-auditing the real repository state on 2026-10-03. Where this section conflicts with earlier historical wording, this section is authoritative.
+
+### A. Latest verified main state
+
+Latest fetched `origin/main`:
+
+- `2fe58ece docs handoff owner driver More continuation`
+
+Relevant main sequence immediately below it:
+
+- `45748635 repair More navigation across operational workspaces`
+- `36212d74 repair owner driver navbar and commercial position`
+- `ad564033 scope owner reference alignment to non-driver workspaces`
+- `94f0f945 align operational workspaces to owner reference`
+- `58413ea3 enforce_pod_before_invoice_and_share_pod`
+- `e9ee786f enforce_mandatory_pod_before_invoice`
+- `3e337fd4 make driver POD mandatory after delivery`
+- `d18f2a34 enforce POD before completion and remove auto invoice`
+- `2a448d52 disable automatic invoice trigger and normalise POD requirement`
+- `31c9f381 remove POD from commercial amendment options`
+- `28436ba8 make mobile POD requirement unconditional`
+- `d02cef60 make workspace job sheet POD mandatory`
+- `e5b60e2e make driver job sheet POD mandatory`
+- `aa22cc04 enforce mandatory POD after delivery before completion`
+- `eb3feaeb test platform stripe inheritance for carrier and broker`
+- `170ba2b1 fix customer workspace platform stripe inheritance`
+
+Do not re-cherry-pick equivalent commits from older working branches into main. The functionality above is already present on main under these SHAs.
+
+### B. Current legacy working branch / PR #656 state
+
+The older working tree remains:
+
+`C:\Users\Danny\Desktop\XDrive-Local\worktree\driver-dashboard-offers`
+
+Branch:
+
+`fix/driver-dashboard-booking-offers-20261001`
+
+Current branch HEAD verified during this audit:
+
+`b4286d24294ed7f0587b858628686ff12ad1eed6`
+
+Commit:
+
+`b4286d24 enforce_pod_before_invoice_and_share_pod`
+
+Remote branch points to the same SHA.
+
+PR:
+
+- PR #656
+- title: `Dashboard parity: complete CX vs XDrive Dashboard audit and fixes`
+- state: open
+- head: `fix/driver-dashboard-booking-offers-20261001`
+- head SHA: `b4286d24...`
+- commits reported by GitHub: 51
+- changed files reported by GitHub: 87
+
+Netlify status for `b4286d24`:
+
+- `netlify/xdrivelogistics/deploy-preview`: success
+- preview: `https://deploy-preview-656--xdrivelogistics.netlify.app`
+
+Important divergence:
+
+- branch is 51 commits ahead of current `origin/main`
+- branch is 17 commits behind current `origin/main`
+- branch HEAD is not an ancestor of main
+
+Therefore:
+
+**Do not merge PR #656 or this branch wholesale into main without reconciliation.**
+Most critical POD and workspace/More changes already exist on main under different SHAs. A blind merge would risk replaying old dashboard work and reintroducing conflicts.
+
+### C. Equivalent POD commits on the legacy branch
+
+The current legacy branch contains the same POD direction under different SHAs:
+
+- `463c7736 enforce mandatory POD after delivery before completion`
+- `57299906 make driver job sheet POD mandatory`
+- `32b4ddbc make workspace job sheet POD mandatory`
+- `e0c6ad3e make mobile POD requirement unconditional`
+- `1ff38b70 remove POD from commercial amendment options`
+- `3d2db772 disable automatic invoice trigger and normalise POD requirement`
+- `ffd8fdef enforce POD before completion and remove auto invoice`
+- `ad370660 make driver POD mandatory after delivery`
+- `8a710d27 enforce_mandatory_pod_before_invoice`
+- `b4286d24 enforce_pod_before_invoice_and_share_pod`
+
+These are useful historical references only. Main already contains their canonical equivalents listed in 12.A.
+
+## 13. POD contract - verified implementation and live database state
+
+The user's explicit rule is canonical:
+
+**POD is mandatory for every job. There is no optional-POD path. The order is: delivered -> complete POD -> completed -> Create Invoice.**
+
+Do not reintroduce any `if POD required` / optional POD branch.
+
+### A. Code-level canonical enforcement
+
+Current code includes:
+
+`lib/jobs/podCompletion.ts`
+
+`hasCompletePodEvidence(record)` requires all of:
+
+- `pod_generated === true`
+- at least one delivery/POD evidence item
+- stored recipient signature
+- non-empty recipient name
+
+Invoice generation route:
+
+`app/api/driver/finance/jobs/[jobId]/generate-invoice/route.ts`
+
+It rejects invoice creation before complete POD with:
+
+- HTTP 409
+- code `POD_REQUIRED_BEFORE_INVOICE`
+- message explaining that POD is mandatory for every job and must include evidence, recipient signature and recipient name
+
+### B. Driver execution UI enforcement
+
+`app/components/workspace/DriverJobExecutionPage.tsx` currently enforces:
+
+- at least one delivery photo before POD completion
+- recipient name before POD completion
+- recipient signature before POD completion
+- hard-copy POD acknowledgement when the job also has a hard-copy requirement
+- no `completed` transition while `pod_generated !== true`
+- no Create Invoice action while `pod_generated !== true`
+
+Observed code messages include:
+
+- `At least one delivery photo is required to complete POD.`
+- `Recipient name is required to complete POD.`
+- `Recipient signature is required to complete POD.`
+- `Complete POD before completing this job.`
+- `Complete POD before creating an invoice.`
+
+At `delivered` with incomplete POD, the UI exposes the POD completion action rather than allowing the lifecycle to bypass it.
+
+### C. Shared POD viewer
+
+Main / branch code includes:
+
+`app/components/workspace/PodWorkspaceViewer.tsx`
+
+and authorised API:
+
+`app/api/workspace/jobs/[jobId]/pod/route.ts`
+
+The shared workspace POD presentation exposes authorised parties to canonical POD information including:
+
+- recipient
+- completion date/time
+- signature
+- delivery photos
+- damage evidence
+- POD documents
+- delivery / receiver / driver notes when present
+
+The API checks workspace membership against job owner / awarded carrier / assigned company boundaries before returning POD.
+
+### D. Production Supabase verification
+
+Supabase project verified:
+
+- project: `xdrivelogistics`
+- project ref: `jqxlauexhkonixtjvljw`
+
+Migration list contains:
+
+- `20261002203237 enforce_pod_after_delivery_before_completion`
+
+Production database was queried read-only during this audit and returned:
+
+- legacy auto-invoice trigger `trg_generate_invoice_on_job_completion`: **absent**
+- `jobs.pod_required` default: **true**
+- jobs where `pod_required IS DISTINCT FROM true`: **0**
+
+The live `public.driver_update_job_status_atomic` function was also inspected and currently requires, before transition to `completed`:
+
+- at least one delivery photo
+- recipient signature
+- recipient name
+- signature evidence consistency where the signature is stored as structured evidence
+
+This proves the database is aligned with the mandatory POD lifecycle and that automatic invoice creation is not currently active through the old completion trigger.
+
+## 14. Validation state discovered during this audit
+
+### A. Typecheck
+
+Recorded file:
+
+`.pod-typecheck.exit`
+
+Value:
+
+`0`
+
+Recorded command:
+
+`npm run typecheck`
+
+Result: PASS for the recorded POD validation run.
+
+### B. Production build
+
+Recorded `.pod-build.log` shows:
+
+- Next.js 15.5.25
+- optimized production build compiled successfully
+- lint/type validation stage completed
+- static generation completed: 173/173 pages
+
+The log contains repeated expected local-build warnings that `SUPABASE_SERVICE_ROLE_KEY` is not set for build-time admin operations.
+
+There is no separate persisted `.pod-build.exit` marker in this worktree, so do not claim a stored numeric build exit code from that log alone.
+
+### C. Full unit suite is NOT currently green on the legacy branch
+
+Recorded:
+
+`.full-unit.exit` = `1`
+
+Summary from `.full-unit.log`:
+
+- Test Files: 19 failed | 387 passed (406)
+- Tests: 19 failed | 2484 passed (2503)
+
+Do not report the legacy branch full suite as PASS.
+
+At least some failures are stale contract expectations that conflict with intentionally changed behaviour. Example:
+
+`__tests__/workspaceJobSheetPodTruth.test.ts`
+
+still expected the older optional-POD semantics and fails because the implementation now correctly treats POD as mandatory.
+
+Other failures include older Driver navigation/dashboard contracts that were subsequently repaired on main.
+
+Do not assume all 19 failures are stale. On the next clean main-based change, rerun the relevant targeted contracts and the full suite, then classify any remaining failures individually.
+
+### D. Untracked validation artifacts
+
+The legacy branch working tree contains these untracked logs only:
+
+- `.full-unit.exit`
+- `.full-unit.log`
+- `.pod-build.log`
+- `.pod-typecheck.exit`
+- `.pod-typecheck.log`
+
+They are evidence/log artifacts, not product source. Do not commit them unless there is an explicit reason.
+
+## 15. Owner Driver More - exact current status after reconciliation
+
+### A. General More repair is already on main
+
+`45748635 repair More navigation across operational workspaces`
+
+remains the canonical implementation.
+
+The old branch commit:
+
+`e7fd3fd6 driver_more_full_audit_and_rebuild`
+
+is not the canonical final form because main later retired the standalone card-based `/driver/more` experience and made the shared shell dropdown canonical.
+
+### B. Dedicated Owner Driver second pass is still outstanding
+
+The existing local branch:
+
+`fix/owner-driver-more-20261003`
+
+was verified to point at:
+
+`457486354d528f68a6bdd4b4a91f79cfa22352b3`
+
+It has:
+
+- 0 unique commits ahead of main
+- it is 1 commit behind main (the handoff commit itself)
+- no worktree is currently attached to it
+
+Therefore the dedicated Owner Driver More second pass described in sections 5-11 has **not** produced a new implementation commit yet.
+
+Do not report it as completed.
+
+### C. Correct continuation for More
+
+Start from latest `origin/main`, not from PR #656.
+
+The existing `fix/owner-driver-more-20261003` branch may be reused only after:
+
+1. fetch latest main
+2. verify it still has no unique commits
+3. fast-forward it to current main, or create a clean branch if safer
+4. attach a clean worktree
+
+Do not restore the retired standalone `/driver/more` card page.
+
+The canonical More UX remains the shared shell dropdown.
+
+## 16. All-workspace alignment - current status
+
+The platform-wide operational alignment work is already present on main through:
+
+- `94f0f945 align operational workspaces to owner reference`
+- `ad564033 scope owner reference alignment to non-driver workspaces`
+- `36212d74 repair owner driver navbar and commercial position`
+- `45748635 repair More navigation across operational workspaces`
+
+Scope already covered:
+
+- Owner Driver / Driver shell reference
+- Carrier/Admin
+- Fleet
+- Dispatcher
+- Finance
+- Compliance
+- Viewer
+- Broker
+- Customer/Shipper
+
+Super Admin remains intentionally excluded.
+
+Do not redo global workspace alignment from the older PR #656 branch unless a new regression is demonstrated on current main.
+
+## 17. Next-chat priority and source-of-truth rules
+
+### Priority 1 - Owner Driver More dedicated second pass
+
+Continue sections 5-11 of this same handoff from latest `origin/main`.
+
+Required outcome:
+
+- independently re-audit the retained Owner Driver More links
+- remove only proven duplicates / redirect-only / misleading items
+- verify retained permissions
+- verify desktop 1440x900
+- verify tablet 768x1024
+- verify mobile 390x844
+- verify click / outside click / Escape / focus / active state
+- add or strengthen Owner Driver-specific regression protection
+- keep the shared dropdown canonical
+- leave Super Admin unchanged
+
+### Priority 2 - POD only if the user asks to continue POD work
+
+Do **not** re-implement mandatory POD. It is already in main and verified in the live database.
+
+If continuing POD, focus on end-to-end runtime verification:
+
+1. take a real test job through `delivered`
+2. verify completion is blocked before POD
+3. complete POD with photo + recipient name + signature
+4. verify canonical POD is visible to authorised workspace parties
+5. verify `completed` becomes available only after POD
+6. verify Create Invoice is blocked before POD and available after complete POD
+7. verify no invoice is auto-created merely by delivery/completion
+8. verify generated invoice remains Draft until explicit submit/send workflow
+9. verify Customer/Broker/Carrier views see the correct POD data without leaking unauthorised evidence
+
+Do not copy Courier Exchange visual identity. CX is workflow / information hierarchy reference only.
+
+### Priority 3 - test reconciliation
+
+On a clean branch from latest main:
+
+- run the targeted More contracts listed earlier
+- run relevant POD contracts if POD is touched
+- run ESLint on changed files
+- run `git diff --check`
+- run `npm run typecheck`
+- run `npm run build`
+- run full unit suite
+- classify every failure; update a test only when its old expectation is demonstrably obsolete because of an approved product rule
+
+Never weaken tests solely to make the suite green.
+
+## 18. Final continuity warning
+
+There are now two different histories representing similar work:
+
+1. canonical main history with More/alignment/POD already merged
+2. legacy PR #656 branch with older dashboard commits and equivalent POD commits under different SHAs
+
+For all new Owner Driver More work:
+
+**use latest origin/main as source of truth.**
+
+For forensic comparison only:
+
+- PR #656 preview is still useful because it is live and green at `b4286d24`
+- do not use it as the base for the dedicated More continuation
+
+Do not merge or cherry-pick the legacy POD sequence into main again.
+
+## 19. Bootstrap instruction for the next ChatGPT chat
+
+At the start of the next chat, before making any XDrive Owner Driver More, workspace-alignment or POD change:
+
+1. fetch latest `origin/main`
+2. read this exact file in full:
+   `docs/checkpoints/XDRIVE_OWNER_DRIVER_MORE_CONTINUATION_HANDOFF_2026-10-03.md`
+3. treat sections 12-19 as the latest reconciliation layer when older sections describe historical branch state
+4. verify current `origin/main` HEAD because it may have advanced after this document update
+5. do not resume from PR #656 unless the task is forensic comparison
+6. do not recreate another continuation handoff; update this same file if continuity information changes
+7. continue implementation from the priorities in section 17
+
+Canonical document location:
+
+`LoadifyMarketLTD/xdrivelogistics.co.uk / main / docs/checkpoints/XDRIVE_OWNER_DRIVER_MORE_CONTINUATION_HANDOFF_2026-10-03.md`

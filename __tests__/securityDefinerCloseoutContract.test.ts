@@ -49,12 +49,8 @@ describe('SECURITY DEFINER closeout contract', () => {
   });
 
   it('removes direct authenticated execution from the two unused legacy helpers', () => {
-    expect(closeoutMigrations).toContain(
-      'REVOKE ALL ON FUNCTION public.get_my_role_status()\nFROM PUBLIC, anon, authenticated',
-    );
-    expect(closeoutMigrations).toContain(
-      'REVOKE ALL ON FUNCTION public.is_company_members_admin(uuid)\nFROM PUBLIC, anon, authenticated',
-    );
+    expect(closeoutMigrations).toMatch(/REVOKE ALL ON FUNCTION public\.get_my_role_status\(\)\s+FROM PUBLIC, anon, authenticated/);
+    expect(closeoutMigrations).toMatch(/REVOKE ALL ON FUNCTION public\.is_company_members_admin\(uuid\)\s+FROM PUBLIC, anon, authenticated/);
   });
 
   it('closes anonymous execution on active authenticated helpers', () => {

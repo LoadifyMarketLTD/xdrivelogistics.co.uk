@@ -14,11 +14,11 @@ describe('Driver assigned job sheet truth', () => {
     expect(panel).toContain('No persistent job-level execution vehicle is recorded.');
   });
 
-  it('keeps unknown POD requirement nullable instead of defaulting to required', () => {
-    expect(route).toContain('const podRequired = boolValue(agreement.pod_required)');
-    expect(route).not.toContain('boolValue(job.pod_required)\n    ?? true');
-    expect(panel).toContain('podRequired: boolean | null');
-    expect(panel).toContain("sheet.podRequired == null ? 'Not supplied'");
+  it('enforces the platform-wide mandatory POD contract', () => {
+    expect(route).toContain('const podRequired = true;');
+    expect(panel).toContain('podRequired: boolean;');
+    expect(panel).toContain('Digital POD is mandatory for every XDrive job.');
+    expect(panel).not.toContain("sheet.podRequired == null ? 'Not supplied'");
   });
 
   it('does not use service-role enrichment to grant company invoice visibility to a driver', () => {

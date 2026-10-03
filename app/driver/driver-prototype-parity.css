@@ -1166,7 +1166,7 @@
 .xdrive-driver-workspace .driver-dashboard-statusbar{
   width:100%;
   display:grid;
-  grid-template-columns:repeat(6,minmax(0,1fr));
+  grid-template-columns:repeat(3,minmax(0,1fr));
   border:1px solid #c8d2dd;
   background:#fff;
   margin:0 0 8px;
@@ -1337,7 +1337,7 @@
 
 .xdrive-driver-workspace .driver-dashboard-readiness__grid{
   display:grid;
-  grid-template-columns:repeat(4,minmax(0,1fr));
+  grid-template-columns:repeat(3,minmax(0,1fr));
 }
 .xdrive-driver-workspace .driver-dashboard-readiness__grid button{
   min-height:58px;
@@ -1382,13 +1382,13 @@
   display:none !important;
 }
 
-@media(max-width:1200px){
-  .xdrive-driver-workspace .driver-dashboard-statusbar{grid-template-columns:repeat(3,minmax(0,1fr))}
-  .xdrive-driver-workspace .driver-dashboard-statusbar button:nth-child(3n){border-right:0}
-  .xdrive-driver-workspace .driver-dashboard-statusbar button:nth-child(-n+3){border-bottom:1px solid #d9e0e7}
-  .xdrive-driver-workspace .driver-dashboard-readiness__grid{grid-template-columns:repeat(2,minmax(0,1fr))}
-  .xdrive-driver-workspace .driver-dashboard-readiness__grid button:nth-child(2){border-right:0}
-  .xdrive-driver-workspace .driver-dashboard-readiness__grid button:nth-child(-n+2){border-bottom:1px solid #d9e0e7}
+@media(max-width:768px){
+  .xdrive-driver-workspace .driver-dashboard-statusbar,
+  .xdrive-driver-workspace .driver-dashboard-readiness__grid{grid-template-columns:1fr}
+  .xdrive-driver-workspace .driver-dashboard-statusbar button,
+  .xdrive-driver-workspace .driver-dashboard-readiness__grid button{border-right:0;border-bottom:1px solid #d9e0e7}
+  .xdrive-driver-workspace .driver-dashboard-statusbar button:last-child,
+  .xdrive-driver-workspace .driver-dashboard-readiness__grid button:last-child{border-bottom:0}
 }
 
 
@@ -1437,5 +1437,17 @@
   .xdrive-driver-workspace .driver-finance-register .finance-tabs button{
     min-width:112px;
     flex:0 0 auto;
+  }
+}
+
+.xdrive-driver-workspace .driver-owner-commercial-position__grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:8px;
+}
+
+@media(max-width:900px){
+  .xdrive-driver-workspace .driver-owner-commercial-position__grid{
+    grid-template-columns:1fr;
   }
 }
