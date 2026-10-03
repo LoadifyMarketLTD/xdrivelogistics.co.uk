@@ -16,6 +16,7 @@ describe('CX Driver Freight Vision live refresh parity', () => {
     expect(source).toContain('<DriverFreightVisionMap');
     expect(source).toContain('/api/tracking/jobs/');
     expect(source).toContain('Open Freight Vision in new window');
+    expect(source).not.toContain('Payment Report');
     expect(source).not.toContain('className="map vision-map"');
     expect(source).not.toContain('className="mapnote"');
   });

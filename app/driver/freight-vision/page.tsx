@@ -170,7 +170,6 @@ export default function DriverFreightVisionPage() {
         subtitle="Live tracked jobs, tracking freshness and delivery-risk visibility from approved XDrive tracking data."
         headerActions={
           <>
-            <button type="button" className="driver-more-button" onClick={() => router.push('/driver/finance')}>Payment Report</button>
             <button type="button" className="driver-more-button" onClick={() => { setSearch(''); setScope('all'); }}>Clear</button>
             <button type="button" className="driver-more-button driver-more-button--primary" onClick={() => void load()} disabled={loading}>{loading ? 'Refreshing...' : 'Refresh'}</button>
           </>
