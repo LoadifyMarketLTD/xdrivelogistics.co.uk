@@ -811,3 +811,20 @@ For forensic comparison only:
 - do not use it as the base for the dedicated More continuation
 
 Do not merge or cherry-pick the legacy POD sequence into main again.
+
+## 19. Bootstrap instruction for the next ChatGPT chat
+
+At the start of the next chat, before making any XDrive Owner Driver More, workspace-alignment or POD change:
+
+1. fetch latest `origin/main`
+2. read this exact file in full:
+   `docs/checkpoints/XDRIVE_OWNER_DRIVER_MORE_CONTINUATION_HANDOFF_2026-10-03.md`
+3. treat sections 12-19 as the latest reconciliation layer when older sections describe historical branch state
+4. verify current `origin/main` HEAD because it may have advanced after this document update
+5. do not resume from PR #656 unless the task is forensic comparison
+6. do not recreate another continuation handoff; update this same file if continuity information changes
+7. continue implementation from the priorities in section 17
+
+Canonical document location:
+
+`LoadifyMarketLTD/xdrivelogistics.co.uk / main / docs/checkpoints/XDRIVE_OWNER_DRIVER_MORE_CONTINUATION_HANDOFF_2026-10-03.md`
