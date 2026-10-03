@@ -97,6 +97,7 @@ function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: 
     id: row.id,
     publicReference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
     poster: {
+      companyId: row.company_id ?? null,
       name: company?.name ?? null,
       memberCode: posterMemberId ?? company?.xd_id ?? null,
       memberType: company?.company_type ?? null,

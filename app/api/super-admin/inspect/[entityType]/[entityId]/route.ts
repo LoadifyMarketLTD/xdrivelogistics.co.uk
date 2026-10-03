@@ -70,7 +70,7 @@ async function inspectCompany(entityId: string): Promise<InspectorPayload | null
   if (!supabaseAdmin) return null;
   const { data: company, error } = await supabaseAdmin
     .from('companies')
-    .select('id, name, legal_name, trading_name, status, company_type, company_number, vat_number, email, phone, website, city, postcode, country, xd_id, created_at, updated_at')
+    .select('id, name, legal_name, trading_name, status, company_type, company_number, vat_number, email, phone, contact_name, website, city, postcode, country, xd_id, created_at, updated_at')
     .eq('id', entityId)
     .maybeSingle();
   if (error) throw new Error(error.message);
@@ -99,7 +99,7 @@ async function inspectCompany(entityId: string): Promise<InspectorPayload | null
     subtitle: [optional(company.company_number), optional(company.company_type), optional(company.email)].filter(Boolean).join(' · '),
     status: optional(company.status),
     sections: [
-      { id: 'identity', title: 'Company identity', fields: [field('legal_name', 'Legal name', company.legal_name), field('trading_name', 'Trading name', company.trading_name ?? company.name), field('company_number', 'Company number', company.company_number), field('vat_number', 'VAT number', company.vat_number), field('xd_id', 'XDrive ID', company.xd_id), field('company_type', 'Company type', company.company_type)] },
+      { id: 'identity', title: 'Company identity', fields: [field('legal_name', 'Legal name', company.legal_name), field('trading_name', 'Trading name', company.trading_name ?? company.name), field('company_number', 'Company number', company.company_number), field('vat_number', 'VAT number', company.vat_number), field('xd_id', 'XDrive ID', company.xd_id), field('company_type', 'Company type', company.company_type), field('contact_name', 'Contact person', company.contact_name)] },
       { id: 'contact', title: 'Contact and registered location', fields: [field('email', 'Email', company.email), field('phone', 'Phone', company.phone), field('website', 'Website', company.website), field('city', 'City', company.city), field('postcode', 'Postcode', company.postcode), field('country', 'Country', company.country)] },
       { id: 'platform', title: 'Platform state', fields: [field('status', 'Status', company.status), field('created_at', 'Created', company.created_at), field('updated_at', 'Updated', company.updated_at), field('members', 'Memberships', memberCount), field('drivers', 'Drivers', driverCount), field('vehicles', 'Vehicles', vehicleCount), field('posting_jobs', 'Jobs posted', postingJobCount), field('awarded_jobs', 'Jobs awarded', awardedJobCount), field('invoices', 'Invoices', invoiceCount)] },
     ],

@@ -24,6 +24,7 @@ type CompanyRow = {
   vat_number: string | null;
   email: string | null;
   phone: string | null;
+  contact_name: string | null;
   address_line1: string | null;
   address_line2: string | null;
   city: string | null;
@@ -37,6 +38,7 @@ type SettingsForm = {
   name: string;
   email: string;
   phone: string;
+  contactName: string;
   addressLine1: string;
   addressLine2: string;
   city: string;
@@ -45,7 +47,7 @@ type SettingsForm = {
 };
 
 const EMPTY_FORM: SettingsForm = {
-  name: '', email: '', phone: '', addressLine1: '', addressLine2: '', city: '', postcode: '', country: 'United Kingdom',
+  name: '', email: '', phone: '', contactName: '', addressLine1: '', addressLine2: '', city: '', postcode: '', country: 'United Kingdom',
 };
 
 const inputStyle = {
@@ -74,6 +76,7 @@ const toForm = (company: CompanyRow): SettingsForm => ({
   name: company.name ?? '',
   email: company.email ?? '',
   phone: company.phone ?? '',
+  contactName: company.contact_name ?? '',
   addressLine1: company.address_line1 ?? '',
   addressLine2: company.address_line2 ?? '',
   city: company.city ?? '',
@@ -108,7 +111,7 @@ export default function CustomerCompanySettingsPage() {
     const [companyResult, roleResult] = await Promise.all([
       supabase
         .from('companies')
-        .select('id, name, company_number, vat_number, email, phone, address_line1, address_line2, city, postcode, country, status, company_type')
+        .select('id, name, company_number, vat_number, email, phone, contact_name, address_line1, address_line2, city, postcode, country, status, company_type')
         .eq('id', workspace.companyId)
         .maybeSingle(),
       user?.id
@@ -169,6 +172,7 @@ export default function CustomerCompanySettingsPage() {
         name: form.name.trim(),
         email: nullable(form.email),
         phone: nullable(form.phone),
+        contact_name: nullable(form.contactName),
         address_line1: nullable(form.addressLine1),
         address_line2: nullable(form.addressLine2),
         city: nullable(form.city),
@@ -176,7 +180,7 @@ export default function CustomerCompanySettingsPage() {
         country: form.country.trim() || 'United Kingdom',
       })
       .eq('id', workspace.companyId)
-      .select('id, name, company_number, vat_number, email, phone, address_line1, address_line2, city, postcode, country, status, company_type')
+      .select('id, name, company_number, vat_number, email, phone, contact_name, address_line1, address_line2, city, postcode, country, status, company_type')
       .maybeSingle();
 
     if (updateError) {
@@ -230,6 +234,7 @@ export default function CustomerCompanySettingsPage() {
               <Panel title="Company profile" description={canEdit ? 'Update the company identity and contact details used by this customer workspace.' : 'This company profile is read-only for your current role.'}>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(210px, 1fr))', gap: 8 }}>
                   <label style={labelStyle}>Company name<input disabled={!canEdit} style={inputStyle} value={form.name} onChange={(event) => updateField('name', event.target.value)} /></label>
+                  <label style={labelStyle}>Contact person<input disabled={!canEdit} style={inputStyle} value={form.contactName} onChange={(event) => updateField('contactName', event.target.value)} /></label>
                   <label style={labelStyle}>Email<input disabled={!canEdit} type="email" style={inputStyle} value={form.email} onChange={(event) => updateField('email', event.target.value)} /></label>
                   <label style={labelStyle}>Phone<input disabled={!canEdit} style={inputStyle} value={form.phone} onChange={(event) => updateField('phone', event.target.value)} /></label>
                   <label style={labelStyle}>Address line 1<input disabled={!canEdit} style={inputStyle} value={form.addressLine1} onChange={(event) => updateField('addressLine1', event.target.value)} /></label>

@@ -26,6 +26,7 @@ type CompanyRow = {
   vat_number: string | null;
   email: string | null;
   phone: string | null;
+  contact_name: string | null;
   website: string | null;
   description: string | null;
   international_work_approved: boolean | null;
@@ -138,7 +139,7 @@ const routeMap: Record<RoleMode, {
 };
 
 const blankCompany = {
-  name: '', email: '', phone: '', website: '', description: '', address1: '', address2: '', city: '', postcode: '', country: 'United Kingdom',
+  name: '', email: '', phone: '', contactName: '', website: '', description: '', address1: '', address2: '', city: '', postcode: '', country: 'United Kingdom',
 };
 const blankProfile = { fullName: '', phone: '' };
 const textOrNull = (value: string) => value.trim() || null;
@@ -208,7 +209,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     const [companyResult, profileResult, roleResult] = await Promise.all([
       supabase
         .from('companies')
-        .select('id,name,legal_name,trading_name,company_number,xd_id,vat_number,email,phone,website,description,international_work_approved,address_line1,address_line2,city,postcode,country,status,company_type')
+        .select('id,name,legal_name,trading_name,company_number,xd_id,vat_number,email,phone,contact_name,website,description,international_work_approved,address_line1,address_line2,city,postcode,country,status,company_type')
         .eq('id', companyId)
         .maybeSingle(),
       supabase
@@ -233,6 +234,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
         name: companyRow.name ?? companyRow.trading_name ?? companyRow.legal_name ?? '',
         email: companyRow.email ?? '',
         phone: companyRow.phone ?? '',
+        contactName: companyRow.contact_name ?? '',
         website: companyRow.website ?? '',
         description: companyRow.description ?? '',
         address1: companyRow.address_line1 ?? '',
@@ -263,6 +265,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
         name: companyForm.name.trim(),
         email: textOrNull(companyForm.email),
         phone: textOrNull(companyForm.phone),
+        contact_name: textOrNull(companyForm.contactName),
         website: textOrNull(companyForm.website),
         description: textOrNull(companyForm.description),
         address_line1: textOrNull(companyForm.address1),
@@ -422,6 +425,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
               <Panel title="Company Profile" description={canEditCompany ? 'Edit the live company record used by this workspace.' : 'Your current membership can view this company profile but cannot edit it.'}>
                 <div className="role-settings-form">
                   <label>Company name<input disabled={!canEditCompany} value={companyForm.name} onChange={(e) => setCompanyForm((v) => ({ ...v, name: e.target.value }))} /></label>
+                  <label>Contact person<input disabled={!canEditCompany} value={companyForm.contactName} onChange={(e) => setCompanyForm((v) => ({ ...v, contactName: e.target.value }))} /></label>
                   <label>Email<input disabled={!canEditCompany} type="email" value={companyForm.email} onChange={(e) => setCompanyForm((v) => ({ ...v, email: e.target.value }))} /></label>
                   <label>Phone<input disabled={!canEditCompany} value={companyForm.phone} onChange={(e) => setCompanyForm((v) => ({ ...v, phone: e.target.value }))} /></label>
                   <label>Website<input disabled={!canEditCompany} type="url" value={companyForm.website} onChange={(e) => setCompanyForm((v) => ({ ...v, website: e.target.value }))} placeholder="https://example.co.uk" /></label>
