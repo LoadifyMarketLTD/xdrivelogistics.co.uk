@@ -309,11 +309,15 @@
 }
 
 .xdrive-operational-top-workspace .top-workspace-nav__menu {
-  position: absolute;
-  top: 42px !important;
-  left: 0;
+  position: fixed;
+  top: 92px !important;
+  right: 16px;
+  left: auto;
   z-index: 95;
   width: 230px !important;
+  max-height: calc(100vh - 104px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 4px !important;
   border: 1px solid #cfd7e3 !important;
   border-radius: 4px !important;
@@ -322,7 +326,7 @@
 }
 
 .top-workspace-nav__group:last-child .top-workspace-nav__menu {
-  right: 0;
+  right: 16px;
   left: auto;
 }
 
@@ -567,7 +571,7 @@
 
   .xdrive-operational-top-workspace .top-workspace-nav__menu {
     position: fixed;
-    top: 48px !important;
+    top: 92px !important;
     right: 8px !important;
     left: 8px !important;
     width: auto !important;
@@ -723,4 +727,22 @@
   min-height:28px!important;
   padding:0 8px!important;
   font-size:11px!important;
+}
+
+.xdrive-operational-top-workspace .top-workspace-nav__menu-section {
+  padding: 7px 9px 4px;
+  margin-top: 3px;
+  border-top: 1px solid #e5e7eb;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.xdrive-operational-top-workspace .top-workspace-nav__menu-section:first-child {
+  margin-top: 0;
+  padding-top: 4px;
+  border-top: 0;
 }

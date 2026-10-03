@@ -27,11 +27,17 @@ describe('Driver top navigation role split', () => {
     expect(shell).toContain("user?.canCommercialBid === true");
   });
 
-  it('keeps finance, staff, settings and billing in Owner Driver overflow', () => {
+  it('keeps Owner Driver business controls reachable without duplicating Settings inside More', () => {
     for (const label of ['Invoices','Company Profile','Drivers & Staff','Settings','Membership & Billing']) {
       expect(roles).toContain(`label: '${label}'`);
     }
-    expect(shell).toContain("role !== 'owner_driver'");
+    expect(shell).toContain("['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles']");
+    expect(shell).toContain("['owner-driver-settings-primary', 'Settings', '/driver/settings']");
+    expect(shell).toContain("'/driver/finance'");
+    const owner = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
+    expect(owner).not.toContain("'/driver/settings?section=company'");
+    expect(owner).not.toContain("'/driver/settings?section=overview'");
+    expect(owner).not.toContain("'/settings/billing'");
     expect(shell).toContain('showOwnerDriverPostLoadAction');
   });
 
