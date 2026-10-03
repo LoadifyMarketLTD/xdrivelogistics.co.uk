@@ -786,3 +786,45 @@
   width: 14px;
   height: 14px;
 }
+
+/* CANONICAL DRIVER WORKSPACE SHELL — restored from dbe30b89 visual baseline. */
+@media (min-width: 1280px) {
+  .xdrive-driver-workspace .top-workspace-shell__header {
+    height: 50px !important;
+    min-height: 50px !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-nav--primary,
+  .xdrive-driver-workspace .top-workspace-nav--primary .top-workspace-nav__track,
+  .xdrive-driver-workspace .top-workspace-nav__item {
+    height: 50px !important;
+    min-height: 50px !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-nav--primary {
+    top: 50px !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-nav--primary .top-workspace-nav__track {
+    justify-content: center !important;
+    gap: 10px !important;
+    padding: 0 18px !important;
+    overflow: visible !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-nav__item {
+    padding: 0 9px !important;
+    font-size: 14px !important;
+    line-height: 20px !important;
+    font-weight: 600 !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-nav__item[data-active="true"],
+  .xdrive-driver-workspace .top-workspace-nav__item.is-active {
+    font-weight: 700 !important;
+  }
+
+  .xdrive-driver-workspace .top-workspace-shell__content {
+    min-height: calc(100vh - 100px) !important;
+  }
+}
