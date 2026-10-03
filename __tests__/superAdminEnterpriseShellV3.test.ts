@@ -94,7 +94,9 @@ describe('MASTER CONTRACT FINAL v3 — enterprise shell', () => {
     expect(css).toContain('radial-gradient(circle at 14% 0%');
     expect(css).toContain('linear-gradient(180deg, #0B2F6B 0%, #09265A 58%, #071F4A 100%)');
     expect(css).toContain(".sidebarGroup[data-active='true'] .sidebarGroupLabel");
-    expect(css).toContain('inset 3px 0 0 var(--sa-v3-orange)');
+    expect(css).toContain('background: linear-gradient(135deg, #F5A300 0%, #FFB625 100%)');
+    expect(css).toContain('.sidebarCollapsed .sidebarLinkActive');
+    expect(css).toContain('inset 0 3px 0 var(--sa-v3-orange)');
     expect(css).toContain('.sidebarLinkActive::after');
     expect(css).toContain('.sidebarScroll::-webkit-scrollbar-thumb');
     expect(sidebar).toContain("'secure-loads': LockKeyhole");
