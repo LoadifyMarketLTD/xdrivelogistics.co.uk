@@ -7,6 +7,7 @@ import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { supabase } from '../../../lib/supabaseClient';
 import { StatusBadge } from '../../components/workspace/WorkspaceUI';
 import DriverNearbyMap from '../_components/DriverNearbyMap';
+import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 
 type NearbyPosition = {
   company_id: string | null;
@@ -117,35 +118,42 @@ export default function DriverNearbyPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <section className="page driver-live-availability-prototype">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Who's Nearby</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); setAudience('all'); }}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => void loadNearby()} disabled={loading}>{loading ? 'Refreshing...' : 'Search'}</button>
-          </div>
-        </div>
-
-        <div className="pagebody">
-          <aside className="left">
-            <div className="left-title">Search Panel</div>
-            <div className="filter"><span className="label">Mode</span><div className="avail-mode"><button type="button" className="active" aria-pressed="true" disabled>Live</button><button type="button" onClick={() => router.push('/driver/returns')}>Future</button></div></div>
-            <div className="filter"><span className="label">Scope</span><div className="driver-static-filter-value">UK only</div></div>
-            <div className="filter"><span className="label">Member / Vehicle</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, member ID or vehicle" /></div>
-            <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="all">Any vehicle</option>{vehicleOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}</select></div>
-            <div className="filter"><span className="label">Groups</span><div className="driver-static-filter-value">Exchange visible</div></div>
+      <DriverWorkspaceShell
+        subtitle="Find exchange-visible nearby vehicle capacity by location, member and vehicle. Exact live coordinates stay private."
+        headerActions={
+          <>
+            <button type="button" className="driver-more-button" onClick={() => { setSearch(''); setVehicle('all'); setAudience('all'); }}>Clear</button>
+            <button type="button" className="driver-more-button driver-more-button--primary" onClick={() => void loadNearby()} disabled={loading}>{loading ? 'Refreshing...' : 'Refresh'}</button>
+          </>
+        }
+      >
+        <div className="driver-nearby-canonical">
+          <aside className="driver-more-rail driver-nearby-filter-rail">
+            <div className="driver-more-rail__title">Search Panel</div>
+            <div className="driver-more-filter"><span>Mode</span><div className="driver-more-segment"><button type="button" data-active="true" aria-pressed="true" disabled>Live</button><button type="button" onClick={() => router.push('/driver/returns')}>Future</button></div></div>
+            <div className="driver-more-filter"><span>Scope</span><div className="driver-more-static-value">UK only</div></div>
+            <label className="driver-more-filter"><span>Member / Vehicle</span><input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, member ID or vehicle" /></label>
+            <label className="driver-more-filter"><span>Vehicle Size</span><select value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="all">Any vehicle</option>{vehicleOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}</select></label>
+            <div className="driver-more-filter"><span>Groups</span><div className="driver-more-static-value">Exchange visible</div></div>
           </aside>
-          <main className="main">
-            <div className="head"><div><h1>Who's Nearby</h1><p>Find exchange-visible nearby vehicle capacity by location, member and vehicle</p></div></div>
-            {error && <div className="vision-note">{error}</div>}
-            <div className="avail-topbar">
-              <div className="avail-view-tabs" role="tablist" aria-label="Nearby presentation"><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-selected={viewMode === 'map'} onClick={() => setViewMode('map')}>Map View</button><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-selected={viewMode === 'list'} onClick={() => setViewMode('list')}>List View</button></div>
-              <div className="avail-audience" role="group" aria-label="Nearby audience"><button type="button" className={audience === 'all' ? 'active' : ''} aria-pressed={audience === 'all'} onClick={() => setAudience('all')}>All</button><button type="button" className={audience === 'drivers-subcontractors' ? 'active' : ''} aria-pressed={audience === 'drivers-subcontractors'} onClick={() => setAudience('drivers-subcontractors')}>Drivers & Sub-contractors</button><button type="button" className={audience === 'other-drivers' ? 'active' : ''} aria-pressed={audience === 'other-drivers'} onClick={() => setAudience('other-drivers')}>Other Drivers</button></div>
-              <button type="button" className="text-action" onClick={openVisibleMap}>Open map in new window</button>
+
+          <section className="driver-more-main driver-nearby-main">
+            {error && <div className="driver-more-alert driver-more-alert--danger">{error}</div>}
+            <div className="driver-nearby-topbar">
+              <div className="driver-more-segment driver-nearby-view-tabs" role="tablist" aria-label="Nearby presentation"><button type="button" data-active={viewMode === 'map'} aria-selected={viewMode === 'map'} onClick={() => setViewMode('map')}>Map View</button><button type="button" data-active={viewMode === 'list'} aria-selected={viewMode === 'list'} onClick={() => setViewMode('list')}>List View</button></div>
+              <div className="driver-more-segment driver-nearby-audience" role="group" aria-label="Nearby audience"><button type="button" data-active={audience === 'all'} aria-pressed={audience === 'all'} onClick={() => setAudience('all')}>All</button><button type="button" data-active={audience === 'drivers-subcontractors'} aria-pressed={audience === 'drivers-subcontractors'} onClick={() => setAudience('drivers-subcontractors')}>Drivers & Sub-contractors</button><button type="button" data-active={audience === 'other-drivers'} aria-pressed={audience === 'other-drivers'} onClick={() => setAudience('other-drivers')}>Other Drivers</button></div>
+              <button type="button" className="driver-more-link-button" onClick={openVisibleMap}>Open map in new window</button>
             </div>
-            <div className="toolbar"><b>Who's Nearby</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button></div>
-            <div className={`availgrid ${viewMode === 'list' ? 'list-only' : ''}`}>
-              <div id="availMap" className="availmap">
+
+            <div className="driver-nearby-actionbar">
+              <strong>Who's Nearby</strong>
+              <span />
+              <button type="button" className="driver-more-button" onClick={() => router.push('/driver/returns')}>Add Future Position</button>
+              <button type="button" className="driver-more-button driver-more-button--success" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button>
+            </div>
+
+            <div className={`driver-nearby-maplist${viewMode === 'list' ? ' is-list' : ''}`}>
+              <div id="availMap" className="driver-nearby-map-pane">
                 <DriverNearbyMap
                   points={visible.map((position) => ({
                     companyId: position.company_id,
@@ -160,41 +168,41 @@ export default function DriverNearbyPage() {
                   }))}
                 />
               </div>
-              <div id="availList" style={{ overflow: 'auto' }}>
-                <div className="tablewrap avail-tablewrap">
-                  <table className="avail-table" style={{ minWidth: 1050 }}>
+              <div id="availList" className="driver-nearby-list-pane">
+                <div className="driver-nearby-table-scroll">
+                  <table className="driver-nearby-table">
                     <thead><tr><th>Member (ID)</th><th>Vehicle Size</th><th>Current Location</th><th>Home Location</th><th>Location Received</th><th>Journeys</th><th>Status</th><th>Action</th></tr></thead>
                     <tbody>
                       {visible.map((position, index) => {
                         const fresh = freshness(position.recorded_at);
-                        return <tr key={`${position.company_id ?? 'member'}:${position.vehicle_type ?? 'vehicle'}:${position.recorded_at ?? index}`} className="avail-row">
-                          <td><b>{position.company_id ? <MemberIdentityLink companyId={position.company_id}>{position.member_name ?? 'Exchange member'}</MemberIdentityLink> : position.member_name ?? 'Exchange member'}</b><span className="meta">{position.member_code ? `Member ID ${position.member_code}` : position.member_type ?? 'Trading member'}</span></td>
-                          <td>{vehicleLabel(position.vehicle_type)}<span className="meta">{position.payload_kg != null ? `${position.payload_kg} kg` : 'Capacity not published'}{position.pallets_capacity != null ? ` · ${position.pallets_capacity} pallets` : ''}</span></td>
-                          <td><span className="link">Privacy-rounded area</span></td>
+                        return <tr key={`${position.company_id ?? 'member'}:${position.vehicle_type ?? 'vehicle'}:${position.recorded_at ?? index}`}>
+                          <td><b>{position.company_id ? <MemberIdentityLink companyId={position.company_id}>{position.member_name ?? 'Exchange member'}</MemberIdentityLink> : position.member_name ?? 'Exchange member'}</b><span>{position.member_code ? `Member ID ${position.member_code}` : position.member_type ?? 'Trading member'}</span></td>
+                          <td>{vehicleLabel(position.vehicle_type)}<span>{position.payload_kg != null ? `${position.payload_kg} kg` : 'Capacity not published'}{position.pallets_capacity != null ? ` · ${position.pallets_capacity} pallets` : ''}</span></td>
+                          <td>Privacy-rounded area</td>
                           <td>Not published</td>
                           <td>{fresh.label}</td>
                           <td>-</td>
                           <td><StatusBadge value="Available" tone="green" /></td>
-                          <td><button type="button" className="rowbtn blue" onClick={() => openApproximateArea(position)}>View Map</button></td>
+                          <td><button type="button" className="driver-more-button driver-more-button--compact" onClick={() => openApproximateArea(position)}>View Map</button></td>
                         </tr>;
                       })}
                     </tbody>
                   </table>
                 </div>
-                {!loading && visible.length === 0 && <div className="xd2-calm-empty"><b>No nearby exchange vehicles</b><span>No trading member is publishing exchange-visible availability for these filters.</span></div>}
+                {!loading && visible.length === 0 && <div className="driver-more-empty"><b>No nearby exchange vehicles</b><span>No trading member is publishing exchange-visible availability for these filters.</span></div>}
               </div>
             </div>
-            <div className="avail-legend">
-              <span><i className="legend-dot green" />Available</span>
-              <span><i className="legend-dot amber" />Maybe Available</span>
-              <span><i className="legend-dot red" />Unavailable</span>
-              <span><i className="legend-dot" />Unknown</span>
-              <span><i className="legend-cluster">{visible.length}</i>Visible</span>
+
+            <div className="driver-nearby-legend">
+              <span><i data-tone="green" />Available</span>
+              <span><i data-tone="amber" />Maybe Available</span>
+              <span><i data-tone="red" />Unavailable</span>
+              <span><i data-tone="grey" />Unknown</span>
+              <span><b>{visible.length}</b>Visible</span>
             </div>
-            <div className="footer">Availability from drivers, future positions and approved tracking sources</div>
-          </main>
+          </section>
         </div>
-      </section>
+      </DriverWorkspaceShell>
     </ProtectedRoute>
   );
 }

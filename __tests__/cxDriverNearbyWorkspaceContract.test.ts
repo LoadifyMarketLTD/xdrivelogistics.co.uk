@@ -9,7 +9,8 @@ describe("Driver Who's Nearby workspace contract", () => {
   it("keeps Who's Nearby distinct from the Driver's own Availability workspace", () => {
     expect(shell).toContain("label: 'Availability', href: '/driver/availability'");
     expect(shell).toContain("label: \"Who's Nearby\", href: '/driver/nearby'");
-    expect(page).toContain('driver-live-availability-prototype');
+    expect(page).toContain('driver-nearby-canonical');
+    expect(page).toContain('<DriverWorkspaceShell');
     expect(page).toContain("Who's Nearby");
     expect(page).toContain('exchange-visible nearby vehicle capacity');
   });

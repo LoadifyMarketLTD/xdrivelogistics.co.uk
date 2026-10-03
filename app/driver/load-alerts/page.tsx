@@ -169,11 +169,12 @@ export default function DriverLoadAlertsPage() {
         availabilityLabel={preference.enabled ? 'Alerts on' : 'Alerts off'}
         headerActions={<ActionButton tone="secondary" onClick={() => void load()} disabled={loading}>Refresh</ActionButton>}
       >
-        {error && <AlertBanner tone={schemaUnavailable ? 'warning' : 'danger'}>{error}</AlertBanner>}
+        <div className="driver-load-alerts-canonical">
+          {error && <AlertBanner tone={schemaUnavailable ? 'warning' : 'danger'}>{error}</AlertBanner>}
         {warning && <AlertBanner tone="warning">{warning}</AlertBanner>}
         {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
-        <section className="workspace-panel" style={{ marginBottom: 8 }}>
+        <section className="workspace-panel driver-load-alerts-hero">
           <div className="workspace-panel__header" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
             <div>
               <strong>Smart Load Alerts</strong>
@@ -189,7 +190,7 @@ export default function DriverLoadAlertsPage() {
           </div>
         </section>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: 8 }}>
+        <div className="driver-load-alerts-grid">
           <section className="workspace-panel">
             <div className="workspace-panel__header"><strong>Where should XDrive match?</strong></div>
             <div className="workspace-panel__body" style={{ display: 'grid', gap: 12 }}>
@@ -234,7 +235,7 @@ export default function DriverLoadAlertsPage() {
           </section>
         </div>
 
-        <section className="workspace-panel" style={{ marginTop: 8 }}>
+        <section className="workspace-panel driver-load-alerts-footer">
           <div className="workspace-panel__body" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
             <div style={{ fontSize: 12, color: '#64748b', maxWidth: 720 }}>
               XDrive uses your exact tracking coordinates only while checking whether a load is nearby. Alerts show public collection and delivery areas, never your live coordinates or a customer's exact pre-award address.
@@ -242,6 +243,7 @@ export default function DriverLoadAlertsPage() {
             <ActionButton tone="primary" onClick={() => void save()} disabled={loading || saving || schemaUnavailable}>{saving ? 'Saving…' : 'Save Load Alerts'}</ActionButton>
           </div>
         </section>
+        </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );

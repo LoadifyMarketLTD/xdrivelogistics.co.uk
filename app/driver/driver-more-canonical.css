@@ -1,0 +1,208 @@
+﻿/* Canonical Owner Driver More workspace.
+ * Imported last so More pages do not inherit conflicting prototype widths.
+ */
+.xdrive-driver-workspace .driver-more-canonical-page{
+  width:100%;
+  max-width:none;
+  min-width:0;
+  display:block;
+}
+.xdrive-driver-workspace .driver-more-canonical-page > *{min-width:0}
+.xdrive-driver-workspace .driver-more-canonical-page .xdrive-page-header{margin-bottom:10px!important}
+.xdrive-driver-workspace .driver-more-canonical-page .xdrive-page-header__title{font-size:20px!important;line-height:26px!important;font-weight:800!important;color:#0f2742!important}
+.xdrive-driver-workspace .driver-more-canonical-page .xdrive-page-header__description{font-size:12px!important;line-height:17px!important;color:#5d6f83!important;max-width:900px!important}
+
+/* Shared two-column board pages: Jobs / Availability / Messages. */
+.xdrive-driver-workspace .driver-more-canonical-page .driver-board-layout,
+.xdrive-driver-workspace .driver-more-canonical-page .driver-availability-board{
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+  display:grid!important;
+  grid-template-columns:250px minmax(0,1fr)!important;
+  gap:12px!important;
+  align-items:start!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-filter-rail,
+.xdrive-driver-workspace .driver-more-canonical-page .driver-availability-rail{
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+  position:sticky!important;
+  top:104px!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-board-main,
+.xdrive-driver-workspace .driver-more-canonical-page .driver-availability-main{
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+  overflow:visible!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-tab-strip,
+.xdrive-driver-workspace .driver-more-canonical-page .finance-tabs{
+  width:100%!important;
+  min-width:0!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-list,
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-row,
+.xdrive-driver-workspace .driver-more-canonical-page .driver-register-table-wrap,
+.xdrive-driver-workspace .driver-more-canonical-page .driver-finance-register,
+.xdrive-driver-workspace .driver-more-canonical-page .driver-compliance-register,
+.xdrive-driver-workspace .driver-more-canonical-page .driver-notification-register{
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+}
+
+/* Finance: register must consume the workspace, never shrink to content width. */
+.xdrive-driver-workspace .driver-more-canonical-page .driver-finance-register{
+  display:flex!important;
+  flex-direction:column!important;
+  align-items:stretch!important;
+  gap:8px!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-finance-register .workspace-record-meta,
+.xdrive-driver-workspace .driver-more-canonical-page .driver-finance-register .driver-board-summary{
+  width:100%!important;
+  min-width:0!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-finance-register .finance-tabs{
+  display:grid!important;
+  grid-template-columns:repeat(7,minmax(0,1fr))!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-finance-table{min-width:980px!important}
+
+/* Standardise panels used by Load Alerts / Documents / secondary More pages. */
+.xdrive-driver-workspace .driver-more-canonical-page .workspace-panel{
+  width:100%!important;
+  max-width:none!important;
+  min-width:0!important;
+  background:#fff!important;
+  border:1px solid #d6dee8!important;
+  border-radius:4px!important;
+  box-shadow:none!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .workspace-panel__header{
+  min-height:42px!important;
+  padding:8px 10px!important;
+  background:#f4f7fa!important;
+  border-bottom:1px solid #d9e0e8!important;
+  color:#20364f!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .workspace-panel__body{padding:10px!important}
+.xdrive-driver-workspace .driver-more-canonical-page .workspace-panel label{font-size:12px!important;line-height:16px!important;color:#31445a!important}
+.xdrive-driver-workspace .driver-more-canonical-page .workspace-panel input:not([type='checkbox']):not([type='radio']),
+.xdrive-driver-workspace .driver-more-canonical-page .workspace-panel select{
+  width:100%!important;
+  min-width:0!important;
+  min-height:34px!important;
+}
+
+/* Common More buttons. */
+.driver-more-button{
+  min-height:34px;
+  padding:0 11px;
+  border:1px solid #b9c5d2;
+  border-radius:4px;
+  background:#fff;
+  color:#263b53;
+  font:700 12px/1 "Segoe UI",Arial,sans-serif;
+  cursor:pointer;
+}
+.driver-more-button:hover{background:#f4f7fa}
+.driver-more-button:disabled{opacity:.55;cursor:not-allowed}
+.driver-more-button--primary{background:#0b2f6b;border-color:#0b2f6b;color:#fff}
+.driver-more-button--success{background:#168344;border-color:#168344;color:#fff}
+.driver-more-button--compact{min-height:28px;padding:0 8px;font-size:11px}
+.driver-more-link-button{border:0;background:transparent;color:#1d57d8;font-size:11px;font-weight:800;cursor:pointer;padding:5px 0}
+
+/* Who's Nearby: CX-style filter rail + real map/list workspace. */
+.xdrive-driver-workspace .driver-more-canonical-page .driver-nearby-canonical{
+  width:100%;
+  min-width:0;
+  display:grid;
+  grid-template-columns:230px minmax(0,1fr);
+  gap:10px;
+  align-items:start;
+}
+.driver-more-rail{min-width:0;background:#fff;border:1px solid #ccd6e1}
+.driver-more-rail__title{min-height:40px;display:flex;align-items:center;padding:0 10px;background:#f1f4f7;border-bottom:1px solid #d8e0e8;color:#20364f;font-size:13px;font-weight:800}
+.driver-more-filter{display:flex;flex-direction:column;gap:5px;padding:9px 10px;border-bottom:1px solid #e3e8ee;color:#31445a}
+.driver-more-filter>span:first-child{font-size:10px;line-height:13px;text-transform:uppercase;letter-spacing:.04em;color:#68788a;font-weight:800}
+.driver-more-filter input,.driver-more-filter select{width:100%;height:34px;border:1px solid #bcc8d5;border-radius:3px;background:#fff;padding:0 8px;font-size:12px;color:#26384c}
+.driver-more-static-value{min-height:34px;display:flex;align-items:center;padding:0 8px;border:1px solid #d3dbe4;background:#f7f9fb;color:#334960;font-size:12px;font-weight:700}
+.driver-more-segment{display:flex;align-items:stretch;min-width:0}
+.driver-more-segment button{min-height:32px;border:1px solid #c3ced9;border-right:0;background:#fff;padding:0 10px;color:#334960;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}
+.driver-more-segment button:last-child{border-right:1px solid #c3ced9}
+.driver-more-segment button[data-active='true']{background:#eaf2ff;color:#0b2f6b;border-color:#8db4ef}
+.driver-more-segment button:disabled{opacity:1;cursor:default}
+.driver-more-main{width:100%;min-width:0}
+.driver-nearby-topbar{min-height:42px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;padding:5px 7px;background:#f6f8fa;border:1px solid #d4dce5}
+.driver-nearby-topbar .driver-more-link-button{margin-left:auto}
+.driver-nearby-actionbar{min-height:42px;display:grid;grid-template-columns:auto minmax(0,1fr) auto auto;align-items:center;gap:6px;padding:4px 7px;background:#fff;border:1px solid #d4dce5;border-top:0}
+.driver-nearby-actionbar>strong{font-size:12px;color:#20364f}
+.driver-nearby-maplist{width:100%;min-width:0;display:grid;grid-template-columns:minmax(360px,.8fr) minmax(520px,1fr);border:1px solid #d4dce5;border-top:0;background:#fff;min-height:520px}
+.driver-nearby-maplist.is-list{grid-template-columns:minmax(0,1fr)}
+.driver-nearby-maplist.is-list .driver-nearby-map-pane{display:none}
+.driver-nearby-map-pane{min-width:0;border-right:1px solid #d4dce5;min-height:520px}
+.driver-nearby-list-pane{min-width:0;overflow:hidden;display:flex;flex-direction:column;background:#fff}
+.driver-nearby-table-scroll{min-width:0;overflow:auto;flex:1 1 auto}
+.driver-nearby-table{width:100%;min-width:880px;border-collapse:collapse;font-size:11px}
+.driver-nearby-table th{height:36px;padding:6px 8px;background:#eef4fb;border-right:1px solid #d9e1ea;border-bottom:1px solid #c8d3df;color:#36506d;text-align:left;font-size:10px;text-transform:uppercase;white-space:nowrap}
+.driver-nearby-table td{padding:8px;border-right:1px solid #e3e8ee;border-bottom:1px solid #e3e8ee;vertical-align:top;color:#33475d}
+.driver-nearby-table td b,.driver-nearby-table td span{display:block}
+.driver-nearby-table td span{margin-top:2px;color:#778597;font-size:10px}
+.driver-nearby-legend{min-height:38px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:5px 8px;border:1px solid #d4dce5;border-top:0;background:#f3f7fb;color:#526176;font-size:10px}
+.driver-nearby-legend span{display:flex;align-items:center;gap:5px}
+.driver-nearby-legend i{width:12px;height:12px;border-radius:2px;background:#9aa5b1}
+.driver-nearby-legend i[data-tone='green']{background:#62b72c}
+.driver-nearby-legend i[data-tone='amber']{background:#f5a300}
+.driver-nearby-legend i[data-tone='red']{background:#e62b35}
+.driver-nearby-legend b{min-width:22px;height:22px;border-radius:11px;display:grid;place-items:center;background:#1d57d8;color:#fff;font-size:9px}
+.driver-more-alert{margin-bottom:8px;padding:8px 10px;border:1px solid #d8e0e8;background:#fff;font-size:12px}
+.driver-more-alert--danger{border-color:#fecaca;background:#fef2f2;color:#991b1b}
+.driver-more-empty{display:grid;gap:4px;padding:24px 16px;color:#617184}
+.driver-more-empty b{color:#24384f}
+
+/* Keep More pages fluid on laptop/tablet widths. */
+@media(max-width:1180px){
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-board-layout,
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-availability-board,
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-nearby-canonical{grid-template-columns:220px minmax(0,1fr)!important}
+  .driver-nearby-maplist{grid-template-columns:minmax(300px,.72fr) minmax(460px,1fr)}
+}
+@media(max-width:980px){
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-board-layout,
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-availability-board,
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-nearby-canonical{grid-template-columns:1fr!important}
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-filter-rail,
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-availability-rail{position:static!important;width:100%!important}
+  .driver-more-rail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .driver-more-rail__title{grid-column:1/-1}
+  .driver-nearby-maplist{grid-template-columns:1fr}
+  .driver-nearby-map-pane{border-right:0;border-bottom:1px solid #d4dce5}
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-finance-register .finance-tabs{display:flex!important;overflow-x:auto}
+  .xdrive-driver-workspace .driver-more-canonical-page .driver-finance-register .finance-tabs button{min-width:110px;flex:0 0 auto}
+}
+@media(max-width:680px){
+  .driver-more-rail{grid-template-columns:1fr}
+  .driver-nearby-topbar{align-items:stretch;flex-direction:column}
+  .driver-nearby-topbar .driver-more-link-button{margin-left:0;align-self:flex-start}
+  .driver-nearby-actionbar{grid-template-columns:1fr 1fr}
+  .driver-nearby-actionbar>strong,.driver-nearby-actionbar>span{grid-column:1/-1}
+}
+
+/* Load Alerts: clean settings surface, not a raw form dump. */
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-canonical{width:100%;min-width:0;display:grid;gap:10px}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-hero{margin:0!important}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;align-items:stretch}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-grid>.workspace-panel{margin:0!important;height:100%}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-grid .workspace-panel__body{display:grid!important;align-content:start;gap:14px!important}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-grid label{display:grid!important;grid-template-columns:auto minmax(0,1fr);gap:8px!important;align-items:start}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-grid label:has(>select),
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-grid label:has(>input:not([type='checkbox'])){grid-template-columns:1fr;gap:5px!important;font-size:10px!important;font-weight:800!important;letter-spacing:.03em;color:#5f7084!important}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-grid input[type='checkbox'],
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-hero input[type='checkbox']{width:16px!important;height:16px!important;margin:1px 0 0!important;min-height:0!important}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-footer{margin:0!important}
+@media(max-width:1180px){.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-grid{grid-template-columns:1fr 1fr}.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-grid>.workspace-panel:last-child{grid-column:1/-1}}
+@media(max-width:760px){.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-grid{grid-template-columns:1fr}.xdrive-driver-workspace .driver-more-canonical-page .driver-load-alerts-grid>.workspace-panel:last-child{grid-column:auto}}

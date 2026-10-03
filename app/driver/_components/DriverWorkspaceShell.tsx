@@ -9,6 +9,9 @@ const DRIVER_PRIMARY_PAGE_TITLES: Readonly<Record<string, string>> = {
   '/driver/loads': 'Loads',
   '/driver/quotes': 'Quotes',
   '/driver/jobs': 'Jobs',
+  '/driver/won-work': 'Won Work',
+  '/driver/finance': 'Finance & Invoices',
+  '/driver/nearby': "Who's Nearby",
   '/driver/history': 'Diary',
   '/driver/availability': 'Availability',
   '/driver/availability/live': 'Live Availability',
@@ -33,6 +36,17 @@ const DRIVER_ACCOUNT_PREFIXES = [
   '/driver/notifications',
   '/driver/load-alerts',
 ] as const;
+
+const DRIVER_MORE_PATHS = new Set([
+  '/driver/jobs',
+  '/driver/won-work',
+  '/driver/availability',
+  '/driver/load-alerts',
+  '/driver/nearby',
+  '/driver/documents',
+  '/driver/finance',
+  '/driver/messages',
+]);
 
 function isDriverAccountPath(pathname: string | null) {
   if (!pathname) return false;
@@ -70,6 +84,7 @@ export default function DriverWorkspaceShell({
   const pathname = usePathname();
   const resolvedTitle = resolveDriverPageTitle(pathname, driverName);
   const accountPath = isDriverAccountPath(pathname);
+  const morePath = pathname ? DRIVER_MORE_PATHS.has(pathname) : false;
 
   if (pathname === '/driver/history') {
     return (
@@ -85,7 +100,7 @@ export default function DriverWorkspaceShell({
     );
   }
 
-  if (pathname !== '/driver' && !accountPath) {
+  if (pathname !== '/driver' && !accountPath && !morePath) {
     return (
       <section className="page driver-prototype-page-shell">
         <div className="subbar">
@@ -109,16 +124,16 @@ export default function DriverWorkspaceShell({
 
   return (
     <PageFrame>
-      <div className="driver-operational-page">
+      <div className={`driver-operational-page${morePath ? ' driver-more-canonical-page' : ''}`}>
         {!hideHeader && (resolvedTitle || subtitle || availabilityLabel || personaLabel || headerActions) && (
           <PageHeader
-            eyebrow={pathname === '/driver' ? undefined : (personaLabel ?? 'Driver workspace')}
+            eyebrow={morePath ? 'Owner Driver Workspace' : pathname === '/driver' ? undefined : (personaLabel ?? 'Driver workspace')}
             title={resolvedTitle}
             description={subtitle}
             actions={<>{availabilityLabel && <StatusBadge value={availabilityLabel} />}{headerActions}</>}
           />
         )}
-        {accountPath ? (
+        {accountPath && !morePath ? (
           <div className="driver-account-workspace driver-account-workspace--single">
             <div className="driver-account-workspace__content">{children}</div>
           </div>

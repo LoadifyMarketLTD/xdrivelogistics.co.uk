@@ -161,10 +161,6 @@ export default function WonWorkPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell subtitle="Work you have won and that is assigned to your driver account.">
-        <h2 style={{ margin: '0 0 0.75rem', fontSize: '20px', lineHeight: '26px', fontWeight: 700, color: '#0f172a' }}>
-          Won Work
-        </h2>
-
         <PendingBookingOffers onChanged={() => void fetchWonWork()} />
 
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '0.65rem', marginBottom: '0.75rem' }}>

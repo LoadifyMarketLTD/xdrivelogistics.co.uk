@@ -55,6 +55,22 @@ describe('Owner Driver More page audit contract', () => {
     }
   });
 
+  it('routes every More page through one canonical full-width shell', () => {
+    const shell = read('app/driver/_components/DriverWorkspaceShell.tsx');
+    const layout = read('app/driver/layout.tsx');
+    const css = read('app/driver/driver-more-canonical.css');
+    for (const route of routes) expect(shell).toContain(`'/driver/${route}'`);
+    expect(shell).toContain('const DRIVER_MORE_PATHS = new Set([');
+    expect(shell).toContain("pathname !== '/driver' && !accountPath && !morePath");
+    expect(shell).toContain("driver-operational-page${morePath ? ' driver-more-canonical-page' : ''}");
+    expect(shell).toContain('accountPath && !morePath');
+    expect(layout).toContain("import './driver-more-canonical.css';");
+    expect(css).toContain('.driver-more-canonical-page .driver-board-layout');
+    expect(css).toContain('grid-template-columns:250px minmax(0,1fr)!important;');
+    expect(css).toContain('.driver-more-canonical-page .driver-finance-register');
+    expect(css).toContain('.driver-more-canonical-page .driver-nearby-canonical');
+  });
+
   it('defines Driver prototype geometry variables on the live top-workspace shell', () => {
     const css = read('app/driver/driver-prototype-parity.css');
     const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
