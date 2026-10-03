@@ -78,7 +78,7 @@ describe('workspace More audit contract', () => {
     expect(owner).toContain("label: 'Load Matching & Alerts'");
     expect(owner).toContain("label: 'Finance & Invoices'");
     expect(shell).toContain("'/driver/jobs': 'Work'");
-    expect(shell).toContain("'/driver/availability': 'Matching & availability'");
+    expect(shell).toContain("'/driver/availability': 'Matching & Availability'");
     expect(shell).toContain("'/driver/finance': 'Business'");
   });
 

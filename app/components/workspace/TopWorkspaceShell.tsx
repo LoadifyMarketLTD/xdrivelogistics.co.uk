@@ -4,6 +4,7 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
+import { BellRing, Briefcase, CalendarClock, FileText, MapPin, MessageSquare, ReceiptText, Trophy } from 'lucide-react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -333,12 +334,27 @@ function composeCompliancePrimaryNav(groups: WorkspaceNavGroup[]) {
   ], 'compliance-more');
 }
 
+const OWNER_DRIVER_MORE_ICONS = {
+  '/driver/jobs': Briefcase,
+  '/driver/won-work': Trophy,
+  '/driver/availability': CalendarClock,
+  '/driver/load-alerts': BellRing,
+  '/driver/nearby': MapPin,
+  '/driver/finance': ReceiptText,
+  '/driver/documents': FileText,
+  '/driver/messages': MessageSquare,
+} as const;
+
+function OwnerDriverMoreIcon({ item }: { item: WorkspaceNavItem }) {
+  const Icon = OWNER_DRIVER_MORE_ICONS[item.href as keyof typeof OWNER_DRIVER_MORE_ICONS];
+  return Icon ? <Icon aria-hidden="true" size={14} strokeWidth={1.8} /> : null;
+}
 const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
   '/driver/jobs': 'Work',
   '/driver/won-work': 'Work',
-  '/driver/availability': 'Matching & availability',
-  '/driver/load-alerts': 'Matching & availability',
-  '/driver/nearby': 'Matching & availability',
+  '/driver/availability': 'Matching & Availability',
+  '/driver/load-alerts': 'Matching & Availability',
+  '/driver/nearby': 'Matching & Availability',
   '/driver/finance': 'Business',
   '/driver/documents': 'Business',
   '/driver/messages': 'Business',
@@ -951,7 +967,7 @@ export default function TopWorkspaceShell({
                             onClick={() => openRoute(item.href)}
                           >
                             <span className="top-workspace-nav__menu-icon" aria-hidden="true">
-                              {item.icon ?? '•'}
+                              {role === 'owner_driver' ? <OwnerDriverMoreIcon item={item} /> : item.icon ?? '•'}
                             </span>
                             <span>{item.label}</span>
                           </button>

@@ -781,3 +781,8 @@
     width: 280px !important;
   }
 }
+
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu-icon svg {
+  width: 14px;
+  height: 14px;
+}

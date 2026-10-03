@@ -66,18 +66,23 @@ describe('Owner Driver More contract', () => {
     expect(owner).toContain("['owner-driver-live-availability-primary', 'Live Availability', '/driver/availability/live']");
   });
 
-  it('keeps stable Work, Matching & availability, and Business section boundaries', () => {
+  it('keeps stable Work, Matching & Availability, and Business section boundaries', () => {
     expect(shell).toContain("'/driver/jobs': 'Work'");
     expect(shell).toContain("'/driver/won-work': 'Work'");
-    expect(shell).toContain("'/driver/availability': 'Matching & availability'");
-    expect(shell).toContain("'/driver/load-alerts': 'Matching & availability'");
-    expect(shell).toContain("'/driver/nearby': 'Matching & availability'");
+    expect(shell).toContain("'/driver/availability': 'Matching & Availability'");
+    expect(shell).toContain("'/driver/load-alerts': 'Matching & Availability'");
+    expect(shell).toContain("'/driver/nearby': 'Matching & Availability'");
     expect(shell).toContain("'/driver/finance': 'Business'");
     expect(shell).toContain("'/driver/documents': 'Business'");
     expect(shell).toContain("'/driver/messages': 'Business'");
     expect(shell).toContain('section !== previousSection ? section : null');
   });
 
+  it('renders stable Lucide icons for every Owner Driver More item instead of source mojibake', () => {
+    expect(shell).toContain('const OWNER_DRIVER_MORE_ICONS = {');
+    for (const href of MORE_ROUTES) expect(shell).toContain(`'${href}':`);
+    expect(shell).toContain('<OwnerDriverMoreIcon item={item} />');
+  });
   it('keeps every retained Owner Driver More route real and permitted', () => {
     for (const href of MORE_ROUTES) {
       const routePath = path.join(process.cwd(), 'app', ...href.split('/').filter(Boolean), 'page.tsx');
