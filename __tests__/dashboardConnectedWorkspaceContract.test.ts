@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -48,10 +48,11 @@ describe('connected workspace dashboard completion', () => {
   });
 
   it('gives owner drivers a distinct commercial position while keeping it conditional', () => {
-    expect(driver).toContain('Owner Driver Commercial Position');
-    expect(driver).toContain('Invoice readiness');
-    expect(driver).toContain('Outstanding');
-    expect(driver).toContain('Return capacity');
     expect(driver).toContain('{ownerDriver ? (');
+    expect(driver).toContain('Reports & Statistics');
+    expect(driver).toContain('Accounts Payable');
+    expect(driver).toContain('Feedback in Last 90 Days');
+    expect(driver).toContain('Activity at a glance');
+    expect(driver).toContain('/api/driver/dashboard/commercial-summary');
   });
 });

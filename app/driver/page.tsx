@@ -39,28 +39,8 @@ type DriverVehicle = {
   model: string | null;
 };
 
-type DriverFinanceSummary = {
-  total: number;
-  draft: number;
-  sent: number;
-  overdue: number;
-  paid: number;
-  disputed: number;
-  cancelled: number;
-};
-
-type DriverFinanceValues = {
-  net: number;
-  vat: number;
-  gross: number;
-  paid: number;
-  outstanding: number;
-};
-
-type CommercialPeriod = 'today' | '7d' | '30d' | 'all';
-
-type OwnerCommercialSummary = {
-  period: CommercialPeriod;
+type DriverCommercialSummary = {
+  period: string;
   revenueGross: number;
   subcontractSpend: number;
   recordedGrossMargin: number;
@@ -148,7 +128,6 @@ const vehicleLabel = (value: string | null | undefined) =>
 const money = (value: number) =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(Number(value || 0));
 
-
 export default function DriverDashboard() {
   const router = useRouter();
   const { user } = useAuth();
@@ -166,14 +145,13 @@ export default function DriverDashboard() {
   const [decliningJobId, setDecliningJobId] = useState<string | null>(null);
   const [transitionError, setTransitionError] = useState('');
   const [transitionMessage, setTransitionMessage] = useState('');
-  const [financeSummary, setFinanceSummary] = useState<DriverFinanceSummary | null>(null);
-  const [financeValues, setFinanceValues] = useState<DriverFinanceValues | null>(null);
-  const [financeLoading, setFinanceLoading] = useState(false);
-  const [financeError, setFinanceError] = useState('');
-  const [commercialPeriod, setCommercialPeriod] = useState<CommercialPeriod>('today');
-  const [commercialSummary, setCommercialSummary] = useState<OwnerCommercialSummary | null>(null);
-  const [commercialLoading, setCommercialLoading] = useState(false);
-  const [commercialError, setCommercialError] = useState('');
+  const [commercialSummary, setCommercialSummary] = useState<DriverCommercialSummary | null>(null);
+  const [commercialSummaryLoading, setCommercialSummaryLoading] = useState(false);
+  const [commercialSummaryError, setCommercialSummaryError] = useState('');
+  const [commercialPeriod, setCommercialPeriod] = useState<'today' | '7d' | '30d' | 'all' | 'custom'>('today');
+  const [commercialFrom, setCommercialFrom] = useState(() => new Date().toISOString().slice(0, 10));
+  const [commercialTo, setCommercialTo] = useState(() => new Date().toISOString().slice(0, 10));
+  const [memberNameByJob, setMemberNameByJob] = useState<Record<string, string>>({});
   const [bookingMemberFilter, setBookingMemberFilter] = useState('');
   const [bookingLocationFilter, setBookingLocationFilter] = useState('');
   const [bookingReferenceFilter, setBookingReferenceFilter] = useState('');
@@ -213,66 +191,68 @@ export default function DriverDashboard() {
       }
     : null;
 
-  const loadFinanceSummary = useCallback(async () => {
+  const loadCommercialSummary = useCallback(async () => {
     if (!ownerDriver || !isSupabaseConfigured) return;
-    setFinanceLoading(true);
-    setFinanceError('');
+    setCommercialSummaryLoading(true);
+    setCommercialSummaryError('');
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
     if (!token) {
-      setFinanceError('Finance session could not be verified.');
-      setFinanceLoading(false);
+      setCommercialSummaryError('Commercial summary session could not be verified.');
+      setCommercialSummaryLoading(false);
       return;
     }
     try {
-      const response = await fetch('/api/driver/finance/invoices', {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => null) as {
-        invoiceSummary?: DriverFinanceSummary;
-        valueSummary?: DriverFinanceValues;
-        error?: string;
-      } | null;
-      if (!response.ok || !payload) throw new Error(payload?.error ?? 'Finance summary could not be loaded.');
-      setFinanceSummary(payload.invoiceSummary ?? null);
-      setFinanceValues(payload.valueSummary ?? null);
-    } catch (reason) {
-      setFinanceSummary(null);
-      setFinanceValues(null);
-      setFinanceError(reason instanceof Error ? reason.message : 'Finance summary could not be loaded.');
-    } finally {
-      setFinanceLoading(false);
-    }
-  }, [ownerDriver]);
-
-  const loadCommercialSummary = useCallback(async () => {
-    if (!ownerDriver || !isSupabaseConfigured) return;
-    setCommercialLoading(true);
-    setCommercialError('');
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      let token = sessionData.session?.access_token;
-      if (!token) {
-        const refreshed = await supabase.auth.refreshSession();
-        token = refreshed.data.session?.access_token;
+      const params = new URLSearchParams({ period: commercialPeriod });
+      if (commercialPeriod === 'custom') {
+        params.set('from', commercialFrom);
+        params.set('to', commercialTo);
       }
-      if (!token) throw new Error('Commercial session could not be verified.');
-
-      const response = await fetch(`/api/driver/dashboard/commercial-summary?period=${encodeURIComponent(commercialPeriod)}`, {
+      const response = await fetch(`/api/driver/dashboard/commercial-summary?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
       });
-      const payload = await response.json().catch(() => null) as (OwnerCommercialSummary & { error?: string }) | null;
+      const payload = await response.json().catch(() => null) as (DriverCommercialSummary & { error?: string }) | null;
       if (!response.ok || !payload) throw new Error(payload?.error ?? 'Commercial summary could not be loaded.');
       setCommercialSummary(payload);
     } catch (reason) {
       setCommercialSummary(null);
-      setCommercialError(reason instanceof Error ? reason.message : 'Commercial summary could not be loaded.');
+      setCommercialSummaryError(reason instanceof Error ? reason.message : 'Commercial summary could not be loaded.');
     } finally {
-      setCommercialLoading(false);
+      setCommercialSummaryLoading(false);
     }
-  }, [commercialPeriod, ownerDriver]);
+  }, [commercialFrom, commercialPeriod, commercialTo, ownerDriver]);
+
+  const loadDashboardMemberNames = useCallback(async () => {
+    if (!ownerDriver || !isSupabaseConfigured) return;
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setMemberNameByJob({});
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/driver/diary/company-names', {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null) as {
+        members?: Array<{ jobId: string; name: string | null }>;
+      } | null;
+      if (!response.ok || !payload?.members) {
+        setMemberNameByJob({});
+        return;
+      }
+      setMemberNameByJob(Object.fromEntries(
+        payload.members
+          .filter((row) => row.name)
+          .map((row) => [row.jobId, row.name as string]),
+      ));
+    } catch {
+      setMemberNameByJob({});
+    }
+  }, [ownerDriver]);
 
   const latestBookings = useMemo(() => {
     const memberNeedle = bookingMemberFilter.trim().toLowerCase();
@@ -280,7 +260,7 @@ export default function DriverDashboard() {
     const refNeedle = bookingReferenceFilter.trim().toLowerCase();
     return [...myJobs]
       .filter((job) => {
-        const memberText = `${job.client_name ?? ''}`.toLowerCase();
+        const memberText = `${memberNameByJob[job.id] ?? job.client_name ?? ''}`.toLowerCase();
         const locationText = `${job.pickup_location ?? ''} ${job.pickup_postcode ?? ''} ${job.delivery_location ?? ''} ${job.delivery_postcode ?? ''}`.toLowerCase();
         const refText = `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase();
         return (!memberNeedle || memberText.includes(memberNeedle))
@@ -289,8 +269,7 @@ export default function DriverDashboard() {
       })
       .sort((a, b) => String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')))
       .slice(0, 4);
-  }, [bookingLocationFilter, bookingMemberFilter, bookingReferenceFilter, myJobs]);
-
+  }, [bookingLocationFilter, bookingMemberFilter, bookingReferenceFilter, memberNameByJob, myJobs]);
 
   const loadDriverContext = useCallback(async () => {
     const driverId = user?.driverId?.trim() ?? '';
@@ -366,16 +345,18 @@ export default function DriverDashboard() {
   }, [loadDriverContext]);
 
   useEffect(() => {
-    if (ownerDriver) void loadFinanceSummary();
-  }, [loadFinanceSummary, ownerDriver]);
-
-  useEffect(() => {
-    if (ownerDriver) void loadCommercialSummary();
-  }, [loadCommercialSummary, ownerDriver]);
+    if (ownerDriver) {
+      void loadCommercialSummary();
+      void loadDashboardMemberNames();
+    }
+  }, [loadCommercialSummary, loadDashboardMemberNames, ownerDriver]);
 
   const refreshDashboard = async () => {
     const tasks: Promise<unknown>[] = [data.refresh(), loadDriverContext()];
-    if (ownerDriver) tasks.push(loadFinanceSummary(), loadCommercialSummary());
+    if (ownerDriver) {
+      tasks.push(loadCommercialSummary());
+      tasks.push(loadDashboardMemberNames());
+    }
     await Promise.all(tasks);
   };
 
@@ -465,7 +446,7 @@ export default function DriverDashboard() {
       : myJobs.length;
 
   const renderJobSummary = (job: (typeof myJobs)[number]) => {
-    const status = workspaceJobPresentationStatus(job);
+    const status = canonicalJobStatus(job.current_status, job.status);
     return (
       <div className="driver-load-row">
         <div className="driver-load-row__top">
@@ -498,26 +479,26 @@ export default function DriverDashboard() {
     <div className="driver-reference-dashboard driver-prototype-dashboard driver-exact-prototype">
       <DriverWorkspaceShell
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
+        hideHeader={ownerDriver}
         driverName="Today"
-        subtitle="Your current job, next action and next booking."
-        headerActions={
-          <>
-            <button
-              type="button"
-              className="btn primary"
-              onClick={() => void refreshDashboard()}
-              disabled={data.loading || contextLoading}
-            >
-              Refresh
-            </button>
-          </>
-        }
+        subtitle={ownerDriver ? undefined : 'Your current job, next action and next booking.'}
+        headerActions={ownerDriver ? undefined : (
+          <button
+            type="button"
+            className="btn primary"
+            onClick={() => void refreshDashboard()}
+            disabled={data.loading || contextLoading}
+          >
+            Refresh
+          </button>
+        )}
       >
         {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
         {contextError ? <AlertBanner tone="warning">{contextError}</AlertBanner> : null}
         {transitionError ? <AlertBanner tone="danger">{transitionError}</AlertBanner> : null}
         {transitionMessage ? <AlertBanner tone="success">{transitionMessage}</AlertBanner> : null}
 
+        {!ownerDriver ? <>
         <section className="driver-dashboard-statusbar" aria-label="Driver status">
           <button type="button" onClick={() => router.push('/driver/availability')}>
             <span>Availability</span>
@@ -658,57 +639,45 @@ export default function DriverDashboard() {
             </button>
           </div>
         </section>
+        </> : null}
 
         {ownerDriver ? (
           <>
-            {financeError ? <AlertBanner tone="warning">{financeError}</AlertBanner> : null}
-            {commercialError ? <AlertBanner tone="warning">{commercialError}</AlertBanner> : null}
-
+            {commercialSummaryError ? <AlertBanner tone="warning">{commercialSummaryError}</AlertBanner> : null}
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)', gap: 12, alignItems: 'start' }}>
               <div style={{ display: 'grid', gap: 12 }}>
                 <OperationalCard
                   title="Reports & Statistics"
-                  subtitle="Owner Driver Commercial Position"
                   actions={(
                     <select
-                      aria-label="Commercial reporting period"
+                      aria-label="Reports period"
                       value={commercialPeriod}
-                      onChange={(event) => setCommercialPeriod(event.target.value as CommercialPeriod)}
+                      onChange={(event) => setCommercialPeriod(event.target.value as 'today' | '7d' | '30d' | 'all' | 'custom')}
                       style={{ height: 30, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surface, padding: '0 8px' }}
                     >
                       <option value="today">Today</option>
                       <option value="7d">Last 7 days</option>
                       <option value="30d">Last 30 days</option>
                       <option value="all">All time</option>
+                      <option value="custom">Select Dates</option>
                     </select>
                   )}
                 >
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0,1fr))', gap: 8, marginBottom: 8 }}>
-                    <button type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
-                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Invoice readiness</span>
-                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{financeLoading ? 'Loading…' : financeSummary ? `${financeSummary.draft} draft` : 'Unavailable'}</strong>
-                      <small style={{ color: workspaceTheme.muted }}>Open Finance to review and issue invoices</small>
-                    </button>
-                    <button type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
-                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Outstanding</span>
-                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{financeLoading ? 'Loading…' : financeValues ? money(financeValues.outstanding) : 'Unavailable'}</strong>
-                      <small style={{ color: workspaceTheme.muted }}>Verified unpaid invoice value</small>
-                    </button>
-                    <button type="button" onClick={() => router.push('/driver/returns')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
-                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Return capacity</span>
-                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{profile?.future_position ?? 'Not set'}</strong>
-                      <small style={{ color: workspaceTheme.muted }}>{profile?.future_position_date ? `Available from ${formatDate(profile.future_position_date)}` : 'Set a future position for return work'}</small>
-                    </button>
-                  </div>
+                  {commercialPeriod === 'custom' ? (
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, marginBottom: 8 }}>
+                      <label style={{ fontSize: 10, color: workspaceTheme.muted }}>From<input type="date" value={commercialFrom} onChange={(event) => setCommercialFrom(event.target.value)} style={{ display: 'block', width: '100%', height: 30, marginTop: 3, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} /></label>
+                      <label style={{ fontSize: 10, color: workspaceTheme.muted }}>To<input type="date" value={commercialTo} onChange={(event) => setCommercialTo(event.target.value)} style={{ display: 'block', width: '100%', height: 30, marginTop: 3, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} /></label>
+                    </div>
+                  ) : null}
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 8 }}>
                     <button type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 118, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
-                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Recorded gross margin</span>
-                      <strong style={{ display: 'block', marginTop: 14, color: workspaceTheme.navy, fontSize: 20 }}>{commercialLoading ? 'Loading…' : commercialSummary ? money(commercialSummary.recordedGrossMargin) : 'Unavailable'}</strong>
-                      <small style={{ display: 'block', marginTop: 12, color: workspaceTheme.muted }}>Revenue gross: {commercialSummary ? money(commercialSummary.revenueGross) : commercialLoading ? 'Loading…' : 'Unavailable'}. Recorded invoiced revenue minus recorded subcontract spend.</small>
+                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Gross Margin</span>
+                      <strong style={{ display: 'block', marginTop: 14, color: workspaceTheme.navy, fontSize: 20 }}>{commercialSummaryLoading ? 'Loading…' : commercialSummary ? money(commercialSummary.recordedGrossMargin) : 'Unavailable'}</strong>
+                      <small style={{ display: 'block', marginTop: 12, color: workspaceTheme.muted }}>Recorded invoiced revenue minus recorded subcontract spend.</small>
                     </button>
                     <button type="button" onClick={() => router.push('/driver/finance?view=payables')} style={{ minHeight: 118, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
-                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Subcontract spend</span>
-                      <strong style={{ display: 'block', marginTop: 14, color: workspaceTheme.navy, fontSize: 20 }}>{commercialLoading ? 'Loading…' : commercialSummary ? money(commercialSummary.subcontractSpend) : 'Unavailable'}</strong>
+                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Sub-contract Spend</span>
+                      <strong style={{ display: 'block', marginTop: 14, color: workspaceTheme.navy, fontSize: 20 }}>{commercialSummaryLoading ? 'Loading…' : commercialSummary ? money(commercialSummary.subcontractSpend) : 'Unavailable'}</strong>
                       <small style={{ display: 'block', marginTop: 12, color: workspaceTheme.muted }}>Recorded supplier cost excluding your own company.</small>
                     </button>
                   </div>
@@ -717,10 +686,10 @@ export default function DriverDashboard() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 12 }}>
                   <OperationalCard title="Accounts Payable" subtitle="Supplier invoices where the owner-driver company is the buyer.">
                     {[
-                      ['Latest invoices received', commercialSummary ? `${commercialSummary.accountsPayable.received} received` : commercialLoading ? 'Loading…' : 'Unavailable'],
-                      ['Invoices due for Payment', commercialSummary ? `${commercialSummary.accountsPayable.dueForPayment} due` : commercialLoading ? 'Loading…' : 'Unavailable'],
-                      ['Invoices Awaiting Payment', commercialSummary ? `${commercialSummary.accountsPayable.awaitingPayment} awaiting` : commercialLoading ? 'Loading…' : 'Unavailable'],
-                      ['Monthly Totals', commercialSummary ? `${money(commercialSummary.accountsPayable.totalGross)} supplier gross` : commercialLoading ? 'Loading…' : 'Unavailable'],
+                      ['Latest invoices received', commercialSummary ? `${commercialSummary.accountsPayable.received} received` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
+                      ['Invoices due for Payment', commercialSummary ? `${commercialSummary.accountsPayable.dueForPayment} due` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
+                      ['Invoices Awaiting Payment', commercialSummary ? `${commercialSummary.accountsPayable.awaitingPayment} awaiting` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
+                      ['Monthly Totals', commercialSummary ? `${money(commercialSummary.accountsPayable.totalGross)} supplier gross` : commercialSummaryLoading ? 'Loading…' : 'Unavailable'],
                     ].map(([label, detail]) => (
                       <button key={label} type="button" onClick={() => router.push('/driver/finance?view=payables')} style={{ width: '100%', minHeight: 36, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', textAlign: 'left', cursor: 'pointer' }}>
                         <span><strong style={{ display: 'block', fontSize: 12 }}>{label}</strong><small style={{ color: workspaceTheme.muted }}>{detail}</small></span>
@@ -732,7 +701,7 @@ export default function DriverDashboard() {
                   <OperationalCard title="Reports" subtitle="Direct routes to the operational registers behind each report.">
                     {[
                       ['Bookings Received', `${myJobs.length} assigned booking(s)`, '/driver/history'],
-                      ['Bookings Sub-contracted', commercialSummary ? `${commercialSummary.bookingsSubcontracted} subcontracted` : commercialLoading ? 'Loading…' : 'Unavailable', '/driver/history'],
+                      ['Bookings Sub-contracted', commercialSummary ? `${commercialSummary.bookingsSubcontracted} subcontracted` : commercialSummaryLoading ? 'Loading…' : 'Unavailable', '/driver/history'],
                       ['Loads Allocated', `${activeJobs.length + upcomingJobs.length} active/upcoming`, '/driver/history'],
                       ['Return Journeys', profile?.future_position ? profile.future_position : 'Open register', '/driver/returns'],
                     ].map(([label, detail, href]) => (
@@ -748,11 +717,19 @@ export default function DriverDashboard() {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
                     <button type="button" onClick={() => router.push('/driver/history')} style={{ minHeight: 64, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
                       <strong style={{ display: 'block' }}>Received</strong>
-                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>{commercialLoading ? 'Loading…' : commercialSummary ? `${commercialSummary.feedback90Days.received} review(s) · Average received rating ${commercialSummary.feedback90Days.receivedRatingAverage === null ? 'not available' : `${commercialSummary.feedback90Days.receivedRatingAverage.toFixed(1)}/5`}` : 'Unavailable'}</span>
+                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>
+                        {commercialSummaryLoading
+                          ? 'Loading…'
+                          : commercialSummary
+                            ? `${commercialSummary.feedback90Days.received} review(s) · ${commercialSummary.feedback90Days.receivedRatingAverage === null ? 'No average yet' : `${commercialSummary.feedback90Days.receivedRatingAverage.toFixed(1)}/5 average`}`
+                            : 'Unavailable'}
+                      </span>
                     </button>
                     <button type="button" onClick={() => router.push('/driver/history')} style={{ minHeight: 64, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
                       <strong style={{ display: 'block' }}>Given</strong>
-                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>{commercialLoading ? 'Loading…' : commercialSummary ? `${commercialSummary.feedback90Days.given} review(s) given` : 'Unavailable'}</span>
+                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>
+                        {commercialSummaryLoading ? 'Loading…' : commercialSummary ? `${commercialSummary.feedback90Days.given} review(s) given` : 'Unavailable'}
+                      </span>
                     </button>
                   </div>
                 </OperationalCard>
@@ -775,9 +752,8 @@ export default function DriverDashboard() {
                     {latestBookings.length === 0 ? (
                       <EmptyState compact title="No bookings match these filters" />
                     ) : latestBookings.map((job) => {
-                      const status = workspaceJobPresentationStatus(job);
                       const lifecycleStatus = canonicalJobStatus(job.current_status, job.status);
-                      const group = jobLifecyclePresentationGroup(status);
+                      const group = jobLifecyclePresentationGroup(lifecycleStatus);
                       const canDecline = ['allocated', 'accepted'].includes(lifecycleStatus);
                       return (
                         <article key={job.id} style={{ border: `1px solid ${group === 'completed' ? '#79c58a' : canDecline ? '#e5a300' : workspaceTheme.border}`, background: workspaceTheme.surface, borderRadius: 4, overflow: 'hidden' }}>
@@ -794,15 +770,25 @@ export default function DriverDashboard() {
                               <div style={{ marginTop: 3 }}><span style={{ color: workspaceTheme.muted }}>Deliver: </span><strong>{formatDate(job.delivery_datetime)}</strong></div>
                             </div>
                             <div style={{ minWidth: 0, fontSize: 11 }}>
-                              <StatusBadge value={humanize(status)} tone={group === 'completed' ? 'green' : group === 'active' ? 'blue' : group === 'cancelled' ? 'grey' : 'orange'} />
-                              <div style={{ marginTop: 5, color: workspaceTheme.muted }}>{job.client_name ?? 'Member not supplied'}</div>
+                              <StatusBadge value={humanize(lifecycleStatus)} tone={group === 'completed' ? 'green' : group === 'active' ? 'blue' : group === 'cancelled' ? 'grey' : 'orange'} />
+                              <div style={{ marginTop: 5, color: workspaceTheme.muted }}>{memberNameByJob[job.id] ?? job.client_name ?? 'Member not supplied'}</div>
                               <div style={{ marginTop: 2 }}>Load ID: <strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong></div>
                               {job.booking_reference || job.customer_reference ? <div style={{ marginTop: 2, color: workspaceTheme.muted }}>Ref: {job.booking_reference ?? job.customer_reference}</div> : null}
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap', padding: '5px 8px', borderTop: `1px solid ${workspaceTheme.divider}`, background: workspaceTheme.surfaceMuted }}>
-                            <ActionButton tone={canDecline ? 'success' : 'secondary'} onClick={() => router.push(`/driver/jobs/${job.id}`)}>{group === 'completed' ? 'POD' : canDecline ? 'Enter POD' : 'Open'}</ActionButton>
-                            {canDecline ? <ActionButton tone="secondary" disabled={decliningJobId === job.id} onClick={() => void requestJobCancellation(job.id)}>{decliningJobId === job.id ? 'Sending…' : 'Decline'}</ActionButton> : null}
+                            <ActionButton tone={canDecline ? 'success' : 'secondary'} onClick={() => router.push(`/driver/jobs/${job.id}`)}>
+                              {group === 'completed' ? 'POD' : canDecline ? 'Enter POD' : 'Open'}
+                            </ActionButton>
+                            {canDecline ? (
+                              <ActionButton
+                                tone="secondary"
+                                disabled={decliningJobId === job.id}
+                                onClick={() => void requestJobCancellation(job.id)}
+                              >
+                                {decliningJobId === job.id ? 'Sending…' : 'Decline'}
+                              </ActionButton>
+                            ) : null}
                             {group === 'active' || canDecline ? <ActionButton tone="secondary" onClick={() => router.push('/driver/freight-vision')}>Track</ActionButton> : null}
                           </div>
                         </article>
@@ -810,6 +796,7 @@ export default function DriverDashboard() {
                     })}
                   </div>
                 </OperationalCard>
+
               </div>
             </div>
 
@@ -817,12 +804,28 @@ export default function DriverDashboard() {
               type="button"
               onClick={() => router.push('/driver/messages')}
               aria-label="Open Freight Messenger"
-              style={{ position: 'fixed', right: 14, bottom: 10, zIndex: 1200, minHeight: 34, padding: '7px 14px', border: '1px solid #0B2F6B', borderRadius: 4, background: '#0B2F6B', color: '#FFFFFF', fontWeight: 700, fontSize: 12, boxShadow: '0 2px 8px rgba(0,0,0,.18)', cursor: 'pointer' }}
+              style={{
+                position: 'fixed',
+                right: 14,
+                bottom: 10,
+                zIndex: 1200,
+                minHeight: 34,
+                padding: '7px 14px',
+                border: '1px solid #0B2F6B',
+                borderRadius: 4,
+                background: '#0B2F6B',
+                color: '#FFFFFF',
+                fontWeight: 700,
+                fontSize: 12,
+                boxShadow: '0 2px 8px rgba(0,0,0,.18)',
+                cursor: 'pointer',
+              }}
             >
               Freight Messenger
             </button>
           </>
         ) : null}
+
         {commercialAccess && !ownerDriver ? (
           <section className="driver-dashboard-register">
             <div className="driver-dashboard-register__head">

@@ -31,14 +31,17 @@ describe('Owner Driver commercial summary contract', () => {
     expect(route).toContain('receivedRatingAverage');
   });
 
-  it('connects the existing Owner Driver dashboard without replacing its current shell', () => {
-    expect(dashboard).toContain("type CommercialPeriod = 'today' | '7d' | '30d' | 'all'");
-    expect(dashboard).toContain('/api/driver/dashboard/commercial-summary?period=');
-    expect(dashboard).toContain('Commercial reporting period');
-    expect(dashboard).toContain('Revenue gross');
-    expect(dashboard).toContain('Subcontract spend');
-    expect(dashboard).toContain('Recorded gross margin');
-    expect(dashboard).toContain('Average received rating');
-    expect(dashboard).toContain('Owner Driver Commercial Position');
+  it('connects the approved Owner Driver dashboard to the server-authoritative commercial summary', () => {
+    expect(dashboard).toContain("'today' | '7d' | '30d' | 'all' | 'custom'");
+    expect(dashboard).toContain('new URLSearchParams({ period: commercialPeriod })');
+    expect(dashboard).toContain("params.set('from', commercialFrom)");
+    expect(dashboard).toContain("params.set('to', commercialTo)");
+    expect(dashboard).toContain('/api/driver/dashboard/commercial-summary?');
+    expect(dashboard).toContain('Reports period');
+    expect(dashboard).toContain('Sub-contract Spend');
+    expect(dashboard).toContain('Gross Margin');
+    expect(dashboard).toContain('feedback90Days.receivedRatingAverage');
+    expect(dashboard).toContain('Reports & Statistics');
+    expect(dashboard).toContain('Accounts Payable');
   });
 });

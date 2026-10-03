@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 
 const root = process.cwd();
@@ -14,10 +14,11 @@ describe('Owner Driver canonical visual reference', () => {
     expect(dashboard).toContain('Activity at a glance');
     expect(dashboard).toContain('Latest assigned bookings');
     expect(dashboard).toContain('Freight Messenger');
-    expect(dashboard).toContain('Invoice readiness');
-    expect(dashboard).toContain('Outstanding');
-    expect(dashboard).toContain('Return capacity');
+    expect(dashboard).toContain('Reports period');
+    expect(dashboard).toContain('/api/driver/dashboard/commercial-summary');
     expect(dashboard).not.toContain('Owner Driver business desk');
+    expect(dashboard).not.toContain('Invoice readiness');
+    expect(dashboard).not.toContain('Return capacity');
   });
 
   it('preserves the canonical desktop Driver shell geometry', () => {
