@@ -59,6 +59,27 @@ type DriverFinanceValues = {
   outstanding: number;
 };
 
+type CommercialPeriod = 'today' | '7d' | '30d' | 'all';
+
+type OwnerCommercialSummary = {
+  period: CommercialPeriod;
+  revenueGross: number;
+  subcontractSpend: number;
+  recordedGrossMargin: number;
+  accountsPayable: {
+    received: number;
+    dueForPayment: number;
+    awaitingPayment: number;
+    totalGross: number;
+  };
+  bookingsSubcontracted: number;
+  feedback90Days: {
+    received: number;
+    given: number;
+    receivedRatingAverage: number | null;
+  };
+};
+
 type DriverAction = {
   label: string;
   description: string;
@@ -157,6 +178,10 @@ export default function DriverDashboard() {
   const [financeValues, setFinanceValues] = useState<DriverFinanceValues | null>(null);
   const [financeLoading, setFinanceLoading] = useState(false);
   const [financeError, setFinanceError] = useState('');
+  const [commercialPeriod, setCommercialPeriod] = useState<CommercialPeriod>('today');
+  const [commercialSummary, setCommercialSummary] = useState<OwnerCommercialSummary | null>(null);
+  const [commercialLoading, setCommercialLoading] = useState(false);
+  const [commercialError, setCommercialError] = useState('');
   const [bookingMemberFilter, setBookingMemberFilter] = useState('');
   const [bookingLocationFilter, setBookingLocationFilter] = useState('');
   const [bookingReferenceFilter, setBookingReferenceFilter] = useState('');
@@ -228,6 +253,34 @@ export default function DriverDashboard() {
       setFinanceLoading(false);
     }
   }, [ownerDriver]);
+
+  const loadCommercialSummary = useCallback(async () => {
+    if (!ownerDriver || !isSupabaseConfigured) return;
+    setCommercialLoading(true);
+    setCommercialError('');
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      let token = sessionData.session?.access_token;
+      if (!token) {
+        const refreshed = await supabase.auth.refreshSession();
+        token = refreshed.data.session?.access_token;
+      }
+      if (!token) throw new Error('Commercial session could not be verified.');
+
+      const response = await fetch(`/api/driver/dashboard/commercial-summary?period=${encodeURIComponent(commercialPeriod)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        cache: 'no-store',
+      });
+      const payload = await response.json().catch(() => null) as (OwnerCommercialSummary & { error?: string }) | null;
+      if (!response.ok || !payload) throw new Error(payload?.error ?? 'Commercial summary could not be loaded.');
+      setCommercialSummary(payload);
+    } catch (reason) {
+      setCommercialSummary(null);
+      setCommercialError(reason instanceof Error ? reason.message : 'Commercial summary could not be loaded.');
+    } finally {
+      setCommercialLoading(false);
+    }
+  }, [commercialPeriod, ownerDriver]);
 
   const latestBookings = useMemo(() => {
     const memberNeedle = bookingMemberFilter.trim().toLowerCase();
@@ -341,9 +394,13 @@ export default function DriverDashboard() {
     if (ownerDriver) void loadFinanceSummary();
   }, [loadFinanceSummary, ownerDriver]);
 
+  useEffect(() => {
+    if (ownerDriver) void loadCommercialSummary();
+  }, [loadCommercialSummary, ownerDriver]);
+
   const refreshDashboard = async () => {
     const tasks: Promise<unknown>[] = [data.refresh(), loadDriverContext()];
-    if (ownerDriver) tasks.push(loadFinanceSummary());
+    if (ownerDriver) tasks.push(loadFinanceSummary(), loadCommercialSummary());
     await Promise.all(tasks);
   };
 
@@ -630,6 +687,7 @@ export default function DriverDashboard() {
         {ownerDriver ? (
           <>
             {financeError ? <AlertBanner tone="warning">{financeError}</AlertBanner> : null}
+            {commercialError ? <AlertBanner tone="warning">{commercialError}</AlertBanner> : null}
             <OperationalToolbar>
               <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
                 <strong style={{ color: workspaceTheme.navy }}>Owner Driver business desk</strong>
@@ -645,7 +703,20 @@ export default function DriverDashboard() {
 
             <OperationalCard
               title="Owner Driver Commercial Position"
-              subtitle="A compact view of invoice readiness, outstanding value and return capacity for the owner-driver account."
+              subtitle="Invoice readiness plus server-verified commercial position for the selected period."
+              actions={(
+                <select
+                  aria-label="Commercial reporting period"
+                  value={commercialPeriod}
+                  onChange={(event) => setCommercialPeriod(event.target.value as CommercialPeriod)}
+                  style={{ height: 30, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, padding: '0 8px', background: '#fff' }}
+                >
+                  <option value="today">Today</option>
+                  <option value="7d">Last 7 days</option>
+                  <option value="30d">Last 30 days</option>
+                  <option value="all">All time</option>
+                </select>
+              )}
             >
               <div className="driver-owner-commercial-position__grid">
                 <button
@@ -688,18 +759,20 @@ export default function DriverDashboard() {
 
             <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)', gap: 12, alignItems: 'start' }}>
               <div style={{ display: 'grid', gap: 12 }}>
-                <OperationalCard title="Reports & Statistics">
+                <OperationalCard title="Reports & Statistics" subtitle="Server-authoritative commercial totals for the selected period.">
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0,1fr))', gap: 8 }}>
-                    <button type="button" onClick={() => router.push('/driver/won-work')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
-                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Won work value</span>
-                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{money(wonWorkValue)}</strong>
-                      <small style={{ color: workspaceTheme.muted }}>Accepted quotes on assigned work</small>
-                    </button>
-                    <button type="button" onClick={() => router.push('/driver/finance')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
-                      <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>Gross invoiced</span>
-                      <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{financeLoading ? 'Loading…' : financeValues ? money(financeValues.gross) : 'Unavailable'}</strong>
-                      <small style={{ color: workspaceTheme.muted }}>Verified Driver Finance summary</small>
-                    </button>
+                    {[
+                      ['Revenue gross', commercialSummary ? money(commercialSummary.revenueGross) : commercialLoading ? 'Loading…' : 'Unavailable'],
+                      ['Subcontract spend', commercialSummary ? money(commercialSummary.subcontractSpend) : commercialLoading ? 'Loading…' : 'Unavailable'],
+                      ['Recorded gross margin', commercialSummary ? money(commercialSummary.recordedGrossMargin) : commercialLoading ? 'Loading…' : 'Unavailable'],
+                      ['Bookings subcontracted', commercialSummary ? `${commercialSummary.bookingsSubcontracted}` : commercialLoading ? 'Loading…' : 'Unavailable'],
+                    ].map(([label, detail]) => (
+                      <button key={label} type="button" onClick={() => router.push(label === 'Bookings subcontracted' ? '/driver/history' : '/driver/finance')} style={{ minHeight: 74, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#EFF6FF', textAlign: 'left', cursor: 'pointer' }}>
+                        <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11 }}>{label}</span>
+                        <strong style={{ display: 'block', marginTop: 4, color: workspaceTheme.navy, fontSize: 18 }}>{detail}</strong>
+                        <small style={{ color: workspaceTheme.muted }}>Verified Owner Driver commercial summary</small>
+                      </button>
+                    ))}
                   </div>
                 </OperationalCard>
 
@@ -733,15 +806,19 @@ export default function DriverDashboard() {
                   </OperationalCard>
                 </div>
 
-                <OperationalCard title="Feedback in Last 90 Days" subtitle="XDrive does not fabricate payment or delivery scores when the Driver feed has no verified score source.">
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
+                <OperationalCard title="Feedback in Last 90 Days" subtitle="Verified review records for the Owner Driver company.">
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 8 }}>
                     <button type="button" onClick={() => router.push('/driver/history')} style={{ minHeight: 64, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
-                      <strong style={{ display: 'block' }}>Received</strong>
-                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>Open Diary feedback records</span>
+                      <strong style={{ display: 'block' }}>{commercialSummary ? commercialSummary.feedback90Days.received : commercialLoading ? '…' : 'Unavailable'}</strong>
+                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>Received</span>
                     </button>
                     <button type="button" onClick={() => router.push('/driver/history')} style={{ minHeight: 64, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
-                      <strong style={{ display: 'block' }}>Given</strong>
-                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>Open completed bookings and feedback actions</span>
+                      <strong style={{ display: 'block' }}>{commercialSummary ? commercialSummary.feedback90Days.given : commercialLoading ? '…' : 'Unavailable'}</strong>
+                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>Given</span>
+                    </button>
+                    <button type="button" onClick={() => router.push('/driver/history')} style={{ minHeight: 64, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: 'left', cursor: 'pointer' }}>
+                      <strong style={{ display: 'block' }}>{commercialSummary?.feedback90Days.receivedRatingAverage != null ? commercialSummary.feedback90Days.receivedRatingAverage.toFixed(1) : commercialLoading ? '…' : '—'}</strong>
+                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>Average received rating</span>
                     </button>
                   </div>
                 </OperationalCard>
