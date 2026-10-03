@@ -328,3 +328,37 @@
   .driver-freight-kpis button:nth-child(5){grid-column:1/-1}
   .driver-freight-map-pane,.driver-freight-map-shell,.driver-freight-map-canvas,.driver-freight-map-shell .leaflet-container{min-height:320px}
 }
+
+/* Live Availability command buttons: keep a stable light state after mouse-out/focus. */
+.xdrive-driver-workspace .driver-more-canonical-page .driver-live-command-button{
+  background:#ffffff!important;
+  border-color:#9fb3c9!important;
+  color:#0b2f6b!important;
+  box-shadow:none!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-live-command-button:hover:not(:disabled){
+  background:#eef4ff!important;
+  border-color:#1d57d8!important;
+  color:#0b2f6b!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-live-command-button:focus,
+.xdrive-driver-workspace .driver-more-canonical-page .driver-live-command-button:focus-visible{
+  background:#ffffff!important;
+  border-color:#1d57d8!important;
+  color:#0b2f6b!important;
+  outline:2px solid rgba(29,87,216,.38)!important;
+  outline-offset:2px!important;
+  box-shadow:none!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-live-command-button:active:not(:disabled){
+  background:#e4edfb!important;
+  border-color:#1d57d8!important;
+  color:#0b2f6b!important;
+}
+.xdrive-driver-workspace .driver-more-canonical-page .driver-live-command-button:disabled{
+  background:#f8fafc!important;
+  border-color:#cbd5e1!important;
+  color:#64748b!important;
+  opacity:1!important;
+  cursor:not-allowed!important;
+}

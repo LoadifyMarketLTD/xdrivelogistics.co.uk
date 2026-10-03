@@ -203,7 +203,7 @@ export default function LiveAvailabilityPage() {
         subtitle="Publish your own availability when you want work and discover privacy-scoped Exchange vehicle capacity in the same operational workspace."
         availabilityLabel={presence ? 'Live Availability On' : 'Live Availability Off'}
         headerActions={
-          <button type="button" className="driver-more-button driver-more-button--primary" onClick={refreshAll} disabled={busy || nearbyLoading}>
+          <button type="button" className="driver-more-button driver-live-command-button" onClick={refreshAll} disabled={busy || nearbyLoading}>
             {nearbyLoading ? 'Refreshing...' : 'Refresh'}
           </button>
         }
@@ -247,7 +247,7 @@ export default function LiveAvailabilityPage() {
 
             <div className="driver-live-share-actions">
               {!presence ? (
-                <button type="button" className="driver-more-button driver-more-button--primary" onClick={() => void start()} disabled={busy}>Start live availability</button>
+                <button type="button" className="driver-more-button driver-live-command-button" onClick={() => void start()} disabled={busy}>Start live availability</button>
               ) : (
                 <button type="button" className="driver-more-button driver-live-stop" onClick={() => void stop()} disabled={busy}>Stop live availability</button>
               )}

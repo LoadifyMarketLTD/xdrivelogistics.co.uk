@@ -6,6 +6,7 @@ const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260
 const driverApi = readFileSync(resolve(process.cwd(), 'app/api/driver/availability-presence/route.ts'), 'utf8');
 const nearbyApi = readFileSync(resolve(process.cwd(), 'app/api/availability/nearby/route.ts'), 'utf8');
 const page = readFileSync(resolve(process.cwd(), 'app/driver/availability/live/page.tsx'), 'utf8');
+const moreCss = readFileSync(resolve(process.cwd(), 'app/driver/driver-more-canonical.css'), 'utf8');
 
 describe('opt-in availability tracking contract', () => {
   it('keeps availability location separate from job tracking and server-only', () => {
@@ -30,6 +31,10 @@ describe('opt-in availability tracking contract', () => {
     expect(page).toContain('Near postcode / outcode');
     expect(page).toContain('Radius Search');
     expect(page).toContain('Drivers & Sub-contractors');
+    expect(page.match(/driver-live-command-button/g)?.length).toBe(2);
+    expect(moreCss).toContain('.driver-live-command-button:hover:not(:disabled)');
+    expect(moreCss).toContain('.driver-live-command-button:focus-visible');
+    expect(moreCss).toContain('background:#ffffff!important;');
   });
 
   it('suppresses availability for active jobs and non-available drivers', () => {
