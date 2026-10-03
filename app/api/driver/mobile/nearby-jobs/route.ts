@@ -332,18 +332,9 @@ export async function GET(request: NextRequest) {
   if (error) return respond(500, { error: error.message });
   const activeRows = ((data ?? []) as unknown as NearbyJobRow[])
     .filter((row) => exchangePostActive(row));
-  const posterUserIds = [...new Set(activeRows.map((row) => String(row.created_by ?? '')).filter(Boolean))];
-  const posterProfilesResult = posterUserIds.length
-    ? await supabaseAdmin.from('profiles').select('user_id,xd_id').in('user_id', posterUserIds)
-    : { data: [], error: null };
-  if (posterProfilesResult.error) return respond(500, { error: 'Marketplace member identity could not be loaded.' });
-  const posterMemberIdByUser = new Map(
-    (posterProfilesResult.data ?? []).map((profile) => [String(profile.user_id), String(profile.xd_id ?? '')]),
-  );
   const posterMemberId = (row: NearbyJobRow) => {
-    const userXdId = posterMemberIdByUser.get(String(row.created_by ?? '')) || null;
     const company = companyInfo(row.companies);
-    return userXdId || company?.xd_id || null;
+    return company?.xd_id || null;
   };
   const rows = activeRows
     .filter((row) => matchesPublicSearch(row, search, posterMemberId(row)))
