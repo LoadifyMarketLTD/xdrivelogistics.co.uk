@@ -460,6 +460,29 @@ export const buildSubmitHandler = <TPayloadSchema extends z.ZodTypeAny>(options:
     }
     companyId = submittedCompanyId;
 
+    if (companyId && ['customer_shipper', 'broker_shipper', 'fleet_courier'].includes(expectedAccountType)) {
+      const companyProfile = parsedPayload.data as Record<string, unknown>;
+      const companyUpdate: Record<string, string> = {};
+      const businessEmail = typeof companyProfile.contact_email === 'string' ? companyProfile.contact_email.trim() : '';
+      const businessPhone = typeof companyProfile.contact_phone === 'string' ? companyProfile.contact_phone.trim() : '';
+      const website = typeof companyProfile.website === 'string' ? companyProfile.website.trim() : '';
+      if (businessEmail) companyUpdate.email = businessEmail;
+      if (businessPhone) companyUpdate.phone = businessPhone;
+      if (website) companyUpdate.website = website;
+
+      if (Object.keys(companyUpdate).length > 0) {
+        const { error: companyProfileError } = await supabaseAdmin
+          .from('companies')
+          .update(companyUpdate)
+          .eq('id', companyId);
+
+        if (companyProfileError) {
+          console.error('[onboarding] Failed to persist company contact profile:', companyProfileError.message);
+          return json(500, { error: 'Company contact details could not be saved.' });
+        }
+      }
+    }
+
     const { data: updated, error: updateError } = await supabaseAdmin
       .from('onboarding_applications')
       .select('*')

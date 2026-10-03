@@ -19,6 +19,7 @@ export const customerPayloadSchema = z
     contact_phone: z.string().trim().min(1).optional().default(''),
     company_name: z.string().trim().optional().default(''),
     billing_address: z.string().trim().optional().default(''),
+    website: z.union([z.string().trim().url(), z.literal('')]).optional().default(''),
   })
   .passthrough();
 
@@ -34,6 +35,7 @@ export const brokerPayloadSchema = z
     finance_contact: z.string().trim().min(1),
     contact_email: z.string().trim().email(),
     contact_phone: z.string().trim().min(1),
+    website: z.union([z.string().trim().url(), z.literal('')]).optional().default(''),
   })
   .passthrough();
 
@@ -48,6 +50,9 @@ export const fleetPayloadSchema = z
     contact_person: z.string().trim().min(1),
     compliance_contact: z.string().trim().min(1),
     transport_contact: z.string().trim().min(1),
+    contact_email: z.union([z.string().trim().email(), z.literal('')]).optional().default(''),
+    contact_phone: z.string().trim().optional().default(''),
+    website: z.union([z.string().trim().url(), z.literal('')]).optional().default(''),
   })
   .passthrough();
 
