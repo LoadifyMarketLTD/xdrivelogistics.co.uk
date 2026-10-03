@@ -4,7 +4,7 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { BellRing, Briefcase, CalendarClock, FileText, MapPin, MessageSquare, ReceiptText, Trophy } from 'lucide-react';
+import { BellRing, Briefcase, ChevronDown, CalendarClock, FileText, MapPin, MessageSquare, ReceiptText, Trophy } from 'lucide-react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -273,7 +273,6 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
     '/driver/documents',
     '/driver/finance',
     '/driver/messages',
-    '/driver/profile',
   ]);
 
   return ownerNav.map((group) => group.id !== 'owner-driver-more'
@@ -281,11 +280,9 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
     : {
         ...group,
         items: group.items.map((item) => {
-          if (item.href === '/driver/jobs') return { ...item, label: 'My Jobs' };
-          if (item.href === '/driver/availability') return { ...item, label: 'My Availability' };
-          if (item.href === '/driver/load-alerts') return { ...item, label: 'Auto-match & Alerts' };
-          if (item.href === '/driver/finance') return { ...item, label: 'Invoices' };
-          if (item.href === '/driver/profile') return { ...item, label: 'Account' };
+          if (item.href === '/driver/availability') return { ...item, label: 'Availability & Schedule' };
+          if (item.href === '/driver/load-alerts') return { ...item, label: 'Load Matching & Alerts' };
+          if (item.href === '/driver/finance') return { ...item, label: 'Finance & Invoices' };
           return item;
         }),
       });
@@ -374,37 +371,37 @@ function moreMenuSectionLabel(groupId: string, href: string, previousHref?: stri
 function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
   return [
     { id: 'broker-home', label: 'Broker', items: [
-      { id: 'broker-dashboard', label: 'Broker Dashboard', href: '/broker', icon: 'âŒ‚' },
+      { id: 'broker-dashboard', label: 'Broker Dashboard', href: '/broker', icon: 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡' },
       { id: 'broker-action-centre', label: 'Action Centre', href: '/broker/action-centre', icon: '!' },
-      { id: 'broker-enquiries', label: 'Enquiries', href: '/broker/enquiries', icon: 'â—«' },
+      { id: 'broker-enquiries', label: 'Enquiries', href: '/broker/enquiries', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â«' },
     ] },
     { id: 'broker-customers-loads', label: 'Customers & Loads', items: [
-      { id: 'broker-customers', label: 'Customers', href: '/broker/customers', icon: 'â—‹' },
-      { id: 'broker-customer-loads', label: 'Customer Loads', href: '/broker/loads', icon: 'â– ' },
+      { id: 'broker-customers', label: 'Customers', href: '/broker/customers', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹' },
+      { id: 'broker-customer-loads', label: 'Customer Loads', href: '/broker/loads', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â ' },
     ] },
     { id: 'broker-commercial', label: 'Commercial', items: [
-      { id: 'broker-carrier-quotes', label: 'Carrier Quotes', href: '/broker/bids', icon: 'â–£' },
+      { id: 'broker-carrier-quotes', label: 'Carrier Quotes', href: '/broker/bids', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â£' },
       { id: 'broker-margin', label: 'Margin / Profit', href: '/broker/margins', icon: '%' },
     ] },
     { id: 'broker-operations', label: 'Operations', items: [
-      { id: 'broker-active-jobs', label: 'Active Jobs', href: '/broker/jobs', icon: 'â– ' },
-      { id: 'broker-diary', label: 'Diary', href: '/broker/diary', icon: 'â–¡' },
-      { id: 'broker-pod-review', label: 'POD Review', href: '/broker/pod-review', icon: 'â–¤' },
+      { id: 'broker-active-jobs', label: 'Active Jobs', href: '/broker/jobs', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â ' },
+      { id: 'broker-diary', label: 'Diary', href: '/broker/diary', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¡' },
+      { id: 'broker-pod-review', label: 'POD Review', href: '/broker/pod-review', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¤' },
       { id: 'broker-disputes', label: 'Disputes', href: '/broker/disputes', icon: '!' },
     ] },
     { id: 'broker-collaboration', label: 'Collaboration', items: [
-      { id: 'broker-messages', label: 'Messages', href: '/broker/messages', icon: 'â—«' },
-      { id: 'broker-event-log', label: 'Event Log', href: '/broker/event-log', icon: 'â‰¡' },
-      { id: 'broker-network', label: 'Directory', href: '/broker/carrier-network', icon: 'âŠ•' },
+      { id: 'broker-messages', label: 'Messages', href: '/broker/messages', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â«' },
+      { id: 'broker-event-log', label: 'Event Log', href: '/broker/event-log', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°Ãƒâ€šÃ‚Â¡' },
+      { id: 'broker-network', label: 'Directory', href: '/broker/carrier-network', icon: 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¢' },
     ] },
     { id: 'broker-finance', label: 'Finance', items: [
-      { id: 'broker-finance-home', label: 'Finance', href: '/broker/finance', icon: 'Â£' },
-      { id: 'broker-customer-invoices', label: 'Customer Invoices', href: '/broker/customer-invoices', icon: 'Â£' },
-      { id: 'broker-carrier-costs', label: 'Carrier Costs', href: '/broker/carrier-costs', icon: 'Â£' },
+      { id: 'broker-finance-home', label: 'Finance', href: '/broker/finance', icon: 'ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£' },
+      { id: 'broker-customer-invoices', label: 'Customer Invoices', href: '/broker/customer-invoices', icon: 'ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£' },
+      { id: 'broker-carrier-costs', label: 'Carrier Costs', href: '/broker/carrier-costs', icon: 'ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£' },
     ] },
     { id: 'broker-administration', label: 'Administration', items: [
-      { id: 'broker-team', label: 'Team', href: '/broker/team', icon: 'â—Ž' },
-      { id: 'broker-settings', label: 'Settings', href: '/broker/settings', icon: 'âš™' },
+      { id: 'broker-team', label: 'Team', href: '/broker/team', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€¦Ã‚Â½' },
+      { id: 'broker-settings', label: 'Settings', href: '/broker/settings', icon: 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢' },
     ] },
   ];
 }
@@ -444,35 +441,35 @@ function filterWorkspaceNavByAccess(
 function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
   return [
     { id: 'customer-home', label: 'Customer', items: [
-      { id: 'customer-dashboard', label: 'Customer Dashboard', href: '/customer', icon: 'âŒ‚' },
+      { id: 'customer-dashboard', label: 'Customer Dashboard', href: '/customer', icon: 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã…Â¡' },
       { id: 'customer-action-centre', label: 'Action Centre', href: '/customer/action-centre', icon: '!' },
     ] },
     { id: 'customer-loads', label: 'My Loads', items: [
-      { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: 'â– ' },
+      { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â ' },
     ] },
     { id: 'customer-quotes', label: 'Quotes', items: [
-      { id: 'customer-quotes-page', label: 'Quotes', href: '/customer/quotes', icon: 'â–£' },
+      { id: 'customer-quotes-page', label: 'Quotes', href: '/customer/quotes', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â£' },
     ] },
     { id: 'customer-bookings', label: 'Bookings', items: [
-      { id: 'customer-bookings-page', label: 'Bookings', href: '/customer/bookings', icon: 'âœ“' },
+      { id: 'customer-bookings-page', label: 'Bookings', href: '/customer/bookings', icon: 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬Å“ÃƒÂ¢Ã¢â€šÂ¬Ã…â€œ' },
     ] },
     { id: 'customer-delivery', label: 'Delivery', items: [
-      { id: 'customer-deliveries', label: 'Deliveries', href: '/customer/deliveries', icon: 'â– ' },
-      { id: 'customer-tracking', label: 'Tracking', href: '/customer/tracking', icon: 'âŒ–' },
-      { id: 'customer-pod-docs', label: 'POD & Documents', href: '/customer/documents', icon: 'â–¤' },
-      { id: 'customer-diary', label: 'Diary', href: '/customer/diary', icon: 'â–¡' },
-      { id: 'customer-updates', label: 'Updates', href: '/customer/updates', icon: 'â—' },
+      { id: 'customer-deliveries', label: 'Deliveries', href: '/customer/deliveries', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â ' },
+      { id: 'customer-tracking', label: 'Tracking', href: '/customer/tracking', icon: 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“' },
+      { id: 'customer-pod-docs', label: 'POD & Documents', href: '/customer/documents', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¤' },
+      { id: 'customer-diary', label: 'Diary', href: '/customer/diary', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¡' },
+      { id: 'customer-updates', label: 'Updates', href: '/customer/updates', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â' },
     ] },
     { id: 'customer-collaboration', label: 'Collaboration', items: [
-      { id: 'customer-network', label: 'Directory', href: '/customer/network', icon: 'â—‹' },
-      { id: 'customer-messages', label: 'Messages', href: '/customer/messages', icon: 'â—«' },
+      { id: 'customer-network', label: 'Directory', href: '/customer/network', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â¹' },
+      { id: 'customer-messages', label: 'Messages', href: '/customer/messages', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â«' },
       { id: 'customer-disputes', label: 'Disputes', href: '/customer/disputes', icon: '!' },
-      { id: 'customer-event-log', label: 'Event Log', href: '/customer/event-log', icon: 'â‰¡' },
+      { id: 'customer-event-log', label: 'Event Log', href: '/customer/event-log', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°Ãƒâ€šÃ‚Â¡' },
     ] },
-    { id: 'customer-finance', label: 'Finance', items: [{ id: 'customer-invoices', label: 'Invoices', href: '/customer/invoices', icon: 'Â£' }] },
+    { id: 'customer-finance', label: 'Finance', items: [{ id: 'customer-invoices', label: 'Invoices', href: '/customer/invoices', icon: 'ÃƒÆ’Ã¢â‚¬Å¡Ãƒâ€šÃ‚Â£' }] },
     { id: 'customer-administration', label: 'Administration', items: [
-      { id: 'customer-team', label: 'Team', href: '/customer/team', icon: 'â—Ž' },
-      { id: 'customer-settings', label: 'Settings', href: '/customer/settings', icon: 'âš™' },
+      { id: 'customer-team', label: 'Team', href: '/customer/team', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€¦Ã‚Â½' },
+      { id: 'customer-settings', label: 'Settings', href: '/customer/settings', icon: 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã‚Â¡ÃƒÂ¢Ã¢â‚¬Å¾Ã‚Â¢' },
     ] },
   ];
 }
@@ -500,7 +497,7 @@ export default function TopWorkspaceShell({
         base.push({
           id: 'carrier-customer-quotes',
           label: 'Customer Quotes',
-          items: [{ id: 'customer-quotes', label: 'Customer Quotes', href: customerQuotesHref, icon: 'â—«', capability: 'quotes.submit' }],
+          items: [{ id: 'customer-quotes', label: 'Customer Quotes', href: customerQuotesHref, icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â«', capability: 'quotes.submit' }],
         });
       }
 
@@ -512,7 +509,7 @@ export default function TopWorkspaceShell({
         base.splice(insertAt, 0, {
           id: 'carrier-directory',
           label: 'Directory',
-          items: [{ id: 'directory', label: 'Directory', href: directoryHref, icon: 'â—Œ' }],
+          items: [{ id: 'directory', label: 'Directory', href: directoryHref, icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€¦Ã¢â‚¬â„¢' }],
         });
       }
     }
@@ -522,7 +519,7 @@ export default function TopWorkspaceShell({
         id: 'freight-vision',
         label: 'Freight Vision',
         href: '/admin/freight-vision',
-        icon: 'âŒ–',
+        icon: 'ÃƒÆ’Ã‚Â¢Ãƒâ€¦Ã¢â‚¬â„¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“',
         capability: 'jobs.track' as const,
       };
       const alreadyPresent = base.some((group) => group.items.some((candidate) => candidate.href === item.href));
@@ -545,23 +542,23 @@ export default function TopWorkspaceShell({
           id: 'live-availability',
           label: 'Live Availability',
           href: '/admin/live-availability',
-          icon: 'â—·',
+          icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â·',
           capability: 'fleet.positions.view',
         },
         {
           id: 'fleet-resources',
           label: 'Fleet Resources',
           href: '/admin/fleet/resources',
-          icon: 'â–¦',
+          icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â¦',
           capability: 'fleet.positions.view',
         },
       ];
 
       if (hasWorkspaceCapability(role, 'drivers.manage')) {
-        items.push({ id: 'fleet-drivers', label: 'Drivers', href: '/admin/fleet/drivers', icon: 'â—‰', capability: 'drivers.manage' });
+        items.push({ id: 'fleet-drivers', label: 'Drivers', href: '/admin/fleet/drivers', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°', capability: 'drivers.manage' });
       }
       if (hasWorkspaceCapability(role, 'vehicles.manage')) {
-        items.push({ id: 'fleet-vehicles', label: 'Vehicles', href: '/admin/fleet/vehicles', icon: 'â–°', capability: 'vehicles.manage' });
+        items.push({ id: 'fleet-vehicles', label: 'Vehicles', href: '/admin/fleet/vehicles', icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Å“Ãƒâ€šÃ‚Â°', capability: 'vehicles.manage' });
       }
 
       if (CARRIER_NAV_ROLES.has(role)) {
@@ -595,7 +592,7 @@ export default function TopWorkspaceShell({
         base.splice(insertAt, 0, {
           id: `${role}-messages`,
           label: 'Messages',
-          items: [{ id: 'messages', label: 'Messages', href: messageHref, icon: 'â—«' }],
+          items: [{ id: 'messages', label: 'Messages', href: messageHref, icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬ÂÃƒâ€šÃ‚Â«' }],
         });
       }
     }
@@ -609,7 +606,7 @@ export default function TopWorkspaceShell({
         base.splice(insertAt, 0, {
           id: `${role}-event-log`,
           label: 'Event Log',
-          items: [{ id: 'event-log', label: 'Event Log', href: eventLogHref, icon: 'â‰¡' }],
+          items: [{ id: 'event-log', label: 'Event Log', href: eventLogHref, icon: 'ÃƒÆ’Ã‚Â¢ÃƒÂ¢Ã¢â€šÂ¬Ã‚Â°Ãƒâ€šÃ‚Â¡' }],
         });
       }
     }
@@ -867,7 +864,7 @@ export default function TopWorkspaceShell({
             aria-label={`Notifications${unreadCount > 0 ? `, ${unreadCount} unread` : ''}`}
             title="Notifications"
           >
-            <span aria-hidden="true">ðŸ””</span>
+            <BellRing aria-hidden="true" size={18} strokeWidth={1.8} />
             {unreadCount > 0 && (
               <span className="top-workspace-notification__count">
                 {unreadCount > 99 ? '99+' : unreadCount}
@@ -921,6 +918,7 @@ export default function TopWorkspaceShell({
                 key={group.id}
                 className="top-workspace-nav__group top-workspace-nav__group--menu"
                 data-first={groupIndex === 0 ? 'true' : 'false'}
+                data-group-id={group.id}
               >
                 <button
                   type="button"
@@ -942,7 +940,7 @@ export default function TopWorkspaceShell({
                   }}
                 >
                   <span>{group.label}</span>
-                  <span aria-hidden="true" className="top-workspace-nav__caret">â–¾</span>
+                  <ChevronDown aria-hidden="true" className="top-workspace-nav__caret" size={14} strokeWidth={2} />
                 </button>
                 {open && (
                   <div
@@ -971,7 +969,7 @@ export default function TopWorkspaceShell({
                             onClick={() => openRoute(item.href)}
                           >
                             <span className="top-workspace-nav__menu-icon" aria-hidden="true">
-                              {role === 'owner_driver' ? <OwnerDriverMoreIcon item={item} /> : item.icon ?? 'â€¢'}
+                              {role === 'owner_driver' ? <OwnerDriverMoreIcon item={item} /> : item.icon ?? null}
                             </span>
                             <span>{item.label}</span>
                           </button>
