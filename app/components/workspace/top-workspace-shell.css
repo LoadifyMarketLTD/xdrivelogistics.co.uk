@@ -594,7 +594,7 @@
     padding: 8px !important;
   }
 }
-/* 2026-09-29 operational list controls â€” measured CX upper-right toolbar */
+/* 2026-09-29 operational list controls — measured CX upper-right toolbar */
 .xdrive-operational-top-workspace .workspace-list-controls{
   min-height:40px!important;
   padding:4px 8px!important;
@@ -787,7 +787,7 @@
   height: 14px;
 }
 
-/* CANONICAL DRIVER WORKSPACE SHELL â€” restored from dbe30b89 visual baseline. */
+/* CANONICAL DRIVER WORKSPACE SHELL — restored from dbe30b89 visual baseline. */
 @media (min-width: 1280px) {
   .xdrive-driver-workspace .top-workspace-shell__header {
     height: 50px !important;
@@ -828,6 +828,7 @@
     min-height: calc(100vh - 100px) !important;
   }
 }
+
 /* Owner Driver More - Preview 656 canonical behaviour, reconciled with current main shell. */
 .xdrive-driver-workspace .top-workspace-nav__group[data-group-id="owner-driver-more"] .top-workspace-nav__menu {
   position: fixed;
