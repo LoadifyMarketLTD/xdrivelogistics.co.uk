@@ -80,6 +80,7 @@ describe('driver parity across dual identity contexts', () => {
 
     expect(hrefs('owner_driver')).toEqual([
       ...hrefs('driver'),
+      '/driver/availability/live',
       '/driver/directory',
       '/driver/drivers-vehicles',
       '/driver/finance',

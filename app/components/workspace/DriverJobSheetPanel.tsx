@@ -56,7 +56,7 @@ type DriverSheet = {
   };
   requirements: string[];
   hardCopyPod: string;
-  podRequired: boolean | null;
+  podRequired: boolean;
   pickup: {
     address: string | null;
     postcode: string | null;
@@ -234,7 +234,7 @@ export function DriverJobSheetPanel({ jobId }: { jobId: string }) {
 
       {tab === 'pod' && (
         <div className="workspace-detail-grid">
-          <Detail label="POD required" value={sheet.podRequired == null ? 'Not supplied' : sheet.podRequired ? 'Yes' : 'No'} />
+          <Detail label="POD required" value="Yes" detail="Digital POD is mandatory for every XDrive job." />
           <Detail label="Hard-copy POD" value={sheet.hardCopyPod} />
           <Detail label="Collection photo" value={sheet.pod.collectionPhotoRecorded ? 'Recorded' : 'Not recorded'} />
           <Detail label="Delivery photos" value={sheet.pod.photoCount} />

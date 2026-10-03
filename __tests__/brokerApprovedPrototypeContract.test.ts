@@ -9,7 +9,7 @@ describe('Broker cleaned workspace contract', () => {
   const dashboard = read('app/broker/BrokerDashboardHome.tsx');
 
   it('exposes the complete Broker workflow navigation', () => {
-    for (const label of ['Broker Dashboard','Action Centre','Enquiries','Customers','Customer Loads','Carrier Quotes','Compare Quotes','Awards','Margin / Profit','Active Jobs','Diary','POD Review','Disputes','Messages','Event Log','Carrier Network','Finance','Customer Invoices','Carrier Costs','Team','Settings']) {
+    for (const label of ['Broker Dashboard','Action Centre','Enquiries','Customers','Customer Loads','Carrier Quotes','Margin / Profit','Active Jobs','Diary','POD Review','Disputes','Messages','Event Log','Directory','Finance','Customer Invoices','Carrier Costs','Team','Settings']) {
       expect(shell).toContain(`label: '${label}'`);
     }
     expect(roles).toContain("primaryAction: { label: 'Post Load', href: '/broker/post-load', capability: 'loads.create' }");

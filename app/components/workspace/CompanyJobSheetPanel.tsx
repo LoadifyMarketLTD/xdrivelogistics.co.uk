@@ -67,7 +67,7 @@ type JobSheet = {
     snapshotAvailable: boolean; targetCarrierCost: number | null; agreementId: string | null; contractVersion: number | null; contractSnapshotHash: string | null;
   };
   evidence: { collectionPhotoCount: number; deliveryPhotoCount: number; podPhotoCount: number; collectionHandoverRecorded: boolean; deliverySignatureRecorded: boolean; recipientName: string | null };
-  pod: { required: boolean | null; hardCopy: string | null; generated: boolean | null; generatedAt: string | null; photoCount: number; reviewStatus: string | null; reviewNote: string | null };
+  pod: { required: boolean; hardCopy: string | null; generated: boolean | null; generatedAt: string | null; photoCount: number; reviewStatus: string | null; reviewNote: string | null };
   notes: { publicQuoteNotes: string | null; executionInstructions: string | null; collection: string | null; delivery: string | null; driver: string | null; documentChecklist: string[] };
   timeline: Array<{ id: string | null; eventType: string; message: string | null; createdAt: string | null; userName: string | null }>;
   documents: Array<{ id: string | null; type: string; fileName: string | null; filePath: string | null; createdAt: string | null }>;
@@ -207,21 +207,12 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
     ['Public quote notes retained on booking', sheet.notes.publicQuoteNotes],
     ['Private execution instructions', sheet.notes.executionInstructions],
   ].filter((entry): entry is [string, string] => Boolean(entry[1]));
-  const hardCopyPod = sheet.pod.hardCopy
-    ?? (sheet.pod.required === true
-      ? 'POD required; hard-copy requirement not separately supplied'
-      : sheet.pod.required === false
-        ? 'Not required'
-        : 'Not supplied');
+  const hardCopyPod = sheet.pod.hardCopy ?? 'Digital POD required; hard-copy requirement not separately supplied';
   const podState = sheet.pod.generated
     ? { label: 'POD generated', tone: 'green' as const, detail: sheet.pod.photoCount > 0 ? `${sheet.pod.photoCount} evidence file(s)` : 'Generated POD record' }
     : sheet.pod.photoCount > 0
       ? { label: 'Delivery evidence', tone: 'blue' as const, detail: `${sheet.pod.photoCount} photo/evidence file(s); generated POD not confirmed` }
-      : sheet.pod.required === false
-        ? { label: 'Not required', tone: 'grey' as const, detail: 'This booking does not require POD evidence.' }
-        : sheet.pod.required === true
-          ? { label: 'Pending', tone: 'orange' as const, detail: 'POD is required and no generated POD or delivery evidence is recorded.' }
-          : { label: 'Requirement not supplied', tone: 'grey' as const, detail: 'The booking does not state whether POD is required; no evidence is inferred.' };
+      : { label: 'Pending', tone: 'orange' as const, detail: 'POD is mandatory and no generated POD or delivery evidence is recorded.' };
   const carrierMode = mode === 'carrier';
   const presentationStatus = workspaceJobPresentationStatus({
     status: sheet.status,

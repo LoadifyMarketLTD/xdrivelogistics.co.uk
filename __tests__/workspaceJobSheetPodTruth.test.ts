@@ -6,21 +6,21 @@ const root = process.cwd();
 const route = fs.readFileSync(path.join(root, 'app/api/workspace/jobs/[jobId]/sheet/route.ts'), 'utf8');
 const panel = fs.readFileSync(path.join(root, 'app/components/workspace/CompanyJobSheetPanel.tsx'), 'utf8');
 
-describe('workspace job sheet POD truth', () => {
-  it('does not fabricate a POD-required default when the contract has no value', () => {
-    expect(route).toContain('const podRequired = boolValue(agreement.pod_required) ?? boolValue(job.pod_required);');
-    expect(route).not.toContain('boolValue(job.pod_required) ?? true');
+describe('workspace job sheet mandatory POD truth', () => {
+  it('enforces digital POD for every job regardless of historical flags', () => {
+    expect(route).toContain('const podRequired = true;');
+    expect(panel).toContain('required: boolean;');
   });
 
-  it('presents unknown POD requirements as not supplied', () => {
-    expect(panel).toContain('required: boolean | null');
-    expect(panel).toContain("sheet.pod.required == null ? 'Not supplied'");
-    expect(panel).toContain("label: 'Requirement not supplied'");
+  it('never presents POD as optional or unknown', () => {
+    expect(panel).not.toContain("label: 'Not required'");
+    expect(panel).not.toContain("label: 'Requirement not supplied'");
+    expect(panel).not.toContain('This booking does not require POD evidence.');
+    expect(panel).toContain('Digital POD required; hard-copy requirement not separately supplied');
   });
 
-  it('does not label a no-evidence booking as pending when POD is explicitly not required', () => {
-    expect(panel).toContain("sheet.pod.required === false");
-    expect(panel).toContain("label: 'Not required'");
-    expect(panel).toContain('This booking does not require POD evidence.');
+  it('keeps no-evidence bookings pending until POD evidence is completed', () => {
+    expect(panel).toContain("label: 'Pending'");
+    expect(panel).toContain('POD is mandatory and no generated POD or delivery evidence is recorded.');
   });
 });
