@@ -11,11 +11,14 @@ async function resolveCompany(request: NextRequest) {
   if (authError || !auth.user) return { error: respond(401, { error: 'Invalid session.' }) };
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id')
+    .select('id, company_id, driver_type, can_commercial_bid')
     .eq('user_id', auth.user.id)
     .maybeSingle();
   if (driverError) return { error: respond(500, { error: driverError.message }) };
   if (!driver?.company_id) return { error: respond(403, { error: 'Driver company context is unavailable.' }) };
+  if (String(driver.driver_type ?? '').trim().toLowerCase() !== 'owner_driver' || driver.can_commercial_bid !== true) {
+    return { error: respond(403, { error: 'Saved Networks is available to Owner Driver accounts only.' }) };
+  }
   return { userId: auth.user.id, companyId: driver.company_id as string };
 }
 
