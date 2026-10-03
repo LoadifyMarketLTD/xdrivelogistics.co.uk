@@ -20,19 +20,17 @@ describe('Owner Driver More on Preview 656 baseline', () => {
   const legacy = read('app/driver/more/page.tsx');
 
   it('uses a curated Owner Driver More list without settings and notification duplicates', () => {
-    const start = shell.indexOf("ownerDriver ? [");
-    const end = shell.indexOf("] : undefined);", start);
+    const start = shell.indexOf("const ownerNav = composeRolePrimaryNav(groups, [");
+    const end = shell.indexOf("function composeDispatcherPrimaryNav", start);
     const block = shell.slice(start, end);
     for (const label of [
-      'My Jobs',
-      'My Availability',
-      'Won Work',
-      'Auto-match & Alerts',
-      "Who's Nearby",
-      'Documents',
-      'Invoices',
-      'Messages',
-      'Account',
+      'Availability & Schedule',
+      '/driver/won-work',
+      'Load Matching & Alerts',
+      '/driver/nearby',
+      '/driver/documents',
+      'Finance & Invoices',
+      '/driver/messages',
     ]) expect(block).toContain(label);
     for (const removed of [
       'Notifications',
@@ -53,7 +51,6 @@ describe('Owner Driver More on Preview 656 baseline', () => {
       '/driver/documents',
       '/driver/finance',
       '/driver/messages',
-      '/driver/profile',
     ]) {
       expect(isCapabilityAllowedForPath(href, 'driver', ownerDriverContext), href).toBe(true);
     }
@@ -68,7 +65,7 @@ describe('Owner Driver More on Preview 656 baseline', () => {
     expect(css).toContain('overflow-y: auto;');
   });
 
-  it('separates business/account tools from work and matching tools', () => {
+  it('separates business tools from work and matching tools', () => {
     expect(shell).toContain("group.id === 'owner-driver-more' && item.href === '/driver/documents'");
     expect(css).toContain('data-section-start="true"');
   });
