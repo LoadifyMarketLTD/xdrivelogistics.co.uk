@@ -57,7 +57,7 @@ const routeLabel = (job: WorkspaceJob) => ({
 });
 
 const metricState = <T,>(dataset: WorkspaceDatasetState<T>, value: number) => {
-  if (dataset.availability !== 'available') return '—';
+  if (dataset.availability !== 'available') return 'Unavailable';
   if (dataset.partialData || dataset.limitedData) return 'Partial';
   return value;
 };
@@ -152,6 +152,19 @@ export default function CustomerDashboardHome() {
     return map;
   }, [data.bids]);
 
+  const customerInvoices = useMemo(
+    () => data.invoices.filter((invoice) => isCustomerVisibleWorkspaceInvoice(invoice, data.companyId)),
+    [data.companyId, data.invoices],
+  );
+
+  const invoiceByJob = useMemo(() => {
+    const map = new Map<string, (typeof customerInvoices)[number]>();
+    for (const invoice of customerInvoices) {
+      if (invoice.job_id && !map.has(invoice.job_id)) map.set(invoice.job_id, invoice);
+    }
+    return map;
+  }, [customerInvoices]);
+
   const carrierLabelForJob = useCallback((job: WorkspaceJob) => {
     const pending = pendingOfferByJob.get(job.id);
     const bid = pending ? bidById.get(pending.bid_id) : acceptedBidByJob.get(job.id);
@@ -167,9 +180,6 @@ export default function CustomerDashboardHome() {
       (bid) => bid.status === 'submitted' && !pendingOfferByJob.has(bid.job_id),
     );
     const activeDeliveries = data.jobs.filter((job) => classifyWorkspaceJobStage(job) === 'in_progress');
-    const customerInvoices = data.invoices.filter((invoice) =>
-      isCustomerVisibleWorkspaceInvoice(invoice, data.companyId),
-    );
     const unpaidInvoices = customerInvoices.filter(
       (invoice) => invoice.payment_status !== 'paid' && !['paid', 'Paid'].includes(invoice.status),
     );
@@ -179,6 +189,16 @@ export default function CustomerDashboardHome() {
     });
     const completedWithPod = data.jobs.filter(
       (job) => classifyWorkspaceJobStage(job) === 'completed' && job.pod_generated === true,
+    );
+    const readyToInvoice = data.jobs.filter((job) => {
+      const stage = classifyWorkspaceJobStage(job);
+      return stage === 'completed' && job.pod_generated === true && !invoiceByJob.has(job.id);
+    });
+    const paidInvoices = customerInvoices.filter((invoice) =>
+      invoice.payment_status === 'paid' || String(invoice.status).toLowerCase() === 'paid',
+    );
+    const overdueInvoices = unpaidInvoices.filter((invoice) =>
+      Boolean(invoice.due_date) && new Date(String(invoice.due_date)).getTime() < Date.now(),
     );
     const documentAlertJobs = data.jobs.filter((job) => {
       const stage = classifyWorkspaceJobStage(job);
@@ -203,12 +223,35 @@ export default function CustomerDashboardHome() {
       unpaidInvoices,
       delayed,
       completedWithPod,
+      readyToInvoice,
+      paidInvoices,
+      overdueInvoices,
       documentAlertJobs,
       recentJobs,
       unpaidValue: unpaidInvoices.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
     };
-  }, [bookingOffers, data, pendingOfferByJob]);
+  }, [bookingOffers, customerInvoices, data.bids, data.jobs, invoiceByJob, pendingOfferByJob]);
 
+  const supplierPerformance = useMemo(() => {
+    const byCompany = new Map<string, { name: string; bookings: number; completed: number; spend: number }>();
+    for (const bid of data.bids) {
+      if (bid.status !== 'accepted' || !bid.company_id) continue;
+      const current = byCompany.get(bid.company_id) ?? {
+        name: bid.companies?.name ?? 'Carrier member',
+        bookings: 0,
+        completed: 0,
+        spend: 0,
+      };
+      current.bookings += 1;
+      current.spend += Number(bid.bid_price_gbp ?? bid.amount ?? 0);
+      const job = data.jobs.find((candidate) => candidate.id === bid.job_id);
+      if (job && classifyWorkspaceJobStage(job) === 'completed') current.completed += 1;
+      byCompany.set(bid.company_id, current);
+    }
+    return [...byCompany.values()]
+      .sort((a, b) => b.bookings - a.bookings || b.spend - a.spend)
+      .slice(0, 5);
+  }, [data.bids, data.jobs]);
   const latestTransport = useMemo(() => {
     const memberNeedle = memberFilter.trim().toLowerCase();
     const locationNeedle = locationFilter.trim().toLowerCase();
@@ -271,7 +314,7 @@ export default function CustomerDashboardHome() {
       label: 'Outstanding invoices',
       detail: 'Review invoices that still need payment or reconciliation.',
       count: invoicesDataset.availability !== 'available'
-        ? '—'
+        ? 'Unavailable'
         : invoicesDataset.partialData || invoicesDataset.limitedData
           ? 'Partial'
           : money(metrics.unpaidValue),
@@ -355,13 +398,15 @@ export default function CustomerDashboardHome() {
             <div className="customer-owner-parity-subgrid">
               <OperationalCard title="Commercial & Documents" subtitle="Customer-side closeout and finance controls.">
                 {[
-                  ['Outstanding invoices', invoicesDataset.availability !== 'available' ? 'Unavailable' : `${metrics.unpaidInvoices.length} · ${money(metrics.unpaidValue)}`, '/customer/invoices'],
+                  ['Ready to invoice', `${metrics.readyToInvoice.length} POD-complete booking(s)`, '/customer/invoices'],
+                  ['Awaiting payment', invoicesDataset.availability !== 'available' ? 'Unavailable' : `${metrics.unpaidInvoices.length} - ${money(metrics.unpaidValue)}`, '/customer/invoices'],
+                  ['Overdue invoices', `${metrics.overdueInvoices.length} overdue`, '/customer/invoices'],
+                  ['Paid invoices', `${metrics.paidInvoices.length} paid`, '/customer/invoices'],
                   ['POD / document alerts', `${metrics.documentAlertJobs.length} requiring review`, '/customer/documents'],
                   ['Delivery exceptions', `${metrics.delayed.length} late / overdue`, '/customer/tracking'],
-                  ['Completed with POD', `${metrics.completedWithPod.length} complete`, '/customer/documents'],
                 ].map(([label, detail, href]) => (
                   <button key={label} type="button" onClick={() => router.push(href)} className="customer-owner-report-row">
-                    <span><strong>{label}</strong><small>{detail}</small></span><span aria-hidden="true">→</span>
+                    <span><strong>{label}</strong><small>{detail}</small></span><span aria-hidden="true">-&gt;</span>
                   </button>
                 ))}
               </OperationalCard>
@@ -372,9 +417,10 @@ export default function CustomerDashboardHome() {
                   ['Bookings', `${data.jobs.filter((job) => ['awarded', 'allocated', 'in_progress', 'completed'].includes(classifyWorkspaceJobStage(job))).length} booking(s)`, '/customer/bookings'],
                   ['Diary', 'Open transport diary', '/customer/diary'],
                   ['Event log', 'Audit customer activity', '/customer/event-log'],
+                  ['Updates', 'Operational notices and workspace updates', '/customer/updates'],
                 ].map(([label, detail, href]) => (
                   <button key={label} type="button" onClick={() => router.push(href)} className="customer-owner-report-row">
-                    <span><strong>{label}</strong><small>{detail}</small></span><span aria-hidden="true">→</span>
+                    <span><strong>{label}</strong><small>{detail}</small></span><span aria-hidden="true">-&gt;</span>
                   </button>
                 ))}
               </OperationalCard>
@@ -404,7 +450,7 @@ export default function CustomerDashboardHome() {
             <OperationalCard
               title="Activity at a glance"
               subtitle="Latest customer transport, using the same dense operational pattern as Owner Driver."
-              actions={<ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>View all…</ActionButton>}
+              actions={<ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>View all</ActionButton>}
               flush
             >
               <div className="customer-activity-filters">
@@ -424,6 +470,13 @@ export default function CustomerDashboardHome() {
                   const lifecycleLabel = pendingOffer ? 'Awaiting Carrier Acceptance' : customerLifecycleLabel(job);
                   const carrierLabel = carrierLabelForJob(job);
                   const stage = classifyWorkspaceJobStage(job);
+                  const invoice = invoiceByJob.get(job.id);
+                  const podLabel = job.pod_generated === true ? 'POD complete' : stage === 'completed' ? 'POD required' : 'POD pending';
+                  const invoiceLabel = invoice
+                    ? (invoice.payment_status === 'paid' || String(invoice.status).toLowerCase() === 'paid' ? 'Invoice paid' : 'Invoice awaiting payment')
+                    : stage === 'completed' && job.pod_generated === true
+                      ? 'Ready to invoice'
+                      : 'Invoice not ready';
                   const primaryLabel = pendingOffer
                     ? 'Await Carrier'
                     : stage === 'in_progress'
@@ -452,6 +505,8 @@ export default function CustomerDashboardHome() {
                           <div>{carrierLabel}</div>
                           <div>Load ID: <strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong></div>
                           {job.booking_reference || job.customer_reference ? <div>Ref: {job.booking_reference ?? job.customer_reference}</div> : null}
+                          <div>{podLabel} / {invoiceLabel}</div>
+                          <div>Last update: {when(job.updated_at)}</div>
                         </div>
                       </div>
                       <div className="customer-activity-card__actions">
@@ -464,6 +519,29 @@ export default function CustomerDashboardHome() {
                 })}
               </div>
             </OperationalCard>
+
+            <div className="customer-owner-parity-subgrid">
+              <OperationalCard title="Supplier performance" subtitle="Carrier activity derived from awarded XDrive bookings.">
+                {supplierPerformance.length ? supplierPerformance.map((supplier) => (
+                  <div key={supplier.name} className="customer-supplier-row">
+                    <span><strong>{supplier.name}</strong><small>{supplier.completed} completed of {supplier.bookings} booking(s)</small></span>
+                    <span><strong>{money(supplier.spend)}</strong><small>awarded value</small></span>
+                  </div>
+                )) : <EmptyState compact title="No awarded carrier history yet" description="Supplier performance appears after accepted bookings exist." />}
+              </OperationalCard>
+
+              <OperationalCard title="News & Support" subtitle="Workspace notices, help and operational guidance.">
+                {[
+                  ['Latest updates', 'Review operational notices and workspace changes.', '/customer/updates'],
+                  ['Help & support', 'Open customer support and platform guidance.', '/customer/settings'],
+                  ['Directory', 'Find transport members and business contacts.', '/customer/network'],
+                ].map(([label, detail, href]) => (
+                  <button key={label} type="button" onClick={() => router.push(href)} className="customer-owner-report-row">
+                    <span><strong>{label}</strong><small>{detail}</small></span><span aria-hidden="true">-&gt;</span>
+                  </button>
+                ))}
+              </OperationalCard>
+            </div>
           </div>
         </div>
 

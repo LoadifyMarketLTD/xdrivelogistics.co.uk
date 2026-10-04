@@ -728,3 +728,19 @@
   .customer-activity-filters { grid-template-columns: 1fr; }
   .customer-freight-messenger { right: 8px; bottom: 8px; }
 }
+
+.customer-supplier-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 42px;
+  padding: 7px 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.customer-supplier-row:last-child { border-bottom: 0; }
+.customer-supplier-row span { min-width: 0; }
+.customer-supplier-row strong { display: block; color: #172033; font-size: 12px; line-height: 16px; }
+.customer-supplier-row small { display: block; color: #64748b; font-size: 11px; line-height: 14px; }
+.customer-supplier-row > span:last-child { text-align: right; }

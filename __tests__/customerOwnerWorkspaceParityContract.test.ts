@@ -1,4 +1,4 @@
-﻿import fs from 'node:fs';
+import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 
@@ -72,6 +72,19 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(customerDashboard).toContain('Freight Messenger');
   });
 
+  it('adds CX-style finance, supplier and support control-desk sections without inventing unavailable KPIs', () => {
+    expect(customerDashboard).toContain('Ready to invoice');
+    expect(customerDashboard).toContain('Awaiting payment');
+    expect(customerDashboard).toContain('Overdue invoices');
+    expect(customerDashboard).toContain('Paid invoices');
+    expect(customerDashboard).toContain('Supplier performance');
+    expect(customerDashboard).toContain('News & Support');
+    expect(customerDashboard).toContain('POD complete');
+    expect(customerDashboard).toContain('Invoice awaiting payment');
+    expect(customerDashboard).toContain('Last update:');
+    expect(customerDashboard).not.toContain('on-time %');
+    expect(customerDashboard).not.toContain('tracked %');
+  });
   it('surfaces pending carrier acceptance consistently instead of reporting Driver Assigned too early', () => {
     expect(customerDashboard).toContain("fetch('/api/customer/booking-offers'");
     expect(customerDashboard).toContain('Awaiting Carrier Acceptance');
