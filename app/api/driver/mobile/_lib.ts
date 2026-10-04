@@ -108,8 +108,10 @@ export type MobileJobRow = {
   company_id: string | null;
   awarded_carrier_company_id: string | null;
   pickup_location: string | null;
+  pickup_city: string | null;
   pickup_postcode: string | null;
   delivery_location: string | null;
+  delivery_city: string | null;
   delivery_postcode: string | null;
   pickup_datetime: string | null;
   delivery_datetime: string | null;
@@ -259,8 +261,10 @@ export const jobSelect = [
   'company_id',
   'awarded_carrier_company_id',
   'pickup_location',
+  'pickup_city',
   'pickup_postcode',
   'delivery_location',
+  'delivery_city',
   'delivery_postcode',
   'pickup_datetime',
   'delivery_datetime',
@@ -342,9 +346,9 @@ export function mapJob(row: MobileJobRow) {
     status: mobileStatus(row),
     lifecycleStatus: row.status,
     currentStatus: row.current_status,
-    pickupLocation: row.pickup_location || 'Pickup TBC',
+    pickupLocation: row.pickup_city || row.pickup_location || 'Pickup TBC',
     pickupPostcode: row.pickup_postcode || '',
-    deliveryLocation: row.delivery_location || 'Delivery TBC',
+    deliveryLocation: row.delivery_city || row.delivery_location || 'Delivery TBC',
     deliveryPostcode: row.delivery_postcode || '',
     pickupTime: row.pickup_datetime || 'Pickup time TBC',
     deliveryTime: row.delivery_datetime || 'Delivery time TBC',
