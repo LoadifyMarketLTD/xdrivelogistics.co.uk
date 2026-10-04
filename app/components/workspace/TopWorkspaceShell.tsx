@@ -400,37 +400,37 @@ function moreMenuSectionLabel(groupId: string, href: string, previousHref?: stri
 function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
   return [
     { id: 'broker-home', label: 'Broker', items: [
-      { id: 'broker-dashboard', label: 'Broker Dashboard', href: '/broker', icon: 'âŒ‚' },
+      { id: 'broker-dashboard', label: 'Broker Dashboard', href: '/broker', icon: 'HOME' },
       { id: 'broker-action-centre', label: 'Action Centre', href: '/broker/action-centre', icon: '!' },
-      { id: 'broker-enquiries', label: 'Enquiries', href: '/broker/enquiries', icon: 'â—«' },
+      { id: 'broker-enquiries', label: 'Enquiries', href: '/broker/enquiries', icon: 'ENQ' },
     ] },
     { id: 'broker-customers-loads', label: 'Customers & Loads', items: [
-      { id: 'broker-customers', label: 'Customers', href: '/broker/customers', icon: 'â—‹' },
-      { id: 'broker-customer-loads', label: 'Customer Loads', href: '/broker/loads', icon: 'â– ' },
+      { id: 'broker-customers', label: 'Customers', href: '/broker/customers', icon: 'CUS' },
+      { id: 'broker-customer-loads', label: 'Customer Loads', href: '/broker/loads', icon: 'LOAD' },
     ] },
     { id: 'broker-commercial', label: 'Commercial', items: [
-      { id: 'broker-carrier-quotes', label: 'Carrier Quotes', href: '/broker/bids', icon: 'â–£' },
+      { id: 'broker-carrier-quotes', label: 'Carrier Quotes', href: '/broker/bids', icon: 'QUOTE' },
       { id: 'broker-margin', label: 'Margin / Profit', href: '/broker/margins', icon: '%' },
     ] },
     { id: 'broker-operations', label: 'Operations', items: [
-      { id: 'broker-active-jobs', label: 'Active Jobs', href: '/broker/jobs', icon: 'â– ' },
-      { id: 'broker-diary', label: 'Diary', href: '/broker/diary', icon: 'â–¡' },
-      { id: 'broker-pod-review', label: 'POD Review', href: '/broker/pod-review', icon: 'â–¤' },
+      { id: 'broker-active-jobs', label: 'Active Jobs', href: '/broker/jobs', icon: 'JOB' },
+      { id: 'broker-diary', label: 'Diary', href: '/broker/diary', icon: 'DIARY' },
+      { id: 'broker-pod-review', label: 'POD Review', href: '/broker/pod-review', icon: 'POD' },
       { id: 'broker-disputes', label: 'Disputes', href: '/broker/disputes', icon: '!' },
     ] },
     { id: 'broker-collaboration', label: 'Collaboration', items: [
-      { id: 'broker-messages', label: 'Messages', href: '/broker/messages', icon: 'â—«' },
-      { id: 'broker-event-log', label: 'Event Log', href: '/broker/event-log', icon: 'â‰¡' },
-      { id: 'broker-network', label: 'Directory', href: '/broker/carrier-network', icon: 'âŠ•' },
+      { id: 'broker-messages', label: 'Messages', href: '/broker/messages', icon: 'MSG' },
+      { id: 'broker-event-log', label: 'Event Log', href: '/broker/event-log', icon: 'LOG' },
+      { id: 'broker-network', label: 'Directory', href: '/broker/carrier-network', icon: 'DIR' },
     ] },
     { id: 'broker-finance', label: 'Finance', items: [
-      { id: 'broker-finance-home', label: 'Finance', href: '/broker/finance', icon: 'Â£' },
-      { id: 'broker-customer-invoices', label: 'Customer Invoices', href: '/broker/customer-invoices', icon: 'Â£' },
-      { id: 'broker-carrier-costs', label: 'Carrier Costs', href: '/broker/carrier-costs', icon: 'Â£' },
+      { id: 'broker-finance-home', label: 'Finance', href: '/broker/finance', icon: 'GBP' },
+      { id: 'broker-customer-invoices', label: 'Customer Invoices', href: '/broker/customer-invoices', icon: 'GBP' },
+      { id: 'broker-carrier-costs', label: 'Carrier Costs', href: '/broker/carrier-costs', icon: 'GBP' },
     ] },
     { id: 'broker-administration', label: 'Administration', items: [
-      { id: 'broker-team', label: 'Team', href: '/broker/team', icon: 'â—Ž' },
-      { id: 'broker-settings', label: 'Settings', href: '/broker/settings', icon: 'âš™' },
+      { id: 'broker-team', label: 'Team', href: '/broker/team', icon: 'TEAM' },
+      { id: 'broker-settings', label: 'Settings', href: '/broker/settings', icon: 'SET' },
     ] },
   ];
 }
@@ -470,35 +470,35 @@ function filterWorkspaceNavByAccess(
 function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
   return [
     { id: 'customer-home', label: 'Customer', items: [
-      { id: 'customer-dashboard', label: 'Customer Dashboard', href: '/customer', icon: 'âŒ‚' },
+      { id: 'customer-dashboard', label: 'Customer Dashboard', href: '/customer', icon: 'HOME' },
       { id: 'customer-action-centre', label: 'Action Centre', href: '/customer/action-centre', icon: '!' },
     ] },
     { id: 'customer-loads', label: 'My Loads', items: [
-      { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: 'â– ' },
+      { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: 'LOAD' },
     ] },
     { id: 'customer-quotes', label: 'Quotes', items: [
-      { id: 'customer-quotes-page', label: 'Quotes', href: '/customer/quotes', icon: 'â–£' },
+      { id: 'customer-quotes-page', label: 'Quotes', href: '/customer/quotes', icon: 'QUOTE' },
     ] },
     { id: 'customer-bookings', label: 'Bookings', items: [
-      { id: 'customer-bookings-page', label: 'Bookings', href: '/customer/bookings', icon: 'âœ“' },
+      { id: 'customer-bookings-page', label: 'Bookings', href: '/customer/bookings', icon: 'BOOK' },
     ] },
     { id: 'customer-delivery', label: 'Delivery', items: [
-      { id: 'customer-deliveries', label: 'Deliveries', href: '/customer/deliveries', icon: 'â– ' },
-      { id: 'customer-tracking', label: 'Tracking', href: '/customer/tracking', icon: 'âŒ–' },
-      { id: 'customer-pod-docs', label: 'POD & Documents', href: '/customer/documents', icon: 'â–¤' },
-      { id: 'customer-diary', label: 'Diary', href: '/customer/diary', icon: 'â–¡' },
-      { id: 'customer-updates', label: 'Updates', href: '/customer/updates', icon: 'â—' },
+      { id: 'customer-deliveries', label: 'Deliveries', href: '/customer/deliveries', icon: 'DEL' },
+      { id: 'customer-tracking', label: 'Tracking', href: '/customer/tracking', icon: 'GPS' },
+      { id: 'customer-pod-docs', label: 'POD & Documents', href: '/customer/documents', icon: 'POD' },
+      { id: 'customer-diary', label: 'Diary', href: '/customer/diary', icon: 'DIARY' },
+      { id: 'customer-updates', label: 'Updates', href: '/customer/updates', icon: 'NEW' },
     ] },
     { id: 'customer-collaboration', label: 'Collaboration', items: [
-      { id: 'customer-network', label: 'Directory', href: '/customer/network', icon: 'â—‹' },
-      { id: 'customer-messages', label: 'Messages', href: '/customer/messages', icon: 'â—«' },
+      { id: 'customer-network', label: 'Directory', href: '/customer/network', icon: 'DIR' },
+      { id: 'customer-messages', label: 'Messages', href: '/customer/messages', icon: 'MSG' },
       { id: 'customer-disputes', label: 'Disputes', href: '/customer/disputes', icon: '!' },
-      { id: 'customer-event-log', label: 'Event Log', href: '/customer/event-log', icon: 'â‰¡' },
+      { id: 'customer-event-log', label: 'Event Log', href: '/customer/event-log', icon: 'LOG' },
     ] },
-    { id: 'customer-finance', label: 'Finance', items: [{ id: 'customer-invoices', label: 'Invoices', href: '/customer/invoices', icon: 'Â£' }] },
+    { id: 'customer-finance', label: 'Finance', items: [{ id: 'customer-invoices', label: 'Invoices', href: '/customer/invoices', icon: 'GBP' }] },
     { id: 'customer-administration', label: 'Administration', items: [
-      { id: 'customer-team', label: 'Team', href: '/customer/team', icon: 'â—Ž' },
-      { id: 'customer-settings', label: 'Settings', href: '/customer/settings', icon: 'âš™' },
+      { id: 'customer-team', label: 'Team', href: '/customer/team', icon: 'TEAM' },
+      { id: 'customer-settings', label: 'Settings', href: '/customer/settings', icon: 'SET' },
     ] },
   ];
 }
@@ -526,7 +526,7 @@ export default function TopWorkspaceShell({
         base.push({
           id: 'carrier-customer-quotes',
           label: 'Customer Quotes',
-          items: [{ id: 'customer-quotes', label: 'Customer Quotes', href: customerQuotesHref, icon: 'â—«', capability: 'quotes.submit' }],
+          items: [{ id: 'customer-quotes', label: 'Customer Quotes', href: customerQuotesHref, icon: 'QUOTE', capability: 'quotes.submit' }],
         });
       }
 
@@ -538,7 +538,7 @@ export default function TopWorkspaceShell({
         base.splice(insertAt, 0, {
           id: 'carrier-directory',
           label: 'Directory',
-          items: [{ id: 'directory', label: 'Directory', href: directoryHref, icon: 'â—Œ' }],
+          items: [{ id: 'directory', label: 'Directory', href: directoryHref, icon: 'DIR' }],
         });
       }
     }
@@ -548,7 +548,7 @@ export default function TopWorkspaceShell({
         id: 'freight-vision',
         label: 'Freight Vision',
         href: '/admin/freight-vision',
-        icon: 'âŒ–',
+        icon: 'FV',
         capability: 'jobs.track' as const,
       };
       const alreadyPresent = base.some((group) => group.items.some((candidate) => candidate.href === item.href));
@@ -571,23 +571,23 @@ export default function TopWorkspaceShell({
           id: 'live-availability',
           label: 'Live Availability',
           href: '/admin/live-availability',
-          icon: 'â—·',
+          icon: 'LIVE',
           capability: 'fleet.positions.view',
         },
         {
           id: 'fleet-resources',
           label: 'Fleet Resources',
           href: '/admin/fleet/resources',
-          icon: 'â–¦',
+          icon: 'FLEET',
           capability: 'fleet.positions.view',
         },
       ];
 
       if (hasWorkspaceCapability(role, 'drivers.manage')) {
-        items.push({ id: 'fleet-drivers', label: 'Drivers', href: '/admin/fleet/drivers', icon: 'â—‰', capability: 'drivers.manage' });
+        items.push({ id: 'fleet-drivers', label: 'Drivers', href: '/admin/fleet/drivers', icon: 'DRV', capability: 'drivers.manage' });
       }
       if (hasWorkspaceCapability(role, 'vehicles.manage')) {
-        items.push({ id: 'fleet-vehicles', label: 'Vehicles', href: '/admin/fleet/vehicles', icon: 'â–°', capability: 'vehicles.manage' });
+        items.push({ id: 'fleet-vehicles', label: 'Vehicles', href: '/admin/fleet/vehicles', icon: 'VEH', capability: 'vehicles.manage' });
       }
 
       if (CARRIER_NAV_ROLES.has(role)) {
@@ -621,7 +621,7 @@ export default function TopWorkspaceShell({
         base.splice(insertAt, 0, {
           id: `${role}-messages`,
           label: 'Messages',
-          items: [{ id: 'messages', label: 'Messages', href: messageHref, icon: 'â—«' }],
+          items: [{ id: 'messages', label: 'Messages', href: messageHref, icon: 'MSG' }],
         });
       }
     }
@@ -635,7 +635,7 @@ export default function TopWorkspaceShell({
         base.splice(insertAt, 0, {
           id: `${role}-event-log`,
           label: 'Event Log',
-          items: [{ id: 'event-log', label: 'Event Log', href: eventLogHref, icon: 'â‰¡' }],
+          items: [{ id: 'event-log', label: 'Event Log', href: eventLogHref, icon: 'LOG' }],
         });
       }
     }

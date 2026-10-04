@@ -391,7 +391,7 @@ export default function CarrierOperationsDashboardHome() {
           </div>
 
           <div style={{ display: 'grid', gap: '8px' }}>
-            <OperationalCard title="Activity at a glance" subtitle="Latest carrier-awarded bookings with the same operational priority CX gives recent work." flush>
+            <OperationalCard title="Activity at a glance" subtitle="Latest awarded bookings ordered for practical day-to-day transport control." flush>
               <DataTable
                 columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Evidence', 'Action']}
                 rows={latestBookings.map((job) => {
