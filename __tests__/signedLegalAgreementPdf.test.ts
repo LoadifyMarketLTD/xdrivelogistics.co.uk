@@ -21,6 +21,7 @@ describe('signed legal agreement PDF', () => {
     expect(Buffer.from(result.bytes).subarray(0, 4).toString('ascii')).toBe('%PDF');
     expect(result.pdfHash).toMatch(/^[0-9a-f]{64}$/);
     expect(result.signaturePayloadHash).toMatch(/^[0-9a-f]{64}$/);
+    expect(evidence.acceptanceStatement).toContain('limba română');
     expect(result.filename).toContain('XDrive-Signed-Agreement');
 
     const loaded = await PDFDocument.load(result.bytes);
@@ -54,6 +55,27 @@ describe('signed legal agreement PDF', () => {
       evidence,
     })).rejects.toThrow(/hash mismatch/i);
   });
+
+  it.each(['ur', 'pa-guru', 'pa-shah', 'hi', 'bn', 'gu'] as const)(
+    'generates a valid signed PDF evidence package for supplemental legal language %s',
+    { timeout: 15_000 },
+    async (language) => {
+      const evidence = buildCurrentLegalEvidence('owner_operator', acceptedAt, language);
+      const result = await buildSignedLegalAgreementPdf({
+        acceptanceId,
+        signerFullName: `Signer ${language.toUpperCase()}`,
+        signerEmail: `${language}@example.com`,
+        companyName: 'XDrive Multilingual Legal Test',
+        evidence,
+      });
+      expect(Buffer.from(result.bytes).subarray(0, 4).toString('ascii')).toBe('%PDF');
+      expect(result.bytes.byteLength).toBeGreaterThan(10_000);
+      expect(result.pdfHash).toMatch(/^[0-9a-f]{64}$/);
+      expect(result.signaturePayloadHash).toMatch(/^[0-9a-f]{64}$/);
+      const loaded = await PDFDocument.load(result.bytes);
+      expect(loaded.getPageCount()).toBeGreaterThan(0);
+    },
+  );
 
   it.each(['en', 'ro', 'fr', 'es', 'pl'] as const)(
     'generates a valid signed PDF for controlled legal language %s',

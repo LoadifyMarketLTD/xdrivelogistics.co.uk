@@ -6,6 +6,7 @@ export type LegalAcceptanceDraft = {
   authorityConfirmed: boolean;
   roleDeclarationConfirmed: boolean;
   privacyAcknowledged: boolean;
+  languageComprehensionConfirmed: boolean;
   initialEvidenceRemediationConfirmed: boolean;
 };
 const MAX_DRAFT_AGE_MS = 12 * 60 * 60 * 1000;
@@ -21,6 +22,7 @@ export function readLegalDraft(raw: string | null, requiredCodes: string[], now 
       acceptedDocumentCodes: requiredCodes.filter(code => value.acceptedDocumentCodes!.includes(code)),
       agreementsAccepted: value.agreementsAccepted === true, authorityConfirmed: value.authorityConfirmed === true,
       roleDeclarationConfirmed: value.roleDeclarationConfirmed === true, privacyAcknowledged: value.privacyAcknowledged === true,
+      languageComprehensionConfirmed: value.languageComprehensionConfirmed === true,
       initialEvidenceRemediationConfirmed: value.initialEvidenceRemediationConfirmed === true };
   } catch { return null; }
 }

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { legalDraftKey, readLegalDraft, type LegalAcceptanceDraft } from '../lib/legal/legalAcceptanceDraft';
 const now = Date.now();
 const draft: LegalAcceptanceDraft = { savedAt: now, signerFullName: 'Test Signer', acceptedDocumentCodes: ['platform_terms'], agreementsAccepted: true,
-  authorityConfirmed: true, roleDeclarationConfirmed: true, privacyAcknowledged: true, initialEvidenceRemediationConfirmed: true };
+  authorityConfirmed: true, roleDeclarationConfirmed: true, privacyAcknowledged: true, languageComprehensionConfirmed: true, initialEvidenceRemediationConfirmed: true };
 describe('unsigned legal draft recovery', () => {
   it('preserves explicitly selected confirmations and name', () => {
     expect(readLegalDraft(JSON.stringify(draft), ['platform_terms'], now)).toEqual(draft);
@@ -26,5 +26,8 @@ describe('unsigned legal draft recovery', () => {
   });
   it('does not coerce strings into consent', () => {
     expect(readLegalDraft(JSON.stringify({ ...draft, agreementsAccepted: 'true' }), ['platform_terms'], now)?.agreementsAccepted).toBe(false);
+  });
+  it('restores language comprehension only from an explicit boolean true', () => {
+    expect(readLegalDraft(JSON.stringify({ ...draft, languageComprehensionConfirmed: 'true' }), ['platform_terms'], now)?.languageComprehensionConfirmed).toBe(false);
   });
 });

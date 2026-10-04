@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
-import { LEGAL_LANGUAGE_LABELS, LEGAL_LANGUAGES, type LegalLanguage } from '../../lib/legal/controlledLegalDocuments';
+import { isRtlLegalLanguage, LEGAL_LANGUAGE_LABELS, LEGAL_LANGUAGES, type LegalLanguage } from '../../lib/legal/controlledLegalDocuments';
 import {
   getRegistrationLegalConfig,
   type RegistrationLegalRole,
@@ -15,6 +15,7 @@ export type RegistrationAgreementGateValue = {
   authorityConfirmed: boolean;
   roleDeclarationConfirmed: boolean;
   privacyAcknowledged: boolean;
+  languageComprehensionConfirmed: boolean;
   signerFullName: string;
 };
 
@@ -34,6 +35,7 @@ export const isRegistrationAgreementGateComplete = (value: RegistrationAgreement
   value.authorityConfirmed &&
   value.roleDeclarationConfirmed &&
   value.privacyAcknowledged &&
+  value.languageComprehensionConfirmed &&
   value.signerFullName.trim().length >= 2;
 
 export default function RegistrationAgreementGate({ role, value, onChange, language, onLanguageChange, disabled = false }: Props) {
@@ -48,7 +50,7 @@ export default function RegistrationAgreementGate({ role, value, onChange, langu
   };
 
   return (
-    <section className="mt-4 overflow-hidden rounded-2xl border border-[#D8E1EC] bg-[#F8FAFD]">
+    <section dir={isRtlLegalLanguage(language) ? 'rtl' : 'ltr'} className="mt-4 overflow-hidden rounded-2xl border border-[#D8E1EC] bg-[#F8FAFD]">
       <div className="border-b border-[#D8E1EC] bg-white px-4 py-3">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#FFF3D6] text-[#173B73]">
@@ -76,6 +78,17 @@ export default function RegistrationAgreementGate({ role, value, onChange, langu
             {LEGAL_LANGUAGES.map((item) => <option key={item} value={item}>{LEGAL_LANGUAGE_LABELS[item]}</option>)}
           </select>
         </label>
+        <label className="flex items-start gap-3 rounded-xl border border-[#DDE5EF] bg-white p-3 text-xs font-semibold leading-5 text-[#526983]">
+          <input
+            type="checkbox"
+            checked={value.languageComprehensionConfirmed}
+            onChange={(event) => set('languageComprehensionConfirmed', event.target.checked)}
+            disabled={disabled}
+            className={CHECKBOX_CLASS}
+          />
+          <span>{copy.languageComprehensionConfirmation}</span>
+        </label>
+
         <div className="rounded-xl border border-[#F5D48A] bg-[#FFF8E8] px-3 py-3 text-[11px] font-semibold leading-5 text-[#5A4A24]">
           <span className="mb-1 block font-black text-[#173B73]">{transportControlHeading}</span>
           {transportControlNotice}

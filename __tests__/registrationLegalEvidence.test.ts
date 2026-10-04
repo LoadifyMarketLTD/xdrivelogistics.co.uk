@@ -22,6 +22,7 @@ const validMetadata = (role: 'customer_shipper' | 'transport_broker' | 'owner_op
     privacy_acknowledged_at: acceptedAt,
     privacy_version: PRIVACY_VERSION,
     legal_acceptance_language: 'en',
+    legal_language_comprehension_confirmed_at: acceptedAt,
   };
 };
 
@@ -60,6 +61,15 @@ describe('registration legal evidence', () => {
     metadata.privacy_acknowledged_at = '2026-09-04T20:31:00.000Z';
 
     expect(buildRegistrationLegalEvidence(metadata)).toBeNull();
+  });
+
+  it('fails closed without same-event legal language comprehension confirmation', () => {
+    const missing = { ...validMetadata('owner_operator'), legal_language_comprehension_confirmed_at: undefined };
+    expect(buildRegistrationLegalEvidence(missing)).toBeNull();
+
+    const mismatched = validMetadata('owner_operator');
+    mismatched.legal_language_comprehension_confirmed_at = '2026-09-04T20:31:00.000Z';
+    expect(buildRegistrationLegalEvidence(mismatched)).toBeNull();
   });
 
   it('does not classify legacy registration metadata as the modern legal gate', () => {

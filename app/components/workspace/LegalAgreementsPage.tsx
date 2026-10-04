@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LegalDocumentChecklist from './LegalDocumentChecklist';
 import { legalDraftKey, readLegalDraft } from '../../../lib/legal/legalAcceptanceDraft';
 import { supabase } from '../../../lib/supabaseClient';
-import { LEGAL_LANGUAGE_LABELS, LEGAL_LANGUAGES, type LegalLanguage } from '../../../lib/legal/controlledLegalDocuments';
+import { isRtlLegalLanguage, LEGAL_LANGUAGE_LABELS, LEGAL_LANGUAGES, type LegalLanguage } from '../../../lib/legal/controlledLegalDocuments';
+import { getLegalUiCopy } from '../../../lib/legal/legalUiCopy';
 import {
   ActionButton,
   AlertBanner,
@@ -94,6 +95,7 @@ const reasonLabel = (reason: string) => {
   if (reason === 'missing_acceptance') return 'Initial legal acceptance evidence is missing.';
   if (reason === 'registration_role_changed') return 'Your contractual role has changed.';
   if (reason === 'legal_version_changed') return 'The legal gate version has changed.';
+  if (reason === 'acceptance_statement_changed') return 'The signed language-understanding declaration has changed.';
   if (reason.startsWith('material_agreement_changed:')) {
     return `A material agreement changed: ${reason.split(':')[1].replace(/_/g, ' ')}.`;
   }
@@ -120,6 +122,7 @@ export default function LegalAgreementsPage({
   const [authorityConfirmed, setAuthorityConfirmed] = useState(false);
   const [roleDeclarationConfirmed, setRoleDeclarationConfirmed] = useState(false);
   const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
+  const [languageComprehensionConfirmed, setLanguageComprehensionConfirmed] = useState(false);
   const [initialEvidenceRemediationConfirmed, setInitialEvidenceRemediationConfirmed] = useState(false);
   const [legalLanguage, setLegalLanguage] = useState<LegalLanguage>('en');
   const [signerFullName, setSignerFullName] = useState('');
@@ -134,6 +137,7 @@ export default function LegalAgreementsPage({
     setAuthorityConfirmed(false);
     setRoleDeclarationConfirmed(false);
     setPrivacyAcknowledged(false);
+    setLanguageComprehensionConfirmed(false);
     setInitialEvidenceRemediationConfirmed(false);
   };
 
@@ -175,6 +179,7 @@ export default function LegalAgreementsPage({
             setAcceptedDocumentCodes(draft.acceptedDocumentCodes); setSignerFullName(draft.signerFullName);
             setAgreementsAccepted(draft.agreementsAccepted); setAuthorityConfirmed(draft.authorityConfirmed);
             setRoleDeclarationConfirmed(draft.roleDeclarationConfirmed); setPrivacyAcknowledged(draft.privacyAcknowledged);
+            setLanguageComprehensionConfirmed(draft.languageComprehensionConfirmed);
             setInitialEvidenceRemediationConfirmed(draft.initialEvidenceRemediationConfirmed); setDraftRestored(true);
           }
           if (!payload.requiresReacceptance) sessionStorage.removeItem(draftKeyRef.current);
@@ -201,10 +206,10 @@ export default function LegalAgreementsPage({
     try {
       sessionStorage.setItem(draftKeyRef.current, JSON.stringify({ savedAt: Date.now(), signerFullName,
         acceptedDocumentCodes, agreementsAccepted, authorityConfirmed, roleDeclarationConfirmed,
-        privacyAcknowledged, initialEvidenceRemediationConfirmed }));
+        privacyAcknowledged, languageComprehensionConfirmed, initialEvidenceRemediationConfirmed }));
     } catch { /* The form remains usable when storage is unavailable. */ }
   }, [loading, model, signerFullName, acceptedDocumentCodes, agreementsAccepted, authorityConfirmed,
-    roleDeclarationConfirmed, privacyAcknowledged, initialEvidenceRemediationConfirmed]);
+    roleDeclarationConfirmed, privacyAcknowledged, languageComprehensionConfirmed, initialEvidenceRemediationConfirmed]);
 
   const agreementLabelByCode = useMemo(() => {
     const map = new Map<string, string>();
@@ -213,6 +218,7 @@ export default function LegalAgreementsPage({
   }, [model]);
 
   const isInitialRemediation = Boolean(model?.requiresReacceptance && model.history.length === 0);
+  const legalCopy = getLegalUiCopy(legalLanguage);
 
   const canAccept = Boolean(
     model?.requiresReacceptance && signatureReview &&
@@ -221,6 +227,7 @@ export default function LegalAgreementsPage({
       authorityConfirmed &&
       roleDeclarationConfirmed &&
       privacyAcknowledged &&
+      languageComprehensionConfirmed &&
       signerFullName.trim().length >= 2 &&
       (!isInitialRemediation || initialEvidenceRemediationConfirmed),
   );
@@ -265,6 +272,7 @@ export default function LegalAgreementsPage({
           authorityConfirmed: true,
           roleDeclarationConfirmed: true,
           privacyAcknowledged: true,
+          languageComprehensionConfirmed: true,
           initialEvidenceRemediationConfirmed: isInitialRemediation ? true : undefined,
           language: legalLanguage,
           signerFullName: signerFullName.trim(),
@@ -313,7 +321,7 @@ export default function LegalAgreementsPage({
       ) : !model ? (
         <Panel><EmptyState title="Legal history unavailable" description="XDrive could not resolve the contractual record for this account." /></Panel>
       ) : (
-        <div style={{ display: 'grid', gap: 10 }}>
+        <div dir={isRtlLegalLanguage(legalLanguage) ? 'rtl' : 'ltr'} style={{ display: 'grid', gap: 10 }}>
           <Panel
             title="Current contractual requirement"
             description="This is the server-defined contractual package for your current XDrive registration role."
@@ -354,7 +362,7 @@ export default function LegalAgreementsPage({
             >
               <div id="legal-signature-review" style={{ display: 'grid', gap: 8 }}>
                 <h3>Final review and electronic signature</h3>
-                <p>Your signature below covers all selected documents, in {legalLanguage.toUpperCase()}:</p>
+                <p>Your signature below covers all selected documents in <strong>{LEGAL_LANGUAGE_LABELS[legalLanguage]}</strong>. The selected language is recorded with the signed evidence.</p>
                 <ul>{model.currentRequirement.agreements.filter(item => acceptedDocumentCodes.includes(item.code)).map(item =>
                   <li key={item.code}>{item.label} - v{item.version}</li>)}</ul>
                 {model.reacceptanceReasons.length > 0 && (
@@ -378,6 +386,11 @@ export default function LegalAgreementsPage({
                 </label>
 
 
+
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                  <input type="checkbox" checked={languageComprehensionConfirmed} onChange={(event) => setLanguageComprehensionConfirmed(event.target.checked)} />
+                  <span>{legalCopy.languageComprehensionConfirmation}</span>
+                </label>
 
                 <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
 

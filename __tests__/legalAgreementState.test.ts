@@ -110,6 +110,15 @@ describe('legal agreement material re-acceptance state', () => {
     expect(evaluation.reasons).toContain('acceptance_language_changed');
   });
 
+  it('requires fresh acceptance when the signed language-understanding statement changes or is absent', () => {
+    const requirement = buildCurrentLegalRequirement('owner_operator', 'en');
+    const evidence = buildCurrentLegalEvidence('owner_operator', '2026-09-26T12:00:00.000Z', 'en');
+    const stale = { ...evidence, acceptanceStatement: 'Legacy acceptance statement.' };
+    const evaluation = evaluateLegalAcceptance(requirement, stale);
+    expect(evaluation.requiresReacceptance).toBe(true);
+    expect(evaluation.reasons).toContain('acceptance_statement_changed');
+  });
+
   it('creates immutable evidence hashes from the full acceptance event', () => {
     const first = buildCurrentLegalEvidence('owner_operator', '2026-09-04T21:45:00.000Z');
     const second = buildCurrentLegalEvidence('owner_operator', '2026-09-04T21:46:00.000Z');

@@ -59,6 +59,7 @@ export const persistSignedLegalAcceptance = async (input: PersistSignedLegalAcce
       legal_version: input.evidence.legalVersion,
       agreements: input.evidence.agreements,
       acceptance_language: input.evidence.acceptanceLanguage,
+      language_comprehension_confirmed_at: input.evidence.acceptedAt,
       privacy_document_hash: input.evidence.privacyDocumentHash,
       translation_snapshot_version: '1',
       acceptance_statement: input.evidence.acceptanceStatement,
@@ -79,7 +80,7 @@ export const persistSignedLegalAcceptance = async (input: PersistSignedLegalAcce
       signed_pdf_created_at: signedPdfCreatedAt,
       signature_snapshot_version: '1',
     })
-    .select('id, registration_role, legal_version, agreements, privacy_version, acceptance_language, privacy_document_hash, accepted_at, source, evidence_hash, signer_full_name, signature_method, signature_payload_hash, signed_pdf_bucket, signed_pdf_path, signed_pdf_hash, signed_pdf_created_at, created_at')
+    .select('id, registration_role, legal_version, agreements, privacy_version, acceptance_language, acceptance_statement, language_comprehension_confirmed_at, privacy_document_hash, accepted_at, source, evidence_hash, signer_full_name, signature_method, signature_payload_hash, signed_pdf_bucket, signed_pdf_path, signed_pdf_hash, signed_pdf_created_at, created_at')
     .single();
 
   if (error) {

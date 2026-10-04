@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { COMPANY_CONFIG } from '../../config/company';
-import { buildControlledLegalDocument, LEGAL_LANGUAGE_LABELS, LEGAL_LANGUAGES, normalizeLegalLanguage, type ControlledLegalDocumentCode } from '../../../lib/legal/controlledLegalDocuments';
+import { buildControlledLegalDocument, isRtlLegalLanguage, LEGAL_LANGUAGE_LABELS, LEGAL_LANGUAGES, normalizeLegalLanguage, type ControlledLegalDocumentCode } from '../../../lib/legal/controlledLegalDocuments';
 import { getLegalUiCopy } from '../../../lib/legal/legalUiCopy';
 
 type Props = { code: ControlledLegalDocumentCode; lang?: string };
@@ -10,7 +10,7 @@ export default function ControlledLegalDocumentPage({ code, lang }: Props) {
   const document = buildControlledLegalDocument(code, language);
   const copy = getLegalUiCopy(language);
   return (
-    <main className="min-h-screen bg-[#071B3C] px-6 py-20 text-white">
+    <main dir={isRtlLegalLanguage(language) ? 'rtl' : 'ltr'} className="min-h-screen bg-[#071B3C] px-6 py-20 text-white">
       <div className="mx-auto max-w-[900px]">
         <Link href="/legal" className="text-sm font-black text-[#F5A300]">← {copy.backToLegalCentre}</Link>
         <div className="mt-8 flex flex-wrap items-end justify-between gap-4">
