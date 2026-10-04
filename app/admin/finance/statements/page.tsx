@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { downloadXlsx, spreadsheetDate } from '../../../../lib/spreadsheetExport';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -11,26 +12,6 @@ import {
   Panel,
   StatusBadge,
 } from '../../../components/workspace/WorkspaceUI';
-
-const csvCell = (value: string | number | null | undefined) =>
-  `"${String(value ?? '').replace(/"/g, '""')}"`;
-
-const downloadCsv = (
-  filename: string,
-  columns: string[],
-  rows: Array<Array<string | number | null | undefined>>,
-) => {
-  const csv = [columns, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
-  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
-  const href = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = href;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(href);
-};
 
 const money = (value: number, currency = 'GBP') =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(Number.isFinite(value) ? value : 0);
@@ -77,20 +58,57 @@ export default function FinanceStatementsPage() {
   }, [rows]);
 
   const exportStatement = () => {
-    const label = counterparty === 'all' ? 'all-counterparties' : counterparty.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-    downloadCsv(
-      `xdrive-statement-${label || 'counterparty'}.csv`,
-      ['Invoice', 'Job', 'Counterparty', 'Invoice date', 'Due date', 'Amount', 'Currency', 'Status'],
-      rows.map((invoice) => [
-        invoice.invoice_number ?? invoice.id,
-        invoice.job_id ?? '',
-        invoice.client_name ?? 'Counterparty',
-        invoice.invoice_date ?? invoice.created_at,
-        invoice.due_date ?? '',
-        Number(invoice.amount ?? 0),
-        invoice.currency ?? 'GBP',
-        normalizedStatus(invoice.status, invoice.payment_status),
-      ]),
+    const label = counterparty === 'all'
+      ? 'all-counterparties'
+      : counterparty.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const scopeLabel = counterparty === 'all' ? 'All counterparties' : counterparty;
+    const dateLabel = [fromDate || 'start', toDate || 'today'].join(' to ');
+
+    return downloadXlsx(
+      `xdrive-statement-${label || 'counterparty'}.xlsx`,
+      [
+        {
+          name: 'Summary',
+          title: 'XDrive Logistics Statement Summary',
+          subtitle: `${scopeLabel} · ${dateLabel}`,
+          columns: [
+            { header: 'Metric', key: 'metric', width: 28 },
+            { header: 'Value', key: 'value', width: 24 },
+          ],
+          rows: [
+            { metric: 'Counterparty scope', value: scopeLabel },
+            { metric: 'Invoices', value: rows.length },
+            { metric: 'Invoiced GBP', value: totals.invoiced },
+            { metric: 'Paid GBP', value: totals.paid },
+            { metric: 'Outstanding GBP', value: totals.outstanding },
+          ],
+        },
+        {
+          name: 'Statement',
+          title: 'Invoice Statement',
+          subtitle: `${scopeLabel} · ${dateLabel}`,
+          columns: [
+            { header: 'Invoice', key: 'invoice', width: 20 },
+            { header: 'Job', key: 'job', width: 22 },
+            { header: 'Counterparty', key: 'counterparty', width: 28 },
+            { header: 'Invoice date', key: 'invoiceDate', width: 16, format: 'date' as const },
+            { header: 'Due date', key: 'dueDate', width: 16, format: 'date' as const },
+            { header: 'Amount', key: 'amount', width: 14, format: 'number' as const },
+            { header: 'Currency', key: 'currency', width: 10 },
+            { header: 'Status', key: 'status', width: 18 },
+          ],
+          rows: rows.map((invoice) => ({
+            invoice: invoice.invoice_number ?? invoice.id,
+            job: invoice.job_id ?? '',
+            counterparty: invoice.client_name ?? 'Counterparty',
+            invoiceDate: spreadsheetDate(invoice.invoice_date ?? invoice.created_at),
+            dueDate: spreadsheetDate(invoice.due_date),
+            amount: Number(invoice.amount ?? 0),
+            currency: invoice.currency ?? 'GBP',
+            status: normalizedStatus(invoice.status, invoice.payment_status),
+          })),
+        },
+      ],
     );
   };
 
@@ -100,7 +118,7 @@ export default function FinanceStatementsPage() {
         eyebrow="Finance / statements"
         title="Statements"
         description="Create a company-scoped invoice statement by counterparty and date range from the verified invoice register. This is an export view; it does not mutate invoice or payment state."
-        actions={<ActionButton tone="secondary" disabled={rows.length === 0} onClick={exportStatement}>Export Statement CSV</ActionButton>}
+        actions={<ActionButton tone="secondary" disabled={rows.length === 0} onClick={() => void exportStatement()}>Export Statement XLSX</ActionButton>}
       />
 
       <Panel title="Statement filters" description="Choose a counterparty and optional invoice-date window.">

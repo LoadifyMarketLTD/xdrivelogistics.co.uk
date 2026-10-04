@@ -233,7 +233,10 @@ const carrierNav: WorkspaceNavGroup[] = [
   { id: 'carrier-freight-vision', label: 'Freight Vision', items: [{ id: 'freight-vision', label: 'Freight Vision', href: '/admin/freight-vision', icon: '◎', capability: 'jobs.track' }] },
   { id: 'carrier-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/admin/exchange-quotes', icon: '◫', capability: 'quotes.submit' }] },
   { id: 'carrier-won-work', label: 'Won Work', items: [{ id: 'won-work', label: 'Won Work', href: '/admin/won-work', icon: '✓', capability: 'jobs.view' }] },
-  { id: 'carrier-jobs', label: 'Jobs', items: [{ id: 'jobs', label: 'Jobs', href: '/admin/jobs', icon: '▣', capability: 'jobs.view' }] },
+  { id: 'carrier-jobs', label: 'Jobs', items: [
+    { id: 'jobs', label: 'Jobs', href: '/admin/jobs', icon: '▣', capability: 'jobs.view' },
+    { id: 'bulk-import', label: 'Bulk Import', href: '/admin/bulk-import', icon: '⇩', capability: 'loads.create' },
+  ] },
   { id: 'carrier-pod', label: 'POD', items: [{ id: 'pod', label: 'POD Queue', href: '/admin/pod', icon: '▤', capability: 'jobs.review_pod' }] },
   { id: 'carrier-allocation', label: 'Allocation', items: [{ id: 'allocation', label: 'Allocation', href: '/admin/fleet/assignments', icon: '⇄', capability: 'jobs.allocate' }] },
   { id: 'carrier-resources', label: 'Drivers & Vehicles', items: [
@@ -247,7 +250,11 @@ const carrierNav: WorkspaceNavGroup[] = [
   { id: 'carrier-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' }] },
   { id: 'carrier-messages', label: 'Messages', items: [{ id: 'messages', label: 'Messages', href: '/admin/messages', icon: '◫' }] },
   { id: 'carrier-event-log', label: 'Event Log', items: [{ id: 'event-log', label: 'Event Log', href: '/admin/event-log', icon: '≡', capability: 'jobs.view' }] },
-  { id: 'carrier-finance', label: 'Finance', items: [{ id: 'finance', label: 'Finance', href: '/admin/invoices', icon: '£', capability: 'invoices.carrier.manage' }] },
+  { id: 'carrier-finance', label: 'Finance', items: [
+    { id: 'finance', label: 'Finance', href: '/admin/invoices', icon: '£', capability: 'invoices.carrier.manage' },
+    { id: 'statements', label: 'Statements', href: '/admin/finance/statements', icon: '▤', capability: 'invoices.carrier.manage' },
+    { id: 'reports-data', label: 'Reports & Data', href: '/admin/finance/reports', icon: '▤', capability: 'invoices.carrier.manage' },
+  ] },
   { id: 'carrier-compliance', label: 'Compliance', items: [{ id: 'compliance', label: 'Compliance', href: '/admin/documents', icon: '✓', capability: 'documents.company.manage' }] },
   { id: 'carrier-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/settings/billing', icon: '£', capability: 'billing.manage' }] },
   { id: 'carrier-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/admin/settings', icon: '⚙', capability: 'settings.manage' }] },
@@ -283,7 +290,10 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     role: 'customer', label: 'Customer Workspace', subtitle: 'Post, award and track your transport', homeHref: '/customer', primaryAction: { label: 'Post Load', href: '/customer/post-load', capability: 'loads.create' },
     nav: [
       { id: 'customer-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/customer', icon: '⌂' }] },
-      { id: 'customer-loads', label: 'Loads', items: [{ id: 'loads', label: 'Loads', href: '/customer/loads', icon: '▦', capability: 'loads.view.own' }] },
+      { id: 'customer-loads', label: 'Loads', items: [
+        { id: 'loads', label: 'Loads', href: '/customer/loads', icon: '▦', capability: 'loads.view.own' },
+        { id: 'bulk-import', label: 'Bulk Import', href: '/customer/bulk-import', icon: '⇩', capability: 'loads.create' },
+      ] },
       { id: 'customer-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/customer/quotes', icon: '◫', capability: 'quotes.receive' }] },
       { id: 'customer-bookings', label: 'Bookings', items: [{ id: 'bookings', label: 'Bookings', href: '/customer/bookings', icon: '▣', capability: 'jobs.view' }] },
       { id: 'customer-tracking', label: 'Tracking', items: [{ id: 'tracking', label: 'Tracking', href: '/customer/tracking', icon: '⌖', capability: 'jobs.track' }] },
@@ -358,7 +368,8 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
         { id: 'carrier-invoices', label: 'Carrier Invoices', href: '/admin/finance/carrier-invoices', icon: '£' },
         { id: 'payments', label: 'Payments', href: '/admin/finance/payments', icon: '✓' },
         { id: 'balances', label: 'Outstanding Balances', href: '/admin/finance/balances', icon: '!' },
-        { id: 'reports', label: 'Reports & Exports', href: '/admin/finance/reports', icon: '▤' },
+        { id: 'statements', label: 'Statements', href: '/admin/finance/statements', icon: '▤' },
+        { id: 'reports', label: 'Reports & Data', href: '/admin/finance/reports', icon: '▤' },
       ] },
       { id: 'finance-settings', label: 'Settings', items: [{ id: 'settings', label: 'Settings', href: '/admin/settings', icon: '⚙', capability: 'settings.manage' }] },
     ],

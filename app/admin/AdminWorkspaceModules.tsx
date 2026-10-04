@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
+import { downloadXlsx, spreadsheetDate } from '../../lib/spreadsheetExport';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import FleetPositionMap, { type FleetMapPoint } from './fleet/FleetPositionMap';
 import SharedActionCentrePage from '../components/workspace/ActionCentrePage';
@@ -53,26 +54,6 @@ const exceptionStatuses = new Set([
 ]);
 const daysUntil = (value: string | null | undefined) =>
   value ? Math.ceil((new Date(value).getTime() - Date.now()) / 86400000) : null;
-
-const csvCell = (value: string | number | null | undefined) =>
-  `"${String(value ?? '').replace(/"/g, '""')}"`;
-
-const downloadCsv = (
-  filename: string,
-  columns: string[],
-  rows: Array<Array<string | number | null | undefined>>
-) => {
-  const csv = [columns, ...rows].map((row) => row.map(csvCell).join(',')).join('\n');
-  const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
-  const href = URL.createObjectURL(blob);
-  const anchor = document.createElement('a');
-  anchor.href = href;
-  anchor.download = filename;
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(href);
-};
 
 export function DriverAvailabilityPage() {
   const data = useCompanyWorkspaceData();
@@ -712,55 +693,147 @@ export function FinanceReportsPage() {
     (sum, invoice) => sum + Number(invoice.amount ?? 0),
     0
   );
+  const reportSubtitle = data.companyId
+    ? `Company scope ${data.companyId} · generated ${new Date().toLocaleString('en-GB')}`
+    : `Generated ${new Date().toLocaleString('en-GB')}`;
 
-  const exportInvoices = () =>
-    downloadCsv(
-      'xdrive-invoice-register.csv',
-      ['Invoice', 'Job', 'Counterparty', 'Amount GBP', 'Due date', 'Status', 'Created'],
-      data.invoices.map((invoice) => [
-        invoice.invoice_number ?? invoice.id,
-        invoice.job_id ?? '',
-        invoice.client_name ?? '',
-        Number(invoice.amount ?? 0),
-        invoice.due_date ?? '',
-        invoice.payment_status ?? invoice.status,
-        invoice.created_at,
-      ])
-    );
+  const invoiceSheet = {
+    name: 'Invoices',
+    title: 'Invoice Register',
+    subtitle: reportSubtitle,
+    columns: [
+      { header: 'Invoice', key: 'invoice', width: 20 },
+      { header: 'Job', key: 'job', width: 22 },
+      { header: 'Counterparty', key: 'counterparty', width: 28 },
+      { header: 'Invoice date', key: 'invoiceDate', width: 16, format: 'date' as const },
+      { header: 'Due date', key: 'dueDate', width: 16, format: 'date' as const },
+      { header: 'Net', key: 'net', width: 14, format: 'number' as const },
+      { header: 'VAT', key: 'vat', width: 14, format: 'number' as const },
+      { header: 'Total', key: 'total', width: 14, format: 'number' as const },
+      { header: 'Currency', key: 'currency', width: 10 },
+      { header: 'Status', key: 'status', width: 18 },
+      { header: 'Created', key: 'created', width: 20, format: 'datetime' as const },
+    ],
+    rows: data.invoices.map((invoice) => ({
+      invoice: invoice.invoice_number ?? invoice.id,
+      job: invoice.job_id ?? '',
+      counterparty: invoice.client_name ?? '',
+      invoiceDate: spreadsheetDate(invoice.invoice_date),
+      dueDate: spreadsheetDate(invoice.due_date),
+      net: Number(invoice.net_amount ?? invoice.amount ?? 0),
+      vat: Number(invoice.vat_amount ?? 0),
+      total: Number(invoice.amount ?? 0),
+      currency: invoice.currency ?? 'GBP',
+      status: invoice.payment_status ?? invoice.status,
+      created: spreadsheetDate(invoice.created_at),
+    })),
+  };
 
-  const exportBalances = () =>
-    downloadCsv(
-      'xdrive-outstanding-balances.csv',
-      ['Invoice', 'Counterparty', 'Amount GBP', 'Due date', 'Status'],
-      outstanding.map((invoice) => [
-        invoice.invoice_number ?? invoice.id,
-        invoice.client_name ?? '',
-        Number(invoice.amount ?? 0),
-        invoice.due_date ?? '',
-        invoice.payment_status ?? invoice.status,
-      ])
-    );
+  const outstandingSheet = {
+    name: 'Outstanding',
+    title: 'Outstanding Balances',
+    subtitle: reportSubtitle,
+    columns: [
+      { header: 'Invoice', key: 'invoice', width: 20 },
+      { header: 'Job', key: 'job', width: 22 },
+      { header: 'Counterparty', key: 'counterparty', width: 28 },
+      { header: 'Due date', key: 'dueDate', width: 16, format: 'date' as const },
+      { header: 'Amount', key: 'amount', width: 14, format: 'number' as const },
+      { header: 'Currency', key: 'currency', width: 10 },
+      { header: 'Status', key: 'status', width: 18 },
+    ],
+    rows: outstanding.map((invoice) => ({
+      invoice: invoice.invoice_number ?? invoice.id,
+      job: invoice.job_id ?? '',
+      counterparty: invoice.client_name ?? '',
+      dueDate: spreadsheetDate(invoice.due_date),
+      amount: Number(invoice.amount ?? 0),
+      currency: invoice.currency ?? 'GBP',
+      status: invoice.payment_status ?? invoice.status,
+    })),
+  };
 
-  const exportJobs = () =>
-    downloadCsv(
-      'xdrive-job-commercial-summary.csv',
-      ['Job', 'Collection', 'Delivery', 'Pickup', 'Status', 'Customer price GBP'],
-      data.jobs.map((job) => [
-        job.id,
-        job.pickup_location ?? '',
-        job.delivery_location ?? '',
-        job.pickup_datetime ?? '',
-        job.current_status ?? job.status,
-        Number(job.budget_amount ?? 0),
-      ])
-    );
+  const jobsSheet = {
+    name: 'Jobs',
+    title: 'Job Commercial & Operations Register',
+    subtitle: reportSubtitle,
+    columns: [
+      { header: 'Job ID', key: 'job', width: 22 },
+      { header: 'Booking ref', key: 'bookingReference', width: 18 },
+      { header: 'Customer ref', key: 'customerReference', width: 18 },
+      { header: 'Customer', key: 'customer', width: 26 },
+      { header: 'Collection', key: 'collection', width: 30 },
+      { header: 'Collection postcode', key: 'collectionPostcode', width: 18 },
+      { header: 'Delivery', key: 'delivery', width: 30 },
+      { header: 'Delivery postcode', key: 'deliveryPostcode', width: 18 },
+      { header: 'Pickup', key: 'pickup', width: 20, format: 'datetime' as const },
+      { header: 'Delivery', key: 'deliveryTime', width: 20, format: 'datetime' as const },
+      { header: 'Vehicle', key: 'vehicle', width: 18 },
+      { header: 'Status', key: 'status', width: 20 },
+      { header: 'Customer price GBP', key: 'customerPrice', width: 20, format: 'currency' as const },
+      { header: 'Assigned driver', key: 'driver', width: 22 },
+      { header: 'Vehicle ID', key: 'vehicleId', width: 22 },
+      { header: 'POD generated', key: 'podGenerated', width: 15 },
+    ],
+    rows: data.jobs.map((job) => ({
+      job: job.id,
+      bookingReference: job.booking_reference ?? '',
+      customerReference: job.customer_reference ?? '',
+      customer: job.client_name ?? '',
+      collection: job.pickup_location ?? '',
+      collectionPostcode: job.pickup_postcode ?? '',
+      delivery: job.delivery_location ?? '',
+      deliveryPostcode: job.delivery_postcode ?? '',
+      pickup: spreadsheetDate(job.pickup_datetime),
+      deliveryTime: spreadsheetDate(job.delivery_datetime),
+      vehicle: job.vehicle_type ?? '',
+      status: job.current_status ?? job.status,
+      customerPrice: Number(job.budget_amount ?? 0),
+      driver: job.assigned_driver_id ?? '',
+      vehicleId: job.vehicle_id ?? '',
+      podGenerated: job.pod_generated_at ? 'Yes' : 'No',
+    })),
+  };
+
+  const summarySheet = {
+    name: 'Summary',
+    title: 'XDrive Logistics Report Summary',
+    subtitle: reportSubtitle,
+    columns: [
+      { header: 'Metric', key: 'metric', width: 30 },
+      { header: 'Value', key: 'value', width: 22 },
+      { header: 'Notes', key: 'notes', width: 46 },
+    ],
+    rows: [
+      { metric: 'Invoice records', value: data.invoices.length, notes: 'Invoices in current company scope' },
+      { metric: 'Invoice value GBP', value: invoiceValue, notes: 'Recorded invoice gross value' },
+      { metric: 'Outstanding invoices', value: outstanding.length, notes: 'Invoices not marked paid' },
+      { metric: 'Outstanding value GBP', value: outstandingValue, notes: 'Recorded unpaid value' },
+      { metric: 'Jobs in scope', value: data.jobs.length, notes: 'Operational jobs available to this workspace' },
+    ],
+  };
+
+  const exportInvoices = () => downloadXlsx('xdrive-invoice-register.xlsx', [invoiceSheet]);
+  const exportBalances = () => downloadXlsx('xdrive-outstanding-balances.xlsx', [outstandingSheet]);
+  const exportJobs = () => downloadXlsx('xdrive-job-commercial-summary.xlsx', [jobsSheet]);
+  const exportFullWorkbook = () =>
+    downloadXlsx('xdrive-reports-and-data.xlsx', [summarySheet, jobsSheet, invoiceSheet, outstandingSheet]);
 
   return (
     <PageFrame>
       <PageHeader
-        eyebrow="Finance"
+        eyebrow="Finance / Reports & Data"
         title="Reports & Exports"
-        description="Download company-scoped operational and finance registers as CSV files."
+        description="Generate professional company-scoped Excel workbooks from the operational and finance registers."
+        actions={
+          <ActionButton
+            tone="secondary"
+            disabled={data.invoices.length === 0 && data.jobs.length === 0}
+            onClick={() => void exportFullWorkbook()}
+          >
+            Export Full Workbook
+          </ActionButton>
+        }
       />
       <KpiGrid>
         <KpiCard label="Invoices" value={data.invoices.length} tone="blue" />
@@ -777,10 +850,10 @@ export function FinanceReportsPage() {
       >
         <Panel
           title="Invoice register"
-          description="Invoice, job, counterparty, amount, due date and payment status."
+          description="Professional XLSX register with invoice, job, counterparty, net, VAT, total, due date and payment status."
           actions={
-            <ActionButton tone="secondary" disabled={data.invoices.length === 0} onClick={exportInvoices}>
-              Export CSV
+            <ActionButton tone="secondary" disabled={data.invoices.length === 0} onClick={() => void exportInvoices()}>
+              Export XLSX
             </ActionButton>
           }
         >
@@ -790,10 +863,10 @@ export function FinanceReportsPage() {
         </Panel>
         <Panel
           title="Outstanding balances"
-          description="Only unpaid and overdue balances requiring reconciliation."
+          description="Excel reconciliation register for unpaid balances requiring finance follow-up."
           actions={
-            <ActionButton tone="secondary" disabled={outstanding.length === 0} onClick={exportBalances}>
-              Export CSV
+            <ActionButton tone="secondary" disabled={outstanding.length === 0} onClick={() => void exportBalances()}>
+              Export XLSX
             </ActionButton>
           }
         >
@@ -803,10 +876,10 @@ export function FinanceReportsPage() {
         </Panel>
         <Panel
           title="Job commercial summary"
-          description="Route, planned pickup, operational status and recorded customer price."
+          description="Operational XLSX register with route, references, dates, vehicle, status, price, allocation and POD readiness."
           actions={
-            <ActionButton tone="secondary" disabled={data.jobs.length === 0} onClick={exportJobs}>
-              Export CSV
+            <ActionButton tone="secondary" disabled={data.jobs.length === 0} onClick={() => void exportJobs()}>
+              Export XLSX
             </ActionButton>
           }
         >
