@@ -335,7 +335,7 @@ export default function CustomerDashboardHome() {
         <PageHeader
           eyebrow="Customer workspace"
           title="Transport overview"
-          description="The same operational control pattern used across XDrive: reports and exceptions on the left, live transport activity on the right."
+          description="Monitor posted loads, carrier quotes, active bookings, delivery progress, POD and finance from one operational view."
           actions={<ActionButton tone="secondary" onClick={() => void Promise.all([data.refresh(), loadBookingOffers()])}>Refresh</ActionButton>}
         />
 
@@ -428,7 +428,7 @@ export default function CustomerDashboardHome() {
           <div className="customer-owner-parity-column">
             <OperationalCard
               title="Activity at a glance"
-              subtitle="Latest customer transport, using the same dense operational pattern as Owner Driver."
+              subtitle="Latest customer transport and the next operational action for each booking."
               actions={<ActionButton tone="secondary" onClick={() => router.push('/customer/loads')}>View all</ActionButton>}
               flush
             >
