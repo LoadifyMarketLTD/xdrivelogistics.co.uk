@@ -1,7 +1,23 @@
 .xdrive-post-load-form{
+  width:100%;
+  min-width:0;
+  max-width:none;
   display:grid;
+  grid-template-columns:minmax(0,1fr);
   gap:10px;
   font-size:13px;
+  justify-self:stretch;
+  align-self:stretch;
+}
+.xdrive-post-load-form>section{
+  width:100%;
+  min-width:0;
+  max-width:none;
+}
+.xdrive-post-load-form .xdrive-panel__header,
+.xdrive-post-load-form .xdrive-panel__body{
+  width:100%;
+  min-width:0;
 }
 .xdrive-post-load-form>section{
   border-color:#b8c7d8 !important;

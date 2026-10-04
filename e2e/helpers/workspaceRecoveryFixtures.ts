@@ -3,17 +3,17 @@ import type { Page } from '@playwright/test';
 export const COMPANY = '11111111-1111-4111-8111-111111111111';
 export const OTHER = '33333333-3333-4333-8333-333333333333';
 export const USER = '22222222-2222-4222-8222-222222222222';
-export const roots = { carrier: '/admin', customer: '/customer', broker: '/broker', owner: '/driver', driver: '/driver' } as const;
+export const roots = { carrier: '/admin', customer: '/customer', broker: '/broker', owner: '/driver', driver: '/driver', dispatcher: '/admin' } as const;
 
 export async function mockWorkspace(page: Page, role: keyof typeof roots, billingFailure = false, personal = false, datasets: Record<string, unknown[]> = {}) {
   const company = { id: COMPANY, name: 'Fixture Carrier', trading_name: 'Fixture Carrier', xd_id: 'XD-TEST-001', status: 'active', company_type: 'carrier' };
   const authUser = { id: USER, email: 'workspace-fixture@example.invalid', role: 'authenticated', aud: 'authenticated', created_at: '2026-01-01T00:00:00Z', app_metadata: { provider: 'email' }, user_metadata: {} };
-  const membership = (id: string) => ({ id: `${id.slice(0, 8)}-membership`, company_id: id, user_id: USER, role_in_company: role === 'driver' ? 'driver' : 'owner', status: 'active', companies: { ...company, id } });
+  const membership = (id: string) => ({ id: `${id.slice(0, 8)}-membership`, company_id: id, user_id: USER, role_in_company: role === 'driver' ? 'driver' : role === 'dispatcher' ? 'dispatcher' : 'owner', status: 'active', companies: { ...company, id } });
   await page.route('**/*.supabase.co/**', async (route) => {
     const url = new URL(route.request().url());
     if (url.pathname.endsWith('/auth/v1/user')) return route.fulfill({ json: authUser });
     const name = url.pathname.split('/').pop();
-    if (name === 'active_company_membership_role') return route.fulfill({ json: role === 'driver' ? 'driver' : 'owner' });
+    if (name === 'active_company_membership_role') return route.fulfill({ json: role === 'driver' ? 'driver' : role === 'dispatcher' ? 'dispatcher' : 'owner' });
     let rows: unknown[] = [];
     if (name === 'profiles') rows = [{ user_id: USER, full_name: 'Fixture Operator', role: personal ? 'customer' : 'company_admin', status: 'active', is_driver: false, company_id: personal ? null : COMPANY, xd_id: 'XD-TEST-USER' }];
     if (name === 'companies') rows = personal ? [] : [company];

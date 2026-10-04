@@ -674,9 +674,12 @@ export default function TopWorkspaceShell({
       : null;
   const showCarrierPostLoadAction =
     CARRIER_NAV_ROLES.has(role) && hasWorkspaceCapability(role, 'loads.create');
+  const showAdminStaffPostLoadAction =
+    (role === 'dispatcher' || role === 'platform_owner') && hasWorkspaceCapability(role, 'loads.create');
   const showOwnerDriverPostLoadAction = role === 'owner_driver';
-  const showPostLoadAction = showCarrierPostLoadAction || showOwnerDriverPostLoadAction;
+  const showPostLoadAction = showCarrierPostLoadAction || showAdminStaffPostLoadAction || showOwnerDriverPostLoadAction;
   const postLoadHref = CARRIER_NAV_ROLES.has(role) ? '/admin/post-load' : '/driver/post-load';
+  const postLoadTargetHref = showAdminStaffPostLoadAction ? '/admin/post-load' : postLoadHref;
   const showBookDirectAction =
     CARRIER_NAV_ROLES.has(role) ||
     role === 'owner_driver' ||
@@ -834,7 +837,7 @@ export default function TopWorkspaceShell({
             <button
               type="button"
               className="top-workspace-action top-workspace-action--primary"
-              onClick={() => router.push(postLoadHref)}
+              onClick={() => router.push(postLoadTargetHref)}
             >
               POST LOAD
             </button>
