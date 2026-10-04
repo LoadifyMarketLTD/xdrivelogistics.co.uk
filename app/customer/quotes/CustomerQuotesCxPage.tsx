@@ -3,7 +3,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
-import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
+import { bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
+import { BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT } from '../../../lib/legal/paymentObligation';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceBid, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import {
@@ -107,7 +108,9 @@ function AwardConfirmation({
           </div>
           {candidate.bid.message ? <div style={{ padding: 9, border: '1px solid #e2e8f0', borderRadius: 4, background: '#f8fafc', color: '#334155', fontSize: 11, lineHeight: '16px' }}><strong>Carrier message:</strong> {candidate.bid.message}</div> : null}
           <div style={{ padding: 9, border: '1px solid #fed7aa', borderRadius: 4, background: '#fff7ed', color: '#9a3412', fontSize: 11, lineHeight: '16px' }}>
-            Confirming will use the existing atomic award workflow. The selected bid becomes accepted, competing submitted bids are rejected, and the booking advances under the authoritative backend lifecycle.
+            <strong style={{ display: 'block', marginBottom: 4 }}>Payment obligation acknowledgement</strong>
+            <span>{BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT}</span>
+            <span style={{ display: 'block', marginTop: 5 }}>Selecting Confirm Award records this acknowledgement and uses the existing atomic award workflow. The selected bid becomes accepted, competing submitted bids are rejected, and the booking advances under the authoritative backend lifecycle.</span>
           </div>
         </div>
 
@@ -245,7 +248,6 @@ export default function CustomerQuotesCxPage() {
   }, [allQuotes, carrierSearch, data.jobs, identities, reference, statusFilter]);
 
   const award = async (id: string) => {
-    if (!confirmBookingPaymentObligation()) return;
     setWorking(id); setMessage('');
     const { data: session } = await supabase.auth.getSession();
     const response = await fetch(`/api/customer/bids/${id}/award`, { method: 'POST', headers: session.session?.access_token ? { Authorization: `Bearer ${session.session.access_token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' }, body: bookingPaymentObligationRequestBody });

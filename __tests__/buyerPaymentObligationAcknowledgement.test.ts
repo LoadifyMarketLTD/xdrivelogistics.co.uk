@@ -7,14 +7,14 @@ const customerApi = readFileSync(join(process.cwd(),'app/api/customer/bids/[id]/
 const adminApi = readFileSync(join(process.cwd(),'app/api/admin/bids/[id]/accept/route.ts'),'utf8');
 const obligation = readFileSync(join(process.cwd(),'lib/legal/paymentObligation.ts'),'utf8');
 const clientHelper = readFileSync(join(process.cwd(),'lib/legal/paymentObligationClient.ts'),'utf8');
-const uiFiles = [
+const nativeConfirmUiFiles = [
   'app/admin/bids/page.tsx',
   'app/broker/bids/page.tsx',
   'app/customer/jobs/[id]/page.tsx',
-  'app/customer/quotes/CustomerQuotesCxPage.tsx',
   'app/customer/CustomerOperationalPages.tsx',
   'app/customer/CustomerWorkspaceModules.tsx',
 ].map((file)=>readFileSync(join(process.cwd(),file),'utf8'));
+const customerQuotesUi = readFileSync(join(process.cwd(),'app/customer/quotes/CustomerQuotesCxPage.tsx'),'utf8');
 
 describe('buyer payment obligation acknowledgement',()=>{
   it('stores timestamp, actor and server-controlled terms version on the booking offer',()=>{
@@ -50,9 +50,13 @@ describe('buyer payment obligation acknowledgement',()=>{
     expect(obligation).toContain("BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION = 'xdrive-booking-payment-obligation-v1-2026-09-26'");
     expect(obligation).toContain('responsible for paying the awarded carrier');
     expect(clientHelper).toContain('window.confirm');
-    for (const ui of uiFiles) {
+    for (const ui of nativeConfirmUiFiles) {
       expect(ui).toContain('confirmBookingPaymentObligation');
       expect(ui).toContain('bookingPaymentObligationRequestBody');
     }
+    expect(customerQuotesUi).toContain('BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT');
+    expect(customerQuotesUi).toContain('Payment obligation acknowledgement');
+    expect(customerQuotesUi).toContain('bookingPaymentObligationRequestBody');
+    expect(customerQuotesUi).not.toContain('confirmBookingPaymentObligation');
   });
 });

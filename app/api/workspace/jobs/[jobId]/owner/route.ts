@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
+import { hasOnlyPreExecutionJobStatuses, preferredJobLifecycleStatus } from '../../../../../../lib/jobs/jobLifecycleStatus';
 import { labelToCargoType, labelToVehicleType } from '../../../../../../lib/vehicleTypes';
 import {
   getBearerToken,
@@ -166,8 +167,8 @@ async function getOwnerContext(client: AdminClient, userId: string, jobId: strin
     return status !== 'pending' || Boolean(stop.arrived_at) || Boolean(stop.completed_at);
   }).length;
   const assigned = Boolean(job.awarded_carrier_company_id || job.assigned_company_id || job.assigned_driver_id || job.vehicle_id);
-  const status = String(job.current_status ?? job.status ?? '').toLowerCase();
-  const preAwardStatus = ['draft', 'received', 'posted'].includes(status);
+  const status = preferredJobLifecycleStatus(job);
+  const preAwardStatus = hasOnlyPreExecutionJobStatuses(job);
   const bidCount = bids.count;
   const executionArtifacts = agreements.count + pods.count + invoices.count + disputes.count + cancellations.count + invoiceDisputes.count + convertedQuotes.count + reviews.count;
 
@@ -450,14 +451,26 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   const { jobId } = await params;
   const checked = await getOwnerContext(client, auth.userId, jobId);
   if (checked.response || !checked.context) return checked.response;
-  if (!checked.context.capabilities.canDelete) return respond(409, { error: checked.context.capabilities.deleteReason ?? 'This load cannot be deleted.' });
+  if (!checked.context.capabilities.canDelete) {
+    return respond(409, { error: checked.context.capabilities.deleteReason ?? 'This load cannot be deleted.' });
+  }
 
-  const deleted = await client.from('jobs').delete()
-    .eq('id', jobId)
-    .eq('company_id', checked.context.ownerCompanyId)
-    .is('awarded_carrier_company_id', null).is('assigned_company_id', null).is('assigned_driver_id', null).is('vehicle_id', null)
-    .select('id').maybeSingle();
-  if (deleted.error) return operationalError({ status: 409, message: 'This load cannot be deleted because protected records are linked to it.', context: `workspace.job-owner.delete:${jobId}`, cause: deleted.error, retryable: false });
-  if (!deleted.data) return respond(409, { error: 'The load changed before deletion. Refresh and try again.' });
+  const deleted = await client.rpc('delete_unbid_exchange_job_atomic', {
+    p_job_id: jobId,
+    p_actor_user_id: auth.userId,
+  });
+  if (deleted.error) {
+    if (deleted.error.code === 'P0002') return respond(404, { error: 'Load not found.' });
+    if (deleted.error.code === '42501') return respond(403, { error: deleted.error.message });
+    if (deleted.error.code === '23514' || deleted.error.code === '23503') return respond(409, { error: deleted.error.message });
+    return operationalError({
+      status: 409,
+      message: 'This load cannot be deleted because protected records are linked to it.',
+      context: `workspace.job-owner.delete:${jobId}`,
+      cause: deleted.error,
+      retryable: false,
+    });
+  }
+
   return respond(200, { deleted: true, jobId });
 }

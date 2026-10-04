@@ -39,9 +39,15 @@ describe('posting-company owner edit/delete contract', () => {
   });
 
   it('keeps delete safety independent from edit capability', () => {
+    expect(route).toContain('preferredJobLifecycleStatus(job)');
+    expect(route).toContain('hasOnlyPreExecutionJobStatuses(job)');
     expect(route).toContain('if (assigned) deleteReason');
     expect(route).toContain('Loads with carrier quote history cannot be deleted.');
     expect(route).toContain('This load already has protected commercial or execution history.');
+    expect(route).toContain("client.rpc('delete_unbid_exchange_job_atomic'");
+    expect(route).toContain('p_actor_user_id: auth.userId');
+    const deleteBlock = route.slice(route.indexOf('export async function DELETE'));
+    expect(deleteBlock).not.toContain("client.from('jobs').delete()");
     expect(page).toContain('ownerCapabilities?.canDelete');
     expect(page).toContain('Confirm Delete');
   });
