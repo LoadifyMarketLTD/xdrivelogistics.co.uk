@@ -1,4 +1,4 @@
-﻿-- Canonical quote lifecycle coupling.
+-- Canonical quote lifecycle coupling.
 -- Submitted quotes move a pre-award marketplace job to quoted. If every active quote is later
 -- withdrawn/rejected before award, the job returns to posted so Loads, Quotes and Diary agree.
 
