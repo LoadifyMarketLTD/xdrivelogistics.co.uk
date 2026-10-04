@@ -749,7 +749,8 @@
 
 
 /* Owner Driver More: compact, legible secondary navigation without affecting other roles. */
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu {
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu,
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu {
   width: 252px !important;
 }
 
@@ -759,7 +760,8 @@
   outline-offset: -2px;
 }
 
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu-section {
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu-section,
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu-section {
   padding: 7px 9px 4px;
   color: #526377;
   font-size: 10px;
@@ -768,21 +770,24 @@
 }
 
 @media (max-width: 768px) {
-  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu {
+  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu,
+  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu {
     width: auto !important;
   }
 }
 
 
 @media (min-width: 481px) and (max-width: 768px) {
-  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu {
+  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu,
+  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu {
     right: 8px !important;
     left: auto !important;
     width: 280px !important;
   }
 }
 
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu-icon svg {
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu-icon svg,
+.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu-icon svg {
   width: 14px;
   height: 14px;
 }

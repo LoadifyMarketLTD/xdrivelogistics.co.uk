@@ -526,3 +526,205 @@
   min-height: 38px !important;
   height: 38px !important;
 }
+
+/* Customer / Owner Driver workspace parity: same control-desk geometry, role-specific data. */
+.customer-owner-parity-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.customer-owner-parity-column {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.customer-owner-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.customer-owner-stat-card {
+  min-width: 0;
+  min-height: 118px;
+  display: grid;
+  align-content: center;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid #d8dee8;
+  border-radius: 4px;
+  background: #eff6ff;
+  color: #1a1f2b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.customer-owner-stat-card[data-tone="orange"] { background: #fff7e6; }
+.customer-owner-stat-card[data-tone="green"] { background: #edf9f0; }
+
+.customer-owner-stat-card span {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.customer-owner-stat-card strong {
+  color: #0b2f6b;
+  font-size: 20px;
+  line-height: 24px;
+  font-weight: 800;
+}
+
+.customer-owner-stat-card small {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.customer-owner-parity-subgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.customer-owner-report-row {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  background: transparent;
+  color: #1a1f2b;
+  text-align: left;
+  cursor: pointer;
+}
+
+.customer-owner-report-row:last-child { border-bottom: 0; }
+.customer-owner-report-row span:first-child { min-width: 0; }
+.customer-owner-report-row strong { display: block; font-size: 12px; line-height: 16px; }
+.customer-owner-report-row small { display: block; color: #64748b; font-size: 11px; line-height: 14px; }
+.customer-owner-report-row > span:last-child { color: #1d57d8; font-weight: 800; }
+
+.customer-activity-filters {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+  gap: 6px;
+  padding: 8px;
+  border-bottom: 1px solid #d8dee8;
+}
+
+.customer-activity-filters input {
+  min-width: 0;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid #d8dee8;
+  border-radius: 4px;
+  background: #fff;
+  color: #1a1f2b;
+  font: inherit;
+  font-size: 12px;
+}
+
+.customer-activity-list {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+}
+
+.customer-activity-card {
+  overflow: hidden;
+  border: 1px solid #d8dee8;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.customer-activity-card[data-tone="orange"] { border-color: #e5a300; }
+.customer-activity-card[data-tone="green"] { border-color: #79c58a; }
+.customer-activity-card[data-tone="blue"] { border-color: #bfd0e7; }
+.customer-activity-card[data-tone="grey"] { border-color: #cbd5e1; }
+
+.customer-activity-card__main {
+  display: grid;
+  grid-template-columns: 1.35fr 1fr .9fr;
+  gap: 10px;
+  padding: 8px 10px 6px;
+}
+
+.customer-activity-route,
+.customer-activity-times,
+.customer-activity-status {
+  min-width: 0;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.customer-activity-route > div {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  column-gap: 6px;
+  row-gap: 2px;
+}
+
+.customer-activity-route span,
+.customer-activity-times span,
+.customer-activity-status > div {
+  color: #64748b;
+}
+
+.customer-activity-route strong,
+.customer-activity-times strong {
+  overflow: hidden;
+  color: #172033;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.customer-activity-times > div + div,
+.customer-activity-status > div + div { margin-top: 3px; }
+
+.customer-activity-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex-wrap: wrap;
+  padding: 5px 8px;
+  border-top: 1px solid #e5e7eb;
+  background: #f7f8fa;
+}
+
+.customer-freight-messenger {
+  position: fixed;
+  right: 14px;
+  bottom: 10px;
+  z-index: 1200;
+  min-height: 34px;
+  padding: 7px 14px;
+  border: 1px solid #0b2f6b;
+  border-radius: 4px;
+  background: #0b2f6b;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,.18);
+  cursor: pointer;
+}
+
+@media (max-width: 1100px) {
+  .customer-owner-parity-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 768px) {
+  .customer-owner-parity-subgrid,
+  .customer-owner-stat-grid,
+  .customer-activity-card__main { grid-template-columns: 1fr; }
+  .customer-activity-filters { grid-template-columns: 1fr; }
+  .customer-freight-messenger { right: 8px; bottom: 8px; }
+}

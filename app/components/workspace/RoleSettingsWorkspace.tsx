@@ -355,12 +355,12 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     ...(role === 'owner' ? [{ label: 'Drivers / Staff', action: () => router.push('/driver/profile'), active: false }] : []),
     ...(role === 'fleet' ? [{ label: 'Drivers / Staff', action: () => router.push('/admin/drivers'), active: false }] : []),
     ...(routes.vehicles ? [{ label: 'Vehicles / Assets', action: () => router.push(routes.vehicles!), active: false }] : []),
-    ...(routes.documents ? [{ label: 'Documents', action: () => router.push(routes.documents!), active: false }] : []),
+    ...(routes.documents && role !== 'customer' ? [{ label: 'Documents', action: () => router.push(routes.documents!), active: false }] : []),
     ...(financeSettingsVisible ? [{ label: 'Finance & Invoices', action: () => setSection('finance'), active: section === 'finance' }, ...(routes.billing ? [{ label: 'Billing & Membership', action: () => router.push(routes.billing!), active: false }] : [])] : []),
     ...(role === 'finance' && routes.finance ? [{ label: 'Finance Workspace', action: () => router.push(routes.finance!), active: false }] : []),
     ...(routes.notifications ? [{ label: 'Notifications', action: () => router.push(routes.notifications!), active: false }] : []),
     { label: 'Security', action: () => setSection('security'), active: section === 'security' },
-    ...(routes.audit ? [{ label: 'Audit / Event Log', action: () => router.push(routes.audit!), active: false }] : []),
+    ...(routes.audit && role !== 'customer' ? [{ label: 'Audit / Event Log', action: () => router.push(routes.audit!), active: false }] : []),
     ...(routes.support ? [{ label: 'Support', action: () => router.push(routes.support!), active: false }] : []),
   ], [companyOperationsVisible, companyProfileVisible, financeSettingsVisible, role, router, routes.audit, routes.billing, routes.documents, routes.finance, routes.notifications, routes.support, routes.team, routes.vehicles, section]);
 

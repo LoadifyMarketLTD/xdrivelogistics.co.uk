@@ -4,7 +4,7 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { BellRing, Briefcase, ChevronDown, CalendarClock, FileText, MapPin, MessageSquare, ReceiptText, Trophy } from 'lucide-react';
+import { BellRing, Briefcase, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, ReceiptText, RefreshCw, Trophy, Truck, Users } from 'lucide-react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -220,7 +220,15 @@ function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['customer-diary-primary', 'Diary', '/customer/diary'],
     ['customer-invoices-primary', 'Invoices', '/customer/invoices'],
     ['customer-settings-primary', 'Settings', '/customer/settings'],
-  ], 'customer-more');
+  ], 'customer-more', 'More', [
+    '/customer/deliveries',
+    '/customer/documents',
+    '/customer/updates',
+    '/customer/network',
+    '/customer/messages',
+    '/customer/disputes',
+    '/customer/event-log',
+  ]);
 }
 
 function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
@@ -360,11 +368,41 @@ const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
   '/driver/messages': 'Business',
 };
 
+const CUSTOMER_MORE_ICONS = {
+  '/customer/deliveries': Truck,
+  '/customer/documents': FileText,
+  '/customer/updates': RefreshCw,
+  '/customer/network': Users,
+  '/customer/messages': MessageSquare,
+  '/customer/disputes': CircleAlert,
+  '/customer/event-log': ListChecks,
+} as const;
+
+const CUSTOMER_MORE_SECTIONS: Record<string, string> = {
+  '/customer/deliveries': 'Work',
+  '/customer/documents': 'Work',
+  '/customer/updates': 'Work',
+  '/customer/network': 'Collaboration',
+  '/customer/messages': 'Collaboration',
+  '/customer/disputes': 'Business',
+  '/customer/event-log': 'Business',
+};
+
+function CustomerMoreIcon({ item }: { item: WorkspaceNavItem }) {
+  const Icon = CUSTOMER_MORE_ICONS[item.href as keyof typeof CUSTOMER_MORE_ICONS];
+  return Icon ? <Icon aria-hidden="true" size={14} strokeWidth={1.8} /> : null;
+}
+
 function moreMenuSectionLabel(groupId: string, href: string, previousHref?: string) {
-  if (groupId !== 'owner-driver-more') return null;
-  const section = OWNER_DRIVER_MORE_SECTIONS[href] ?? null;
+  const sections = groupId === 'owner-driver-more'
+    ? OWNER_DRIVER_MORE_SECTIONS
+    : groupId === 'customer-more'
+      ? CUSTOMER_MORE_SECTIONS
+      : null;
+  if (!sections) return null;
+  const section = sections[href] ?? null;
   if (!section) return null;
-  const previousSection = previousHref ? OWNER_DRIVER_MORE_SECTIONS[previousHref] ?? null : null;
+  const previousSection = previousHref ? sections[previousHref] ?? null : null;
   return section !== previousSection ? section : null;
 }
 
@@ -972,7 +1010,11 @@ export default function TopWorkspaceShell({
                             onClick={() => openRoute(item.href)}
                           >
                             <span className="top-workspace-nav__menu-icon" aria-hidden="true">
-                              {role === 'owner_driver' ? <OwnerDriverMoreIcon item={item} /> : item.icon ?? null}
+                              {role === 'owner_driver'
+                                ? <OwnerDriverMoreIcon item={item} />
+                                : role === 'customer' && group.id === 'customer-more'
+                                  ? <CustomerMoreIcon item={item} />
+                                  : item.icon ?? null}
                             </span>
                             <span>{item.label}</span>
                           </button>
