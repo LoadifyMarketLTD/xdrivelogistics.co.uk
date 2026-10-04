@@ -95,7 +95,6 @@ const reasonLabel = (reason: string) => {
   if (reason === 'missing_acceptance') return 'Initial legal acceptance evidence is missing.';
   if (reason === 'registration_role_changed') return 'Your contractual role has changed.';
   if (reason === 'legal_version_changed') return 'The legal gate version has changed.';
-  if (reason === 'acceptance_statement_changed') return 'The signed language-understanding declaration has changed.';
   if (reason.startsWith('material_agreement_changed:')) {
     return `A material agreement changed: ${reason.split(':')[1].replace(/_/g, ' ')}.`;
   }

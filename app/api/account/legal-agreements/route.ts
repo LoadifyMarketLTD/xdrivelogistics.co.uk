@@ -12,7 +12,6 @@ import {
   buildCurrentLegalEvidence,
   buildCurrentLegalRequirement,
   evaluateLegalAcceptance,
-  findCurrentLegalAcceptanceIndex,
   type LegalAcceptanceSnapshot,
 } from '../../../../lib/legal/legalAgreementState';
 import type { RegistrationLegalRole } from '../../../../lib/legal/registrationAgreements';
@@ -209,8 +208,20 @@ const resolveHistoryState = (
 ) => {
   const requirement = buildCurrentLegalRequirement(registrationRole, language);
   const snapshots = history.map(toAcceptanceSnapshot);
-  const currentAcceptanceIndex = findCurrentLegalAcceptanceIndex(requirement, snapshots);
-  const latestEvaluation = evaluateLegalAcceptance(requirement, snapshots[0] ?? null);
+
+  // Legal readiness is bound to the language actually signed, not to whichever
+  // translation the user is currently viewing. A current Romanian acceptance,
+  // for example, remains current when the page is reopened with English selected.
+  const currentAcceptanceIndex = snapshots.findIndex((snapshot) => {
+    const signedLanguage = snapshot.acceptanceLanguage ?? 'en';
+    const signedRequirement = buildCurrentLegalRequirement(registrationRole, signedLanguage);
+    return !evaluateLegalAcceptance(signedRequirement, snapshot).requiresReacceptance;
+  });
+
+  const latestSnapshot = snapshots[0] ?? null;
+  const latestLanguage = latestSnapshot?.acceptanceLanguage ?? language;
+  const latestRequirement = buildCurrentLegalRequirement(registrationRole, latestLanguage);
+  const latestEvaluation = evaluateLegalAcceptance(latestRequirement, latestSnapshot);
 
   return {
     requirement,

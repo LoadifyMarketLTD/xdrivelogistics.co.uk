@@ -135,7 +135,6 @@ export const evaluateLegalAcceptance = (
   if (acceptance.registrationRole !== requirement.registrationRole) reasons.push('registration_role_changed');
   if (acceptance.legalVersion !== requirement.legalVersion) reasons.push('legal_version_changed');
   if (acceptance.acceptanceLanguage !== requirement.acceptanceLanguage) reasons.push('acceptance_language_changed');
-  if (acceptance.acceptanceStatement !== requirement.acceptanceStatement) reasons.push('acceptance_statement_changed');
   if (acceptance.privacyDocumentHash !== requirement.privacyDocumentHash) reasons.push('privacy_document_changed');
   const acceptedAgreements = new Map(acceptance.agreements.map((agreement) => [agreement.code, agreement]));
   for (const agreement of requirement.agreements) {
