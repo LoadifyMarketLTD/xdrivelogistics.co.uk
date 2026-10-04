@@ -28,7 +28,7 @@ describe('CX-close finance and accounting parity', () => {
 
   it('provides company-scoped statements without mutating accounting state', () => {
     expect(statements).toContain('title="Statements"');
-    expect(statements).toContain('Export Statement CSV');
+    expect(statements).toContain('Export Statement XLSX');
     expect(statements).toContain('COUNTERPARTY');
     expect(statements).toContain('FROM');
     expect(statements).toContain('TO');

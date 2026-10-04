@@ -4,17 +4,18 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(new URL('../' + path, import.meta.url), 'utf8');
 
 describe('XDrive member identity contract', () => {
-  it('uses registration-time XDrive IDs on mobile load cards, never Companies House numbers', () => {
+  it('uses XDrive member IDs on mobile load cards, never Companies House numbers', () => {
     const nearby = read('app/api/driver/mobile/nearby-jobs/route.ts');
-    expect(nearby).toContain(".from('profiles').select('user_id,xd_id')");
+    expect(nearby).toContain('companies!jobs_company_id_fkey(name,xd_id,company_type,created_at)');
     expect(nearby).toContain('memberCode: posterMemberId ?? company?.xd_id ?? null');
+    expect(nearby).toContain('return company?.xd_id || null');
     expect(nearby).not.toContain('memberCode: company?.company_number');
   });
 
-  it('uses the posting user XDrive ID on the web driver marketplace', () => {
+  it('uses XDrive company/member IDs on the web driver marketplace', () => {
     const market = read('app/api/driver/marketplace/loads/route.ts');
     expect(market).toContain(".select('user_id, full_name, xd_id')");
-    expect(market).toContain('const memberId = posterProfile?.xd_id ?? company?.xd_id ?? null');
+    expect(market).toContain('const memberId = company?.xd_id ?? null');
     expect(market).not.toContain('memberId: company?.company_number');
   });
 
@@ -64,7 +65,8 @@ describe('XDrive member identity contract', () => {
     const driverProfile = read('app/api/member-profile/driver/[driverId]/route.ts');
     const bidderIdentity = read('app/api/_lib/bidderDecisionIdentity.ts');
 
-    expect(companyProfile).toContain(".select('id, name, xd_id, phone, company_type, status, created_at')");
+    expect(companyProfile).toContain(".from('companies')");
+    expect(companyProfile).toContain('xd_id');
     expect(companyProfile).toContain('memberId: company.xd_id ?? null');
     expect(companyProfile).not.toContain('memberId: company.company_number');
 

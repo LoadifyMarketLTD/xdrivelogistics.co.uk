@@ -23,6 +23,7 @@ describe('visible workspace navigation', () => {
     expect(visibleHrefs('customer')).toEqual([
       '/customer',
       '/customer/loads',
+      '/customer/bulk-import',
       '/customer/quotes',
       '/customer/bookings',
       '/customer/tracking',

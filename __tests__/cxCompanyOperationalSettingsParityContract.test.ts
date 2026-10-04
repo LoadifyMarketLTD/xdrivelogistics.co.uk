@@ -134,7 +134,10 @@ describe('CX company operational settings parity contract', () => {
   });
 
   it('publishes configured member-facing services, charges and booking footer instead of placeholder tabs', () => {
-    expect(memberProfileRoute).toContain(".select('booking_footer,waiting_time_terms,loading_time_terms,cancellation_terms,other_charges')");
+    expect(memberProfileRoute).toContain(".from('company_settings')");
+    for (const field of ['booking_footer', 'waiting_time_terms', 'loading_time_terms', 'cancellation_terms', 'other_charges']) {
+      expect(memberProfileRoute).toContain(field);
+    }
     expect(memberProfileRoute).toContain(".from('company_specialist_capabilities')");
     expect(memberProfileRoute).toContain("row.verification_required !== true || String(row.verification_status ?? '').toLowerCase() === 'verified'");
     expect(memberProfileRoute).toContain("state: 'available'");
