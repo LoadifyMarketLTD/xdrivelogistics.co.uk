@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../_lib/platformFlags';
 import { driverJobStatusesForScope } from '../../../../../lib/jobs/jobLifecyclePresentation';
+import { inspectJobEnvironmentalZones } from '../../../../../lib/environmentalZone';
 import { loadDriverAgreedRates } from '../../_lib/commercialRate';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, requireDriver, respond, toMoney } from '../_lib';
 import { buildSignedJobAttachments } from '../jobAttachmentPresentation';
@@ -199,6 +200,8 @@ export async function GET(request: NextRequest) {
     jobs: rows.map((row) => {
       const agreedRate = commercial.rates.get(row.id) ?? null;
       const operational = buildJobOperationalPresentation(row);
+      const zones = inspectJobEnvironmentalZones(row);
+      const environmentalZone = Array.from(new Set([zones.pickup?.label, zones.delivery?.label].filter((value): value is string => Boolean(value)))).join(' + ') || null;
       const persistentStops = stopData.stopsByJob.get(row.id) ?? [];
       const ownerCompany = row.company_id ? ownerCompanies.companiesById.get(row.company_id) ?? null : null;
       const posterMemberId = row.created_by ? posterProfiles.memberIdByUserId.get(row.created_by) ?? null : null;
@@ -207,6 +210,7 @@ export async function GET(request: NextRequest) {
         ...operational,
         companyName: ownerCompany?.name ?? undefined,
         companyXdId: posterMemberId ?? ownerCompany?.xd_id ?? undefined,
+        environmentalZone: environmentalZone ?? undefined,
         stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,
         attachments: attachments.get(row.id) ?? [],
         pod: pods.get(row.id) ?? null,

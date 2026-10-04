@@ -9,6 +9,7 @@ type LocationInput = {
 
 export type EnvironmentalZoneMatch = {
   zone: ZoneKind;
+  label: string;
   source: 'postcode' | 'address' | 'coords';
   confidence: 'confirmed' | 'estimated';
   details: string;
@@ -201,6 +202,7 @@ const detectFromCoordinates = (input: LocationInput): EnvironmentalZoneMatch | n
 
     return {
       zone: geometry.zone,
+      label: geometry.label,
       source: 'coords',
       confidence: 'confirmed',
       details: `${geometry.label} matched from pickup/delivery coordinates.`,
@@ -223,6 +225,7 @@ const detectFromText = (input: LocationInput): EnvironmentalZoneMatch | null => 
 
     return {
       zone: hint.zone,
+      label: hint.label,
       source: hasKeyword ? 'address' : 'postcode',
       confidence: hasKeyword ? 'confirmed' : 'estimated',
       details: hasKeyword ? `${hint.label} keyword found in the address text.` : `${hint.label} postcode area matched (${area}).`,
@@ -233,10 +236,10 @@ const detectFromText = (input: LocationInput): EnvironmentalZoneMatch | null => 
 };
 
 export const inspectLocationEnvironmentalZone = (input: LocationInput): EnvironmentalZoneMatch | null => {
-  const textMatch = detectFromText(input);
-  if (textMatch) return textMatch;
+  const coordinateMatch = detectFromCoordinates(input);
+  if (coordinateMatch) return coordinateMatch;
 
-  return detectFromCoordinates(input);
+  return detectFromText(input);
 };
 
 export const inspectJobEnvironmentalZones = (job: JobLike | null | undefined): EnvironmentalZoneCheck => {

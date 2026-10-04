@@ -48,11 +48,7 @@ export async function GET(request: NextRequest) {
       const job = jobById.get(offer.job_id as string) ?? null;
       const buyer = buyerById.get(offer.buyer_company_id as string) ?? null;
       const zones = inspectJobEnvironmentalZones(job);
-      const zoneLabel = zones.pickup?.zone === 'ULEZ' || zones.delivery?.zone === 'ULEZ'
-        ? 'London ULEZ'
-        : zones.pickup?.zone === 'CAZ' || zones.delivery?.zone === 'CAZ'
-          ? 'Clean Air Zone'
-          : null;
+      const zoneLabel = Array.from(new Set([zones.pickup?.label, zones.delivery?.label].filter((value): value is string => Boolean(value)))).join(' + ') || null;
       return {
         ...offer,
         buyer_name: buyer?.name ?? 'Transport buyer',
