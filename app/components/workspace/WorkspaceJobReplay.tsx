@@ -12,7 +12,7 @@ type ReplayPoint = {
 type ReplayEvent = { id: string | null; eventType: string; message: string | null; recordedAt: string | null; actorUserId: string | null; meta: Record<string, unknown> };
 type ReplayData = {
   jobId: string; status: string; route: { pickup: string; delivery: string };
-  summary: { sampleCount: number; trackedMiles: number; averageSpeedMph: number | null; maxSpeedMph: number | null; startedAt: string | null; endedAt: string | null };
+  summary: { sampleCount: number; trackedMiles: number | null; averageSpeedMph: number | null; maxSpeedMph: number | null; startedAt: string | null; endedAt: string | null };
   points: ReplayPoint[]; timeline: ReplayEvent[]; privacy: string;
 };
 
@@ -84,7 +84,7 @@ export default function WorkspaceJobReplay({ jobId }: { jobId: string }) {
     <div style={{ display: 'grid', gap: 8 }}>
       <div className="workspace-detail-grid">
         <div className="workspace-detail-item"><strong>Route</strong><div>{replay.route.pickup} → {replay.route.delivery}</div><small><StatusBadge value={replay.status} /></small></div>
-        <div className="workspace-detail-item"><strong>Tracked distance</strong><div>{replay.summary.trackedMiles.toFixed(1)} miles</div><small>{replay.summary.sampleCount} GPS sample{replay.summary.sampleCount === 1 ? '' : 's'}</small></div>
+        <div className="workspace-detail-item"><strong>Tracked distance</strong><div>{replay.summary.trackedMiles == null ? 'Not recorded' : `${replay.summary.trackedMiles.toFixed(1)} miles`}</div><small>{replay.summary.sampleCount} GPS sample{replay.summary.sampleCount === 1 ? '' : 's'}</small></div>
         <div className="workspace-detail-item"><strong>Average speed</strong><div>{replay.summary.averageSpeedMph == null ? 'Not recorded' : `${replay.summary.averageSpeedMph.toFixed(1)} mph`}</div><small>Max {replay.summary.maxSpeedMph == null ? 'not recorded' : `${replay.summary.maxSpeedMph.toFixed(1)} mph`}</small></div>
         <div className="workspace-detail-item"><strong>Tracking window</strong><div>{when(replay.summary.startedAt)}</div><small>Ended {when(replay.summary.endedAt)}</small></div>
       </div>

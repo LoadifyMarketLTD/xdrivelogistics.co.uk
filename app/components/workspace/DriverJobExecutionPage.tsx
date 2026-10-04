@@ -98,6 +98,21 @@ type JobSheet = {
     contactPhone: string | null;
     notes: string | null;
   };
+  pod: {
+    generated: boolean | null;
+    generatedAt: string | null;
+    photoCount: number;
+    photoPaths: string[];
+    photoUrls: string[];
+    signatureData: string | null;
+    receiverName: string | null;
+    signatureRecorded: boolean;
+    deliveredOn: string | null;
+    leftAt: string | null;
+    itemCount: number | null;
+    deliveryStatus: string | null;
+    notes: string | null;
+  };
   publicQuoteNotes: string | null;
   executionInstructions: string | null;
   driverNotes: string | null;
@@ -143,7 +158,9 @@ const vehicleName = (value: string | null | undefined) => value
 const requiresHardCopyPod = (value: string | null | undefined) => {
   const normalized = value?.trim().toLowerCase() ?? '';
   if (!normalized) return false;
-  return !['no', 'none', 'not required', 'not supplied', 'false', '0', 'n/a'].includes(normalized);
+  if (['no', 'none', 'false', '0', 'n/a'].includes(normalized)) return false;
+  if (normalized.includes('not required') || normalized.includes('not supplied') || normalized.includes('no additional') || normalized.includes('no hard-copy') || normalized.includes('no hard copy')) return false;
+  return true;
 };
 
 export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
@@ -164,6 +181,12 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const [pendingPodPhotos, setPendingPodPhotos] = useState<string[]>([]);
   const [recipientName, setRecipientName] = useState('');
   const [hardCopyAcknowledged, setHardCopyAcknowledged] = useState(false);
+  const [podDeliveryStatus, setPodDeliveryStatus] = useState('Completed Delivery');
+  const [podLeftAt, setPodLeftAt] = useState('');
+  const [podItemCount, setPodItemCount] = useState('');
+  const [podDeliveredOn, setPodDeliveredOn] = useState('');
+  const [showPodDetails, setShowPodDetails] = useState(false);
+  const [podPhotoUrls, setPodPhotoUrls] = useState<string[]>([]);
   const [signing, setSigning] = useState(false);
   const signatureRef = useRef<HTMLCanvasElement>(null);
   const collectionCameraInput = useRef<HTMLInputElement>(null);
@@ -207,7 +230,16 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       try {
         const response = await fetch(`/api/driver/jobs/${encodeURIComponent(jobId)}/sheet`, { headers: { Authorization: auth }, cache: 'no-store' });
         const payload = await response.json().catch(() => ({})) as { sheet?: JobSheet; error?: string };
-        if (response.ok) setSheet(payload.sheet ?? null);
+        if (response.ok) {
+          const nextSheet = payload.sheet ?? null;
+          setSheet(nextSheet);
+          if (nextSheet?.pod) {
+            setPodDeliveryStatus(nextSheet.pod.deliveryStatus ?? 'Completed Delivery');
+            setPodLeftAt(nextSheet.pod.leftAt ?? '');
+            setPodItemCount(nextSheet.pod.itemCount == null ? '' : String(nextSheet.pod.itemCount));
+            setPodDeliveredOn(nextSheet.pod.deliveredOn ?? '');
+          }
+        }
       } catch {
         // Execution remains usable if enrichment is temporarily unavailable.
       }
@@ -354,7 +386,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       return;
     }
 
-    const hardCopyRequired = requiresHardCopyPod(job.hard_copy_pod);
+    const hardCopyRequired = requiresHardCopyPod(sheet?.hardCopyPod ?? job.hard_copy_pod);
     if (hardCopyRequired && !hardCopyAcknowledged) {
       setError('Confirm the hard-copy POD requirement before completing POD.');
       return;
@@ -373,7 +405,10 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
           photoUris: pendingPodPhotos,
           damagePhotoUris: [],
           documentUris: [],
-          deliveryStatus: 'Completed Delivery',
+          deliveryStatus: podDeliveryStatus,
+          leftAt: podLeftAt.trim() || undefined,
+          itemCount: podItemCount.trim() ? Number(podItemCount) : undefined,
+          deliveredOn: podDeliveredOn || undefined,
           hardCopyAcknowledged: hardCopyRequired ? hardCopyAcknowledged : false,
           notes: notes.trim() || undefined,
         }),
@@ -408,8 +443,8 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       });
       const payload = await response.json().catch(() => ({})) as { invoice?: { id?: string }; error?: string };
       if (!response.ok || !payload.invoice?.id) throw new Error(payload.error || 'Invoice could not be created.');
-      setMessage('Draft invoice created.');
-      router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+      setMessage('Draft invoice created. Review it before sending.');
+      router.push(`/driver/finance/invoices/${payload.invoice.id}/edit`);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Invoice could not be created.');
     } finally {
@@ -473,7 +508,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
   const nextStatus = nextDriverExecutionStatus(currentStatus);
   const nextLabel = nextStatus ? nextActionLabel[nextStatus] ?? statusLabel[nextStatus] ?? nextStatus : null;
   const podComplete = hasCompletePodEvidence(job);
-  const hardCopyRequired = requiresHardCopyPod(job.hard_copy_pod ?? sheet?.hardCopyPod);
+  const hardCopyRequired = requiresHardCopyPod(sheet?.hardCopyPod ?? job.hard_copy_pod);
   const canShowLifecycleAction = !(nextStatus === 'completed' && !podComplete);
   const navigationStage = currentStatus === 'on_my_way' ? 'pickup' : currentStatus === 'in_transit' ? 'delivery' : null;
   const navigationAddress = navigationStage === 'pickup'
@@ -481,6 +516,11 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     : navigationStage === 'delivery'
       ? (sheet?.delivery.address ?? job.delivery_location ?? '')
       : '';
+  const openPodDetails = () => {
+    setShowPodDetails(true);
+    setPodPhotoUrls(sheet?.pod.photoUrls ?? []);
+  };
+
   const navigationPostcode = navigationStage === 'pickup'
     ? (sheet?.pickup.postcode ?? job.pickup_postcode)
     : navigationStage === 'delivery'
@@ -603,6 +643,9 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
               {working ? 'Saving POD…' : 'Complete POD'}
             </ActionButton>
           )}
+          {podComplete && (
+            <ActionButton tone="secondary" onClick={() => void openPodDetails()}>View POD</ActionButton>
+          )}
           {podComplete && !sheet?.invoices[0]?.id && canGenerateInvoices && (
             <ActionButton tone="primary" disabled={working} onClick={() => void createInvoice()}>
               {working ? 'Creating…' : 'Create Invoice'}
@@ -616,7 +659,8 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
             <a href={mapsUrl(navigationAddress, navigationPostcode)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Google Maps ? {navigationStage === 'pickup' ? 'Pickup' : 'Delivery'}</a>
             <a href={wazeUrl(navigationAddress, navigationPostcode)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Waze ? {navigationStage === 'pickup' ? 'Pickup' : 'Delivery'}</a>
           </>}
-          <a href={routeMapUrl(job)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Route / Track</a>
+          <a href={routeMapUrl(job)} target="_blank" rel="noopener noreferrer" style={linkButtonStyle}>Route</a>
+          <ActionButton tone="secondary" onClick={() => document.getElementById('journey-replay')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}>Journey Replay</ActionButton>
           {sheet?.memberPhone && <a href={`tel:${sheet.memberPhone.replace(/\s+/g, '')}`} style={linkButtonStyle}>Call Member</a>}
           {sheet?.invoices[0]?.id && <ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View invoice (£)</ActionButton>}
         </div>
@@ -660,6 +704,12 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
                   {job.delivery_signature_data ? <StatusBadge value="Signature recorded" tone="green" /> : null}
                 </div>
                 <ActionButton tone="secondary" disabled={working || deliveryPhotos.length >= 10} onClick={() => deliveryInput.current?.click()}>Add delivery photos ({deliveryPhotos.length}/10)</ActionButton>
+                <div className="driver-detail-grid">
+                  <label className="driver-detail-item"><span>Delivered on</span><input type="date" value={podDeliveredOn} onChange={(event) => setPodDeliveredOn(event.target.value)} style={inputStyle} /></label>
+                  <label className="driver-detail-item"><span>Delivery status</span><select value={podDeliveryStatus} onChange={(event) => setPodDeliveryStatus(event.target.value)} style={inputStyle}><option>Completed Delivery</option><option>Partial Delivery</option><option>Failed Delivery</option><option>Refused</option><option>Left Safe</option></select></label>
+                  <label className="driver-detail-item"><span>No. of items</span><input type="number" min="0" value={podItemCount} onChange={(event) => setPodItemCount(event.target.value)} style={inputStyle} /></label>
+                  <label className="driver-detail-item"><span>Left at</span><input value={podLeftAt} onChange={(event) => setPodLeftAt(event.target.value)} placeholder="Goods inwards / reception / safe place" style={inputStyle} /></label>
+                </div>
                 <input value={recipientName} onChange={(event) => setRecipientName(event.target.value)} placeholder="Recipient full name" style={inputStyle} />
                 <canvas ref={signatureRef} width={500} height={150} onMouseDown={startSignature} onMouseMove={drawSignature} onMouseUp={() => setSigning(false)} onMouseLeave={() => setSigning(false)} onTouchStart={startSignature} onTouchMove={drawSignature} onTouchEnd={() => setSigning(false)} style={{ width: '100%', height: 150, border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', touchAction: 'none' }} />
                 <ActionButton tone="secondary" onClick={clearSignature}>Clear new signature</ActionButton>
@@ -681,7 +731,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
 
         <div style={{ display: 'grid', gap: 8, alignContent: 'start' }}>
           <Panel title="Operational timeline" description="Pickup, loading, transit, delivery and completion events."><DataTable columns={['Status', 'Time', 'Details']} rows={timelineRows} empty={<EmptyState title="No recorded history" />} /></Panel>
-          <Panel title="Journey Replay" description="GPS route, tracked distance, speed evidence and lifecycle events for this assigned job."><WorkspaceJobReplay jobId={jobId} /></Panel>
+          <div id="journey-replay"><Panel title="Journey Replay" description="GPS route, tracked distance, speed evidence and lifecycle events for this assigned job."><WorkspaceJobReplay jobId={jobId} /></Panel></div>
           <Panel title="Notes" description="Driver operational notes remain separate from the awarded Order confirmation."><textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={5} placeholder="Loading condition, waiting time, access issue or delivery note" style={{ ...inputStyle, resize: 'vertical' }} /></Panel>
           <Panel title="Documents"><div style={{ display: 'grid', gap: 5 }}>{sheet?.documents.length ? sheet.documents.map((document) => <div key={document.id ?? `${document.type}-${document.createdAt}`} className="driver-detail-item"><span>{document.type}</span><strong>{document.fileName ?? 'Job document'}</strong><small>{formatDateTime(document.createdAt)}</small></div>) : <EmptyState title="No job documents" />}</div></Panel>
           <Panel title="POD and invoice" description="POD is mandatory for every job. Invoice creation is available only after POD is complete.">
@@ -693,7 +743,27 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
               <div className="driver-detail-item"><span>Hard-copy POD</span><strong>{hardCopyRequired ? 'Required' : 'No additional hard-copy requirement'}</strong></div>
               <div className="driver-detail-item"><span>Invoice</span><strong>{sheet?.invoices[0]?.number ?? (podComplete ? 'Ready to create' : 'Locked until POD')}</strong><small>{sheet?.invoices[0]?.paymentStatus ?? sheet?.invoices[0]?.status ?? (podComplete ? 'POD complete' : 'POD pending')}</small></div>
             </div>
+            {podComplete && <div className="driver-row-actions" style={{ marginTop: 8 }}>
+              <ActionButton tone="secondary" onClick={() => void openPodDetails()}>View POD</ActionButton>
+              {sheet?.invoices[0]?.id ? <ActionButton tone="primary" onClick={() => router.push(`/driver/finance/invoices/${sheet.invoices[0].id}`)}>View Invoice</ActionButton> : canGenerateInvoices ? <ActionButton tone="primary" disabled={working} onClick={() => void createInvoice()}>{working ? 'Creating...' : 'Create Invoice'}</ActionButton> : null}
+            </div>}
           </Panel>
+          {podComplete && showPodDetails && (
+            <Panel title="Proof of Delivery" description="Recorded delivery confirmation and POD evidence for this job.">
+              <div className="driver-detail-grid">
+                <div className="driver-detail-item"><span>Received by</span><strong>{sheet?.pod.receiverName ?? job.client_signature_name ?? 'Not captured'}</strong></div>
+                <div className="driver-detail-item"><span>Delivered on</span><strong>{sheet?.pod.deliveredOn ?? formatDateTime(job.pod_generated_at)}</strong></div>
+                <div className="driver-detail-item"><span>Delivery status</span><strong>{sheet?.pod.deliveryStatus ?? 'Completed Delivery'}</strong></div>
+                <div className="driver-detail-item"><span>Left at</span><strong>{sheet?.pod.leftAt ?? 'Not recorded'}</strong></div>
+                <div className="driver-detail-item"><span>No. of items</span><strong>{sheet?.pod.itemCount ?? 'Not recorded'}</strong></div>
+                <div className="driver-detail-item"><span>POD completed</span><strong>{formatDateTime(sheet?.pod.generatedAt ?? job.pod_generated_at)}</strong></div>
+              </div>
+              {sheet?.pod.notes && <div className="driver-order-block"><strong>Delivery notes</strong><span>{sheet.pod.notes}</span></div>}
+              {((sheet?.pod.signatureData ?? (typeof job.delivery_signature_data === 'string' ? job.delivery_signature_data : null))?.startsWith('data:image/')) && <div className="driver-order-block"><strong>Recipient signature</strong><img src={sheet?.pod.signatureData ?? String(job.delivery_signature_data)} alt="Recipient signature" style={{ maxWidth: 320, maxHeight: 120, border: '1px solid #cbd5e1', background: '#fff' }} /></div>}
+              <div className="driver-order-block"><strong>POD files</strong>{podPhotoUrls.length ? podPhotoUrls.map((url, index) => <a key={url} href={url} target="_blank" rel="noopener noreferrer">Delivery photo {index + 1}</a>) : <span>{sheet?.pod.photoCount ? `${sheet.pod.photoCount} delivery photo(s) recorded` : 'No delivery photo links available'}</span>}</div>
+              <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => setShowPodDetails(false)}>Close POD</ActionButton></div>
+            </Panel>
+          )}
         </div>
       </TwoColumn>
     </PageFrame>

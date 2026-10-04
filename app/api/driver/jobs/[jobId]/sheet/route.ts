@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { operationalError } from '../../../../_lib/operationalError';
 import { respond } from '../../../mobile/_lib';
+import { buildSignedPodPresentations } from '../../../mobile/podPresentation';
 import { isWebDriverContext, requireActiveWebDriver } from '../../../_lib/webDriverContext';
 
 function text(value: unknown) {
@@ -87,12 +88,34 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     ? supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('company_id', driver.companyId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle()
     : supabaseAdmin.from('job_bids').select('*').eq('job_id', jobId).eq('bidder_driver_id', driver.driverId).eq('status', 'accepted').order('created_at', { ascending: false }).limit(1).maybeSingle();
 
-  // Driver assignment is not, by itself, an invoice visibility grant. Driver
-  // finance remains governed by its canonical invoice access contract rather
-  // than being bypassed through this service-role enrichment endpoint.
-  const invoicePromise = Promise.resolve({ data: [], error: null });
+  // Invoice visibility remains role-gated. Owner/admin/finance members may see
+  // the invoice linked to their carrier company; an ordinary assigned driver may not.
+  const financeMembershipResult = driver.companyId
+    ? await supabaseAdmin.from('company_memberships')
+        .select('role_in_company')
+        .eq('company_id', driver.companyId)
+        .eq('user_id', driver.userId)
+        .eq('status', 'active')
+        .maybeSingle()
+    : { data: null, error: null };
+  const financeRole = text(financeMembershipResult.data?.role_in_company)?.toLowerCase() ?? '';
+  const canViewFinance = ['owner', 'admin', 'finance'].includes(financeRole);
+  const invoicePromise = canViewFinance && driver.companyId
+    ? supabaseAdmin.from('invoices')
+        .select('id,invoice_number,status,payment_status,amount,currency,due_date')
+        .eq('job_id', jobId)
+        .eq('company_id', driver.companyId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+    : Promise.resolve({ data: [], error: null });
+  const podPromise = supabaseAdmin.from('proof_of_delivery')
+    .select('id,delivered_on,received_by,left_at,no_of_items,delivery_status,delivery_notes,photo_urls,created_at,updated_at')
+    .eq('job_id', jobId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
 
-  const [companyResult, posterProfileResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult, extrasResult] = await Promise.all([
+  const [companyResult, posterProfileResult, bidResult, agreementResult, trackingResult, invoiceResult, documentsResult, vehicleResult, driverResult, extrasResult, podResult] = await Promise.all([
     originCompanyId ? supabaseAdmin.from('companies').select('*').eq('id', originCompanyId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     postedByUserId ? supabaseAdmin.from('profiles').select('xd_id').eq('user_id', postedByUserId).maybeSingle() : Promise.resolve({ data: null, error: null }),
     acceptedBidPromise,
@@ -105,6 +128,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       : Promise.resolve({ data: null, error: null }),
     supabaseAdmin.from('drivers').select('*').eq('id', driver.driverId).maybeSingle(),
     supabaseAdmin.from('driver_job_extras').select('id,extra_type,description,amount_gbp,minutes,status,reviewed_at,review_note,contractual_amendment_id,contractual_snapshot_hash,contractual_snapshot_version,created_at').eq('job_id', jobId).order('created_at', { ascending: false }),
+    podPromise,
   ]);
 
   const company = (companyResult.data ?? {}) as Record<string, unknown>;
@@ -113,6 +137,31 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const agreement = (agreementResult.data ?? {}) as Record<string, unknown>;
   const vehicle = (vehicleResult.data ?? {}) as Record<string, unknown>;
   const driverRow = (driverResult.data ?? {}) as Record<string, unknown>;
+  const podRecord = (podResult.data ?? {}) as Record<string, unknown>;
+  let podPresentation: Record<string, unknown> | null = null;
+  let podPresentationError = false;
+  try {
+    const presentations = await buildSignedPodPresentations([{
+      id: jobId,
+      pod_generated: boolValue(job.pod_generated),
+      pod_generated_at: text(job.pod_generated_at),
+      updated_at: text(job.updated_at),
+      delivery_photos: job.delivery_photos,
+      damage_photos: job.damage_photos,
+      pod_photos: job.pod_photos,
+      delivery_signature_data: job.delivery_signature_data,
+      client_signature_name: text(job.client_signature_name),
+      driver_notes: text(job.driver_notes),
+      status_history: job.status_history,
+    }], driver.companyId);
+    podPresentation = presentations.get(jobId) ?? null;
+  } catch {
+    podPresentationError = true;
+  }
+  const signedPodPhotos = Array.isArray(podPresentation?.deliveryPhotoUris)
+    ? podPresentation.deliveryPhotoUris.filter((value): value is string => typeof value === 'string' && Boolean(value.trim()))
+    : [];
+  const signedPodSignature = text(podPresentation?.signatureData);
   const loadDetails = parseLoadDetails(job.load_details);
 
   const acceptedRate = numberValue(agreement.agreed_amount)
@@ -261,10 +310,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         generated: boolValue(job.pod_generated),
         generatedAt: text(job.pod_generated_at),
         photoCount: Math.max(deliveryPhotos.length, podPhotos.length),
+        photoPaths: deliveryPhotos.filter((value): value is string => typeof value === 'string' && Boolean(value.trim())),
+        photoUrls: signedPodPhotos,
+        signatureData: signedPodSignature,
         collectionPhotoRecorded: Array.isArray(job.pickup_photos) ? job.pickup_photos.length > 0 : Boolean(text(job.collection_photo_url)),
         collectionPhotoCount: Array.isArray(job.pickup_photos) ? job.pickup_photos.length : (text(job.collection_photo_url) ? 1 : 0),
-        receiverName: text(job.client_signature_name),
+        receiverName: text(podRecord.received_by) ?? text(job.client_signature_name),
         signatureRecorded: Boolean(text(job.delivery_signature_data) ?? text(job.pod_signature_url)),
+        deliveredOn: text(podRecord.delivered_on),
+        leftAt: text(podRecord.left_at),
+        itemCount: numberValue(podRecord.no_of_items),
+        deliveryStatus: text(podRecord.delivery_status),
+        notes: text(podRecord.delivery_notes),
       },
       publicQuoteNotes: loadDetails.publicQuoteNotes,
       executionInstructions: loadDetails.executionInstructions ?? text(job.load_notes),
@@ -285,6 +342,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         || vehicleResult.error
         || driverResult.error
         || extrasResult.error
+        || podResult.error
+        || financeMembershipResult.error
+        || podPresentationError
       ),
       unavailable: {
         bodyType: vehicleId && text(vehicle.body_type) ? null : 'No verified job-level allocated vehicle body-type value is available for this job.',

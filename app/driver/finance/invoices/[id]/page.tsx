@@ -248,10 +248,10 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
     );
   }
 
-  const rail = (
-    <aside className="driver-filter-rail" aria-label="Invoice summary">
-      <div className="driver-filter-rail__header">Invoice Summary</div>
-      <div className="driver-filter-rail__body">
+  const summary = (
+    <section className="driver-row-details" aria-label="Invoice summary">
+      <div className="driver-detail-tabs"><strong>Invoice Summary</strong></div>
+      <div className="driver-detail-grid">
         <div className="driver-detail-item"><span>Invoice</span><strong>{invoice.invoice_number}</strong></div>
         <div className="driver-detail-item"><span>Invoice state</span><strong><StatusBadge value={invoice.status} tone={invoiceTone(invoice.status)} /></strong></div>
         <div className="driver-detail-item"><span>Payment</span><strong><StatusBadge value={invoice.payment_status.replace(/_/g, ' ')} tone={paymentTone(invoice.payment_status)} /></strong></div>
@@ -259,17 +259,19 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
         <div className="driver-detail-item"><span>Received</span><strong>{fmtCurrency(totalPaid, invoice.currency)}</strong></div>
         <div className="driver-detail-item"><span>Outstanding</span><strong>{fmtCurrency(balance, invoice.currency)}</strong></div>
         <div className="driver-detail-item"><span>Due</span><strong>{fmtDate(invoice.due_date)}</strong></div>
+      </div>
+      <div className="driver-row-actions" style={{ marginTop: 8 }}>
         {financeOperator && invoice.status === 'Draft' && <ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}/edit`)}>Edit draft</ActionButton>}
         <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>← Finance</ActionButton>
       </div>
-    </aside>
+    </section>
   );
 
   return (
     <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}>
       <DriverWorkspaceShell subtitle={`Invoice ${invoice.invoice_number}`} headerActions={<ActionButton tone="secondary" onClick={() => void loadDetail()}>Refresh</ActionButton>}>
-        <div className="driver-board-layout driver-invoice-detail-board">
-          {rail}
+        <div className="driver-invoice-detail-board" style={{ display: 'grid', gap: 8, width: '100%' }}>
+          {summary}
           <main className="driver-board-main">
             <section className="driver-row-details">
               <div className="driver-detail-tabs"><strong>Invoice & Booking</strong></div>
