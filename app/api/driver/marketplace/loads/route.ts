@@ -12,10 +12,20 @@ import {
 } from '../../_lib/marketplacePublic';
 import { isDriverContext, respond } from '../../mobile/_lib';
 import { requireWebDriver } from '../../_lib/webDriver';
-import { calculateDrivingRoute, calculateJobRouteMetrics } from '../../../_lib/jobRouteMetrics';
+import { calculateDrivingRoute } from '../../../_lib/jobRouteMetrics';
 import { getBlockedCounterpartyCompanyIds } from '../../../_lib/companyBlocks';
 
 const LIST_LIMIT = 150;
+
+function distanceMiles(from: { lat: number; lng: number }, to: { lat: number; lng: number }) {
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const earthMiles = 3958.8;
+  const deltaLat = radians(to.lat - from.lat);
+  const deltaLng = radians(to.lng - from.lng);
+  const a = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(radians(from.lat)) * Math.cos(radians(to.lat)) * Math.sin(deltaLng / 2) ** 2;
+  return earthMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
 
 type JobRow = Record<string, unknown> & {
   id?: unknown;
@@ -211,41 +221,8 @@ export async function GET(request: NextRequest) {
     return visibilityAllows(job, driver.companyId);
   });
 
-  const missingRouteJobs = jobs.filter((job) =>
-    marketplaceNumber(job.job_distance_miles) == null
-    || marketplaceNumber(job.job_distance_minutes) == null
-    || marketplaceNumber(job.pickup_lat) == null
-    || marketplaceNumber(job.pickup_lng) == null
-    || marketplaceNumber(job.delivery_lat) == null
-    || marketplaceNumber(job.delivery_lng) == null
-  );
-  if (missingRouteJobs.length) {
-    const repaired = await Promise.all(missingRouteJobs.slice(0, 20).map(async (job) => {
-      const pickupPostcode = marketplaceText(job.pickup_postcode);
-      const deliveryPostcode = marketplaceText(job.delivery_postcode);
-      if (!pickupPostcode || !deliveryPostcode) return null;
-      const route = await calculateJobRouteMetrics([pickupPostcode, deliveryPostcode]);
-      if (!route) return null;
-      await supabaseAdmin!.from('jobs').update({
-        pickup_lat: route.pickupLat,
-        pickup_lng: route.pickupLng,
-        delivery_lat: route.deliveryLat,
-        delivery_lng: route.deliveryLng,
-        job_distance_miles: route.distanceMiles,
-        job_distance_minutes: route.durationMinutes,
-      }).eq('id', String(job.id));
-      Object.assign(job, {
-        pickup_lat: route.pickupLat,
-        pickup_lng: route.pickupLng,
-        delivery_lat: route.deliveryLat,
-        delivery_lng: route.deliveryLng,
-        job_distance_miles: route.distanceMiles,
-        job_distance_minutes: route.durationMinutes,
-      });
-      return job.id;
-    }));
-    void repaired;
-  }
+  // Keep the marketplace list request read-only and fast. Route repair belongs in
+  // job creation/update workflows, not in a Driver GET that can contain up to LIST_LIMIT jobs.
 
   if (requestedId && jobs.length === 0) {
     return respond(404, { error: 'This load is not available to your marketplace account.' });
@@ -330,7 +307,6 @@ export async function GET(request: NextRequest) {
     const parsedLng = Number(lng);
     return Number.isFinite(parsedLat) && Number.isFinite(parsedLng) ? { lat: parsedLat, lng: parsedLng } : null;
   };
-  const postcodeKey = (value: unknown) => String(value ?? '').replace(/\s+/g, '').toUpperCase();
   const latestPosition = validCoordinates(latestDriverLocation?.lat, latestDriverLocation?.lng);
   const recordedAt = latestDriverLocation?.recorded_at ? new Date(latestDriverLocation.recorded_at).getTime() : Number.NaN;
   const jobLocationFresh = latestPosition !== null
@@ -356,32 +332,22 @@ export async function GET(request: NextRequest) {
       : null;
 
   const loads = await Promise.all(jobs.map(async (job) => {
-    let distanceToPickupMiles: number | null = null;
-    let pickupEtaMinutes: number | null = null;
-    if (driverPosition) {
-      let pickup = validCoordinates(job.pickup_lat, job.pickup_lng);
-      if (!pickup && job.pickup_postcode) {
-        try {
-          const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(postcodeKey(job.pickup_postcode))}`, {
-            signal: AbortSignal.timeout(5_000),
-            cache: 'no-store',
-          });
-          if (response.ok) {
-            const payload = await response.json() as { result?: { latitude?: number; longitude?: number } | null };
-            pickup = validCoordinates(payload.result?.latitude, payload.result?.longitude);
-          }
-        } catch {
-          pickup = null;
-        }
-      }
-      if (pickup) {
-        const route = await calculateDrivingRoute([driverPosition, pickup]);
-        if (route) {
-          distanceToPickupMiles = route.distanceMiles;
-          pickupEtaMinutes = route.durationMinutes;
-        }
+    const pickup = validCoordinates(job.pickup_lat, job.pickup_lng);
+    let distanceToPickupMiles = driverPosition && pickup
+      ? Number(distanceMiles(driverPosition, pickup).toFixed(1))
+      : marketplaceNumber(job.distance_to_pickup_miles);
+    let pickupEtaMinutes = marketplaceNumber(job.pickup_eta_minutes);
+
+    // The list endpoint must not wait on external routing/geocoding per job.
+    // A single Load Detail request may enrich exact road distance/ETA on demand.
+    if (requestedId && driverPosition && pickup) {
+      const route = await calculateDrivingRoute([driverPosition, pickup]);
+      if (route) {
+        distanceToPickupMiles = route.distanceMiles;
+        pickupEtaMinutes = route.durationMinutes;
       }
     }
+
     return {
       ...publicLoad(job, companyById, profileByUserId, bidByJobId),
       distance_to_pickup_miles: distanceToPickupMiles,
