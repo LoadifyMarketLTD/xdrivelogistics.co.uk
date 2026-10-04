@@ -80,6 +80,35 @@ export async function POST(request: NextRequest, { params }: Params) {
     return json(403, { error: 'Forbidden - an active owner, admin or dispatcher of the job-owning company is required to award bids.' });
   }
 
+  const { data: pendingOffer, error: pendingOfferError } = await supabaseAdmin
+    .from('job_booking_offers')
+    .select('id,job_id,bid_id,carrier_company_id,status,offered_at')
+    .eq('job_id', bid.job_id as string)
+    .eq('status', 'pending')
+    .maybeSingle();
+
+  if (pendingOfferError) return json(500, { error: 'Existing carrier acceptance state could not be verified.' });
+  if (pendingOffer) {
+    if (pendingOffer.bid_id === bidId) {
+      return json(200, {
+        success: true,
+        bidId,
+        jobId: bid.job_id,
+        bookingOfferId: pendingOffer.id,
+        carrierCompanyId: pendingOffer.carrier_company_id,
+        status: 'pending',
+        alreadyPending: true,
+      });
+    }
+    return json(409, {
+      error: 'A carrier acceptance request is already pending for this job.',
+      code: 'BOOKING_OFFER_ALREADY_PENDING',
+      jobId: bid.job_id,
+      bookingOfferId: pendingOffer.id,
+      pendingBidId: pendingOffer.bid_id,
+    });
+  }
+
   const blockState = await areCompaniesBlocked(supabaseAdmin, job.company_id as string, bid.company_id as string | null);
   if (blockState.error) return json(503, { error: 'Member block status could not be verified. Please retry.' });
   if (blockState.blocked) return json(403, { error: 'This quote cannot be awarded because commercial interaction between these companies is blocked.' });

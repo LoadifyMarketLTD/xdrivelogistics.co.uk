@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
@@ -44,6 +44,21 @@ type QuoteParticipant = {
   isOwnerDriverBid: boolean;
 };
 
+type BuyerBookingOffer = {
+  id: string;
+  job_id: string;
+  bid_id: string;
+  buyer_company_id: string;
+  carrier_company_id: string | null;
+  bidder_driver_id: string | null;
+  quoted_amount: number | null;
+  currency: string | null;
+  status: string;
+  offered_at: string | null;
+  responded_at: string | null;
+  decline_reason: string | null;
+};
+
 const money = (value: number, currency = 'GBP') =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 
@@ -79,8 +94,8 @@ function AwardConfirmation({
         style={{ width: 'min(620px, calc(100vw - 32px))', overflow: 'hidden', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', boxShadow: 'none' }}
       >
         <header style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f4f6f8' }}>
-          <strong id="customer-award-confirmation-title" style={{ display: 'block', fontSize: 14, lineHeight: '20px', color: '#0f172a' }}>Confirm carrier award</strong>
-          <span style={{ display: 'block', marginTop: 2, fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Review the selected carrier, price and load before committing the booking.</span>
+          <strong id="customer-award-confirmation-title" style={{ display: 'block', fontSize: 14, lineHeight: '20px', color: '#0f172a' }}>Confirm booking offer</strong>
+          <span style={{ display: 'block', marginTop: 2, fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Review the selected carrier, price and load before sending the booking offer for carrier acceptance.</span>
         </header>
 
         <div style={{ padding: 12, display: 'grid', gap: 10 }}>
@@ -110,13 +125,13 @@ function AwardConfirmation({
           <div style={{ padding: 9, border: '1px solid #fed7aa', borderRadius: 4, background: '#fff7ed', color: '#9a3412', fontSize: 11, lineHeight: '16px' }}>
             <strong style={{ display: 'block', marginBottom: 4 }}>Payment obligation acknowledgement</strong>
             <span>{BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT}</span>
-            <span style={{ display: 'block', marginTop: 5 }}>Selecting Confirm Award records this acknowledgement and uses the existing atomic award workflow. The selected bid becomes accepted, competing submitted bids are rejected, and the booking advances under the authoritative backend lifecycle.</span>
+            <span style={{ display: 'block', marginTop: 5 }}>Selecting Send Booking Offer records this acknowledgement and creates a pending carrier acceptance request. No transport agreement is formed until the carrier accepts. On acceptance, the selected bid becomes accepted, competing submitted bids are rejected, and the booking advances under the authoritative backend lifecycle.</span>
           </div>
         </div>
 
         <footer style={{ padding: '8px 12px', display: 'flex', justifyContent: 'flex-end', gap: 6, borderTop: '1px solid #e2e8f0', background: '#f4f6f8' }}>
           <ActionButton tone="secondary" disabled={working} onClick={onCancel}>Cancel</ActionButton>
-          <ActionButton tone="success" disabled={working} onClick={onConfirm}>{working ? 'Awarding…' : 'Confirm Award'}</ActionButton>
+          <ActionButton tone="success" disabled={working} onClick={onConfirm}>{working ? 'Sending…' : 'Send Booking Offer'}</ActionButton>
         </footer>
       </section>
     </div>
@@ -191,7 +206,7 @@ export default function CustomerQuotesCxPage() {
   const [message, setMessage] = useState('');
   const [identityError, setIdentityError] = useState('');
   const [identities, setIdentities] = useState<Map<string, BidderIdentity>>(new Map());
-  const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'accepted' | 'rejected'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'pending_acceptance' | 'accepted' | 'rejected'>('all');
   const [reference, setReference] = useState('');
   const [carrierSearch, setCarrierSearch] = useState('');
   const [candidate, setCandidate] = useState<QuoteParticipant | null>(null);
@@ -199,6 +214,8 @@ export default function CustomerQuotesCxPage() {
   const [messageBody, setMessageBody] = useState('');
   const [messageWorking, setMessageWorking] = useState(false);
   const [messageError, setMessageError] = useState('');
+  const [bookingOffers, setBookingOffers] = useState<BuyerBookingOffer[]>([]);
+  const [bookingOfferError, setBookingOfferError] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -218,6 +235,19 @@ export default function CustomerQuotesCxPage() {
     return () => { cancelled = true; };
   }, [data.bids]);
 
+  const loadBookingOffers = useCallback(async () => {
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+    if (!token) { setBookingOffers([]); setBookingOfferError('Carrier acceptance state is unavailable until the session is refreshed.'); return; }
+    const response = await fetch('/api/customer/booking-offers', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+    const payload = await response.json().catch(() => ({})) as { offers?: BuyerBookingOffer[]; error?: string };
+    if (!response.ok) { setBookingOffers([]); setBookingOfferError(payload.error ?? 'Carrier acceptance state could not be loaded.'); return; }
+    setBookingOffers(payload.offers ?? []);
+    setBookingOfferError('');
+  }, []);
+
+  useEffect(() => { void loadBookingOffers(); }, [loadBookingOffers, data.bids, data.jobs]);
+
   useEffect(() => {
     if (!candidate && !messageCandidate) return;
     const keydown = (event: KeyboardEvent) => {
@@ -230,13 +260,22 @@ export default function CustomerQuotesCxPage() {
   }, [candidate, messageCandidate, messageWorking, working]);
 
   const allQuotes = useMemo(() => data.bids.filter((bid) => ['submitted', 'accepted', 'rejected'].includes(bid.status)), [data.bids]);
+  const pendingOfferByJob = useMemo(() => new Map(bookingOffers.filter((offer) => offer.status === 'pending').map((offer) => [offer.job_id, offer])), [bookingOffers]);
+  const pendingOfferByBid = useMemo(() => new Map(bookingOffers.filter((offer) => offer.status === 'pending').map((offer) => [offer.bid_id, offer])), [bookingOffers]);
   const grouped = useMemo(() => {
     const refNeedle = reference.trim().toLowerCase();
     const carrierNeedle = carrierSearch.trim().toLowerCase();
     return data.jobs.map((job) => ({
       job,
       quotes: allQuotes
-        .filter((bid) => bid.job_id === job.id && (statusFilter === 'all' || bid.status === statusFilter))
+        .filter((bid) => {
+          if (bid.job_id !== job.id) return false;
+          if (statusFilter === 'all') return true;
+          const pendingOffer = pendingOfferByJob.get(job.id);
+          if (statusFilter === 'pending_acceptance') return pendingOffer?.bid_id === bid.id;
+          if (statusFilter === 'submitted') return bid.status === 'submitted' && !pendingOffer;
+          return bid.status === statusFilter;
+        })
         .filter((bid) => {
           if (!carrierNeedle) return true;
           const identity = identities.get(bid.id);
@@ -245,7 +284,7 @@ export default function CustomerQuotesCxPage() {
         .sort((a, b) => Number(a.bid_price_gbp ?? a.amount ?? 0) - Number(b.bid_price_gbp ?? b.amount ?? 0)),
     })).filter((group) => group.quotes.length > 0)
       .filter(({ job }) => !refNeedle || `${job.id} XDL-${job.id.slice(0, 8)} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(refNeedle));
-  }, [allQuotes, carrierSearch, data.jobs, identities, reference, statusFilter]);
+  }, [allQuotes, carrierSearch, data.jobs, identities, pendingOfferByJob, reference, statusFilter]);
 
   const award = async (id: string) => {
     setWorking(id); setMessage('');
@@ -256,7 +295,7 @@ export default function CustomerQuotesCxPage() {
     if (!response.ok) { setMessage(payload.error ?? 'Unable to award quote.'); return; }
     setCandidate(null);
     setMessage('Booking offer sent - awaiting carrier acceptance.');
-    await data.refresh();
+    await Promise.all([data.refresh(), loadBookingOffers()]);
   };
 
   const reject = async (id: string) => {
@@ -295,7 +334,8 @@ export default function CustomerQuotesCxPage() {
 
   const counts = {
     all: allQuotes.length,
-    submitted: allQuotes.filter((bid) => bid.status === 'submitted').length,
+    submitted: allQuotes.filter((bid) => bid.status === 'submitted' && !pendingOfferByJob.has(bid.job_id)).length,
+    pending_acceptance: allQuotes.filter((bid) => pendingOfferByBid.has(bid.id)).length,
     accepted: allQuotes.filter((bid) => bid.status === 'accepted').length,
     rejected: allQuotes.filter((bid) => bid.status === 'rejected').length,
   };
@@ -305,34 +345,39 @@ export default function CustomerQuotesCxPage() {
       <PageHeader
         eyebrow="Customer commercial"
         title="Quotes"
-        description="Compare carrier responses by load, inspect member profiles, message the verified bidder and review commercial terms before awarding."
-        actions={<><ActionButton tone="secondary" onClick={() => router.push('/customer/messages')}>Messages</ActionButton><ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton></>}
+        description="Compare carrier responses by load, inspect member profiles, message the verified bidder and send one booking offer for carrier acceptance."
+        actions={<><ActionButton tone="secondary" onClick={() => router.push('/customer/messages')}>Messages</ActionButton><ActionButton tone="secondary" onClick={() => void Promise.all([data.refresh(), loadBookingOffers()])}>Refresh</ActionButton></>}
       />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
       {message && <AlertBanner tone={message.includes('successfully') || message.includes('rejected') || message.includes('sent') ? 'success' : 'danger'}>{message}</AlertBanner>}
       {identityError && <AlertBanner tone="warning">{identityError}</AlertBanner>}
+      {bookingOfferError && <AlertBanner tone="warning">{bookingOfferError}</AlertBanner>}
       <div className="workspace-board-layout">
-        <aside className="workspace-filter-rail" aria-label="Customer quote filters"><div className="workspace-filter-rail__header">Search Quotes</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive or customer reference" /></label><label>CARRIER / MEMBER<input value={carrierSearch} onChange={(event) => setCarrierSearch(event.target.value)} placeholder="Company, owner driver or member ID" /></label><label>STATUS<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All quote activity</option><option value="submitted">Awaiting decision</option><option value="accepted">Accepted</option><option value="rejected">Rejected</option></select></label><ActionButton tone="secondary" onClick={() => { setReference(''); setCarrierSearch(''); setStatusFilter('all'); }}>Clear</ActionButton></div></aside>
+        <aside className="workspace-filter-rail" aria-label="Customer quote filters"><div className="workspace-filter-rail__header">Search Quotes</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive or customer reference" /></label><label>CARRIER / MEMBER<input value={carrierSearch} onChange={(event) => setCarrierSearch(event.target.value)} placeholder="Company, owner driver or member ID" /></label><label>STATUS<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All quote activity</option><option value="submitted">Awaiting decision</option><option value="pending_acceptance">Awaiting carrier acceptance</option><option value="accepted">Accepted</option><option value="rejected">Rejected</option></select></label><ActionButton tone="secondary" onClick={() => { setReference(''); setCarrierSearch(''); setStatusFilter('all'); }}>Clear</ActionButton></div></aside>
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{(['all', 'submitted', 'accepted', 'rejected'] as const).map((status) => <button key={status} type="button" data-active={statusFilter === status ? 'true' : 'false'} onClick={() => setStatusFilter(status)}>{status === 'all' ? 'All' : status === 'submitted' ? 'Awaiting Decision' : status[0].toUpperCase() + status.slice(1)} {counts[status]}</button>)}</div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{grouped.length}</strong> load{grouped.length === 1 ? '' : 's'} with matching quotes</span><span>Lowest visible price shown first per load · Award requires confirmation</span></div>
+          <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{(['all', 'submitted', 'pending_acceptance', 'accepted', 'rejected'] as const).map((status) => <button key={status} type="button" data-active={statusFilter === status ? 'true' : 'false'} onClick={() => setStatusFilter(status)}>{status === 'all' ? 'All' : status === 'submitted' ? 'Awaiting Decision' : status === 'pending_acceptance' ? 'Awaiting Carrier' : status[0].toUpperCase() + status.slice(1)} {counts[status]}</button>)}</div>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{grouped.length}</strong> load{grouped.length === 1 ? '' : 's'} with matching quotes</span><span>Lowest visible price shown first per load · one booking offer may await carrier acceptance at a time</span></div>
           {grouped.length === 0 ? <div className="workspace-panel"><EmptyState title={data.loading ? 'Loading quotes…' : 'No quotes in this view'} description="Carrier responses appear here after a load is published." /></div> : grouped.map(({ job, quotes }) => <section key={job.id} className="workspace-panel" style={{ marginBottom: 8 }}><div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{routeLabel(job)}</strong> · Pickup {when(job.pickup_datetime)} · XDrive XDL-{job.id.slice(0, 8).toUpperCase()}</span><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open load</ActionButton></div><DataTable columns={['Carrier', 'Price', 'Position', 'Message', 'Submitted', 'Status', 'Decision']} rows={quotes.map((bid, index) => {
             const identity = identities.get(bid.id);
             const isOwnerDriverBid = !bid.company_id && Boolean(identity?.driverId);
             const displayName = isOwnerDriverBid ? (identity?.personName || identity?.displayName || 'Owner Driver') : (identity?.companyName || bid.companies?.name || identity?.displayName || 'Carrier');
             const participant: QuoteParticipant = { bid, job, identity, displayName, isOwnerDriverBid };
-            const messagingAvailable = bid.status === 'submitted' || bid.status === 'accepted';
+            const pendingOffer = pendingOfferByJob.get(job.id);
+            const isPendingSelectedBid = pendingOffer?.bid_id === bid.id;
+            const awardLocked = Boolean(pendingOffer);
+            const messagingAvailable = bid.status === 'submitted' || bid.status === 'accepted' || isPendingSelectedBid;
             return [
               <span key="carrier" style={{ display: 'grid', gap: 2 }}><strong><MemberIdentityLink companyId={isOwnerDriverBid ? null : (bid.company_id ?? identity?.companyId ?? null)} driverId={isOwnerDriverBid ? identity?.driverId ?? null : null}>{displayName}</MemberIdentityLink></strong><small style={{ color: '#64748b' }}>{identity?.memberId ? `ID ${identity.memberId} · ` : ''}{identity?.quoteLevel === 'driver' ? `Driver ${identity.driverAvailability?.replaceAll('_', ' ') || 'availability not supplied'}` : `${identity?.fleetVehicleTypes.length ?? 0} fleet type${identity?.fleetVehicleTypes.length === 1 ? '' : 's'}`}</small></span>,
               <strong key="price">{money(Number(bid.bid_price_gbp ?? bid.amount ?? 0), bid.currency ?? 'GBP')}</strong>,
               index === 0 ? <StatusBadge key="position" value="Best price" tone="green" /> : `#${index + 1}`,
               bid.message ?? 'No message',
               when(bid.created_at),
-              <StatusBadge key="status" value={bid.status} />,
+              isPendingSelectedBid ? <StatusBadge key="status" value="Awaiting Carrier Acceptance" tone="orange" /> : <StatusBadge key="status" value={bid.status} />,
               messagingAvailable ? <span key="actions" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {bid.status === 'submitted' ? <ActionButton tone="success" disabled={working === bid.id} onClick={() => setCandidate(participant)}>Review & Award</ActionButton> : null}
+                {bid.status === 'submitted' && !awardLocked ? <ActionButton tone="success" disabled={working === bid.id} onClick={() => setCandidate(participant)}>Review & Send Offer</ActionButton> : null}
+                {isPendingSelectedBid ? <StatusBadge value="Offer sent · awaiting carrier" tone="orange" /> : null}
                 <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => { setMessageCandidate(participant); setMessageBody(''); setMessageError(''); }}>Message</ActionButton>
-                {bid.status === 'submitted' ? <ActionButton tone="danger" disabled={working === bid.id} onClick={() => void reject(bid.id)}>Reject</ActionButton> : null}
+                {bid.status === 'submitted' && !awardLocked ? <ActionButton tone="danger" disabled={working === bid.id} onClick={() => void reject(bid.id)}>Reject</ActionButton> : null}
               </span> : '—',
             ];
           })} /></section>)}

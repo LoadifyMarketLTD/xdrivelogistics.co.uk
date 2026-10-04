@@ -18,9 +18,9 @@ describe('CX-close Customer quote award and tracking parity', () => {
     expect(customerQuotes).toContain("columns={['Carrier', 'Price', 'Position', 'Message', 'Submitted', 'Status', 'Decision']}");
     expect(customerQuotes).toContain('<MemberIdentityLink');
     expect(customerQuotes).toContain('Best price');
-    expect(customerQuotes).toContain('Review & Award');
-    expect(customerQuotes).toContain('Confirm carrier award');
-    expect(customerQuotes).toContain('Confirm Award');
+    expect(customerQuotes).toContain('Review & Send Offer');
+    expect(customerQuotes).toContain('Confirm booking offer');
+    expect(customerQuotes).toContain('Send Booking Offer');
     expect(customerQuotes).toContain('setCandidate(participant)');
     expect(customerQuotes).toContain('onConfirm={() => void award(candidate.bid.id)}');
     expect(customerQuotes).toContain("onClick={() => void reject(bid.id)}");
