@@ -6,55 +6,52 @@ const root = process.cwd();
 const route = fs.readFileSync(path.join(root, 'app/api/workspace/jobs/[jobId]/owner/route.ts'), 'utf8');
 const page = fs.readFileSync(path.join(root, 'app/customer/jobs/[id]/page.tsx'), 'utf8');
 const editPage = fs.readFileSync(path.join(root, 'app/customer/jobs/[id]/edit/page.tsx'), 'utf8');
-const retireEditMigration = fs.readFileSync(path.join(root, 'supabase/migrations/20260830125607_retire_owner_job_edit_rpc.sql'), 'utf8');
+const editForm = fs.readFileSync(path.join(root, 'app/components/workspace/JobOwnerEditForm.tsx'), 'utf8');
 
-describe('posting-company owner mutation contract', () => {
-  it('authorises load management against posting-company membership', () => {
+describe('posting-company owner edit/delete contract', () => {
+  it('authorises mutations server-side against the posting company membership', () => {
     expect(route).toContain(".eq('company_id', ownerCompanyId)");
     expect(route).toContain(".eq('user_id', userId)");
     expect(route).toContain(".in('role_in_company', ['owner', 'admin', 'dispatcher'])");
-    expect(route).toContain('Only the posting company can manage this load.');
+    expect(route).toContain('Only the posting company can edit or delete this load.');
   });
 
-  it('locks posted-load editing and directs changes to Driver messages', () => {
-    expect(route).toContain('canEdit: false');
-    expect(route).toContain('Posted load details are locked. Send a Driver message for any change or new instruction.');
-    expect(route).toContain('export async function PATCH()');
-    expect(route).toContain('return respond(405');
-    expect(route).not.toContain("client.rpc('update_unbid_exchange_job_atomic'");
-    expect(editPage).toContain('Load details are locked after posting');
-    expect(editPage).toContain('Messages / changes for Driver');
+  it('keeps Edit Load available in every lifecycle state', () => {
+    expect(route).toContain('const editReason: string | null = null');
+    expect(route).toContain('canEdit: !editReason');
+    expect(route).not.toContain("if (!checked.context.capabilities.canEdit)");
+    expect(page).toContain('ownerCapabilities?.canEdit');
+    expect(editPage).toContain('at any lifecycle stage');
   });
 
-  it('retires the temporary owner-edit RPC from the hosted schema', () => {
-    expect(retireEditMigration).toContain('DROP FUNCTION IF EXISTS public.update_unbid_exchange_job_atomic');
+  it('does not reset lifecycle, award or exchange state while editing', () => {
+    expect(route).toContain('status: originalJob.status');
+    expect(route).toContain('current_status: originalJob.current_status');
+    expect(route).toContain('exchange_visibility: originalJob.exchange_visibility');
+    const patchBlock = route.slice(route.indexOf('export async function PATCH'), route.indexOf('export async function DELETE'));
+    expect(patchBlock).not.toContain(".is('awarded_carrier_company_id', null).is('assigned_company_id', null).is('assigned_driver_id', null).is('vehicle_id', null)");
   });
 
-  it('fails closed on divergent lifecycle fields for deletion', () => {
-    expect(route).toContain('preferredJobLifecycleStatus(job)');
-    expect(route).toContain('hasOnlyPreExecutionJobStatuses(job)');
-    expect(route).not.toContain("const status = String(job.current_status ?? job.status ?? '').toLowerCase()");
+  it('preserves progressed stop history while synchronising route fields', () => {
+    expect(route).toContain("client.from('job_stops').update(desired)");
+    expect(route).toContain('const progressed =');
+    expect(route).toContain('if (progressed) continue');
   });
 
-  it('protects loads with quotes or execution history from deletion', () => {
-    expect(route).toContain("countRows(client, 'job_bids', 'job_id', jobId)");
-    for (const table of ['proof_of_delivery', 'invoices', 'job_documents', 'documents', 'job_disputes', 'job_cancellation_requests', 'invoice_disputes', 'reviews']) {
-      expect(route).toContain(`'${table}'`);
-    }
+  it('keeps delete safety independent from edit capability', () => {
+    expect(route).toContain('if (assigned) deleteReason');
     expect(route).toContain('Loads with carrier quote history cannot be deleted.');
     expect(route).toContain('This load already has protected commercial or execution history.');
-  });
-
-  it('uses the atomic delete guard so a concurrent bid cannot be cascaded away', () => {
-    expect(route).toContain("client.rpc('delete_unbid_exchange_job_atomic'");
-    expect(route).toContain('p_actor_user_id: auth.userId');
-    expect(route).not.toMatch(/client\.from\('jobs'\)\.delete\(\)/);
-  });
-
-  it('keeps confirmed Delete Load control separate from editing', () => {
     expect(page).toContain('ownerCapabilities?.canDelete');
     expect(page).toContain('Confirm Delete');
-    expect(page).toContain("method: 'DELETE'");
-    expect(page).toContain('ownerCapabilities?.canEdit');
+  });
+
+  it('exposes the complete Edit Load form', () => {
+    expect(editForm).toContain('Additional stops');
+    expect(editForm).toContain('PostcodeAddressField');
+    expect(editForm).toContain('Length (cm)');
+    expect(editForm).toContain('Width (cm)');
+    expect(editForm).toContain('Height (cm)');
+    expect(editForm).toContain("method: 'PATCH'");
   });
 });

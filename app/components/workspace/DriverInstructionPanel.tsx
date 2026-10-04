@@ -112,7 +112,7 @@ export default function DriverInstructionPanel({ jobId }: { jobId: string }) {
   return (
     <Panel
       title="Messages / changes for Driver"
-      description="Use this for any change or new instruction after the load has been posted. The original load record is not edited; every message is kept in the permanent job history and shown to the Driver."
+      description="Use this for Driver-facing communication and operational instructions. Job details can still be corrected from Edit Load; messages remain in the permanent job history and are shown to the Driver."
     >
       <div style={{ display: 'grid', gap: 8 }}>
         {message && <AlertBanner tone="success">{message}</AlertBanner>}
@@ -129,7 +129,7 @@ export default function DriverInstructionPanel({ jobId }: { jobId: string }) {
             ))}
           </div>
         ) : (
-          <EmptyState compact title="No Driver messages yet" description="If anything changes after posting, add the update here instead of editing the original load." />
+          <EmptyState compact title="No Driver messages yet" description="Use messages for Driver-facing communication; use Edit Load when the underlying job details need correcting." />
         )}
 
         {state.canAdd ? (

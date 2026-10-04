@@ -240,7 +240,7 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
       <div style={gridStyle}><label style={labelStyle}>XDrive reference<div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', background: '#f8fafc' }}>{snapshot.reference}</div></label><label style={labelStyle}>Current status<div style={{ ...fieldStyle, display: 'flex', alignItems: 'center', background: '#f8fafc', textTransform: 'capitalize' }}>{snapshot.status.replace(/_/g, ' ')}</div></label></div>
     </Panel>
 
-    <Panel title="Collection and delivery" description="You can change an unawarded route. If the load has received carrier quotes, editing is locked to avoid stale pricing.">
+    <Panel title="Collection and delivery" description="Update the route whenever required. Existing lifecycle status, award/allocation and operational evidence remain preserved.">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 12 }}>
         <StopFields title="Collection" date={form.pickupDate} time={form.pickupTime} postcode={form.pickupPostcode} address={form.pickupAddress} contact={form.collectionContact} phone={form.collectionPhone} onDate={(v) => set('pickupDate', v)} onTime={(v) => set('pickupTime', v)} onPostcode={(v) => set('pickupPostcode', v)} onAddress={(v) => set('pickupAddress', v)} onContact={(v) => set('collectionContact', v)} onPhone={(v) => set('collectionPhone', v)} showErrors={showErrors} />
         <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(v) => set('deliveryDate', v)} onTime={(v) => set('deliveryTime', v)} onPostcode={(v) => set('deliveryPostcode', v)} onAddress={(v) => set('deliveryAddress', v)} onContact={(v) => set('deliveryContact', v)} onPhone={(v) => set('deliveryPhone', v)} showErrors={showErrors} />
@@ -256,7 +256,7 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
       </div>
     </Panel>
 
-    <Panel title="Cargo and vehicle" description="Update the transport requirement before a carrier has been awarded.">
+    <Panel title="Cargo and vehicle" description="Update the transport requirement whenever the posting company needs to correct or amend the load.">
       <div style={gridStyle}>
         <label style={labelStyle}>Vehicle<select style={fieldStyle} value={form.vehicle} onChange={(event) => set('vehicle', event.target.value)}>{VEHICLES.map((value) => <option key={value}>{value}</option>)}</select></label>
         <label style={labelStyle}>Cargo<select style={fieldStyle} value={form.cargo} onChange={(event) => set('cargo', event.target.value)}>{CARGO.map((value) => <option key={value}>{value}</option>)}</select></label>

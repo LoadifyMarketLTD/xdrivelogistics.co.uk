@@ -38,7 +38,7 @@ describe('Driver operational message contract', () => {
     expect(brokerJobsPage).toContain('DriverInstructionPanel');
     expect(brokerJobsPage).toContain('<DriverInstructionPanel jobId={job.id} />');
     expect(instructionPanel).toContain('Messages / changes for Driver');
-    expect(instructionPanel).toContain('The original load record is not edited');
+    expect(instructionPanel).toContain('Job details can still be corrected from Edit Load');
   });
 
   test('projects message history into the assigned Driver server payload', () => {
