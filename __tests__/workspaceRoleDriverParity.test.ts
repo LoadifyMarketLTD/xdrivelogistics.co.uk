@@ -93,7 +93,7 @@ describe('driver parity across dual identity contexts', () => {
       '/driver/settings?section=company',
       '/driver/settings?section=overview',
       '/driver/won-work',
-      '/settings/billing',
+      '/driver/settings/billing',
     ].sort());
   });
 });

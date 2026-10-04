@@ -69,6 +69,8 @@ const routeMap: Record<RoleMode, {
   audit?: string;
   legal?: string;
   finance?: string;
+  billing?: string;
+  support?: string;
 }> = {
   customer: {
     team: '/customer/team',
@@ -77,6 +79,8 @@ const routeMap: Record<RoleMode, {
     audit: '/customer/event-log',
     legal: '/customer/account/legal-agreements',
     finance: '/customer/invoices',
+    billing: '/customer/settings/billing',
+    support: '/customer/support',
   },
   driver: {
     documents: '/driver/documents',
@@ -84,6 +88,7 @@ const routeMap: Record<RoleMode, {
     audit: '/driver/event-log',
     legal: '/driver/account/legal-agreements',
     finance: '/driver/finance',
+    support: '/driver/support',
   },
   broker: {
     team: '/broker/team',
@@ -92,6 +97,8 @@ const routeMap: Record<RoleMode, {
     audit: '/broker/event-log',
     legal: '/broker/account/legal-agreements',
     finance: '/broker/finance',
+    billing: '/broker/settings/billing',
+    support: '/broker/support',
   },
   owner: {
     vehicles: '/driver/vehicles',
@@ -100,6 +107,8 @@ const routeMap: Record<RoleMode, {
     audit: '/driver/event-log',
     legal: '/driver/account/legal-agreements',
     finance: '/driver/finance',
+    billing: '/driver/settings/billing',
+    support: '/driver/support',
   },
   carrier: {
     vehicles: '/admin/fleet/vehicles',
@@ -108,6 +117,8 @@ const routeMap: Record<RoleMode, {
     audit: '/admin/event-log',
     legal: '/admin/settings/legal-agreements',
     finance: '/admin/invoices',
+    billing: '/admin/settings/billing',
+    support: '/admin/support',
   },
   fleet: {
     vehicles: '/admin/fleet/vehicles',
@@ -116,25 +127,30 @@ const routeMap: Record<RoleMode, {
     audit: '/admin/event-log',
     legal: '/admin/settings/legal-agreements',
     finance: '/admin/invoices',
+    support: '/admin/support',
   },
   dispatcher: {
     vehicles: '/admin/fleet/resources',
     notifications: '/admin/notifications',
     audit: '/admin/event-log',
+    support: '/admin/support',
   },
   finance: {
     notifications: '/admin/notifications',
     audit: '/admin/event-log',
     finance: '/admin/finance',
+    support: '/admin/support',
   },
   compliance: {
     documents: '/admin/documents',
     notifications: '/admin/notifications',
     audit: '/admin/event-log',
+    support: '/admin/support',
   },
   viewer: {
     notifications: '/admin/notifications',
     audit: '/admin/event-log',
+    support: '/admin/support',
   },
 };
 
@@ -340,13 +356,13 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     ...(role === 'fleet' ? [{ label: 'Drivers / Staff', action: () => router.push('/admin/drivers'), active: false }] : []),
     ...(routes.vehicles ? [{ label: 'Vehicles / Assets', action: () => router.push(routes.vehicles!), active: false }] : []),
     ...(routes.documents ? [{ label: 'Documents', action: () => router.push(routes.documents!), active: false }] : []),
-    ...(financeSettingsVisible ? [{ label: 'Finance & Invoices', action: () => setSection('finance'), active: section === 'finance' }, { label: 'Billing & Membership', action: () => router.push('/settings/billing'), active: false }] : []),
+    ...(financeSettingsVisible ? [{ label: 'Finance & Invoices', action: () => setSection('finance'), active: section === 'finance' }, ...(routes.billing ? [{ label: 'Billing & Membership', action: () => router.push(routes.billing!), active: false }] : [])] : []),
     ...(role === 'finance' && routes.finance ? [{ label: 'Finance Workspace', action: () => router.push(routes.finance!), active: false }] : []),
     ...(routes.notifications ? [{ label: 'Notifications', action: () => router.push(routes.notifications!), active: false }] : []),
     { label: 'Security', action: () => setSection('security'), active: section === 'security' },
     ...(routes.audit ? [{ label: 'Audit / Event Log', action: () => router.push(routes.audit!), active: false }] : []),
-    { label: 'Support', action: () => router.push('/help'), active: false },
-  ], [companyOperationsVisible, companyProfileVisible, financeSettingsVisible, role, router, routes.audit, routes.documents, routes.finance, routes.notifications, routes.team, routes.vehicles, section]);
+    ...(routes.support ? [{ label: 'Support', action: () => router.push(routes.support!), active: false }] : []),
+  ], [companyOperationsVisible, companyProfileVisible, financeSettingsVisible, role, router, routes.audit, routes.billing, routes.documents, routes.finance, routes.notifications, routes.support, routes.team, routes.vehicles, section]);
 
   return (
     <PageFrame>
@@ -398,14 +414,14 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
                 <div className="role-settings-actions">
                   {companyProfileVisible && <ActionButton tone="secondary" onClick={() => setSection('company')}>Company Profile</ActionButton>}
                   {financeSettingsVisible && <ActionButton tone="secondary" onClick={() => setSection('finance')}>Finance & Invoices</ActionButton>}
-                  {financeSettingsVisible && <ActionButton tone="secondary" onClick={() => router.push('/settings/billing')}>Membership & Billing</ActionButton>}
+                  {financeSettingsVisible && routes.billing && <ActionButton tone="secondary" onClick={() => router.push(routes.billing!)}>Membership & Billing</ActionButton>}
                   {!companyProfileVisible && <ActionButton tone="secondary" onClick={() => setSection('profile')}>My Profile</ActionButton>}
                 </div>
               </Panel>
 
               <Panel title="Help & support" description="Workspace help and account assistance.">
                 <div className="role-settings-links">
-                  <button type="button" onClick={() => router.push('/help')}><strong>Help Centre</strong><span>Platform guidance and support information.</span></button>
+                  {routes.support && <button type="button" onClick={() => router.push(routes.support!)}><strong>Help Centre</strong><span>Platform guidance and support information.</span></button>}
                   {routes.legal && <button type="button" onClick={() => router.push(routes.legal!)}><strong>Legal & Agreements</strong><span>Accepted terms and evidence history.</span></button>}
                   {routes.notifications && <button type="button" onClick={() => router.push(routes.notifications!)}><strong>Latest Updates</strong><span>Open workspace notifications.</span></button>}
                 </div>

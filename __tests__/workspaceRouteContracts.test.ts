@@ -44,7 +44,7 @@ describe('workspace route contracts', () => {
       '/customer/event-log',
       '/customer/network',
       '/customer/disputes',
-      '/settings/billing',
+      '/customer/settings/billing',
       '/customer/account',
     ]);
   });
@@ -99,7 +99,7 @@ describe('workspace route contracts', () => {
       '/admin/finance/statements',
       '/admin/finance/reports',
       '/admin/documents',
-      '/settings/billing',
+      '/admin/settings/billing',
       '/admin/settings',
     ]);
   });
@@ -120,7 +120,7 @@ describe('workspace route contracts', () => {
       '/broker/disputes',
       '/broker/finance',
       '/broker/reports',
-      '/settings/billing',
+      '/broker/settings/billing',
       '/broker/account',
     ]);
   });

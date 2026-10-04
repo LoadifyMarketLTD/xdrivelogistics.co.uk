@@ -23,7 +23,7 @@ const workspacePages = [
 ].sort();
 describe('all non-driver workspace pages follow the Owner Driver reference contract', () => {
   it('audits every current Admin, Broker and Customer route page', () => {
-    expect(workspacePages).toHaveLength(120);
+    expect(workspacePages).toHaveLength(123);
     for (const file of workspacePages) {
       const source = read(file);
       const lines = source.split(/\r?\n/).length;
