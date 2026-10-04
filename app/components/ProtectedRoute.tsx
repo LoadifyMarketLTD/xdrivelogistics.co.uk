@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth, type UserRole } from './AuthContext';
 import { isRoleAllowedForPath, mapAppRole } from '../../lib/authRole';
@@ -11,7 +11,8 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
-  const { user, isLoading } = useAuth();
+  const { user, isLoading, hasSupabaseSession, refreshUserContext } = useAuth();
+  const recoveryAttempted = useRef(false);
   const router = useRouter();
   const pathname = usePathname() || '/';
 
@@ -44,7 +45,17 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
   }, [allowedRoles, pathname, user]);
 
   useEffect(() => {
-    if (!isLoading && !user) {
+    if (user) recoveryAttempted.current = false;
+
+    if (!isLoading && !user && hasSupabaseSession) {
+      if (!recoveryAttempted.current) {
+        recoveryAttempted.current = true;
+        void refreshUserContext();
+      }
+      return;
+    }
+
+    if (!isLoading && !user && !hasSupabaseSession) {
       const loginPath = pathname ? `/login?next=${encodeURIComponent(pathname)}` : '/login';
       if (pathname !== '/login') router.replace(loginPath);
       return;
@@ -53,9 +64,9 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     if (!isLoading && user && !routeAccessAllowed && pathname !== '/forbidden') {
       router.replace('/forbidden');
     }
-  }, [user, isLoading, router, pathname, routeAccessAllowed]);
+  }, [user, isLoading, hasSupabaseSession, refreshUserContext, router, pathname, routeAccessAllowed]);
 
-  if (isLoading) {
+  if (isLoading || (!user && hasSupabaseSession)) {
     return (
       <div
         style={{
@@ -67,7 +78,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
           color: '#2563eb',
         }}
       >
-        Loading...
+        Restoring workspace access...
       </div>
     );
   }

@@ -120,6 +120,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // login() is already resolving the same SIGNED_IN event, which would cause
   // parallel exclusive LockManager lock acquisitions and a 10-second timeout.
   const loginHydrating = useRef(false);
+  const explicitSignOutRef = useRef(false);
   const userRef = useRef<ResolvedAuthUser | null>(null);
   const hasSupabaseSessionRef = useRef(false);
   const hydrationRef = useRef<{ userId: string; promise: Promise<AuthResolutionResult> } | null>(null);
@@ -337,8 +338,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!session?.user) {
-        if (!isPasswordSetupContext(event)) resetAuthState();
-        if (isMounted) setIsLoading(false);
+        if (isPasswordSetupContext(event)) {
+          if (isMounted) setIsLoading(false);
+          return;
+        }
+        if (explicitSignOutRef.current) {
+          explicitSignOutRef.current = false;
+          resetAuthState();
+          if (isMounted) setIsLoading(false);
+          return;
+        }
+
+        // Verify unexpected null-session events before clearing a valid workspace.
+        // This prevents transient cross-tab/token reconciliation from becoming a false logout.
+        window.setTimeout(() => {
+          if (!isMounted) return;
+          void (async () => {
+            try {
+              const result = await withTimeout(supabase.auth.getSession(), LOGIN_TIMEOUT_MS);
+              const verifiedSession = result.data.session;
+              if (result.error) throw result.error;
+              if (verifiedSession?.user) {
+                syncRouteAuthCookie(verifiedSession);
+                setHasSupabaseSession(true);
+                if (!userRef.current) await hydrateUser(verifiedSession.user);
+                return;
+              }
+              resetAuthState();
+            } catch (error) {
+              console.error('AuthContext null-session verification failed', error);
+              if (isServiceUnavailableError(error) && (userRef.current || hasSupabaseSessionRef.current)) {
+                setHasSupabaseSession(true);
+                return;
+              }
+              resetAuthState();
+            } finally {
+              if (isMounted) setIsLoading(false);
+            }
+          })();
+        }, 250);
         return;
       }
 
@@ -478,6 +516,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const logout = async () => {
+    explicitSignOutRef.current = true;
     if (isSupabaseConfigured) await supabase.auth.signOut();
     resetAuthState();
     router.push('/login');

@@ -478,6 +478,24 @@ export default function JobHistoryPage() {
   }, [fetchHistory]);
 
   useEffect(() => { void fetchHistory(); }, [fetchHistory]);
+  useEffect(() => {
+    let lastRefreshAt = 0;
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastRefreshAt < 2500) return;
+      lastRefreshAt = now;
+      void fetchHistory();
+    };
+    const interval = window.setInterval(refreshIfVisible, 10000);
+    window.addEventListener('focus', refreshIfVisible);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshIfVisible);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [fetchHistory]);
 
   const searchedJobs = useMemo(() => jobs.filter((job) => {
     const refDate = job.pickup_datetime ?? job.collection_window_start ?? job.updated_at ?? job.created_at;

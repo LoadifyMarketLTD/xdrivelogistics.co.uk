@@ -252,6 +252,24 @@ export default function MyQuotesPage() {
   }, [companyId, driverId, userId]);
 
   useEffect(() => { void fetchBids(); }, [fetchBids]);
+  useEffect(() => {
+    let lastRefreshAt = 0;
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastRefreshAt < 2500) return;
+      lastRefreshAt = now;
+      void fetchBids();
+    };
+    const interval = window.setInterval(refreshIfVisible, 10000);
+    window.addEventListener('focus', refreshIfVisible);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshIfVisible);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [fetchBids]);
 
   const viewForBid = useCallback((bid: BidRow): QuoteView => {
     if (bid.direction === 'incoming') {

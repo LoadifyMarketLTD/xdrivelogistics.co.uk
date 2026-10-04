@@ -398,6 +398,17 @@ export async function submitDriverQuote(
     .select('id')
     .single();
 
+  const syncJobQuotedState = async () => {
+    const { error: statusError } = await supabaseAdmin
+      .from('jobs')
+      .update({ status: 'quoted' })
+      .eq('id', jobId)
+      .in('status', ['posted', 'open', 'received']);
+    if (statusError) {
+      console.error('Driver quote persisted but job quoted-state sync failed', { jobId, error: statusError.message });
+    }
+  };
+
   if (insertError) {
     if (insertError.code === '23505') {
       const retry = await findPriorBidForDriver(
@@ -419,5 +430,6 @@ export async function submitDriverQuote(
     return { ok: false, status: 500, error: insertError.message };
   }
 
+  await syncJobQuotedState();
   return { ok: true, status: 201, bidId: String(bid.id), jobId, idempotent: false, totalAmount };
 }
