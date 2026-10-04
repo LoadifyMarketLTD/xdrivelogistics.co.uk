@@ -1,5 +1,7 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../_lib/supabaseAdmin';
+import { inspectJobEnvironmentalZones } from '../../../lib/environmentalZone';
+import { publicQuoteNotes } from '../driver/_lib/marketplacePublic';
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
@@ -35,17 +37,31 @@ export async function GET(request: NextRequest) {
   const jobIds = [...new Set((offers ?? []).map((offer) => offer.job_id as string))];
   const buyerIds = [...new Set((offers ?? []).map((offer) => offer.buyer_company_id as string))];
   const [{ data: jobs }, { data: buyers }] = await Promise.all([
-    jobIds.length ? supabaseAdmin.from('jobs').select('id,pickup_location,pickup_postcode,delivery_location,delivery_postcode,pickup_datetime,payment_terms,booking_reference,customer_reference,vehicle_type,requested_vehicle_label').in('id', jobIds) : Promise.resolve({ data: [] }),
-    buyerIds.length ? supabaseAdmin.from('companies').select('id,name').in('id', buyerIds) : Promise.resolve({ data: [] }),
+    jobIds.length ? supabaseAdmin.from('jobs').select('id,pickup_location,pickup_postcode,delivery_location,delivery_postcode,pickup_datetime,delivery_datetime,payment_terms,load_id,load_ref,load_reference,booking_reference,customer_reference,vehicle_type,requested_vehicle_label,job_distance_miles,job_distance_minutes,load_details,pickup_lat,pickup_lng,delivery_lat,delivery_lng').in('id', jobIds) : Promise.resolve({ data: [] }),
+    buyerIds.length ? supabaseAdmin.from('companies').select('id,name,xd_id').in('id', buyerIds) : Promise.resolve({ data: [] }),
   ]);
   const jobById = new Map((jobs ?? []).map((row) => [row.id as string, row]));
-  const buyerById = new Map((buyers ?? []).map((row) => [row.id as string, row.name as string]));
+  const buyerById = new Map((buyers ?? []).map((row) => [row.id as string, row]));
 
   return json(200, {
-    offers: (offers ?? []).map((offer) => ({
-      ...offer,
-      buyer_name: buyerById.get(offer.buyer_company_id as string) ?? 'Transport buyer',
-      job: jobById.get(offer.job_id as string) ?? null,
-    })),
+    offers: (offers ?? []).map((offer) => {
+      const job = jobById.get(offer.job_id as string) ?? null;
+      const buyer = buyerById.get(offer.buyer_company_id as string) ?? null;
+      const zones = inspectJobEnvironmentalZones(job);
+      const zoneLabel = zones.pickup?.zone === 'ULEZ' || zones.delivery?.zone === 'ULEZ'
+        ? 'London ULEZ'
+        : zones.pickup?.zone === 'CAZ' || zones.delivery?.zone === 'CAZ'
+          ? 'Clean Air Zone'
+          : null;
+      return {
+        ...offer,
+        buyer_name: buyer?.name ?? 'Transport buyer',
+        buyer_xd_id: buyer?.xd_id ?? null,
+        public_reference: 'XDL-' + String(offer.job_id ?? '').slice(0, 8).toUpperCase(), 
+        environmental_zone: zoneLabel,
+        public_quote_notes: publicQuoteNotes(job?.load_details),
+        job,
+      };
+    }),
   });
 }
