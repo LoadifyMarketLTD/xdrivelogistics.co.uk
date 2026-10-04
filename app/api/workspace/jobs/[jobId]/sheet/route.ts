@@ -512,6 +512,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         vatAmount: commercialAwardVisible ? numberValue(agreement.vat_amount) : null,
         agreedGross: commercialAwardVisible ? numberValue(agreement.agreed_gross_amount) : null,
         snapshotAvailable: commercialAwardVisible && Boolean(agreementResult.data && !agreementResult.error),
+        agreementStatus: commercialAwardVisible ? text(agreement.agreement_status) : null,
         targetCarrierCost: viewerWorkspace === 'broker' && viewerIsOwnerCompany ? details.targetCarrierCost : null,
         agreementId: commercialAwardVisible ? text(agreement.id) : null,
         contractVersion: commercialAwardVisible ? numberValue(agreement.contract_version) : null,

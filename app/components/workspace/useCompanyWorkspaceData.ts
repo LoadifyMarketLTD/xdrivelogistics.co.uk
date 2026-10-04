@@ -561,7 +561,7 @@ const buildWorkspaceError = (
 
 export function useCompanyWorkspaceData(): WorkspaceDataState {
   const pathname = usePathname() ?? '/';
-  const { user, refreshUserContext } = useAuth();
+  const { user } = useAuth();
   const userId = user?.id ?? null;
   const driverId = user?.driverId ?? null;
   const userCompanyId = user?.companyId ?? null;
@@ -639,29 +639,18 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
 
     if (userId) {
       const sessionResult = await supabase.auth.getSession();
-      let session = sessionResult.data.session;
-      const expiresSoon = Boolean(
-        session?.expires_at && (session.expires_at * 1000) <= Date.now() + 60_000,
-      );
+      const session = sessionResult.data.session;
 
-      if (sessionResult.error || !session || expiresSoon) {
-        const refreshed = await supabase.auth.refreshSession();
-        session = refreshed.data.session;
-
-        if (refreshed.error || !session) {
-          const authRefresh = await refreshUserContext();
-          if (!authRefresh.success) {
-            setDatasets(nextDatasets);
-            setQueryErrors([]);
-            setPartialData(false);
-            setError('');
-            setLoading(false);
-            return;
-          }
-        }
+      // Supabase already owns token rotation (autoRefreshToken=true). Avoid
+      // proactive rotation from every workspace query because multiple open
+      // workspace tabs can race the same refresh token and look like a logout.
+      if (sessionResult.error || !session) {
+        // Do not clear or re-resolve auth from a data hook. A short-lived storage/
+        // token race must not log the owner out or blank the current workspace.
+        setLoading(false);
+        return;
       }
     }
-
     if (!driverSurface && !companyId) {
       const message = 'This workspace requires an active company context, but no company could be resolved for the current user.';
       plan.datasets.forEach((key) => setDataset(key, [], [message]));
@@ -1003,13 +992,33 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setPartialData(Object.values(nextDatasets).some((dataset) => dataset.partialData));
     setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
     setLoading(false);
-  }, [companyId, plan, driverId, refreshUserContext, userId]);
+  }, [companyId, plan, driverId, userId]);
 
   useEffect(() => {
     setDatasets(createDatasetMap(plan.datasets));
   }, [plan.datasets]);
 
   useEffect(() => { void refresh(); }, [refresh]);
+
+  useEffect(() => {
+    if (plan.blocker) return;
+    let lastRefreshAt = 0;
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastRefreshAt < 2500) return;
+      lastRefreshAt = now;
+      void refresh();
+    };
+    const interval = window.setInterval(refreshIfVisible, 10000);
+    window.addEventListener('focus', refreshIfVisible);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshIfVisible);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [plan.blocker, refresh]);
 
   return {
     companyId,

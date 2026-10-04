@@ -34,6 +34,7 @@ import {
 import {
   classifyWorkspaceJobStage,
   fleetQueueStage,
+  workspaceJobOperationalLabel,
   workspaceJobPresentationStatus,
 } from '../../../lib/jobs/workspaceJobStage';
 import { toCanonicalInvoiceDisplayStatus } from '../../../lib/invoiceStatus';
@@ -361,7 +362,7 @@ export default function CarrierOperationsDashboardHome() {
                   when(job.pickup_datetime),
                   (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
                   assignedDriver,
-                  <StatusBadge key="status" value={workspaceJobPresentationStatus(job)} tone={jobStatus(job) === 'cancelled' ? 'grey' : isExceptionJob(job) ? 'red' : undefined} />,
+                  <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} tone={jobStatus(job) === 'cancelled' ? 'grey' : isExceptionJob(job) ? 'red' : undefined} />,
                   <button key="action" type="button" onClick={() => router.push(actionPath)} style={{ height: '28px', padding: '0 9px', border: `1px solid ${isUnallocatedJob(job) ? workspaceTheme.green : workspaceTheme.border}`, borderRadius: '4px', background: isUnallocatedJob(job) ? workspaceTheme.green : '#fff', color: isUnallocatedJob(job) ? '#fff' : workspaceTheme.blue, fontSize: '11px', fontWeight: 750, cursor: 'pointer' }}>{isUnallocatedJob(job) ? 'Allocate' : 'Open'}</button>,
                 ];
               })}
@@ -401,7 +402,7 @@ export default function CarrierOperationsDashboardHome() {
                     <span key="route"><strong style={{ display: 'block' }}>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>#{job.id.slice(0, 8).toUpperCase()}</span></span>,
                     when(job.pickup_datetime),
                     (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-                    <StatusBadge key="status" value={workspaceJobPresentationStatus(job)} />,
+                    <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
                     completed ? <StatusBadge key="evidence" value={evidenceReady ? 'POD / photos recorded' : 'Evidence attention'} tone={evidenceReady ? 'green' : 'orange'} /> : '—',
                     <ActionButton key="action" tone={needsAllocation ? 'success' : 'secondary'} onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}>{needsAllocation ? 'Allocate' : completed ? 'POD / booking' : 'Open booking'}</ActionButton>,
                   ];

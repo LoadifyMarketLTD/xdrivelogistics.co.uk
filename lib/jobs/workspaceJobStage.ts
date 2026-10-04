@@ -169,3 +169,31 @@ export function brokerDiaryStage(job: WorkspaceStageJob) {
   if (stage === 'awarded') return 'allocated' as const;
   return stage;
 }
+
+/** Business-facing lifecycle label shared by every dashboard/workspace. */
+export function workspaceJobOperationalLabel(job: WorkspaceStageJob) {
+  const status = workspaceJobPresentationStatus(job);
+  switch (status) {
+    case 'draft': return 'Draft';
+    case 'received': return 'Received';
+    case 'posted': return 'Open for Quotes';
+    case 'quoted': return 'Quotes Received';
+    case 'awarded': return 'Carrier Awarded';
+    case 'allocated': return 'Driver Assigned';
+    case 'accepted': return 'Driver Accepted';
+    case 'on_my_way': return 'On My Way to Collection';
+    case 'on_site_pickup': return 'On Site at Collection';
+    case 'loaded': return 'Loaded';
+    case 'in_transit': return 'On My Way to Delivery';
+    case 'on_site_delivery': return 'On Site at Delivery';
+    case 'delivered': return 'Delivered';
+    case 'completed': return 'Completed';
+    case 'invoiced': return 'Invoiced';
+    case 'paid': return 'Paid';
+    case 'cancelled': return 'Cancelled';
+    case 'driver_declined': return 'Driver Declined';
+    case 'expired': return 'Expired';
+    case 'disputed': return 'Disputed';
+    default: return String(status || 'Unknown').replaceAll('_', ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+}

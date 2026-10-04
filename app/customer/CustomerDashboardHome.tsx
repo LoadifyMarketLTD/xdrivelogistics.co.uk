@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { classifyWorkspaceJobStage, workspaceJobPresentationStatus } from '../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../lib/supabaseClient';
 import {
   isCustomerVisibleWorkspaceInvoice,
@@ -62,28 +62,7 @@ const metricState = <T,>(dataset: WorkspaceDatasetState<T>, value: number) => {
   return value;
 };
 
-const customerLifecycleLabel = (job: WorkspaceJob) => {
-  const status = workspaceJobPresentationStatus(job);
-  switch (status) {
-    case 'awarded': return 'Carrier awarded';
-    case 'allocated': return 'Driver assigned';
-    case 'accepted': return 'Driver accepted';
-    case 'on_my_way': return 'Driver en route to collection';
-    case 'on_site_pickup': return 'Driver at collection';
-    case 'loaded': return 'Goods collected';
-    case 'in_transit': return 'In transit';
-    case 'on_site_delivery': return 'Driver at delivery';
-    case 'delivered': return 'Delivered';
-    case 'completed': return 'Completed';
-    case 'invoiced': return 'Invoice available';
-    case 'paid': return 'Paid';
-    case 'posted': return 'Open for quotes';
-    case 'quoted': return 'Quotes received';
-    case 'draft': return 'Draft';
-    case 'cancelled': return 'Cancelled';
-    default: return status.replaceAll('_', ' ');
-  }
-};
+const customerLifecycleLabel = (job: WorkspaceJob) => workspaceJobOperationalLabel(job);
 
 const customerJobPriority = (job: WorkspaceJob, pendingOffer: BuyerBookingOffer | undefined) => {
   if (pendingOffer) return 0;
@@ -511,7 +490,7 @@ export default function CustomerDashboardHome() {
                       </div>
                       <div className="customer-activity-card__actions">
                         <ActionButton tone={pendingOffer ? 'secondary' : stage === 'in_progress' ? 'primary' : 'secondary'} onClick={() => openJob(job)}>{primaryLabel}</ActionButton>
-                        {(stage === 'in_progress' || stage === 'allocated' || stage === 'awarded') && !pendingOffer ? <ActionButton tone="secondary" onClick={() => router.push(`/customer/tracking?job=${job.id}`)}>Track</ActionButton> : null}
+                        {(stage === 'allocated' || stage === 'awarded') && !pendingOffer ? <ActionButton tone="secondary" onClick={() => router.push(`/customer/tracking?job=${job.id}`)}>Track</ActionButton> : null}
                         <ActionButton tone="secondary" onClick={() => router.push(`/customer/messages?jobId=${encodeURIComponent(job.id)}`)}>Message</ActionButton>
                       </div>
                     </article>

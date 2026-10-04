@@ -1,6 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { getWorkspaceDatasetMetricValue, useCompanyWorkspaceData, type WorkspaceDocument } from './useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -147,7 +148,7 @@ export default function ComplianceControlDashboardHome() {
                 columns={['Route', 'Status', 'Open']}
                 rows={incidents.slice(0, 5).map((job) => [
                   <strong key="route">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong>,
-                  <StatusBadge key="status" value={job.current_status ?? job.status} tone="red" />,
+                  <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} tone="red" />,
                   <ActionButton key="open" tone="secondary" onClick={() => router.push('/admin/incidents')}>Review</ActionButton>,
                 ])}
                 empty={<EmptyState compact title={incidentsUnavailable ? 'Incident feed unavailable' : 'No compliance incidents'} />}

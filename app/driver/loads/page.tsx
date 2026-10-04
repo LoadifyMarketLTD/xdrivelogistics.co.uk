@@ -214,6 +214,24 @@ export default function AvailableLoadsPage() {
 
   useEffect(() => { void fetchLoads(); }, [fetchLoads]);
   useEffect(() => {
+    let lastRefreshAt = 0;
+    const refreshIfVisible = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastRefreshAt < 2500) return;
+      lastRefreshAt = now;
+      void fetchLoads({ background: true });
+    };
+    const interval = window.setInterval(refreshIfVisible, 10000);
+    window.addEventListener('focus', refreshIfVisible);
+    document.addEventListener('visibilitychange', refreshIfVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshIfVisible);
+      document.removeEventListener('visibilitychange', refreshIfVisible);
+    };
+  }, [fetchLoads]);
+  useEffect(() => {
     try {
       const raw = window.localStorage.getItem(LOAD_FILTER_STORAGE_KEY); if (!raw) return;
       const saved = JSON.parse(raw) as Partial<SavedLoadFilters>;
@@ -356,7 +374,7 @@ export default function AvailableLoadsPage() {
                   const toCollection = load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} miles${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available';
                   const jobDistance = load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available';
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
-                  return <article key={load.id} className="load-card cx-load-card">
+                  return <article key={load.id} className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}>
                     <div className="load-primary">
                       <div className="load-route"><div className="load-route-line"><span>From:</span><b>{load.pickup_area}</b></div><div className="load-route-line"><span>To:</span><b>{load.delivery_area}</b></div><div className="load-quickfacts"><span>{jobDistance}</span><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Weight not supplied'}</span></div></div>
                       <div className="load-times"><div className="load-time-line"><span>Pickup:</span><b>{fmtDate(load.pickup_datetime)}</b></div><div className="load-time-line"><span>Deliver:</span><b>{fmtDate(load.delivery_datetime)}</b></div><div className="load-requested"><span>Requested:</span><b>{selectedVehicleLabel}</b></div></div>
@@ -369,7 +387,7 @@ export default function AvailableLoadsPage() {
                       {load.handling_requirements.length > 0 && <div className="load-extra-note"><b>Requirements</b><span>{load.handling_requirements.join(' · ')}</span></div>}
                       {bidLoadId === load.id && !quoted && <div className="driver-inline-quote"><div className="driver-filter-field"><label>Your quote (£)</label><input type="number" min="1" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} /></div><div className="driver-filter-field"><label>Message</label><textarea rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} /></div><ActionButton tone="success" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit(load.id)}>{bidLoading ? 'Submitting…' : 'Submit Quote'}</ActionButton><ActionButton tone="secondary" onClick={() => setBidLoadId(null)}>Cancel</ActionButton></div>}
                     </div>
-                    <div className="load-card-footer"><button type="button" className="load-expand" onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '⌃' : '⌄'}</button>{!quoted && <button type="button" className="load-quote-footer" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}<span className="load-footer-spacer" /><button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button><span className="load-footer-identity">{load.member.memberId ?? 'Member ID unavailable'} · {load.member.name}{load.member.phone ? ` · ${load.member.phone}` : ''}</span></div>
+                    <div className="load-card-footer"><button type="button" className="load-expand" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '⌃' : '⌄'}</button>{!quoted && <button type="button" className="load-quote-footer" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}<span className="load-footer-spacer" /><button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button><span className="load-footer-identity">{load.member.memberId ?? 'Member ID unavailable'} · {load.member.name}{load.member.phone ? ` · ${load.member.phone}` : ''}</span></div>
                   </article>;
                 })}
               </div>

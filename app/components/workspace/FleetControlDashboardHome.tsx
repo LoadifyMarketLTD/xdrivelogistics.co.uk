@@ -25,7 +25,7 @@ import { OperationalSignalStrip } from './OperationalConvergence';
 import { useOperationsIntelligence } from './useOperationsIntelligence';
 import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import { daysUntil, metricValue, unavailable } from './AdminDashboardShared';
-import { fleetQueueStage } from '../../../lib/jobs/workspaceJobStage';
+import { fleetQueueStage, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 
 type FleetFocus = 'all' | 'tracking' | 'compliance';
 type FleetUrgency = 'all' | 'critical' | 'high';
@@ -389,7 +389,7 @@ export default function FleetControlDashboardHome() {
               when(job.pickup_datetime),
               (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
               assignedDriver ? driverName(assignedDriver) : 'Unallocated',
-              <StatusBadge key="state" value={needsAllocation ? 'unallocated' : (job.current_status ?? job.status)} tone={needsAllocation ? 'orange' : undefined} />,
+              <StatusBadge key="state" value={needsAllocation ? 'Unallocated' : workspaceJobOperationalLabel(job)} tone={needsAllocation ? 'orange' : undefined} />,
               <ActionButton key="action" tone={needsAllocation ? 'success' : 'secondary'} onClick={() => router.push(needsAllocation ? '/admin/fleet/assignments?job=' + job.id : '/admin/jobs/' + job.id)}>{needsAllocation ? 'Allocate' : 'Open'}</ActionButton>,
             ];
           })}

@@ -13,6 +13,7 @@ import {
 } from '../../lib/brokerFinance';
 import {
   classifyWorkspaceJobStage,
+  workspaceJobOperationalLabel,
   workspaceJobPresentationStatus,
 } from '../../lib/jobs/workspaceJobStage';
 import {
@@ -42,28 +43,7 @@ const metricState = <T,>(dataset: WorkspaceDatasetState<T>, value: number | stri
   return value;
 };
 
-const brokerLifecycleLabel = (job: Parameters<typeof workspaceJobPresentationStatus>[0]) => {
-  const status = workspaceJobPresentationStatus(job);
-  switch (status) {
-    case 'awarded': return 'Carrier awarded';
-    case 'allocated': return 'Driver assigned';
-    case 'accepted': return 'Driver accepted';
-    case 'on_my_way': return 'Driver en route to collection';
-    case 'on_site_pickup': return 'Driver at collection';
-    case 'loaded': return 'Goods collected';
-    case 'in_transit': return 'In transit';
-    case 'on_site_delivery': return 'Driver at delivery';
-    case 'delivered': return 'Delivered';
-    case 'completed': return 'Completed';
-    case 'invoiced': return 'Invoice available';
-    case 'paid': return 'Paid';
-    case 'posted': return 'Open for quotes';
-    case 'quoted': return 'Quotes received';
-    case 'draft': return 'Draft';
-    case 'cancelled': return 'Cancelled';
-    default: return status.replaceAll('_', ' ');
-  }
-};
+const brokerLifecycleLabel = (job: Parameters<typeof workspaceJobPresentationStatus>[0]) => workspaceJobOperationalLabel(job);
 
 const brokerJobPriority = (job: Parameters<typeof workspaceJobPresentationStatus>[0]) => {
   const stage = classifyWorkspaceJobStage(job);

@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import {
   classifyWorkspaceJobStage,
   normalizedJobStatus,
-  workspaceJobPresentationStatus,
+  workspaceJobOperationalLabel,
 } from '../../../lib/jobs/workspaceJobStage';
 import { getWorkspaceDatasetMetricValue, useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import {
@@ -66,7 +66,7 @@ export default function ViewerDashboardHome() {
             <strong key="route">{job.pickup_location ?? 'Collection'} → {job.delivery_location ?? 'Delivery'}</strong>,
             when(job.pickup_datetime),
             when(job.delivery_datetime),
-            <StatusBadge key="status" value={workspaceJobPresentationStatus(job)} />,
+            <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
             <ActionButton key="open" tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open</ActionButton>,
           ])}
           empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Job data unavailable' : 'No jobs visible'} />}
