@@ -4,7 +4,7 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { BellRing, Briefcase, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, ReceiptText, RefreshCw, Trophy, Truck, Users } from 'lucide-react';
+import { BellRing, Briefcase, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, ReceiptText, RefreshCw, Trophy } from 'lucide-react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -216,16 +216,16 @@ function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['customer-loads-primary', 'View All Loads', '/customer/loads'],
     ['customer-quotes-primary', 'Quotes', '/customer/quotes'],
     ['customer-bookings-primary', 'Bookings', '/customer/bookings'],
+    ['customer-deliveries-primary', 'Deliveries', '/customer/deliveries'],
     ['customer-tracking-primary', 'Tracking', '/customer/tracking'],
+    ['customer-documents-primary', 'POD & Documents', '/customer/documents'],
     ['customer-diary-primary', 'Diary', '/customer/diary'],
     ['customer-invoices-primary', 'Invoices', '/customer/invoices'],
+    ['customer-network-primary', 'Directory', '/customer/network'],
+    ['customer-messages-primary', 'Messages', '/customer/messages'],
     ['customer-settings-primary', 'Settings', '/customer/settings'],
   ], 'customer-more', 'More', [
-    '/customer/deliveries',
-    '/customer/documents',
     '/customer/updates',
-    '/customer/network',
-    '/customer/messages',
     '/customer/disputes',
     '/customer/event-log',
   ]);
@@ -369,25 +369,16 @@ const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
 };
 
 const CUSTOMER_MORE_ICONS = {
-  '/customer/deliveries': Truck,
-  '/customer/documents': FileText,
   '/customer/updates': RefreshCw,
-  '/customer/network': Users,
-  '/customer/messages': MessageSquare,
   '/customer/disputes': CircleAlert,
   '/customer/event-log': ListChecks,
 } as const;
 
 const CUSTOMER_MORE_SECTIONS: Record<string, string> = {
-  '/customer/deliveries': 'Work',
-  '/customer/documents': 'Work',
-  '/customer/updates': 'Work',
-  '/customer/network': 'Collaboration',
-  '/customer/messages': 'Collaboration',
+  '/customer/updates': 'Updates',
   '/customer/disputes': 'Business',
   '/customer/event-log': 'Business',
 };
-
 function CustomerMoreIcon({ item }: { item: WorkspaceNavItem }) {
   const Icon = CUSTOMER_MORE_ICONS[item.href as keyof typeof CUSTOMER_MORE_ICONS];
   return Icon ? <Icon aria-hidden="true" size={14} strokeWidth={1.8} /> : null;

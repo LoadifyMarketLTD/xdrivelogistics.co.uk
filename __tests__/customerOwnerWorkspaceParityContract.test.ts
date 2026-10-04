@@ -19,9 +19,13 @@ describe('Customer and Owner Driver workspace structure parity', () => {
       "['customer-loads-primary', 'View All Loads', '/customer/loads']",
       "['customer-quotes-primary', 'Quotes', '/customer/quotes']",
       "['customer-bookings-primary', 'Bookings', '/customer/bookings']",
+      "['customer-deliveries-primary', 'Deliveries', '/customer/deliveries']",
       "['customer-tracking-primary', 'Tracking', '/customer/tracking']",
+      "['customer-documents-primary', 'POD & Documents', '/customer/documents']",
       "['customer-diary-primary', 'Diary', '/customer/diary']",
       "['customer-invoices-primary', 'Invoices', '/customer/invoices']",
+      "['customer-network-primary', 'Directory', '/customer/network']",
+      "['customer-messages-primary', 'Messages', '/customer/messages']",
       "['customer-settings-primary', 'Settings', '/customer/settings']",
     ]) expect(customer).toContain(primary);
 
@@ -40,12 +44,15 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     }
   });
 
-  it('uses grouped Work, Collaboration and Business sections with real icons for Customer More', () => {
-    expect(shell).toContain("'/customer/deliveries': 'Work'");
-    expect(shell).toContain("'/customer/documents': 'Work'");
-    expect(shell).toContain("'/customer/updates': 'Work'");
-    expect(shell).toContain("'/customer/network': 'Collaboration'");
-    expect(shell).toContain("'/customer/messages': 'Collaboration'");
+  it('promotes high-frequency Customer work into the navbar and keeps More genuinely secondary', () => {
+    const customer = shell.slice(shell.indexOf('function composeCustomerPrimaryNav'), shell.indexOf('function composeBrokerPrimaryNav'));
+    for (const href of ['/customer/deliveries', '/customer/documents', '/customer/network', '/customer/messages']) {
+      expect(customer.slice(0, customer.indexOf("], 'customer-more'") + 1)).toContain(`'${href}'`);
+    }
+    expect(customer).toContain("'/customer/updates'");
+    expect(customer).toContain("'/customer/disputes'");
+    expect(customer).toContain("'/customer/event-log'");
+    expect(shell).toContain("'/customer/updates': 'Updates'");
     expect(shell).toContain("'/customer/disputes': 'Business'");
     expect(shell).toContain("'/customer/event-log': 'Business'");
     expect(shell).toContain('<CustomerMoreIcon item={item} />');
