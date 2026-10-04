@@ -214,11 +214,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       syncRouteAuthCookie(session);
 
-      // Clear every previously resolved company/driver/capability fact before the
-      // authoritative re-resolution. The session remains valid while access facts
-      // are rebuilt from the newly persisted company context.
-      setUser(null);
-      userRef.current = null;
+      // Keep the last verified user while the authoritative context is rebuilt.
+      // A transient Supabase/DB failure must not turn a valid session into a fake logout.
       setHasSupabaseSession(true);
 
       const result = await withTimeout(
@@ -227,9 +224,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       );
 
       if (!result.user) {
-        setUser(null);
-        userRef.current = null;
         setHasSupabaseSession(true);
+        if (result.reason !== 'db_error') {
+          setUser(null);
+          userRef.current = null;
+        }
         return {
           success: false,
           error: authFailureReasonToMessage(
@@ -245,12 +244,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { success: true, user: result.user };
     } catch (error) {
       console.error('AuthContext forced refresh failed', error);
-      setUser(null);
-      userRef.current = null;
       if (isServiceUnavailableError(error)) {
         setHasSupabaseSession(true);
         return { success: false, error: LOGIN_UNAVAILABLE_ERROR };
       }
+      setUser(null);
+      userRef.current = null;
       resetAuthState();
       return { success: false, error: 'Unable to refresh account access.' };
     } finally {

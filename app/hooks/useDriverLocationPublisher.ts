@@ -57,7 +57,7 @@ export function useDriverLocationPublisher(
         ? Math.round(pos.coords.speed * 2.237 * 10) / 10
         : null;
 
-      await fetch('/api/driver/location', {
+      const response = await fetch('/api/driver/location', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -71,6 +71,11 @@ export function useDriverLocationPublisher(
           speed_mph: speedMph,
         }),
       });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({})) as { error?: string };
+        if (response.status === 401) await supabase.auth.refreshSession().catch(() => undefined);
+        throw new Error(payload.error || `Location publish failed (${response.status}).`);
+      }
     } catch {
       // Telemetry is best-effort; the next scheduled point retries naturally.
     }

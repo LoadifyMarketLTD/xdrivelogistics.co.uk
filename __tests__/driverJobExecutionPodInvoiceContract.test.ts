@@ -17,7 +17,7 @@ describe('Driver Job Execution mandatory POD to invoice contract', () => {
     expect(page).toContain('At least one delivery photo is required to complete POD.');
     expect(page).toContain('Recipient name is required to complete POD.');
     expect(page).toContain('Recipient signature is required to complete POD.');
-    expect(page).toContain('/api/driver/mobile/jobs/${encodeURIComponent(job.id)}/pod');
+    expect(page).toContain('/api/driver/web/jobs/${encodeURIComponent(job.id)}/pod');
     expect(helper).toContain('evidenceCount > 0');
     expect(helper).toContain('hasStoredSignature(record.delivery_signature_data)');
     expect(helper).toContain('recipientName.length > 0');

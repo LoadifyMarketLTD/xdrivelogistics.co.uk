@@ -236,7 +236,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     if (!auth) throw new Error('Your XDrive session is not available. Please sign in again.');
     const extension = file.type === 'image/png' ? 'png' : 'jpg';
     const objectName = `collection-${Date.now()}-${crypto.randomUUID()}.${extension}`;
-    const response = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(jobId)}/evidence`, {
+    const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence`, {
       method: 'POST',
       headers: {
         Authorization: auth,
@@ -364,7 +364,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
     try {
       const auth = await authHeader();
       if (!auth) throw new Error('Your XDrive session is not available. Please sign in again.');
-      const response = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(job.id)}/pod`, {
+      const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(job.id)}/pod`, {
         method: 'POST',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -430,7 +430,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       if (!collectionPhotos.length) { setError('At least one collection photo is required before the job can be marked loaded.'); setWorking(false); return; }
       const auth = await authHeader();
       if (!auth) { setError('Your XDrive session is not available. Please sign in again.'); setWorking(false); return; }
-      const handoverResponse = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(job.id)}/handover`, {
+      const handoverResponse = await fetch(`/api/driver/web/jobs/${encodeURIComponent(job.id)}/handover`, {
         method: 'POST',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
         body: JSON.stringify({ photoPaths: collectionPhotos, notes: notes.trim() || undefined }),
@@ -438,7 +438,7 @@ export default function DriverJobExecutionPage({ jobId }: { jobId: string }) {
       const handoverPayload = await handoverResponse.json().catch(() => ({})) as { error?: string };
       if (!handoverResponse.ok) { setError(handoverPayload.error || 'Collection handover could not be saved.'); setWorking(false); return; }
 
-      const loadedResponse = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(job.id)}/loaded`, {
+      const loadedResponse = await fetch(`/api/driver/web/jobs/${encodeURIComponent(job.id)}/loaded`, {
         method: 'POST',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
         body: JSON.stringify({ driverNotes: notes.trim() || null }),

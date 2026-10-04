@@ -49,16 +49,16 @@ describe('multi-photo collection evidence', () => {
   });
 
   it('web driver uploads collection evidence through the server-authoritative endpoint', () => {
-    expect(driverPage).toContain('/api/driver/mobile/jobs/${encodeURIComponent(jobId)}/evidence');
+    expect(driverPage).toContain('/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence');
     expect(driverPage).toContain("'x-xdrive-evidence-kind': 'collection'");
     expect(driverPage).toContain("'x-xdrive-evidence-category': 'photos'");
     expect(driverPage).not.toContain("setCollectionPhoto(await uploadImage(file, 'collection'))");
   });
 
   it('web loaded transition persists handover then uses the guarded loaded endpoint', () => {
-    expect(driverPage).toContain('/api/driver/mobile/jobs/${encodeURIComponent(job.id)}/handover');
+    expect(driverPage).toContain('/api/driver/web/jobs/${encodeURIComponent(job.id)}/handover');
     expect(driverPage).toContain('JSON.stringify({ photoPaths: collectionPhotos');
-    expect(driverPage).toContain('/api/driver/mobile/jobs/${encodeURIComponent(job.id)}/loaded');
+    expect(driverPage).toContain('/api/driver/web/jobs/${encodeURIComponent(job.id)}/loaded');
     expect(driverPage).not.toContain('fields.p_collection_photo_url = collectionPhoto');
   });
 

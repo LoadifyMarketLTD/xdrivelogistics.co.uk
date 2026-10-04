@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
-import { requireActiveNativeAuthSession } from '../mobile/_deviceSessionGate';
 import { getOrRefreshTrafficEta } from '../../../../lib/tracking/trafficEta';
 
 type LocationPayload = { job_id?: string; lat?: number; lng?: number; heading?: number | null; speed_mph?: number | null };
@@ -93,9 +92,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Active Driver location access is not available.' }, { status: 403 });
   }
 
-  const deviceGate = await requireActiveNativeAuthSession(request, authData.user.id, String(driverRow.id));
-  if (deviceGate) return deviceGate;
-
   let body: LocationPayload;
   try { body = (await request.json()) as LocationPayload; } catch { return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 }); }
   const requestedJobId = typeof body.job_id === 'string' && body.job_id.trim() ? body.job_id.trim() : null;
@@ -133,7 +129,7 @@ export async function POST(request: NextRequest) {
   const speedMph = typeof body.speed_mph === 'number' && Number.isFinite(body.speed_mph) && body.speed_mph >= 0 ? body.speed_mph : null;
   const { error: insertError } = await supabaseAdmin.from('driver_locations').insert({
     driver_id: driverRow.id, company_id: driverRow.company_id ?? null, job_id: jobRow.id, lat, lng, heading, speed_mph: speedMph,
-    recorded_at: new Date().toISOString(),
+    source: 'driver_web', source_provider: 'browser_geolocation', recorded_at: new Date().toISOString(),
   });
   if (insertError) return NextResponse.json({ error: insertError.message }, { status: 500 });
   await maybeCreateEtaAlerts(jobRow, lat, lng).catch(() => undefined);
