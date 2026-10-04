@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
-import { classifyWorkspaceJobStage, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
@@ -773,7 +773,7 @@ export default function OperationsDiaryPage() {
                             <span style={{ display: 'block', color: '#64748b', fontSize: 11, marginTop: 2 }}>#{job.id.slice(0, 8).toUpperCase()} · {when(job.pickup_datetime)}</span>
                             <span style={{ display: 'block', color: '#64748b', fontSize: 11, marginTop: 2 }}>{driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated')} · {(job.vehicle_type ?? 'Vehicle not supplied').replace(/_/g, ' ')}</span>
                           </span>
-                          <StatusBadge value={status || stage} tone={stageTone(job)} />
+                          <StatusBadge value={workspaceJobOperationalLabel(job)} tone={stageTone(job)} />
                         </div>
                       </button>
                       {!job.assigned_driver_id && (stage === 'awarded' || stage === 'allocated') && (
@@ -833,7 +833,7 @@ export default function OperationsDiaryPage() {
                         <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>{[distance, dimensions].filter(Boolean).join(' · ') || 'Distance / dimensions not supplied'}</div>
                       </section>
                       <section style={{ flex: '.9 1 220px', minWidth: 0, padding: '9px 10px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}><StatusBadge value={status || stage} tone={stageTone(job)} /><strong style={{ fontSize: 11 }}>{requestedVehicle}</strong></div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}><StatusBadge value={workspaceJobOperationalLabel(job)} tone={stageTone(job)} /><strong style={{ fontSize: 11 }}>{requestedVehicle}</strong></div>
                         <div style={{ marginTop: 5, fontSize: 11 }}><strong>{driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated')}</strong>{detail?.vehicleRegistration ? <span style={{ color: '#64748b' }}> · {detail.vehicleRegistration}</span> : null}</div>
                         <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>Load #{job.id.slice(0, 8).toUpperCase()} · {job.client_name ?? 'Customer not supplied'}</div>
                         {detail?.ownerCompanyName && <div style={{ color: '#475569', fontSize: 11, lineHeight: '14px', marginTop: 3 }}>Posted by <strong>{detail.ownerCompanyName}</strong>{bookedTo ? <> · Booked to <strong>{bookedTo}</strong></> : null}{counterpartyPhone ? <> · <a href={`tel:${counterpartyPhone.replace(/\s+/g, '')}`} style={{ color: '#1d57d8', fontWeight: 800, textDecoration: 'none' }}>{counterpartyPhone}</a></> : null}</div>}

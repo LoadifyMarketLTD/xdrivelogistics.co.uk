@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
 import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../lib/legal/paymentObligationClient';
-import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobPresentationStatus } from '../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../lib/jobs/workspaceJobStage';
 import { CompanyJobSheetPanel } from '../components/workspace/CompanyJobSheetPanel';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../components/workspace/useCompanyWorkspaceData';
 import { MemberIdentityLink } from '../components/workspace/MemberProfile';
@@ -86,18 +86,19 @@ function CustomerOperationalRow({
   sheet?: boolean;
 }) {
   const router = useRouter();
-  const presentationStatus = workspaceJobPresentationStatus(job);
+  const presentationState = workspaceJobPresentationStatus(job);
+  const presentationStatus = workspaceJobOperationalLabel(job);
   const openDetails = () => {
     if (sheet) onToggle();
     else router.push(`/customer/jobs/${job.id}`);
   };
   return (
-    <article className="workspace-operational-row" data-state={presentationStatus}>
+    <article className="workspace-operational-row" data-state={presentationState}>
       <div className="workspace-operational-row__top">
         <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
         <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
         <div className="workspace-operational-cell"><div style={labelStyle}>{middleLabel}</div><strong>{middleValue}</strong>{middleMeta ? <div style={{ ...metaStyle, marginTop: 2 }}>{middleMeta}</div> : null}</div>
-        <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={presentationStatus} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={openDetails}>{sheet && open ? 'Collapse' : 'Details'}</ActionButton>{actionLabel && actionHref ? <ActionButton tone="secondary" onClick={() => router.push(actionHref)}>{actionLabel}</ActionButton> : null}</div></div>
+        <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={presentationStatus} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={openDetails}>{sheet && open ? 'Collapse' : sheet ? 'Expand' : 'Details'}</ActionButton>{actionLabel && actionHref ? <ActionButton tone="secondary" onClick={() => router.push(actionHref)}>{actionLabel}</ActionButton> : null}</div></div>
       </div>
       <div className="workspace-record-meta"><span>XDrive XDL-{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Customer booking ref {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Vehicle {(job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')}</span></div>
       {open && sheet ? <CompanyJobSheetPanel jobId={job.id} mode="customer" /> : null}
@@ -382,7 +383,14 @@ export function CustomerDeliveriesOperationalPage() {
               ? 'Live ETA unavailable until an approved tracking snapshot is available'
               : `Delivery ${when(job.delivery_datetime)}`;
           const evidenceText = hasDeliveryPhotos ? 'Delivery photo available' : 'Full POD state in booking';
-          return <CustomerOperationalRow key={job.id} job={job} middleLabel="TRACKING / ETA" middleValue={delayed ? <StatusBadge value="Delayed" tone="red" /> : <StatusBadge value={workspaceJobPresentationStatus(job)} />} middleMeta={`${etaText} · ${evidenceText}`} open={open} onToggle={() => setExpanded(open ? null : job.id)} actionLabel="Open booking" actionHref={`/customer/jobs/${job.id}`} sheet />;
+          const trackingState = delayed
+            ? <StatusBadge value="Delayed" tone="red" />
+            : eta?.eta_at
+              ? <StatusBadge value="Live ETA" tone="green" />
+              : snapshot?.tracking_active
+                ? <StatusBadge value="Tracking active" tone="blue" />
+                : <StatusBadge value="Awaiting live position" tone="orange" />;
+          return <CustomerOperationalRow key={job.id} job={job} middleLabel="TRACKING / ETA" middleValue={trackingState} middleMeta={`${etaText} · ${evidenceText}`} open={open} onToggle={() => setExpanded(open ? null : job.id)} actionLabel="Open full booking" actionHref={`/customer/jobs/${job.id}`} sheet />;
         })}</div>}</main>
       </div>
     </PageFrame>

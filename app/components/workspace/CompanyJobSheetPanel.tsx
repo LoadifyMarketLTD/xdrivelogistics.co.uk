@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
-import { workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
+import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from './MemberProfile';
 import WorkspaceJobReplay from './WorkspaceJobReplay';
@@ -64,7 +64,7 @@ type JobSheet = {
   commercial: {
     customerPrice: number | null; carrierCost: number | null; margin: number | null; currency: string; paymentTerms: string | null;
     paymentDueDays: number | null; vatRate: number | null; vatAmount: number | null; agreedGross: number | null;
-    snapshotAvailable: boolean; targetCarrierCost: number | null; agreementId: string | null; contractVersion: number | null; contractSnapshotHash: string | null;
+    snapshotAvailable: boolean; agreementStatus: string | null; targetCarrierCost: number | null; agreementId: string | null; contractVersion: number | null; contractSnapshotHash: string | null;
   };
   evidence: { collectionPhotoCount: number; deliveryPhotoCount: number; podPhotoCount: number; collectionHandoverRecorded: boolean; deliverySignatureRecorded: boolean; recipientName: string | null };
   pod: { required: boolean; hardCopy: string | null; generated: boolean | null; generatedAt: string | null; photoCount: number; reviewStatus: string | null; reviewNote: string | null };
@@ -214,12 +214,20 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
       ? { label: 'Delivery evidence', tone: 'blue' as const, detail: `${sheet.pod.photoCount} photo/evidence file(s); generated POD not confirmed` }
       : { label: 'Pending', tone: 'orange' as const, detail: 'POD is mandatory and no generated POD or delivery evidence is recorded.' };
   const carrierMode = mode === 'carrier';
-  const presentationStatus = workspaceJobPresentationStatus({
+  const presentationJob = {
     status: sheet.status,
     awarded_carrier_company_id: sheet.carrier?.companyId ?? null,
     assigned_driver_id: sheet.driver?.id ?? null,
     vehicle_id: sheet.vehicle?.id ?? null,
-  });
+  };
+  const presentationStatus = workspaceJobOperationalLabel(presentationJob);
+  const agreementStatus = sheet.commercial.agreementStatus
+    ? human(sheet.commercial.agreementStatus).replace(/\b\w/g, (character) => character.toUpperCase())
+    : sheet.acceptedAt ? 'Accepted' : 'Not accepted';
+  const agreementReference = sheet.commercial.agreementId
+    ? `AGR-${sheet.commercial.agreementId.slice(0, 8).toUpperCase()}`
+    : 'Not available';
+  const customerAgreedPrice = sheet.commercial.agreedGross ?? sheet.commercial.carrierCost;
   const allocatedVehicleLabel = sheet.vehicle
     ? [sheet.vehicle.registration, sheet.vehicle.make, sheet.vehicle.model].filter(Boolean).join(' · ') || human(sheet.vehicle.type)
     : 'Not assigned';
@@ -273,16 +281,18 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
         <div style={{ display: 'grid', gap: 8 }}>
           <div className="workspace-detail-grid">
             <Detail label="XDrive reference" value={sheet.references.xdrive} detail={sheet.references.booking ? `Customer booking ref ${sheet.references.booking}` : undefined} />
-            <Detail label="Contract status" value={<StatusBadge value={presentationStatus} />} detail={sheet.acceptedAt ? `Accepted ${when(sheet.acceptedAt)}` : 'Booking acceptance not recorded'} />
+            <Detail label="Transport status" value={<StatusBadge value={presentationStatus} />} detail={sheet.updatedAt ? `Last updated ${when(sheet.updatedAt)}` : undefined} />
             <Detail label="Transport buyer / posting company" value={<MemberIdentityLink companyId={sheet.ownerCompany.companyId}>{sheet.ownerCompany.name}</MemberIdentityLink>} detail={companyDetail(sheet.ownerCompany.memberId, sheet.ownerCompany.phone)} />
             <Detail label="Performing carrier" value={sheet.carrier ? <MemberIdentityLink companyId={sheet.carrier.companyId}>{sheet.carrier.name}</MemberIdentityLink> : 'Not awarded'} detail={sheet.carrier ? companyDetail(sheet.carrier.memberId, sheet.carrier.phone) : undefined} />
-            <Detail label="Agreement ID" value={sheet.commercial.agreementId ?? 'Not available'} />
-            <Detail label="Contract version" value={sheet.commercial.contractVersion != null ? `v${sheet.commercial.contractVersion}` : 'Not available'} detail={sheet.commercial.contractSnapshotHash ? `Snapshot ${sheet.commercial.contractSnapshotHash.slice(0, 16)}…` : undefined} />
-            {!carrierMode && <Detail label="Customer price" value={money(sheet.commercial.customerPrice, sheet.commercial.currency)} />}
-            <Detail label={carrierMode ? 'Agreed carrier rate' : 'Carrier cost'} value={money(sheet.commercial.carrierCost, sheet.commercial.currency)} detail={sheet.commercial.snapshotAvailable ? 'Immutable commercial agreement recorded' : 'Historical agreement snapshot unavailable'} />
-            <Detail label="Agreed gross" value={money(sheet.commercial.agreedGross, sheet.commercial.currency)} detail={sheet.commercial.vatRate != null ? `VAT ${sheet.commercial.vatRate}% · ${money(sheet.commercial.vatAmount, sheet.commercial.currency)}` : undefined} />
+            <Detail label="Agreement status" value={<StatusBadge value={agreementStatus} />} detail={sheet.acceptedAt ? `Accepted ${when(sheet.acceptedAt)}` : 'Booking acceptance not recorded'} />
+            <Detail label="Agreement reference" value={agreementReference} />
+            <Detail label="Contract version" value={sheet.commercial.contractVersion != null ? `v${sheet.commercial.contractVersion}` : 'Not available'} detail={sheet.commercial.snapshotAvailable ? 'Immutable agreement snapshot recorded' : undefined} />
+            {mode === 'customer' && <Detail label="Agreed transport price" value={money(customerAgreedPrice, sheet.commercial.currency)} detail={sheet.commercial.vatRate != null ? `VAT ${sheet.commercial.vatRate}% · ${money(sheet.commercial.vatAmount, sheet.commercial.currency)}` : undefined} />}
+            {mode === 'broker' && sheet.commercial.customerPrice != null && <Detail label="Customer price" value={money(sheet.commercial.customerPrice, sheet.commercial.currency)} />}
+            {mode !== 'customer' && <Detail label={carrierMode ? 'Agreed carrier rate' : 'Carrier cost'} value={money(sheet.commercial.carrierCost, sheet.commercial.currency)} detail={sheet.commercial.snapshotAvailable ? 'Immutable commercial agreement recorded' : 'Historical agreement snapshot unavailable'} />}
+            {mode !== 'customer' && sheet.commercial.agreedGross != null && sheet.commercial.agreedGross !== sheet.commercial.carrierCost && <Detail label="Agreed gross" value={money(sheet.commercial.agreedGross, sheet.commercial.currency)} detail={sheet.commercial.vatRate != null ? `VAT ${sheet.commercial.vatRate}% · ${money(sheet.commercial.vatAmount, sheet.commercial.currency)}` : undefined} />}
             {mode === 'broker' && <Detail label="Margin" value={money(sheet.commercial.margin, sheet.commercial.currency)} detail={sheet.commercial.targetCarrierCost != null ? `Target carrier cost ${money(sheet.commercial.targetCarrierCost, sheet.commercial.currency)}` : undefined} />}
-            <Detail label="Payment terms" value={sheet.commercial.paymentTerms ?? 'Historical terms unavailable'} detail={sheet.commercial.paymentDueDays != null ? `${sheet.commercial.paymentDueDays} day(s)` : undefined} />
+            <Detail label="Payment terms" value={sheet.commercial.paymentTerms ?? 'Historical terms unavailable'} detail={sheet.commercial.paymentDueDays != null && sheet.commercial.paymentDueDays > 0 ? `${sheet.commercial.paymentDueDays} day(s)` : undefined} />
             <Detail label="Customer reference" value={sheet.references.customer ?? 'Not supplied'} />
             <Detail label="Purchase order" value={sheet.references.purchaseOrder ?? 'Not supplied'} />
           </div>

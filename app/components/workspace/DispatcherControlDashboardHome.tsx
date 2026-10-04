@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import {
   classifyWorkspaceJobStage,
   normalizedJobStatus,
-  workspaceJobPresentationStatus,
+  workspaceJobOperationalLabel,
 } from '../../../lib/jobs/workspaceJobStage';
 import {
   getWorkspaceDatasetMetricValue,
@@ -142,7 +142,7 @@ export default function DispatcherControlDashboardHome() {
                 columns={['Route', 'Pickup', 'Driver', 'Priority', 'Status', 'Action']}
                 rows={priorityJobs.slice(0, 10).map((job) => {
                   const driver = data.drivers.find((item) => item.id === job.assigned_driver_id);
-                  const status = workspaceJobPresentationStatus(job);
+                  const status = workspaceJobOperationalLabel(job);
                   const needsAllocation = unallocated.some((item) => item.id === job.id);
                   const priority = exceptionStatuses.has(normalizedJobStatus(job))
                     ? 'Exception'
@@ -195,7 +195,7 @@ export default function DispatcherControlDashboardHome() {
                   priority={<StatusBadge value="Exception" tone="red" />}
                   entity={`${job.pickup_location ?? 'Collection'} → ${job.delivery_location ?? 'Delivery'}`}
                   detail={when(job.pickup_datetime)}
-                  state={<StatusBadge value={workspaceJobPresentationStatus(job)} tone="red" />}
+                  state={<StatusBadge value={workspaceJobOperationalLabel(job)} tone="red" />}
                   tone="red"
                   action={<ActionButton tone="danger" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Resolve</ActionButton>}
                 />
