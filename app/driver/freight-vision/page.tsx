@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase } from '../../../lib/supabaseClient';
 import { StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import DriverFreightVisionMap, { type DriverFreightVisionPoint } from '../_components/DriverFreightVisionMap';
 
 type JobRow = {
@@ -35,10 +36,6 @@ type TrackingSnapshot = {
   } | null;
 };
 
-const human = (value: string | null | undefined) => (value ?? 'Unknown')
-  .replace(/_/g, ' ')
-  .replace(/\b\w/g, (character) => character.toUpperCase());
-
 const route = (place: string | null, postcode: string | null) =>
   [place, postcode].filter(Boolean).join(' ') || 'Not supplied';
 
@@ -58,6 +55,7 @@ export default function DriverFreightVisionPage() {
   const [view, setView] = useState<'split' | 'list' | 'map'>('split');
   const [scope, setScope] = useState<'all' | 'tracked'>('all');
   const [search, setSearch] = useState('');
+  const [riskFilter, setRiskFilter] = useState<'all' | 'on_time' | 'at_risk' | 'late' | 'untracked'>('all');
 
   const load = useCallback(async () => {
     if (!driverId) {
@@ -126,7 +124,7 @@ export default function DriverFreightVisionPage() {
 
   const liveJobs = useMemo(() => jobs.filter(activeJob), [jobs]);
 
-  const visible = useMemo(() => {
+  const baseVisible = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return liveJobs.filter((job) => {
       const snapshot = trackingByJob[job.id];
@@ -136,6 +134,13 @@ export default function DriverFreightVisionPage() {
         .filter(Boolean).join(' ').toLowerCase().includes(needle);
     });
   }, [liveJobs, scope, search, trackingByJob]);
+
+  const visible = useMemo(() => baseVisible.filter((job) => {
+    const snapshot = trackingByJob[job.id];
+    if (riskFilter === 'all') return true;
+    if (riskFilter === 'untracked') return !snapshot?.location;
+    return snapshot?.eta_risk?.level === riskFilter;
+  }), [baseVisible, riskFilter, trackingByJob]);
 
   const mapPoints = useMemo<DriverFreightVisionPoint[]>(() => visible.flatMap((job) => {
     const snapshot = trackingByJob[job.id];
@@ -153,8 +158,8 @@ export default function DriverFreightVisionPage() {
   }), [trackingByJob, visible]);
 
   const countRisk = (level: 'on_time' | 'at_risk' | 'late') =>
-    visible.filter((job) => trackingByJob[job.id]?.eta_risk?.level === level).length;
-  const notTracked = visible.filter((job) => !trackingByJob[job.id]?.location).length;
+    baseVisible.filter((job) => trackingByJob[job.id]?.eta_risk?.level === level).length;
+  const notTracked = baseVisible.filter((job) => !trackingByJob[job.id]?.location).length;
 
   const openMap = () => {
     const first = mapPoints[0];
@@ -177,7 +182,7 @@ export default function DriverFreightVisionPage() {
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Panel</div>
-            <div className="filter"><span className="label">Booking Scope</span><div className="vision-scope"><button type="button" className="active">My Driver Jobs</button></div></div>
+            <div className="filter"><span className="label">Booking Scope</span><div className="vision-scope"><button type="button" className="active" onClick={() => { setScope('all'); setSearch(''); setRiskFilter('all'); }}>My Driver Jobs</button></div></div>
             <div className="filter"><span className="label">Load ID / Ref</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Load ID / ref" /></div>
             <div className="filter"><span className="label">Live state</span><label className="check"><input type="checkbox" checked={scope === 'tracked'} onChange={(event) => setScope(event.target.checked ? 'tracked' : 'all')} />Live tracked only</label></div>
           </aside>
@@ -190,17 +195,17 @@ export default function DriverFreightVisionPage() {
                 <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button>
                 <button type="button" className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>Map View</button>
               </div>
-              <div className="vision-live-tabs"><button type="button" className="active">All In Progress</button></div>
+              <div className="vision-live-tabs"><button type="button" className={riskFilter === 'all' ? 'active' : ''} onClick={() => setRiskFilter('all')}>All In Progress</button></div>
               <button type="button" className="text-action spacer" onClick={openMap}>Open Freight Vision in new window</button>
               <span className="vision-auto-refresh">Auto refresh 60s</span>
               <button type="button" className="btn" onClick={() => void load()} disabled={loading}>Refresh</button>
             </div>
             <div className="vision-kpis">
-              <button type="button" className="active"><span>Total</span><b>{visible.length}</b></button>
-              <button type="button"><span>On Time</span><b>{countRisk('on_time')}</b></button>
-              <button type="button"><span>Behind ETA</span><b>{countRisk('at_risk')}</b></button>
-              <button type="button"><span>Late</span><b>{countRisk('late')}</b></button>
-              <button type="button"><span>Not Tracked / Not Started</span><b>{notTracked}</b></button>
+              <button type="button" className={riskFilter === 'all' ? 'active' : ''} onClick={() => setRiskFilter('all')}><span>Total</span><b>{baseVisible.length}</b></button>
+              <button type="button" className={riskFilter === 'on_time' ? 'active' : ''} onClick={() => setRiskFilter('on_time')}><span>On Time</span><b>{countRisk('on_time')}</b></button>
+              <button type="button" className={riskFilter === 'at_risk' ? 'active' : ''} onClick={() => setRiskFilter('at_risk')}><span>Behind ETA</span><b>{countRisk('at_risk')}</b></button>
+              <button type="button" className={riskFilter === 'late' ? 'active' : ''} onClick={() => setRiskFilter('late')}><span>Late</span><b>{countRisk('late')}</b></button>
+              <button type="button" className={riskFilter === 'untracked' ? 'active' : ''} onClick={() => setRiskFilter('untracked')}><span>Not Tracked / Not Started</span><b>{notTracked}</b></button>
             </div>
             <div className={'split vision-split ' + (view === 'list' ? 'vision-list-only' : view === 'map' ? 'vision-map-only' : '')}>
               <div className="splitlist">
@@ -212,7 +217,7 @@ export default function DriverFreightVisionPage() {
                       <span className="meta">{route(job.pickup_location, job.pickup_postcode)} → {route(job.delivery_location, job.delivery_postcode)}</span>
                       <span className="meta">ETA {job.delivery_datetime ? new Date(job.delivery_datetime).toLocaleString('en-GB') : 'Not supplied'}</span>
                     </div>
-                    <StatusBadge value={human(job.current_status ?? job.status)} />
+                    <StatusBadge value={workspaceJobOperationalLabel(job)} />
                   </button>
                 ))}
                 {!loading && visible.length === 0 && <div className="xd2-calm-empty"><b>No visible Driver jobs</b><span>{scope === 'tracked' ? 'No approved live tracking positions are available.' : 'Allocated or executing work will appear here.'}</span></div>}

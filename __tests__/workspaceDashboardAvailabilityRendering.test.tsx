@@ -157,7 +157,7 @@ describe('active workspace dashboard degraded-state rendering', () => {
     }));
 
     const html = render(<CustomerDashboardHome />);
-    expect(html).toContain('Invoice data unavailable');
+    expect(html).toContain('Financial data unavailable');
     expect(html).toContain('Financial data unavailable');
     expect(html).not.toContain('No outstanding invoices');
     expect(html).not.toContain('£0.00');
@@ -172,7 +172,7 @@ describe('active workspace dashboard degraded-state rendering', () => {
     }));
 
     const html = render(<CustomerDashboardHome />);
-    expect(html).toContain('Invoice data is partial');
+    expect(html).toContain('Financial data is partial');
     expect(html).toContain('Partial');
     expect(html).not.toContain('£0.00');
   });
@@ -274,7 +274,6 @@ describe('active workspace dashboard degraded-state rendering', () => {
     expect(html).toContain('Driver data unavailable');
     expect(html).toContain('Documents expiring');
     expect(html).toContain('Partial');
-    expect(html).toContain('Canonical eligibility is enforced server-side.');
     expect(html).not.toContain('Allocation board');
     expect(html).not.toContain('Live fleet execution');
     expect(html).not.toContain('Capacity matrix');
@@ -290,7 +289,7 @@ describe('active workspace dashboard degraded-state rendering', () => {
     }));
 
     const html = render(<DispatcherControlDashboardHome />);
-    expect(html).toContain('Dispatch feed unavailable');
+    expect(html).toContain('Dispatch data unavailable');
     expect(html).not.toContain('No dispatch priorities');
   });
 

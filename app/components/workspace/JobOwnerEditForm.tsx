@@ -140,6 +140,9 @@ function StopFields({
 
 export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: string; mode?: 'customer' | 'broker' }) {
   const router = useRouter();
+  const jobDetailsHref = (updated = false) => mode === 'broker'
+    ? `/broker/jobs?job=${encodeURIComponent(jobId)}${updated ? '&updated=1' : ''}`
+    : `/customer/jobs/${encodeURIComponent(jobId)}${updated ? '?updated=1' : ''}`;
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
@@ -222,7 +225,7 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'The load could not be updated.');
-      router.push(`/${mode}/jobs/${jobId}?updated=1`);
+      router.push(jobDetailsHref(true));
       router.refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'The load could not be updated.');
@@ -294,7 +297,7 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
     </Panel>
 
     <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-      <ActionButton tone="secondary" disabled={saving} onClick={() => router.push(`/${mode}/jobs/${jobId}`)}>Cancel</ActionButton>
+      <ActionButton tone="secondary" disabled={saving} onClick={() => router.push(jobDetailsHref())}>Cancel</ActionButton>
       <ActionButton tone="primary" disabled={saving} onClick={() => void save(snapshot.publish)}>{saving ? 'Saving…' : 'Save changes'}</ActionButton>
       {!snapshot.publish ? <ActionButton tone="warning" disabled={saving} onClick={() => void save(true)}>{saving ? 'Publishing…' : 'Save & Publish'}</ActionButton> : null}
     </div>

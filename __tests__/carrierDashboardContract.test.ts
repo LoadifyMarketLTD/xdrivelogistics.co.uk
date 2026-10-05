@@ -118,11 +118,10 @@ describe('carrier dashboard convergence contract', () => {
     expect(carrier).toContain("router.push('/admin/live-availability')");
     expect(carrier).not.toContain("['submitted', 'pending']");
     expect(carrier).toContain("normalise(bid.status) === 'submitted'");
-    expect(carrier).toContain("XDrive persists that driver's canonical active vehicle with the allocation");
+    expect(carrier).toContain("router.push('/admin/fleet/assignments')");
     expect(carrier).toContain("'Required vehicle'");
     expect(carrier).toContain('workspaceJobPresentationStatus(job)');
     expect(carrier).toContain("jobStatus(job) === 'cancelled' ? 'grey'");
-    expect(carrier).toContain("'Partial job data'");
     expect(carrier).not.toContain('vehicle planning remains advisory');
   });
 

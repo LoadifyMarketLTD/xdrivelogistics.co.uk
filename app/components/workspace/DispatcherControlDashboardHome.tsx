@@ -162,13 +162,13 @@ export default function DispatcherControlDashboardHome() {
                     </ActionButton>,
                   ];
                 })}
-                empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Dispatch feed unavailable' : 'No dispatch priorities'} />}
+                empty={<EmptyState compact title={unavailable(data, ['jobs']) ? 'Dispatch data unavailable' : 'No dispatch priorities'} />}
               />
             </OperationalCard>
 
             <OperationalCard
               title="Resource availability"
-              subtitle="Active-account availability flags and tracking freshness; canonical operational eligibility is enforced when allocating."
+              subtitle="Driver availability and tracking freshness for allocation and live dispatch decisions."
             >
               <OperationalLinkList
                 showTrailingArrow={false}

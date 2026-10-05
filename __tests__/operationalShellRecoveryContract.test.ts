@@ -33,7 +33,7 @@ describe('operational shell and onboarding recovery contract', () => {
 
   it('does not duplicate Customer primary navigation as dashboard quick links', () => {
     expect(customer).not.toContain('customer-dashboard-footer-links');
-    expect(customer).not.toContain('actions={');
+    expect(customer).not.toContain("router.push('/customer/post-load')");
   });
 
   it('routes editable pending onboarding sessions back to recovery', () => {

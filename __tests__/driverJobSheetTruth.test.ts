@@ -22,8 +22,9 @@ describe('Driver assigned job sheet truth', () => {
   });
 
   it('does not use service-role enrichment to grant company invoice visibility to a driver', () => {
-    expect(route).toContain('Driver assignment is not, by itself, an invoice visibility grant.');
-    expect(route).toContain('const invoicePromise = Promise.resolve({ data: [], error: null });');
+    expect(route).toContain("const canViewFinance = ['owner', 'admin', 'finance'].includes(financeRole);");
+    expect(route).toContain('const invoicePromise = canViewFinance && driver.companyId');
+    expect(route).toContain(': Promise.resolve({ data: [], error: null });');
     expect(panel).toContain('Driver assignment does not grant company invoice visibility.');
   });
 

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -24,7 +24,7 @@ const money = (value: number | null | undefined) =>
     ? new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value)
     : 'Not priced';
 
-const statusOf = (job: WorkspaceJob) => String(job.current_status || job.status || '').toLowerCase();
+const statusOf = (job: WorkspaceJob) => normalizedJobStatus(job);
 
 function matchesTab(job: WorkspaceJob, tab: LoadTab) {
   if (tab === 'all') return true;
@@ -135,7 +135,7 @@ export default function BrokerLoadsPage() {
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>LOAD</div><strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{budget > 0 ? money(budget) : 'Budget not set'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={job.current_status || job.status} /><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{budget > 0 ? money(budget) : 'Budget not set'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={workspaceJobOperationalLabel(job)} /><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'Expand'}</ActionButton></div></div>
                     </div>
                     <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span><span>Quotes: {quotes.length}</span><span>{bestQuote ? `Best quote: ${money(bestQuote)}` : 'No live quote'}</span><span>{stage === 'awarded' || stage === 'allocated' ? 'Carrier awarded' : stage === 'in_progress' ? 'Carrier executing' : stage === 'completed' ? 'Completed' : 'Awaiting carrier decision'}</span></div>
                     {open && (

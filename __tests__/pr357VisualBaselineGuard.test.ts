@@ -66,10 +66,10 @@ describe('PR #357 approved visual baseline', () => {
 
   it('keeps the Customer transport-control dashboard structure', () => {
     expect(customerDashboard).toContain('title="Transport overview"');
-    expect(customerDashboard).toContain('customer-dash-metrics');
+    expect(customerDashboard).toContain('customer-owner-stat-grid');
     expect(customerDashboard).toContain('Needs your attention');
-    expect(customerDashboard).toContain('Recent transport');
-    expect(customerDashboard).toContain('Outstanding invoices');
+    expect(customerDashboard).toContain('Activity at a glance');
+    expect(customerDashboard).toContain('Outstanding Invoices');
   });
 
   it('keeps Carrier/Admin and Broker operational control surfaces', () => {

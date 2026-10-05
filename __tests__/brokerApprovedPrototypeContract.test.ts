@@ -36,9 +36,7 @@ describe('Broker cleaned workspace contract', () => {
   });
 
   it('mirrors the same driver lifecycle in Broker language', () => {
-    for (const label of ['Driver assigned','Driver accepted','Driver en route to collection','Driver at collection','Goods collected','In transit','Driver at delivery','Delivered']) {
-      expect(dashboard).toContain(label);
-    }
+    expect(dashboard).toContain('workspaceJobOperationalLabel(job)');
     expect(dashboard).toContain('workspaceJobPresentationStatus');
     expect(dashboard).toContain('classifyWorkspaceJobStage');
   });

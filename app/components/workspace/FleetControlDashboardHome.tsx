@@ -368,7 +368,7 @@ export default function FleetControlDashboardHome() {
           { key: 'active', label: 'Active Jobs', value: metricValue(data, ['jobs'], () => activeJobs.length), detail: 'Currently in execution', tone: unavailable(data, ['jobs']) ? 'blue' : activeJobs.length ? 'green' : 'navy', onClick: () => router.push('/admin/fleet/active-jobs') },
           { key: 'available-drivers', label: 'Available Drivers', value: availableDriverCount, detail: 'Active + available flag', tone: driverDataUnavailable ? 'blue' : 'green', onClick: () => router.push('/admin/fleet/availability') },
           { key: 'tracking-alerts', label: 'Tracking Alerts', value: trackingDataUnavailable ? '—' : trackingAttentionCount, detail: trackingDataUnavailable ? 'Tracking data unavailable' : 'Missing or stale positions', tone: trackingDataUnavailable ? 'blue' : trackingAttentionCount ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/positions') },
-          { key: 'documents-expiring', label: 'Documents expiring', value: documentsExpiringValue, detail: documentDataUnavailable ? 'Document feeds unavailable' : documentDataPartial ? 'Partial document feeds' : 'Expired or due within 30 days', tone: documentDataUnavailable ? 'blue' : documentDataPartial ? 'orange' : documentsExpiring.length ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/compliance') },
+          { key: 'documents-expiring', label: 'Documents expiring', value: documentsExpiringValue, detail: documentDataUnavailable ? 'Document data unavailable' : documentDataPartial ? 'Some document records unavailable' : 'Expired or due within 30 days', tone: documentDataUnavailable ? 'blue' : documentDataPartial ? 'orange' : documentsExpiring.length ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/compliance') },
           { key: 'compliance-alerts', label: 'Compliance Alerts', value: complianceDataUnavailable ? '—' : complianceAttentionCount, detail: complianceDataUnavailable ? 'Compliance data unavailable' : 'Documents requiring attention', tone: complianceDataUnavailable ? 'blue' : complianceAttentionCount ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/compliance') },
         ]}
       />
@@ -398,7 +398,7 @@ export default function FleetControlDashboardHome() {
 
       <OperationalCard
         title="Fleet resource register"
-        subtitle="Inline driver status, vehicle assignment, live tracking, future position, return journey, network advertising and document readiness. Canonical eligibility is enforced server-side."
+        subtitle="Driver status, vehicle assignment, live tracking, future position, return journey, network advertising and document readiness in one place."
         actions={<><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/availability')}>Add Future Position</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</ActionButton></>}
         flush
       >
@@ -421,7 +421,7 @@ export default function FleetControlDashboardHome() {
             const documentSignal = vehicles.length === 0
               ? { label: 'No assigned vehicle', tone: 'red' as const }
               : vehicles.length > 1
-                ? { label: 'Canonical vehicle server-side', tone: 'orange' as const }
+                ? { label: 'Multiple assigned vehicles', tone: 'orange' as const }
                 : vehicleDocumentSignal(vehicleDocumentsByVehicle.get(vehicle?.id ?? '') ?? []);
             const vehicleSignal = vehicles.length === 0 ? 'No assigned vehicle' : vehicles.length > 1 ? String(vehicles.length) + ' assigned vehicles' : vehicleName(vehicle);
             const locationLabel = location ? location.lat.toFixed(4) + ', ' + location.lng.toFixed(4) : 'No current position';

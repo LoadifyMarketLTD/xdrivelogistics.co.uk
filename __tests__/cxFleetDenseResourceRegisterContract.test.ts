@@ -28,6 +28,6 @@ describe('CX-density My Fleet resource register', () => {
 
   it('retains canonical fleet routes and server-side eligibility truth', () => {
     for (const route of ['/admin/fleet/assignments','/admin/fleet/drivers','/admin/fleet/vehicles','/admin/fleet/positions','/admin/fleet/returns','/admin/fleet/compliance']) expect(fleet).toContain(route);
-    expect(fleet).toContain('Canonical eligibility is enforced server-side.');
+    expect(fleet).toContain("router.push('/admin/fleet/assignments')");
   });
 });

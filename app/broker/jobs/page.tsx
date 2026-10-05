@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import JobLiveTrackingPanel from '../../components/tracking/JobLiveTrackingPanel';
 import DriverInstructionPanel from '../../components/workspace/DriverInstructionPanel';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
@@ -24,7 +24,7 @@ const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not set';
 
-const statusOf = (job: WorkspaceJob) => String(job.current_status || job.status || '').toLowerCase();
+const statusOf = (job: WorkspaceJob) => normalizedJobStatus(job);
 
 function matchesTab(job: WorkspaceJob, tab: JobsTab) {
   if (tab === 'all') {
@@ -131,7 +131,7 @@ export default function BrokerJobsPage() {
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>JOB</div><strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>STATUS</div><StatusBadge value={job.current_status || job.status} /><div style={{ marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>STATUS</div><StatusBadge value={workspaceJobOperationalLabel(job)} /><div style={{ marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'Expand'}</ActionButton></div></div>
                     </div>
 
                     <div className="workspace-record-meta">
