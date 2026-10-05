@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
@@ -32,6 +33,29 @@ const CARGO_TO_DB: Record<
   other: 'other',
 };
 
+function clientIp(request: Request) {
+  const forwarded = request.headers.get('x-nf-client-connection-ip')
+    || request.headers.get('cf-connecting-ip')
+    || request.headers.get('x-real-ip')
+    || request.headers.get('x-forwarded-for')?.split(',')[0]
+    || 'unknown';
+  return forwarded.trim().slice(0, 128);
+}
+
+function rateKey(scope: 'ip' | 'email', value: string) {
+  return `${scope}:${createHash('sha256').update(value.trim().toLowerCase()).digest('hex')}`;
+}
+
+async function consumeRateLimit(key: string, limit: number) {
+  const { data, error } = await supabaseAdmin!.rpc('consume_public_quote_rate_limit', {
+    p_rate_key: key,
+    p_limit: limit,
+    p_window_seconds: 3600,
+  });
+  if (error) throw error;
+  return data === true;
+}
+
 export async function POST(request: Request) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return NextResponse.json(
@@ -54,6 +78,24 @@ export async function POST(request: Request) {
   }
 
   const data = parsed.data;
+  let allowedByIp = false;
+  let allowedByEmail = false;
+  try {
+    [allowedByIp, allowedByEmail] = await Promise.all([
+      consumeRateLimit(rateKey('ip', clientIp(request)), 10),
+      consumeRateLimit(rateKey('email', data.email), 5),
+    ]);
+  } catch (rateLimitError) {
+    console.error('[quote-request] rate limit check failed', rateLimitError);
+    return NextResponse.json({ error: 'Quote intake is temporarily unavailable. Please try again shortly.' }, { status: 503 });
+  }
+  if (!allowedByIp || !allowedByEmail) {
+    return NextResponse.json(
+      { error: 'Too many quote requests. Please try again later.' },
+      { status: 429, headers: { 'Retry-After': '3600' } }
+    );
+  }
+
   const { data: created, error } = await supabaseAdmin
     .from('quotes')
     .insert({
