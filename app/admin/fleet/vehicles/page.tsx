@@ -50,11 +50,11 @@ export default function FleetVehiclesPage() {
       <PageHeader
         eyebrow="Fleet resources"
         title="Vehicles"
-        description="Vehicle identity, driver assignment, document signals and live published Fleet availability. Canonical operational eligibility is enforced server-side."
+        description="Vehicle identity, driver assignment, document status and live published Fleet availability. Operational eligibility is verified before allocation."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Manage vehicles</ActionButton>}
       />
       {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
-      <Panel title="Vehicle operations register" description="A vehicle is shown as available now only when its assigned active driver has a current published Fleet presence. Unassigned does not mean available, and allocation still revalidates canonical driver + vehicle compliance server-side.">
+      <Panel title="Vehicle operations register" description="A vehicle is shown as available now only when its assigned active driver has a current published Fleet presence. Unassigned does not mean available; driver and vehicle compliance is checked again before allocation.">
         <DataTable
           columns={['Vehicle', 'Type', 'Registration', 'Driver', 'Document signal', 'MOT', 'Insurance', 'Operational availability']}
           rows={data.vehicles.map((vehicle) => {

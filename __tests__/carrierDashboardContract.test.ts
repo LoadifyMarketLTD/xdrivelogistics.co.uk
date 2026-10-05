@@ -36,6 +36,7 @@ describe('carrier dashboard convergence contract', () => {
 
     expect(carrierSelect).toContain('assigned_driver_id');
     expect(carrierSelect).toContain('awarded_carrier_company_id');
+    expect(carrierSelect).toContain('assigned_company_id');
     expect(carrierSelect).toContain('delivery_photos');
     expect(carrierSelect).not.toContain('vehicle_id');
     expect(carrierSelect).not.toContain('booking_reference');
@@ -111,6 +112,7 @@ describe('carrier dashboard convergence contract', () => {
   it('keeps carrier commercial links, award truth, and lifecycle labels canonical', () => {
     const carrier = source('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
+    expect(carrier).toContain('isCompanyExecutionJob(job, data.companyId)');
     expect(carrier).toContain("const awardedJobIds = new Set(carrierExecutionJobs.map((job) => job.id));");
     expect(carrier).toContain("normalise(bid.status) === 'accepted' && awardedJobIds.has(bid.job_id)");
     expect(carrier).toContain("metricValue(data, ['bids', 'jobs']");

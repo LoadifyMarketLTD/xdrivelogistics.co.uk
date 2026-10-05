@@ -67,6 +67,8 @@ describe('Post Load workspace width and access contract', () => {
 
   it('matches the server-side company posting membership contract', () => {
     expect(createApi).toContain(".in('role_in_company', ['owner', 'admin', 'dispatcher'])");
+    expect(getProtectedRouteRequirement('/admin/post-load')?.anyOf).toContain('loads.create');
+    expect(shell).toContain("isCapabilityAllowedForPath('/admin/post-load'");
   });
 
   it('does not grant load creation to non-posting operational roles', () => {

@@ -12,7 +12,6 @@ import {
   buildCurrentLegalEvidence,
   buildCurrentLegalRequirement,
   evaluateLegalAcceptance,
-  findCurrentLegalAcceptanceIndex,
   type LegalAcceptanceSnapshot,
 } from '../../../../lib/legal/legalAgreementState';
 import type { RegistrationLegalRole } from '../../../../lib/legal/registrationAgreements';
@@ -25,6 +24,7 @@ const acceptanceSchema = z.object({
   authorityConfirmed: z.literal(true),
   roleDeclarationConfirmed: z.literal(true),
   privacyAcknowledged: z.literal(true),
+  languageComprehensionConfirmed: z.literal(true),
   initialEvidenceRemediationConfirmed: z.boolean().optional(),
   language: z.enum(LEGAL_LANGUAGES),
   signerFullName: z.string().trim().min(2).max(120),
@@ -73,6 +73,8 @@ type LegalAcceptanceRow = {
   accepted_at: string;
   source: string;
   acceptance_language: string | null;
+  acceptance_statement: string | null;
+  language_comprehension_confirmed_at: string | null;
   privacy_document_hash: string | null;
   evidence_hash: string;
   created_at: string;
@@ -102,6 +104,7 @@ const toAcceptanceSnapshot = (row: LegalAcceptanceRow): LegalAcceptanceSnapshot 
   acceptanceLanguage: row.acceptance_language && LEGAL_LANGUAGES.includes(row.acceptance_language as LegalLanguage)
     ? row.acceptance_language as LegalLanguage
     : undefined,
+  acceptanceStatement: row.acceptance_statement,
   privacyDocumentHash: row.privacy_document_hash,
 });
 
@@ -119,7 +122,7 @@ const loadLegalContext = async (userId: string) => {
       .limit(2),
     supabaseAdmin
       .from('registration_legal_acceptances')
-      .select('id, registration_role, legal_version, agreements, privacy_version, acceptance_language, privacy_document_hash, accepted_at, source, evidence_hash, signer_full_name, signature_method, signature_payload_hash, signed_pdf_bucket, signed_pdf_path, signed_pdf_hash, signed_pdf_created_at, created_at')
+      .select('id, registration_role, legal_version, agreements, privacy_version, acceptance_language, acceptance_statement, language_comprehension_confirmed_at, privacy_document_hash, accepted_at, source, evidence_hash, signer_full_name, signature_method, signature_payload_hash, signed_pdf_bucket, signed_pdf_path, signed_pdf_hash, signed_pdf_created_at, created_at')
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(100),
@@ -205,8 +208,20 @@ const resolveHistoryState = (
 ) => {
   const requirement = buildCurrentLegalRequirement(registrationRole, language);
   const snapshots = history.map(toAcceptanceSnapshot);
-  const currentAcceptanceIndex = findCurrentLegalAcceptanceIndex(requirement, snapshots);
-  const latestEvaluation = evaluateLegalAcceptance(requirement, snapshots[0] ?? null);
+
+  // Legal readiness is bound to the language actually signed, not to whichever
+  // translation the user is currently viewing. A current Romanian acceptance,
+  // for example, remains current when the page is reopened with English selected.
+  const currentAcceptanceIndex = snapshots.findIndex((snapshot) => {
+    const signedLanguage = snapshot.acceptanceLanguage ?? 'en';
+    const signedRequirement = buildCurrentLegalRequirement(registrationRole, signedLanguage);
+    return !evaluateLegalAcceptance(signedRequirement, snapshot).requiresReacceptance;
+  });
+
+  const latestSnapshot = snapshots[0] ?? null;
+  const latestLanguage = latestSnapshot?.acceptanceLanguage ?? language;
+  const latestRequirement = buildCurrentLegalRequirement(registrationRole, latestLanguage);
+  const latestEvaluation = evaluateLegalAcceptance(latestRequirement, latestSnapshot);
 
   return {
     requirement,
@@ -248,6 +263,7 @@ const buildReadModel = (
       agreements: normalizeAgreementSnapshots(row.agreements),
       privacyVersion: row.privacy_version,
       acceptanceLanguage: row.acceptance_language ?? 'legacy',
+      languageComprehensionConfirmedAt: row.language_comprehension_confirmed_at ?? null,
       privacyDocumentHash: row.privacy_document_hash,
       acceptedAt: row.accepted_at,
       source: row.source,
@@ -378,6 +394,7 @@ export async function POST(request: NextRequest) {
       agreements: normalizeAgreementSnapshots(insertedRow.agreements),
       privacyVersion: insertedRow.privacy_version,
       acceptanceLanguage: insertedRow.acceptance_language ?? evidence.acceptanceLanguage,
+      languageComprehensionConfirmedAt: insertedRow.language_comprehension_confirmed_at ?? evidence.acceptedAt,
       privacyDocumentHash: insertedRow.privacy_document_hash,
       acceptedAt: insertedRow.accepted_at,
       source: insertedRow.source,

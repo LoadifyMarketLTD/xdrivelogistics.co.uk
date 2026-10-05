@@ -12,6 +12,7 @@ describe('CX-close finance and accounting parity', () => {
     expect(financeDashboard).toContain("classifyWorkspaceJobStage(job) === 'completed'");
     expect(financeDashboard).toContain('!issuedInvoiceJobIds.has(job.id)');
     expect(financeDashboard).toContain('Ready to Invoice');
+    expect(financeDashboard).toContain('hasCompletePodEvidence(job)');
     expect(financeDashboard).toContain('Create invoice');
     expect(financeDashboard).toContain('/admin/invoices/new?');
   });

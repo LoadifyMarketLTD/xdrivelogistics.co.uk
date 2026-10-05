@@ -1,15 +1,15 @@
 {
-  "total": 782,
+  "total": 793,
   "CLOSED": 2,
-  "PARTIAL": 133,
+  "PARTIAL": 139,
   "BROKEN": 0,
   "PLACEHOLDER": 0,
-  "DUPLICATE": 647,
+  "DUPLICATE": 652,
   "OBSOLETE": 0,
   "diagnostic": {
     "buttonWithoutHandlerCount": 0,
     "linksWithoutPageCount": 0,
-    "duplicateRouteTargetsCount": 647,
+    "duplicateRouteTargetsCount": 652,
     "placeholderTargetsCount": 0,
     "inaccessiblePagesCount": 105,
     "inaccessiblePages": [
@@ -66,6 +66,10 @@
         "sourceFile": "app/admin/invoices/[id]/page.tsx"
       },
       {
+        "route": "/admin/jobs/[id]/edit",
+        "sourceFile": "app/admin/jobs/[id]/edit/page.tsx"
+      },
+      {
         "route": "/admin/jobs/[id]",
         "sourceFile": "app/admin/jobs/[id]/page.tsx"
       },
@@ -118,16 +122,16 @@
         "sourceFile": "app/broker/customer-invoices/[id]/page.tsx"
       },
       {
+        "route": "/broker/jobs/[id]/edit",
+        "sourceFile": "app/broker/jobs/[id]/edit/page.tsx"
+      },
+      {
         "route": "/broker/notifications",
         "sourceFile": "app/broker/notifications/page.tsx"
       },
       {
         "route": "/broker/post-load",
         "sourceFile": "app/broker/post-load/page.tsx"
-      },
-      {
-        "route": "/broker/reports",
-        "sourceFile": "app/broker/reports/page.tsx"
       },
       {
         "route": "/broker/settings/billing",
@@ -144,10 +148,6 @@
       {
         "route": "/customer/awards",
         "sourceFile": "app/customer/awards/page.tsx"
-      },
-      {
-        "route": "/customer/bulk-import",
-        "sourceFile": "app/customer/bulk-import/page.tsx"
       },
       {
         "route": "/customer/invoices/[id]",
@@ -600,6 +600,8 @@
       "/admin/invoices/${invoice.id}",
       "/admin/invoices/${payload.invoice.id}",
       "/admin/invoices",
+      "/admin/jobs/${encodeURIComponent(jobId)}/edit",
+      "/admin/jobs/${encodeURIComponent(jobId)}/edit",
       "/admin/jobs",
       "/admin/invoices/new?${params.toString()}",
       "/admin/jobs",
@@ -671,10 +673,12 @@
       "/broker/margins",
       "/broker/jobs",
       "/broker/loads?job=${job.id}",
+      "/broker/jobs/${job.id}/edit",
       "/broker/compare-quotes?job=${job.id}",
       "/broker/pod-review",
       "/broker/loads",
       "/broker/compare-quotes?job=${job.id}",
+      "/broker/jobs/${job.id}/edit",
       "/broker/jobs?job=${job.id}",
       "/broker/pod-review",
       "/contact",
@@ -853,7 +857,6 @@
       "/customer/messages",
       "/customer/jobs/${job.id}",
       "/customer/jobs/${job.id}",
-      "/customer/jobs/${job.id}",
       "/customer/jobs/${j.id}",
       "/customer/jobs/${j.id}",
       "/customer/quotes",
@@ -869,6 +872,7 @@
       "/customer/quotes",
       "/customer/messages",
       "/customer/jobs/${job.id}",
+      "/driver/availability",
       "/driver/profile",
       "/driver/account",
       "/driver/vehicles",
@@ -882,6 +886,7 @@
       "/driver/finance/invoices/${payload.invoice.id}",
       "/driver/finance",
       "/driver/finance?view=payables",
+      "/driver/finance",
       "/driver/jobs/${job.id}",
       "/driver/jobs/${job.id}",
       "/driver/finance/invoices/${payload.invoice.id}",

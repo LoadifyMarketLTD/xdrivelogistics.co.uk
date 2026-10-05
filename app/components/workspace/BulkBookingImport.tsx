@@ -18,10 +18,11 @@ import {
   StatusBadge,
 } from './WorkspaceUI';
 
-type ImportMode = 'customer' | 'admin';
+type ImportMode = 'customer' | 'broker' | 'admin';
 
 type BookingRow = {
   rowNumber: number;
+  idempotencyKey: string;
   pickupDate: string;
   pickupTime: string;
   pickupAddress: string;
@@ -99,7 +100,17 @@ const numeric = (value: string, integer = false) => {
 const isoDate = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
 const quarterHour = (value: string) => /^(?:[01]\d|2[0-3]):(?:00|15|30|45)$/.test(value.trim());
 
-const templateSheets = () => [
+const stableImportRowUuid = (digest: Uint8Array, rowNumber: number) => {
+  const bytes = new Uint8Array(16);
+  bytes.set(digest.slice(0, 16));
+  new DataView(bytes.buffer).setUint32(12, rowNumber, false);
+  bytes[6] = (bytes[6] & 0x0f) | 0x50;
+  bytes[8] = (bytes[8] & 0x3f) | 0x80;
+  const hex = Array.from(bytes, (entry) => entry.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+};
+
+const templateSheets = (mode: ImportMode) => [
   {
     name: 'Instructions',
     title: 'XDrive Bulk Booking Import',
@@ -109,7 +120,9 @@ const templateSheets = () => [
       { header: 'Requirement', key: 'requirement', width: 80 },
     ],
     rows: [
-      { rule: 'Required fields', requirement: 'Pickup Date, Pickup Time, Pickup Address, Pickup Postcode, Delivery Address, Delivery Postcode, Vehicle, Cargo.' },
+      { rule: 'Required fields', requirement: mode === 'broker'
+        ? 'Pickup Date, Pickup Time, Pickup Address, Pickup Postcode, Delivery Address, Delivery Postcode, Vehicle, Cargo and Customer Name.'
+        : 'Pickup Date, Pickup Time, Pickup Address, Pickup Postcode, Delivery Address, Delivery Postcode, Vehicle and Cargo.' },
       { rule: 'Dates', requirement: 'Use YYYY-MM-DD, for example 2026-10-05.' },
       { rule: 'Times', requirement: 'Use 15-minute slots such as 09:00, 09:15, 09:30 or 09:45.' },
       { rule: 'Postcodes', requirement: 'Use full UK postcodes.' },
@@ -144,7 +157,7 @@ export default function BulkBookingImport({ mode }: { mode: ImportMode }) {
   const created = useMemo(() => rows.filter((row) => row.status === 'created'), [rows]);
 
   const downloadTemplate = () =>
-    downloadXlsx('xdrive-bulk-booking-import-template.xlsx', templateSheets());
+    downloadXlsx('xdrive-bulk-booking-import-template.xlsx', templateSheets(mode));
 
   const parseFile = async (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -161,7 +174,9 @@ export default function BulkBookingImport({ mode }: { mode: ImportMode }) {
     }
 
     try {
-      const workbookRows = await readXlsxSheetRows(await file.arrayBuffer(), 'Bookings');
+      const fileBytes = await file.arrayBuffer();
+      const fileDigest = new Uint8Array(await crypto.subtle.digest('SHA-256', fileBytes));
+      const workbookRows = await readXlsxSheetRows(fileBytes, 'Bookings');
       const headerValues = workbookRows[3] ?? [];
       const headerMap = new Map<string, number>();
       headerValues.forEach((header, index) => {
@@ -191,6 +206,7 @@ export default function BulkBookingImport({ mode }: { mode: ImportMode }) {
         const deliveryPostcode = value(rowNumber, 'Delivery Postcode');
         const vehicle = value(rowNumber, 'Vehicle');
         const cargo = value(rowNumber, 'Cargo');
+        const customerName = value(rowNumber, 'Customer Name');
         const weightKg = numeric(value(rowNumber, 'Weight KG'));
         const pallets = numeric(value(rowNumber, 'Pallets'), true);
         const customerPrice = numeric(value(rowNumber, 'Customer Price GBP'));
@@ -208,6 +224,7 @@ export default function BulkBookingImport({ mode }: { mode: ImportMode }) {
         if (!isPostcode(deliveryPostcode)) errors.push('Delivery Postcode must be a full UK postcode');
         if (!vehicle) errors.push('Vehicle is required');
         if (!cargo) errors.push('Cargo is required');
+        if (mode === 'broker' && !customerName) errors.push('Customer Name is required for Broker bulk import');
         if (Number.isNaN(weightKg)) errors.push('Weight KG must be a positive number');
         if (Number.isNaN(pallets)) errors.push('Pallets must be a whole positive number');
         if (Number.isNaN(customerPrice)) errors.push('Customer Price GBP must be a positive number');
@@ -223,6 +240,7 @@ export default function BulkBookingImport({ mode }: { mode: ImportMode }) {
 
         parsedRows.push({
           rowNumber,
+          idempotencyKey: stableImportRowUuid(fileDigest, rowNumber),
           pickupDate,
           pickupTime,
           pickupAddress,
@@ -235,7 +253,7 @@ export default function BulkBookingImport({ mode }: { mode: ImportMode }) {
           cargo,
           weightKg: Number.isNaN(weightKg) ? null : weightKg,
           pallets: Number.isNaN(pallets) ? null : pallets,
-          customerName: value(rowNumber, 'Customer Name'),
+          customerName,
           customerReference: value(rowNumber, 'Customer Reference'),
           bookingReference: value(rowNumber, 'Booking Reference'),
           customerPrice: Number.isNaN(customerPrice) ? null : customerPrice,
@@ -270,12 +288,12 @@ export default function BulkBookingImport({ mode }: { mode: ImportMode }) {
       for (const row of rows) {
         if (row.errors.length || row.status !== 'ready') continue;
         const body = {
-          idempotencyKey: crypto.randomUUID(),
+          idempotencyKey: row.idempotencyKey,
           companyId,
           mode,
           publish,
           directInviteCompanyId: null,
-          clientName: mode === 'admin' ? row.customerName || null : null,
+          clientName: mode === 'customer' ? null : row.customerName || null,
           clientEmail: '',
           clientPhone: null,
           pickupDateTime: `${row.pickupDate}T${row.pickupTime}:00`,

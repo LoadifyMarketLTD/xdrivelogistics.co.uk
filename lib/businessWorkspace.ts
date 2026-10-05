@@ -95,6 +95,9 @@ export const WORKSPACE_CAPABILITIES: Record<BusinessWorkspace, readonly Workspac
     'settings.manage',
   ],
   carrier_fleet: [
+    'loads.create',
+    'loads.publish',
+    'loads.view.own',
     'loads.view.marketplace',
     'quotes.submit',
     'jobs.view',

@@ -1,0 +1,100 @@
+.xdrive-driver-workspace .driver-live-availability-canonical{
+  width:100%;
+  min-width:0;
+  display:grid;
+  grid-template-columns:230px minmax(0,1fr);
+  gap:10px;
+  align-items:start;
+}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-button,
+.xdrive-driver-workspace .driver-live-command-button{
+  min-height:34px;
+  padding:0 11px;
+  border:1px solid #b9c5d2;
+  border-radius:4px;
+  background:#fff;
+  color:#263b53;
+  font:700 12px/1 "Segoe UI",Arial,sans-serif;
+  cursor:pointer;
+}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-button:hover,
+.xdrive-driver-workspace .driver-live-command-button:hover:not(:disabled){background:#f4f7fa}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-button:disabled,
+.xdrive-driver-workspace .driver-live-command-button:disabled{opacity:.55;cursor:not-allowed}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-button--success{background:#168344;border-color:#168344;color:#fff}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-button--compact{min-height:28px;padding:0 8px;font-size:11px}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-link-button{border:0;background:transparent;color:#1d57d8;font-size:11px;font-weight:800;cursor:pointer;padding:5px 0}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-rail{min-width:0;background:#fff;border:1px solid #ccd6e1}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-rail__title{min-height:40px;display:flex;align-items:center;padding:0 10px;background:#f1f4f7;border-bottom:1px solid #d8e0e8;color:#20364f;font-size:13px;font-weight:800}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-filter{display:flex;flex-direction:column;gap:5px;padding:9px 10px;border-bottom:1px solid #e3e8ee;color:#31445a}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-filter>span:first-child{font-size:10px;line-height:13px;text-transform:uppercase;letter-spacing:.04em;color:#68788a;font-weight:800}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-filter input,
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-filter select{width:100%;height:34px;border:1px solid #bcc8d5;border-radius:3px;background:#fff;padding:0 8px;font-size:12px;color:#26384c}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-filter small{font-size:10px;line-height:14px;color:#657285;font-weight:500;text-transform:none;letter-spacing:0}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-segment{display:flex;align-items:stretch;min-width:0}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-segment button{min-height:32px;border:1px solid #c3ced9;border-right:0;background:#fff;padding:0 10px;color:#334960;font-size:11px;font-weight:800;cursor:pointer;white-space:nowrap}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-segment button:last-child{border-right:1px solid #c3ced9}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-segment button[data-active='true']{background:#eaf2ff;color:#0b2f6b;border-color:#8db4ef}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-main{width:100%;min-width:0}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-alert{margin-bottom:8px;padding:8px 10px;border:1px solid #d8e0e8;background:#fff;font-size:12px}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-alert--danger{border-color:#fecaca;background:#fef2f2;color:#991b1b}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-alert--success{border-color:#bbf7d0;background:#f0fdf4;color:#166534}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-empty{display:grid;gap:4px;padding:24px 16px;color:#617184}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-empty b{color:#24384f}
+.driver-live-filter-rail{position:sticky;top:104px}
+.driver-live-mode{display:grid;grid-template-columns:1fr 1fr;padding:7px;background:#f1f4f7;border:1px solid #ccd6e1;border-bottom:0}
+.driver-live-mode button{height:32px;border:1px solid #bcc8d5;background:#fff;color:#34495f;font-size:11px;font-weight:800;cursor:pointer}
+.driver-live-mode button+button{border-left:0}
+.driver-live-mode button[data-active='true']{background:#0b2f6b;border-color:#0b2f6b;color:#fff}
+.driver-live-mode button:disabled{opacity:1;cursor:default}
+.driver-live-share-card{display:grid;gap:6px;padding:10px;border-bottom:1px solid #e3e8ee;background:#fff}
+.driver-live-share-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.driver-live-share-head strong{font-size:12px;color:#20364f}
+.driver-live-share-copy,.driver-live-share-expiry{font-size:10px;line-height:14px;color:#67778a}
+.driver-live-share-expiry{font-weight:700;color:#334960}
+.driver-live-share-actions,.driver-live-search-actions{display:grid;gap:6px;padding:9px 10px;border-bottom:1px solid #e3e8ee;background:#fff}
+.driver-live-stop{background:#fff1f2!important;border-color:#f4a7ad!important;color:#9f1239!important}
+.driver-live-availability-main{min-width:0;width:100%}
+.driver-live-topbar{min-height:42px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:5px 7px;background:#f6f8fa;border:1px solid #d4dce5}
+.driver-live-count{margin-left:auto;color:#31506f;font-size:11px;font-weight:800;white-space:nowrap}
+.driver-live-map-panel{min-height:365px;border:1px solid #d4dce5;border-top:0;background:#dbe5ee;overflow:hidden}
+.driver-live-map-panel .driver-nearby-map-shell,
+.driver-live-map-panel .driver-nearby-map-canvas,
+.driver-live-map-panel .leaflet-container{min-height:365px!important;height:365px!important}
+.driver-live-legend{min-height:38px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:5px 9px;background:#f3f7fb;border:1px solid #d4dce5;border-top:0;color:#536276;font-size:10px}
+.driver-live-legend span{display:flex;align-items:center;gap:5px}
+.driver-live-legend i{width:12px;height:12px;border-radius:2px;background:#9aa5b1}
+.driver-live-legend i[data-tone='green']{background:#62b72c}
+.driver-live-legend i[data-tone='amber']{background:#f5a300}
+.driver-live-legend i[data-tone='red']{background:#e62b35}
+.driver-live-legend b{min-width:22px;height:22px;border-radius:11px;display:grid;place-items:center;background:#1d57d8;color:#fff;font-size:9px}
+.driver-live-table-scroll{width:100%;min-width:0;overflow:auto;border:1px solid #d4dce5;border-top:0;background:#fff;max-height:330px}
+.driver-live-table{width:100%;min-width:900px;border-collapse:collapse;font-size:11px}
+.driver-live-table th{height:36px;padding:6px 8px;background:#eef4fb;border-right:1px solid #d9e1ea;border-bottom:1px solid #c8d3df;color:#36506d;text-align:left;font-size:10px;text-transform:uppercase;white-space:nowrap}
+.driver-live-table td{padding:8px;border-right:1px solid #e3e8ee;border-bottom:1px solid #e3e8ee;vertical-align:top;color:#33475d}
+.driver-live-table td b,.driver-live-table td span{display:block}
+.driver-live-table td span{margin-top:2px;color:#778597;font-size:10px}
+.xdrive-driver-workspace .driver-live-command-button{background:#fff!important;border-color:#9fb3c9!important;color:#0b2f6b!important;box-shadow:none!important}
+.xdrive-driver-workspace .driver-live-command-button:hover:not(:disabled){background:#eef4ff!important;border-color:#1d57d8!important;color:#0b2f6b!important}
+.xdrive-driver-workspace .driver-live-command-button:focus,
+.xdrive-driver-workspace .driver-live-command-button:focus-visible{background:#fff!important;border-color:#1d57d8!important;color:#0b2f6b!important;outline:2px solid rgba(29,87,216,.38)!important;outline-offset:2px!important;box-shadow:none!important}
+.xdrive-driver-workspace .driver-live-command-button:active:not(:disabled){background:#e4edfb!important;border-color:#1d57d8!important;color:#0b2f6b!important}
+.xdrive-driver-workspace .driver-live-command-button:disabled{background:#f8fafc!important;border-color:#cbd5e1!important;color:#64748b!important;opacity:1!important;cursor:not-allowed!important}
+@media(max-width:1180px){
+  .xdrive-driver-workspace .driver-live-availability-canonical{grid-template-columns:220px minmax(0,1fr)}
+  .driver-live-map-panel,.driver-live-map-panel .driver-nearby-map-shell,.driver-live-map-panel .driver-nearby-map-canvas,.driver-live-map-panel .leaflet-container{min-height:330px!important;height:330px!important}
+}
+@media(max-width:980px){
+  .xdrive-driver-workspace .driver-live-availability-canonical{grid-template-columns:1fr}
+  .driver-live-filter-rail{position:static;display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .driver-live-mode,.driver-live-filter-rail>.driver-more-rail__title{grid-column:1/-1}
+  .driver-live-share-card,.driver-live-share-actions,.driver-live-search-actions{min-width:0}
+}
+@media(max-width:680px){
+  .driver-live-filter-rail{grid-template-columns:1fr}
+  .driver-live-mode,.driver-live-filter-rail>.driver-more-rail__title{grid-column:auto}
+  .driver-live-topbar{align-items:stretch;flex-direction:column}
+  .driver-live-count{margin-left:0}
+  .driver-live-topbar .driver-more-segment{overflow-x:auto}
+  .driver-live-map-panel,.driver-live-map-panel .driver-nearby-map-shell,.driver-live-map-panel .driver-nearby-map-canvas,.driver-live-map-panel .leaflet-container{min-height:300px!important;height:300px!important}
+}

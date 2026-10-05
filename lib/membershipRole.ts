@@ -84,6 +84,9 @@ export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly Works
   ],
   admin: [
     'company.members.manage',
+    'loads.create',
+    'loads.publish',
+    'loads.view.own',
     'jobs.view',
     'jobs.allocate',
     'jobs.dispatch',
@@ -108,6 +111,9 @@ export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly Works
     'incidents.manage',
   ],
   dispatcher: [
+    'loads.create',
+    'loads.publish',
+    'loads.view.own',
     'jobs.view',
     'jobs.allocate',
     'jobs.dispatch',

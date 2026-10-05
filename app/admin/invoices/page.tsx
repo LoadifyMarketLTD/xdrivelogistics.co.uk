@@ -265,11 +265,6 @@ export default function InvoicesPage() {
             </span>
           </div>
         )}
-
-        <div className="invoice-register-contract-note">
-          <strong>Ready to Invoice / external invoice parity</strong>
-          <span>The current invoice schema supports draft/issued/payment/dispute lifecycle and payment history. A distinct CX-style Ready to Invoice queue, external invoice upload, batch invoicing and statements/export are not represented as verified register actions here and remain separate parity-ledger items rather than being fabricated.</span>
-        </div>
       </PageFrame>
     </ProtectedRoute>
   );

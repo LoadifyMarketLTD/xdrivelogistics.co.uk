@@ -3,23 +3,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
-import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../lib/legal/paymentObligationClient';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../lib/jobs/workspaceJobStage';
 import { CompanyJobSheetPanel } from '../components/workspace/CompanyJobSheetPanel';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../components/workspace/useCompanyWorkspaceData';
-import { MemberIdentityLink } from '../components/workspace/MemberProfile';
 import {
   ActionButton,
   AlertBanner,
-  DataTable,
   EmptyState,
   PageFrame,
   PageHeader,
   StatusBadge,
 } from '../components/workspace/WorkspaceUI';
-
-const money = (value: number, currency = 'GBP') =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 
 const when = (value: string | null | undefined) =>
   value
@@ -28,10 +22,6 @@ const when = (value: string | null | undefined) =>
 
 const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
 const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
-
-function routeLabel(job: WorkspaceJob) {
-  return `${job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → ${job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}`;
-}
 
 function quoteCounts(data: ReturnType<typeof useCompanyWorkspaceData>) {
   const map = new Map<string, { submitted: number; accepted: number; rejected: number; total: number }>();
@@ -52,16 +42,6 @@ type CustomerTrackingSnapshot = {
   eta?: { eta_at?: string | null; remaining_minutes?: number | null; remaining_miles?: number | null; late_by_minutes?: number | null } | null;
   eta_risk?: { level?: string; late_by_minutes?: number | null } | null;
   reason?: string | null;
-};
-
-type BidderIdentity = {
-  bidId: string;
-  companyId: string | null;
-  driverId: string | null;
-  companyName: string | null;
-  personName: string | null;
-  companyType: string | null;
-  displayName: string;
 };
 
 function CustomerOperationalRow({
@@ -176,94 +156,6 @@ export function CustomerLoadsOperationalPage() {
           <div className="workspace-tab-strip" role="tablist" aria-label="Customer load states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{tabs.map((item) => <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => { setTab(item.id); setExpanded(null); }}>{item.label} {tabCount(item.id)}</button>)}</div>
           <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{rows.length}</strong> load{rows.length === 1 ? '' : 's'} in this view</span><span>Open details before award; expand the booking sheet after award</span></div>
           {data.loading ? <div className="workspace-panel"><EmptyState compact title="Loading loads…" /></div> : rows.length === 0 ? <div className="workspace-panel"><EmptyState title="No loads in this view" description="Adjust the filters or post a new transport request." /></div> : <div className="workspace-record-list">{rows.map((job) => { const quoteState = countsByJob.get(job.id) ?? { submitted: 0, accepted: 0, rejected: 0, total: 0 }; const open = expanded === job.id; return <CustomerOperationalRow key={job.id} job={job} middleLabel="QUOTES / VEHICLE" middleValue={`${quoteState.total} quote${quoteState.total === 1 ? '' : 's'} recorded`} middleMeta={`${quoteState.submitted} awaiting decision · ${(job.vehicle_type ?? 'Vehicle not supplied').replaceAll('_', ' ')}`} open={open} onToggle={() => setExpanded(open ? null : job.id)} actionLabel={quoteState.submitted > 0 && !job.awarded_carrier_company_id ? 'Review quotes' : classifyWorkspaceJobStage(job) !== 'open' ? 'Open booking' : undefined} actionHref={quoteState.submitted > 0 && !job.awarded_carrier_company_id ? '/customer/quotes' : classifyWorkspaceJobStage(job) !== 'open' ? `/customer/jobs/${job.id}` : undefined} sheet={classifyWorkspaceJobStage(job) !== 'open'} />; })}</div>}
-        </main>
-      </div>
-    </PageFrame>
-  );
-}
-
-export function CustomerQuotesOperationalPage() {
-  const data = useCompanyWorkspaceData();
-  const router = useRouter();
-  const [working, setWorking] = useState<string | null>(null);
-  const [message, setMessage] = useState('');
-  const [identityError, setIdentityError] = useState('');
-  const [identities, setIdentities] = useState<Map<string, BidderIdentity>>(new Map());
-  const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'accepted' | 'rejected'>('all');
-  const [reference, setReference] = useState('');
-  const [carrierSearch, setCarrierSearch] = useState('');
-
-  useEffect(() => {
-    let cancelled = false;
-    const loadIdentities = async () => {
-      if (!data.bids.length) { setIdentities(new Map()); setIdentityError(''); return; }
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
-      if (!token) { setIdentityError('Member profiles are unavailable until the session is refreshed.'); return; }
-      const response = await fetch('/api/workspace/bids/identities', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
-      const payload = await response.json().catch(() => ({})) as { identities?: BidderIdentity[]; error?: string };
-      if (cancelled) return;
-      if (!response.ok) { setIdentityError(payload.error ?? 'Bidder member profiles could not be resolved.'); return; }
-      setIdentities(new Map((payload.identities ?? []).map((identity) => [identity.bidId, identity])));
-      setIdentityError('');
-    };
-    void loadIdentities();
-    return () => { cancelled = true; };
-  }, [data.bids]);
-
-  const allQuotes = useMemo(() => data.bids.filter((bid) => ['submitted', 'accepted', 'rejected'].includes(bid.status)), [data.bids]);
-  const grouped = useMemo(() => {
-    const refNeedle = reference.trim().toLowerCase();
-    const carrierNeedle = carrierSearch.trim().toLowerCase();
-    return data.jobs.map((job) => ({
-      job,
-      quotes: allQuotes
-        .filter((bid) => bid.job_id === job.id && (statusFilter === 'all' || bid.status === statusFilter))
-        .filter((bid) => {
-          if (!carrierNeedle) return true;
-          const identity = identities.get(bid.id);
-          return `${identity?.displayName ?? ''} ${identity?.companyName ?? ''} ${identity?.personName ?? ''} ${identity?.companyId ?? ''} ${identity?.driverId ?? ''} ${bid.companies?.name ?? ''} ${bid.company_id ?? ''}`.toLowerCase().includes(carrierNeedle);
-        })
-        .sort((a, b) => Number(a.bid_price_gbp ?? a.amount ?? 0) - Number(b.bid_price_gbp ?? b.amount ?? 0)),
-    })).filter((group) => group.quotes.length > 0)
-      .filter(({ job }) => !refNeedle || `${job.id} XDL-${job.id.slice(0, 8)} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(refNeedle));
-  }, [allQuotes, carrierSearch, data.jobs, identities, reference, statusFilter]);
-
-  const award = async (id: string) => {
-    if (!confirmBookingPaymentObligation()) return;
-    setWorking(id); setMessage('');
-    const { data: session } = await supabase.auth.getSession();
-    const response = await fetch(`/api/customer/bids/${id}/award`, { method: 'POST', headers: session.session?.access_token ? { Authorization: `Bearer ${session.session.access_token}`, 'Content-Type': 'application/json' } : { 'Content-Type': 'application/json' }, body: bookingPaymentObligationRequestBody });
-    const payload = await response.json().catch(() => ({})) as { error?: string };
-    setWorking(null);
-    if (!response.ok) { setMessage(payload.error ?? 'Unable to award quote.'); return; }
-    setMessage('Booking offer sent - awaiting carrier acceptance.');
-    await data.refresh();
-  };
-
-  const reject = async (id: string) => {
-    setWorking(id); setMessage('');
-    const { data: session } = await supabase.auth.getSession();
-    const response = await fetch(`/api/customer/bids/${id}/reject`, { method: 'POST', headers: session.session?.access_token ? { Authorization: `Bearer ${session.session.access_token}` } : {} });
-    const payload = await response.json().catch(() => ({})) as { error?: string };
-    setWorking(null);
-    if (!response.ok) { setMessage(payload.error ?? 'Unable to reject quote.'); return; }
-    setMessage('Carrier quote rejected.');
-    await data.refresh();
-  };
-
-  const counts = { all: allQuotes.length, submitted: allQuotes.filter((bid) => bid.status === 'submitted').length, accepted: allQuotes.filter((bid) => bid.status === 'accepted').length, rejected: allQuotes.filter((bid) => bid.status === 'rejected').length };
-
-  return (
-    <PageFrame>
-      <PageHeader eyebrow="Customer commercial" title="Quotes" description="Compare carrier responses by load, inspect Fleet or Owner Driver member profiles, then award or reject from the same operational board." actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>} />
-      {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}{message && <AlertBanner tone={message.includes('successfully') || message.includes('rejected') ? 'success' : 'danger'}>{message}</AlertBanner>}{identityError && <AlertBanner tone="warning">{identityError}</AlertBanner>}
-      <div className="workspace-board-layout">
-        <aside className="workspace-filter-rail" aria-label="Customer quote filters"><div className="workspace-filter-rail__header">Search Quotes</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive or customer reference" /></label><label>CARRIER / MEMBER<input value={carrierSearch} onChange={(event) => setCarrierSearch(event.target.value)} placeholder="Company, owner driver or member ID" /></label><label>STATUS<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All quote activity</option><option value="submitted">Awaiting decision</option><option value="accepted">Accepted</option><option value="rejected">Rejected</option></select></label><ActionButton tone="secondary" onClick={() => { setReference(''); setCarrierSearch(''); setStatusFilter('all'); }}>Clear</ActionButton></div></aside>
-        <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{(['all', 'submitted', 'accepted', 'rejected'] as const).map((status) => <button key={status} type="button" data-active={statusFilter === status ? 'true' : 'false'} onClick={() => setStatusFilter(status)}>{status === 'all' ? 'All' : status === 'submitted' ? 'Awaiting Decision' : status[0].toUpperCase() + status.slice(1)} {counts[status]}</button>)}</div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{grouped.length}</strong> load{grouped.length === 1 ? '' : 's'} with matching quotes</span><span>Lowest visible price shown first per load</span></div>
-          {grouped.length === 0 ? <div className="workspace-panel"><EmptyState title={data.loading ? 'Loading quotes…' : 'No quotes in this view'} description="Carrier responses appear here after a load is published." /></div> : grouped.map(({ job, quotes }) => <section key={job.id} className="workspace-panel" style={{ marginBottom: 8 }}><div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{routeLabel(job)}</strong> · Pickup {when(job.pickup_datetime)} · XDrive XDL-{job.id.slice(0, 8).toUpperCase()}</span><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open load</ActionButton></div><DataTable columns={['Carrier', 'Price', 'Position', 'Message', 'Submitted', 'Status', 'Decision']} rows={quotes.map((bid, index) => { const identity = identities.get(bid.id); const isOwnerDriverBid = !bid.company_id && Boolean(identity?.driverId); const displayName = isOwnerDriverBid ? (identity?.personName || identity?.displayName || 'Owner Driver') : (identity?.companyName || bid.companies?.name || identity?.displayName || 'Carrier'); return [<strong key="carrier"><MemberIdentityLink companyId={isOwnerDriverBid ? null : (bid.company_id ?? identity?.companyId ?? null)} driverId={isOwnerDriverBid ? identity?.driverId ?? null : null}>{displayName}</MemberIdentityLink></strong>, <strong key="price">{money(Number(bid.bid_price_gbp ?? bid.amount ?? 0), bid.currency ?? 'GBP')}</strong>, index === 0 ? <StatusBadge key="position" value="Best price" tone="green" /> : `#${index + 1}`, bid.message ?? 'No message', when(bid.created_at), <StatusBadge key="status" value={bid.status} />, bid.status === 'submitted' ? <span key="actions" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><ActionButton tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Working…' : 'Award'}</ActionButton><ActionButton tone="danger" disabled={working === bid.id} onClick={() => void reject(bid.id)}>Reject</ActionButton></span> : '—']; })} /></section>)}
         </main>
       </div>
     </PageFrame>

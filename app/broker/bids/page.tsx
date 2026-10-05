@@ -159,7 +159,7 @@ export default function BrokerQuotesPage() {
       <PageHeader
         eyebrow="Carrier sourcing"
         title="Quotes"
-        description={deepJob ? `Compare and award quotes for load ${deepJob.slice(0, 8).toUpperCase()} from the canonical Broker Quotes board.` : 'Compare carrier and owner-driver responses, inspect the member profile and award without leaving the broker board.'}
+        description={deepJob ? `Compare and award quotes for load ${deepJob.slice(0, 8).toUpperCase()} from the Broker Quotes board.` : 'Compare carrier and owner-driver responses, inspect the member profile and award without leaving the broker board.'}
         actions={deepJob ? <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>Show all quotes</ActionButton> : undefined}
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}

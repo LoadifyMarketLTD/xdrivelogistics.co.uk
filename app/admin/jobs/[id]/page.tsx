@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { JOB_STATUS, JOB_STATUS_LABEL } from '../../../config/company';
 import { supabase } from '../../../../lib/supabaseClient';
-import { buildLegacyJobSpecialRequirements, getJobClientFields } from '../../../../lib/jobClientFields';
+import { getJobClientFields } from '../../../../lib/jobClientFields';
 import { useAuth } from '../../../components/AuthContext';
 import { getAccessToken } from '../../_lib/getAccessToken';
 import { getLoadDetailSections, type LoadDetailSection } from '../../../../lib/loadPostingDetails';
@@ -14,6 +14,7 @@ interface Job {
   id: string;
   jobRef: string;
   assignedDriverId: string | null;
+  ownerCompanyId: string | null;
   client: {
     name: string;
     email: string;
@@ -146,6 +147,7 @@ export default function JobDetailPage() {
             id: row.id as string,
             jobRef: (row.id as string).slice(0, 13).toUpperCase(),
             assignedDriverId: (row.assigned_driver_id as string | null) ?? null,
+            ownerCompanyId: (row.company_id as string | null) ?? null,
             client: {
               name: clientFields.name,
               email: clientFields.email,
@@ -225,7 +227,7 @@ export default function JobDetailPage() {
   };
 
   const handleEdit = () => {
-    setEditMode(true);
+    router.push(`/admin/jobs/${encodeURIComponent(jobId)}/edit`);
   };
 
   const handleCancel = () => {
@@ -266,101 +268,7 @@ export default function JobDetailPage() {
   };
 
   const handleSave = async () => {
-    if (!formData || !job) return;
-    if (!hasSupabaseSession || !companyId) {
-      setSaveMessage('A live company session is required to save job changes safely.');
-      setTimeout(() => setSaveMessage(''), 3000);
-      return;
-    }
-
-    try {
-      const { accessToken, error: tokenError } = await getAccessToken();
-      if (tokenError || !accessToken) {
-        setSaveMessage(tokenError ?? 'Session expired. Please sign in again.');
-        return;
-      }
-
-      const detailsChanged =
-        formData.client.name !== job.client.name ||
-        formData.client.email !== job.client.email ||
-        formData.client.phone !== job.client.phone ||
-        formData.pickup.location !== job.pickup.location ||
-        formData.pickup.date !== job.pickup.date ||
-        formData.pickup.time !== job.pickup.time ||
-        formData.delivery.location !== job.delivery.location ||
-        formData.delivery.date !== job.delivery.date ||
-        formData.delivery.time !== job.delivery.time ||
-        formData.cargo.type !== job.cargo.type ||
-        formData.cargo.quantity !== job.cargo.quantity ||
-        formData.cargo.notes !== job.cargo.notes ||
-        formData.distanceMiles !== job.distanceMiles;
-
-      let updatedAt = job.updatedAt;
-      let savedStatus = job.status;
-      let savedAssignedDriverId = formData.assignedDriverId;
-
-      if (detailsChanged) {
-        const response = await fetch(`/api/admin/jobs/${encodeURIComponent(jobId)}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({
-            companyId,
-            expectedUpdatedAt: job.updatedAt,
-            clientName: formData.client.name,
-            clientEmail: formData.client.email || null,
-            clientPhone: formData.client.phone || null,
-            specialRequirements: buildLegacyJobSpecialRequirements({
-              clientPhone: formData.client.phone,
-              clientEmail: formData.client.email,
-              cargoNotes: formData.cargo.notes,
-            }),
-            pickupLocation: formData.pickup.location,
-            pickupDateTime: formData.pickup.date && formData.pickup.time ? `${formData.pickup.date}T${formData.pickup.time}:00` : null,
-            deliveryLocation: formData.delivery.location,
-            deliveryDateTime: formData.delivery.date && formData.delivery.time ? `${formData.delivery.date}T${formData.delivery.time}:00` : null,
-            cargoType: formData.cargo.type,
-            items: formData.cargo.quantity,
-            distanceMiles: formData.distanceMiles,
-          }),
-        });
-        const payload = (await response.json().catch(() => ({}))) as { job?: { updated_at?: string }; error?: string };
-        if (!response.ok) {
-          setSaveMessage(payload.error ?? 'Job details could not be saved.');
-          setTimeout(() => setSaveMessage(''), 4000);
-          return;
-        }
-        updatedAt = payload.job?.updated_at ?? updatedAt;
-      }
-
-      if (job.assignedDriverId !== formData.assignedDriverId) {
-        const assignmentResponse = await fetch(`/api/admin/jobs/${encodeURIComponent(jobId)}/assign-driver`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
-          body: JSON.stringify({ driverId: formData.assignedDriverId, expectedDriverId: job.assignedDriverId ?? null }),
-        });
-        const assignmentPayload = await assignmentResponse.json().catch(() => ({}));
-        if (!assignmentResponse.ok) {
-          await loadJob();
-          setSaveMessage(`Driver assignment failed: ${assignmentPayload.error ?? 'Unknown error'}`);
-          setTimeout(() => setSaveMessage(''), 4000);
-          return;
-        }
-        savedStatus = assignmentPayload.job?.status ?? savedStatus;
-        savedAssignedDriverId = assignmentPayload.job?.assigned_driver_id ?? savedAssignedDriverId;
-        updatedAt = assignmentPayload.job?.updated_at ?? new Date().toISOString();
-      }
-
-      const updatedJob = { ...formData, status: savedStatus, assignedDriverId: savedAssignedDriverId, updatedAt };
-      setJob(updatedJob);
-      setFormData(updatedJob);
-      setEditMode(false);
-      setSaveMessage('Job saved successfully!');
-      setTimeout(() => setSaveMessage(''), 3000);
-    } catch (error) {
-      console.error('Error saving job:', error);
-      setSaveMessage('Error saving job. Please try again.');
-      setTimeout(() => setSaveMessage(''), 3000);
-    }
+    router.push(`/admin/jobs/${encodeURIComponent(jobId)}/edit`);
   };
 
   const handleDelete = async () => {
@@ -543,7 +451,7 @@ export default function JobDetailPage() {
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               {!editMode ? (
                 <>
-                  <button
+                  {job.ownerCompanyId === companyId && <button
                     onClick={handleEdit}
                     style={{
                       flex: 1,
@@ -561,8 +469,8 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#165a2d')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1F7A3D')}
                   >
-                    ✏️ Edit Job
-                  </button>
+                    Edit Load
+                  </button>}
                   <button
                     onClick={handleGenerateInvoice}
                     style={{
@@ -583,7 +491,7 @@ export default function JobDetailPage() {
                   >
                     📄 Generate Invoice
                   </button>
-                  <button
+                  {job.ownerCompanyId === companyId && <button
                     onClick={() => setShowDeleteConfirm(true)}
                     style={{
                       padding: '0.75rem 1.25rem',
@@ -599,8 +507,8 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#b91c1c')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#dc2626')}
                   >
-                    🗑️ Delete
-                  </button>
+                    Delete
+                  </button>}
                   <button
                    onClick={handlePublishToExchange}
                    disabled={publishingExchange}

@@ -174,7 +174,7 @@ export default function DriverFreightVisionPage() {
         <div className="subbar">
           <span className="crumb">Workspace &nbsp;/&nbsp; <b>Freight Vision</b></span>
           <div className="sub-actions">
-            <button type="button" className="btn" disabled title="Payment Report is handled in Finance">Payment Report</button>
+            <button type="button" className="btn" onClick={() => router.push('/driver/finance')} title="Open Finance">Payment Report</button>
             <button type="button" className="btn" onClick={() => setSearch('')}>Clear</button>
             <button type="button" className="btn primary" onClick={() => void load()} disabled={loading}>Refresh</button>
           </div>

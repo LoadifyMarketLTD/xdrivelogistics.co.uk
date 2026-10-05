@@ -35,7 +35,7 @@ export default function FleetMaintenancePage() {
       <PageHeader
         eyebrow="Fleet maintenance"
         title="Maintenance"
-        description="Recorded vehicle and document signals only. The verified Fleet dataset does not expose a maintenance-health or operational-readiness state, so none is inferred here."
+        description="Recorded vehicle and document information only. Maintenance health is not inferred when no verified maintenance status is available."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Manage vehicles</ActionButton>}
       />
       <KpiGrid>
@@ -51,7 +51,7 @@ export default function FleetMaintenancePage() {
           tone="red"
         />
       </KpiGrid>
-      <Panel title="Vehicle document register" description="Document signals are not a substitute for the canonical server-side driver + vehicle eligibility check.">
+      <Panel title="Vehicle document register" description="Document status is one part of the driver and vehicle eligibility check performed before allocation.">
         <DataTable
           columns={['Registration', 'Vehicle', 'Assigned driver', 'Evidence', 'Document signal', 'Action']}
           rows={rows.map(({ vehicle, documents, signal }) => {

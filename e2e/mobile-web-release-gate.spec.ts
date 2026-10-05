@@ -24,6 +24,7 @@ const assertNoPageOverflow = async (page: import('@playwright/test').Page, label
 };
 
 test.describe('mobile web release gate', () => {
+  test.describe.configure({ mode: 'serial' });
   test.use({ viewport: MOBILE });
 
   for (const route of PUBLIC_ROUTES) {
@@ -79,7 +80,7 @@ test.describe('mobile web release gate', () => {
         const response = await page.goto(`/visual-fixture/workspace/${role}`, { waitUntil: 'networkidle' });
         expect(response?.status() ?? 0, `${role}: fixture route must load`).toBeLessThan(500);
 
-        const nav = role === 'driver' ? page.locator('.driver-top-nav') : page.locator('.top-workspace-nav');
+        const nav = page.locator('.top-workspace-nav');
         await expect(nav).toBeVisible();
 
         const overflow = await nav.evaluate((el) => ({

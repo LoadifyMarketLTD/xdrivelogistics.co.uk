@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import { downloadXlsx, spreadsheetDate } from '../../lib/spreadsheetExport';
-import { workspaceJobOperationalLabel } from '../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, fleetQueueStage, workspaceJobOperationalLabel } from '../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import FleetPositionMap, { type FleetMapPoint } from './fleet/FleetPositionMap';
 import SharedActionCentrePage from '../components/workspace/ActionCentrePage';
@@ -234,7 +234,7 @@ export function FleetAssignmentsPage() {
   const data = useCompanyWorkspaceData();
   const router = useRouter();
   const jobs = data.jobs.filter(
-    (job) => ['posted', 'awarded'].includes(job.status) && !job.assigned_driver_id
+    (job) => fleetQueueStage(job) === 'unallocated' && !job.assigned_driver_id
   );
 
   return (
@@ -400,7 +400,8 @@ export function FutureAvailabilityPage() {
   const futureJobs = data.jobs
     .filter((job) => {
       const pickup = job.pickup_datetime ? new Date(job.pickup_datetime).getTime() : Number.NaN;
-      return Number.isFinite(pickup) && pickup > now && !['cancelled', 'completed'].includes(job.status);
+      const stage = classifyWorkspaceJobStage(job);
+      return Number.isFinite(pickup) && pickup > now && stage !== 'cancelled' && stage !== 'completed';
     })
     .sort(
       (left, right) =>
@@ -792,7 +793,7 @@ export function FinanceReportsPage() {
       customerPrice: Number(job.budget_amount ?? 0),
       driver: job.assigned_driver_id ?? '',
       vehicleId: job.vehicle_id ?? '',
-      podGenerated: job.pod_generated_at ? 'Yes' : 'No',
+      podGenerated: job.pod_generated === true ? 'Yes' : 'No',
     })),
   };
 

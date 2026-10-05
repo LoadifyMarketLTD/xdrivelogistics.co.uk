@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync(join(process.cwd(),'supabase/migrations/20260926122647_booking_offer_carrier_acceptance.sql'),'utf8');
+const acceptedEventMigration = readFileSync(join(process.cwd(),'supabase/migrations/20261005172000_booking_acceptance_records_accepted_event.sql'),'utf8');
 const customerAward = readFileSync(join(process.cwd(),'app/api/customer/bids/[id]/award/route.ts'),'utf8');
 const carrierRespond = readFileSync(join(process.cwd(),'app/api/booking-offers/[id]/respond/route.ts'),'utf8');
 const inbox = readFileSync(join(process.cwd(),'app/components/workspace/PendingBookingOffers.tsx'),'utf8');
@@ -24,6 +25,12 @@ describe('buyer award and carrier commercial acceptance',()=>{
     expect(migration).toContain("SET status='accepted',responded_by=v_actor,responded_at=now(),commercial_agreement_id=v_agreement_id");
   });
 
+  it('records named-driver acceptance in both status history and the event log',()=>{
+    expect(acceptedEventMigration).toContain("'accepted','timestamp'");
+    expect(acceptedEventMigration).toContain("event_type='accepted'");
+    expect(acceptedEventMigration).toContain("'Named bidder driver accepted the booking during carrier acceptance.'");
+    expect(acceptedEventMigration).toContain("REVOKE ALL ON FUNCTION public.accept_job_booking_offer_atomic(uuid,uuid) FROM PUBLIC, anon, authenticated");
+  });
   it('supports an auditable carrier decline without pretending a booking was accepted',()=>{
     expect(migration).toContain('public.decline_job_booking_offer_atomic');
     expect(migration).toContain("SET status='declined'");

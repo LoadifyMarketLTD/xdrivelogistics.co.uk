@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   classifyWorkspaceJobStage,
+  isCompanyExecutionJob,
   normalizedJobStatus,
   workspaceJobOperationalLabel,
 } from '../../../lib/jobs/workspaceJobStage';
@@ -42,12 +43,11 @@ export default function DispatcherControlDashboardHome() {
   const router = useRouter();
   const data = useCompanyWorkspaceData();
 
-  // Dispatcher execution follows the canonical operating-company rule used by
-  // the job transition API: awarded carrier when present, otherwise job owner.
-  // This prevents a customer-owned job awarded to another carrier from leaking
-  // into this company's dispatch queue merely because company_id matches.
+  // Dispatcher execution uses the same authoritative counterparty rule as
+  // Carrier/Fleet: awarded carrier when present, otherwise explicit assigned
+  // company. Job ownership alone never grants execution authority.
   const dispatcherExecutionJobs = useMemo(
-    () => data.jobs.filter((job) => (job.awarded_carrier_company_id ?? job.company_id) === data.companyId),
+    () => data.jobs.filter((job) => isCompanyExecutionJob(job, data.companyId)),
     [data.companyId, data.jobs],
   );
 

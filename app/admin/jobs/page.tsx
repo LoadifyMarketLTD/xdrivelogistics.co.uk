@@ -241,7 +241,7 @@ function JobsPageInner() {
 
  const { data, error } = await supabase
  .from('jobs')
- .select('id, company_id, status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, job_distance_miles, exchange_visibility, awarded_carrier_company_id, direct_invite_company_id, assigned_driver_id, created_at, updated_at')
+ .select('id, company_id, status, current_status, vehicle_type, cargo_type, pickup_location, pickup_postcode, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_datetime, delivery_time_slot, items, pallets, weight_kg, length_cm, width_cm, height_cm, client_name, client_email, client_phone, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, customer_reference, purchase_order_number, booking_reference, requested_vehicle_label, requested_cargo_label, cargo_value_gbp, pallet_type, pallet_stackable, collection_forklift_available, collection_tail_lift_required, collection_handball_required, delivery_forklift_available, delivery_tail_lift_required, delivery_handball_required, document_checklist, load_details, special_requirements, access_restrictions, job_distance_miles, exchange_visibility, awarded_carrier_company_id, direct_invite_company_id, assigned_driver_id, created_at, updated_at')
  .or('company_id.eq.' + companyId + ',assigned_company_id.eq.' + companyId + ',awarded_carrier_company_id.eq.' + companyId)
  .order('created_at', { ascending: false });
 
@@ -292,7 +292,7 @@ function JobsPageInner() {
  quantity: (row.items as number) || 1,
  notes: clientFields.cargoNotes,
  },
- status: (row.status as string) || JOB_STATUS.RECEIVED,
+ status: (row.current_status as string) || (row.status as string) || JOB_STATUS.RECEIVED,
  createdAt: row.created_at as string,
  updatedAt: row.updated_at as string,
  distanceMiles,

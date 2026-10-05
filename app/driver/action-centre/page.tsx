@@ -15,13 +15,15 @@ type ActionCentreEvent = {
   created_at: string;
   event_id: string | null;
   cta_href: string;
+  persistent?: boolean;
+  source?: 'operational' | 'notification';
 };
 
 type ViewId = 'all' | 'open' | 'failed';
 type DateRange = '24h' | '7d' | '30d';
 
 const views: Array<{ id: ViewId; label: string }> = [
-  { id: 'all', label: 'All events' },
+  { id: 'all', label: 'All actions' },
   { id: 'open', label: 'Open actions' },
   { id: 'failed', label: 'Failed only' },
 ];
@@ -37,7 +39,7 @@ function formatLabel(value: string | null | undefined) {
 
 function formatDate(value: string) {
   const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
+  return Number.isNaN(date.getTime()) ? 'Not recorded' : date.toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 export default function DriverActionCentrePage() {
@@ -94,16 +96,16 @@ export default function DriverActionCentrePage() {
   }, [dateRange]);
 
   const filteredRows = useMemo(() => rows.filter((row) => {
-    if (new Date(row.created_at).getTime() < since) return false;
+    if (!row.persistent && new Date(row.created_at).getTime() < since) return false;
     if (view === 'open') return row.status !== 'sent' && row.status !== 'resolved';
     if (view === 'failed') return row.status === 'failed';
     return true;
   }), [rows, since, view]);
 
   const counts = useMemo(() => ({
-    all: rows.filter((row) => new Date(row.created_at).getTime() >= since).length,
-    open: rows.filter((row) => new Date(row.created_at).getTime() >= since && row.status !== 'sent' && row.status !== 'resolved').length,
-    failed: rows.filter((row) => new Date(row.created_at).getTime() >= since && row.status === 'failed').length,
+    all: rows.filter((row) => row.persistent || new Date(row.created_at).getTime() >= since).length,
+    open: rows.filter((row) => (row.persistent || new Date(row.created_at).getTime() >= since) && row.status !== 'sent' && row.status !== 'resolved').length,
+    failed: rows.filter((row) => (row.persistent || new Date(row.created_at).getTime() >= since) && row.status === 'failed').length,
   }), [rows, since]);
 
   const rail = (
@@ -149,7 +151,7 @@ export default function DriverActionCentrePage() {
                     <article key={row.id} className="driver-load-row" data-state={row.status}>
                       <div className="driver-load-row__top">
                         <div className="driver-load-cell"><span className="driver-cell-label">Action</span><strong className="driver-cell-primary">{formatLabel(row.event_type)}</strong><span className="driver-cell-secondary">{formatLabel(row.entity_type)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Reference</span><strong className="driver-cell-primary">{row.event_id?.slice(0, 8).toUpperCase() ?? row.id.slice(0, 8).toUpperCase()}</strong><span className="driver-cell-secondary">Operational event</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Reference</span><strong className="driver-cell-primary">{row.event_id?.slice(0, 8).toUpperCase() ?? row.id.slice(0, 8).toUpperCase()}</strong><span className="driver-cell-secondary">{row.source === 'operational' ? 'Live operational action' : 'Workspace notification'}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Created</span><strong className="driver-cell-primary">{formatDate(row.created_at)}</strong><span className="driver-cell-secondary">Driver queue</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Status</span><strong className="driver-cell-primary">{formatLabel(row.status)}</strong><span className="driver-cell-secondary"><StatusBadge value={formatLabel(row.status)} tone={tone} /></span></div>
                       </div>

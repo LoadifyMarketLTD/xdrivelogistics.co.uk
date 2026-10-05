@@ -7,6 +7,10 @@ describe('Dispatcher CX convergence contract', () => {
     'utf8',
   );
 
+  it('uses the canonical execution-company rule instead of job ownership fallback', () => {
+    expect(source).toContain('isCompanyExecutionJob(job, data.companyId)');
+    expect(source).not.toContain('(job.awarded_carrier_company_id ?? job.company_id) === data.companyId');
+  });
   it('replaces the KPI wall with compact operational signals', () => {
     expect(source).toContain('<OperationalSignalStrip');
     expect(source).not.toContain('<KpiGrid>');

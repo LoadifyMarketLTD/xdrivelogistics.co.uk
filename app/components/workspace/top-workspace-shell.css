@@ -538,9 +538,15 @@
     flex-basis: 118px;
   }
 
-  .top-workspace-action:not(.top-workspace-action--primary):not(.top-workspace-action--context),
-  .top-workspace-notification {
+  .top-workspace-action:not(.top-workspace-action--primary):not(.top-workspace-action--context) {
     display: none;
+  }
+
+  .top-workspace-notification {
+    display: grid;
+    width: 32px;
+    min-width: 32px;
+    flex: 0 0 32px;
   }
 
   .top-workspace-context__menu {

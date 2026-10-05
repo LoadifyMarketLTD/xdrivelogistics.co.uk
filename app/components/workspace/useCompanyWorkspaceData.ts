@@ -10,6 +10,7 @@ import {
 } from '../../../lib/workspaceRole';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
+import { isCompanyExecutionJob } from '../../../lib/jobs/workspaceJobStage';
 
 export type WorkspaceJob = {
   id: string;
@@ -26,6 +27,7 @@ export type WorkspaceJob = {
   assigned_driver_id?: string | null;
   vehicle_id?: string | null;
   awarded_carrier_company_id?: string | null;
+  assigned_company_id?: string | null;
   budget_amount?: number | null;
   delivery_photos?: string[] | null;
   damage_photos?: string[] | null;
@@ -265,10 +267,10 @@ const uniqueById = <T extends { id: string }>(rows: T[]): T[] => {
 };
 
 const CARRIER_DASHBOARD_JOB_SELECT =
-  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, budget_amount, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, pod_generated_at, driver_notes, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, created_at, updated_at, client_name';
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, awarded_carrier_company_id, assigned_company_id, budget_amount, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, pod_generated_at, driver_notes, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, created_at, updated_at, client_name';
 
 const EXECUTION_JOB_SELECT =
-  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, budget_amount, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, pod_generated_at, driver_notes, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, booking_reference, customer_reference, created_at, updated_at, client_name';
+  'id, company_id, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, vehicle_type, assigned_driver_id, vehicle_id, awarded_carrier_company_id, assigned_company_id, budget_amount, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, pod_generated_at, driver_notes, pod_required, pod_generated, has_delivery_evidence, broker_pod_review_status, booking_reference, customer_reference, created_at, updated_at, client_name';
 
 const LEGACY_EXECUTION_JOB_SELECT = EXECUTION_JOB_SELECT
   .split(',')
@@ -678,7 +680,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             : query.or(
               plan.surface === 'customer' || plan.surface === 'broker'
                 ? `company_id.eq.${companyId}`
-                : `company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`,
+                : `company_id.eq.${companyId},assigned_company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`,
             );
           return scopedQuery
             .order('updated_at', { ascending: false })
@@ -758,7 +760,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             break;
           }
           const wonJobIds = jobDataset.data
-            .filter((job) => job.awarded_carrier_company_id === companyId)
+            .filter((job) => isCompanyExecutionJob(job, companyId))
             .map((job) => job.id);
           if (!wonJobIds.length) {
             setDataset<WorkspaceBid>('bids', []);

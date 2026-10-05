@@ -121,7 +121,7 @@ export async function POST(
     .from('jobs')
     .select('id, company_id, awarded_carrier_company_id, exchange_visibility, status, current_status, pickup_location, pickup_datetime, delivery_location, delivery_datetime, load_details, currency, client_name, client_email, budget_amount, customer_reference, pod_generated, pod_generated_at, delivery_photos, pod_photos, delivery_signature_data, client_signature_name')
     .eq('id', jobId)
-    .or(`company_id.eq.${actor.companyId},awarded_carrier_company_id.eq.${actor.companyId}`)
+    .or(`company_id.eq.${actor.companyId},assigned_company_id.eq.${actor.companyId},awarded_carrier_company_id.eq.${actor.companyId}`)
     .maybeSingle();
 
   if (jobError) return respond(500, { error: jobError.message });

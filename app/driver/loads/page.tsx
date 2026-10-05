@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { ActionButton } from '../../components/workspace/WorkspaceUI';
+import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -189,6 +190,7 @@ export default function AvailableLoadsPage() {
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [visibleCount, setVisibleCount] = useState(25);
+  const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
   const getAuthHeader = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -315,6 +317,17 @@ export default function AvailableLoadsPage() {
 
   const visibleLoads = filteredLoads.slice(0, visibleCount);
   const canLoadMore = visibleCount < filteredLoads.length;
+  const mapLoads = useMemo(() => filteredLoads.map((load) => ({
+    id: load.id,
+    pickupLabel: load.pickup_area,
+    pickupPostcode: load.pickup_postcode_area,
+    deliveryLabel: load.delivery_area,
+    deliveryPostcode: load.delivery_postcode_area,
+    vehicleLabel: load.requested_vehicle_label ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g, ' ')) : 'Any vehicle'),
+    posterName: load.member.postedBy ?? load.member.name,
+    pickupAt: load.pickup_datetime,
+    postedAt: load.exchange_posted_at,
+  })), [filteredLoads]);
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
@@ -354,7 +367,7 @@ export default function AvailableLoadsPage() {
             </div>
             <div className="load-result-head">
               <div><b>Search Loads Results</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
-              <div className="load-view-switch"><button type="button" className="active" aria-current="true">List View</button><button type="button" disabled>Map View</button></div>
+              <div className="load-view-switch"><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}>Map View</button></div>
               <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" className="text-action" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }}>{expandAll ? 'Collapse all visible loads' : 'Expand all visible loads'}</button>
                 <label className="load-page-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
@@ -363,7 +376,13 @@ export default function AvailableLoadsPage() {
                 <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
               </div>
             </div>
-            {loading ? <div className="xd2-calm-empty"><b>Loading exchange loads…</b><span>Refreshing live freight.</span></div> : loads.length === 0 ? <div className="xd2-calm-empty"><b>No exchange loads available right now</b><span>Refresh the board or keep your availability and return journey current.</span></div> : filteredLoads.length === 0 ? <div className="xd2-calm-empty"><b>No loads match these filters</b><span>Broaden the route, vehicle, freight or date criteria.</span></div> : (
+            {loading ? <div className="xd2-calm-empty"><b>Loading exchange loads…</b><span>Refreshing live freight.</span></div> : loads.length === 0 ? <div className="xd2-calm-empty"><b>No exchange loads available right now</b><span>Refresh the board or keep your availability and return journey current.</span></div> : filteredLoads.length === 0 ? <div className="xd2-calm-empty"><b>No loads match these filters</b><span>Broaden the route, vehicle, freight or date criteria.</span></div> : viewMode === 'map' ? (
+              <MarketplaceLoadMap
+                loads={mapLoads}
+                onQuote={(loadId) => { setViewMode('list'); setExpandedLoadId(loadId); setBidLoadId(loadId); setBidAmount(''); setBidMessage(''); }}
+                onDetails={(loadId) => router.push(`/driver/loads/${loadId}`)}
+              />
+            ) : (
               <div className="load-list">
                 {visibleLoads.map((load) => {
                   const expanded = expandAll || expandedLoadId === load.id;

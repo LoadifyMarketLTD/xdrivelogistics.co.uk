@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabaseClient';
-import { fleetQueueStage } from '../../../../lib/jobs/workspaceJobStage';
+import { fleetQueueStage, isCompanyExecutionJob } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData, type WorkspaceBid, type WorkspaceLocation } from '../../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -60,7 +60,7 @@ export default function FleetAssignmentsPage() {
 
   const jobs = useMemo(
     () => data.jobs.filter((job) =>
-      job.awarded_carrier_company_id === data.companyId
+      isCompanyExecutionJob(job, data.companyId)
       && fleetQueueStage(job) === 'unallocated'
     ),
     [data.companyId, data.jobs],
@@ -128,9 +128,9 @@ export default function FleetAssignmentsPage() {
   const vehicleBindingState = !selectedDriverId
     ? 'No driver selected'
     : assignedVehicles.length === 0
-      ? 'No assigned vehicle visible in current Fleet dataset'
+      ? 'No vehicle is currently assigned to this driver'
       : assignedVehicles.length > 1
-        ? `${assignedVehicles.length} assigned vehicles visible · server resolves active canonical vehicle`
+        ? `${assignedVehicles.length} vehicles are assigned — XDrive will use the eligible active vehicle`
         : vehicleLabel(vehicleCandidate);
 
   const driverDocuments = selectedDriverId
@@ -192,7 +192,7 @@ export default function FleetAssignmentsPage() {
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'Driver and vehicle allocation failed.');
-      setNotice(`Job allocated to ${driverLabel(selectedDriver)}. The canonical active vehicle was persisted by the server.`);
+      setNotice(`Job allocated to ${driverLabel(selectedDriver)} with the eligible assigned vehicle.`);
       await data.refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Driver and vehicle allocation failed.');
@@ -206,7 +206,7 @@ export default function FleetAssignmentsPage() {
       <PageHeader
         eyebrow="Fleet allocation"
         title="Won / Received — Unallocated"
-        description="Company-level awards and incomplete driver/vehicle allocations remain here until an authorised fleet operator selects the executing driver. XDrive then revalidates the driver and persists that driver's canonical active vehicle atomically."
+        description="Work assigned to this company that still needs a driver or vehicle allocation remains here until an authorised fleet operator selects the executing driver. XDrive verifies the driver and assigned vehicle before allocation."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet')}>Fleet Dashboard</ActionButton>}
       />
 
@@ -214,7 +214,7 @@ export default function FleetAssignmentsPage() {
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
-      <Panel title="Allocation queue" description="Only jobs awarded to this carrier company that still require canonical driver + vehicle allocation are shown.">
+      <Panel title="Allocation queue" description="Jobs assigned or awarded to this company that still require driver and vehicle allocation are shown here.">
         <DataTable
           columns={['Won for', 'Route', 'Pickup', 'Required vehicle', 'Quoted by', 'Agreed quote', 'Action']}
           rows={jobs.map((job) => {
@@ -240,7 +240,7 @@ export default function FleetAssignmentsPage() {
       {selectedJob && (
         <Panel
           title={`Allocate ${selectedJob.pickup_postcode ?? selectedJob.pickup_location ?? 'Collection'} → ${selectedJob.delivery_postcode ?? selectedJob.delivery_location ?? 'Delivery'}`}
-          description="Select the executing driver. Browser data is advisory; the canonical endpoint is the authority for current onboarding, personal compliance, active canonical vehicle and vehicle compliance before persisting driver + vehicle."
+          description="Select the executing driver. XDrive checks current onboarding, driver compliance, the assigned active vehicle and vehicle compliance before saving the allocation."
         >
           <div className="workspace-detail-grid">
             <div className="workspace-detail-item"><strong>Carrier award</strong><div>{acceptedBid?.companies?.name ?? 'This carrier company'}</div></div>
@@ -265,7 +265,7 @@ export default function FleetAssignmentsPage() {
               </label>
 
               <AlertBanner tone="info">
-                No driver is preselected from quote history. Choose the intended execution driver deliberately; XDrive then verifies full current eligibility and binds that driver's canonical vehicle server-side.
+                No driver is preselected from quote history. Choose the intended executing driver; XDrive then verifies current eligibility and uses that driver's active assigned vehicle.
               </AlertBanner>
 
               <div className="workspace-detail-item">
@@ -279,7 +279,7 @@ export default function FleetAssignmentsPage() {
               </AlertBanner>
 
               <ActionButton tone="success" disabled={working || !selectedDriverId || !driverAccountActive} onClick={() => void allocate()}>
-                {working ? 'Allocating…' : 'Allocate driver + canonical vehicle'}
+                {working ? 'Allocating…' : 'Allocate driver + vehicle'}
               </ActionButton>
             </div>
 
@@ -291,7 +291,7 @@ export default function FleetAssignmentsPage() {
               <div className="workspace-detail-item">
                 <strong>Driver account</strong>
                 <div><StatusBadge value={selectedDriver ? (driverAccountActive ? 'active account' : 'account not active') : 'No driver selected'} tone={selectedDriver ? (driverAccountActive ? 'blue' : 'red') : 'grey'} /></div>
-                {selectedDriver && driverAccountActive && <small>Account state only; full operational eligibility is verified server-side.</small>}
+                {selectedDriver && driverAccountActive && <small>Account status is only one part of the eligibility check.</small>}
               </div>
               <div className="workspace-detail-item">
                 <strong>Latest location</strong>
@@ -300,7 +300,7 @@ export default function FleetAssignmentsPage() {
               <div className="workspace-detail-item">
                 <strong>Driver documents</strong>
                 <div><StatusBadge value={!selectedDriver ? 'No driver selected' : driverComplianceAttention ? 'attention signal' : 'no local alert'} tone={!selectedDriver ? 'grey' : driverComplianceAttention ? 'orange' : 'green'} /></div>
-                <small>Presentation signal only; current required personal documents are revalidated server-side.</small>
+                <small>Required personal documents are checked again before allocation.</small>
               </div>
               <div className="workspace-detail-item">
                 <strong>Schedule</strong>
@@ -309,7 +309,7 @@ export default function FleetAssignmentsPage() {
               <div className="workspace-detail-item">
                 <strong>Vehicle assignments visible</strong>
                 <div><StatusBadge value={!selectedDriver ? 'No driver selected' : `${assignedVehicles.length} assignment(s)`} tone={!selectedDriver ? 'grey' : assignedVehicles.length === 1 ? 'blue' : 'orange'} /></div>
-                <small>Not an eligibility verdict because active vehicle status is not projected in this client dataset.</small>
+                <small>The final vehicle eligibility check is performed before allocation.</small>
               </div>
               <div className="workspace-detail-item">
                 <strong>Vehicle type signal</strong>
@@ -318,7 +318,7 @@ export default function FleetAssignmentsPage() {
               <div className="workspace-detail-item">
                 <strong>Vehicle documents signal</strong>
                 <div><StatusBadge value={!vehicleCandidate ? 'No unique client candidate' : vehicleComplianceAttention ? 'attention signal' : 'no local alert'} tone={!vehicleCandidate ? 'grey' : vehicleComplianceAttention ? 'orange' : 'green'} /></div>
-                <small>Final MOT/insurance validity is rechecked by the canonical server resolver.</small>
+                <small>MOT and insurance validity are checked again before allocation.</small>
               </div>
             </div>
           </div>

@@ -157,6 +157,7 @@ export default function BrokerJobsPage() {
                         </div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
                           <ActionButton tone="primary" onClick={() => router.push(`/broker/loads?job=${job.id}`)}>Open load</ActionButton>
+                          {job.company_id === data.companyId && <ActionButton tone="secondary" onClick={() => router.push(`/broker/jobs/${job.id}/edit`)}>Edit Load</ActionButton>}
                           <ActionButton tone="secondary" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Commercial</ActionButton>
                           {stage === 'completed' && <ActionButton tone="secondary" onClick={() => router.push('/broker/pod-review')}>POD review</ActionButton>}
                         </div>

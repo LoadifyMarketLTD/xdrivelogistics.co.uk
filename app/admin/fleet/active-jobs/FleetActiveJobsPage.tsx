@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
-import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, isCompanyExecutionJob, workspaceJobOperationalLabel } from '../../../../lib/jobs/workspaceJobStage';
 
 const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
@@ -22,7 +22,7 @@ export default function FleetActiveJobsPage() {
   const driverById = useMemo(() => new Map(data.drivers.map((driver) => [driver.id, driver])), [data.drivers]);
   const vehicleById = useMemo(() => new Map(data.vehicles.map((vehicle) => [vehicle.id, vehicle])), [data.vehicles]);
   const jobs = data.jobs.filter((job) =>
-    job.awarded_carrier_company_id === data.companyId
+    isCompanyExecutionJob(job, data.companyId)
     && classifyWorkspaceJobStage(job) === 'in_progress'
   );
 

@@ -29,6 +29,7 @@ export type LegalAcceptanceSnapshot = {
   legalVersion: string;
   agreements: LegalAgreementSnapshot[];
   acceptanceLanguage?: LegalLanguage;
+  acceptanceStatement?: string | null;
   privacyDocumentHash?: string | null;
 };
 
@@ -83,13 +84,16 @@ export const computeLegalRequirementFingerprint = (input: {
   acceptanceLanguage?: LegalLanguage;
   agreements: CurrentLegalRequirement['agreements'];
   privacyDocumentHash?: string;
+  acceptanceStatement?: string;
 }) => {
   const acceptanceLanguage = input.acceptanceLanguage ?? input.agreements[0]?.language ?? 'en';
   const privacyDocumentHash = input.privacyDocumentHash ?? sha256(buildControlledLegalDocument('privacy_policy', acceptanceLanguage));
+  const acceptanceStatement = input.acceptanceStatement ?? getLocalizedAcceptanceStatement(input.registrationRole, acceptanceLanguage);
   return createHash('sha256').update(canonicalJson({
     registrationRole: input.registrationRole,
     legalVersion: input.legalVersion,
     acceptanceLanguage,
+    acceptanceStatement,
     materialAgreements: input.agreements.filter((agreement) => agreement.materialChangeRequiresReacceptance).map(({ code, version, language, translationVersion, documentHash }) => ({ code, version, language, translationVersion, documentHash })),
     privacyDocumentHash,
   })).digest('hex');
@@ -106,7 +110,7 @@ export const buildCurrentLegalRequirement = (
   if (privacyDocument.version !== PRIVACY_VERSION || privacyDocument.version !== CONTROLLED_PRIVACY_VERSION) throw new Error('Controlled privacy document version mismatch.');
   const privacyDocumentHash = sha256(privacyDocument);
   const acceptanceStatement = getLocalizedAcceptanceStatement(registrationRole, acceptanceLanguage);
-  const requirementFingerprint = computeLegalRequirementFingerprint({ registrationRole, legalVersion: LEGAL_VERSION, acceptanceLanguage, agreements, privacyDocumentHash });
+  const requirementFingerprint = computeLegalRequirementFingerprint({ registrationRole, legalVersion: LEGAL_VERSION, acceptanceLanguage, agreements, privacyDocumentHash, acceptanceStatement });
   return {
     registrationRole,
     legalVersion: LEGAL_VERSION,

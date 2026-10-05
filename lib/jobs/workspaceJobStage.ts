@@ -12,6 +12,7 @@ export type WorkspaceJobStage =
 export type WorkspaceStageJob = {
   status?: string | null;
   current_status?: string | null;
+  company_id?: string | null;
   awarded_carrier_company_id?: string | null;
   assigned_company_id?: string | null;
   assigned_driver_id?: string | null;
@@ -64,6 +65,24 @@ export function canonicalWorkspaceJobStatus(value: unknown) {
 
 export function normalizedJobStatus(job: WorkspaceStageJob) {
   return canonicalWorkspaceJobStatus(job.current_status ?? job.status ?? '');
+}
+
+/**
+ * True when the company is the authoritative execution counterparty. Award
+ * authority wins when present; otherwise an explicit assigned company is used.
+ * Job ownership alone is not execution authority.
+ */
+export function isCompanyExecutionJob(job: WorkspaceStageJob, companyId: string | null | undefined) {
+  const target = String(companyId ?? '').trim();
+  if (!target) return false;
+
+  const awarded = String(job.awarded_carrier_company_id ?? '').trim();
+  if (awarded) return awarded === target;
+
+  const assigned = String(job.assigned_company_id ?? '').trim();
+  if (assigned) return assigned === target;
+
+  return false;
 }
 
 /**

@@ -50,6 +50,7 @@ const EMPTY_LEGAL_GATE: RegistrationAgreementGateValue = {
   authorityConfirmed: false,
   roleDeclarationConfirmed: false,
   privacyAcknowledged: false,
+  languageComprehensionConfirmed: false,
   signerFullName: '',
 };
 
@@ -201,6 +202,7 @@ export default function RegisterPage() {
             privacy_acknowledged_at: acceptedAt,
             privacy_version: '2026-09-26',
             legal_acceptance_language: legalLanguage,
+            legal_language_comprehension_confirmed_at: acceptedAt,
             legal_signer_full_name: legalGate.signerFullName.trim(),
           },
         },

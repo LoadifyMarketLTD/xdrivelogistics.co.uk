@@ -68,6 +68,19 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
     expect(isRoleAllowedForPath('/', ADMIN_ROLE)).toBe(true);
   });
 
+  it('keeps company load posting aligned with the server membership contract', () => {
+    const base = {
+      workspaceRole: 'carrier_admin' as const,
+      accountStatus: 'active',
+      companyStatus: 'active',
+    };
+    expect(isRoleAllowedForPath('/admin/post-load', ADMIN_ROLE, { ...base, membershipRole: 'admin' })).toBe(true);
+    expect(isRoleAllowedForPath('/admin/bulk-import', ADMIN_ROLE, { ...base, membershipRole: 'admin' })).toBe(true);
+    expect(isRoleAllowedForPath('/admin/post-load', ADMIN_ROLE, { ...base, membershipRole: 'member' })).toBe(false);
+    expect(isRoleAllowedForPath('/admin/bulk-import', ADMIN_ROLE, { ...base, membershipRole: 'member' })).toBe(false);
+    expect(isRoleAllowedForPath('/admin/bulk-import', ADMIN_ROLE, { ...base, membershipRole: 'viewer' })).toBe(false);
+  });
+
   it('allows known /admin routes when role has matching capability', () => {
     // company_admin has jobs.view → /admin/jobs is permitted
     expect(isRoleAllowedForPath('/admin/jobs', ADMIN_ROLE)).toBe(true);

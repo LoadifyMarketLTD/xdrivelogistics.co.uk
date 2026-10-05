@@ -26,7 +26,7 @@ describe('six-role canonical blueprint completion', () => {
     }
     const reports = read('app/broker/reports/page.tsx');
     expect(reports).toContain('Reports & Exports');
-    expect(reports).toContain('Export CSV');
+    expect(reports).toContain('Export XLSX');
     expect(reports).toContain('Report data is unavailable or partial');
   });
 

@@ -107,7 +107,7 @@ export async function GET(request: NextRequest) {
     supabaseAdmin.from('drivers').select('id').eq('company_id', companyId).limit(500),
     supabaseAdmin.from('drivers').select('id,future_position,future_position_date').eq('company_id', companyId).limit(500),
     supabaseAdmin.from('vehicles').select('id,assigned_driver_id,advertising_state').eq('company_id', companyId).limit(500),
-    supabaseAdmin.from('jobs').select('*').or(`company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`).limit(500),
+    supabaseAdmin.from('jobs').select('*').or(`company_id.eq.${companyId},assigned_company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`).limit(500),
   ]);
 
   if (driverBaseResult.error) {

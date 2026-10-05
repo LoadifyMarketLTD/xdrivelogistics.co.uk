@@ -30,6 +30,7 @@ export type RegistrationLegalMetadata = {
   privacy_acknowledged_at?: unknown;
   privacy_version?: unknown;
   legal_acceptance_language?: unknown;
+  legal_language_comprehension_confirmed_at?: unknown;
 };
 
 export type RegistrationLegalEvidence = CurrentLegalEvidence;
@@ -70,7 +71,8 @@ export const hasModernRegistrationLegalMetadata = (metadata: RegistrationLegalMe
     metadata.legal_agreement_codes ||
     metadata.legal_agreement_versions ||
     metadata.legal_authority_confirmed_at ||
-    metadata.legal_role_declaration_confirmed_at,
+    metadata.legal_role_declaration_confirmed_at ||
+    metadata.legal_language_comprehension_confirmed_at,
   );
 
 export const buildRegistrationLegalEvidence = (
@@ -86,10 +88,11 @@ export const buildRegistrationLegalEvidence = (
   const authorityAt = asIsoDate(metadata.legal_authority_confirmed_at);
   const roleDeclarationAt = asIsoDate(metadata.legal_role_declaration_confirmed_at);
   const privacyAt = asIsoDate(metadata.privacy_acknowledged_at);
+  const languageComprehensionAt = asIsoDate(metadata.legal_language_comprehension_confirmed_at);
   const legalVersion = typeof metadata.legal_version === 'string' ? metadata.legal_version : LEGAL_VERSION;
   const acceptanceLanguage = typeof metadata.legal_acceptance_language === 'string' ? metadata.legal_acceptance_language : 'en';
 
-  if (!agreements || !acceptedAt || !authorityAt || !roleDeclarationAt || !privacyAt) return null;
+  if (!agreements || !acceptedAt || !authorityAt || !roleDeclarationAt || !privacyAt || !languageComprehensionAt) return null;
   if (legalVersion !== LEGAL_VERSION || metadata.privacy_version !== PRIVACY_VERSION) return null;
 
   const expectedAgreements = config.agreements.map(({ code, version }) => ({ code, version }));
@@ -97,7 +100,7 @@ export const buildRegistrationLegalEvidence = (
 
   // Registration captures the contractual gate as one deliberate action. The
   // evidence timestamps must therefore all refer to that same acceptance event.
-  if (authorityAt !== acceptedAt || roleDeclarationAt !== acceptedAt || privacyAt !== acceptedAt) return null;
+  if (authorityAt !== acceptedAt || roleDeclarationAt !== acceptedAt || privacyAt !== acceptedAt || languageComprehensionAt !== acceptedAt) return null;
 
   return buildCurrentLegalEvidence(registrationRole, acceptedAt, acceptanceLanguage);
 };

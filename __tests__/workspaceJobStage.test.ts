@@ -5,6 +5,7 @@ import {
   canonicalWorkspaceJobStatus,
   classifyWorkspaceJobStage,
   fleetQueueStage,
+  isCompanyExecutionJob,
   workspaceJobPresentationStatus,
   type WorkspaceStageJob,
 } from '../lib/jobs/workspaceJobStage';
@@ -30,6 +31,25 @@ describe('workspace job lifecycle stage', () => {
     const awarded = job('awarded', { awarded_carrier_company_id: 'carrier-1' });
     expect(classifyWorkspaceJobStage(awarded)).toBe('awarded');
     expect(fleetQueueStage(awarded)).toBe('unallocated');
+  });
+
+  it('uses awarded or assigned company as execution authority without confusing job ownership', () => {
+    expect(isCompanyExecutionJob(job('awarded', {
+      company_id: 'buyer-1',
+      awarded_carrier_company_id: 'carrier-1',
+      assigned_company_id: 'carrier-1',
+    }), 'carrier-1')).toBe(true);
+    expect(isCompanyExecutionJob(job('allocated', {
+      company_id: 'carrier-1',
+      assigned_company_id: 'carrier-1',
+      assigned_driver_id: 'driver-1',
+    }), 'carrier-1')).toBe(true);
+    expect(isCompanyExecutionJob(job('posted', { company_id: 'carrier-1' }), 'carrier-1')).toBe(false);
+    expect(isCompanyExecutionJob(job('allocated', {
+      company_id: 'buyer-1',
+      awarded_carrier_company_id: 'carrier-2',
+      assigned_company_id: 'carrier-1',
+    }), 'carrier-1')).toBe(false);
   });
 
   it('maps broker open work to the unallocated Diary queue', () => {

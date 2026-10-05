@@ -164,7 +164,10 @@ export const DRIVER_WORKSPACE_CAPABILITIES: readonly WorkspaceCapability[] = [
 ];
 
 const DRIVER_EXECUTION_NAV: WorkspaceNavGroup[] = [
-  { id: 'home', label: 'Driver', items: [{ id: 'today', label: 'Today', href: '/driver', icon: '⌂' }] },
+  { id: 'home', label: 'Driver', items: [
+    { id: 'today', label: 'Today', href: '/driver', icon: 'HOME' },
+    { id: 'action-centre', label: 'Action Centre', href: '/driver/action-centre', icon: '!' },
+  ] },
   { id: 'operations', label: 'My Work', items: [
     { id: 'jobs', label: 'My Jobs', href: '/driver/jobs', icon: '▣' },
     { id: 'diary', label: 'Diary', href: '/driver/history', icon: '□' },
@@ -270,7 +273,10 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     nav: [
       { id: 'broker-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/broker', icon: '⌂' }] },
       { id: 'broker-enquiries', label: 'Enquiries', items: [{ id: 'enquiries', label: 'Enquiries', href: '/broker/enquiries', icon: '◫', capability: 'loads.view.own' }] },
-      { id: 'broker-loads', label: 'Loads', items: [{ id: 'loads', label: 'Loads', href: '/broker/loads', icon: '▦', capability: 'loads.view.own' }] },
+      { id: 'broker-loads', label: 'Loads', items: [
+        { id: 'loads', label: 'Loads', href: '/broker/loads', icon: '▦', capability: 'loads.view.own' },
+        { id: 'bulk-import', label: 'Bulk Import', href: '/broker/bulk-import', icon: '⇩', capability: 'loads.create' },
+      ] },
       { id: 'broker-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/broker/bids', icon: '◫', capability: 'quotes.receive' }] },
       { id: 'broker-jobs', label: 'Jobs', items: [{ id: 'jobs', label: 'Jobs', href: '/broker/jobs', icon: '▣', capability: 'jobs.track' }] },
       { id: 'broker-pod', label: 'POD', items: [{ id: 'pod', label: 'POD Review', href: '/broker/pod-review', icon: '▤', capability: 'jobs.review_pod' }] },
@@ -338,6 +344,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
       { id: 'home', label: 'Operations', items: [{ id: 'dashboard', label: 'Dispatcher Dashboard', href: '/admin', icon: '⌂' }] },
       { id: 'work', label: 'Daily Work', items: [
         { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□' },
+        { id: 'bulk-import', label: 'Bulk Import', href: '/admin/bulk-import', icon: '⇩', capability: 'loads.create' },
         { id: 'unallocated', label: 'Unallocated Jobs', href: '/admin/fleet/assignments', icon: '⇄' },
         { id: 'active-jobs', label: 'Active Jobs', href: '/admin/fleet/active-jobs', icon: '▣' },
         { id: 'collections', label: 'Collections', href: '/admin/collections', icon: '↑' },

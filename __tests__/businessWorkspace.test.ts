@@ -83,7 +83,9 @@ describe('workspaceHasCapability', () => {
     expect(workspaceHasCapability('broker', 'quotes.submit')).toBe(true);
   });
 
-  it('carrier_fleet can allocate drivers', () => {
+  it('carrier_fleet can create loads and allocate drivers', () => {
+    expect(workspaceHasCapability('carrier_fleet', 'loads.create')).toBe(true);
+    expect(workspaceHasCapability('carrier_fleet', 'loads.publish')).toBe(true);
     expect(workspaceHasCapability('carrier_fleet', 'jobs.allocate')).toBe(true);
   });
 

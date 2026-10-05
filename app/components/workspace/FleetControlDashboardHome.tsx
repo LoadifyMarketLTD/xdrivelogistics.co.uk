@@ -25,7 +25,7 @@ import { OperationalSignalStrip } from './OperationalConvergence';
 import { useOperationsIntelligence } from './useOperationsIntelligence';
 import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import { daysUntil, metricValue, unavailable } from './AdminDashboardShared';
-import { fleetQueueStage, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
+import { fleetQueueStage, isCompanyExecutionJob, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 
 type FleetFocus = 'all' | 'tracking' | 'compliance';
 type FleetUrgency = 'all' | 'critical' | 'high';
@@ -163,7 +163,7 @@ export default function FleetControlDashboardHome() {
   );
 
   const carrierWonJobs = useMemo(
-    () => data.jobs.filter((job) => job.awarded_carrier_company_id === data.companyId),
+    () => data.jobs.filter((job) => isCompanyExecutionJob(job, data.companyId)),
     [data.companyId, data.jobs],
   );
 

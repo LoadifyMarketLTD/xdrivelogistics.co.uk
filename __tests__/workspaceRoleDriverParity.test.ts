@@ -60,6 +60,7 @@ describe('driver parity across dual identity contexts', () => {
 
     expect(hrefs('driver')).toEqual([
       '/driver',
+      '/driver/action-centre',
       '/driver/availability',
       '/driver/change-password',
       '/driver/documents',

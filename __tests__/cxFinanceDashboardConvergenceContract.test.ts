@@ -22,8 +22,8 @@ describe('Finance CX convergence contract', () => {
 
   it('derives invoice readiness from completed work operated by the current company', () => {
     expect(source).toContain("classifyWorkspaceJobStage(job) === 'completed'");
-    expect(source).toContain('job.awarded_carrier_company_id === data.companyId');
-    expect(source).toContain('!job.awarded_carrier_company_id && job.company_id === data.companyId');
+    expect(source).toContain('isCompanyExecutionJob(job, data.companyId)');
+    expect(source).toContain('!job.awarded_carrier_company_id && !job.assigned_company_id && job.company_id === data.companyId');
     expect(source).toContain('!issuedInvoiceJobIds.has(job.id)');
     expect(source).toContain('invoice.supplier_company_id === data.companyId');
     expect(source).toContain('invoice.company_id === data.companyId');

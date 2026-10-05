@@ -19,6 +19,9 @@ export type SpreadsheetSheet = {
 
 const MIME_XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
+const isTimeOnlyNumberFormat = (value: string | undefined) =>
+  Boolean(value && /[hHsS]/.test(value) && !/[dDyY]/.test(value));
+
 const safeSheetName = (value: string) =>
   value
     .replace(/[\\/?*:]/g, ' ')
@@ -147,6 +150,12 @@ export async function readXlsxSheetRows(buffer: ArrayBuffer, sheetName: string):
     for (let columnNumber = 1; columnNumber <= row.cellCount; columnNumber += 1) {
       const cell = row.getCell(columnNumber);
       if (cell.value instanceof Date) {
+        if (isTimeOnlyNumberFormat(cell.numFmt)) {
+          const hours = String(cell.value.getHours()).padStart(2, '0');
+          const minutes = String(cell.value.getMinutes()).padStart(2, '0');
+          values.push(`${hours}:${minutes}`);
+          continue;
+        }
         const year = cell.value.getFullYear();
         const month = String(cell.value.getMonth() + 1).padStart(2, '0');
         const day = String(cell.value.getDate()).padStart(2, '0');

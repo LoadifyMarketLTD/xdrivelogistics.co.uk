@@ -26,6 +26,8 @@ type ActionCentreEvent = {
   created_at: string;
   event_id: string | null;
   cta_href: string;
+  persistent?: boolean;
+  source?: 'operational' | 'notification';
 };
 
 const isPendingStatus = (status: string) => {
@@ -99,7 +101,7 @@ export default function ActionCentrePage({ role }: { role: ActionCentreRole }) {
   const filteredRows = useMemo(() => {
     return rows.filter((row) => {
       const inRange = new Date(row.created_at).getTime() >= since;
-      if (!inRange) return false;
+      if (!row.persistent && !inRange) return false;
       if (savedView === 'open') return row.status !== 'sent' && row.status !== 'resolved';
       if (savedView === 'failed') return row.status === 'failed';
       return true;
@@ -109,7 +111,9 @@ export default function ActionCentrePage({ role }: { role: ActionCentreRole }) {
   const actionItems = filteredRows.slice(0, 20).map((row) => ({
     id: row.id,
     title: row.event_type.replace(/_/g, ' '),
-    description: row.entity_type ? `Entity: ${row.entity_type}` : 'Operational event',
+    description: row.source === 'operational'
+      ? 'Current operational action derived from live workspace data'
+      : row.entity_type ? `Notification: ${row.entity_type}` : 'Workspace notification',
     priority: row.status === 'failed' ? 'high' : isPendingStatus(row.status) ? 'medium' : 'low',
     status:
       row.status === 'failed'
@@ -134,7 +138,7 @@ export default function ActionCentrePage({ role }: { role: ActionCentreRole }) {
           value={savedView}
           onChange={setSavedView}
           options={[
-            { value: 'all', label: 'All events' },
+            { value: 'all', label: 'All actions' },
             { value: 'open', label: 'Open actions' },
             { value: 'failed', label: 'Failed only' },
           ]}
@@ -154,13 +158,13 @@ export default function ActionCentrePage({ role }: { role: ActionCentreRole }) {
         description={`${filteredRows.length} item(s) in selected view.`}
         actions={
           <ActionButton tone="secondary" onClick={() => void loadRows()} disabled={loading}>
-            {loading ? 'Refreshing…' : 'Refresh view'}
+            {loading ? 'Refreshing...' : 'Refresh view'}
           </ActionButton>
         }
       >
         <ActionCentreList
           items={actionItems}
-          empty={<div>{error || (loading ? 'Loading actions…' : 'No actions in this view')}</div>}
+          empty={<div>{error || (loading ? 'Loading actions...' : 'No actions in this view')}</div>}
         />
       </Panel>
     </PageFrame>

@@ -249,7 +249,7 @@ describe('resolveWorkspacePermission — workspace ∩ membership capability int
       enabledWorkspaces: ['carrier_fleet'],
       activeWorkspace: 'carrier_fleet',
       pathname: '/admin/jobs',
-      requiredCapability: 'loads.create', // carrier_fleet does NOT expose loads.create
+      requiredCapability: 'company.manage', // owner has it but carrier_fleet does not expose it
     });
     expect(result).toEqual({ allowed: false, reason: 'capability_not_permitted' });
   });

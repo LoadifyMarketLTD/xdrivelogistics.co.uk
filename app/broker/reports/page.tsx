@@ -3,9 +3,9 @@
 import { useMemo } from 'react';
 import { useCompanyWorkspaceData } from '../../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader } from '../../components/workspace/WorkspaceUI';
+import { downloadXlsx } from '../../../lib/spreadsheetExport';
 
 const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(value);
-const csv = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
 
 export default function BrokerReportsPage() {
   const data = useCompanyWorkspaceData();
@@ -34,19 +34,27 @@ export default function BrokerReportsPage() {
     dataset.availability !== 'available' || dataset.partialData || dataset.limitedData,
   );
 
-  const exportCsv = () => {
+  const exportXlsx = () => {
     if (incomplete || rows.length === 0) return;
-    const body = [
-      ['Reference', 'Customer', 'Status', 'Customer revenue', 'Carrier cost', 'Margin'],
-      ...rows.map((row) => [row.reference, row.customer, row.status, row.revenue.toFixed(2), row.carrierCost.toFixed(2), row.margin.toFixed(2)]),
-    ].map((row) => row.map(csv).join(',')).join('\n');
-    const blob = new Blob([`\uFEFF${body}`], { type: 'text/csv;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = `xdrive-broker-report-${new Date().toISOString().slice(0, 10)}.csv`;
-    anchor.click();
-    URL.revokeObjectURL(url);
+    return downloadXlsx(
+      `xdrive-broker-report-${new Date().toISOString().slice(0, 10)}.xlsx`,
+      [{
+        name: 'Broker Report',
+        title: 'Broker Commercial Report',
+        subtitle: data.companyId
+          ? `Company scope ${data.companyId} · generated ${new Date().toLocaleString('en-GB')}`
+          : `Generated ${new Date().toLocaleString('en-GB')}`,
+        columns: [
+          { header: 'Reference', key: 'reference', width: 22 },
+          { header: 'Customer', key: 'customer', width: 28 },
+          { header: 'Status', key: 'status', width: 18 },
+          { header: 'Customer revenue', key: 'revenue', width: 18, format: 'currency' as const },
+          { header: 'Carrier cost', key: 'carrierCost', width: 18, format: 'currency' as const },
+          { header: 'Margin', key: 'margin', width: 18, format: 'currency' as const },
+        ],
+        rows,
+      }],
+    );
   };
 
   return (
@@ -57,11 +65,11 @@ export default function BrokerReportsPage() {
         description="Company-scoped broker performance using recorded customer budgets and accepted carrier quotes."
         actions={<>
           <ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>
-          <ActionButton tone="secondary" disabled={incomplete || rows.length === 0} onClick={exportCsv}>Export CSV</ActionButton>
+          <ActionButton tone="secondary" disabled={incomplete || rows.length === 0} onClick={() => void exportXlsx()}>Export XLSX</ActionButton>
         </>}
       />
       {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
-      {incomplete ? <AlertBanner tone="warning">Report data is unavailable or partial. Exact totals and CSV export remain disabled until jobs and carrier quotes are complete.</AlertBanner> : null}
+      {incomplete ? <AlertBanner tone="warning">Report data is unavailable or partial. Exact totals and XLSX export remain disabled until jobs and carrier quotes are complete.</AlertBanner> : null}
       <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
         <span><strong>{incomplete ? 'Partial' : rows.length}</strong> reported job{!incomplete && rows.length === 1 ? '' : 's'}</span>
         <span>{incomplete ? 'Exact totals unavailable' : `Revenue ${money(totals.revenue)} · Carrier cost ${money(totals.carrierCost)} · Margin ${money(totals.margin)}`}</span>

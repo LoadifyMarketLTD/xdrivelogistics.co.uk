@@ -11,7 +11,6 @@ const nativeConfirmUiFiles = [
   'app/admin/bids/page.tsx',
   'app/broker/bids/page.tsx',
   'app/customer/jobs/[id]/page.tsx',
-  'app/customer/CustomerOperationalPages.tsx',
   'app/customer/CustomerWorkspaceModules.tsx',
 ].map((file)=>readFileSync(join(process.cwd(),file),'utf8'));
 const customerQuotesUi = readFileSync(join(process.cwd(),'app/customer/quotes/CustomerQuotesCxPage.tsx'),'utf8');

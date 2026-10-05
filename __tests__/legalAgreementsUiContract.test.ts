@@ -33,6 +33,9 @@ describe('Legal & Agreements account UI contract', () => {
     expect(legalUi).toContain('authorityConfirmed: true');
     expect(legalUi).toContain('roleDeclarationConfirmed: true');
     expect(legalUi).toContain('privacyAcknowledged: true');
+    expect(legalUi).toContain('languageComprehensionConfirmed: true');
+    expect(legalUi).toContain('languageComprehensionConfirmation');
+    expect(legalRoute).toContain('languageComprehensionConfirmed: z.literal(true)');
     expect(legalUi).toContain('Privacy acknowledgement remains separate from contractual acceptance.');
   });
 

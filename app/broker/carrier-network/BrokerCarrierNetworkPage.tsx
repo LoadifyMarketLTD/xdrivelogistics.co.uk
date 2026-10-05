@@ -151,8 +151,8 @@ export default function BrokerCarrierNetworkPage() {
                   <article key={row.id} className="workspace-operational-row" data-state={row.status}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell"><span className="driver-cell-label">Company</span><strong>{row.carrier_company_id ? <MemberIdentityLink companyId={row.carrier_company_id}>{memberName}</MemberIdentityLink> : memberName}</strong><div>{row.invited_email ?? 'No email'}</div></div>
-                      <div className="workspace-operational-cell"><span className="driver-cell-label">Availability</span><strong>Unavailable</strong><div>Relationship dataset does not expose live availability</div></div>
-                      <div className="workspace-operational-cell"><span className="driver-cell-label">Vehicles</span><strong>Unavailable</strong><div>Use Member Profile / Directory where verified</div></div>
+                      <div className="workspace-operational-cell"><span className="driver-cell-label">Member profile</span><strong>{row.carrier_company_id ? 'Verified XDrive member' : 'Invitation pending'}</strong><div>{row.carrier_company_id ? <MemberIdentityLink companyId={row.carrier_company_id}>Open profile / feedback</MemberIdentityLink> : 'Available after the carrier joins the relationship'}</div></div>
+                      <div className="workspace-operational-cell"><span className="driver-cell-label">Verified details</span><strong>{row.carrier_company_id ? 'Profile available' : 'Not linked yet'}</strong><div>{row.carrier_company_id ? 'Feedback, services and authorised documents are available from Member Profile.' : 'Invite must be accepted before member data is available.'}</div></div>
                       <div className="workspace-operational-cell"><span className="driver-cell-label">Status / Actions</span><StatusBadge value={row.status} /><div style={{ marginTop: 4 }}><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : row.id)}>{open ? 'Close' : 'Details'}</ActionButton></div></div>
                     </div>
                     <div className="workspace-record-meta"><span>Carrier #{(row.carrier_company_id ?? row.id).slice(0, 8).toUpperCase()}</span><span>Invited {when(row.created_at)}</span>{row.carrier_company_id && <span>Linked XDrive member</span>}</div>
@@ -160,10 +160,10 @@ export default function BrokerCarrierNetworkPage() {
                       <div className="workspace-record-details">
                         <div className="workspace-detail-grid">
                           <div className="workspace-detail-item"><strong>Company</strong><div>{row.carrier_company_id ? <MemberIdentityLink companyId={row.carrier_company_id}>{memberName}</MemberIdentityLink> : memberName}</div></div>
-                          <div className="workspace-detail-item"><strong>Availability</strong><div>Unavailable from current relationship dataset.</div></div>
-                          <div className="workspace-detail-item"><strong>Vehicles</strong><div>Unavailable from current relationship dataset.</div></div>
-                          <div className="workspace-detail-item"><strong>Documents</strong><div>Open Member Profile / Directory when verified member data is available.</div></div>
-                          <div className="workspace-detail-item"><strong>Ratings</strong><div>Verified member-performance dataset not exposed here.</div></div>
+                          <div className="workspace-detail-item"><strong>Member profile</strong><div>{row.carrier_company_id ? <MemberIdentityLink companyId={row.carrier_company_id}>Open verified member profile</MemberIdentityLink> : 'Available after invitation acceptance.'}</div></div>
+                          <div className="workspace-detail-item"><strong>Services / capability</strong><div>{row.carrier_company_id ? <MemberIdentityLink companyId={row.carrier_company_id}>Open specialist services</MemberIdentityLink> : 'Available after invitation acceptance.'}</div></div>
+                          <div className="workspace-detail-item"><strong>Documents</strong><div>{row.carrier_company_id ? <MemberIdentityLink companyId={row.carrier_company_id}>Open authorised business documents</MemberIdentityLink> : 'Available after invitation acceptance.'}</div></div>
+                          <div className="workspace-detail-item"><strong>Feedback</strong><div>{row.carrier_company_id ? <MemberIdentityLink companyId={row.carrier_company_id}>Open verified feedback</MemberIdentityLink> : 'Available after invitation acceptance.'}</div></div>
                           <div className="workspace-detail-item"><strong>Invitation status</strong><div>{row.status}</div></div>
                           <div className="workspace-detail-item"><strong>Email</strong><div>{row.invited_email ?? 'Unavailable'}</div></div>
                           <div className="workspace-detail-item"><strong>Message</strong><div>{row.message ?? 'No message supplied'}</div></div>

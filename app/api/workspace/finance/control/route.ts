@@ -154,7 +154,7 @@ export async function GET(request: NextRequest) {
   const jobQueries = await Promise.all(companyIds.map((companyId) => supabaseAdmin!
     .from('jobs')
     .select('id, company_id, awarded_carrier_company_id, status, pickup_location, delivery_location, pickup_datetime, delivery_datetime, client_name, updated_at')
-    .or(`company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`)
+    .or(`company_id.eq.${companyId},assigned_company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`)
     .order('updated_at', { ascending: false })
     .limit(500)));
   const jobError = jobQueries.find((result) => result.error)?.error;

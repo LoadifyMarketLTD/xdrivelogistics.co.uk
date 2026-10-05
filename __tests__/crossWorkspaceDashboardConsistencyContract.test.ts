@@ -29,6 +29,25 @@ describe('cross-workspace dashboard consistency', () => {
     for (const surface of surfaces) expect(surface).toContain('workspaceJobOperationalLabel');
   });
 
+  it('keeps carrier and Fleet execution scope aligned with awarded and internally assigned company truth', () => {
+    const workspaceData = read('app/components/workspace/useCompanyWorkspaceData.ts');
+    const carrier = read('app/components/workspace/CarrierOperationsDashboardHome.tsx');
+    const fleet = read('app/components/workspace/FleetControlDashboardHome.tsx');
+    const assignments = read('app/admin/fleet/assignments/page.tsx');
+    const activeJobs = read('app/admin/fleet/active-jobs/FleetActiveJobsPage.tsx');
+    expect(stage).toContain('export function isCompanyExecutionJob');
+    expect(workspaceData).toContain('assigned_company_id?: string | null');
+    expect(workspaceData).toContain('assigned_company_id.eq.${companyId}');
+    for (const source of [carrier, fleet, assignments, activeJobs]) {
+      expect(source).toContain('isCompanyExecutionJob(job, data.companyId)');
+    }
+  });
+
+  it('keeps Fleet assignment eligibility on canonical lifecycle truth', () => {
+    const admin = read('app/admin/AdminWorkspaceModules.tsx');
+    expect(admin).toContain("fleetQueueStage(job) === 'unallocated'");
+    expect(admin).not.toContain("['posted', 'awarded'].includes(job.status)");
+  });
   it('does not render duplicate Track actions on the customer dashboard', () => {
     expect(customer).toContain("(stage === 'allocated' || stage === 'awarded') && !pendingOffer");
     expect(customer).not.toContain("(stage === 'in_progress' || stage === 'allocated' || stage === 'awarded') && !pendingOffer");

@@ -66,6 +66,13 @@ describe('workspace More audit contract', () => {
     }
   });
 
+  it('keeps Action Centre visible in both Driver and Owner Driver primary navigation', () => {
+    const driver = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
+    expect(driver).toContain("['driver-action-centre-primary', 'Action Centre', '/driver/action-centre']");
+    expect(driver).toContain("['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre']");
+    expect(isCapabilityAllowedForPath('/driver/action-centre', null, activeContext('driver'))).toBe(true);
+    expect(isCapabilityAllowedForPath('/driver/action-centre', null, activeContext('owner_driver'))).toBe(true);
+  });
   it('keeps Owner Driver More focused on secondary work and business actions', () => {
     const owner = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
     for (const href of ['/driver/jobs', '/driver/won-work', '/driver/availability', '/driver/load-alerts', '/driver/nearby', '/driver/finance', '/driver/documents', '/driver/messages']) {

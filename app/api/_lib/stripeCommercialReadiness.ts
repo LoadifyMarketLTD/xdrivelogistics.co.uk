@@ -1,11 +1,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { XDRIVE_LOGISTICS_COMPANY_ID } from '../../../lib/activeWorkspace';
 import { isStripeServerConfigured, stripeRequest } from './stripeServer';
+import { getFeatureFlag } from './platformFlags';
 
 type AdminClient = SupabaseClient;
 
 export type StripeCommercialReadiness = {
   ready: boolean;
+  required: boolean;
   accountId: string | null;
   detailsSubmitted: boolean;
   chargesEnabled: boolean;
@@ -21,9 +23,24 @@ export async function getStripeCommercialReadiness(
   supabaseAdmin: AdminClient,
   companyId: string | null | undefined,
 ): Promise<StripeCommercialReadiness> {
+  const required = await getFeatureFlag(supabaseAdmin, 'stripe_billing_future_phase');
+  if (!required) {
+    return {
+      ready: true,
+      required: false,
+      accountId: null,
+      detailsSubmitted: false,
+      chargesEnabled: false,
+      payoutsEnabled: false,
+      onboardingStatus: 'not_required',
+      infrastructureAvailable: true,
+    };
+  }
+
   if (!companyId) {
     return {
       ready: false,
+      required: true,
       accountId: null,
       detailsSubmitted: false,
       chargesEnabled: false,
@@ -37,6 +54,7 @@ export async function getStripeCommercialReadiness(
     if (!isStripeServerConfigured) {
       return {
         ready: false,
+        required: true,
         accountId: null,
         detailsSubmitted: false,
         chargesEnabled: false,
@@ -51,6 +69,7 @@ export async function getStripeCommercialReadiness(
     const payoutsEnabled = account.payouts_enabled === true;
     return {
       ready: Boolean(account.id && detailsSubmitted && chargesEnabled && payoutsEnabled),
+      required: true,
       accountId: account.id || null,
       detailsSubmitted,
       chargesEnabled,
@@ -70,6 +89,7 @@ export async function getStripeCommercialReadiness(
     if (missingSchema(error)) {
       return {
         ready: false,
+        required: true,
         accountId: null,
         detailsSubmitted: false,
         chargesEnabled: false,
@@ -89,6 +109,7 @@ export async function getStripeCommercialReadiness(
 
   return {
     ready: Boolean(accountId && detailsSubmitted && chargesEnabled && payoutsEnabled),
+    required: true,
     accountId,
     detailsSubmitted,
     chargesEnabled,

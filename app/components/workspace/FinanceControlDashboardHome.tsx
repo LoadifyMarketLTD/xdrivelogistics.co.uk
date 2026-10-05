@@ -2,7 +2,8 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, isCompanyExecutionJob } from '../../../lib/jobs/workspaceJobStage';
+import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { getWorkspaceDatasetMetricValue, useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -79,10 +80,11 @@ export default function FinanceControlDashboardHome() {
   const readyToInvoice = useMemo(
     () => data.jobs
       .filter((job) => {
-        const operatedByCurrentCompany = job.awarded_carrier_company_id === data.companyId
-          || (!job.awarded_carrier_company_id && job.company_id === data.companyId);
+        const operatedByCurrentCompany = isCompanyExecutionJob(job, data.companyId)
+          || (!job.awarded_carrier_company_id && !job.assigned_company_id && job.company_id === data.companyId);
         return operatedByCurrentCompany
           && classifyWorkspaceJobStage(job) === 'completed'
+          && hasCompletePodEvidence(job)
           && !issuedInvoiceJobIds.has(job.id);
       })
       .sort((a, b) => String(b.updated_at ?? b.delivery_datetime ?? '').localeCompare(String(a.updated_at ?? a.delivery_datetime ?? ''))),

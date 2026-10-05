@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { classifyWorkspaceJobStage } from '../../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, isCompanyExecutionJob } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData, type WorkspaceJob, type WorkspaceLocation, type WorkspaceVehicle } from '../../../components/workspace/useCompanyWorkspaceData';
 import { useFleetAvailabilityPresence } from '../../../components/workspace/useFleetAvailabilityPresence';
 import { ActionButton, AlertBanner, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
@@ -65,7 +65,7 @@ export default function FleetAvailabilityPage() {
   const workByDriver = useMemo(() => {
     const map = new Map<string, { job: WorkspaceJob; stage: FleetDriverWorkStage }>();
     for (const job of data.jobs) {
-      if (!job.assigned_driver_id || job.awarded_carrier_company_id !== data.companyId) continue;
+      if (!job.assigned_driver_id || !isCompanyExecutionJob(job, data.companyId)) continue;
       const stage = classifyWorkspaceJobStage(job);
       if (stage !== 'awarded' && stage !== 'allocated' && stage !== 'in_progress') continue;
       const current = map.get(job.assigned_driver_id);
@@ -85,7 +85,7 @@ export default function FleetAvailabilityPage() {
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/driver-availability')}>Manage availability</ActionButton>}
       />
       {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
-      <Panel title="Fleet availability matrix" description="Active-job tracking and explicitly published idle availability are combined for your own Fleet only; full driver + canonical active vehicle eligibility is revalidated server-side before allocation.">
+      <Panel title="Fleet availability matrix" description="Active-job tracking and published availability are combined for your own Fleet. Driver and vehicle eligibility is checked again before allocation.">
         <DataTable
           columns={['Driver', 'Availability', 'Vehicle', 'Location', 'Current / assigned job', 'Documents', 'Action']}
           rows={data.drivers.map((driver) => {
@@ -94,7 +94,7 @@ export default function FleetAvailabilityPage() {
             const vehicleSignal = vehicles.length === 0
               ? 'No assigned vehicle'
               : vehicles.length > 1
-                ? `${vehicles.length} assigned vehicles · canonical active vehicle resolved server-side`
+                ? `${vehicles.length} assigned vehicles`
                 : `${vehicle?.reg_plate ?? 'No registration'} · ${(vehicle?.type ?? 'type unknown').replace(/_/g, ' ')}`;
             const location = latestLocationByDriver.get(driver.id);
             const work = workByDriver.get(driver.id);
@@ -106,7 +106,7 @@ export default function FleetAvailabilityPage() {
               <span key="availability" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}><StatusBadge value={driver.availability_status ?? 'offline'} tone={operationallyAvailable ? 'green' : undefined} /><StatusBadge value={accountActive ? 'active account' : driver.status ? `account ${driver.status}` : 'account status unavailable'} tone={accountActive ? 'blue' : 'red'} /></span>,
               vehicleSignal,
               location ? `${location.lat.toFixed(4)}, ${location.lng.toFixed(4)}` : 'Location unavailable',
-              work ? <span key="work"><strong style={{ display: 'block' }}>{work.job.pickup_postcode ?? work.job.pickup_location ?? 'Collection'} → {work.job.delivery_postcode ?? work.job.delivery_location ?? 'Delivery'}</strong><span>{work.stage === 'in_progress' ? 'Execution in progress' : work.stage === 'allocated' ? 'Allocated / awaiting execution' : 'Allocation incomplete — driver + canonical vehicle required'}</span></span> : 'No current or allocated Fleet job',
+              work ? <span key="work"><strong style={{ display: 'block' }}>{work.job.pickup_postcode ?? work.job.pickup_location ?? 'Collection'} → {work.job.delivery_postcode ?? work.job.delivery_location ?? 'Delivery'}</strong><span>{work.stage === 'in_progress' ? 'Execution in progress' : work.stage === 'allocated' ? 'Allocated / awaiting execution' : 'Allocation incomplete — driver and eligible vehicle required'}</span></span> : 'No current or allocated Fleet job',
               docs.length ? `${docs.length} document(s)` : 'No documents recorded',
               <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/drivers')}>Manage</ActionButton>,
             ];

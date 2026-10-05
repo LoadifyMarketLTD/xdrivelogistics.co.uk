@@ -103,6 +103,8 @@ const BROKER_DISPATCHER_CAPABILITIES = new Set<WorkspaceCapability>([
   'jobs.review_pod',
 ]);
 
+const COMPANY_POSTING_MEMBERSHIP_ROLES = new Set(['owner', 'admin', 'dispatcher']);
+
 const CUSTOMER_BROKER_VIEWER_CAPABILITIES = new Set<WorkspaceCapability>([
   'loads.view.own',
   'quotes.receive',
@@ -115,11 +117,19 @@ export const hasWorkspaceCapabilityForContext = (
   capability: WorkspaceCapability,
   context: RouteAccessContext = {},
 ): boolean => {
+  const membershipRole = context.membershipRole?.trim().toLowerCase() ?? '';
+
+  if (
+    ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'].includes(workspaceRole)
+    && (capability === 'loads.create' || capability === 'loads.publish')
+  ) {
+    return COMPANY_POSTING_MEMBERSHIP_ROLES.has(membershipRole)
+      && hasWorkspaceCapability(workspaceRole, capability);
+  }
+
   if (workspaceRole !== 'customer' && workspaceRole !== 'broker') {
     return hasWorkspaceCapability(workspaceRole, capability);
   }
-
-  const membershipRole = context.membershipRole?.trim().toLowerCase() ?? '';
   // Legacy standalone Customer/Broker accounts have no membership role. Preserve
   // their canonical workspace until they are migrated to company membership.
   if (!membershipRole || membershipRole === 'owner' || membershipRole === 'admin') {
@@ -283,7 +293,8 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/freight-vision', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
   { prefix: '/admin/messages', workspace: 'carrier_fleet' },
   { prefix: '/admin/event-log', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
-  { prefix: '/admin/post-load', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'] },
+  { prefix: '/admin/post-load', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'], anyOf: ['loads.create'] },
+  { prefix: '/admin/bulk-import', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'], anyOf: ['loads.create'] },
   { prefix: '/admin/fleet/managers', workspace: 'carrier_fleet', anyOf: ['company.members.manage'] },
   { prefix: '/admin/fleet/assignments', workspace: 'carrier_fleet', anyOf: ['jobs.allocate'] },
   { prefix: '/admin/fleet/active-jobs', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
@@ -310,7 +321,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/documents', workspace: 'carrier_fleet', anyOf: ['documents.company.manage', 'documents.verify'] },
   { prefix: '/admin/finance/payments', workspace: 'carrier_fleet', anyOf: ['payments.manage'] },
   { prefix: '/admin/finance/balances', workspace: 'carrier_fleet', anyOf: ['payments.manage', 'invoices.customer.manage', 'invoices.carrier.manage'] },
-  { prefix: '/admin/finance/reports', workspace: 'carrier_fleet', anyOf: ['payments.manage', 'margins.view'] },
+  { prefix: '/admin/finance/reports', workspace: 'carrier_fleet', anyOf: ['payments.manage', 'margins.view', 'invoices.carrier.manage'] },
   { prefix: '/admin/finance', workspace: 'carrier_fleet', anyOf: ['payments.manage', 'margins.view', 'invoices.customer.manage', 'invoices.carrier.manage'] },
   { prefix: '/admin/invoices', workspace: 'carrier_fleet', anyOf: ['invoices.customer.manage', 'invoices.carrier.manage'] },
   { prefix: '/admin/returns', workspace: 'carrier_fleet', roles: ['company_owner', 'company_admin', 'carrier_admin', 'fleet_manager'] },
@@ -328,6 +339,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/broker/customers', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/carrier-network', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/post-load', workspace: 'broker', anyOf: ['loads.create'] },
+  { prefix: '/broker/bulk-import', workspace: 'broker', anyOf: ['loads.create'] },
   { prefix: '/broker/loads', workspace: 'broker', anyOf: ['loads.view.own'] },
   { prefix: '/broker/bids', workspace: 'broker', anyOf: ['quotes.receive'] },
   { prefix: '/broker/compare-quotes', workspace: 'broker', anyOf: ['quotes.compare'] },
@@ -353,6 +365,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   // shipper (/customer)
   { prefix: '/customer/action-centre', workspace: 'shipper' },
   { prefix: '/customer/post-load', workspace: 'shipper', anyOf: ['loads.create'] },
+  { prefix: '/customer/bulk-import', workspace: 'shipper', anyOf: ['loads.create'] },
   { prefix: '/customer/loads', workspace: 'shipper', anyOf: ['loads.view.own'] },
   { prefix: '/customer/quotes', workspace: 'shipper', anyOf: ['quotes.receive'] },
   { prefix: '/customer/bookings', workspace: 'shipper', anyOf: ['jobs.view'] },

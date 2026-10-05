@@ -109,6 +109,7 @@ describe('workspace route contracts', () => {
       '/broker',
       '/broker/enquiries',
       '/broker/loads',
+      '/broker/bulk-import',
       '/broker/bids',
       '/broker/jobs',
       '/broker/pod-review',
@@ -136,5 +137,12 @@ describe('workspace route contracts', () => {
     expect(getProtectedRouteRequirement('/broker/carrier-network/directory')?.prefix).toBe('/broker/carrier-network');
     expect(getProtectedRouteRequirement('/admin/marketplace/directory')?.prefix).toBe('/admin/marketplace');
     expect(getProtectedRouteRequirement('/driver/loads/directory')?.prefix).toBe('/driver/loads');
+  });
+
+  it('maps spreadsheet surfaces to explicit protected route requirements', () => {
+    expect(getProtectedRouteRequirement('/customer/bulk-import')?.anyOf).toContain('loads.create');
+    expect(getProtectedRouteRequirement('/broker/bulk-import')?.anyOf).toContain('loads.create');
+    expect(getProtectedRouteRequirement('/admin/bulk-import')?.roles).toContain('dispatcher');
+    expect(getProtectedRouteRequirement('/admin/finance/reports')?.anyOf).toContain('invoices.carrier.manage');
   });
 });

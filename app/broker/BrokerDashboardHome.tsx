@@ -186,7 +186,7 @@ export default function BrokerDashboardHome() {
           </AlertBanner>
         ) : quoteDecisionPartial ? (
           <AlertBanner tone="warning">
-            Quote decision data is partial. Exact award counts are hidden until the complete jobs and quotes datasets are available.
+            Some quote decision data is unavailable. Exact award counts are hidden until all job and quote information is available.
           </AlertBanner>
         ) : null}
 
@@ -336,7 +336,7 @@ export default function BrokerDashboardHome() {
               <EmptyState
                 compact
                 title="Transport data is partial"
-                description="The visible jobs dataset is incomplete, so the dashboard does not claim that there is no transport yet."
+                description="Some job information is unavailable, so this dashboard does not assume there is no transport work."
               />
             ) : (
               <EmptyState

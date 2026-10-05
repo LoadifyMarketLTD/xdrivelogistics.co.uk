@@ -45,7 +45,7 @@ export default function FutureAvailabilityPage() {
       <PageHeader
         eyebrow="Capacity planning"
         title="Future Availability"
-        description="Forward scheduled workload, drivers currently marked available and upcoming document-expiry signals. Availability flags are planning signals; allocation still revalidates canonical driver + vehicle eligibility server-side."
+        description="Forward scheduled workload, drivers currently marked available and upcoming document-expiry signals. Availability is a planning signal; driver and vehicle eligibility is checked again before allocation."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</ActionButton>}
       />
       <KpiGrid>
@@ -63,7 +63,7 @@ export default function FutureAvailabilityPage() {
         <KpiCard label="Documents due in 30 days" value={upcomingExpiry.length} tone="red" />
       </KpiGrid>
       <TwoColumn>
-        <Panel title="Forward job schedule" description="Jobs in the current company scope ordered by planned collection time; terminal canonical stages are excluded.">
+        <Panel title="Forward job schedule" description="Jobs in the current company scope ordered by planned collection time; completed, cancelled and expired work is excluded.">
           <DataTable
             columns={['Route', 'Pickup', 'Delivery', 'Driver', 'Vehicle required', 'Status']}
             rows={futureJobs.map((job) => {

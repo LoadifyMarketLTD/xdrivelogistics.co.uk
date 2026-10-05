@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
-import { classifyWorkspaceJobStage } from '../../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, isCompanyExecutionJob } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData, type WorkspaceJob, type WorkspaceLocation, type WorkspaceVehicle } from '../../../components/workspace/useCompanyWorkspaceData';
 import { useFleetAvailabilityPresence } from '../../../components/workspace/useFleetAvailabilityPresence';
 import {
@@ -195,7 +195,7 @@ export default function FleetDriversPage() {
   const jobByDriver = useMemo(() => {
     const map = new Map<string, WorkspaceJob>();
     for (const job of data.jobs) {
-      if (!job.assigned_driver_id || job.awarded_carrier_company_id !== data.companyId) continue;
+      if (!job.assigned_driver_id || !isCompanyExecutionJob(job, data.companyId)) continue;
       if (classifyWorkspaceJobStage(job) !== 'in_progress') continue;
       if (!map.has(job.assigned_driver_id)) map.set(job.assigned_driver_id, job);
     }
@@ -207,7 +207,7 @@ export default function FleetDriversPage() {
       <PageHeader
         eyebrow="Fleet resources"
         title="Drivers"
-        description="Operational readiness is resolved from the canonical Driver identity, onboarding, Vehicle assignment and compliance contracts - not from the account status badge alone."
+        description="Operational readiness combines driver identity, onboarding, vehicle assignment and compliance — not the account status badge alone."
         actions={(
           <>
             <ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>Compliance documents</ActionButton>

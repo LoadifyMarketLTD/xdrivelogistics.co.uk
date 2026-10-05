@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, isCompanyExecutionJob, workspaceJobOperationalLabel } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
 
@@ -17,7 +17,7 @@ export default function FleetJobsPage() {
 
   const jobs = useMemo(
     () => data.jobs
-      .filter((job) => job.awarded_carrier_company_id === data.companyId)
+      .filter((job) => isCompanyExecutionJob(job, data.companyId))
       .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at))),
     [data.companyId, data.jobs],
   );

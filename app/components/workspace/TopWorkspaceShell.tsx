@@ -250,6 +250,7 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
   if (!ownerDriver) {
     return composeRolePrimaryNav(groups, [
       ['driver-dashboard-primary', 'Dashboard', '/driver'],
+      ['driver-action-centre-primary', 'Action Centre', '/driver/action-centre'],
       ['driver-jobs-primary', 'My Jobs', '/driver/jobs'],
       ['driver-diary-primary', 'Diary', '/driver/history'],
       ['driver-availability-primary', 'Availability', '/driver/availability'],
@@ -261,6 +262,7 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
 
   const ownerNav = composeRolePrimaryNav(groups, [
     ['owner-driver-dashboard-primary', 'Dashboard', '/driver'],
+    ['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre'],
     ['owner-driver-directory-primary', 'Directory', '/driver/directory'],
     ['owner-driver-live-availability-primary', 'Live Availability', '/driver/availability/live'],
     ['owner-driver-my-fleet-primary', 'My Fleet', '/driver/vehicles'],
@@ -407,6 +409,7 @@ function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
     { id: 'broker-customers-loads', label: 'Customers & Loads', items: [
       { id: 'broker-customers', label: 'Customers', href: '/broker/customers', icon: 'CUS' },
       { id: 'broker-customer-loads', label: 'Customer Loads', href: '/broker/loads', icon: 'LOAD' },
+      { id: 'broker-bulk-import', label: 'Bulk Import', href: '/broker/bulk-import', icon: 'IMPORT' },
     ] },
     { id: 'broker-commercial', label: 'Commercial', items: [
       { id: 'broker-carrier-quotes', label: 'Carrier Quotes', href: '/broker/bids', icon: 'QUOTE' },
@@ -427,6 +430,7 @@ function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
       { id: 'broker-finance-home', label: 'Finance', href: '/broker/finance', icon: 'GBP' },
       { id: 'broker-customer-invoices', label: 'Customer Invoices', href: '/broker/customer-invoices', icon: 'GBP' },
       { id: 'broker-carrier-costs', label: 'Carrier Costs', href: '/broker/carrier-costs', icon: 'GBP' },
+      { id: 'broker-reports', label: 'Reports & Data', href: '/broker/reports', icon: 'XLSX' },
     ] },
     { id: 'broker-administration', label: 'Administration', items: [
       { id: 'broker-team', label: 'Team', href: '/broker/team', icon: 'TEAM' },
@@ -475,6 +479,7 @@ function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
     ] },
     { id: 'customer-loads', label: 'My Loads', items: [
       { id: 'customer-my-loads', label: 'My Loads', href: '/customer/loads', icon: 'LOAD' },
+      { id: 'customer-bulk-import', label: 'Bulk Import', href: '/customer/bulk-import', icon: 'IMPORT' },
     ] },
     { id: 'customer-quotes', label: 'Quotes', items: [
       { id: 'customer-quotes-page', label: 'Quotes', href: '/customer/quotes', icon: 'QUOTE' },
@@ -701,10 +706,28 @@ export default function TopWorkspaceShell({
     (!definition.primaryAction.capability || hasWorkspaceCapability(role, definition.primaryAction.capability))
       ? definition.primaryAction
       : null;
+  const routeAccessContext = user ? {
+    membershipId: user.membershipId,
+    membershipRole: user.membershipRole,
+    financeAccess: user.financeAccess,
+    rawRole: user.rawRole,
+    workspaceRole: role,
+    driverId: user.driverId,
+    canCommercialBid: user.canCommercialBid,
+    driverStatus: user.driverStatus,
+    appAccess: user.appAccess,
+    accountStatus: user.accountStatus,
+    companyStatus: user.companyStatus,
+    ownerDriverWorkspace: user.ownerDriverWorkspace,
+    ownerDriverExecutionMode: user.ownerDriverExecutionMode,
+    canAccessDriverMode: user.canAccessDriverMode,
+  } : {};
   const showCarrierPostLoadAction =
-    CARRIER_NAV_ROLES.has(role) && hasWorkspaceCapability(role, 'loads.create');
+    CARRIER_NAV_ROLES.has(role)
+    && isCapabilityAllowedForPath('/admin/post-load', user?.role === 'guest' ? null : user?.role ?? null, routeAccessContext);
   const showAdminStaffPostLoadAction =
-    (role === 'dispatcher' || role === 'platform_owner') && hasWorkspaceCapability(role, 'loads.create');
+    (role === 'dispatcher' || role === 'platform_owner')
+    && isCapabilityAllowedForPath('/admin/post-load', user?.role === 'guest' ? null : user?.role ?? null, routeAccessContext);
   const showOwnerDriverPostLoadAction = role === 'owner_driver';
   const showPostLoadAction = showCarrierPostLoadAction || showAdminStaffPostLoadAction || showOwnerDriverPostLoadAction;
   const postLoadHref = CARRIER_NAV_ROLES.has(role) ? '/admin/post-load' : '/driver/post-load';

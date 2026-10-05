@@ -20,9 +20,9 @@ describe('CX-close finance invoice register', () => {
   });
 
   it('does not fabricate unverified SmartPay/CX accounting actions', () => {
-    expect(page).toContain('Ready to Invoice / external invoice parity');
-    expect(page).toContain('external invoice upload, batch invoicing and statements/export');
-    expect(page).toContain('remain separate parity-ledger items rather than being fabricated');
+    expect(page).not.toContain('Ready to Invoice / external invoice parity');
+    expect(page).not.toContain('current invoice schema');
+    expect(page).not.toContain('parity-ledger');
   });
 
   it('uses the measured workspace geometry', () => {

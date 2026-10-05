@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const diary = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/OperationsDiaryPage.tsx'), 'utf8');
+const brokerDiary = fs.readFileSync(path.join(process.cwd(), 'app/broker/diary/page.tsx'), 'utf8');
 const intelligenceApi = fs.readFileSync(path.join(process.cwd(), 'app/api/workspace/operations-intelligence/route.ts'), 'utf8');
 const feedbackApi = fs.readFileSync(path.join(process.cwd(), 'app/api/admin/jobs/[id]/feedback/route.ts'), 'utf8');
 const migration = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/20260925015500_company_feedback_identity.sql'), 'utf8');
@@ -29,5 +30,16 @@ describe('CX Diary P1 feedback and search parity', () => {
     expect(diary).toContain('Edit Feedback');
     expect(diary).toContain('/feedback`');
     expect(diary).toContain(".eq('reviewer_company_id', companyId)");
+  });
+
+  it('keeps Broker Diary feedback live instead of rendering a dead placeholder tab', () => {
+    expect(brokerDiary).toContain("'awaiting_feedback'");
+    expect(brokerDiary).toContain("'recent_feedback'");
+    expect(brokerDiary).toContain(".from('reviews')");
+    expect(brokerDiary).toContain(".eq('reviewer_company_id', companyId)");
+    expect(brokerDiary).toContain('Leave Feedback');
+    expect(brokerDiary).toContain('Edit Feedback');
+    expect(brokerDiary).not.toContain("if (tab === 'feedback') return false");
+    expect(brokerDiary).not.toContain('Broker feedback feed not exposed');
   });
 });

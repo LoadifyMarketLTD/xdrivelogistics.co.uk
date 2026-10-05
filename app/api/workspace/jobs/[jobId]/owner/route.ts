@@ -240,6 +240,7 @@ const editableSnapshot = (context: OwnerContext) => {
         contact: text(stop.contact_name) ?? '',
         phone: text(stop.contact_phone) ?? '',
         instructions: text(stop.instructions) ?? '',
+        locked: String(stop.status ?? 'pending').toLowerCase() !== 'pending' || Boolean(stop.arrived_at) || Boolean(stop.completed_at),
       };
     }) : [],
     vehicle: requestedVehicle,
@@ -355,6 +356,22 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     return jobRestore.error ?? stopDelete.error ?? stopRestoreError;
   };
 
+  const desiredStops = [
+    { sequence: 1, stop_type: 'collection', address: input.pickupAddress, postcode: input.pickupPostcode.toUpperCase(), contact_name: input.collectionContact || null, contact_phone: input.collectionPhone || null, window_start: input.pickupDateTime, instructions: null },
+    ...input.additionalStops.map((stop, index) => ({ sequence: index + 2, stop_type: stop.type, address: stop.address, postcode: stop.postcode.toUpperCase(), contact_name: stop.contact || null, contact_phone: stop.phone || null, window_start: stop.dateTime || null, instructions: stop.instructions || null })),
+    { sequence: input.additionalStops.length + 2, stop_type: 'delivery', address: input.deliveryAddress, postcode: input.deliveryPostcode.toUpperCase(), contact_name: input.deliveryContact || null, contact_phone: input.deliveryPhone || null, window_start: input.deliveryDateTime || null, instructions: null },
+  ];
+
+  const progressedStops = originalStops.filter((stop) => String(stop.status ?? 'pending').toLowerCase() !== 'pending' || Boolean(stop.arrived_at) || Boolean(stop.completed_at));
+  for (const progressedStop of progressedStops) {
+    const sequence = Number(progressedStop.sequence);
+    const desired = desiredStops.find((stop) => stop.sequence === sequence);
+    const originalType = String(progressedStop.stop_type ?? '').toLowerCase();
+    if (!desired || desired.stop_type !== originalType) {
+      return respond(409, { error: 'A progressed stop cannot be removed, reordered or changed from collection to delivery. Correct its address/contact details without changing its executed position.' });
+    }
+  }
+
   const stagedRow: Record<string, unknown> = {
     status: originalJob.status,
     current_status: originalJob.current_status,
@@ -398,16 +415,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     updated_at: now,
   };
 
+  const originalUpdatedAt = text(originalJob.updated_at);
+  if (!originalUpdatedAt) return respond(409, { error: 'This load has no concurrency timestamp. Refresh before editing.' });
   const staged = await client.from('jobs').update(stagedRow)
-    .eq('id', jobId).eq('company_id', ownerCompanyId)
+    .eq('id', jobId).eq('company_id', ownerCompanyId).eq('updated_at', originalUpdatedAt)
     .select('id').maybeSingle();
   if (staged.error || !staged.data) return operationalError({ status: 409, message: 'The load changed while you were editing it. Refresh and try again.', context: `workspace.job-owner.stage:${jobId}`, cause: staged.error ?? new Error('Owner edit guard rejected the job.'), retryable: false });
-
-  const desiredStops = [
-    { sequence: 1, stop_type: 'collection', address: input.pickupAddress, postcode: input.pickupPostcode.toUpperCase(), contact_name: input.collectionContact || null, contact_phone: input.collectionPhone || null, window_start: input.pickupDateTime, instructions: null },
-    ...input.additionalStops.map((stop, index) => ({ sequence: index + 2, stop_type: stop.type, address: stop.address, postcode: stop.postcode.toUpperCase(), contact_name: stop.contact || null, contact_phone: stop.phone || null, window_start: stop.dateTime || null, instructions: stop.instructions || null })),
-    { sequence: input.additionalStops.length + 2, stop_type: 'delivery', address: input.deliveryAddress, postcode: input.deliveryPostcode.toUpperCase(), contact_name: input.deliveryContact || null, contact_phone: input.deliveryPhone || null, window_start: input.deliveryDateTime || null, instructions: null },
-  ];
 
   for (let index = 0; index < desiredStops.length; index += 1) {
     const desired = desiredStops[index];
@@ -439,6 +452,46 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
   if (finalResult.error || !finalResult.data) {
     const rollbackError = await rollback();
     return operationalError({ status: 500, message: rollbackError ? 'The load edit could not be finalised cleanly. Please contact support.' : 'The load edit could not be finalised. Your previous details were restored.', context: `workspace.job-owner.finalise:${jobId}`, cause: finalResult.error ?? new Error('Final owner update returned no row.'), retryable: !rollbackError });
+  }
+
+  const auditResult = await client.from('owner_audit_log').insert({
+    target_type: 'job',
+    target_id: jobId,
+    target_name: `XDL-${jobId.slice(0, 8).toUpperCase()}`,
+    metadata: {
+      source: 'workspace_owner_correction',
+      lifecycle_preserved: true,
+      before: {
+        status: originalJob.status ?? null,
+        current_status: originalJob.current_status ?? null,
+        pickup_location: originalJob.pickup_location ?? null,
+        pickup_postcode: originalJob.pickup_postcode ?? null,
+        delivery_location: originalJob.delivery_location ?? null,
+        delivery_postcode: originalJob.delivery_postcode ?? null,
+        awarded_carrier_company_id: originalJob.awarded_carrier_company_id ?? null,
+        assigned_company_id: originalJob.assigned_company_id ?? null,
+        assigned_driver_id: originalJob.assigned_driver_id ?? null,
+        vehicle_id: originalJob.vehicle_id ?? null,
+        stops: originalStops,
+      },
+      correction: {
+        pickup_location: stagedRow.pickup_location ?? null,
+        pickup_postcode: stagedRow.pickup_postcode ?? null,
+        delivery_location: stagedRow.delivery_location ?? null,
+        delivery_postcode: stagedRow.delivery_postcode ?? null,
+        requested_stops: desiredStops,
+      },
+    },
+    actor_user_id: auth.userId,
+    target_company_id: ownerCompanyId,
+    action_type: 'job_details_corrected',
+    old_status: text(originalJob.current_status) ?? text(originalJob.status),
+    new_status: text(originalJob.current_status) ?? text(originalJob.status),
+    reason: 'Posting company corrected load details without changing lifecycle, award, allocation or execution evidence.',
+  });
+  if (auditResult.error) {
+    const rollbackError = await rollback();
+    return operationalError({ status: 500, message: rollbackError ? 'The load correction could not be audited or rolled back cleanly. Please contact support.' : 'The load correction audit failed. Your previous details were restored.', context: `workspace.job-owner.audit:${jobId}`, cause: auditResult.error, retryable: !rollbackError });
   }
 
   return respond(200, { job: finalResult.data });
