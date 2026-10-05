@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { supabase } from '../../lib/supabaseClient';
 import { downloadXlsx, spreadsheetDate } from '../../lib/spreadsheetExport';
+import { workspaceJobOperationalLabel } from '../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData } from '../components/workspace/useCompanyWorkspaceData';
 import FleetPositionMap, { type FleetMapPoint } from './fleet/FleetPositionMap';
 import SharedActionCentrePage from '../components/workspace/ActionCentrePage';
@@ -309,7 +310,7 @@ export function FleetActiveJobsPage() {
             when(job.delivery_datetime),
             job.assigned_driver_id?.slice(0, 8).toUpperCase() ?? 'Not assigned',
             (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-            <StatusBadge key="status" value={job.current_status ?? job.status} />,
+            <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
             <ActionButton
               key="action"
               tone="secondary"
@@ -450,7 +451,7 @@ export function FutureAvailabilityPage() {
               when(job.delivery_datetime),
               job.assigned_driver_id?.slice(0, 8).toUpperCase() ?? 'Unassigned',
               (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-              <StatusBadge key="status" value={job.current_status ?? job.status} />,
+              <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
             ])}
             empty={<EmptyState title="No future jobs recorded" />}
           />

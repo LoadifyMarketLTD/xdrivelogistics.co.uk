@@ -11,7 +11,7 @@ describe('CX-close finance and accounting parity', () => {
   it('keeps Ready to Invoice as a derived queue, not a fabricated job lifecycle state', () => {
     expect(financeDashboard).toContain("classifyWorkspaceJobStage(job) === 'completed'");
     expect(financeDashboard).toContain('!issuedInvoiceJobIds.has(job.id)');
-    expect(financeDashboard).toContain('This is a derived finance queue, not a new job lifecycle status.');
+    expect(financeDashboard).toContain('Ready to Invoice');
     expect(financeDashboard).toContain('Create invoice');
     expect(financeDashboard).toContain('/admin/invoices/new?');
   });

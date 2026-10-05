@@ -19,9 +19,10 @@ describe('Compliance CX convergence contract', () => {
     expect(source.indexOf('Priority verification & expiry queue')).toBeLessThan(source.indexOf('Incidents requiring follow-up'));
   });
 
-  it('preserves truthful unavailable states and canonical eligibility language', () => {
+  it('preserves truthful unavailable states without exposing backend eligibility language', () => {
     expect(source).toContain("const documentsUnavailable = unavailable(data, ['driverDocuments', 'vehicleDocuments']);");
     expect(source).toContain("const incidentsUnavailable = unavailable(data, ['jobs']);");
-    expect(source).toContain('Full operational eligibility remains enforced by the canonical server contract.');
+    expect(source).toContain('Document verification, expiry, driver and vehicle record checks, and operational incidents.');
+    expect(source).not.toContain('canonical server contract');
   });
 });

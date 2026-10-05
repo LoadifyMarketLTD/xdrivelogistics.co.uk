@@ -342,9 +342,9 @@ export default function CustomerDashboardHome() {
         {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
         {bookingOfferError ? <AlertBanner tone="warning">{bookingOfferError}</AlertBanner> : null}
         {invoicesDataset.availability !== 'available' ? (
-          <AlertBanner tone="warning">Invoice data unavailable. Financial totals are hidden until the data source is available.</AlertBanner>
+          <AlertBanner tone="warning">Financial data unavailable. Invoice totals are hidden until the data source is available.</AlertBanner>
         ) : invoicesDataset.partialData || invoicesDataset.limitedData ? (
-          <AlertBanner tone="warning">Invoice data is partial. Exact financial totals are hidden until the complete dataset is available.</AlertBanner>
+          <AlertBanner tone="warning">Financial data is partial. Exact invoice totals are hidden until the complete dataset is available.</AlertBanner>
         ) : null}
 
         <div className="customer-owner-parity-grid">
@@ -361,15 +361,15 @@ export default function CustomerDashboardHome() {
                   <strong>{metricState(bidsDataset, metrics.submittedQuotes.length)}</strong>
                   <small>Carrier quotes still awaiting your decision.</small>
                 </button>
-                <button type="button" onClick={() => router.push('/customer/quotes?status=pending_acceptance')} className="customer-owner-stat-card" data-tone="orange">
-                  <span>Awaiting Carrier</span>
-                  <strong>{metrics.pendingAcceptance.length}</strong>
-                  <small>Booking offers sent but not yet accepted.</small>
-                </button>
                 <button type="button" onClick={() => router.push('/customer/tracking')} className="customer-owner-stat-card" data-tone="green">
                   <span>Active Deliveries</span>
                   <strong>{metricState(jobsDataset, metrics.activeDeliveries.length)}</strong>
                   <small>Transport currently in the live execution lifecycle.</small>
+                </button>
+                <button type="button" onClick={() => router.push('/customer/invoices')} className="customer-owner-stat-card">
+                  <span>Outstanding Invoices</span>
+                  <strong>{invoicesDataset.availability !== 'available' ? 'Unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Partial' : metrics.unpaidInvoices.length}</strong>
+                  <small>{invoicesDataset.availability !== 'available' ? 'Financial data unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Financial data partial' : money(metrics.unpaidValue)}</small>
                 </button>
               </div>
             </OperationalCard>
@@ -378,9 +378,9 @@ export default function CustomerDashboardHome() {
               <OperationalCard title="Commercial & Documents" subtitle="Customer-side closeout and finance controls.">
                 {[
                   ['Ready to invoice', `${metrics.readyToInvoice.length} POD-complete booking(s)`, '/customer/invoices'],
-                  ['Awaiting payment', invoicesDataset.availability !== 'available' ? 'Unavailable' : `${metrics.unpaidInvoices.length} - ${money(metrics.unpaidValue)}`, '/customer/invoices'],
-                  ['Overdue invoices', `${metrics.overdueInvoices.length} overdue`, '/customer/invoices'],
-                  ['Paid invoices', `${metrics.paidInvoices.length} paid`, '/customer/invoices'],
+                  ['Awaiting payment', invoicesDataset.availability !== 'available' ? 'Unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Partial' : `${metrics.unpaidInvoices.length} - ${money(metrics.unpaidValue)}`, '/customer/invoices'],
+                  ['Overdue invoices', invoicesDataset.availability !== 'available' ? 'Unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Partial' : `${metrics.overdueInvoices.length} overdue`, '/customer/invoices'],
+                  ['Paid invoices', invoicesDataset.availability !== 'available' ? 'Unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Partial' : `${metrics.paidInvoices.length} paid`, '/customer/invoices'],
                   ['POD / document alerts', `${metrics.documentAlertJobs.length} requiring review`, '/customer/documents'],
                   ['Delivery exceptions', `${metrics.delayed.length} late / overdue`, '/customer/tracking'],
                 ].map(([label, detail, href]) => (

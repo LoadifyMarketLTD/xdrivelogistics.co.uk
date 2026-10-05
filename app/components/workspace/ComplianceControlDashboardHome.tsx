@@ -99,7 +99,7 @@ export default function ComplianceControlDashboardHome() {
         eyebrow="Compliance control"
         title="Compliance Dashboard"
         badge="Verification & expiry"
-        description="Document verification, expiry, driver and vehicle record signals, and operational incidents. Full operational eligibility remains enforced by the canonical server contract."
+        description="Document verification, expiry, driver and vehicle record checks, and operational incidents."
         actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>Verification Queue</ActionButton>}
       />
 
@@ -151,7 +151,7 @@ export default function ComplianceControlDashboardHome() {
                   <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} tone="red" />,
                   <ActionButton key="open" tone="secondary" onClick={() => router.push('/admin/incidents')}>Review</ActionButton>,
                 ])}
-                empty={<EmptyState compact title={incidentsUnavailable ? 'Incident feed unavailable' : 'No compliance incidents'} />}
+                empty={<EmptyState compact title={incidentsUnavailable ? 'Incident data unavailable' : 'No compliance incidents'} />}
               />
             </OperationalCard>
           </>

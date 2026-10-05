@@ -36,7 +36,7 @@ describe('Fleet CX convergence contract', () => {
     expect(source).not.toContain('Vehicles unavailable');
   });
 
-  it('preserves existing operational routes and server-side eligibility language', () => {
+  it('preserves existing operational routes without exposing server implementation language', () => {
     for (const route of [
       '/admin/fleet/assignments',
       '/admin/fleet/drivers',
@@ -46,6 +46,7 @@ describe('Fleet CX convergence contract', () => {
     ]) {
       expect(source).toContain(route);
     }
-    expect(source).toContain('Canonical eligibility is enforced server-side.');
+    expect(source).toContain('Driver status, vehicle assignment, live tracking, future position, return journey, network advertising and document readiness in one place.');
+    expect(source).not.toContain('Canonical eligibility is enforced server-side.');
   });
 });

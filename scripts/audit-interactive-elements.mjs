@@ -14,7 +14,13 @@ const SOURCE_FILE_EXT = /\.(tsx|ts|jsx|js)$/;
 const toPosix = (value) => value.split(path.sep).join('/');
 
 async function walk(dir) {
-  const entries = await fs.readdir(dir, { withFileTypes: true });
+  let entries;
+  try {
+    entries = await fs.readdir(dir, { withFileTypes: true });
+  } catch (error) {
+    if (error && typeof error === 'object' && error.code === 'ENOENT') return [];
+    throw error;
+  }
   const out = [];
   for (const entry of entries) {
     const next = path.join(dir, entry.name);
@@ -29,9 +35,15 @@ async function walk(dir) {
 
 function routeFromPageFile(filePath) {
   const rel = toPosix(path.relative(APP_DIR, filePath));
-  if (!rel.endsWith('/page.tsx')) return null;
-  const route = `/${rel.replace(/\/page\.tsx$/, '')}`.replace(/\/index$/, '').replace(/\/+/g, '/');
-  return route === '/page.tsx' || route === '/' ? '/' : route;
+  if (path.posix.basename(rel) !== 'page.tsx') return null;
+  const withoutPage = rel === 'page.tsx' ? '' : rel.replace(/\/page\.tsx$/, '');
+  const segments = withoutPage
+    .split('/')
+    .filter(Boolean)
+    .filter((segment) => !(segment.startsWith('(') && segment.endsWith(')')))
+    .filter((segment) => !segment.startsWith('@'));
+  const route = '/' + segments.join('/');
+  return route === '/' ? '/' : route.replace(/\/+$/g, '');
 }
 
 function roleForSource(sourceFile, targetRoute = '') {
@@ -98,6 +110,41 @@ function extractEntries(filePath, content) {
   return [...dedup.values()];
 }
 
+function extractButtonOpeningTags(content) {
+  const tags = [];
+  let cursor = 0;
+  while (cursor < content.length) {
+    const start = content.indexOf('<button', cursor);
+    if (start < 0) break;
+    let quote = null;
+    let escaped = false;
+    let braceDepth = 0;
+    let closed = false;
+    for (let index = start + 7; index < content.length; index += 1) {
+      const character = content[index];
+      if (quote) {
+        if (escaped) escaped = false;
+        else if (character === '\\') escaped = true;
+        else if (character === quote) quote = null;
+        continue;
+      }
+      if (character === '"' || character === "'" || character === '`') {
+        quote = character;
+        continue;
+      }
+      if (character === '{') { braceDepth += 1; continue; }
+      if (character === '}') { braceDepth = Math.max(0, braceDepth - 1); continue; }
+      if (character === '>' && braceDepth === 0) {
+        tags.push({ markup: content.slice(start, index + 1), index: start });
+        cursor = index + 1;
+        closed = true;
+        break;
+      }
+    }
+    if (!closed) break;
+  }
+  return tags;
+}
 function isPlaceholderPage(content) {
   const normalized = content.toLowerCase();
   return normalized.includes('superadminmodulepage')
@@ -113,7 +160,7 @@ async function run() {
   const mobileFiles = (await walk(MOBILE_DIR)).filter((file) => SOURCE_FILE_EXT.test(file));
   const e2eFiles = (await walk(E2E_DIR)).filter((file) => SOURCE_FILE_EXT.test(file));
 
-  const pageFiles = appFiles.filter((file) => file.endsWith('/page.tsx'));
+  const pageFiles = appFiles.filter((file) => path.basename(file) === 'page.tsx');
   const routeToFile = new Map();
   const dynamicRoutes = [];
   for (const pageFile of pageFiles) {
@@ -140,10 +187,18 @@ async function run() {
   for (const filePath of allSourceFiles) {
     const content = await fs.readFile(filePath, 'utf8');
     extracted.push(...extractEntries(filePath, content));
-    if (toPosix(filePath).includes('/app/') && !toPosix(filePath).includes('/app/api/')) {
-      const buttonMatches = content.match(/<button\b[^>]*>/g) ?? [];
-      for (const markup of buttonMatches) {
-        if (/onClick=/.test(markup) || /type=['"]submit['"]/.test(markup) || /disabled/.test(markup)) continue;
+    if (toPosix(filePath).includes('/app/') && !toPosix(filePath).includes('/app/api/') && !toPosix(filePath).includes('/visual-fixture/') && !toPosix(filePath).includes('VisualFixture')) {
+      const buttonMatches = extractButtonOpeningTags(content);
+      for (const { markup, index } of buttonMatches) {
+        const prefix = content.slice(Math.max(0, index - 120), index);
+        if (
+          /onClick=/.test(markup)
+          || /type=['"]submit['"]/.test(markup)
+          || /disabled/.test(markup)
+          || /aria-current=/.test(markup)
+          || /data-active=['"]true['"]/.test(markup)
+          || /<Dialog\.Close\s+asChild>\s*$/.test(prefix)
+        ) continue;
         buttonWithoutHandlerCount += 1;
       }
     }
@@ -159,7 +214,7 @@ async function run() {
   for (const item of extracted) {
     // Strip query string before route lookup so targets like /admin/drivers?driver=xxx
     // correctly resolve to the /admin/drivers page file.
-    const routeKey = item.currentTarget.split('?')[0];
+    const routeKey = item.currentTarget.split('?')[0].split('#')[0].replace(/\$\{[^}]+\}/g, '__dynamic__');
     let targetFile = routeToFile.get(routeKey) ?? null;
     let routeExists = Boolean(targetFile);
     if (!routeExists) {

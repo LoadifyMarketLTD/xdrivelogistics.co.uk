@@ -23,13 +23,13 @@ describe('Customer clean workspace contract', () => {
   });
 
   it('keeps only the four primary customer signals at the top', () => {
-    for (const label of ['Open loads','Quotes to review','Active deliveries','Outstanding invoices']) {
+    for (const label of ['Open Loads','Quotes to Review','Active Deliveries','Outstanding Invoices']) {
       expect(dashboard).toContain(`<span>${label}</span>`);
     }
     for (const removedLabel of ['Awaiting award','Delayed','POD ready']) {
       expect(dashboard).not.toContain(`<span>${removedLabel}</span>`);
     }
-    expect(dashboard).toContain('customer-dash-metrics');
+    expect(dashboard).toContain('customer-owner-stat-grid');
     expect(dashboard).not.toContain('CUS-201');
   });
 
@@ -49,14 +49,12 @@ describe('Customer clean workspace contract', () => {
     }
     expect(dashboard).toContain('Needs your attention');
     expect(dashboard).not.toContain('Quick actions');
-    expect(dashboard).toContain('Recent transport');
+    expect(dashboard).toContain('Activity at a glance');
   });
 
   it('mirrors the driver lifecycle in customer-facing language and actions', () => {
-    for (const label of ['Driver assigned','Driver accepted','Driver en route to collection','Driver at collection','Goods collected','In transit','Driver at delivery','Delivered']) {
-      expect(dashboard).toContain(label);
-    }
-    for (const action of ['Track','View booking','View POD']) expect(dashboard).toContain(action);
+    expect(dashboard).toContain('workspaceJobOperationalLabel(job)');
+    for (const action of ['Track','View booking','POD']) expect(dashboard).toContain(action);
     expect(dashboard).toContain("classifyWorkspaceJobStage(job)");
     expect(dashboard).toContain('customerJobPriority');
   });

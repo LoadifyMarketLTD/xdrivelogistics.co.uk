@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { classifyWorkspaceJobStage } from '../../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
 
@@ -44,7 +44,6 @@ export default function FleetJobsPage() {
         <DataTable
           columns={['Stage', 'Route', 'Pickup', 'Driver', 'Vehicle required', 'Delivery evidence', 'Status', 'Action']}
           rows={jobs.map((job) => {
-            const status = job.current_status ?? job.status;
             const stage = stageOf(job);
             const canonicalStage = classifyWorkspaceJobStage(job);
             const needsAllocation = canonicalStage === 'awarded';
@@ -56,8 +55,8 @@ export default function FleetJobsPage() {
               when(job.pickup_datetime),
               driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated'),
               (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-              evidenceCount > 0 ? `${evidenceCount} photo/file(s)` : canonicalStage === 'completed' ? 'No photo evidence in this feed' : 'Pending execution',
-              <StatusBadge key="status" value={status} />,
+              evidenceCount > 0 ? `${evidenceCount} photo/file(s)` : canonicalStage === 'completed' ? 'No delivery evidence recorded' : 'Pending execution',
+              <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
               <ActionButton
                 key="action"
                 tone={needsAllocation ? 'success' : 'secondary'}

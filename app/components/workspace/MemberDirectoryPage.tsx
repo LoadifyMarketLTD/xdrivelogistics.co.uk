@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { useAuth } from '../AuthContext';
-import { MemberIdentityLink } from './MemberProfile';
+import { MemberIdentityLink, MemberProfileOverlay } from './MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
 
 type DeliveryReliability = { score: number | null; evidenceCount: number; completedJobs: number };
@@ -115,6 +115,7 @@ export function MemberDirectoryPage({
   const [savedOnly, setSavedOnly] = useState(false);
   const [savedNetworkLoading, setSavedNetworkLoading] = useState(false);
   const [savedNetworkError, setSavedNetworkError] = useState('');
+  const [profileTarget, setProfileTarget] = useState<{ companyId?: string; driverId?: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -371,7 +372,7 @@ export function MemberDirectoryPage({
             {partial && <AlertBanner tone="warning">{capMessage}</AlertBanner>}
             <div className="directory-hero">
               <div><b>XDrive Member Network</b><span>Companies and drivers · capability · trust · reliability</span></div>
-              <div className="dir-hero-actions"><button type="button" className="btn" onClick={() => void load()}>Refresh</button><button type="button" className="btn primary">Search</button></div>
+              <div className="dir-hero-actions"><button type="button" className="btn" onClick={() => void load()}>Refresh</button><button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Search</button></div>
             </div>
             <div className="dir-tabs">
               <button type="button" className={tab === 'companies' ? 'active' : ''} onClick={() => setTab('companies')}>COMPANIES <span>{visibleCompanies.length}</span></button>
@@ -394,14 +395,14 @@ export function MemberDirectoryPage({
                   <tbody>
                     {tab === 'companies' ? displayedCompanies.map((company) => (
                       <tr key={company.companyId} className="dir-row">
-                        <td><button type="button" className="dir-member-link"><b><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></b><span className="meta">{company.memberId ?? 'Member ID not supplied'}</span></button></td>
+                        <td><div className="dir-member-link"><b><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></b><span className="meta">{company.memberId ?? 'Member ID not supplied'}</span></div></td>
                         <td>{[company.city, company.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi` : ''}</span></td>
                         <td>{company.memberType}</td>
                         <td>{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Not supplied'}<span className="meta">{company.specialistServices?.length ? company.specialistServices.join(', ') : 'No specialist service declared'}</span></td>
                         <td>{company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}<span className="meta">{company.deliveryReliability.evidenceCount} timed delivery record(s)</span></td>
                         <td>{company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`}<span className="meta">{company.paymentReliability.evidenceCount} due/settlement record(s)</span></td>
                         <td><StatusBadge value="Not advertised" /></td>
-                        <td><button type="button" className="rowbtn blue" onClick={() => router.push(`/driver/network/${company.companyId}`)}>Profile</button>{ownerDriver && <button type="button" className="rowbtn" onClick={() => void toggleSavedCompany(company.companyId)}>{savedCompanyIds.has(company.companyId) ? 'Remove Saved' : 'Save Network'}</button>}{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
+                        <td><button type="button" className="rowbtn blue" onClick={() => setProfileTarget({ companyId: company.companyId })}>Profile</button>{ownerDriver && <button type="button" className="rowbtn" onClick={() => void toggleSavedCompany(company.companyId)}>{savedCompanyIds.has(company.companyId) ? 'Remove Saved' : 'Save Network'}</button>}{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
                       </tr>
                     )) : displayedDrivers.map((driver) => (
                       <tr key={driver.driverId} className="dir-row">
@@ -412,7 +413,7 @@ export function MemberDirectoryPage({
                         <td>{driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}<span className="meta">Company-level delivery evidence</span></td>
                         <td>{driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`}<span className="meta">Company-level payment evidence</span></td>
                         <td><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} /></td>
-                        <td>{driver.companyId && <button type="button" className="rowbtn blue" onClick={() => router.push(`/driver/network/${driver.companyId}`)}>Profile</button>}{driver.companyId && messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(driver.companyId as string)}>Message</button>}</td>
+                        <td>{driver.companyId && <button type="button" className="rowbtn blue" onClick={() => setProfileTarget({ driverId: driver.driverId })}>Profile</button>}{driver.companyId && messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(driver.companyId as string)}>Message</button>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -423,6 +424,7 @@ export function MemberDirectoryPage({
             {privacy && <div className="footer">{privacy}</div>}
           </main>
         </div>
+        {profileTarget ? <MemberProfileOverlay companyId={profileTarget.companyId} driverId={profileTarget.driverId} onClose={() => setProfileTarget(null)} /> : null}
       </section>
     );
   }

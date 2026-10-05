@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../_lib/commercialLegalReadiness';
+import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../_lib/stripeCommercialReadiness';
 
 type Params = { params: Promise<{ id: string }> };
 const bodySchema = z.object({ action: z.enum(['accept', 'decline']), reason: z.string().trim().max(1000).optional() });
@@ -51,6 +52,31 @@ export async function POST(request: NextRequest, { params }: Params) {
       return json(409, commercialLegalReadinessPayload(
         'Re-accept the current XDrive legal agreements before accepting this booking.',
         carrierLegalReadiness,
+      ));
+    }
+
+
+    let buyerStripeReadiness;
+    let carrierStripeReadiness;
+    try {
+      [buyerStripeReadiness, carrierStripeReadiness] = await Promise.all([
+        getStripeCommercialReadiness(supabaseAdmin, offer.buyer_company_id),
+        getStripeCommercialReadiness(supabaseAdmin, offer.carrier_company_id),
+      ]);
+    } catch {
+      return json(503, { error: 'Stripe commercial readiness could not be verified. Please try again.' });
+    }
+    if (!buyerStripeReadiness.infrastructureAvailable || !carrierStripeReadiness.infrastructureAvailable) {
+      return json(503, { error: 'Stripe commercial readiness is temporarily unavailable.' });
+    }
+    if (!buyerStripeReadiness.ready) {
+      return json(409, stripeCommercialReadinessPayload(
+        'Booking acceptance is blocked until the transport buyer completes and activates Stripe.',
+      ));
+    }
+    if (!carrierStripeReadiness.ready) {
+      return json(409, stripeCommercialReadinessPayload(
+        'Complete and activate your company Stripe account before accepting this booking.',
       ));
     }
 

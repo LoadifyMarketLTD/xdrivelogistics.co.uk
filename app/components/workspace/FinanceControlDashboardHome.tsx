@@ -143,7 +143,7 @@ export default function FinanceControlDashboardHome() {
           <>
             <OperationalCard
               title="Ready to Invoice"
-              subtitle="Completed transport operated by this company with no supplier-side invoice linked to the job. This is a derived finance queue, not a new job lifecycle status."
+              subtitle="Completed transport operated by this company that is ready for an invoice."
               actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Completed jobs</ActionButton>}
               flush
             >

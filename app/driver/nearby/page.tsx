@@ -130,7 +130,7 @@ export default function DriverNearbyPage() {
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Panel</div>
-            <div className="filter"><span className="label">Mode</span><div className="avail-mode"><button type="button" className="active">Live</button><button type="button" onClick={() => router.push('/driver/returns')}>Future</button></div></div>
+            <div className="filter"><span className="label">Mode</span><div className="avail-mode"><button type="button" className="active" aria-current="page">Live</button><button type="button" onClick={() => router.push('/driver/returns')}>Future</button></div></div>
             <div className="filter"><span className="label">Scope</span><select className="select" defaultValue="UK only"><option>UK only</option></select></div>
             <div className="filter"><span className="label">Member / Vehicle</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, member ID or vehicle" /></div>
             <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicle} onChange={(event) => setVehicle(event.target.value)}><option value="all">Any vehicle</option>{vehicleOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}</select></div>

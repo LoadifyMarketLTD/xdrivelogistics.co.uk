@@ -11,4 +11,11 @@ describe('CX Driver Freight Vision live refresh parity', () => {
     expect(source).toContain('window.clearInterval(timer)');
     expect(source).toContain('Auto refresh 60s');
   });
-});
+  it('filters the operational board from its KPI controls and uses the shared lifecycle vocabulary', () => {
+    expect(source).toContain("const [riskFilter, setRiskFilter]");
+    expect(source).toContain("setRiskFilter('on_time')");
+    expect(source).toContain("setRiskFilter('at_risk')");
+    expect(source).toContain("setRiskFilter('late')");
+    expect(source).toContain("setRiskFilter('untracked')");
+    expect(source).toContain('workspaceJobOperationalLabel(job)');
+  });});

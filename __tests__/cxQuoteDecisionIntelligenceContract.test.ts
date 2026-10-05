@@ -33,7 +33,8 @@ describe('CX-inspired quote decision intelligence', () => {
     for (const label of ['Member ID', 'Business contact', 'Quote scope', 'Availability', 'Driver vehicle', 'Fleet capability', 'Specialist services']) {
       expect(customer).toContain(label);
     }
-    expect(customer).toContain('Review & Award');
+    expect(customer).toContain('Review & Send Offer');
+    expect(customer).toContain('Send Booking Offer');
     expect(customer).toContain('/api/customer/bids/${id}/award');
   });
 

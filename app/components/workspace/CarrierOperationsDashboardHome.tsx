@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
@@ -149,7 +149,7 @@ function WorkflowLink({ label, detail, onClick }: { label: string; detail: strin
   return (
     <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '8px', minHeight: '38px', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, textAlign: 'left', cursor: 'pointer' }}>
       <span style={{ minWidth: 0 }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{detail}</span></span>
-      <span aria-hidden="true" style={{ color: workspaceTheme.blue, fontSize: '14px', fontWeight: 800 }}>→</span>
+      <span aria-hidden="true" style={{ color: workspaceTheme.blue, fontSize: '14px', fontWeight: 800 }}>â†’</span>
     </button>
   );
 }
@@ -284,12 +284,12 @@ export default function CarrierOperationsDashboardHome() {
   const jobEmptyTitle = data.datasets.jobs.availability === 'unavailable'
     ? 'Job data unavailable'
     : data.datasets.jobs.partialData
-      ? 'Partial job data'
+      ? 'Some job records are unavailable'
       : 'No carrier-awarded work matches this view';
   const jobEmptyDescription = data.datasets.jobs.availability === 'unavailable'
     ? 'Operational job records cannot be confirmed right now.'
     : data.datasets.jobs.partialData
-      ? 'The bounded job feed cannot prove this view is empty. Open the full jobs register or refresh the dataset.'
+      ? 'Some job records are unavailable, so this view may be incomplete. Open the full jobs register or refresh.'
       : 'Change the control view or clear the filters.';
 
   return (
@@ -358,7 +358,7 @@ export default function CarrierOperationsDashboardHome() {
                 return [
                   job.id.slice(0, 8).toUpperCase(),
                   <span key="priority" style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 6px', border: `1px solid ${priority.border}`, borderRadius: '4px', background: priority.background, color: priority.color, fontSize: '10px', fontWeight: 800 }}>{priorityLabel(job)}</span>,
-                  <span key="route" style={{ display: 'block', minWidth: '220px' }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{job.client_name ?? 'Customer not specified'}</span></span>,
+                  <span key="route" style={{ display: 'block', minWidth: '220px' }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'} â†’ {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{job.client_name ?? 'Customer not specified'}</span></span>,
                   when(job.pickup_datetime),
                   (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
                   assignedDriver,
@@ -370,7 +370,7 @@ export default function CarrierOperationsDashboardHome() {
             />
           </div>
 
-          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of a partial job dataset` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register →</button></div>
+          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of a partial job dataset` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register â†’</button></div>
         </section>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.35fr)', gap: '8px', marginTop: '12px', alignItems: 'start' }}>
@@ -399,7 +399,7 @@ export default function CarrierOperationsDashboardHome() {
                   const evidenceReady = (job.delivery_photos?.length ?? 0) > 0;
                   const needsAllocation = isUnallocatedJob(job);
                   return [
-                    <span key="route"><strong style={{ display: 'block' }}>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>#{job.id.slice(0, 8).toUpperCase()}</span></span>,
+                    <span key="route"><strong style={{ display: 'block' }}>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} â†’ {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>#{job.id.slice(0, 8).toUpperCase()}</span></span>,
                     when(job.pickup_datetime),
                     (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
                     <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
@@ -414,7 +414,7 @@ export default function CarrierOperationsDashboardHome() {
             <OperationalCard title="Carrier workflow" subtitle="Shortcuts follow the exchange operating sequence without changing XDrive lifecycle authority.">
               <WorkflowLink label="1. Find marketplace work" detail="Search suitable loads and lanes" onClick={() => router.push('/admin/marketplace')} />
               <WorkflowLink label="2. Price and review marketplace quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/exchange-quotes')} />
-              <WorkflowLink label="3. Allocate awarded work" detail="Select an eligible executing driver; XDrive persists that driver's canonical active vehicle with the allocation" onClick={() => router.push('/admin/fleet/assignments')} />
+              <WorkflowLink label="3. Allocate awarded work" detail="Select an eligible driver and their assigned vehicle for execution" onClick={() => router.push('/admin/fleet/assignments')} />
               <WorkflowLink label="4. Control live execution" detail="Monitor active jobs and positions" onClick={() => router.push('/admin/fleet/active-jobs')} />
               <WorkflowLink label="5. Review POD, evidence and exceptions" detail="Review completed delivery evidence and operational exceptions" onClick={() => router.push('/admin/pod')} />
             </OperationalCard>

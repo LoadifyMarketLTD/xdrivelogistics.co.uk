@@ -347,14 +347,14 @@ export default function AvailableLoadsPage() {
             {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
             <div className="load-nav-unified">
-              <div className="load-market-nav"><button type="button" className="active">Available Loads</button><button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button><button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button></div>
+              <div className="load-market-nav"><button type="button" className="active" aria-current="page">Available Loads</button><button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button><button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button></div>
               <span className="load-nav-divider" aria-hidden="true" />
               <div className="load-tabs"><button type="button" className={loadTypeFilter === 'all' ? 'active' : ''} onClick={() => setLoadTypeFilter('all')}>All Live</button><button type="button" className={loadTypeFilter === 'on_demand' ? 'active' : ''} onClick={() => setLoadTypeFilter('on_demand')}>On Demand</button><button type="button" className={loadTypeFilter === 'regular_load' ? 'active' : ''} onClick={() => setLoadTypeFilter('regular_load')}>Regular Load</button><button type="button" className={loadTypeFilter === 'daily_hire' ? 'active' : ''} onClick={() => setLoadTypeFilter('daily_hire')}>Daily Hire</button></div>
               <div className="load-posted">Show loads posted within last <select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">all</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
             </div>
             <div className="load-result-head">
               <div><b>Search Loads Results</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
-              <div className="load-view-switch"><button type="button" className="active">List View</button><button type="button" disabled>Map View</button></div>
+              <div className="load-view-switch"><button type="button" className="active" aria-current="true">List View</button><button type="button" disabled>Map View</button></div>
               <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
                 <button type="button" className="text-action" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }}>{expandAll ? 'Collapse all visible loads' : 'Expand all visible loads'}</button>
                 <label className="load-page-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>

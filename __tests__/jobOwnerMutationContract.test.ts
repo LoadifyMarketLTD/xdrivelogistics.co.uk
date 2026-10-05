@@ -52,6 +52,13 @@ describe('posting-company owner edit/delete contract', () => {
     expect(page).toContain('Confirm Delete');
   });
 
+  it('returns to the correct role-specific booking route after edit or cancel', () => {
+    expect(editForm).toContain('const jobDetailsHref');
+    expect(editForm).toContain("mode === 'broker'");
+    expect(editForm).toContain('/broker/jobs?job=');
+    expect(editForm).toContain('/customer/jobs/');
+    expect(editForm).not.toContain('`/${mode}/jobs/${jobId}');
+  });
   it('exposes the complete Edit Load form', () => {
     expect(editForm).toContain('Additional stops');
     expect(editForm).toContain('PostcodeAddressField');

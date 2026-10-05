@@ -65,16 +65,10 @@ export function MobileDriverLanding() {
       </section>
 
       <section className="px-4 pt-3">
-        <div className="grid grid-cols-3 gap-2">
-          <button type="button" className="rounded-full bg-[#ffd400] px-3 py-2.5 text-sm font-extrabold text-[#171722]">
-            Search
-          </button>
-          <button type="button" className="rounded-full bg-[#dedfe5] px-3 py-2.5 text-sm font-extrabold text-[#171722]">
-            Nearby
-          </button>
-          <button type="button" className="rounded-full bg-[#dedfe5] px-3 py-2.5 text-sm font-extrabold text-[#171722]">
-            Journeys
-          </button>
+        <div className="grid grid-cols-3 gap-2" aria-label="Driver app preview shortcuts">
+          <span className="rounded-full bg-[#ffd400] px-3 py-2.5 text-center text-sm font-extrabold text-[#171722]">Search</span>
+          <span className="rounded-full bg-[#dedfe5] px-3 py-2.5 text-center text-sm font-extrabold text-[#171722]">Nearby</span>
+          <span className="rounded-full bg-[#dedfe5] px-3 py-2.5 text-center text-sm font-extrabold text-[#171722]">Journeys</span>
         </div>
       </section>
 

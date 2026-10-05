@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { useRouter } from 'next/navigation';
@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import PendingBookingOffers from '../../components/workspace/PendingBookingOffers';
+import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 
 type LifecycleGroup = 'upcoming' | 'active' | 'completed' | 'cancelled' | 'other';
 
@@ -32,18 +33,6 @@ type WonWorkResponse = {
   jobs?: WonJob[];
   commercialRatePartial?: boolean;
   error?: string;
-};
-
-const STATUS_LABELS: Record<string, string> = {
-  awarded: 'Awarded',
-  allocated: 'Allocated',
-  on_my_way: 'On my way to pickup',
-  on_site_pickup: 'On site pickup',
-  loaded: 'Loaded',
-  in_transit: 'In transit',
-  on_site_delivery: 'On site delivery',
-  delivered: 'Delivered',
-  completed: 'Completed',
 };
 
 const GROUP_STYLES: Record<LifecycleGroup, { bg: string; color: string }> = {
@@ -219,7 +208,7 @@ export default function WonWorkPage() {
                     <div>
                       <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px' }}>{job.reference}</span>
                       <span style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 700, backgroundColor: statusStyle.bg, color: statusStyle.color, padding: '2px 6px', borderRadius: '999px' }}>
-                        {STATUS_LABELS[job.canonicalStatus] ?? job.canonicalStatus.replaceAll('_', ' ')}
+                        {workspaceJobOperationalLabel({ current_status: job.canonicalStatus })}
                       </span>
                       {job.postingCompanyName && (
                         <span style={{ marginLeft: '6px', fontSize: '11px', color: '#64748b' }}>· {job.postingCompanyName}</span>

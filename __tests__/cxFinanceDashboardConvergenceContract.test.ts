@@ -28,8 +28,8 @@ describe('Finance CX convergence contract', () => {
     expect(source).toContain('invoice.supplier_company_id === data.companyId');
     expect(source).toContain('invoice.company_id === data.companyId');
     expect(source).toContain('invoice.buyer_company_id !== data.companyId');
-    expect(source).toContain('Completed transport operated by this company with no supplier-side invoice linked to the job');
-    expect(source).toContain('This is a derived finance queue, not a new job lifecycle status.');
+    expect(source).toContain('Completed transport operated by this company that is ready for an invoice.');
+    expect(source).not.toContain('derived finance queue');
     expect(source).toContain('Create invoice');
     expect(source).toContain('/admin/invoices/new?');
     expect(source).not.toContain("status: 'ready_to_invoice'");

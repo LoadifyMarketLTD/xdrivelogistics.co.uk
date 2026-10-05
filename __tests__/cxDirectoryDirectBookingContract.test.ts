@@ -39,6 +39,12 @@ describe('CX-informed Directory and Direct Booking contract', () => {
     expect(directoryUi).toContain("['carrier / fleet', 'owner driver']");
     expect(directoryUi).not.toContain("'/super-admin/");
   });
+  it('opens member profiles through the supported overlay instead of dead dynamic routes', () => {
+    expect(directoryUi).toContain('MemberProfileOverlay');
+    expect(directoryUi).toContain('setProfileTarget');
+    expect(directoryUi).not.toContain('/driver/network/${company.companyId}');
+    expect(directoryUi).not.toContain('/driver/network/${driver.companyId}');
+  });
   it('passes the selected carrier through the canonical load-creation path', () => {
     expect(postingForm).toContain("searchParams.get('directCarrier')");
     expect(postingForm).toContain('directInviteCompanyId: publish ? directCarrier?.id ?? null : null');

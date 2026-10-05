@@ -4,7 +4,7 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, DataTable, EmptyState, PageFrame, PageHeader, Panel, StatusBadge } from '../../../components/workspace/WorkspaceUI';
-import { classifyWorkspaceJobStage } from '../../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../../../lib/jobs/workspaceJobStage';
 
 const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
@@ -46,11 +46,11 @@ export default function FleetActiveJobsPage() {
               when(job.pickup_datetime),
               when(job.delivery_datetime),
               driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver not in current Fleet roster' : 'Not assigned'),
-              vehicle ? vehicleLabel(vehicle) : job.vehicle_id ? 'Bound vehicle not in current Fleet dataset' : 'Not bound',
+              vehicle ? vehicleLabel(vehicle) : job.vehicle_id ? 'Assigned vehicle record unavailable' : 'Not bound',
               (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
               <span key="status" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                <StatusBadge value={job.current_status ?? job.status} />
-                <StatusBadge value={bindingComplete ? 'driver + vehicle bound' : 'execution binding incomplete'} tone={bindingComplete ? 'blue' : 'orange'} />
+                <StatusBadge value={workspaceJobOperationalLabel(job)} />
+                <StatusBadge value={bindingComplete ? 'Driver + vehicle assigned' : 'Driver / vehicle assignment incomplete'} tone={bindingComplete ? 'blue' : 'orange'} />
               </span>,
               <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open</ActionButton>,
             ];
