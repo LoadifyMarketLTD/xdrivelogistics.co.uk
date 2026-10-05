@@ -91,7 +91,7 @@ const buildRedirect = (request: NextRequest, pathname: string, clearCookie = fal
   return response;
 };
 
-const buildLoginRedirect = (request: NextRequest, reason?: string) => {
+const buildLoginRedirect = (request: NextRequest, reason?: string, clearCookie = true) => {
   const url = request.nextUrl.clone();
   url.pathname = LOGIN_PATH;
   url.search = '';
@@ -107,14 +107,16 @@ const buildLoginRedirect = (request: NextRequest, reason?: string) => {
   }
 
   const response = NextResponse.redirect(url);
-  response.cookies.set({
-    name: ROUTE_AUTH_COOKIE_NAME,
-    value: '',
-    maxAge: 0,
-    path: '/',
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-  });
+  if (clearCookie) {
+    response.cookies.set({
+      name: ROUTE_AUTH_COOKIE_NAME,
+      value: '',
+      maxAge: 0,
+      path: '/',
+      sameSite: 'lax',
+      secure: process.env.NODE_ENV === 'production',
+    });
+  }
   return response;
 };
 
@@ -631,7 +633,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (auth.kind === 'service_unavailable') {
-    return buildLoginRedirect(request, 'service_unavailable');
+    return buildLoginRedirect(request, 'service_unavailable', false);
   }
 
   if (auth.kind === 'forbidden') {

@@ -308,56 +308,35 @@ async function savePod(
     });
   }
 
-  const now = new Date().toISOString();
-  const { data: updated, error: updateError } = await supabaseAdmin!
-    .from('jobs')
-    .update({
-      delivery_photos: Array.from(new Set([...existingPhotos, ...photoPaths])),
-      damage_photos: Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths])),
-      pod_photos: Array.from(new Set([...existingDocuments, ...documentPaths])),
-      delivery_signature_data: signatureData,
-      client_signature_name: recipientName,
-      driver_notes: typeof body.notes === 'string' && body.notes.trim()
-        ? body.notes.trim().slice(0, 5000)
-        : null,
-      pod_generated: true,
-      pod_generated_at: now,
-      updated_at: now,
-    })
-    .eq('id', jobId)
-    .eq('assigned_driver_id', driverId)
-    .select(jobSelect)
-    .single();
-
-  if (updateError) return respond(500, { error: updateError.message });
-
+  const deliveryPhotos = Array.from(new Set([...existingPhotos, ...photoPaths]));
+  const damagePhotos = Array.from(new Set([...existingDamagePhotos, ...damagePhotoPaths]));
+  const podDocuments = Array.from(new Set([...existingDocuments, ...documentPaths]));
+  const driverNotes = typeof body.notes === 'string' && body.notes.trim()
+    ? body.notes.trim().slice(0, 5000)
+    : null;
   const podNotes = [
     typeof body.notes === 'string' ? body.notes.trim().slice(0, 5000) : '',
     hardCopyRequired && hardCopyAcknowledged ? 'Hard-copy POD requirement acknowledged by assigned driver.' : '',
   ].filter(Boolean).join(' | ') || null;
-  const podPayload = {
-    delivered_on: deliveredOn,
-    received_by: recipientName,
-    left_at: leftAt || null,
-    no_of_items: itemCount,
-    delivery_status: deliveryStatus,
-    delivery_notes: podNotes,
-    photo_urls: Array.from(new Set([...existingPhotos, ...photoPaths])),
-    created_by: userId,
-    updated_at: now,
-  };
-  const { data: existingPod, error: existingPodError } = await supabaseAdmin!
-    .from('proof_of_delivery')
-    .select('id')
-    .eq('job_id', jobId)
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (existingPodError) return respond(500, { error: existingPodError.message });
-  const podWrite = existingPod
-    ? await supabaseAdmin!.from('proof_of_delivery').update(podPayload).eq('id', existingPod.id)
-    : await supabaseAdmin!.from('proof_of_delivery').insert({ job_id: jobId, ...podPayload });
-  if (podWrite.error) return respond(500, { error: podWrite.error.message });
+
+  const { data: updated, error: podWriteError } = await supabaseAdmin!.rpc('record_driver_pod_atomic', {
+    p_job_id: jobId,
+    p_driver_id: driverId,
+    p_user_id: userId,
+    p_delivery_photos: deliveryPhotos,
+    p_damage_photos: damagePhotos,
+    p_pod_photos: podDocuments,
+    p_signature_data: signatureData,
+    p_recipient_name: recipientName,
+    p_driver_notes: driverNotes,
+    p_delivered_on: deliveredOn,
+    p_left_at: leftAt || null,
+    p_item_count: itemCount,
+    p_delivery_status: deliveryStatus,
+    p_delivery_notes: podNotes,
+    p_photo_urls: deliveryPhotos,
+  });
+  if (podWriteError) return respond(500, { error: podWriteError.message });
 
   await insertTrackingEvent(jobId, userId, 'note', 'Persistent POD evidence uploaded');
   if (hardCopyRequired && hardCopyAcknowledged) {
