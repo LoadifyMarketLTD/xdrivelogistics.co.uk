@@ -1,9 +1,9 @@
-﻿import { readFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync(join(process.cwd(),'supabase/migrations/20260926122647_booking_offer_carrier_acceptance.sql'),'utf8');
-const acceptedEventMigration = readFileSync(join(process.cwd(),'supabase/migrations/20261005172000_booking_acceptance_records_accepted_event.sql'),'utf8');
+const acceptedEventMigration = readFileSync(join(process.cwd(),'supabase/migrations/20261005180709_booking_acceptance_records_accepted_event.sql'),'utf8');
 const customerAward = readFileSync(join(process.cwd(),'app/api/customer/bids/[id]/award/route.ts'),'utf8');
 const carrierRespond = readFileSync(join(process.cwd(),'app/api/booking-offers/[id]/respond/route.ts'),'utf8');
 const inbox = readFileSync(join(process.cwd(),'app/components/workspace/PendingBookingOffers.tsx'),'utf8');

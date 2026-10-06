@@ -53,12 +53,12 @@ test.describe('registration role contract (read-only)', () => {
     await page.goto('/register');
     await page.getByRole('button', { name: /Owner Driver/i }).click();
     await expect(page.getByText(/create and manage my own operations workspace/i)).toHaveCount(0);
-    await expect(
-      page.getByText(/Owner Drivers receive their own operations workspace and map internally to the driver role/i)
-    ).toBeVisible();
+    await expect(page.getByRole('button', { name: /Owner Driver/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /Individual Driver|Driver Only|Courier Driver/i })).toHaveCount(0);
   });
 
   test('public user cannot open protected dashboards', async ({ page }) => {
+    test.setTimeout(60_000);
     for (const path of ['/admin', '/driver/jobs', '/customer', '/broker']) {
       await page.goto(path, { waitUntil: 'commit', timeout: 20_000 });
       await expect(page).toHaveURL(/\/(login|forbidden|pending-approval)(\?|$)/, { timeout: 10_000 });

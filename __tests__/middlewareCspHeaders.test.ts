@@ -145,6 +145,7 @@ describe('middleware CSP nonce contract', () => {
     expect(csp).toContain("style-src 'self' 'unsafe-inline'");
     expect(csp).toContain("frame-src 'self'");
     expect(csp).not.toContain('https://app.netlify.com');
+    expect(csp).toContain('upgrade-insecure-requests');
     const scriptSrc = csp.split(';').find((directive) => directive.trim().startsWith('script-src')) ?? '';
     expect(scriptSrc).not.toContain('unsafe-inline');
     expect(scriptSrc).not.toContain('unsafe-eval');
@@ -157,6 +158,16 @@ describe('middleware CSP nonce contract', () => {
     const csp = response.headers.get('content-security-policy') ?? '';
     expect(csp).toContain("frame-src 'self' https://app.netlify.com");
     expect(csp).toContain("frame-ancestors 'self'");
+  });
+
+  it('does not force HTTPS asset upgrades on the local development server', async () => {
+    vi.stubEnv('NODE_ENV', 'development');
+    const response = await middleware(new NextRequest('http://127.0.0.1:3100/'));
+    expectNonceContract(response);
+    const csp = response.headers.get('content-security-policy') ?? '';
+    expect(csp).not.toContain('upgrade-insecure-requests');
+    const scriptSrc = csp.split(';').find((directive) => directive.trim().startsWith('script-src')) ?? '';
+    expect(scriptSrc).toContain('unsafe-eval');
   });
 
   it('forwards the nonce-bearing CSP on protected routes while preserving x-nonce', async () => {

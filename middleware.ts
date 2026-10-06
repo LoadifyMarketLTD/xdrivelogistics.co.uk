@@ -596,7 +596,7 @@ function buildCspHeader(nonce: string, allowNetlifyPreviewFrame = false): string
     "base-uri 'self'",
     "form-action 'self'",
     "object-src 'none'",
-    "upgrade-insecure-requests",
+    ...(isDev ? [] : ["upgrade-insecure-requests"]),
   ].join('; ');
 }
 
