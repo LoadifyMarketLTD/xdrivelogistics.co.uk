@@ -18,7 +18,7 @@ describe('operational shell and onboarding recovery contract', () => {
   it('exposes Settings only for operational roles with settings authority', () => {
     for (const marker of [
       "['carrier-settings', 'Settings', '/admin/settings']",
-      "['customer-settings-primary', 'Settings', '/customer/settings']",
+      "{ id: 'customer-settings', label: 'Settings', href: '/customer/settings'",
       "['broker-settings-primary', 'Settings', '/broker/settings']",
       "['owner-driver-settings-primary', 'Settings', '/driver/settings']",
       "['driver-settings-primary', 'Settings', '/driver/settings']",

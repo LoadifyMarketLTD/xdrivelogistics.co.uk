@@ -40,7 +40,6 @@ describe('Unified workspace navbar contract', () => {
   it('promotes Settings only on operational shells with settings authority', () => {
     for (const marker of [
       "carrier-settings', 'Settings', '/admin/settings'",
-      "customer-settings-primary', 'Settings', '/customer/settings'",
       "broker-settings-primary', 'Settings', '/broker/settings'",
       "owner-driver-settings-primary', 'Settings', '/driver/settings'",
       "driver-settings-primary', 'Settings', '/driver/settings'",
@@ -50,12 +49,22 @@ describe('Unified workspace navbar contract', () => {
     ]) expect(shell).toContain(marker);
     expect(workspaceRole).toContain("{ id: 'fleet-settings', label: 'Settings'");
     expect(workspaceRole).toContain("capability: 'settings.manage'");
+    expect(shell).toContain("composeCustomerPrimaryNav");
+    expect(shell).toContain("], 'customer-more');");
     expect(shell).not.toContain("['fleet-settings', 'Settings', '/admin/settings']");
   });
 
-  it('promotes customer Action Centre and View All Loads into the navbar', () => {
-    expect(shell).toContain("customer-action-centre-primary', 'Action Centre', '/customer/action-centre'");
-    expect(shell).toContain("customer-loads-primary', 'View All Loads', '/customer/loads'");
+  it('keeps the Customer operational flow explicit in the navbar', () => {
+    for (const marker of [
+      "customer-post-load-primary', 'Post Load', '/customer/post-load'",
+      "customer-loads-primary', 'Loads', '/customer/loads'",
+      "customer-quotes-primary', 'Quotes', '/customer/quotes'",
+      "customer-bookings-primary', 'Bookings', '/customer/bookings'",
+      "customer-diary-primary', 'Diary', '/customer/diary'",
+      "customer-tracking-primary', 'Tracking', '/customer/tracking'",
+      "customer-network-primary', 'Network', '/customer/network'",
+      "customer-action-centre-primary', 'Action Centre', '/customer/action-centre'",
+    ]) expect(shell).toContain(marker);
   });
 
   it('keeps one Owner Driver Settings primary entry and avoids duplicating settings sections inside More', () => {

@@ -42,9 +42,11 @@ describe('CX-close carrier and fleet top navigation', () => {
     expect(shell).toContain("'/admin/settings'");
   });
 
-  it('keeps Fleet My Fleet and Drivers & Vehicles as separate destinations', () => {
+  it('keeps Fleet My Fleet and Drivers & Vehicles as separate destinations and retains Action Centre', () => {
     expect(shell).toContain("['fleet-my-fleet', 'My Fleet', '/admin/fleet/vehicles']");
     expect(shell).toContain("['fleet-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources']");
+    const fleet = shell.slice(shell.indexOf('function composeFleetPrimaryNav'), shell.indexOf('type PrimaryNavEntry'));
+    expect(fleet).toContain("id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre'");
   });
 
   it('does not broaden marketplace permissions for restricted fleet_manager accounts', () => {

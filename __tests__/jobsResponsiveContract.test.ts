@@ -200,10 +200,14 @@ describe('Jobs responsive — mobile card required fields', () => {
     expect(TABLE_SRC).toContain('job.client.name');
   });
 
-  it('renders View action in card action row', () => {
+  it('renders View and permission-gated Edit Job actions in the card action row', () => {
     expect(TABLE_SRC).toContain('jobsMobileCardActions');
-    // View button must appear in the card action section (not just the table)
     expect(TABLE_SRC).toContain("onViewJob(job.id)");
+    expect(TABLE_SRC).toContain("onEditJob(job.id)");
+    expect(TABLE_SRC).toContain("canEditJob?.(job)");
+    expect(TABLE_SRC).toContain(">Edit Job</button>");
+    expect(TABLE_SRC).toContain("canCreateJob &&");
+    expect(TABLE_SRC).toContain("canManageJob?.(job)");
   });
 
   it('renders Post action for draft jobs in card action row', () => {

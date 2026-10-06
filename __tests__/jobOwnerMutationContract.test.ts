@@ -21,12 +21,12 @@ describe('posting-company owner edit/delete contract', () => {
     expect(route).toContain('Only the posting company can edit or delete this load.');
   });
 
-  it('keeps Edit Load available in every lifecycle state', () => {
+  it('keeps Edit Job available in every lifecycle state', () => {
     expect(route).toContain('const editReason: string | null = null');
     expect(route).toContain('canEdit: !editReason');
     expect(route).not.toContain("if (!checked.context.capabilities.canEdit)");
     expect(page).toContain('ownerCapabilities?.canEdit');
-    expect(editPage).toContain('at any lifecycle stage');
+    expect(editPage).toContain('preserves the current lifecycle status');
     expect(brokerEditPage).toContain('at any lifecycle stage');
     expect(adminEditPage).toContain('at any lifecycle stage');
     expect(brokerLoadsPage).toContain('`/broker/jobs/${job.id}/edit`');
@@ -85,7 +85,7 @@ describe('posting-company owner edit/delete contract', () => {
     expect(editForm).toContain('/customer/jobs/');
     expect(editForm).not.toContain('`/${mode}/jobs/${jobId}');
   });
-  it('exposes the complete Edit Load form', () => {
+  it('exposes the complete Edit Job form', () => {
     expect(editForm).toContain('Additional stops');
     expect(editForm).toContain('PostcodeAddressField');
     expect(editForm).toContain('const QUARTER_HOUR_SLOTS = Array.from({ length: 96 }');

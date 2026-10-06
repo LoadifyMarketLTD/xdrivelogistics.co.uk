@@ -135,7 +135,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
         actions={
           <>
             <ActionButton tone="secondary" onClick={() => router.push('/customer/bookings')}>Bookings</ActionButton>
-            {ownerCapabilities?.canEdit && job && <ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}/edit`)}>Edit Load</ActionButton>}
+            {ownerCapabilities?.canEdit && job && <ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}/edit`)}>Edit Job</ActionButton>}
             {ownerCapabilities?.canDelete && job && <ActionButton tone="danger" disabled={working === 'delete'} onClick={() => setDeleteArmed(true)}>Delete Load</ActionButton>}
             {quotes.length > 0 && <ActionButton tone="secondary" onClick={() => router.push('/customer/quotes')}>Quotes awaiting decision ({quotes.length})</ActionButton>}
             {invoice && <ActionButton tone="primary" onClick={() => router.push(`/customer/invoices/${invoice.id}`)}>Open invoice</ActionButton>}

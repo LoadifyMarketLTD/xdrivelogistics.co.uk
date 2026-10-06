@@ -12,7 +12,7 @@ export default function AdminJobEditPage({ params }: { params: Promise<{ id: str
     <PageFrame>
       <PageHeader
         eyebrow="Company load"
-        title="Edit Load"
+        title="Edit Job"
         description="Correct a load posted by this company at any lifecycle stage. Saving preserves current status, carrier award, driver allocation and historical execution records."
         actions={<ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${encodeURIComponent(id)}`)}>Back to job</ActionButton>}
       />

@@ -15,46 +15,36 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     const customer = shell.slice(shell.indexOf('function composeCustomerPrimaryNav'), shell.indexOf('function composeBrokerPrimaryNav'));
     for (const primary of [
       "['customer-dashboard-primary', 'Dashboard', '/customer']",
-      "['customer-action-centre-primary', 'Action Centre', '/customer/action-centre']",
-      "['customer-loads-primary', 'View All Loads', '/customer/loads']",
+      "['customer-post-load-primary', 'Post Load', '/customer/post-load']",
+      "['customer-loads-primary', 'Loads', '/customer/loads']",
       "['customer-quotes-primary', 'Quotes', '/customer/quotes']",
       "['customer-bookings-primary', 'Bookings', '/customer/bookings']",
-      "['customer-deliveries-primary', 'Deliveries', '/customer/deliveries']",
-      "['customer-tracking-primary', 'Tracking', '/customer/tracking']",
-      "['customer-documents-primary', 'POD & Documents', '/customer/documents']",
       "['customer-diary-primary', 'Diary', '/customer/diary']",
-      "['customer-invoices-primary', 'Invoices', '/customer/invoices']",
-      "['customer-network-primary', 'Directory', '/customer/network']",
-      "['customer-messages-primary', 'Messages', '/customer/messages']",
-      "['customer-settings-primary', 'Settings', '/customer/settings']",
+      "['customer-tracking-primary', 'Tracking', '/customer/tracking']",
+      "['customer-network-primary', 'Network', '/customer/network']",
+      "['customer-action-centre-primary', 'Action Centre', '/customer/action-centre']",
     ]) expect(customer).toContain(primary);
 
+    expect(customer).toContain("], 'customer-more');");
     for (const href of [
       '/customer/deliveries',
       '/customer/documents',
       '/customer/updates',
-      '/customer/network',
       '/customer/messages',
       '/customer/disputes',
       '/customer/event-log',
-    ]) expect(customer).toContain(`'${href}'`);
-
-    for (const duplicate of ['/customer/team', '/customer/notifications', '/customer/settings/billing', '/customer/account']) {
-      expect(customer).not.toContain(`'${duplicate}'`);
-    }
+      '/customer/invoices',
+      '/customer/team',
+      '/customer/settings',
+    ]) expect(shell).toContain(`href: '${href}'`);
   });
 
-  it('promotes high-frequency Customer work into the navbar and keeps More genuinely secondary', () => {
+  it('promotes the core Customer lifecycle and keeps secondary functions under More', () => {
     const customer = shell.slice(shell.indexOf('function composeCustomerPrimaryNav'), shell.indexOf('function composeBrokerPrimaryNav'));
-    for (const href of ['/customer/deliveries', '/customer/documents', '/customer/network', '/customer/messages']) {
-      expect(customer.slice(0, customer.indexOf("], 'customer-more'") + 1)).toContain(`'${href}'`);
+    for (const href of ['/customer/post-load', '/customer/loads', '/customer/quotes', '/customer/bookings', '/customer/diary', '/customer/tracking', '/customer/network', '/customer/action-centre']) {
+      expect(customer).toContain(`'${href}'`);
     }
-    expect(customer).toContain("'/customer/updates'");
-    expect(customer).toContain("'/customer/disputes'");
-    expect(customer).toContain("'/customer/event-log'");
-    expect(shell).toContain("'/customer/updates': 'Updates'");
-    expect(shell).toContain("'/customer/disputes': 'Business'");
-    expect(shell).toContain("'/customer/event-log': 'Business'");
+    expect(customer).toContain("], 'customer-more');");
     expect(shell).toContain('<CustomerMoreIcon item={item} />');
     expect(shellCss).toContain('[data-workspace-role="customer"] .top-workspace-nav__menu');
   });

@@ -13,7 +13,7 @@ describe('Customer clean workspace contract', () => {
       expect(shell).toContain(`label: '${label}'`);
     }
     expect(roles).toContain("primaryAction: { label: 'Post Load', href: '/customer/post-load', capability: 'loads.create' }");
-    expect(shell).not.toContain("id: 'customer-post-load'");
+    expect(shell).toContain("customer-post-load-primary', 'Post Load', '/customer/post-load'");
     expect(shell).toContain("if (role === 'customer') {");
     expect(shell).toContain('filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user)');
     expect(shell).toContain("{ id: 'customer-loads', label: 'My Loads'");

@@ -54,10 +54,10 @@ describe('XDrive member identity contract', () => {
 
   it('keeps legal company numbers separate from Directory member IDs', () => {
     const directory = read('app/api/directory/route.ts');
-    const network = read('app/driver/network/page.tsx');
+    const directoryUi = read('app/components/workspace/MemberDirectoryPage.tsx');
     expect(directory).toContain('memberId: company.xd_id ?? null');
-    expect(network).toContain('Member ID ${company.xd_id}');
-    expect(network).not.toContain('Member ID ${company.company_number}');
+    expect(directoryUi).toContain('Member ID ${company.memberId}');
+    expect(directoryUi).not.toContain('Member ID ${company.companyNumber}');
   });
 
   it('uses XDrive IDs in member profiles and bidder decision identity', () => {

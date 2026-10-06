@@ -11,10 +11,10 @@ export default function CustomerJobEditPage({ params }: { params: Promise<{ id: 
   return (
     <PageFrame>
       <PageHeader
-        eyebrow="Customer load"
-        title="Edit Load"
-        description="Update the load owned by your company at any lifecycle stage. Saving changes preserves the current job status, award/allocation and existing operational history."
-        actions={<ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${id}`)}>Back to booking</ActionButton>}
+        eyebrow="Customer job"
+        title="Edit Job"
+        description="Update the customer-owned job from its Jobs / Bookings record. Saving changes preserves the current lifecycle status, award/allocation and existing operational history."
+        actions={<ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${id}`)}>Back to job</ActionButton>}
       />
       <JobOwnerEditForm jobId={id} mode="customer" />
     </PageFrame>

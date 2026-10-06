@@ -80,7 +80,11 @@ export interface JobsOperationalTableProps {
   onCustomerFilterChange: (v: string) => void;
   /** Actions */
   onNewJob: () => void;
+  canCreateJob?: boolean;
   onViewJob: (id: string) => void;
+  onEditJob?: (id: string) => void;
+  canEditJob?: (job: JobRow) => boolean;
+  canManageJob?: (job: JobRow) => boolean;
   onDirectInvite: (job: JobRow) => void;
   /**
    * Transition the job to a new status. Called with the job id and target
@@ -151,7 +155,11 @@ export function JobsOperationalTable({
   onDateFilterChange,
   onCustomerFilterChange,
   onNewJob,
+  canCreateJob = true,
   onViewJob,
+  onEditJob,
+  canEditJob,
+  canManageJob,
   onDirectInvite,
   onStatusChange,
   onPostJob,
@@ -210,9 +218,9 @@ export function JobsOperationalTable({
           <p className={styles.jobsPageSubtitle}>Assign, track and complete operational work.</p>
         </div>
         <div className={styles.jobsPageHeaderActions}>
-          <button type="button" className={styles.jobsNewBtn} onClick={onNewJob} disabled={newJobDisabled} aria-label="Create new job">
+          {canCreateJob && <button type="button" className={styles.jobsNewBtn} onClick={onNewJob} disabled={newJobDisabled} aria-label="Create new job">
             + New Job
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -354,14 +362,15 @@ export function JobsOperationalTable({
                           <div className={styles.jobsActionCell}>
                             <button type="button" className={styles.jobsExpandBtn} onClick={() => toggleRowExpanded(job.id)} aria-label={isExpanded ? `Collapse details for job ${job.jobRef}` : `Expand details for job ${job.jobRef}`} aria-expanded={isExpanded}>{isExpanded ? '▲' : '▼'}</button>
                             <button type="button" className={styles.jobsActionBtn} onClick={() => onViewJob(job.id)} aria-label={`View job ${job.jobRef}`}>View</button>
-                            {job.status === 'draft' && <button type="button" className={`${styles.jobsActionBtn} ${styles.jobsActionBtnPrimary}`} onClick={() => onPostJob(job.id)} aria-label={`Post job ${job.jobRef} to marketplace`}>Post</button>}
-                            {job.status !== 'draft' && allowedStatusTransitions(job.status).length > 0 && (
+                            {onEditJob && (canEditJob?.(job) ?? true) && <button type="button" className={styles.jobsActionBtn} onClick={() => onEditJob(job.id)} aria-label={`Edit job ${job.jobRef}`}>Edit Job</button>}
+                            {(canManageJob?.(job) ?? true) && job.status === 'draft' && <button type="button" className={`${styles.jobsActionBtn} ${styles.jobsActionBtnPrimary}`} onClick={() => onPostJob(job.id)} aria-label={`Post job ${job.jobRef} to marketplace`}>Post</button>}
+                            {(canManageJob?.(job) ?? true) && job.status !== 'draft' && allowedStatusTransitions(job.status).length > 0 && (
                               <select className={`${styles.jobsActionBtn} ${styles.jobsActionSelect}`} defaultValue="" aria-label={`Update status for job ${job.jobRef}`} onChange={(e) => { const next = e.target.value; if (next) { onStatusChange(job.id, next); e.target.value = ''; } }}>
                                 <option value="" disabled>Update…</option>
                                 {allowedStatusTransitions(job.status).map((s) => <option key={s} value={s}>{statusLabel(s)}</option>)}
                               </select>
                             )}
-                            {isDirectInviteEligible(job) && <button type="button" className={styles.jobsActionBtn} onClick={() => onDirectInvite(job)} aria-label={`Invite carrier for job ${job.jobRef}`}>Invite</button>}
+                            {(canManageJob?.(job) ?? true) && isDirectInviteEligible(job) && <button type="button" className={styles.jobsActionBtn} onClick={() => onDirectInvite(job)} aria-label={`Invite carrier for job ${job.jobRef}`}>Invite</button>}
                           </div>
                         </td>
                       </tr>
@@ -448,14 +457,15 @@ export function JobsOperationalTable({
 
                   <div className={styles.jobsMobileCardActions}>
                     <button type="button" className={styles.jobsActionBtn} onClick={() => onViewJob(job.id)} aria-label={`View job ${job.jobRef}`}>View</button>
-                    {job.status === 'draft' && <button type="button" className={`${styles.jobsActionBtn} ${styles.jobsActionBtnPrimary}`} onClick={() => onPostJob(job.id)} aria-label={`Post job ${job.jobRef} to marketplace`}>Post</button>}
-                    {job.status !== 'draft' && transitions.length > 0 && (
+                    {onEditJob && (canEditJob?.(job) ?? true) && <button type="button" className={styles.jobsActionBtn} onClick={() => onEditJob(job.id)} aria-label={`Edit job ${job.jobRef}`}>Edit Job</button>}
+                    {(canManageJob?.(job) ?? true) && job.status === 'draft' && <button type="button" className={`${styles.jobsActionBtn} ${styles.jobsActionBtnPrimary}`} onClick={() => onPostJob(job.id)} aria-label={`Post job ${job.jobRef} to marketplace`}>Post</button>}
+                    {(canManageJob?.(job) ?? true) && job.status !== 'draft' && transitions.length > 0 && (
                       <select className={styles.jobsActionBtn} defaultValue="" aria-label={`Update status for job ${job.jobRef}`} onChange={(e) => { const next = e.target.value; if (next) { onStatusChange(job.id, next); e.target.value = ''; } }}>
                         <option value="" disabled>Update…</option>
                         {transitions.map((t) => <option key={t} value={t}>{statusLabel(t)}</option>)}
                       </select>
                     )}
-                    {isDirectInviteEligible(job) && <button type="button" className={styles.jobsActionBtn} onClick={() => onDirectInvite(job)} aria-label={`Invite carrier for job ${job.jobRef}`}>Invite</button>}
+                    {(canManageJob?.(job) ?? true) && isDirectInviteEligible(job) && <button type="button" className={styles.jobsActionBtn} onClick={() => onDirectInvite(job)} aria-label={`Invite carrier for job ${job.jobRef}`}>Invite</button>}
                   </div>
                 </div>
               );

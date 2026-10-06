@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { getProtectedRouteRequirement } from '../lib/roleCapabilities';
@@ -132,14 +132,23 @@ describe('workspace route contracts', () => {
     }
   });
 
-  it('authorizes the nested Directory entries through existing protected prefixes', () => {
+  it('authorizes canonical Directory routes and retains legacy aliases only as compatibility redirects', () => {
     expect(getProtectedRouteRequirement('/customer/network/directory')?.prefix).toBe('/customer/network');
     expect(getProtectedRouteRequirement('/broker/carrier-network/directory')?.prefix).toBe('/broker/carrier-network');
     expect(getProtectedRouteRequirement('/admin/marketplace/directory')?.prefix).toBe('/admin/marketplace');
-    expect(getProtectedRouteRequirement('/driver/loads/directory')?.prefix).toBe('/driver/loads');
+    expect(getProtectedRouteRequirement('/driver/loads/directory')?.prefix).toBe('/driver/loads/directory');
+    expect(getProtectedRouteRequirement('/driver/network')?.prefix).toBe('/driver/network');
+
+    const read = (relative: string) => readFileSync(resolve(process.cwd(), relative), 'utf8');
+    expect(read('app/driver/network/page.tsx')).toContain("redirect('/driver/directory')");
+    expect(read('app/driver/loads/directory/page.tsx')).toContain("redirect('/driver/directory')");
+    expect(read('app/driver/account/page.tsx')).toContain("redirect('/driver/profile')");
+    expect(read('app/driver/account/profile/page.tsx')).toContain("redirect('/driver/profile')");
   });
 
-  it('maps spreadsheet surfaces to explicit protected route requirements', () => {
+  it('maps Dispatcher execution queues and spreadsheet surfaces to explicit protected route requirements', () => {
+    expect(getProtectedRouteRequirement('/admin/collections')?.anyOf).toEqual(expect.arrayContaining(['jobs.dispatch', 'jobs.track']));
+    expect(getProtectedRouteRequirement('/admin/deliveries')?.anyOf).toEqual(expect.arrayContaining(['jobs.dispatch', 'jobs.track']));
     expect(getProtectedRouteRequirement('/customer/bulk-import')?.anyOf).toContain('loads.create');
     expect(getProtectedRouteRequirement('/broker/bulk-import')?.anyOf).toContain('loads.create');
     expect(getProtectedRouteRequirement('/admin/bulk-import')?.roles).toContain('dispatcher');

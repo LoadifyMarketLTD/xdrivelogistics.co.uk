@@ -2,10 +2,10 @@
 
 import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
-import DriverAccountPage from './account/page';
+import DriverProfilePage from './profile/page';
 
 export default function DriverTemplate({ children }: { children: ReactNode }) {
   const pathname = usePathname();
-  if (pathname === '/driver/profile') return <DriverAccountPage />;
+  if (pathname === '/driver/profile') return <DriverProfilePage />;
   return children;
 }

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import JobLiveTrackingPanel from '../../components/tracking/JobLiveTrackingPanel';
 import DriverInstructionPanel from '../../components/workspace/DriverInstructionPanel';
+import { useAuth } from '../../components/AuthContext';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -43,7 +44,9 @@ function matchesTab(job: WorkspaceJob, tab: JobsTab) {
 export default function BrokerJobsPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { user } = useAuth();
   const data = useCompanyWorkspaceData();
+  const canEditOwnedJobs = ['owner', 'admin', 'dispatcher'].includes((user?.membershipRole ?? '').trim().toLowerCase());
   const deepJob = searchParams.get('job');
 
   const [tab, setTab] = useState<JobsTab>('all');
@@ -157,7 +160,7 @@ export default function BrokerJobsPage() {
                         </div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
                           <ActionButton tone="primary" onClick={() => router.push(`/broker/loads?job=${job.id}`)}>Open load</ActionButton>
-                          {job.company_id === data.companyId && <ActionButton tone="secondary" onClick={() => router.push(`/broker/jobs/${job.id}/edit`)}>Edit Load</ActionButton>}
+                          {canEditOwnedJobs && job.company_id === data.companyId && <ActionButton tone="secondary" onClick={() => router.push(`/broker/jobs/${job.id}/edit`)}>Edit Job</ActionButton>}
                           <ActionButton tone="secondary" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Commercial</ActionButton>
                           {stage === 'completed' && <ActionButton tone="secondary" onClick={() => router.push('/broker/pod-review')}>POD review</ActionButton>}
                         </div>

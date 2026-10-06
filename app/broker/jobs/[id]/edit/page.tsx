@@ -12,7 +12,7 @@ export default function BrokerJobEditPage({ params }: { params: Promise<{ id: st
     <PageFrame>
       <PageHeader
         eyebrow="Broker load"
-        title="Edit Load"
+        title="Edit Job"
         description="Correct the load owned by your company at any lifecycle stage. Saving preserves the current award, allocation, execution state and existing operational history."
         actions={<ActionButton tone="secondary" onClick={() => router.push(`/broker/jobs?job=${encodeURIComponent(id)}`)}>Back to job</ActionButton>}
       />

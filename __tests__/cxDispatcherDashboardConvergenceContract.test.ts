@@ -35,6 +35,10 @@ describe('Dispatcher CX convergence contract', () => {
     for (const route of ['/admin/fleet/assignments', '/admin/fleet/positions', '/admin/diary', '/admin/incidents']) {
       expect(source).toContain(route);
     }
+    const shell = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/TopWorkspaceShell.tsx'), 'utf8');
+    const dispatcherNav = shell.slice(shell.indexOf('function composeDispatcherPrimaryNav'), shell.indexOf('function composeFinancePrimaryNav'));
+    expect(dispatcherNav).toContain("'/admin/action-centre'");
+    expect(dispatcherNav).toContain("'/admin/bulk-import'");
   });
 
   it('does not fabricate stale GPS counts when tracking data is unavailable', () => {

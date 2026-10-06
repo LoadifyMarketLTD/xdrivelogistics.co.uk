@@ -732,6 +732,7 @@ function JobsPageInner() {
  });
  };
 
+ const canManageOwnedJobs = ['owner', 'admin', 'dispatcher'].includes((user?.membershipRole ?? '').trim().toLowerCase());
  const newJobDisabled = (hasSupabaseSession && companyLoading) || isSubmitting;
 
  return (
@@ -759,7 +760,11 @@ function JobsPageInner() {
   onDateFilterChange={setDateFilter}
   onCustomerFilterChange={setCustomerFilter}
   onNewJob={() => { setCompanyError(null); setModalError(null); setShowModal(true); }}
+  canCreateJob={canManageOwnedJobs}
   onViewJob={(id) => router.push(`/admin/jobs/${id}`)}
+  onEditJob={(id) => router.push(`/admin/jobs/${id}/edit`)}
+  canEditJob={(row) => canManageOwnedJobs && jobs.some((job) => job.id === row.id && job.companyId === companyId)}
+  canManageJob={(row) => canManageOwnedJobs && jobs.some((job) => job.id === row.id && job.companyId === companyId)}
   onDirectInvite={async (row) => {
    // Resolve the canonical Job from the source collection by ID to preserve
    // all fields (exchange_visibility, direct_invite_company_id, etc.).

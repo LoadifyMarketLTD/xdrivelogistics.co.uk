@@ -451,7 +451,7 @@ export default function JobDetailPage() {
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               {!editMode ? (
                 <>
-                  {job.ownerCompanyId === companyId && <button
+                  {['owner', 'admin', 'dispatcher'].includes((user?.membershipRole ?? '').trim().toLowerCase()) && job.ownerCompanyId === companyId && <button
                     onClick={handleEdit}
                     style={{
                       flex: 1,
@@ -469,7 +469,7 @@ export default function JobDetailPage() {
                     onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#165a2d')}
                     onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#1F7A3D')}
                   >
-                    Edit Load
+                    Edit Job
                   </button>}
                   <button
                     onClick={handleGenerateInvoice}

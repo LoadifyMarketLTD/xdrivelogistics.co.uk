@@ -113,6 +113,7 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
   });
 
   const morePreferred = [
+    '/admin/bulk-import',
     '/admin/won-work',
     '/admin/jobs',
     '/admin/fleet/assignments',
@@ -123,7 +124,7 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
     '/admin/messages',
     '/admin/event-log',
     '/admin/fleet/managers',
-    '/settings/billing',
+    '/admin/settings/billing',
   ];
   const more: WorkspaceNavItem[] = [
     { id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre', icon: '!' },
@@ -171,10 +172,13 @@ function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
     '/admin/invoices',
     '/admin/fleet/compliance',
   ];
-  const more = morePreferred.flatMap((href) => {
-    const item = items.get(href);
-    return item && !used.has(href) ? [item] : [];
-  });
+  const more: WorkspaceNavItem[] = [
+    { id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre', icon: '!' },
+    ...morePreferred.flatMap((href) => {
+      const item = items.get(href);
+      return item && !used.has(href) ? [item] : [];
+    }),
+  ];
   return more.length ? [...primary, { id: 'fleet-more', label: 'More', items: more }] : primary;
 }
 
@@ -212,23 +216,15 @@ function composeRolePrimaryNav(
 function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
     ['customer-dashboard-primary', 'Dashboard', '/customer'],
-    ['customer-action-centre-primary', 'Action Centre', '/customer/action-centre'],
-    ['customer-loads-primary', 'View All Loads', '/customer/loads'],
+    ['customer-post-load-primary', 'Post Load', '/customer/post-load'],
+    ['customer-loads-primary', 'Loads', '/customer/loads'],
     ['customer-quotes-primary', 'Quotes', '/customer/quotes'],
     ['customer-bookings-primary', 'Bookings', '/customer/bookings'],
-    ['customer-deliveries-primary', 'Deliveries', '/customer/deliveries'],
-    ['customer-tracking-primary', 'Tracking', '/customer/tracking'],
-    ['customer-documents-primary', 'POD & Documents', '/customer/documents'],
     ['customer-diary-primary', 'Diary', '/customer/diary'],
-    ['customer-invoices-primary', 'Invoices', '/customer/invoices'],
-    ['customer-network-primary', 'Directory', '/customer/network'],
-    ['customer-messages-primary', 'Messages', '/customer/messages'],
-    ['customer-settings-primary', 'Settings', '/customer/settings'],
-  ], 'customer-more', 'More', [
-    '/customer/updates',
-    '/customer/disputes',
-    '/customer/event-log',
-  ]);
+    ['customer-tracking-primary', 'Tracking', '/customer/tracking'],
+    ['customer-network-primary', 'Network', '/customer/network'],
+    ['customer-action-centre-primary', 'Action Centre', '/customer/action-centre'],
+  ], 'customer-more');
 }
 
 function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
@@ -309,6 +305,8 @@ function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['dispatcher-positions-primary', 'Live Positions', '/admin/fleet/positions'],
     ['dispatcher-settings-primary', 'Settings', '/admin/settings'],
   ], 'dispatcher-more', 'More', [
+    '/admin/action-centre',
+    '/admin/bulk-import',
     '/admin/incidents',
     '/admin/pod',
     '/admin/freight-vision',
@@ -377,9 +375,16 @@ const CUSTOMER_MORE_ICONS = {
 } as const;
 
 const CUSTOMER_MORE_SECTIONS: Record<string, string> = {
-  '/customer/updates': 'Updates',
-  '/customer/disputes': 'Business',
-  '/customer/event-log': 'Business',
+  '/customer/bulk-import': 'Loads',
+  '/customer/deliveries': 'Operations',
+  '/customer/documents': 'Operations',
+  '/customer/updates': 'Operations',
+  '/customer/messages': 'Collaboration',
+  '/customer/disputes': 'Collaboration',
+  '/customer/event-log': 'Collaboration',
+  '/customer/invoices': 'Finance',
+  '/customer/team': 'Administration',
+  '/customer/settings': 'Administration',
 };
 function CustomerMoreIcon({ item }: { item: WorkspaceNavItem }) {
   const Icon = CUSTOMER_MORE_ICONS[item.href as keyof typeof CUSTOMER_MORE_ICONS];
@@ -701,7 +706,7 @@ export default function TopWorkspaceShell({
   const actionRole = resolveActionCentreRole(role);
   const notificationsHref = getNotificationsRoute(actionRole);
   const primaryAction =
-    !CARRIER_NAV_ROLES.has(role) && role !== 'owner_driver' &&
+    !CARRIER_NAV_ROLES.has(role) && role !== 'owner_driver' && role !== 'customer' &&
     definition.primaryAction &&
     (!definition.primaryAction.capability || hasWorkspaceCapability(role, definition.primaryAction.capability))
       ? definition.primaryAction

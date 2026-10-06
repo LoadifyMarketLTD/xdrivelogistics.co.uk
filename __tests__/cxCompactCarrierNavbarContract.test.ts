@@ -19,10 +19,13 @@ describe('compact carrier navbar contract', () => {
     expect(shell).toContain('!CARRIER_NAV_ROLES.has(role)');
   });
 
-  it('keeps secondary Action Centre access under More instead of occupying header space', () => {
+  it('keeps secondary carrier functions under More instead of occupying header space', () => {
     expect(shell).toContain("id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre'");
+    expect(shell).toContain("'/admin/bulk-import'");
     expect(shell).toContain("'/admin/invoices'");
     expect(shell).toContain("'/admin/fleet/drivers'");
+    expect(shell).toContain("'/admin/settings/billing'");
+    expect(shell).not.toContain("'/settings/billing'");
   });
 
   it('suppresses the duplicate Find Loads primary action for carrier roles', () => {
