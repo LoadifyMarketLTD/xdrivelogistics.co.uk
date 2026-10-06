@@ -18,12 +18,12 @@ export const COMPANY_CONFIG = {
 
   // Primary operational email
   email: 'contact@xdrivelogistics.co.uk',
-  phone: '+447377694228',
-  phoneDisplay: '07377 694 228',
+  phone: '+447423272138',
+  phoneDisplay: '07423 272 138',
   
   // WhatsApp
   whatsapp: {
-    number: '447377694228',
+    number: '447423272138',
     defaultMessage: "Hello, I'd like to inquire about your transport services",
   },
   
