@@ -12,6 +12,7 @@ const customerAccount = read('app/components/workspace/CustomerCompanySettingsPa
 const brokerAccount = read('app/broker/account/page.tsx');
 const driverAccountNav = read('app/driver/_components/AccountSectionNav.tsx');
 const fleetSettingsLayout = read('app/admin/settings/layout.tsx');
+const restrictionBanner = read('app/components/workspace/WorkspaceRestrictionBanner.tsx');
 
 const protectedWorkspaceRoutes = [
   'app/customer/account/legal-agreements/page.tsx',
@@ -66,6 +67,22 @@ describe('Legal & Agreements account UI contract', () => {
     expect(brokerAccount).toContain('/broker/account/legal-agreements');
     expect(driverAccountNav).toContain('/driver/account/legal-agreements');
     expect(fleetSettingsLayout).toContain('/admin/settings/legal-agreements');
+  });
+
+  it('uses company-scoped legal evidence for company-bound contractual accounts', () => {
+    expect(legalRoute).toContain(".eq('company_id', companyId)");
+    expect(legalRoute).toContain(".eq('registration_role', registrationRole)");
+    expect(legalRoute).toContain('do not force every Owner/Admin user');
+  });
+
+  it('does not stack the global readiness warning on top of the legal recovery page itself', () => {
+    for (const href of [
+      '/customer/account/legal-agreements',
+      '/broker/account/legal-agreements',
+      '/admin/settings/legal-agreements',
+      '/driver/account/legal-agreements',
+    ]) expect(restrictionBanner).toContain(`pathname === '${href}'`);
+    expect(restrictionBanner).toContain("role === 'platform_owner' || isRecoveryPage");
   });
 
   it('does not expose the owner-operator legal entry to ordinary company drivers', () => {

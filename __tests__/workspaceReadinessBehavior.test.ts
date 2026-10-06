@@ -70,8 +70,20 @@ describe('workspace readiness uses real authorization boundaries', () => {
     await request(); expect(state.selects).toContainEqual(['company_memberships', 'company_id,role_in_company,status']);
     for (const name of ['profiles', 'company_memberships', 'drivers', 'onboarding_applications']) expect(state.filters).toContainEqual([name, 'user_id', USER]);
   });
-  it('does not fall back to another company when the selected membership is absent', async () => {
-    expect((await request('?companyId=' + OTHER)).status).toBe(403); expect(state.legal).not.toHaveBeenCalled();
+  it('reconciles a stale selected company when the user has exactly one active membership', async () => {
+    const { status, payload } = await request('?companyId=' + OTHER);
+    expect(status).toBe(200);
+    expect(payload.companyId).toBe(COMPANY);
+    expect(state.legal).toHaveBeenCalled();
+  });
+
+  it('still fails closed when a stale selected company is ambiguous across multiple active memberships', async () => {
+    state.tables.company_memberships = table([
+      { company_id: COMPANY, role_in_company: 'owner', status: 'active' },
+      { company_id: '44444444-4444-4444-8444-444444444444', role_in_company: 'owner', status: 'active' },
+    ]);
+    expect((await request('?companyId=' + OTHER)).status).toBe(403);
+    expect(state.legal).not.toHaveBeenCalled();
   });
   it('rejects malformed tenant identifiers', async () => { expect((await request('?companyId=bad-id')).status).toBe(400); });
   it('does not arbitrarily select the first of multiple memberships', async () => {

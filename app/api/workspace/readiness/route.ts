@@ -42,11 +42,15 @@ export async function GET(request: NextRequest) {
     ]);
     if (profileResult.error || membershipResult.error) return json(503, { ready: false, error: 'Your account and company access could not be verified. Please retry.' });
     const memberships = membershipResult.data ?? [];
-    // Never silently choose another company, even if the requested membership is inactive.
+    // Reconcile a stale client company id only when authorization is unambiguous:
+    // exactly one active membership exists for this authenticated user. If more than
+    // one membership is active we still fail closed and require an explicit company choice.
     const preferredId = requestedCompanyId || profileResult.data?.company_id;
-    const membership = preferredId ? memberships.find((row) => row.company_id === preferredId)
-      : memberships.length === 1 ? memberships[0] : null;
-    if (requestedCompanyId && !membership) return json(403, { ready: false, error: 'This account has no active membership in the selected company. Contact your company administrator.' });
+    const preferredMembership = preferredId ? memberships.find((row) => row.company_id === preferredId) : null;
+    const membership = preferredMembership ?? (memberships.length === 1 ? memberships[0] : null);
+    if (requestedCompanyId && !preferredMembership && memberships.length !== 1) return json(403, {
+      ready: false, error: 'This account has no active membership in the selected company. Select the intended company workspace or contact your company administrator.',
+    });
     if (!requestedCompanyId && !membership && memberships.length > 0) return json(409, {
       ready: false, error: 'Your active company context is missing or ambiguous. Select the intended company workspace before continuing.',
     });

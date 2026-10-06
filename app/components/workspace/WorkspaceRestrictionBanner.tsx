@@ -15,6 +15,10 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
   const pathname = usePathname();
   const role = suppliedRole ?? resolveWorkspaceRole(user);
   const companyId = suppliedCompanyId === undefined ? user?.companyId : suppliedCompanyId;
+  const isRecoveryPage = pathname === '/customer/account/legal-agreements'
+    || pathname === '/broker/account/legal-agreements'
+    || pathname === '/admin/settings/legal-agreements'
+    || pathname === '/driver/account/legal-agreements';
   const contextKey = [user?.id, companyId, role].join(':');
   const [snapshot, setSnapshot] = useState<{ key: string; blockers: WorkspaceBlocker[]; error: string; unauthorized: boolean } | null>(null);
   const [loading, setLoading] = useState(false);
@@ -23,7 +27,7 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
   const refresh = useCallback(async () => {
     const current = ++sequence.current;
     pending.current?.abort();
-    if (!user?.id || role === 'platform_owner') { setSnapshot(null); setLoading(false); return; }
+    if (!user?.id || role === 'platform_owner' || isRecoveryPage) { setSnapshot(null); setLoading(false); return; }
     const controller = new AbortController();
     pending.current = controller;
     const timeout = window.setTimeout(() => controller.abort(), 20000);
@@ -63,7 +67,7 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
       window.clearTimeout(timeout);
       if (current === sequence.current) setLoading(false);
     }
-  }, [companyId, contextKey, role, user?.id]);
+  }, [companyId, contextKey, isRecoveryPage, role, user?.id]);
 
   const cancelPending = useCallback(() => {
     ++sequence.current;
@@ -84,7 +88,7 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
     };
   }, [refresh, pathname, cancelPending]);
 
-  if (!user?.id || role === 'platform_owner') return null;
+  if (!user?.id || role === 'platform_owner' || isRecoveryPage) return null;
   const current = snapshot?.key === contextKey ? snapshot : null;
   const blockers = (current?.blockers ?? []).filter((blocker) => !operation || blocker.operation === operation || blocker.operation === 'commercial');
   const error = current?.error ?? '';

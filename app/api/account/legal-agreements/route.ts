@@ -155,7 +155,7 @@ const loadLegalContext = async (userId: string) => {
     } as const;
   }
 
-  const history = (historyResult.data ?? []) as LegalAcceptanceRow[];
+  const userHistory = (historyResult.data ?? []) as LegalAcceptanceRow[];
   const onboarding = onboardingRows[0] ?? null;
   const normalizedAccountType = onboarding
     ? normalizeOnboardingAccountType(onboarding.account_type)
@@ -177,8 +177,8 @@ const loadLegalContext = async (userId: string) => {
   // Only users without an authoritative onboarding record may fall back to
   // immutable server-recorded legal evidence. A current Company Driver
   // (`individual_driver`) record must never inherit a prior self-service role.
-  if (!onboarding && !registrationRole && history.length > 0) {
-    const candidate = history[0].registration_role;
+  if (!onboarding && !registrationRole && userHistory.length > 0) {
+    const candidate = userHistory[0].registration_role;
     if (LEGAL_ROLE_VALUES.has(candidate as RegistrationLegalRole)) {
       registrationRole = candidate as RegistrationLegalRole;
     }
@@ -193,9 +193,43 @@ const loadLegalContext = async (userId: string) => {
     } as const;
   }
 
+  const companyId = onboarding?.company_id ?? null;
+  let history = userHistory.filter((row) => row.registration_role === registrationRole);
+
+  // Contractual acceptance is company-scoped for company-bound workspaces.
+  // Preserve signer-specific evidence, but do not force every Owner/Admin user
+  // in the same company to re-sign an already-current company agreement.
+  if (companyId) {
+    const companyHistoryResult = await supabaseAdmin
+      .from('registration_legal_acceptances')
+      .select('id, registration_role, legal_version, agreements, privacy_version, acceptance_language, acceptance_statement, language_comprehension_confirmed_at, privacy_document_hash, accepted_at, source, evidence_hash, signer_full_name, signature_method, signature_payload_hash, signed_pdf_bucket, signed_pdf_path, signed_pdf_hash, signed_pdf_created_at, created_at')
+      .eq('company_id', companyId)
+      .eq('registration_role', registrationRole)
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (companyHistoryResult.error) {
+      if (companyHistoryResult.error.code === '42P01' || companyHistoryResult.error.code === 'PGRST205') {
+        return {
+          response: json(503, {
+            error: 'Legal agreement evidence storage is not available in this environment.',
+            code: 'legal_agreement_evidence_schema_missing',
+            migrationRequired: '20260904210500_registration_legal_acceptance_evidence.sql',
+          }),
+        } as const;
+      }
+      return { response: json(500, { error: companyHistoryResult.error.message }) } as const;
+    }
+
+    const companyHistory = (companyHistoryResult.data ?? []) as LegalAcceptanceRow[];
+    const byId = new Map<string, LegalAcceptanceRow>();
+    for (const row of [...companyHistory, ...history]) byId.set(row.id, row);
+    history = [...byId.values()].sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at));
+  }
+
   return {
     registrationRole,
-    companyId: onboarding?.company_id ?? null,
+    companyId,
     onboardingApplicationId: onboarding?.id ?? null,
     history,
   } as const;
