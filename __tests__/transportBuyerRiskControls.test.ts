@@ -10,6 +10,7 @@ const adminAward = readFileSync(join(process.cwd(),'app/api/admin/bids/[id]/acce
 const ownerApi = readFileSync(join(process.cwd(),'app/api/super-admin/companies/[id]/buyer-risk/route.ts'),'utf8');
 const ownerPage = readFileSync(join(process.cwd(),'app/super-admin/companies/buyer-risk/page.tsx'),'utf8');
 const ownerNav = readFileSync(join(process.cwd(),'app/super-admin/_components/SuperAdminWorkspaceShell.tsx'),'utf8');
+const platformOwnerBuyerRisk = readFileSync(join(process.cwd(),'supabase/migrations/20261006184200_clear_platform_owner_buyer_risk.sql'),'utf8');
 
 describe('transport buyer exposure controls', () => {
   it('uses a separate financial-risk control from fraud/onboarding risk', () => {
@@ -96,6 +97,14 @@ describe('transport buyer exposure controls', () => {
   it('keeps drafts outside the automatic publish gate', () => {
     expect(createApi).toContain('if (input.publish)');
     expect(migration).toContain("IF v_new_status <> 'posted'");
+  });
+
+  it('keeps the platform-owner company out of the generic new-buyer restriction in fresh/reset environments', () => {
+    expect(platformOwnerBuyerRisk).toContain("'5587a84f-de1f-4e35-9991-3a6857de477d'::uuid");
+    expect(platformOwnerBuyerRisk).toContain("'cleared'");
+    expect(platformOwnerBuyerRisk).toContain('10000');
+    expect(platformOwnerBuyerRisk).toContain('999999999');
+    expect(platformOwnerBuyerRisk).toContain('ON CONFLICT (company_id) DO NOTHING');
   });
 
   it('makes buyer-risk controls visible in Super Admin navigation', () => {
