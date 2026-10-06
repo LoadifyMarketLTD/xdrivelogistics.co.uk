@@ -75,7 +75,7 @@ function topShellSelectors() {
   };
 }
 
-test.describe('operational top-workspace visual fixture gate (deterministic fixture harness — not authenticated runtime proof)', () => {
+test.describe('operational top-workspace visual fixture gate (deterministic fixture harness - not authenticated runtime proof)', () => {
   test.skip(
     process.env.E2E_VISUAL_FIXTURE !== 'true',
     'Set E2E_VISUAL_FIXTURE=true to enable deterministic visual fixture routes.',
@@ -177,7 +177,12 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
             await expect(page.getByRole('button', { name: 'Action Centre' })).toBeVisible();
           }
         } else {
-          await expect(page.getByRole('button', { name: /Notifications/i })).toBeHidden();
+          const notifications = page.getByRole('button', { name: /Notifications/i });
+          await expect(notifications).toBeVisible();
+          expect(
+            await notifications.evaluate((el) => Math.round(el.getBoundingClientRect().width)),
+            role + '/' + viewport.label + ': mobile notification control remains compact',
+          ).toBe(32);
         }
 
         const pageOverflow = await page.evaluate(

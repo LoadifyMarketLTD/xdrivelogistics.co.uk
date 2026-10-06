@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3000';
+const BASE_URL = process.env.PLAYWRIGHT_BASE_URL ?? process.env.E2E_BASE_URL ?? 'http://127.0.0.1:3100';
+const localServerPort = new URL(BASE_URL).port || '3100';
 const usesLocalServer = /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i.test(BASE_URL);
 
 export default defineConfig({
@@ -21,9 +22,9 @@ export default defineConfig({
 
   webServer: usesLocalServer
     ? {
-        command: 'npm run dev -- --hostname 127.0.0.1',
+        command: `npm run dev -- --hostname 127.0.0.1 --port ${localServerPort}`,
         url: BASE_URL,
-        reuseExistingServer: !process.env.CI,
+        reuseExistingServer: process.env.E2E_REUSE_EXISTING_SERVER === 'true',
         timeout: 120_000,
         env: {
           NEXT_PUBLIC_SUPABASE_URL: process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co',
