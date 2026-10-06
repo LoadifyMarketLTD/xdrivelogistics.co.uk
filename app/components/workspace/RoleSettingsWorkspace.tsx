@@ -111,6 +111,7 @@ const routeMap: Record<RoleMode, {
     support: '/driver/support',
   },
   carrier: {
+    team: '/admin/team',
     vehicles: '/admin/fleet/vehicles',
     documents: '/admin/documents',
     notifications: '/admin/notifications',

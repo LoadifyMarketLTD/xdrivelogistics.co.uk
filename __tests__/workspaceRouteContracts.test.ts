@@ -91,6 +91,8 @@ describe('workspace route contracts', () => {
       '/admin/fleet/positions',
       '/admin/fleet',
       '/admin/fleet/managers',
+      '/admin/team',
+      '/admin/dispatchers',
       '/admin/fleet/returns',
       '/admin/diary',
       '/admin/messages',

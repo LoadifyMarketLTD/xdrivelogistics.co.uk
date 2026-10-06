@@ -249,6 +249,7 @@ const carrierNav: WorkspaceNavGroup[] = [
     { id: 'vehicle-tracking', label: 'Vehicle Tracking', href: '/admin/fleet/positions', icon: '⌖', capability: 'fleet.positions.view' },
   ] },
   { id: 'carrier-fleet', label: 'Fleet', items: [{ id: 'fleet', label: 'Fleet', href: '/admin/fleet', icon: '◎', capability: 'fleet.positions.view' }, { id: 'fleet-managers', label: 'Fleet Managers', href: '/admin/fleet/managers', icon: '◉', capability: 'company.members.manage' }] },
+  { id: 'carrier-team', label: 'Team & Roles', items: [{ id: 'team-roles', label: 'Team & Roles', href: '/admin/team', icon: 'TEAM', capability: 'company.members.manage' }, { id: 'dispatchers', label: 'Dispatchers', href: '/admin/dispatchers', icon: 'OPS', capability: 'company.members.manage' }] },
   { id: 'carrier-returns', label: 'Returns', items: [{ id: 'returns', label: 'Returns', href: '/admin/fleet/returns', icon: '↩' }] },
   { id: 'carrier-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' }] },
   { id: 'carrier-messages', label: 'Messages', items: [{ id: 'messages', label: 'Messages', href: '/admin/messages', icon: '◫' }] },

@@ -50,7 +50,7 @@ describe('workspace More audit contract', () => {
 
   it('keeps every retained More destination permitted for its operational role', () => {
     const routes: Array<[WorkspaceRole, string[]]> = [
-      ['company_admin', ['/admin/action-centre', '/admin/won-work', '/admin/jobs', '/admin/fleet/assignments', '/admin/pod', '/admin/quotes', '/admin/invoices', '/admin/documents', '/admin/messages', '/admin/event-log', '/admin/fleet/managers']],
+      ['company_admin', ['/admin/action-centre', '/admin/won-work', '/admin/jobs', '/admin/fleet/assignments', '/admin/pod', '/admin/quotes', '/admin/invoices', '/admin/documents', '/admin/messages', '/admin/event-log', '/admin/team', '/admin/fleet/managers', '/admin/dispatchers']],
       ['broker', ['/broker/customers', '/broker/margins', '/broker/disputes', '/broker/messages', '/broker/event-log', '/broker/carrier-network', '/broker/customer-invoices', '/broker/carrier-costs', '/broker/team']],
       ['customer', ['/customer/deliveries', '/customer/documents', '/customer/updates', '/customer/network', '/customer/messages', '/customer/disputes', '/customer/event-log', '/customer/team']],
       ['driver', ['/driver/notifications', '/driver/messages', '/driver/change-password', '/driver/event-log', '/driver/account']],

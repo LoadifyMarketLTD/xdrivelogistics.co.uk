@@ -123,7 +123,9 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
     '/admin/documents',
     '/admin/messages',
     '/admin/event-log',
+    '/admin/team',
     '/admin/fleet/managers',
+    '/admin/dispatchers',
     '/admin/settings/billing',
   ];
   const more: WorkspaceNavItem[] = [

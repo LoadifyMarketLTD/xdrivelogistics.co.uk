@@ -295,6 +295,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/event-log', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
   { prefix: '/admin/post-load', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'], anyOf: ['loads.create'] },
   { prefix: '/admin/bulk-import', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'dispatcher'], anyOf: ['loads.create'] },
+  { prefix: '/admin/team', workspace: 'carrier_fleet', anyOf: ['company.members.manage'] },
   { prefix: '/admin/fleet/managers', workspace: 'carrier_fleet', anyOf: ['company.members.manage'] },
   { prefix: '/admin/fleet/assignments', workspace: 'carrier_fleet', anyOf: ['jobs.allocate'] },
   { prefix: '/admin/fleet/active-jobs', workspace: 'carrier_fleet', anyOf: ['jobs.track'] },
