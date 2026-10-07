@@ -411,7 +411,7 @@ export default function MyQuotesPage() {
                   const counterpartName = bid.direction === 'incoming' ? incomingCompanyName : view.postingCompanyName;
                   const counterpartCompanyId = bid.direction === 'incoming' ? bid.company_id : view.postingCompanyId;
                   const fullExecutionAccess = view.access === 'assigned' || view.access === 'own';
-                  return <article key={bid.id} className="quote-entry quote-sheet">
+                  return <article key={bid.id} className={`quote-entry quote-sheet${expanded ? ' open' : ''}`}>
                     <div className="quote-sheet-main">
                       <section className="quote-route"><div><span>From:</span><b>{view.pickup}</b></div><div><span>To:</span><b>{view.delivery}</b></div></section>
                       <section className="quote-times"><div><span>Pickup:</span><b>{fmtDate(view.pickupDatetime)}</b></div><div><span>Deliver:</span><b>{fmtDate(view.deliveryDatetime)}</b></div></section>

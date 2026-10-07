@@ -3797,6 +3797,67 @@
   font-size:10.3px!important;
   font-weight:700!important;
 }
+/* Runtime visibility repair: expanded Loads / Quotes must remain readable.
+   Keep notes, requirements and inline quote controls on distinct grid rows. */
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra{
+  grid-template-rows:auto auto auto auto!important;
+  align-items:stretch!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note{
+  position:relative!important;
+  min-width:0!important;
+  height:auto!important;
+  overflow:visible!important;
+  display:flex!important;
+  flex-direction:column!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note:not(.load-extra-requirements){
+  grid-column:1 / -1!important;
+  grid-row:2!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-requirements{
+  grid-column:1 / -1!important;
+  grid-row:3!important;
+  margin:0!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .driver-inline-quote{
+  grid-column:1 / -1!important;
+  grid-row:4!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>b,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>span,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>small{
+  position:static!important;
+  max-width:100%!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+}
+
+.driver-prototype-port .driver-quotes-prototype .quote-sheet.open .quote-entry-extra{
+  display:grid!important;
+  grid-template-columns:repeat(3,minmax(0,1fr))!important;
+  grid-auto-rows:auto!important;
+  align-items:stretch!important;
+}
+.driver-prototype-port .driver-quotes-prototype .quote-entry-extra>section{
+  min-width:0!important;
+  height:auto!important;
+  overflow:visible!important;
+}
+.driver-prototype-port .driver-quotes-prototype .quote-entry-extra .quote-note{
+  grid-column:1 / -1!important;
+  grid-row:2!important;
+  min-height:0!important;
+}
+.driver-prototype-port .driver-quotes-prototype .quote-entry-extra .quote-note>b,
+.driver-prototype-port .driver-quotes-prototype .quote-entry-extra .quote-note>span,
+.driver-prototype-port .driver-quotes-prototype .quote-entry-extra .quote-note>small{
+  position:static!important;
+  max-width:100%!important;
+  white-space:normal!important;
+  overflow-wrap:anywhere!important;
+}
+
 /* CANONICAL DRIVER PAGE GEOMETRY — use Drivers & Vehicles proportions across prototype pages */
 @media (min-width: 1280px) {
   .driver-prototype-port .driver-prototype-page-shell > .subbar {

@@ -25,6 +25,17 @@ describe('Driver Marketplace consolidation contract', () => {
     expect(bids).toContain("Driver mobile is the named driver's personal quote history");
   });
 
+  it('keeps withdrawn quotes visually re-quotable and reactivates the canonical quote row', () => {
+    const loads = read('app/driver/loads/page.tsx');
+    const submit = read('app/api/driver/_lib/submitQuote.ts');
+    expect(loads).toContain("load.myBid.status !== 'withdrawn'");
+    expect(loads).toContain('load-extra-note load-extra-requirements');
+    expect(loads).toContain('>Quote Now</button>');
+    expect(submit).toContain("withdrawnBid: status === 'withdrawn' ? bid : null");
+    expect(submit).toContain(".eq('status', 'withdrawn')");
+    expect(submit).toContain("status: prior.withdrawnBid ? 200 : 201");
+  });
+
   it('routes current mobile load discovery and quoting through device/session-gated server APIs', () => {
     const nearby = read('app/api/driver/mobile/nearby-jobs/route.ts');
     const bids = read('app/api/driver/mobile/bids/route.ts');

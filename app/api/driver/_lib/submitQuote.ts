@@ -90,7 +90,7 @@ async function findPriorBidForDriver(
   additionalExtrasGbp: number,
   collectWithinMinutes: number | null,
   message: string,
-): Promise<{ matchingRetry: DriverBidRow | null; priorBidExists: boolean; error: string | null }> {
+): Promise<{ matchingRetry: DriverBidRow | null; withdrawnBid: DriverBidRow | null; priorBidExists: boolean; error: string | null }> {
   const { data, error } = await supabaseAdmin
     .from('job_bids')
     .select(BID_SELECT)
@@ -100,14 +100,16 @@ async function findPriorBidForDriver(
     .limit(1)
     .maybeSingle();
 
-  if (error) return { matchingRetry: null, priorBidExists: false, error: error.message };
-  if (!data) return { matchingRetry: null, priorBidExists: false, error: null };
+  if (error) return { matchingRetry: null, withdrawnBid: null, priorBidExists: false, error: error.message };
+  if (!data) return { matchingRetry: null, withdrawnBid: null, priorBidExists: false, error: null };
 
   const bid = data as DriverBidRow;
-  const retryableStatus = ['submitted', 'accepted'].includes((bid.status ?? '').toLowerCase());
+  const status = (bid.status ?? '').toLowerCase();
+  const retryableStatus = ['submitted', 'accepted'].includes(status);
   return {
     matchingRetry: sameQuote(bid, driver, totalAmount, baseAmount, additionalExtrasGbp, collectWithinMinutes, message) && retryableStatus ? bid : null,
-    priorBidExists: true,
+    withdrawnBid: status === 'withdrawn' ? bid : null,
+    priorBidExists: status !== 'withdrawn',
     error: null,
   };
 }
@@ -374,29 +376,40 @@ export async function submitDriverQuote(
     }
   }
 
-  const { data: bid, error: insertError } = await supabaseAdmin
-    .from('job_bids')
-    .insert({
-      job_id: jobId,
-      company_id: driver.companyId,
-      bidder_user_id: driver.userId,
-      bidder_driver_id: driver.driverId,
-      bid_price_gbp: totalAmount,
-      amount: totalAmount,
-      base_amount: baseAmount,
-      additional_extras_gbp: additionalExtrasGbp,
-      collect_within_minutes: collectWithinMinutes,
-      currency: 'GBP',
-      message: message || null,
-      status: 'submitted',
-      quote_vehicle_id: vehicle.id,
-      quote_vehicle_type: vehicle.type,
-      quote_vehicle_equipment: vehicle.equipment,
-      quote_vehicle_max_pallets: vehicle.palletsCapacity,
-      quote_vehicle_max_weight_kg: vehicle.payloadKg,
-    })
-    .select('id')
-    .single();
+  const quotePayload = {
+    company_id: driver.companyId,
+    bidder_user_id: driver.userId,
+    bidder_driver_id: driver.driverId,
+    bid_price_gbp: totalAmount,
+    amount: totalAmount,
+    base_amount: baseAmount,
+    additional_extras_gbp: additionalExtrasGbp,
+    collect_within_minutes: collectWithinMinutes,
+    currency: 'GBP',
+    message: message || null,
+    status: 'submitted',
+    quote_vehicle_id: vehicle.id,
+    quote_vehicle_type: vehicle.type,
+    quote_vehicle_equipment: vehicle.equipment,
+    quote_vehicle_max_pallets: vehicle.palletsCapacity,
+    quote_vehicle_max_weight_kg: vehicle.payloadKg,
+  };
+
+  const persistedQuote = prior.withdrawnBid
+    ? await supabaseAdmin
+        .from('job_bids')
+        .update({ ...quotePayload, updated_at: new Date().toISOString() })
+        .eq('id', prior.withdrawnBid.id)
+        .eq('status', 'withdrawn')
+        .select('id')
+        .single()
+    : await supabaseAdmin
+        .from('job_bids')
+        .insert({ job_id: jobId, ...quotePayload })
+        .select('id')
+        .single();
+
+  const { data: bid, error: insertError } = persistedQuote;
 
   const syncJobQuotedState = async () => {
     const { error: statusError } = await supabaseAdmin
@@ -431,5 +444,5 @@ export async function submitDriverQuote(
   }
 
   await syncJobQuotedState();
-  return { ok: true, status: 201, bidId: String(bid.id), jobId, idempotent: false, totalAmount };
+  return { ok: true, status: prior.withdrawnBid ? 200 : 201, bidId: String(bid.id), jobId, idempotent: false, totalAmount };
 }
