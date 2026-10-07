@@ -90,7 +90,7 @@ function singleGroup(id: string, label: string, item: WorkspaceNavItem): Workspa
   return { id, label, items: [{ ...item, label }] };
 }
 
-function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
+export function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
   const items = uniqueNavItems(groups);
   const direct: Array<[string, string, string]> = [
     ['carrier-dashboard', 'Dashboard', '/admin'],
@@ -135,11 +135,18 @@ function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
       return item && !directHrefs.has(href) ? [item] : [];
     }),
   ];
+  const represented = new Set([...directHrefs, ...more.map((item) => item.href)]);
+  for (const [href, item] of items) {
+    if (!represented.has(href)) {
+      more.push(item);
+      represented.add(href);
+    }
+  }
 
   return more.length ? [...primary, { id: 'carrier-more', label: 'More', items: more }] : primary;
 }
 
-function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
+export function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
   const items = uniqueNavItems(groups);
   const direct: Array<[string, string, string]> = [
     ['fleet-dashboard', 'Dashboard', '/admin/fleet'],
@@ -181,12 +188,19 @@ function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
       return item && !used.has(href) ? [item] : [];
     }),
   ];
+  const represented = new Set([...used, ...more.map((item) => item.href)]);
+  for (const [href, item] of items) {
+    if (!represented.has(href)) {
+      more.push(item);
+      represented.add(href);
+    }
+  }
   return more.length ? [...primary, { id: 'fleet-more', label: 'More', items: more }] : primary;
 }
 
 type PrimaryNavEntry = [id: string, label: string, href: string];
 
-function composeRolePrimaryNav(
+export function composeRolePrimaryNav(
   groups: WorkspaceNavGroup[],
   direct: PrimaryNavEntry[],
   moreId: string,
@@ -205,17 +219,29 @@ function composeRolePrimaryNav(
   }
 
   const more: WorkspaceNavItem[] = [];
+  const moreUsed = new Set<string>();
   const secondaryEntries = moreHrefs
     ? moreHrefs.map((href) => [href, items.get(href)] as const)
     : [...items.entries()];
   for (const [href, item] of secondaryEntries) {
-    if (item && !used.has(href)) more.push(item);
+    if (item && !used.has(href) && !moreUsed.has(href)) {
+      more.push(item);
+      moreUsed.add(href);
+    }
+  }
+  if (moreHrefs) {
+    for (const [href, item] of items) {
+      if (!used.has(href) && !moreUsed.has(href)) {
+        more.push(item);
+        moreUsed.add(href);
+      }
+    }
   }
 
   return more.length ? [...primary, { id: moreId, label: moreLabel, items: more }] : primary;
 }
 
-function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
+export function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
     ['customer-dashboard-primary', 'Dashboard', '/customer'],
     ['customer-post-load-primary', 'Post Load', '/customer/post-load'],
@@ -229,7 +255,7 @@ function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
   ], 'customer-more');
 }
 
-function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
+export function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
     ['broker-dashboard-primary', 'Dashboard', '/broker'],
     ['broker-action-centre-primary', 'Action Centre', '/broker/action-centre'],
@@ -244,7 +270,7 @@ function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
   ], 'broker-more');
 }
 
-function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boolean) {
+export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boolean) {
   if (!ownerDriver) {
     return composeRolePrimaryNav(groups, [
       ['driver-dashboard-primary', 'Dashboard', '/driver'],
@@ -296,7 +322,7 @@ function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boole
       });
 }
 
-function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
+export function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
     ['dispatcher-dashboard-primary', 'Dashboard', '/admin'],
     ['dispatcher-diary-primary', 'Diary', '/admin/diary'],
@@ -406,7 +432,7 @@ function moreMenuSectionLabel(groupId: string, href: string, previousHref?: stri
   return section !== previousSection ? section : null;
 }
 
-function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
+export function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
   return [
     { id: 'broker-home', label: 'Broker', items: [
       { id: 'broker-dashboard', label: 'Broker Dashboard', href: '/broker', icon: 'HOME' },
@@ -446,6 +472,23 @@ function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
   ];
 }
 
+export function mergeCanonicalNavFallback(
+  preferred: WorkspaceNavGroup[],
+  canonical: WorkspaceNavGroup[],
+): WorkspaceNavGroup[] {
+  const seen = new Set(preferred.flatMap((group) => group.items.map((item) => item.href)));
+  const fallback = canonical.flatMap((group) =>
+    group.items.filter((item) => {
+      if (seen.has(item.href)) return false;
+      seen.add(item.href);
+      return true;
+    }),
+  );
+  return fallback.length
+    ? [...preferred, { id: 'canonical-nav-fallback', label: 'More', items: fallback }]
+    : preferred;
+}
+
 function filterWorkspaceNavByAccess(
   groups: WorkspaceNavGroup[],
   role: WorkspaceRole,
@@ -478,7 +521,7 @@ function filterWorkspaceNavByAccess(
     .filter((group) => group.items.length > 0);
 }
 
-function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
+export function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
   return [
     { id: 'customer-home', label: 'Customer', items: [
       { id: 'customer-dashboard', label: 'Customer Dashboard', href: '/customer', icon: 'HOME' },
@@ -653,10 +696,12 @@ export default function TopWorkspaceShell({
     }
 
     if (role === 'broker') {
-      return composeBrokerPrimaryNav(filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user));
+      const preferred = filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user);
+      return composeBrokerPrimaryNav(mergeCanonicalNavFallback(preferred, base));
     }
     if (role === 'customer') {
-      return composeCustomerPrimaryNav(filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user));
+      const preferred = filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user);
+      return composeCustomerPrimaryNav(mergeCanonicalNavFallback(preferred, base));
     }
     if (CARRIER_NAV_ROLES.has(role)) return composeCarrierPrimaryNav(base);
     if (role === 'fleet_manager') return composeFleetPrimaryNav(base);
@@ -913,7 +958,7 @@ export default function TopWorkspaceShell({
           {primaryAction && (
             <button
               type="button"
-              className="top-workspace-action"
+              className="top-workspace-action top-workspace-action--primary"
               onClick={() => router.push(primaryAction.href)}
             >
               {primaryAction.label}

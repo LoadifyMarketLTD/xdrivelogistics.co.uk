@@ -512,8 +512,19 @@
     grid-template-columns: minmax(0, 1fr) auto !important;
   }
 
-  .top-workspace-action--signout {
+  .top-workspace-shell__actions {
+    max-width: calc(100vw - 150px);
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .top-workspace-shell__actions::-webkit-scrollbar {
     display: none;
+  }
+
+  .top-workspace-shell__actions > * {
+    flex: 0 0 auto;
   }
 
   .xdrive-operational-top-workspace .top-workspace-nav--primary .top-workspace-nav__track {
@@ -538,8 +549,9 @@
     flex-basis: 118px;
   }
 
-  .top-workspace-action:not(.top-workspace-action--primary):not(.top-workspace-action--context) {
-    display: none;
+  .top-workspace-shell__actions {
+    max-width: calc(100vw - 134px);
+    gap: 4px;
   }
 
   .top-workspace-notification {
