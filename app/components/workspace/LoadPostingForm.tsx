@@ -848,7 +848,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             <div style={{ ...gridStyle, marginTop: 10 }}>
               {internalResourcesError ? <AlertBanner tone="danger">{internalResourcesError}</AlertBanner> : null}
               <label style={labelStyle}>Driver
-                <select style={fieldStyle} value={internalDriverId} onChange={(event) => setInternalDriverId(event.target.value)}>
+                <select style={fieldStyle} value={internalDriverId} onChange={(event) => { setInternalDriverId(event.target.value); setInternalVehicleId(''); }}>
                   <option value="">Choose driver</option>
                   {internalDrivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.name}{driver.availabilityStatus ? ` · ${driver.availabilityStatus}` : ''}</option>)}
                 </select>
@@ -856,7 +856,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               <label style={labelStyle}>Vehicle
                 <select style={fieldStyle} value={internalVehicleId} onChange={(event) => setInternalVehicleId(event.target.value)}>
                   <option value="">Choose vehicle</option>
-                  {internalVehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.registration}{vehicle.type ? ` · ${vehicle.type}` : ''}</option>)}
+                  {internalVehicles.filter((vehicle) => vehicle.assignedDriverId === internalDriverId).map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.registration}{vehicle.type ? ` · ${vehicle.type}` : ''}</option>)}
                 </select>
               </label>
             </div>

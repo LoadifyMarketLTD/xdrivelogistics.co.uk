@@ -52,7 +52,7 @@ export default function FleetActiveJobsPage() {
                 <StatusBadge value={workspaceJobOperationalLabel(job)} />
                 <StatusBadge value={bindingComplete ? 'Driver + vehicle assigned' : 'Driver / vehicle assignment incomplete'} tone={bindingComplete ? 'blue' : 'orange'} />
               </span>,
-              <ActionButton key="action" tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open</ActionButton>,
+              <span key="action" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open</ActionButton>{job.assigned_driver_id ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/fleet/assignments?job=${job.id}`)}>Replace allocation</ActionButton> : null}</span>,
             ];
           })}
           empty={<EmptyState title="No active carrier-won jobs" description="Allocated Fleet work appears here after execution begins." />}

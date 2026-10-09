@@ -32,7 +32,7 @@ describe('direct booking target contract', () => {
   it('keeps internal Direct Booking resources company-scoped and active', () => {
     expect(resources).toContain(".eq('company_id', companyId)");
     expect(resources).toContain(".eq('status', 'active')");
-    expect(resources).toContain("['owner', 'admin', 'dispatcher'].includes(role)");
+    expect(resources).toContain("['owner', 'admin', 'fleet_manager', 'dispatcher'].includes(role)");
     expect(create).toContain(".eq('company_id', input.companyId)");
     expect(create).toContain('The selected internal driver is not active in this company.');
     expect(create).toContain('The selected internal vehicle is not active in this company.');

@@ -47,6 +47,7 @@ export default function FleetJobsPage() {
             const stage = stageOf(job);
             const canonicalStage = classifyWorkspaceJobStage(job);
             const needsAllocation = canonicalStage === 'awarded';
+            const canReallocate = canonicalStage === 'allocated' && Boolean(job.assigned_driver_id);
             const driver = job.assigned_driver_id ? driverById.get(job.assigned_driver_id) : undefined;
             const evidenceCount = Array.isArray(job.delivery_photos) ? job.delivery_photos.length : 0;
             return [
@@ -57,13 +58,15 @@ export default function FleetJobsPage() {
               (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
               evidenceCount > 0 ? `${evidenceCount} photo/file(s)` : canonicalStage === 'completed' ? 'No delivery evidence recorded' : 'Pending execution',
               <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
-              <ActionButton
-                key="action"
-                tone={needsAllocation ? 'success' : 'secondary'}
-                onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}
-              >
-                {needsAllocation ? 'Allocate' : 'Open'}
-              </ActionButton>,
+              <span key="action" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                <ActionButton
+                  tone={needsAllocation ? 'success' : 'secondary'}
+                  onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}
+                >
+                  {needsAllocation ? 'Allocate' : 'Open'}
+                </ActionButton>
+                {canReallocate ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/fleet/assignments?job=${job.id}`)}>Reallocate</ActionButton> : null}
+              </span>,
             ];
           })}
           empty={<EmptyState title="No carrier-won Fleet jobs" />}

@@ -395,7 +395,34 @@ export async function POST(request: NextRequest) {
     if (vehicle.assigned_driver_id && String(vehicle.assigned_driver_id) !== String(driver.id)) {
       return respond(409, { error: 'The selected vehicle is already assigned to another driver.' });
     }
-    internalDirectTarget = { driverId: String(driver.id), vehicleId: String(vehicle.id) };
+
+    const { data: readinessRows, error: readinessError } = await supabaseAdmin.rpc('driver_operational_eligibility', {
+      p_driver_id: driver.id,
+    });
+    if (readinessError) {
+      return operationalError({
+        status: 503,
+        message: 'Internal Direct Booking readiness could not be verified. Please retry.',
+        context: `jobs.create.internal-direct.readiness:${driver.id}`,
+        cause: readinessError,
+        retryable: true,
+      });
+    }
+    const readiness = Array.isArray(readinessRows) ? readinessRows[0] : readinessRows;
+    const canonicalVehicleId = readiness?.vehicle_id ? String(readiness.vehicle_id) : null;
+    if (readiness?.eligible !== true || !canonicalVehicleId) {
+      const blockers = Array.isArray(readiness?.blockers) ? readiness.blockers.map(String).filter(Boolean) : [];
+      return respond(409, {
+        error: blockers.length
+          ? `The selected internal driver/vehicle is not operationally eligible: ${blockers.join(', ')}.`
+          : 'The selected internal driver/vehicle is not operationally eligible.',
+      });
+    }
+    if (canonicalVehicleId !== String(vehicle.id)) {
+      return respond(409, { error: 'The selected vehicle is not the canonical eligible vehicle for this driver.' });
+    }
+
+    internalDirectTarget = { driverId: String(driver.id), vehicleId: canonicalVehicleId };
   }
 
   let exchangeAutoExpireHours = 72;

@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
   if (membershipError) return respond(503, { error: 'Company membership could not be verified.' });
   const role = String(membership?.role_in_company ?? '').toLowerCase();
-  if (!['owner', 'admin', 'dispatcher'].includes(role)) {
+  if (!['owner', 'admin', 'fleet_manager', 'dispatcher'].includes(role)) {
     return respond(403, { error: 'This role cannot allocate internal Direct Bookings.' });
   }
 

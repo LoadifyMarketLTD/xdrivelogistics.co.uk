@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabaseClient';
-import { fleetQueueStage, isCompanyExecutionJob } from '../../../../lib/jobs/workspaceJobStage';
+import { classifyWorkspaceJobStage, fleetQueueStage, isCompanyExecutionJob } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData, type WorkspaceBid, type WorkspaceLocation } from '../../../components/workspace/useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -58,11 +58,18 @@ export default function FleetAssignmentsPage() {
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
-  const jobs = useMemo(
+  const allocationQueue = useMemo(
     () => data.jobs.filter((job) =>
       isCompanyExecutionJob(job, data.companyId)
       && fleetQueueStage(job) === 'unallocated'
     ),
+    [data.companyId, data.jobs],
+  );
+  const allocationManageableJobs = useMemo(
+    () => data.jobs.filter((job) => {
+      if (!isCompanyExecutionJob(job, data.companyId)) return false;
+      return ['awarded', 'allocated', 'in_progress'].includes(classifyWorkspaceJobStage(job));
+    }),
     [data.companyId, data.jobs],
   );
 
@@ -89,17 +96,20 @@ export default function FleetAssignmentsPage() {
   }, [data.bids, data.companyId]);
 
   useEffect(() => {
-    const requested = deepJobId && jobs.some((job) => job.id === deepJobId) ? deepJobId : null;
+    const requested = deepJobId && allocationManageableJobs.some((job) => job.id === deepJobId) ? deepJobId : null;
     if (requested) {
       setSelectedJobId(requested);
       return;
     }
-    if (!selectedJobId || !jobs.some((job) => job.id === selectedJobId)) {
-      setSelectedJobId(jobs[0]?.id ?? null);
+    if (!selectedJobId || !allocationManageableJobs.some((job) => job.id === selectedJobId)) {
+      setSelectedJobId(allocationQueue[0]?.id ?? null);
     }
-  }, [deepJobId, jobs, selectedJobId]);
+  }, [allocationManageableJobs, allocationQueue, deepJobId, selectedJobId]);
 
-  const selectedJob = jobs.find((job) => job.id === selectedJobId) ?? null;
+  const selectedJob = allocationManageableJobs.find((job) => job.id === selectedJobId) ?? null;
+  const selectedCanonicalStage = selectedJob ? classifyWorkspaceJobStage(selectedJob) : null;
+  const currentAssignedDriver = selectedJob?.assigned_driver_id ? driverById.get(selectedJob.assigned_driver_id) : undefined;
+  const canClearAllocation = Boolean(selectedJob?.assigned_driver_id && selectedCanonicalStage === 'allocated');
   const acceptedBid = selectedJob ? acceptedBidByJob.get(selectedJob.id) : undefined;
   const quotedDriverId = acceptedBid?.bidder_driver_id && driverById.has(acceptedBid.bidder_driver_id)
     ? acceptedBid.bidder_driver_id
@@ -192,10 +202,40 @@ export default function FleetAssignmentsPage() {
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'Driver and vehicle allocation failed.');
-      setNotice(`Job allocated to ${driverLabel(selectedDriver)} with the eligible assigned vehicle.`);
+      setNotice(`${selectedJob.assigned_driver_id ? 'Job reallocated' : 'Job allocated'} to ${driverLabel(selectedDriver)} with the eligible assigned vehicle.`);
+      setSelectedDriverId('');
       await data.refresh();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Driver and vehicle allocation failed.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const clearAllocation = async () => {
+    if (!selectedJob || !selectedJob.assigned_driver_id || !canClearAllocation) return;
+    setWorking(true);
+    setError('');
+    setNotice('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Session expired.');
+      const response = await fetch(`/api/admin/jobs/${selectedJob.id}/assign-driver`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          driverId: null,
+          expectedDriverId: selectedJob.assigned_driver_id,
+        }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Allocation could not be cleared.');
+      setSelectedDriverId('');
+      setNotice('Driver and vehicle allocation cleared. The job returned to the unallocated queue.');
+      await data.refresh();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Allocation could not be cleared.');
     } finally {
       setWorking(false);
     }
@@ -217,7 +257,7 @@ export default function FleetAssignmentsPage() {
       <Panel title="Allocation queue" description="Jobs assigned or awarded to this company that still require driver and vehicle allocation are shown here.">
         <DataTable
           columns={['Won for', 'Route', 'Pickup', 'Required vehicle', 'Quoted by', 'Agreed quote', 'Action']}
-          rows={jobs.map((job) => {
+          rows={allocationQueue.map((job) => {
             const bid = acceptedBidByJob.get(job.id);
             const bidderDriver = bid?.bidder_driver_id ? driverById.get(bid.bidder_driver_id) : undefined;
             const quote = bid ? Number(bid.bid_price_gbp ?? bid.amount ?? 0) : null;
@@ -239,8 +279,8 @@ export default function FleetAssignmentsPage() {
 
       {selectedJob && (
         <Panel
-          title={`Allocate ${selectedJob.pickup_postcode ?? selectedJob.pickup_location ?? 'Collection'} → ${selectedJob.delivery_postcode ?? selectedJob.delivery_location ?? 'Delivery'}`}
-          description="Select the executing driver. XDrive checks current onboarding, driver compliance, the assigned active vehicle and vehicle compliance before saving the allocation."
+          title={`${selectedJob.assigned_driver_id ? 'Reallocate' : 'Allocate'} ${selectedJob.pickup_postcode ?? selectedJob.pickup_location ?? 'Collection'} → ${selectedJob.delivery_postcode ?? selectedJob.delivery_location ?? 'Delivery'}`}
+          description="Select the executing driver. XDrive checks current onboarding, driver compliance, the canonical active vehicle, schedule conflicts and vehicle compliance before saving the allocation."
         >
           <div className="workspace-detail-grid">
             <div className="workspace-detail-item"><strong>Carrier award</strong><div>{acceptedBid?.companies?.name ?? 'This carrier company'}</div></div>
@@ -248,6 +288,7 @@ export default function FleetAssignmentsPage() {
             <div className="workspace-detail-item"><strong>Accepted quote</strong><div>{acceptedBid ? money(Number(acceptedBid.bid_price_gbp ?? acceptedBid.amount ?? 0), acceptedBid.currency ?? 'GBP') : 'Not supplied'}</div></div>
             <div className="workspace-detail-item"><strong>Required vehicle</strong><div>{(selectedJob.vehicle_type ?? 'Not specified').replace(/_/g, ' ')}</div></div>
             <div className="workspace-detail-item"><strong>Pickup</strong><div>{when(selectedJob.pickup_datetime)}</div></div>
+            <div className="workspace-detail-item"><strong>Current allocation</strong><div>{selectedJob.assigned_driver_id ? driverLabel(currentAssignedDriver) : 'Unallocated'}</div><small>{selectedCanonicalStage === 'in_progress' ? 'Execution is active: replacement is allowed, clearing is blocked.' : selectedCanonicalStage === 'allocated' ? 'Pre-execution allocation can be replaced or cleared.' : 'Awaiting allocation.'}</small></div>
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, .8fr) minmax(0, 1.2fr)', gap: 12, marginTop: 12 }}>
@@ -265,7 +306,7 @@ export default function FleetAssignmentsPage() {
               </label>
 
               <AlertBanner tone="info">
-                No driver is preselected from quote history. Choose the intended executing driver; XDrive then verifies current eligibility and uses that driver's active assigned vehicle.
+                {selectedJob.assigned_driver_id ? `Current driver: ${driverLabel(currentAssignedDriver)}. Choose a different active driver to replace the allocation; the current driver is never silently preselected.` : 'No driver is preselected from quote history. Choose the intended executing driver; XDrive then verifies current eligibility and uses that driver’s canonical active vehicle.'}
               </AlertBanner>
 
               <div className="workspace-detail-item">
@@ -278,9 +319,12 @@ export default function FleetAssignmentsPage() {
                 Vehicle is never chosen arbitrarily here. The server resolves exactly one active assigned compliant vehicle for the selected driver; otherwise allocation is rejected with the real blocker.
               </AlertBanner>
 
-              <ActionButton tone="success" disabled={working || !selectedDriverId || !driverAccountActive} onClick={() => void allocate()}>
-                {working ? 'Allocating…' : 'Allocate driver + vehicle'}
-              </ActionButton>
+              <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+                <ActionButton tone="success" disabled={working || !selectedDriverId || !driverAccountActive || selectedDriverId === selectedJob.assigned_driver_id} onClick={() => void allocate()}>
+                  {working ? 'Saving allocation…' : selectedJob.assigned_driver_id ? 'Replace driver + vehicle' : 'Allocate driver + vehicle'}
+                </ActionButton>
+                {canClearAllocation ? <ActionButton tone="secondary" disabled={working} onClick={() => void clearAllocation()}>Clear allocation</ActionButton> : null}
+              </div>
             </div>
 
             <div className="workspace-detail-grid">
