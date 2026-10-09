@@ -13,6 +13,7 @@ type JobSheet = {
   jobId: string;
   viewerWorkspace?: 'broker' | 'customer' | 'carrier';
   viewerCompanyId?: string | null;
+  viewerRole?: string | null;
   status: string;
   createdAt: string | null;
   updatedAt: string | null;
@@ -178,11 +179,38 @@ function Detail({ label, value, detail }: { label: string; value: ReactNode; det
   return <div className="workspace-detail-item"><strong>{label}</strong><div>{value}</div>{detail ? <small>{detail}</small> : null}</div>;
 }
 
+const OPERATOR_STATUS_ROLES = new Set(['owner', 'admin', 'fleet_manager', 'dispatcher']);
+const OPERATOR_NEXT_STATUS: Record<string, string> = {
+  allocated: 'accepted',
+  accepted: 'on_my_way',
+  on_my_way: 'on_site_pickup',
+  on_site_pickup: 'loaded',
+  loaded: 'in_transit',
+  collected: 'in_transit',
+  in_transit: 'on_site_delivery',
+  on_site_delivery: 'delivered',
+  delivered: 'completed',
+};
+const OPERATOR_STATUS_ACTION: Record<string, string> = {
+  accepted: 'Confirm driver acceptance',
+  on_my_way: 'Mark on the way',
+  on_site_pickup: 'Mark on site at pickup',
+  loaded: 'Mark loaded',
+  in_transit: 'Mark in transit',
+  on_site_delivery: 'Mark on site at delivery',
+  delivered: 'Mark delivered',
+  completed: 'Complete job',
+};
+
 export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: { jobId: string; mode: SheetMode; initialTab?: JobSheetTabInput }) {
   const [sheet, setSheet] = useState<JobSheet | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<JobSheetTab>(normalizeTab(initialTab));
+  const [refreshNonce, setRefreshNonce] = useState(0);
+  const [operatorNote, setOperatorNote] = useState('');
+  const [operatorWorking, setOperatorWorking] = useState(false);
+  const [operatorMessage, setOperatorMessage] = useState('');
 
   useEffect(() => { setTab(normalizeTab(initialTab)); }, [initialTab]);
 
@@ -207,7 +235,7 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
     };
     void run();
     return () => { cancelled = true; };
-  }, [jobId, mode]);
+  }, [jobId, mode, refreshNonce]);
 
   const dimensions = useMemo(() => {
     if (!sheet) return 'Not supplied';
@@ -236,6 +264,21 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
       ? { label: 'Delivery evidence', tone: 'blue' as const, detail: `${sheet.pod.photoCount} photo/evidence file(s); generated POD not confirmed` }
       : { label: 'Pending', tone: 'orange' as const, detail: 'POD is mandatory and no generated POD or delivery evidence is recorded.' };
   const carrierMode = mode === 'carrier';
+  const operatingCompanyId = sheet.carrier?.companyId ?? sheet.ownerCompany.companyId;
+  const canManageOperationalStatus = carrierMode
+    && OPERATOR_STATUS_ROLES.has(String(sheet.viewerRole ?? '').toLowerCase())
+    && sheet.viewerCompanyId === operatingCompanyId;
+  const operatorNextStatus = canManageOperationalStatus
+    ? OPERATOR_NEXT_STATUS[String(sheet.status ?? '').toLowerCase()] ?? null
+    : null;
+  const podCompleteForOperator = Boolean(
+    sheet.pod.generated
+    && (sheet.evidence.deliveryPhotoCount + sheet.evidence.podPhotoCount > 0)
+    && sheet.evidence.deliverySignatureRecorded
+    && sheet.evidence.recipientName?.trim()
+  );
+  const operatorTransitionBlocked = !sheet.driver?.id
+    || (operatorNextStatus === 'completed' && !podCompleteForOperator);
   const presentationJob = {
     status: sheet.status,
     awarded_carrier_company_id: sheet.carrier?.companyId ?? null,
@@ -279,6 +322,35 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
     : mode === 'broker'
       ? `/broker/messages?jobId=${encodeURIComponent(jobId)}`
       : `/admin/messages?jobId=${encodeURIComponent(jobId)}`;
+
+  const advanceOperatorStatus = async () => {
+    if (!operatorNextStatus || !canManageOperationalStatus || operatorTransitionBlocked) return;
+    setOperatorWorking(true);
+    setOperatorMessage('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Session expired.');
+      const response = await fetch(`/api/admin/jobs/${encodeURIComponent(jobId)}/transition`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nextStatus: operatorNextStatus,
+          expectedStatus: sheet.status,
+          note: operatorNote.trim() || undefined,
+        }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Operational status could not be updated.');
+      setOperatorNote('');
+      setOperatorMessage(`Status updated to ${human(operatorNextStatus)}.`);
+      setRefreshNonce((value) => value + 1);
+    } catch (reason) {
+      setOperatorMessage(reason instanceof Error ? reason.message : 'Operational status could not be updated.');
+    } finally {
+      setOperatorWorking(false);
+    }
+  };
 
   return (
     <div className="workspace-record-details" style={{ padding: 0 }}>
@@ -401,6 +473,33 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
             <Detail label="Body type" value={sheet.vehicle?.bodyType ? human(sheet.vehicle.bodyType) : 'Not supplied'} detail={!sheet.vehicle?.bodyType ? availabilityCopy(sheet.unavailable.bodyType, 'Not available for this booking.') : undefined} />
           </div>
           {visibleNotes.length ? <div style={{ display: 'grid', gap: 6 }}>{visibleNotes.map(([label, value]) => <div key={label} className="workspace-detail-item"><strong>{label}</strong><div>{value}</div></div>)}</div> : <EmptyState compact title="No operational notes recorded" />}
+          {carrierMode && canManageOperationalStatus ? (
+            <div className="workspace-detail-item" style={{ display: 'grid', gap: 8 }}>
+              <strong>Operator status control</strong>
+              <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                <StatusBadge value={human(sheet.status)} />
+                <span aria-hidden="true">→</span>
+                <StatusBadge value={operatorNextStatus ? human(operatorNextStatus) : 'No next transition'} tone={operatorNextStatus ? 'blue' : 'grey'} />
+              </div>
+              {!sheet.driver?.id ? <AlertBanner tone="warning">Allocate an approved driver before starting operational execution.</AlertBanner> : null}
+              {operatorNextStatus === 'completed' && !podCompleteForOperator ? <AlertBanner tone="warning">Complete POD first: delivery evidence, recipient signature and recipient name are required before completion.</AlertBanner> : null}
+              {operatorNextStatus ? (
+                <>
+                  <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700 }}>
+                    OPERATOR NOTE (OPTIONAL)
+                    <textarea value={operatorNote} onChange={(event) => setOperatorNote(event.target.value)} maxLength={1000} placeholder="Reason or operational context for this status update" style={{ minHeight: 64, resize: 'vertical' }} />
+                  </label>
+                  <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <ActionButton tone="success" disabled={operatorWorking || operatorTransitionBlocked} onClick={() => void advanceOperatorStatus()}>
+                      {operatorWorking ? 'Saving status...' : OPERATOR_STATUS_ACTION[operatorNextStatus] ?? `Advance to ${human(operatorNextStatus)}`}
+                    </ActionButton>
+                    <span style={{ fontSize: 11, color: '#64748b' }}>Sequential transition only. XDrive revalidates current status, executing company, assignment and POD server-side.</span>
+                  </div>
+                </>
+              ) : <span style={{ fontSize: 11, color: '#64748b' }}>No further operator transition is available from this status.</span>}
+              {operatorMessage ? <AlertBanner tone={operatorMessage.startsWith('Status updated') ? 'success' : 'warning'}>{operatorMessage}</AlertBanner> : null}
+            </div>
+          ) : null}
           {mode !== 'carrier' ? <JobSmartAlertsPanel jobId={jobId} /> : null}
         </div>
       )}

@@ -174,6 +174,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         ? executionCompanyId ?? ''
         : '';
   if (!viewerCompanyId) return respond(403, { error: 'You do not have access to this job sheet.' });
+  const viewerMembership = memberships.find((membership) => String(membership.company_id) === viewerCompanyId);
+  const viewerRole = text(viewerMembership?.role_in_company)?.toLowerCase() ?? null;
 
   const viewerIsOwnerCompany = viewerCompanyId === ownerCompanyId;
   const viewerIsAwardedCarrier = Boolean(awardedCompanyId && viewerCompanyId === awardedCompanyId && !viewerIsOwnerCompany);
@@ -424,6 +426,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       jobId,
       viewerWorkspace,
       viewerCompanyId,
+      viewerRole,
       status: text(job.current_status) ?? text(job.status) ?? 'unknown',
       createdAt: text(job.created_at),
       updatedAt: text(job.updated_at),

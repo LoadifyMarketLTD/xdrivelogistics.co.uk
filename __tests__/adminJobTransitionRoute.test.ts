@@ -114,6 +114,36 @@ describe('POST /api/admin/jobs/[id]/transition', () => {
     });
   });
 
+  it('preserves explicit allocated -> accepted operator progression', async () => {
+    mocks.jobResult = {
+      ...mocks.jobResult,
+      status: 'allocated',
+      current_status: 'allocated',
+    };
+    mocks.updatedJobResult = {
+      id: 'job-1',
+      status: 'accepted',
+      current_status: 'accepted',
+      assigned_driver_id: 'driver-1',
+      updated_at: '2026-10-09T18:00:00.000Z',
+    };
+
+    const { POST } = await import('../app/api/admin/jobs/[id]/transition/route');
+    const res = await POST(
+      new NextRequest('http://localhost/api/admin/jobs/job-1/transition', {
+        method: 'POST',
+        headers: {
+          Authorization: '******',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ nextStatus: 'accepted', expectedStatus: 'allocated', note: 'Fleet operator confirmed driver acceptance.' }),
+      }),
+      { params: Promise.resolve({ id: 'job-1' }) }
+    );
+
+    expect(res.status).toBe(200);
+  });
+
   it('keeps the delivered transition successful without creating an invoice before POD completion', async () => {
     const { POST } = await import('../app/api/admin/jobs/[id]/transition/route');
 

@@ -9,6 +9,7 @@ import {
 
 const bodySchema = z.object({
   nextStatus: z.enum([
+    'accepted',
     'on_my_way',
     'on_site_pickup',
     'loaded',
@@ -22,8 +23,8 @@ const bodySchema = z.object({
 });
 
 const transitions: Record<string, string> = {
-  awarded: 'on_my_way',
-  allocated: 'on_my_way',
+  allocated: 'accepted',
+  accepted: 'on_my_way',
   on_my_way: 'on_site_pickup',
   on_site_pickup: 'loaded',
   loaded: 'in_transit',
@@ -43,6 +44,7 @@ const timestampField: Record<string, string | undefined> = {
 };
 
 const eventType: Record<string, string> = {
+  accepted: 'accepted',
   on_my_way: 'driver_en_route',
   on_site_pickup: 'arrived_pickup',
   loaded: 'collected',
@@ -171,6 +173,12 @@ export async function POST(
     event_type: eventType[parsed.data.nextStatus],
     created_by: authData.user.id,
     message: parsed.data.note || `Operator changed status to ${parsed.data.nextStatus.replaceAll('_', ' ')}.`,
+    meta: {
+      source: 'operator_api',
+      previous_status: currentStatus,
+      next_status: parsed.data.nextStatus,
+      role: membership.role_in_company,
+    },
   });
   if (trackingError) {
     console.error('Job transition succeeded but tracking event insert failed:', trackingError.message);
