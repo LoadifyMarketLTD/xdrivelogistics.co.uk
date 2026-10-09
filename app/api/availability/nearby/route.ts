@@ -78,6 +78,7 @@ export async function GET(request: NextRequest) {
   const requestedVehicleType = request.nextUrl.searchParams.get('vehicleType')?.trim().toLowerCase() ?? '';
   const requestedBodyType = request.nextUrl.searchParams.get('bodyType')?.trim().toLowerCase() ?? '';
   const requestedScope = request.nextUrl.searchParams.get('scope')?.trim().toLowerCase() ?? 'all';
+  const requestedGroupId = request.nextUrl.searchParams.get('groupId')?.trim() ?? '';
   const minPayloadKg = Number(request.nextUrl.searchParams.get('minPayloadKg') ?? '');
   const minPallets = Number(request.nextUrl.searchParams.get('minPallets') ?? '');
   const tailLiftOnly = request.nextUrl.searchParams.get('tailLift') === 'true';
@@ -100,6 +101,25 @@ export async function GET(request: NextRequest) {
   if (membershipError) return NextResponse.json({ error: 'Company access could not be verified.' }, { status: 500 });
   const ownCompanies = new Set((memberships ?? []).map((row) => String(row.company_id ?? '')).filter(Boolean));
   if (ownCompanies.size === 0) return NextResponse.json({ error: 'An active company membership is required.' }, { status: 403 });
+
+  let privateGroupCompanyIds: Set<string> | null = null;
+  if (requestedGroupId) {
+    const { data: group, error: groupError } = await supabaseAdmin
+      .from('network_groups')
+      .select('id,owner_company_id,allow_availability_visibility')
+      .eq('id', requestedGroupId)
+      .maybeSingle();
+    if (groupError) return NextResponse.json({ error: 'Private Group visibility could not be verified.' }, { status: 503 });
+    if (!group || !ownCompanies.has(String(group.owner_company_id)) || group.allow_availability_visibility !== true) {
+      return NextResponse.json({ error: 'Private Group availability is not available to this company.' }, { status: 403 });
+    }
+    const { data: groupMembers, error: groupMembersError } = await supabaseAdmin
+      .from('network_group_members')
+      .select('company_id')
+      .eq('group_id', requestedGroupId);
+    if (groupMembersError) return NextResponse.json({ error: 'Private Group members could not be loaded.' }, { status: 503 });
+    privateGroupCompanyIds = new Set((groupMembers ?? []).map((row) => String(row.company_id)).filter(Boolean));
+  }
 
   const { data, error } = await supabaseAdmin
     .from('driver_availability_presence')
@@ -194,6 +214,7 @@ export async function GET(request: NextRequest) {
       }];
     }
     if (row.visibility !== 'exchange' || !companyId) return [];
+    if (privateGroupCompanyIds && !privateGroupCompanyIds.has(companyId)) return [];
     const company = companyById.get(companyId);
     if (!company) return [];
 
@@ -249,6 +270,7 @@ export async function GET(request: NextRequest) {
       vehicleType: requestedVehicleType || null,
       bodyType: requestedBodyType || null,
       scope: requestedScope,
+      groupId: requestedGroupId || null,
       minPayloadKg: Number.isFinite(minPayloadKg) && minPayloadKg > 0 ? minPayloadKg : null,
       minPallets: Number.isFinite(minPallets) && minPallets > 0 ? minPallets : null,
       tailLiftOnly,

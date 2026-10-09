@@ -9,6 +9,7 @@ import { ActionButton, AlertBanner, Panel } from './WorkspaceUI';
 import PostcodeAddressField from './PostcodeAddressField';
 import StripeSetupAction from './StripeSetupAction';
 import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
+import { usePrivateNetworkGroups } from './usePrivateNetworkGroups';
 import { WORKSPACE_READINESS_CHANGED, isSafeRecoveryHref } from '../../../lib/workspaceReadiness';
 import { resolveLegalRemediationUrl } from '../../../lib/workspaceRemediation';
 import './load-posting-exchange.css';
@@ -215,6 +216,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [directCarrier, setDirectCarrier] = useState<{ id: string; name: string; memberId: string | null } | null>(null);
   const [directCarrierError, setDirectCarrierError] = useState('');
   const [directTargetMode, setDirectTargetMode] = useState<DirectTargetMode>('marketplace');
+  const [visibilityGroupId, setVisibilityGroupId] = useState('');
   const [externalTarget, setExternalTarget] = useState({ contactName: '', companyName: '', email: '', phone: '', agreedRate: '', paymentTerms: '' });
   const [internalDrivers, setInternalDrivers] = useState<InternalDirectDriver[]>([]);
   const [internalVehicles, setInternalVehicles] = useState<InternalDirectVehicle[]>([]);
@@ -225,6 +227,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [cloneLoading, setCloneLoading] = useState(false);
   const [documentFiles, setDocumentFiles] = useState<File[]>([]);
   const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
+  const privateGroups = usePrivateNetworkGroups(postingCompany?.id);
+
   const [form, setForm] = useState({
     loadType: 'on_demand' as CanonicalLoadType,
     regularDays: [] as Array<(typeof REGULAR_DAYS)[number][0]>,
@@ -523,6 +527,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           regularSchedule: form.loadType === 'regular_load' ? { days: form.regularDays, endDate: form.regularEndDate || null } : null,
           hireEndDateTime: form.loadType === 'daily_hire' ? dateTime(form.pickupDate, form.hireEndTime) : null,
           publish,
+          visibility: publish && !directCarrierId && directTargetMode === 'marketplace' && visibilityGroupId ? 'private_group' : undefined,
+          visibilityGroupId: publish && !directCarrierId && directTargetMode === 'marketplace' && visibilityGroupId ? visibilityGroupId : null,
           directInviteCompanyId: publish ? directCarrier?.id ?? null : null,
           directBookingTarget: publish
             ? directCarrier
@@ -794,6 +800,20 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               </button>
             )}
           </div>
+
+          {directTargetMode === 'marketplace' && (
+            <div style={{ marginTop: 10, display: 'grid', gap: 6 }}>
+              <label style={labelStyle}>Marketplace audience
+                <select style={fieldStyle} value={visibilityGroupId} onChange={(event) => setVisibilityGroupId(event.target.value)}>
+                  <option value="">Entire XDrive Exchange</option>
+                  {privateGroups.groups.filter((group) => group.allowLoadVisibility).map((group) => <option key={group.id} value={group.id}>Private Group · {group.name} ({group.members.length})</option>)}
+                </select>
+              </label>
+              {privateGroups.loading ? <span style={{ color: '#64748b', fontSize: 11 }}>Loading Private Groups…</span> : null}
+              {privateGroups.error ? <AlertBanner tone="warning">{privateGroups.error}</AlertBanner> : null}
+              {visibilityGroupId ? <span style={{ color: '#475569', fontSize: 11 }}>Only member companies in the selected Private Group can discover and quote this load.</span> : null}
+            </div>
+          )}
 
           {directTargetMode === 'external_subcontractor' && mode !== 'customer' && (
             <div style={{ ...gridStyle, marginTop: 10 }}>

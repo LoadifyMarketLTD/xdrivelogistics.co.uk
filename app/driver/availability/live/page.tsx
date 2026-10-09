@@ -7,6 +7,8 @@ import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import DriverNearbyMap from '../../_components/DriverNearbyMap';
 import { supabase } from '../../../../lib/supabaseClient';
 import { StatusBadge } from '../../../components/workspace/WorkspaceUI';
+import { useAuth } from '../../../components/AuthContext';
+import { usePrivateNetworkGroups } from '../../../components/workspace/usePrivateNetworkGroups';
 import { matchesAvailabilityFilters } from '../../../../lib/availability/canonicalAvailability';
 
 type Visibility = 'private' | 'fleet' | 'exchange';
@@ -58,6 +60,8 @@ const isDriverOrSubcontractor = (memberType: string | null | undefined) => {
 
 export default function LiveAvailabilityPage() {
   const router = useRouter();
+  const { user } = useAuth();
+  const privateGroups = usePrivateNetworkGroups(user?.companyId ?? null);
   const [presence, setPresence] = useState<Presence | null>(null);
   const [visibility, setVisibility] = useState<Visibility>('private');
   const [hours, setHours] = useState(4);
@@ -73,10 +77,11 @@ export default function LiveAvailabilityPage() {
   const [minPayload, setMinPayload] = useState('');
   const [minPallets, setMinPallets] = useState('');
   const [tailLiftOnly, setTailLiftOnly] = useState(false);
+  const [privateGroupId, setPrivateGroupId] = useState('');
   const [audience, setAudience] = useState<Audience>('all');
   const [postcode, setPostcode] = useState('');
   const [radius, setRadius] = useState('100');
-  const [query, setQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false });
+  const [query, setQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' });
 
   const authHeader = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -110,6 +115,7 @@ export default function LiveAvailabilityPage() {
     if (query.minPayload.trim()) params.set('minPayloadKg', query.minPayload.trim());
     if (query.minPallets.trim()) params.set('minPallets', query.minPallets.trim());
     if (query.tailLiftOnly) params.set('tailLift', 'true');
+    if (query.groupId) params.set('groupId', query.groupId);
     try {
       const response = await fetch(`/api/availability/nearby?${params.toString()}`, {
         headers: { Authorization: auth },
@@ -128,7 +134,7 @@ export default function LiveAvailabilityPage() {
     } finally {
       setNearbyLoading(false);
     }
-  }, [authHeader, query.body, query.minPallets, query.minPayload, query.postcode, query.radius, query.tailLiftOnly, query.vehicle]);
+  }, [authHeader, query.body, query.groupId, query.minPallets, query.minPayload, query.postcode, query.radius, query.tailLiftOnly, query.vehicle]);
 
   useEffect(() => {
     void Promise.all([loadPresence(), loadNearby()]);
@@ -295,10 +301,11 @@ export default function LiveAvailabilityPage() {
             <label className="driver-more-filter"><span>Min payload (kg)</span><input type="number" min="0" value={minPayload} onChange={(event) => setMinPayload(event.target.value)} placeholder="Any" /></label>
             <label className="driver-more-filter"><span>Min pallets</span><input type="number" min="0" value={minPallets} onChange={(event) => setMinPallets(event.target.value)} placeholder="Any" /></label>
             <label className="driver-more-filter"><span>Equipment</span><span><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} /> Tail lift required</span></label>
+            <label className="driver-more-filter"><span>Private Group</span><select value={privateGroupId} onChange={(event) => setPrivateGroupId(event.target.value)}><option value="">All Exchange members</option>{privateGroups.groups.filter((group) => group.allowAvailabilityVisibility).map((group) => <option key={group.id} value={group.id}>{group.name} ({group.members.length})</option>)}</select></label>
 
             <div className="driver-live-search-actions">
-              <button type="button" className="driver-more-button driver-more-button--success" onClick={() => setQuery({ postcode: postcode.trim(), radius, vehicle, body: bodyType, minPayload, minPallets, tailLiftOnly })}>Find Nearest</button>
-              <button type="button" className="driver-more-link-button" onClick={() => { setPostcode(''); setRadius('100'); setQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false }); setSearch(''); setVehicle('all'); setBodyType('all'); setMinPayload(''); setMinPallets(''); setTailLiftOnly(false); setAudience('all'); }}>Clear filters</button>
+              <button type="button" className="driver-more-button driver-more-button--success" onClick={() => setQuery({ postcode: postcode.trim(), radius, vehicle, body: bodyType, minPayload, minPallets, tailLiftOnly, groupId: privateGroupId })}>Find Nearest</button>
+              <button type="button" className="driver-more-link-button" onClick={() => { setPostcode(''); setRadius('100'); setQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' }); setSearch(''); setVehicle('all'); setBodyType('all'); setMinPayload(''); setMinPallets(''); setTailLiftOnly(false); setPrivateGroupId(''); setAudience('all'); }}>Clear filters</button>
             </div>
           </aside>
 

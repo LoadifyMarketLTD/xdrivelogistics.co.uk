@@ -6,6 +6,7 @@ import FleetPositionMap, { type FleetMapPoint } from '../fleet/FleetPositionMap'
 import { OperationalSignalStrip } from '../../components/workspace/OperationalConvergence';
 import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
 import { useOperationsIntelligence } from '../../components/workspace/useOperationsIntelligence';
+import { usePrivateNetworkGroups } from '../../components/workspace/usePrivateNetworkGroups';
 import { supabase } from '../../../lib/supabaseClient';
 import { matchesAvailabilityFilters, type AvailabilityTab } from '../../../lib/availability/canonicalAvailability';
 import {
@@ -79,6 +80,7 @@ const capacityLabel = (position: NearbyAvailabilityPosition) => {
 export default function LiveAvailabilityPage() {
   const data = useCompanyWorkspaceData();
   const intelligence = useOperationsIntelligence(data.companyId);
+  const privateGroups = usePrivateNetworkGroups(data.companyId);
   const router = useRouter();
   const [tab, setTab] = useState<Tab>('live');
   const [search, setSearch] = useState('');
@@ -89,9 +91,10 @@ export default function LiveAvailabilityPage() {
   const [nearbyMinPayload, setNearbyMinPayload] = useState('');
   const [nearbyMinPallets, setNearbyMinPallets] = useState('');
   const [nearbyTailLiftOnly, setNearbyTailLiftOnly] = useState(false);
+  const [nearbyGroupId, setNearbyGroupId] = useState('');
   const [nearbyPostcode, setNearbyPostcode] = useState('');
   const [nearbyRadius, setNearbyRadius] = useState('100');
-  const [nearbyQuery, setNearbyQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false });
+  const [nearbyQuery, setNearbyQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' });
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [nearbyPositions, setNearbyPositions] = useState<NearbyAvailabilityPosition[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(true);
@@ -120,6 +123,7 @@ export default function LiveAvailabilityPage() {
       if (nearbyQuery.minPayload.trim()) params.set('minPayloadKg', nearbyQuery.minPayload.trim());
       if (nearbyQuery.minPallets.trim()) params.set('minPallets', nearbyQuery.minPallets.trim());
       if (nearbyQuery.tailLiftOnly) params.set('tailLift', 'true');
+      if (nearbyQuery.groupId) params.set('groupId', nearbyQuery.groupId);
       const response = await fetch(`/api/availability/nearby?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
@@ -137,7 +141,7 @@ export default function LiveAvailabilityPage() {
     } finally {
       setNearbyLoading(false);
     }
-  }, [nearbyQuery.body, nearbyQuery.minPallets, nearbyQuery.minPayload, nearbyQuery.postcode, nearbyQuery.radius, nearbyQuery.tailLiftOnly, nearbyQuery.vehicle]);
+  }, [nearbyQuery.body, nearbyQuery.groupId, nearbyQuery.minPallets, nearbyQuery.minPayload, nearbyQuery.postcode, nearbyQuery.radius, nearbyQuery.tailLiftOnly, nearbyQuery.vehicle]);
 
   useEffect(() => {
     void loadNearby();
@@ -156,9 +160,10 @@ export default function LiveAvailabilityPage() {
     setNearbyMinPayload('');
     setNearbyMinPallets('');
     setNearbyTailLiftOnly(false);
+    setNearbyGroupId('');
     setNearbyPostcode('');
     setNearbyRadius('100');
-    setNearbyQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false });
+    setNearbyQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' });
     setFilterNotice('');
   };
 
@@ -173,6 +178,7 @@ export default function LiveAvailabilityPage() {
       nearbyMinPayload,
       nearbyMinPallets,
       nearbyTailLiftOnly,
+      nearbyGroupId,
       nearbyPostcode,
       nearbyRadius,
     }));
@@ -187,7 +193,7 @@ export default function LiveAvailabilityPage() {
         setFilterNotice('No saved availability defaults are available on this device.');
         return;
       }
-      const parsed = JSON.parse(raw) as Partial<{ tab: Tab; availability: string; freshness: FreshnessFilter; nearbyVehicle: string; nearbyBody: string; nearbyMinPayload: string; nearbyMinPallets: string; nearbyTailLiftOnly: boolean; nearbyPostcode: string; nearbyRadius: string }>;
+      const parsed = JSON.parse(raw) as Partial<{ tab: Tab; availability: string; freshness: FreshnessFilter; nearbyVehicle: string; nearbyBody: string; nearbyMinPayload: string; nearbyMinPallets: string; nearbyTailLiftOnly: boolean; nearbyGroupId: string; nearbyPostcode: string; nearbyRadius: string }>;
       if (parsed.tab === 'live' || parsed.tab === 'future' || parsed.tab === 'nearby') setTab(parsed.tab);
       if (typeof parsed.availability === 'string') setAvailability(parsed.availability);
       if (parsed.freshness === 'all' || parsed.freshness === 'live' || parsed.freshness === 'stale' || parsed.freshness === 'missing') setFreshness(parsed.freshness);
@@ -196,16 +202,18 @@ export default function LiveAvailabilityPage() {
       const savedMinPayload = typeof parsed.nearbyMinPayload === 'string' ? parsed.nearbyMinPayload : '';
       const savedMinPallets = typeof parsed.nearbyMinPallets === 'string' ? parsed.nearbyMinPallets : '';
       const savedTailLift = parsed.nearbyTailLiftOnly === true;
+      const savedGroupId = typeof parsed.nearbyGroupId === 'string' ? parsed.nearbyGroupId : '';
       setNearbyVehicle(savedVehicle);
       setNearbyBody(savedBody);
       setNearbyMinPayload(savedMinPayload);
       setNearbyMinPallets(savedMinPallets);
       setNearbyTailLiftOnly(savedTailLift);
+      setNearbyGroupId(savedGroupId);
       const savedPostcode = typeof parsed.nearbyPostcode === 'string' ? parsed.nearbyPostcode : '';
       const savedRadius = typeof parsed.nearbyRadius === 'string' ? parsed.nearbyRadius : '100';
       setNearbyPostcode(savedPostcode);
       setNearbyRadius(savedRadius);
-      setNearbyQuery({ postcode: savedPostcode, radius: savedRadius, vehicle: savedVehicle, body: savedBody, minPayload: savedMinPayload, minPallets: savedMinPallets, tailLiftOnly: savedTailLift });
+      setNearbyQuery({ postcode: savedPostcode, radius: savedRadius, vehicle: savedVehicle, body: savedBody, minPayload: savedMinPayload, minPallets: savedMinPallets, tailLiftOnly: savedTailLift, groupId: savedGroupId });
       setFilterNotice('Saved availability defaults loaded.');
     } catch {
       setFilterNotice('Saved availability defaults could not be read.');
@@ -356,6 +364,7 @@ export default function LiveAvailabilityPage() {
           {tab === 'live' && <label style={labelStyle}>Tracking freshness<select style={inputStyle} value={freshness} onChange={(event) => setFreshness(event.target.value as FreshnessFilter)}><option value="all">All freshness</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>}
           {tab === 'nearby' && <label style={labelStyle}>Near postcode / outcode<input style={inputStyle} value={nearbyPostcode} onChange={(event) => setNearbyPostcode(event.target.value)} placeholder="BB1" /></label>}
           {tab === 'nearby' && <label style={labelStyle}>Radius<select style={inputStyle} value={nearbyRadius} onChange={(event) => setNearbyRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} mi</option>)}</select></label>}
+          {tab === 'nearby' && <label style={labelStyle}>Private Group<select style={inputStyle} value={nearbyGroupId} onChange={(event) => setNearbyGroupId(event.target.value)}><option value="">All Exchange members</option>{privateGroups.groups.filter((group) => group.allowAvailabilityVisibility).map((group) => <option key={group.id} value={group.id}>{group.name} ({group.members.length})</option>)}</select></label>}
           <label style={labelStyle}>Vehicle<select style={inputStyle} value={nearbyVehicle} onChange={(event) => setNearbyVehicle(event.target.value)}><option value="all">All vehicle types</option>{nearbyVehicleTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>
           <label style={labelStyle}>Body type<select style={inputStyle} value={nearbyBody} onChange={(event) => setNearbyBody(event.target.value)}><option value="all">All body types</option>{nearbyBodyTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>
           <label style={labelStyle}>Min payload (kg)<input style={inputStyle} type="number" min="0" value={nearbyMinPayload} onChange={(event) => setNearbyMinPayload(event.target.value)} placeholder="Any" /></label>
@@ -365,7 +374,7 @@ export default function LiveAvailabilityPage() {
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
           <ActionButton tone="secondary" onClick={saveDefaults}>Save Default</ActionButton>
           <ActionButton tone="secondary" onClick={loadDefaults}>Load Default</ActionButton>
-          {tab === 'nearby' && <ActionButton tone="success" onClick={() => setNearbyQuery({ postcode: nearbyPostcode.trim(), radius: nearbyRadius, vehicle: nearbyVehicle, body: nearbyBody, minPayload: nearbyMinPayload, minPallets: nearbyMinPallets, tailLiftOnly: nearbyTailLiftOnly })}>Find Nearest</ActionButton>}
+          {tab === 'nearby' && <ActionButton tone="success" onClick={() => setNearbyQuery({ postcode: nearbyPostcode.trim(), radius: nearbyRadius, vehicle: nearbyVehicle, body: nearbyBody, minPayload: nearbyMinPayload, minPallets: nearbyMinPallets, tailLiftOnly: nearbyTailLiftOnly, groupId: nearbyGroupId })}>Find Nearest</ActionButton>}
           <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
         </div>
       </Panel>

@@ -32,7 +32,8 @@ const bodySchema = z.object({
   companyId: z.string().uuid(),
   mode: z.enum(['broker', 'customer', 'admin']),
   jobStatus: z.enum(['draft', 'posted']).optional(),
-  visibility: z.enum(['private', 'exchange']).optional(),
+  visibility: z.enum(['private', 'exchange', 'private_group']).optional(),
+  visibilityGroupId: z.string().uuid().optional().nullable(),
   serviceMode: z.enum(['asap_direct', 'timed_direct', 'coload_permitted', 'flexible', 'multi_drop']).optional().nullable(),
   loadType: z.enum(['on_demand', 'regular_load', 'daily_hire']).optional().default('on_demand'),
   regularSchedule: z.object({
@@ -259,6 +260,25 @@ export async function POST(request: NextRequest) {
 
   const requestedDirectTarget = input.directBookingTarget
     ?? (input.directInviteCompanyId ? { type: 'exchange_member' as const, companyId: input.directInviteCompanyId } : null);
+  let privateGroupTarget: { id: string; name: string } | null = null;
+  if (input.visibility === 'private_group' || input.visibilityGroupId) {
+    if (!input.visibilityGroupId) return respond(400, { error: 'Private Group visibility requires a group.' });
+    const { data: group, error: groupError } = await supabaseAdmin
+      .from('network_groups')
+      .select('id,name,owner_company_id,allow_load_visibility')
+      .eq('id', input.visibilityGroupId)
+      .eq('owner_company_id', input.companyId)
+      .maybeSingle();
+    if (groupError) return respond(503, { error: 'Private Group visibility could not be verified.' });
+    if (!group || group.allow_load_visibility !== true) return respond(403, { error: 'This Private Group cannot receive load visibility.' });
+    const { count: memberCount, error: memberError } = await supabaseAdmin
+      .from('network_group_members')
+      .select('company_id', { count: 'exact', head: true })
+      .eq('group_id', group.id);
+    if (memberError) return respond(503, { error: 'Private Group members could not be verified.' });
+    if (!memberCount) return respond(409, { error: 'Add at least one company to the Private Group before publishing a load to it.' });
+    privateGroupTarget = { id: group.id, name: group.name };
+  }
   const exchangeTargetCompanyId = requestedDirectTarget?.type === 'exchange_member' ? requestedDirectTarget.companyId : null;
   if (requestedDirectTarget && !input.publish) {
     return respond(400, { error: 'Direct Booking requires the booking to be confirmed rather than saved as a draft.' });
@@ -499,7 +519,9 @@ export async function POST(request: NextRequest) {
         company_id: input.companyId,
         source: input.mode,
         creation_action: creationAction,
-        visibility: directInviteTarget ? 'direct' : requestedDirectTarget ? 'private' : (input.publish ? 'exchange' : 'private'),
+        visibility: directInviteTarget ? 'direct' : requestedDirectTarget ? 'private' : privateGroupTarget ? 'private_group' : (input.publish ? 'exchange' : 'private'),
+        visibility_group_id: privateGroupTarget?.id ?? null,
+        visibility_group_name: privateGroupTarget?.name ?? null,
         direct_booking_target_type: requestedDirectTarget?.type ?? null,
         load_type: input.loadType,
       },
@@ -570,7 +592,9 @@ export async function POST(request: NextRequest) {
     ? 'direct'
     : requestedDirectTarget
       ? 'private'
-      : (input.mode === 'admin' ? (input.visibility ?? (input.publish ? 'exchange' : 'private')) : (input.publish ? 'exchange' : 'private'));
+      : privateGroupTarget
+        ? 'private_group'
+        : (input.mode === 'admin' ? (input.visibility ?? (input.publish ? 'exchange' : 'private')) : (input.publish ? 'exchange' : 'private'));
   const wantsExchangePublication = requestedStatus === 'posted' && requestedVisibility !== 'private' && !externalDirectTarget && !internalDirectTarget;
   const deferPublication = wantsExchangePublication && input.additionalStops.length > 0;
   const publishedVisibility = requestedStatus === 'draft' ? 'private' : requestedVisibility;
@@ -674,6 +698,7 @@ export async function POST(request: NextRequest) {
     payment_terms: externalDirectTarget?.paymentTerms ?? null,
     exchange_visibility: deferPublication ? 'private' : publishedVisibility,
     direct_invite_company_id: directInviteTarget?.id ?? null,
+    visibility_group_id: privateGroupTarget?.id ?? null,
     exchange_posted_at: deferPublication ? null : (wantsExchangePublication ? now : null),
     exchange_expires_at: deferPublication
       ? null
@@ -801,6 +826,7 @@ export async function POST(request: NextRequest) {
           current_status: 'posted',
           exchange_visibility: publishedVisibility,
           direct_invite_company_id: directInviteTarget?.id ?? null,
+          visibility_group_id: privateGroupTarget?.id ?? null,
           exchange_posted_at: now,
           exchange_expires_at: new Date(Date.now() + exchangeAutoExpireHours * 60 * 60 * 1000).toISOString(),
           updated_at: new Date().toISOString(),

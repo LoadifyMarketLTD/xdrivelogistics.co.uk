@@ -7,6 +7,7 @@ import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { useAuth } from '../AuthContext';
 import { MemberIdentityLink, MemberProfileOverlay } from './MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
+import { usePrivateNetworkGroups } from './usePrivateNetworkGroups';
 
 type DeliveryReliability = { score: number | null; evidenceCount: number; completedJobs: number };
 type PaymentReliability = { score: number | null; evidenceCount: number; onTimePaid: number; latePaid: number; overdueOpen: number };
@@ -115,6 +116,12 @@ export function MemberDirectoryPage({
   const [savedOnly, setSavedOnly] = useState(false);
   const [savedNetworkLoading, setSavedNetworkLoading] = useState(false);
   const [savedNetworkError, setSavedNetworkError] = useState('');
+  const privateGroups = usePrivateNetworkGroups(user?.companyId ?? null);
+  const [newPrivateGroupName, setNewPrivateGroupName] = useState('');
+  const [selectedPrivateGroupId, setSelectedPrivateGroupId] = useState('');
+  const [privateGroupEditName, setPrivateGroupEditName] = useState('');
+  const [privateGroupWorking, setPrivateGroupWorking] = useState(false);
+  const [privateGroupActionError, setPrivateGroupActionError] = useState('');
   const [profileTarget, setProfileTarget] = useState<{ companyId?: string; driverId?: string } | null>(null);
 
   const load = useCallback(async () => {
@@ -205,6 +212,141 @@ export function MemberDirectoryPage({
       });
     } catch (reason) {
       setSavedNetworkError(reason instanceof Error ? reason.message : 'Saved Network could not be updated.');
+    }
+  };
+
+  const createPrivateGroup = async () => {
+    const companyId = user?.companyId?.trim();
+    const name = newPrivateGroupName.trim();
+    if (!companyId || !name || !privateGroups.canManage) return;
+    setPrivateGroupWorking(true);
+    setPrivateGroupActionError('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+      const response = await fetch('/api/network/groups', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, name, allowLoadVisibility: true, allowAvailabilityVisibility: true }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Private Group could not be created.');
+      setNewPrivateGroupName('');
+      await privateGroups.refresh();
+    } catch (reason) {
+      setPrivateGroupActionError(reason instanceof Error ? reason.message : 'Private Group could not be created.');
+    } finally {
+      setPrivateGroupWorking(false);
+    }
+  };
+
+  const renamePrivateGroup = async () => {
+    const companyId = user?.companyId?.trim();
+    const group = privateGroups.groups.find((item) => item.id === selectedPrivateGroupId);
+    const name = privateGroupEditName.trim();
+    if (!companyId || !group || !name || !privateGroups.canManage) return;
+    setPrivateGroupWorking(true);
+    setPrivateGroupActionError('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+      const response = await fetch('/api/network/groups', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, groupId: group.id, name }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Private Group could not be renamed.');
+      await privateGroups.refresh();
+      setPrivateGroupEditName(name);
+    } catch (reason) {
+      setPrivateGroupActionError(reason instanceof Error ? reason.message : 'Private Group could not be renamed.');
+    } finally {
+      setPrivateGroupWorking(false);
+    }
+  };
+
+  const updatePrivateGroupPermission = async (
+    field: 'allowLoadVisibility' | 'allowAvailabilityVisibility',
+    value: boolean,
+  ) => {
+    const companyId = user?.companyId?.trim();
+    const group = privateGroups.groups.find((item) => item.id === selectedPrivateGroupId);
+    if (!companyId || !group || !privateGroups.canManage) return;
+    setPrivateGroupWorking(true);
+    setPrivateGroupActionError('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+      const response = await fetch('/api/network/groups', {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, groupId: group.id, [field]: value }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Private Group permissions could not be updated.');
+      await privateGroups.refresh();
+    } catch (reason) {
+      setPrivateGroupActionError(reason instanceof Error ? reason.message : 'Private Group permissions could not be updated.');
+    } finally {
+      setPrivateGroupWorking(false);
+    }
+  };
+
+  const deletePrivateGroup = async () => {
+    const companyId = user?.companyId?.trim();
+    const group = privateGroups.groups.find((item) => item.id === selectedPrivateGroupId);
+    if (!companyId || !group || !privateGroups.canManage) return;
+    setPrivateGroupWorking(true);
+    setPrivateGroupActionError('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+      const params = new URLSearchParams({ companyId, groupId: group.id });
+      const response = await fetch(`/api/network/groups?${params.toString()}`, {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Private Group could not be deleted.');
+      setSelectedPrivateGroupId('');
+      setPrivateGroupEditName('');
+      await privateGroups.refresh();
+    } catch (reason) {
+      setPrivateGroupActionError(reason instanceof Error ? reason.message : 'Private Group could not be deleted.');
+    } finally {
+      setPrivateGroupWorking(false);
+    }
+  };
+
+  const updatePrivateGroupMember = async (groupId: string, targetCompanyId: string, remove = false) => {
+    const companyId = user?.companyId?.trim();
+    if (!companyId || !groupId || !targetCompanyId || !privateGroups.canManage) return;
+    setPrivateGroupWorking(true);
+    setPrivateGroupActionError('');
+    try {
+      const { data: session } = await supabase.auth.getSession();
+      const token = session.session?.access_token;
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+      const url = remove
+        ? `/api/network/groups/${encodeURIComponent(groupId)}/members?companyId=${encodeURIComponent(companyId)}&targetCompanyId=${encodeURIComponent(targetCompanyId)}`
+        : `/api/network/groups/${encodeURIComponent(groupId)}/members`;
+      const response = await fetch(url, {
+        method: remove ? 'DELETE' : 'POST',
+        headers: { Authorization: `Bearer ${token}`, ...(remove ? {} : { 'Content-Type': 'application/json' }) },
+        ...(remove ? {} : { body: JSON.stringify({ companyId, targetCompanyId }) }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string };
+      if (!response.ok) throw new Error(payload.error || 'Private Group membership could not be updated.');
+      await privateGroups.refresh();
+    } catch (reason) {
+      setPrivateGroupActionError(reason instanceof Error ? reason.message : 'Private Group membership could not be updated.');
+    } finally {
+      setPrivateGroupWorking(false);
     }
   };
 
@@ -322,6 +464,25 @@ export function MemberDirectoryPage({
     setSavedOnly(false);
   };
 
+  const selectedPrivateGroup = privateGroups.groups.find((group) => group.id === selectedPrivateGroupId) ?? null;
+  const privateGroupPanel = user?.companyId ? (
+    <div className="workspace-panel" style={{ marginBottom: 8, padding: 10 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+        <strong style={{ color: '#0b2f6b' }}>Private Groups</strong>
+        <select className="select" style={{ maxWidth: 260 }} value={selectedPrivateGroupId} onChange={(event) => { const nextId = event.target.value; setSelectedPrivateGroupId(nextId); setPrivateGroupEditName(privateGroups.groups.find((group) => group.id === nextId)?.name ?? ''); }}>
+          <option value="">Choose group</option>
+          {privateGroups.groups.map((group) => <option key={group.id} value={group.id}>{group.name} ({group.members.length})</option>)}
+        </select>
+        {privateGroups.canManage ? <><input className="input" style={{ maxWidth: 220 }} value={newPrivateGroupName} onChange={(event) => setNewPrivateGroupName(event.target.value)} placeholder="New group name" /><button type="button" className="rowbtn blue" disabled={privateGroupWorking || newPrivateGroupName.trim().length < 2} onClick={() => void createPrivateGroup()}>Create Group</button></> : null}
+        {privateGroups.loading ? <span className="meta">Loading groups…</span> : null}
+      </div>
+      {privateGroups.error ? <AlertBanner tone="warning">{privateGroups.error}</AlertBanner> : null}
+      {privateGroupActionError ? <AlertBanner tone="warning">{privateGroupActionError}</AlertBanner> : null}
+      {selectedPrivateGroup && privateGroups.canManage ? <div style={{ marginTop: 7, display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap' }}><input className="input" style={{ maxWidth: 220 }} value={privateGroupEditName} onChange={(event) => setPrivateGroupEditName(event.target.value)} placeholder="Rename selected group" /><button type="button" className="rowbtn" disabled={privateGroupWorking || privateGroupEditName.trim().length < 2 || privateGroupEditName.trim() === selectedPrivateGroup.name} onClick={() => void renamePrivateGroup()}>Rename</button><button type="button" className="rowbtn" disabled={privateGroupWorking} onClick={() => void deletePrivateGroup()}>Delete Group</button><label className="check"><input type="checkbox" checked={selectedPrivateGroup.allowLoadVisibility} disabled={privateGroupWorking} onChange={(event) => void updatePrivateGroupPermission('allowLoadVisibility', event.target.checked)} />Loads</label><label className="check"><input type="checkbox" checked={selectedPrivateGroup.allowAvailabilityVisibility} disabled={privateGroupWorking} onChange={(event) => void updatePrivateGroupPermission('allowAvailabilityVisibility', event.target.checked)} />Availability</label></div> : null}
+      {selectedPrivateGroup ? <div style={{ marginTop: 7, display: 'flex', gap: 5, flexWrap: 'wrap' }}>{selectedPrivateGroup.members.length ? selectedPrivateGroup.members.map((member) => <span key={member.companyId} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, border: '1px solid #dbe2ea', borderRadius: 999, padding: '3px 7px', background: '#f8fafc', fontSize: 11 }}>{member.companyName}{privateGroups.canManage ? <button type="button" aria-label={`Remove ${member.companyName} from group`} style={{ border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 800 }} onClick={() => void updatePrivateGroupMember(selectedPrivateGroup.id, member.companyId, true)}>×</button> : null}</span>) : <span className="meta">No companies in this group yet. Select a group, then use Add to Group on a Directory member.</span>}</div> : null}
+    </div>
+  ) : null;
+
   const capped = Boolean(truncation.companies || truncation.drivers || truncation.vehicleEnrichment || truncation.reputation);
   const capMessage = capped
     ? `Directory results may be incomplete because the current endpoint is capped at ${truncation.limits?.companies ?? 500} companies and ${truncation.limits?.drivers ?? 500} drivers${truncation.vehicleEnrichment ? `, with vehicle enrichment capped at ${truncation.limits?.vehicles ?? 1000} records` : ''}. Do not treat the visible list as the complete XDrive network.`
@@ -370,6 +531,7 @@ export function MemberDirectoryPage({
             {error && <AlertBanner tone="danger">{error}</AlertBanner>}
             {savedNetworkError && <AlertBanner tone="warning">{savedNetworkError}</AlertBanner>}
             {partial && <AlertBanner tone="warning">{capMessage}</AlertBanner>}
+            {privateGroupPanel}
             <div className="directory-hero">
               <div><b>XDrive Member Network</b><span>Companies and drivers · capability · trust · reliability</span></div>
               <div className="dir-hero-actions"><button type="button" className="btn" onClick={() => void load()}>Refresh</button><button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Search</button></div>
@@ -402,7 +564,7 @@ export function MemberDirectoryPage({
                         <td>{company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}<span className="meta">{company.deliveryReliability.evidenceCount} timed delivery record(s)</span></td>
                         <td>{company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`}<span className="meta">{company.paymentReliability.evidenceCount} due/settlement record(s)</span></td>
                         <td><StatusBadge value="Not advertised" /></td>
-                        <td><button type="button" className="rowbtn blue" onClick={() => setProfileTarget({ companyId: company.companyId })}>Profile</button>{ownerDriver && <button type="button" className="rowbtn" onClick={() => void toggleSavedCompany(company.companyId)}>{savedCompanyIds.has(company.companyId) ? 'Remove Saved' : 'Save Network'}</button>}{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
+                        <td><button type="button" className="rowbtn blue" onClick={() => setProfileTarget({ companyId: company.companyId })}>Profile</button>{ownerDriver && <button type="button" className="rowbtn" onClick={() => void toggleSavedCompany(company.companyId)}>{savedCompanyIds.has(company.companyId) ? 'Remove Saved' : 'Save Network'}</button>}{privateGroups.canManage && selectedPrivateGroupId && company.companyId !== user?.companyId && !selectedPrivateGroup?.members.some((member) => member.companyId === company.companyId) ? <button type="button" className="rowbtn" disabled={privateGroupWorking} onClick={() => void updatePrivateGroupMember(selectedPrivateGroupId, company.companyId)}>Add to Group</button> : null}{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
                       </tr>
                     )) : displayedDrivers.map((driver) => (
                       <tr key={driver.driverId} className="dir-row">
@@ -413,7 +575,7 @@ export function MemberDirectoryPage({
                         <td>{driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}<span className="meta">Company-level delivery evidence</span></td>
                         <td>{driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`}<span className="meta">Company-level payment evidence</span></td>
                         <td><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} /></td>
-                        <td>{driver.companyId && <button type="button" className="rowbtn blue" onClick={() => setProfileTarget({ driverId: driver.driverId })}>Profile</button>}{driver.companyId && messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(driver.companyId as string)}>Message</button>}</td>
+                        <td>{driver.companyId && <button type="button" className="rowbtn blue" onClick={() => setProfileTarget({ driverId: driver.driverId })}>Profile</button>}{driver.companyId && privateGroups.canManage && selectedPrivateGroupId && driver.companyId !== user?.companyId && !selectedPrivateGroup?.members.some((member) => member.companyId === driver.companyId) ? <button type="button" className="rowbtn" disabled={privateGroupWorking} onClick={() => void updatePrivateGroupMember(selectedPrivateGroupId, driver.companyId as string)}>Add to Group</button> : null}{driver.companyId && messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(driver.companyId as string)}>Message</button>}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -437,6 +599,7 @@ export function MemberDirectoryPage({
       </div>
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {partial && <AlertBanner tone="warning">{capMessage}</AlertBanner>}
+      {privateGroupPanel}
 
       <div className="workspace-board-layout">
         <aside className="workspace-filter-rail" aria-label="Directory filters">
@@ -479,7 +642,7 @@ export function MemberDirectoryPage({
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE / CAPABILITY</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Fleet capability not supplied'}{company.specialistServices?.length ? ` · ${company.specialistServices.join(', ')}` : ''}{company.maxPallets != null ? ` · up to ${company.maxPallets} pallets` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DELIVERY / PAYMENT RELIABILITY</div><strong>Delivery {company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">{company.deliveryReliability.evidenceCount} timed delivery record(s) · Payment {company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`} from {company.paymentReliability.evidenceCount} due/settlement record(s){company.paymentReliability.overdueOpen ? ` · ${company.paymentReliability.overdueOpen} overdue open` : ''}</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId)}>Messages</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId)}>Messages</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}{privateGroups.canManage && selectedPrivateGroupId && company.companyId !== user?.companyId && !selectedPrivateGroup?.members.some((member) => member.companyId === company.companyId) ? <ActionButton tone="secondary" disabled={privateGroupWorking} onClick={() => void updatePrivateGroupMember(selectedPrivateGroupId, company.companyId)}>Add to Group</ActionButton> : null}</div></div>
                   </div>
                 </article>
               ))}
@@ -494,7 +657,7 @@ export function MemberDirectoryPage({
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[driver.city, driver.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">Broad member/company location only{driver.distanceMiles != null ? ` · ${driver.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">VEHICLE / CAPABILITY</div><strong>{driver.vehicleType?.replace(/_/g, ' ') ?? 'Not supplied'}</strong><div className="driver-cell-secondary">{driver.hasTailLift ? 'Tail lift · ' : ''}{driver.palletsCapacity != null ? `${driver.palletsCapacity} pallets · ` : ''}{driver.specialistServices?.length ? driver.specialistServices.join(', ') : 'No specialist service declared'} · no live coordinates exposed</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">COMPANY RELIABILITY</div><strong>Delivery {driver.deliveryReliability.score == null ? 'Not enough evidence' : `${driver.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">Payment {driver.paymentReliability.score == null ? 'Not enough evidence' : `${driver.paymentReliability.score}%`} · evidence is company-level and truth-derived</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY / ACTION</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} />{driver.companyId && messagesRoute ? <div style={{ marginTop: 6 }}><ActionButton tone="secondary" onClick={() => openMemberMessages(driver.companyId as string)}>Messages</ActionButton></div> : null}{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) ? <div style={{ marginTop: 6 }}><ActionButton tone="success" onClick={() => openDirectBooking(driver.companyId as string)}>Book Direct</ActionButton></div> : null}</div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">AVAILABILITY / ACTION</div><StatusBadge value={driver.availability ?? 'Not supplied'} tone={normalise(driver.availability) === 'available' ? 'green' : undefined} />{driver.companyId && messagesRoute ? <div style={{ marginTop: 6 }}><ActionButton tone="secondary" onClick={() => openMemberMessages(driver.companyId as string)}>Messages</ActionButton></div> : null}{driver.companyId && canBookCompany(companies.find((company) => company.companyId === driver.companyId)) ? <div style={{ marginTop: 6 }}><ActionButton tone="success" onClick={() => openDirectBooking(driver.companyId as string)}>Book Direct</ActionButton></div> : null}{driver.companyId && privateGroups.canManage && selectedPrivateGroupId && driver.companyId !== user?.companyId && !selectedPrivateGroup?.members.some((member) => member.companyId === driver.companyId) ? <div style={{ marginTop: 6 }}><ActionButton tone="secondary" disabled={privateGroupWorking} onClick={() => void updatePrivateGroupMember(selectedPrivateGroupId, driver.companyId as string)}>Add to Group</ActionButton></div> : null}</div>
                   </div>
                 </article>
               ))}

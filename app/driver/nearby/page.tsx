@@ -10,6 +10,7 @@ import { StatusBadge } from '../../components/workspace/WorkspaceUI';
 import DriverNearbyMap from '../_components/DriverNearbyMap';
 import { useAuth } from '../../components/AuthContext';
 import { matchesAvailabilityFilters } from '../../../lib/availability/canonicalAvailability';
+import { usePrivateNetworkGroups } from '../../components/workspace/usePrivateNetworkGroups';
 
 type NearbyPosition = {
   company_id: string | null;
@@ -47,6 +48,7 @@ const vehicleLabel = (value: string | null | undefined) => value
 export default function DriverNearbyPage() {
   const router = useRouter();
   const { user } = useAuth();
+  const privateGroups = usePrivateNetworkGroups(user?.companyId ?? null);
   const [positions, setPositions] = useState<NearbyPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -56,9 +58,10 @@ export default function DriverNearbyPage() {
   const [minPayload, setMinPayload] = useState('');
   const [minPallets, setMinPallets] = useState('');
   const [tailLiftOnly, setTailLiftOnly] = useState(false);
+  const [privateGroupId, setPrivateGroupId] = useState('');
   const [postcode, setPostcode] = useState('');
   const [radius, setRadius] = useState('100');
-  const [query, setQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false });
+  const [query, setQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' });
   const [viewMode, setViewMode] = useState<'map' | 'list'>('map');
   const [audience, setAudience] = useState<'all' | 'drivers-subcontractors' | 'other-drivers'>('all');
 
@@ -84,6 +87,7 @@ export default function DriverNearbyPage() {
       if (query.minPayload.trim()) params.set('minPayloadKg', query.minPayload.trim());
       if (query.minPallets.trim()) params.set('minPallets', query.minPallets.trim());
       if (query.tailLiftOnly) params.set('tailLift', 'true');
+      if (query.groupId) params.set('groupId', query.groupId);
       const response = await fetch(`/api/availability/nearby?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
@@ -101,7 +105,7 @@ export default function DriverNearbyPage() {
     } finally {
       setLoading(false);
     }
-  }, [query.body, query.minPallets, query.minPayload, query.postcode, query.radius, query.tailLiftOnly, query.vehicle]);
+  }, [query.body, query.groupId, query.minPallets, query.minPayload, query.postcode, query.radius, query.tailLiftOnly, query.vehicle]);
 
   useEffect(() => { void loadNearby(); }, [loadNearby]);
 
@@ -144,8 +148,8 @@ export default function DriverNearbyPage() {
         <div className="subbar">
           <span className="crumb">Workspace &nbsp;/&nbsp; <b>Who's Nearby</b></span>
           <div className="sub-actions">
-            <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); setBodyType('all'); setMinPayload(''); setMinPallets(''); setTailLiftOnly(false); setPostcode(''); setRadius('100'); setAudience('all'); setQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false }); }}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => setQuery({ postcode: postcode.trim(), radius, vehicle, body: bodyType, minPayload, minPallets, tailLiftOnly })} disabled={loading}>{loading ? 'Refreshing…' : 'Search'}</button>
+            <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); setBodyType('all'); setMinPayload(''); setMinPallets(''); setTailLiftOnly(false); setPrivateGroupId(''); setPostcode(''); setRadius('100'); setAudience('all'); setQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' }); }}>Clear</button>
+            <button type="button" className="btn primary" onClick={() => setQuery({ postcode: postcode.trim(), radius, vehicle, body: bodyType, minPayload, minPallets, tailLiftOnly, groupId: privateGroupId })} disabled={loading}>{loading ? 'Refreshing…' : 'Search'}</button>
           </div>
         </div>
         <DriverIntegratedNav label="Availability tools" items={[{ href: '/driver/availability/live', label: 'Live' }, { href: '/driver/availability', label: 'Future & Schedule' }, { href: '/driver/nearby', label: "Who's Nearby" }]} />
@@ -162,7 +166,7 @@ export default function DriverNearbyPage() {
             <div className="filter"><span className="label">Min payload (kg)</span><input className="input" type="number" min="0" value={minPayload} onChange={(event) => setMinPayload(event.target.value)} placeholder="Any" /></div>
             <div className="filter"><span className="label">Min pallets</span><input className="input" type="number" min="0" value={minPallets} onChange={(event) => setMinPallets(event.target.value)} placeholder="Any" /></div>
             <div className="filter"><span className="label">Equipment</span><label className="check"><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} />Tail lift required</label></div>
-            <div className="filter"><span className="label">Groups</span><label className="check"><input type="checkbox" checked readOnly />Exchange visible</label></div>
+            <div className="filter"><span className="label">Private Group</span><select className="select" value={privateGroupId} onChange={(event) => setPrivateGroupId(event.target.value)}><option value="">All Exchange members</option>{privateGroups.groups.filter((group) => group.allowAvailabilityVisibility).map((group) => <option key={group.id} value={group.id}>{group.name} ({group.members.length})</option>)}</select></div>
           </aside>
           <main className="main">
             <div className="head"><div><h1>Who's Nearby</h1><p>Find exchange-visible nearby vehicle capacity by location, member and vehicle</p></div></div>

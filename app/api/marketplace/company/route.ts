@@ -89,6 +89,7 @@ type SearchLoadRow = Record<string, unknown> & {
   exchange_expires_at: string | null;
   exchange_visibility: string | null;
   direct_invite_company_id: string | null;
+  visibility_group_id: string | null;
   awarded_carrier_company_id?: string | null;
   companies: CompanyRef;
 };
@@ -117,7 +118,7 @@ const SEARCH_SELECT = [
   'collection_tail_lift_required', 'collection_forklift_available', 'collection_handball_required',
   'delivery_tail_lift_required', 'delivery_forklift_available', 'delivery_handball_required',
   'service_mode', 'load_type', 'direct_delivery_required', 'distance_miles', 'job_distance_miles',
-  'exchange_posted_at', 'exchange_expires_at', 'exchange_visibility', 'direct_invite_company_id',
+  'exchange_posted_at', 'exchange_expires_at', 'exchange_visibility', 'direct_invite_company_id', 'visibility_group_id',
   'companies!jobs_company_id_fkey(name,xd_id,phone,company_type,created_at)',
 ].join(',');
 
@@ -403,13 +404,26 @@ async function searchLoads(request: NextRequest, companyId: string) {
   const pageSize = PAGE_SIZES.has(Number(searchParams.get('pageSize'))) ? Number(searchParams.get('pageSize')) : 25;
   const page = Math.max(1, Number(searchParams.get('page') ?? 1) || 1);
 
+  const { data: groupMemberships, error: groupMembershipError } = await supabaseAdmin!
+    .from('network_group_members')
+    .select('group_id,network_groups!inner(allow_load_visibility)')
+    .eq('company_id', companyId)
+    .eq('network_groups.allow_load_visibility', true);
+  if (groupMembershipError) return respond(503, { error: 'Private Group load visibility could not be verified.' });
+  const visibleGroupIds = [...new Set((groupMemberships ?? []).map((row) => String(row.group_id)).filter(Boolean))];
+  const marketplaceVisibility = [
+    'exchange_visibility.eq.exchange',
+    `and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${companyId})`,
+    ...(visibleGroupIds.length ? [`and(exchange_visibility.eq.private_group,visibility_group_id.in.(${visibleGroupIds.join(',')}))`] : []),
+  ].join(',');
+
   let query = supabaseAdmin!
     .from('jobs')
     .select(SEARCH_SELECT)
     .in('status', ['posted', 'quoted'])
     .not('exchange_posted_at', 'is', null)
     .is('awarded_carrier_company_id', null)
-    .or(`exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${companyId})`)
+    .or(marketplaceVisibility)
     .neq('company_id', companyId)
     .order('exchange_posted_at', { ascending: false })
     .limit(250);
@@ -765,7 +779,7 @@ export async function POST(request: NextRequest) {
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, status, exchange_visibility, exchange_expires_at, direct_invite_company_id, awarded_carrier_company_id, currency')
+    .select('id, company_id, status, exchange_visibility, exchange_expires_at, direct_invite_company_id, visibility_group_id, awarded_carrier_company_id, currency')
     .eq('id', input.jobId)
     .maybeSingle();
   if (jobError) {
@@ -781,8 +795,21 @@ export async function POST(request: NextRequest) {
   const blockState = await areCompaniesBlocked(supabaseAdmin, input.companyId, job.company_id);
   if (blockState.error) return respond(503, { error: 'Member block status could not be verified. Please retry.' });
   if (blockState.blocked) return respond(403, { error: 'Commercial interaction with this company is blocked.' });
+  let privateGroupVisible = false;
+  if (job.exchange_visibility === 'private_group' && job.visibility_group_id) {
+    const { data: membership, error: membershipError } = await supabaseAdmin
+      .from('network_group_members')
+      .select('group_id,network_groups!inner(allow_load_visibility)')
+      .eq('group_id', job.visibility_group_id)
+      .eq('company_id', input.companyId)
+      .eq('network_groups.allow_load_visibility', true)
+      .maybeSingle();
+    if (membershipError) return respond(503, { error: 'Private Group load visibility could not be verified.' });
+    privateGroupVisible = Boolean(membership?.group_id);
+  }
   const visible = job.exchange_visibility === 'exchange'
-    || (job.exchange_visibility === 'direct' && job.direct_invite_company_id === input.companyId);
+    || (job.exchange_visibility === 'direct' && job.direct_invite_company_id === input.companyId)
+    || privateGroupVisible;
   if (!visible) return respond(404, { error: 'Load not found.' });
   if (!exchangePostActive(job.exchange_expires_at)) {
     return respond(409, { error: 'This load posting has expired and is no longer open for quotes.' });

@@ -149,7 +149,7 @@ describe('load posting operational contract', () => {
   });
 
   it('keeps draft saves independent from publish-only compliance and direct booking independent from exchange availability', () => {
-    expect(createApi).toContain('if (input.publish && !directInviteTarget)');
+    expect(createApi).toContain('if (input.publish && !requestedDirectTarget)');
     expect(createApi).toContain('const complianceBlockPosting = input.publish');
     expect(createApi).toContain("? await getGlobalSettingBoolean(supabaseAdmin, 'compliance_block_posting')");
   });
