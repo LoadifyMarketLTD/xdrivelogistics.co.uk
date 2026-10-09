@@ -398,13 +398,14 @@ export default function LiveAvailabilityPage() {
           </Panel>
           <Panel title="Future availability" description="Declared future positions and return journeys are shown alongside the next assigned collection.">
             <DataTable
-              columns={['Driver', 'Availability', 'Future position', 'Return journey', 'Available from', 'Next assigned work', 'Action']}
-              rows={filtered.map(({ driver, future, returnJourney, nextJob }) => [
+              columns={['Driver', 'Availability', 'Future position', 'Vehicle / capacity', 'Return journey', 'Availability window', 'Next assigned work', 'Action']}
+              rows={filtered.map(({ driver, vehicle, future, returnJourney, nextJob }) => [
                 <strong key="driver">{driver.display_name ?? driver.email ?? 'Driver'}</strong>,
                 <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={driver.availability_status === 'available' ? 'green' : driver.availability_status === 'busy' ? 'purple' : 'grey'} />,
-                future?.futurePosition ?? 'Not published',
+                <div key="future"><span style={{ display: 'block' }}>{future?.futurePosition ?? 'Not published'}</span>{future?.notes ? <span style={{ display: 'block', color: '#64748b' }}>{future.notes}</span> : null}</div>,
+                vehicle ? `${vehicle.reg_plate ?? vehicle.type?.replaceAll('_', ' ') ?? 'Vehicle'} · ${vehicle.payload_kg != null ? `${Math.round(vehicle.payload_kg)} kg` : 'payload not recorded'}${vehicle.pallets_capacity != null ? ` · ${vehicle.pallets_capacity} pallets` : ''}` : 'No assigned vehicle',
                 returnJourney ? `${returnJourney.fromPostcode ?? 'From TBC'} → ${returnJourney.toPostcode ?? 'Go anywhere'}` : 'No return journey',
-                when(future?.futurePositionDate ?? returnJourney?.availableFrom),
+                future?.futurePositionDate ? `${when(future.futurePositionDate)}${future.futurePositionUntil ? ` → ${when(future.futurePositionUntil)}` : ''}` : when(returnJourney?.availableFrom),
                 nextJob ? `${nextJob.pickup_location ?? 'Pickup'} · ${when(nextJob.pickup_datetime)}` : 'No future job allocated',
                 <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedDriverId(driver.id)}>Locate</ActionButton>{returnJourney ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Driver register</ActionButton></div>,
               ])}

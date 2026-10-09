@@ -8,6 +8,8 @@ const payloadSchema = z.object({
   companyId: z.string().uuid(),
   futurePosition: z.string().max(160).nullable(),
   futureDate: z.string().datetime({ offset: true }).nullable(),
+  futureUntil: z.string().datetime({ offset: true }).nullable().default(null),
+  notes: z.string().max(1000).nullable().default(null),
 });
 
 const respond = (status: number, body: Record<string, unknown>) =>
@@ -34,16 +36,27 @@ export async function PUT(
 
   const position = parsed.data.futurePosition?.trim() || null;
   const futureDate = parsed.data.futureDate;
+  const futureUntil = parsed.data.futureUntil;
+  const notes = parsed.data.notes?.trim() || null;
   if (futureDate) {
     const timestamp = new Date(futureDate).getTime();
     if (!Number.isFinite(timestamp) || timestamp <= Date.now()) {
       return respond(400, { error: 'Future-position date/time must be in the future.' });
     }
   }
+  if (futureUntil) {
+    const timestamp = new Date(futureUntil).getTime();
+    if (!Number.isFinite(timestamp) || timestamp <= Date.now()) {
+      return respond(400, { error: 'Future-position end date/time must be in the future.' });
+    }
+    if (futureDate && timestamp <= new Date(futureDate).getTime()) {
+      return respond(400, { error: 'Future-position end must be after the start.' });
+    }
+  }
 
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id,company_id,status,display_name,future_position,future_position_date')
+    .select('id,company_id,status,display_name,future_position,future_position_date,future_position_until,future_availability_notes')
     .eq('id', driverId)
     .eq('company_id', operator.companyId)
     .maybeSingle();
@@ -59,12 +72,14 @@ export async function PUT(
     .update({
       future_position: position,
       future_position_date: futureDate,
+      future_position_until: position ? futureUntil : null,
+      future_availability_notes: position ? notes : null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', driverId)
     .eq('company_id', operator.companyId)
     .eq('status', 'active')
-    .select('id,display_name,future_position,future_position_date,availability_status,status')
+    .select('id,display_name,future_position,future_position_date,future_position_until,future_availability_notes,availability_status,status')
     .maybeSingle();
 
   if (updateError) return respond(503, { error: 'Future position could not be updated.' });

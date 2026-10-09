@@ -30,6 +30,8 @@ type DriverRow = {
   status: string | null;
   future_position: string | null;
   future_position_date: string | null;
+  future_position_until: string | null;
+  future_availability_notes: string | null;
   destination_priority_enabled: boolean;
   destination_radius_miles: number;
   international_work_approved: boolean;
@@ -139,7 +141,7 @@ export default function AvailabilityPage() {
 
     const [driverRes, vehicleRes, locationRes, slotsRes] = await Promise.all([
       supabase.from('drivers')
-        .select('id, display_name, phone, availability_status, status, future_position, future_position_date, destination_priority_enabled, destination_radius_miles, international_work_approved, driver_type, can_commercial_bid')
+        .select('id, display_name, phone, availability_status, status, future_position, future_position_date, future_position_until, future_availability_notes, destination_priority_enabled, destination_radius_miles, international_work_approved, driver_type, can_commercial_bid')
         .eq('id', driverId).maybeSingle(),
       loadCanonicalVehicle(),
       supabase.from('driver_locations').select('lat, lng, recorded_at').eq('driver_id', driverId).order('recorded_at', { ascending: false }).limit(1).maybeSingle(),
@@ -328,7 +330,7 @@ export default function AvailabilityPage() {
 
             <div className="driver-availability-section">
               <div className="driver-availability-section__head"><strong>Future position</strong></div>
-              <dl className="driver-availability-facts"><div><dt>Position</dt><dd>{driverRow?.future_position ?? 'Not advertised'}</dd></div><div><dt>From</dt><dd>{fmtDate(driverRow?.future_position_date ?? null)}</dd></div></dl>
+              <dl className="driver-availability-facts"><div><dt>Position</dt><dd>{driverRow?.future_position ?? 'Not advertised'}</dd></div><div><dt>From</dt><dd>{fmtDate(driverRow?.future_position_date ?? null)}</dd></div><div><dt>Until</dt><dd>{fmtDate(driverRow?.future_position_until ?? null)}</dd></div><div><dt>Notes</dt><dd>{driverRow?.future_availability_notes ?? 'None'}</dd></div></dl>
               <ActionButton tone="secondary" onClick={() => { window.location.href = '/driver/returns'; }}>Manage return journey</ActionButton>
             </div>
           </aside>

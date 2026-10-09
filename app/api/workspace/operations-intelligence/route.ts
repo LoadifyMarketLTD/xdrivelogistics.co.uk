@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
 
   const [driverBaseResult, futureResult, advertisingResult, jobsResult] = await Promise.all([
     supabaseAdmin.from('drivers').select('id').eq('company_id', companyId).limit(500),
-    supabaseAdmin.from('drivers').select('id,future_position,future_position_date').eq('company_id', companyId).limit(500),
+    supabaseAdmin.from('drivers').select('id,future_position,future_position_date,future_position_until,future_availability_notes').eq('company_id', companyId).limit(500),
     supabaseAdmin.from('vehicles').select('id,assigned_driver_id,advertising_state').eq('company_id', companyId).limit(500),
     supabaseAdmin.from('jobs').select('*').or(`company_id.eq.${companyId},assigned_company_id.eq.${companyId},awarded_carrier_company_id.eq.${companyId}`).limit(500),
   ]);
@@ -166,6 +166,8 @@ export async function GET(request: NextRequest) {
     id: String(row.id),
     futurePosition: text(row.future_position),
     futurePositionDate: text(row.future_position_date),
+    futurePositionUntil: text(row.future_position_until),
+    notes: text(row.future_availability_notes),
   }));
 
   const journeyRows = journeyResult.error ? [] : (journeyResult.data ?? []).map((row) => ({

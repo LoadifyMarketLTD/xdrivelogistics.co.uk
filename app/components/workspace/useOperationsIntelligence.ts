@@ -10,6 +10,8 @@ export type OperationsFuturePosition = {
   id: string;
   futurePosition: string | null;
   futurePositionDate: string | null;
+  futurePositionUntil: string | null;
+  notes: string | null;
   coordinates: { lat: number; lng: number } | null;
 };
 

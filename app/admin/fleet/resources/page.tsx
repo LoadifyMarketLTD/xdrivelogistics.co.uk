@@ -41,6 +41,8 @@ export default function FleetResourcesPage() {
   const [futureDriverId, setFutureDriverId] = useState<string | null>(null);
   const [futurePositionDraft, setFuturePositionDraft] = useState('');
   const [futureDateDraft, setFutureDateDraft] = useState('');
+  const [futureUntilDraft, setFutureUntilDraft] = useState('');
+  const [futureNotesDraft, setFutureNotesDraft] = useState('');
   const [futureWorking, setFutureWorking] = useState(false);
   const [futureError, setFutureError] = useState('');
   const [futureNotice, setFutureNotice] = useState('');
@@ -52,10 +54,12 @@ export default function FleetResourcesPage() {
     await Promise.all([data.refresh(), intelligence.refresh()]);
   };
 
-  const openFuturePosition = (driverId: string, position: string | null | undefined, date: string | null | undefined) => {
+  const openFuturePosition = (driverId: string, position: string | null | undefined, date: string | null | undefined, until: string | null | undefined, notes: string | null | undefined) => {
     setFutureDriverId(driverId);
     setFuturePositionDraft(position ?? '');
     setFutureDateDraft(toLocalDateTime(date));
+    setFutureUntilDraft(toLocalDateTime(until));
+    setFutureNotesDraft(notes ?? '');
     setFutureError('');
     setFutureNotice('');
   };
@@ -67,8 +71,17 @@ export default function FleetResourcesPage() {
       return;
     }
     const futureDate = futureDateDraft ? new Date(futureDateDraft) : null;
+    const futureUntil = futureUntilDraft ? new Date(futureUntilDraft) : null;
     if (futureDate && (!Number.isFinite(futureDate.getTime()) || futureDate.getTime() <= Date.now())) {
       setFutureError('Future-position date/time must be in the future.');
+      return;
+    }
+    if (futureUntil && (!Number.isFinite(futureUntil.getTime()) || futureUntil.getTime() <= Date.now())) {
+      setFutureError('Future-position end date/time must be in the future.');
+      return;
+    }
+    if (futureDate && futureUntil && futureUntil.getTime() <= futureDate.getTime()) {
+      setFutureError('Future-position end must be after the start.');
       return;
     }
     setFutureWorking(true);
@@ -89,6 +102,8 @@ export default function FleetResourcesPage() {
           companyId: data.companyId,
           futurePosition: futurePositionDraft.trim() || null,
           futureDate: futureDate ? futureDate.toISOString() : null,
+          futureUntil: futureUntil ? futureUntil.toISOString() : null,
+          notes: futureNotesDraft.trim() || null,
         }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
@@ -292,10 +307,12 @@ export default function FleetResourcesPage() {
 
       {futureDriverId ? (
         <Panel title="Future Position" description="Publish or clear this driver's future position on behalf of the company Fleet operation." style={{ marginBottom: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,2fr) minmax(220px,1fr) auto', gap: 8, alignItems: 'end' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,2fr) repeat(2,minmax(190px,1fr))', gap: 8, alignItems: 'end' }}>
             <label style={labelStyle}>Position / area<input style={inputStyle} maxLength={160} value={futurePositionDraft} onChange={(event) => setFuturePositionDraft(event.target.value)} placeholder="Postcode, town or planned destination" /></label>
             <label style={labelStyle}>Available from<input style={inputStyle} type="datetime-local" value={futureDateDraft} onChange={(event) => setFutureDateDraft(event.target.value)} /></label>
-            <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}><ActionButton tone="success" disabled={futureWorking} onClick={() => void saveFuturePosition()}>{futureWorking ? 'Saving…' : 'Publish / Update'}</ActionButton><ActionButton tone="secondary" disabled={futureWorking} onClick={() => { setFuturePositionDraft(''); setFutureDateDraft(''); }}>Clear fields</ActionButton><ActionButton tone="secondary" disabled={futureWorking} onClick={() => setFutureDriverId(null)}>Close</ActionButton></div>
+            <label style={labelStyle}>Available until<input style={inputStyle} type="datetime-local" value={futureUntilDraft} onChange={(event) => setFutureUntilDraft(event.target.value)} /></label>
+            <label style={{ ...labelStyle, gridColumn: '1 / -1' }}>Capacity / timing notes<textarea style={{ ...inputStyle, minHeight: 64, paddingTop: 7 }} maxLength={1000} value={futureNotesDraft} onChange={(event) => setFutureNotesDraft(event.target.value)} placeholder="Capacity, operating area, timing or vehicle notes" /></label>
+            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 5, alignItems: 'center', justifyContent: 'flex-end' }}><ActionButton tone="success" disabled={futureWorking} onClick={() => void saveFuturePosition()}>{futureWorking ? 'Saving…' : 'Publish / Update'}</ActionButton><ActionButton tone="secondary" disabled={futureWorking} onClick={() => { setFuturePositionDraft(''); setFutureDateDraft(''); setFutureUntilDraft(''); setFutureNotesDraft(''); }}>Clear fields</ActionButton><ActionButton tone="secondary" disabled={futureWorking} onClick={() => setFutureDriverId(null)}>Close</ActionButton></div>
           </div>
           <div style={{ marginTop: 6, color: '#64748b', fontSize: 11 }}>Clearing both fields and pressing Publish / Update removes the published future position. The server revalidates company membership and active-driver ownership.</div>
         </Panel>
@@ -317,12 +334,12 @@ export default function FleetResourcesPage() {
             <div key="resource"><strong style={{ display: 'block' }}>{row.driver.display_name ?? row.driver.email ?? 'Driver'}</strong><span style={{ color: '#64748b' }}>{row.vehicleSignal}</span></div>,
             <div key="state"><StatusBadge value={row.driver.availability_status ?? 'offline'} tone={row.driver.availability_status === 'available' ? 'green' : row.driver.availability_status === 'busy' ? 'purple' : 'grey'} />{row.currentJob ? <span style={{ display: 'block', marginTop: 4, color: '#64748b' }}>Current #{row.currentJob.id.slice(0, 8).toUpperCase()}</span> : null}</div>,
             row.location ? <div key="location"><span style={{ display: 'block' }}>{row.location.lat.toFixed(4)}, {row.location.lng.toFixed(4)}</span><span style={{ color: '#64748b' }}>{when(row.timestamp)}</span></div> : 'No location',
-            row.future?.futurePosition ? <div key="future"><span style={{ display: 'block' }}>{row.future.futurePosition}</span><span style={{ color: '#64748b' }}>{when(row.future.futurePositionDate)}</span></div> : 'Not published',
+            row.future?.futurePosition ? <div key="future"><span style={{ display: 'block' }}>{row.future.futurePosition}</span><span style={{ color: '#64748b' }}>{when(row.future.futurePositionDate)}{row.future.futurePositionUntil ? ` → ${when(row.future.futurePositionUntil)}` : ''}</span>{row.future.notes ? <span style={{ display: 'block', color: '#64748b' }}>{row.future.notes}</span> : null}</div> : 'Not published',
             <div key="journey"><span style={{ display: 'block' }}>{row.returnJourney ? `${row.returnJourney.fromPostcode ?? 'From TBC'} → ${row.returnJourney.toPostcode ?? 'Go anywhere'}` : 'No return journey'}</span><span style={{ color: '#64748b' }}>{row.nextJob ? `Next ${when(row.nextJob.pickup_datetime)} · ${row.nextJob.pickup_location ?? 'Pickup'}` : row.returnJourney ? when(row.returnJourney.availableFrom) : 'No future allocated job'}</span></div>,
             <StatusBadge key="advertising" value={row.vehicle ? row.advertising : row.vehicles.length > 1 ? 'multiple vehicles' : 'none'} tone={row.vehicle && row.advertising === 'exchange' ? 'green' : row.vehicle && row.advertising === 'partner' ? 'blue' : 'grey'} />,
             <StatusBadge key="tracking" value={row.trackingState} tone={row.trackingState === 'live' ? 'green' : row.trackingState === 'stale' ? 'orange' : 'grey'} />,
             row.flags.length ? <div key="flags" style={{ display: 'grid', gap: 3 }}>{row.flags.map((flag) => <StatusBadge key={flag} value={flag} tone="orange" />)}</div> : <StatusBadge key="clear" value="No local alert" tone="blue" />,
-            <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => openFuturePosition(row.driver.id, row.future?.futurePosition, row.future?.futurePositionDate)}>Future Position</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Drivers</ActionButton>{row.vehicle ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : row.vehicles.length > 1 ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : null}{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
+            <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => openFuturePosition(row.driver.id, row.future?.futurePosition, row.future?.futurePositionDate, row.future?.futurePositionUntil, row.future?.notes)}>Future Position</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Drivers</ActionButton>{row.vehicle ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : row.vehicles.length > 1 ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : null}{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
           ])}
           empty={<EmptyState title="No fleet resources match the current filters" />}
         />

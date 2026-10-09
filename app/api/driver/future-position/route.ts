@@ -9,7 +9,7 @@ function isMissingFuturePositionColumn(error: { code?: string | null; message?: 
   if (!error) return false;
   const message = String(error.message ?? '').toLowerCase();
   return ['42703', 'PGRST204'].includes(String(error.code ?? '').toUpperCase())
-    && (message.includes('future_position') || message.includes('future_position_date'));
+    && (message.includes('future_position') || message.includes('future_position_date') || message.includes('future_availability_notes'));
 }
 
 export async function PUT(request: NextRequest) {
@@ -29,6 +29,8 @@ export async function PUT(request: NextRequest) {
 
   const position = typeof body.futurePosition === 'string' ? body.futurePosition.trim() : '';
   const dateText = typeof body.futureDate === 'string' ? body.futureDate.trim() : '';
+  const untilText = typeof body.futureUntil === 'string' ? body.futureUntil.trim() : '';
+  const notes = typeof body.notes === 'string' ? body.notes.trim().slice(0, 1000) : '';
   if (position.length > 160) return json(400, { error: 'Future position must be 160 characters or fewer.' });
 
   let futureDate: string | null = null;
@@ -38,8 +40,16 @@ export async function PUT(request: NextRequest) {
     if (parsed.getTime() <= Date.now()) return json(400, { error: 'Future-position date/time must be in the future.' });
     futureDate = parsed.toISOString();
   }
+  let futureUntil: string | null = null;
+  if (untilText) {
+    const parsed = new Date(untilText);
+    if (Number.isNaN(parsed.getTime())) return json(400, { error: 'Future-position end date/time is invalid.' });
+    if (parsed.getTime() <= Date.now()) return json(400, { error: 'Future-position end date/time must be in the future.' });
+    if (futureDate && parsed.getTime() <= new Date(futureDate).getTime()) return json(400, { error: 'Future-position end must be after the start.' });
+    futureUntil = parsed.toISOString();
+  }
 
-  // Only these two self-owned capacity fields are writable through this
+  // Only the self-owned future-capacity fields below are writable through this
   // service-role boundary. General drivers-table UPDATE remains operator/admin
   // controlled by the existing RLS contract.
   const { data, error } = await supabaseAdmin
@@ -47,13 +57,15 @@ export async function PUT(request: NextRequest) {
     .update({
       future_position: position || null,
       future_position_date: futureDate,
+      future_position_until: position ? futureUntil : null,
+      future_availability_notes: position ? (notes || null) : null,
       updated_at: new Date().toISOString(),
     })
     .eq('id', driver.driverId)
     .eq('user_id', driver.userId)
     .eq('app_access', true)
     .eq('status', 'active')
-    .select('id, future_position, future_position_date, availability_status, status')
+    .select('id, future_position, future_position_date, future_position_until, future_availability_notes, availability_status, status')
     .maybeSingle();
 
   if (error) {

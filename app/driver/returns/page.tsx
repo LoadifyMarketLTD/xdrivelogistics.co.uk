@@ -15,6 +15,8 @@ type DriverRow = {
   id: string;
   future_position?: string | null;
   future_position_date?: string | null;
+  future_position_until?: string | null;
+  future_availability_notes?: string | null;
   availability_status?: string | null;
   status?: string | null;
 };
@@ -127,6 +129,8 @@ export default function ReturnJourneysPage() {
   const [goAnywhere, setGoAnywhere] = useState(false);
   const [futurePosition, setFuturePosition] = useState('');
   const [futureDate, setFutureDate] = useState('');
+  const [futureUntil, setFutureUntil] = useState('');
+  const [futureNotes, setFutureNotes] = useState('');
 
   const getAuthHeader = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -137,7 +141,7 @@ export default function ReturnJourneysPage() {
     if (!driverId || !isSupabaseConfigured) return;
     const { data, error: fetchError } = await supabase
       .from('drivers')
-      .select('id, future_position, future_position_date, availability_status, status')
+      .select('id, future_position, future_position_date, future_position_until, future_availability_notes, availability_status, status')
       .eq('id', driverId)
       .maybeSingle();
     let row = (data ?? null) as DriverRow | null;
@@ -148,6 +152,8 @@ export default function ReturnJourneysPage() {
     setDriver(row);
     setFuturePosition(row?.future_position ?? '');
     setFutureDate(row?.future_position_date ? row.future_position_date.slice(0, 16) : '');
+    setFutureUntil(row?.future_position_until ? row.future_position_until.slice(0, 16) : '');
+    setFutureNotes(row?.future_availability_notes ?? '');
   }, [driverId]);
 
   const loadJourneys = useCallback(async (scope: 'marketplace' | 'mine', requestedPage = 1, recordSearch = false) => {
@@ -301,7 +307,12 @@ export default function ReturnJourneysPage() {
       const response = await fetch('/api/driver/future-position', {
         method: 'PUT',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ futurePosition, futureDate: futureDate ? new Date(futureDate).toISOString() : null }),
+        body: JSON.stringify({
+          futurePosition,
+          futureDate: futureDate ? new Date(futureDate).toISOString() : null,
+          futureUntil: futureUntil ? new Date(futureUntil).toISOString() : null,
+          notes: futureNotes.trim() || null,
+        }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) setError(payload.error || 'Future position could not be saved.');
@@ -362,7 +373,7 @@ export default function ReturnJourneysPage() {
               <div className="filter"><button type="submit" className="btn primary">Search</button> <button type="button" className="btn" onClick={saveSearchDefault}>Save as Default</button></div>
             </form>}
             {tab === 'mine' && <div className="filter"><div className="linkrow active">Journeys<span className="count">{total}</span></div><div className="linkrow">Live status<span className="count">{liveStatus}</span></div><div className="linkrow">Future position<span className="count">{driver?.future_position ?? 'None'}</span></div></div>}
-            {tab === 'add' && <form onSubmit={(event) => void saveFuturePosition(event)}><div className="filter"><span className="label">Future location</span><input className="input" value={futurePosition} onChange={(event) => setFuturePosition(event.target.value)} placeholder="e.g. Birmingham B1" /></div><div className="filter"><span className="label">Available from</span><input className="input" type="datetime-local" value={futureDate} onChange={(event) => setFutureDate(event.target.value)} /></div><button type="submit" className="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save Position'}</button></form>}
+            {tab === 'add' && <form onSubmit={(event) => void saveFuturePosition(event)}><div className="filter"><span className="label">Future location</span><input className="input" value={futurePosition} onChange={(event) => setFuturePosition(event.target.value)} placeholder="e.g. Birmingham B1" /></div><div className="filter"><span className="label">Available from</span><input className="input" type="datetime-local" value={futureDate} onChange={(event) => setFutureDate(event.target.value)} /></div><div className="filter"><span className="label">Available until</span><input className="input" type="datetime-local" value={futureUntil} onChange={(event) => setFutureUntil(event.target.value)} /></div><div className="filter"><span className="label">Availability notes</span><textarea className="input" value={futureNotes} onChange={(event) => setFutureNotes(event.target.value)} placeholder="Capacity, area or timing notes" /></div><button type="submit" className="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save Position'}</button></form>}
           </aside>
           <main className="main returns-main">
             {error && <AlertBanner tone="danger">{error}</AlertBanner>}

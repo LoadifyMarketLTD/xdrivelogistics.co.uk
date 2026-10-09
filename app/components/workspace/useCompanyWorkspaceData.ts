@@ -123,6 +123,10 @@ export type WorkspaceDriver = {
   phone?: string | null;
   status: string | null;
   availability_status: string | null;
+  future_position?: string | null;
+  future_position_date?: string | null;
+  future_position_until?: string | null;
+  future_availability_notes?: string | null;
   user_id?: string | null;
 };
 
@@ -887,7 +891,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     if (requested.has('drivers')) {
       const driversRes = await supabase
         .from('drivers')
-        .select('id, display_name, email, phone, status, availability_status, user_id')
+        .select('id, display_name, email, phone, status, availability_status, future_position, future_position_date, future_position_until, future_availability_notes, user_id')
         .eq('company_id', companyId)
         .order('display_name', { ascending: true })
         .limit(500);
