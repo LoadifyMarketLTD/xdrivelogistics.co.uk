@@ -50,6 +50,9 @@ const toCustomerInvoice = (invoice: Record<string, unknown>) => ({
   buyer_company_id: invoice.buyer_company_id,
   supplier_company_id: invoice.supplier_company_id,
   commercial_agreement_id: invoice.commercial_agreement_id,
+  document_type: invoice.document_type,
+  parent_invoice_id: invoice.parent_invoice_id,
+  adjustment_reason: invoice.adjustment_reason,
   created_at: invoice.created_at,
   updated_at: invoice.updated_at,
 });

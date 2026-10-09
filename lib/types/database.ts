@@ -435,6 +435,9 @@ export interface Invoice {
   bank_account_name_snapshot?: string | null;
   bank_sort_code_snapshot?: string | null;
   bank_account_number_snapshot?: string | null;
+  document_type?: 'invoice' | 'supplementary' | 'credit_note';
+  parent_invoice_id?: string | null;
+  adjustment_reason?: string | null;
   pod_delivery_status_snapshot?: string | null;
   submitted_at: string | null;
   submitted_by: string | null;

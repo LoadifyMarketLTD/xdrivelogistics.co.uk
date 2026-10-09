@@ -26,6 +26,9 @@ export interface InvoiceData {
   vatRate: 0 | 5 | 20;
   netAmount: number;
   vatAmount: number;
+  documentType?: 'invoice' | 'supplementary' | 'credit_note';
+  parentInvoiceNumber?: string;
+  adjustmentReason?: string;
   podPhotos?: string[];
   signature?: string;
   recipientName?: string;
@@ -81,6 +84,11 @@ export default function InvoiceTemplate({
   const bankSort = invoice.bankSortCode || companySettings.bankSortCode;
   const bankAccount = invoice.bankAccountNumber || companySettings.bankAccountNumber;
   const status = toCanonicalInvoiceStatus(invoice.status);
+  const documentLabel = invoice.documentType === 'credit_note' ? 'CREDIT NOTE' : invoice.documentType === 'supplementary' ? 'SUPPLEMENTARY INVOICE' : 'INVOICE';
+  const documentSubtitle = invoice.documentType === 'credit_note' ? 'Transport Credit Note' : invoice.documentType === 'supplementary' ? 'Supplementary Transport Invoice' : 'Transport Invoice';
+  const signedNetAmount = invoice.documentType === 'credit_note' ? -Math.abs(invoice.netAmount) : invoice.netAmount;
+  const signedVatAmount = invoice.documentType === 'credit_note' ? -Math.abs(invoice.vatAmount) : invoice.vatAmount;
+  const signedTotalAmount = invoice.documentType === 'credit_note' ? -Math.abs(invoice.amount) : invoice.amount;
   const smallMeta = (items: Array<string | undefined>) => items.filter(Boolean).join(' · ');
 
   const section: React.CSSProperties = { border: '1px solid #e4e7ec', borderRadius: 12, padding: 14, background: '#fff' };
@@ -95,10 +103,10 @@ export default function InvoiceTemplate({
       <header style={{ background: '#0B2F6B', color: '#fff', padding: '24px 28px', borderBottom: '5px solid #F5A300', display: 'flex', justifyContent: 'space-between', gap: 20 }}>
         <div>
           <div style={{ fontSize: 27, fontWeight: 900 }}>XDRIVE <span style={{ color: '#F5A300', fontSize: 16 }}>LOGISTICS</span></div>
-          <div style={{ opacity: .88, marginTop: 3 }}>Transport Invoice</div>
+          <div style={{ opacity: .88, marginTop: 3 }}>{documentSubtitle}</div>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <div style={{ fontSize: 22, fontWeight: 900 }}>INVOICE</div>
+          <div style={{ fontSize: 22, fontWeight: 900 }}>{documentLabel}</div>
           <div style={{ fontWeight: 800 }}>{invoice.invoiceNumber}</div>
           <div style={{ fontSize: 11, opacity: .85 }}>{status.toUpperCase()}</div>
         </div>
@@ -145,6 +153,16 @@ export default function InvoiceTemplate({
           </div>
         </section>
 
+        {invoice.documentType && invoice.documentType !== 'invoice' && (
+          <section className="invoice-no-break" style={{ ...section, background: '#fff7ed' }}>
+            <div style={kicker}>{invoice.documentType === 'credit_note' ? 'Credit Adjustment' : 'Supplementary Charge'}</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: 10 }}>
+              <div><span style={label}>Original invoice</span><strong style={{ display: 'block', marginTop: 3 }}>{invoice.parentInvoiceNumber || 'Referenced parent invoice'}</strong></div>
+              <div><span style={label}>Reason</span><strong style={{ display: 'block', marginTop: 3 }}>{invoice.adjustmentReason || 'Adjustment reason recorded in XDrive'}</strong></div>
+            </div>
+          </section>
+        )}
+
         <section className="invoice-no-break" style={section}>
           <div style={kicker}>Job & Delivery Record</div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
@@ -186,7 +204,7 @@ export default function InvoiceTemplate({
             <span>Qty</span><span>Description</span><span>Net</span><span>VAT</span><span>Total</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '50px 1fr 110px 110px 120px', border: '1px solid #e4e7ec', borderTop: 0, borderRadius: '0 0 9px 9px', padding: '12px 8px', fontSize: 12, fontWeight: 700 }}>
-            <span>1</span><span>{invoice.serviceDescription || 'Transport service'}</span><span>{money(invoice.netAmount)}</span><span>{money(invoice.vatAmount)} ({invoice.vatRate}%)</span><span>{money(invoice.amount)}</span>
+            <span>1</span><span>{invoice.serviceDescription || 'Transport service'}</span><span>{money(signedNetAmount)}</span><span>{money(signedVatAmount)} ({invoice.vatRate}%)</span><span>{money(signedTotalAmount)}</span>
           </div>
         </section>
 
@@ -199,8 +217,8 @@ export default function InvoiceTemplate({
             <div style={{ ...muted, fontSize: 10, marginTop: 8 }}>{invoice.lateFee}</div>
           </section>
           <section style={section}>
-            {[['Subtotal', money(invoice.netAmount)], ['VAT', money(invoice.vatAmount)]].map(([k,v]) => <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}><span>{k}</span><strong>{v}</strong></div>)}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #d0d5dd', paddingTop: 10, color: '#0B2F6B', fontSize: 17, fontWeight: 900 }}><span>TOTAL</span><span>{money(invoice.amount)}</span></div>
+            {[['Subtotal', money(signedNetAmount)], ['VAT', money(signedVatAmount)]].map(([k,v]) => <div key={k} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}><span>{k}</span><strong>{v}</strong></div>)}
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid #d0d5dd', paddingTop: 10, color: '#0B2F6B', fontSize: 17, fontWeight: 900 }}><span>TOTAL</span><span>{money(signedTotalAmount)}</span></div>
           </section>
         </div>
       </div>

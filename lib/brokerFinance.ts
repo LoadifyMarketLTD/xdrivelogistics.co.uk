@@ -9,6 +9,7 @@ type InvoiceLike = {
   vat_amount?: number | null;
   due_date?: string | null;
   invoice_date?: string | null;
+  document_type?: string | null;
 };
 
 const norm = (value: unknown) => String(value ?? '').trim().toLowerCase();
@@ -39,11 +40,20 @@ export const invoiceNetAmount = (invoice: InvoiceLike): number => {
   return gross;
 };
 
+export const invoiceSignedGrossAmount = (invoice: InvoiceLike): number => {
+  const gross = moneyValue(invoice.amount);
+  if (gross < 0) return gross;
+  const status = norm(invoice.status);
+  const documentType = norm(invoice.document_type);
+  return documentType === 'credit_note' || CREDIT_NOTE_MARKERS.some((marker) => status.includes(marker)) ? -Math.abs(gross) : gross;
+};
+
 export const invoiceSignedNetAmount = (invoice: InvoiceLike): number => {
   const net = invoiceNetAmount(invoice);
   if (net < 0) return net;
   const status = norm(invoice.status);
-  return CREDIT_NOTE_MARKERS.some((marker) => status.includes(marker)) ? -Math.abs(net) : net;
+  const documentType = norm(invoice.document_type);
+  return documentType === 'credit_note' || CREDIT_NOTE_MARKERS.some((marker) => status.includes(marker)) ? -Math.abs(net) : net;
 };
 
 export const invoicePeriodTime = (invoice: InvoiceLike): number | null => {

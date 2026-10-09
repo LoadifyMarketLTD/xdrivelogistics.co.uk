@@ -7,6 +7,7 @@ import {
   toCanonicalPaymentStatus,
 } from '../../../lib/invoiceStatus';
 import { supabase } from '../../../lib/supabaseClient';
+import { invoiceSignedGrossAmount } from '../../../lib/brokerFinance';
 import {
   ActionButton,
   AlertBanner,
@@ -40,6 +41,9 @@ type Invoice = {
   delivery_location: string | null;
   service_description: string | null;
   payment_terms: string | null;
+  document_type: 'invoice' | 'supplementary' | 'credit_note';
+  parent_invoice_id: string | null;
+  adjustment_reason: string | null;
 };
 
 type History = { id: string; from_status: string | null; to_status: string; note: string | null; changed_at: string };
@@ -150,7 +154,8 @@ export default function InvoiceDetailPage({
 
   const paid = useMemo(() => payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0), [payments]);
   const code = invoice?.currency ?? 'GBP';
-  const outstanding = Math.max(0, Number(invoice?.amount ?? 0) - paid);
+  const signedAmount = invoice ? invoiceSignedGrossAmount(invoice) : 0;
+  const outstanding = invoice?.document_type === 'credit_note' ? 0 : Math.max(0, Number(invoice?.amount ?? 0) - paid);
 
   if (loading) return <PageFrame><EmptyState title="Loading invoice…" /></PageFrame>;
 
@@ -173,7 +178,7 @@ export default function InvoiceDetailPage({
       {!invoice ? <Panel><EmptyState title="Invoice not available" /></Panel> : (
         <>
           <KpiGrid>
-            <KpiCard label="Invoice total" value={currency(invoice.amount, code)} tone="navy" />
+            <KpiCard label={invoice.document_type === 'credit_note' ? 'Credit value' : invoice.document_type === 'supplementary' ? 'Supplementary total' : 'Invoice total'} value={currency(signedAmount, code)} tone="navy" />
             <KpiCard label="Paid" value={currency(paid, code)} tone="green" />
             <KpiCard label="Outstanding" value={currency(outstanding, code)} tone={outstanding > 0 ? 'orange' : 'green'} />
             <KpiCard label="Invoice state" value={<StatusBadge value={invoiceState(invoice)} />} tone="blue" />
@@ -186,6 +191,9 @@ export default function InvoiceDetailPage({
                 <DataTable
                   columns={['Field', 'Value']}
                   rows={[
+                    ['Document', invoice.document_type === 'credit_note' ? 'Credit note' : invoice.document_type === 'supplementary' ? 'Supplementary invoice' : 'Invoice'],
+                    ...(invoice.parent_invoice_id ? [['Parent invoice', invoice.parent_invoice_id.slice(0, 8).toUpperCase()]] : []),
+                    ...(invoice.adjustment_reason ? [['Adjustment reason', invoice.adjustment_reason]] : []),
                     ['Customer', invoice.client_name ?? 'Not set'],
                     ['Email', invoice.client_email ?? 'Not set'],
                     ['Invoice date', date(invoice.invoice_date)],
@@ -195,7 +203,7 @@ export default function InvoiceDetailPage({
                     ['Service', invoice.service_description ?? 'Logistics service'],
                     ['Net', currency(invoice.net_amount, code)],
                     [`VAT ${invoice.vat_rate ?? 0}%`, currency(invoice.vat_amount, code)],
-                    ['Total', currency(invoice.amount, code)],
+                    ['Total', currency(signedAmount, code)],
                   ]}
                 />
               </Panel>

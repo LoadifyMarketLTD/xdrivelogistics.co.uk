@@ -62,7 +62,7 @@ export async function PATCH(
 
   const { data: invoice, error: invoiceError } = await supabaseAdmin
     .from('invoices')
-    .select('id, company_id, status, invoice_number')
+    .select('id, company_id, status, invoice_number, amount, document_type, parent_invoice_id')
     .eq('id', id)
     .maybeSingle();
   if (invoiceError) return respond(500, { error: 'Invoice could not be loaded.' });
@@ -116,6 +116,22 @@ export async function PATCH(
   const vatRegistered = Boolean(String(company.vat_number ?? '').trim());
   const effectiveVatRate = vatRegistered ? parsed.data.vatRate : 0;
   const grossAmount = roundMoney(parsed.data.amount);
+  if (invoice.document_type === 'credit_note') {
+    if (!invoice.parent_invoice_id) return respond(409, { error: 'Credit note parent invoice is missing.' });
+    const [{ data: parentInvoice, error: parentError }, { data: siblingCredits, error: siblingError }] = await Promise.all([
+      supabaseAdmin.from('invoices').select('amount').eq('id', invoice.parent_invoice_id).maybeSingle(),
+      supabaseAdmin.from('invoices').select('id,amount,status').eq('parent_invoice_id', invoice.parent_invoice_id).eq('document_type', 'credit_note').neq('id', invoice.id),
+    ]);
+    if (parentError || siblingError) return respond(503, { error: 'Credit-note amount could not be verified.' });
+    if (!parentInvoice) return respond(409, { error: 'Credit note parent invoice is unavailable.' });
+    const alreadyCredited = (siblingCredits ?? [])
+      .filter((row) => String(row.status ?? '').toLowerCase() !== 'cancelled')
+      .reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
+    const remaining = Math.max(0, Number(parentInvoice.amount ?? 0) - alreadyCredited);
+    if (grossAmount > remaining + 0.001) {
+      return respond(409, { error: `Credit note exceeds the remaining creditable amount of £${remaining.toFixed(2)}.` });
+    }
+  }
   const netAmount = effectiveVatRate > 0
     ? roundMoney(grossAmount / (1 + effectiveVatRate / 100))
     : grossAmount;

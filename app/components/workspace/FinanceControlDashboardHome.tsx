@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { classifyWorkspaceJobStage, isCompanyExecutionJob } from '../../../lib/jobs/workspaceJobStage';
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { classifyAccountsDirection } from '../../../lib/finance/accounts';
+import { invoiceSignedGrossAmount } from '../../../lib/brokerFinance';
 import { useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import {
   ActionButton,
@@ -36,6 +37,7 @@ export default function FinanceControlDashboardHome() {
     const payables = data.invoices.filter((invoice) => classifyAccountsDirection(invoice, data.companyId) === 'payable');
     const unpaid = receivables.filter(
       (invoice) =>
+        invoice.document_type !== 'credit_note' &&
         invoice.payment_status !== 'paid' &&
         !['paid', 'Paid', 'void', 'cancelled'].includes(invoice.status),
     );
@@ -53,7 +55,7 @@ export default function FinanceControlDashboardHome() {
       (invoice) => invoice.payment_status === 'paid' || ['paid', 'Paid'].includes(invoice.status),
     );
     const payableUnpaid = payables.filter(
-      (invoice) => invoice.payment_status !== 'paid' && !['paid', 'Paid', 'void', 'cancelled'].includes(invoice.status),
+      (invoice) => invoice.document_type !== 'credit_note' && invoice.payment_status !== 'paid' && !['paid', 'Paid', 'void', 'cancelled'].includes(invoice.status),
     );
 
     return {
@@ -62,10 +64,10 @@ export default function FinanceControlDashboardHome() {
       unpaid,
       overdue,
       dueSoon,
-      outstandingValue: unpaid.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
-      overdueValue: overdue.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
-      paidValue: paid.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
-      payableOutstandingValue: payableUnpaid.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
+      outstandingValue: unpaid.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0),
+      overdueValue: overdue.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0),
+      paidValue: paid.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0),
+      payableOutstandingValue: payableUnpaid.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0),
       payableUnpaid,
       paid,
     };
@@ -186,7 +188,7 @@ export default function FinanceControlDashboardHome() {
                 rows={outstandingSorted.slice(0, 12).map((invoice) => [
                   invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase(),
                   invoice.client_name ?? 'Client',
-                  money(Number(invoice.amount ?? 0)),
+                  money(invoiceSignedGrossAmount(invoice)),
                   invoice.due_date ? new Date(invoice.due_date).toLocaleDateString('en-GB') : 'Not set',
                   <StatusBadge
                     key="status"
@@ -203,7 +205,7 @@ export default function FinanceControlDashboardHome() {
                 columns={['Invoice', 'Amount', 'Status']}
                 rows={totals.paid.slice(0, 5).map((invoice) => [
                   invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase(),
-                  money(Number(invoice.amount ?? 0)),
+                  money(invoiceSignedGrossAmount(invoice)),
                   <StatusBadge key="status" value="paid" tone="green" />,
                 ])}
                 empty={<EmptyState compact title={invoicesUnavailable ? 'Invoice data unavailable' : 'No settled invoices'} />}

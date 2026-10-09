@@ -161,6 +161,24 @@ export async function PATCH(
       return respond(422, { error: reason instanceof Error ? reason.message : 'VAT totals are invalid.' });
     }
 
+    if (editor.invoice.document_type === 'credit_note') {
+      const parentInvoiceId = String(editor.invoice.parent_invoice_id ?? '');
+      if (!parentInvoiceId) return respond(409, { error: 'Credit note parent invoice is missing.' });
+      const [{ data: parentInvoice, error: parentError }, { data: siblingCredits, error: siblingError }] = await Promise.all([
+        supabaseAdmin.from('invoices').select('amount').eq('id', parentInvoiceId).maybeSingle(),
+        supabaseAdmin.from('invoices').select('id,amount,status').eq('parent_invoice_id', parentInvoiceId).eq('document_type', 'credit_note').neq('id', editor.invoice.id),
+      ]);
+      if (parentError || siblingError) return respond(503, { error: 'Credit-note amount could not be verified.' });
+      if (!parentInvoice) return respond(409, { error: 'Credit note parent invoice is unavailable.' });
+      const alreadyCredited = (siblingCredits ?? [])
+        .filter((row) => String(row.status ?? '').toLowerCase() !== 'cancelled')
+        .reduce((sum, row) => sum + Number(row.amount ?? 0), 0);
+      const remaining = Math.max(0, Number(parentInvoice.amount ?? 0) - alreadyCredited);
+      if (totals.totalAmount > remaining + 0.001) {
+        return respond(409, { error: `Credit note exceeds the remaining creditable amount of £${remaining.toFixed(2)}.` });
+      }
+    }
+
     update.due_date = computeInvoiceDueDate(invoiceDate, paymentTerms);
     update.payment_terms = paymentTerms;
     update.net_amount = totals.netAmount;

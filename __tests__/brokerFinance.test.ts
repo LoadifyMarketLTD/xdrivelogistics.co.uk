@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   invoiceNetAmount,
+  invoiceSignedGrossAmount,
   invoiceSignedNetAmount,
   isAwaitingPayment,
   isCarrierPayableInvoice,
@@ -53,6 +54,8 @@ describe('broker finance semantics', () => {
   });
 
   it('treats credit notes as negative accounting values', () => {
+    expect(invoiceSignedNetAmount({ document_type: 'credit_note', status: 'sent', net_amount: 120 })).toBe(-120);
+    expect(invoiceSignedGrossAmount({ document_type: 'credit_note', status: 'sent', amount: 144 })).toBe(-144);
     expect(invoiceSignedNetAmount({ status: 'credit_note_issued', net_amount: 120 })).toBe(-120);
     expect(invoiceSignedNetAmount({ status: 'paid', net_amount: 120 })).toBe(120);
     expect(invoiceSignedNetAmount({ status: 'refund_processed', amount: 60, vat_amount: 10 })).toBe(-50);

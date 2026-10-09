@@ -90,45 +90,8 @@ export async function POST(
     });
   }
 
-  const reason = parsed.data.reason?.trim() || 'Credit note requested by finance workspace.';
-  const disputePayload = {
-    invoice_id: invoice.id,
-    company_id: invoice.company_id,
-    created_by: authData.user.id,
-    reason: 'Credit note requested',
-    details: reason,
-    status: 'open',
-    commercial_agreement_id: invoice.commercial_agreement_id,
-    buyer_company_id: invoice.buyer_company_id,
-    supplier_company_id: invoice.supplier_company_id,
-    job_id: invoice.job_id,
-  };
-
-  const { data: dispute, error: disputeError } = await supabaseAdmin
-    .from('invoice_disputes')
-    .insert(disputePayload)
-    .select('id, status')
-    .single();
-  if (disputeError) return respond(500, { error: disputeError.message });
-
-  const { data: updated, error: updateError } = await supabaseAdmin
-    .from('invoices')
-    .update({
-      status: toLegacyInvoiceStatusForDb('Disputed'),
-      disputed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('id', invoice.id)
-    .eq('company_id', invoice.company_id)
-    .select('id, status')
-    .single();
-  if (updateError) return respond(500, { error: updateError.message });
-
-  return respond(200, {
-    invoice: {
-      id: updated.id,
-      status: toCanonicalInvoiceStatus(updated.status),
-    },
-    dispute,
+  return respond(409, {
+    error: 'Credit notes are financial adjustment documents, not disputes. Create the credit note from the invoice adjustment action.',
+    code: 'USE_INVOICE_ADJUSTMENT',
   });
 }

@@ -8,6 +8,7 @@ import {
 } from '../../../lib/invoiceStatus';
 import { isCustomerVisibleWorkspaceInvoice, useCompanyWorkspaceData, type WorkspaceInvoice } from './useCompanyWorkspaceData';
 import { classifyAccountsDirection } from '../../../lib/finance/accounts';
+import { invoiceSignedGrossAmount } from '../../../lib/brokerFinance';
 import {
   ActionButton,
   AlertBanner,
@@ -120,8 +121,8 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
     return classifyAccountsDirection(invoice, workspace.companyId) === 'payable';
   }), [mode, workspace.companyId, workspace.invoices]);
 
-  const total = allScoped.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0);
-  const unpaid = allScoped.filter((invoice) => !['paid', 'cancelled'].includes(String(invoice.payment_status ?? invoice.status).toLowerCase()));
+  const total = allScoped.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0);
+  const unpaid = allScoped.filter((invoice) => invoice.document_type !== 'credit_note' && !['paid', 'cancelled', 'refunded'].includes(String(invoice.payment_status ?? invoice.status).toLowerCase()));
   const overdue = unpaid.filter((invoice) => invoice.due_date && new Date(invoice.due_date).getTime() < Date.now());
 
   const openInvoice = (invoice: WorkspaceInvoice) => router.push(`${page.detailBase}/${invoice.id}`);
@@ -138,7 +139,7 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
       <KpiGrid>
         <KpiCard label="Invoices" value={allScoped.length} tone="navy" />
         <KpiCard label="Total value" value={money(total)} tone="blue" />
-        <KpiCard label="Outstanding" value={unpaid.length} detail={money(unpaid.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0))} tone="orange" />
+        <KpiCard label="Outstanding" value={unpaid.length} detail={money(unpaid.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0))} tone="orange" />
         <KpiCard label="Overdue" value={overdue.length} tone={overdue.length ? 'red' : 'green'} />
         <KpiCard label="Paid" value={allScoped.filter((invoice) => String(invoice.payment_status ?? invoice.status).toLowerCase() === 'paid').length} tone="green" />
       </KpiGrid>
@@ -169,12 +170,13 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
         }
       >
         <DataTable
-          columns={['Invoice', 'XDrive job', 'Counterparty', 'Amount', 'Due', 'Invoice state', 'Payment', 'Action']}
+          columns={['Document', 'Invoice', 'XDrive job', 'Counterparty', 'Amount', 'Due', 'Invoice state', 'Payment', 'Action']}
           rows={invoices.map((invoice) => [
+            <StatusBadge key="document" value={invoice.document_type === 'credit_note' ? 'Credit note' : invoice.document_type === 'supplementary' ? 'Supplementary' : 'Invoice'} tone={invoice.document_type === 'credit_note' ? 'purple' : invoice.document_type === 'supplementary' ? 'orange' : 'blue'} />,
             <button key="number" type="button" onClick={() => openInvoice(invoice)} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d4ed8', fontWeight: 850, cursor: 'pointer' }}>{invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}</button>,
             xdriveReference(invoice.job_id),
             invoice.client_name ?? (isIncomingCarrierMode(mode) ? 'Carrier' : 'Customer'),
-            money(invoice.amount),
+            money(invoiceSignedGrossAmount(invoice)),
             date(invoice.due_date),
             <StatusBadge key="invoice-state" value={invoiceState(invoice)} />,
             <StatusBadge key="payment-state" value={paymentState(invoice).replace(/_/g, ' ')} />,

@@ -14,6 +14,7 @@ import {
   type CanonicalPaymentStatus,
 } from '../../../../../lib/invoiceStatus';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../../../components/workspace/WorkspaceUI';
+import { invoiceSignedGrossAmount } from '../../../../../lib/brokerFinance';
 
 type InvoiceStatus = CanonicalInvoiceStatus;
 type InvoiceDetail = {
@@ -43,6 +44,9 @@ type InvoiceDetail = {
   approved_at: string | null;
   disputed_at: string | null;
   paid_at: string | null;
+  document_type: 'invoice' | 'supplementary' | 'credit_note';
+  parent_invoice_id: string | null;
+  adjustment_reason: string | null;
   created_at: string;
 };
 type StatusHistoryItem = { id: string; from_status: string | null; to_status: string; note: string | null; changed_at: string };
@@ -100,6 +104,12 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
   const [loadError, setLoadError] = useState('');
 
   const [showPaymentForm, setShowPaymentForm] = useState(false);
+  const [showAdjustmentForm, setShowAdjustmentForm] = useState(false);
+  const [adjustmentType, setAdjustmentType] = useState<'supplementary' | 'credit_note'>('supplementary');
+  const [adjustmentAmount, setAdjustmentAmount] = useState('');
+  const [adjustmentReason, setAdjustmentReason] = useState('');
+  const [adjustmentWorking, setAdjustmentWorking] = useState(false);
+  const [adjustmentError, setAdjustmentError] = useState('');
   const [payAmount, setPayAmount] = useState('');
   const [payMethod, setPayMethod] = useState('bank_transfer');
   const [payRef, setPayRef] = useState('');
@@ -189,6 +199,47 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
     setRecordingPayment(false);
   };
 
+  const handleCreateAdjustment = async () => {
+    if (!financeOperator || !invoiceId || !invoice || adjustmentWorking) return;
+    const amount = Number(adjustmentAmount);
+    const reason = adjustmentReason.trim();
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setAdjustmentError('Enter a valid adjustment amount greater than zero.');
+      return;
+    }
+    if (reason.length < 5) {
+      setAdjustmentError('Enter a clear adjustment reason of at least 5 characters.');
+      return;
+    }
+
+    setAdjustmentWorking(true);
+    setAdjustmentError('');
+    const token = await getToken();
+    if (!token) {
+      setAdjustmentError('Your session has expired. Sign in again.');
+      setAdjustmentWorking(false);
+      return;
+    }
+
+    const response = await fetch(`/api/admin/invoices/${invoiceId}/adjustments`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ documentType: adjustmentType, amount, reason }),
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string; invoice?: { id?: string } };
+    if (!response.ok || !payload.invoice?.id) {
+      setAdjustmentError(payload.error ?? 'Invoice adjustment could not be created.');
+      setAdjustmentWorking(false);
+      return;
+    }
+
+    setAdjustmentWorking(false);
+    setShowAdjustmentForm(false);
+    setAdjustmentAmount('');
+    setAdjustmentReason('');
+    router.push(`/driver/finance/invoices/${payload.invoice.id}`);
+  };
+
   const handleOpenDispute = async () => {
     if (!invoiceId || !disputeReason.trim()) return;
     setOpeningDispute(true);
@@ -232,7 +283,8 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
   };
 
   const totalPaid = useMemo(() => payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0), [payments]);
-  const balance = invoice ? Math.max(0, Number(invoice.amount) - totalPaid) : 0;
+  const signedInvoiceAmount = invoice ? invoiceSignedGrossAmount(invoice) : 0;
+  const balance = invoice ? (invoice.document_type === 'credit_note' ? 0 : Math.max(0, Number(invoice.amount) - totalPaid)) : 0;
 
   if (loading || !invoiceId) {
     return <ProtectedRoute allowedRoles={['driver', 'company_admin', 'owner']}><DriverWorkspaceShell><div className="driver-load-row"><EmptyState compact title="Loading invoice…" /></div></DriverWorkspaceShell></ProtectedRoute>;
@@ -253,15 +305,17 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
       <div className="driver-detail-tabs"><strong>Invoice Summary</strong></div>
       <div className="driver-detail-grid">
         <div className="driver-detail-item"><span>Invoice</span><strong>{invoice.invoice_number}</strong></div>
+        <div className="driver-detail-item"><span>Document</span><strong><StatusBadge value={invoice.document_type === 'credit_note' ? 'Credit note' : invoice.document_type === 'supplementary' ? 'Supplementary invoice' : 'Invoice'} tone={invoice.document_type === 'credit_note' ? 'purple' : invoice.document_type === 'supplementary' ? 'orange' : 'blue'} /></strong></div>
         <div className="driver-detail-item"><span>Invoice state</span><strong><StatusBadge value={invoice.status} tone={invoiceTone(invoice.status)} /></strong></div>
         <div className="driver-detail-item"><span>Payment</span><strong><StatusBadge value={invoice.payment_status.replace(/_/g, ' ')} tone={paymentTone(invoice.payment_status)} /></strong></div>
-        <div className="driver-detail-item"><span>Total</span><strong>{fmtCurrency(invoice.amount, invoice.currency)}</strong></div>
+        <div className="driver-detail-item"><span>Total</span><strong>{fmtCurrency(signedInvoiceAmount, invoice.currency)}</strong></div>
         <div className="driver-detail-item"><span>Received</span><strong>{fmtCurrency(totalPaid, invoice.currency)}</strong></div>
         <div className="driver-detail-item"><span>Outstanding</span><strong>{fmtCurrency(balance, invoice.currency)}</strong></div>
         <div className="driver-detail-item"><span>Due</span><strong>{fmtDate(invoice.due_date)}</strong></div>
       </div>
       <div className="driver-row-actions" style={{ marginTop: 8 }}>
         {financeOperator && invoice.status === 'Draft' && <ActionButton tone="secondary" onClick={() => router.push(`/driver/finance/invoices/${invoice.id}/edit`)}>Edit draft</ActionButton>}
+        {financeOperator && !['Draft', 'Cancelled'].includes(invoice.status) && invoice.document_type !== 'credit_note' && <ActionButton tone="secondary" onClick={() => { setShowAdjustmentForm((value) => !value); setAdjustmentType(invoice.document_type === 'supplementary' ? 'credit_note' : 'supplementary'); }}>{showAdjustmentForm ? 'Close adjustment' : 'Supplementary / Credit Note'}</ActionButton>}
         <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>← Finance</ActionButton>
       </div>
     </section>
@@ -272,6 +326,18 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
       <DriverWorkspaceShell subtitle={`Invoice ${invoice.invoice_number}`} headerActions={<ActionButton tone="secondary" onClick={() => void loadDetail()}>Refresh</ActionButton>}>
         <div className="driver-invoice-detail-board" style={{ display: 'grid', gap: 8, width: '100%' }}>
           {summary}
+          {showAdjustmentForm && financeOperator && invoice.document_type !== 'credit_note' && (
+            <section className="driver-row-details">
+              <div className="driver-detail-tabs"><strong>Create invoice adjustment</strong></div>
+              {adjustmentError && <AlertBanner tone="danger">{adjustmentError}</AlertBanner>}
+              <div className="driver-detail-grid">
+                <label className="driver-filter-field">Document type<select value={adjustmentType} onChange={(event) => setAdjustmentType(event.target.value as 'supplementary' | 'credit_note')}>{invoice.document_type === 'invoice' ? <option value="supplementary">Supplementary invoice</option> : null}<option value="credit_note">Credit note</option></select></label>
+                <label className="driver-filter-field">Gross amount (£)<input type="number" min="0.01" step="0.01" value={adjustmentAmount} onChange={(event) => setAdjustmentAmount(event.target.value)} /></label>
+                <label className="driver-filter-field" style={{ gridColumn: '1 / -1' }}>Reason<textarea value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} placeholder="Explain the additional charge or credit clearly." /></label>
+              </div>
+              <div className="driver-row-actions"><ActionButton tone="primary" disabled={adjustmentWorking || Number(adjustmentAmount) <= 0 || adjustmentReason.trim().length < 5} onClick={() => void handleCreateAdjustment()}>{adjustmentWorking ? 'Creating…' : `Create ${adjustmentType === 'credit_note' ? 'Credit Note' : 'Supplementary Invoice'}`}</ActionButton></div>
+            </section>
+          )}
           <main className="driver-board-main">
             <section className="driver-row-details">
               <div className="driver-detail-tabs"><strong>Invoice & Booking</strong></div>
@@ -286,13 +352,15 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
                 <div className="driver-detail-item"><span>VAT</span><strong>{fmtCurrency(invoice.vat_amount, invoice.currency)} ({invoice.vat_rate}%)</strong></div>
                 <div className="driver-detail-item"><span>Route</span><strong>{invoice.pickup_location ?? 'Collection'} → {invoice.delivery_location ?? 'Delivery'}</strong></div>
                 <div className="driver-detail-item"><span>Service</span><strong>{displayServiceDescription(invoice.service_description)}</strong></div>
+                {invoice.document_type !== 'invoice' && <div className="driver-detail-item"><span>Adjustment reason</span><strong>{invoice.adjustment_reason ?? 'Adjustment reason recorded'}</strong></div>}
+                {invoice.parent_invoice_id && <div className="driver-detail-item"><span>Parent invoice</span><strong>{invoice.parent_invoice_id.slice(0, 8).toUpperCase()}</strong></div>}
               </div>
             </section>
 
             {financeOperator && (
               <DriverInvoiceEmailPanel
                 invoiceId={invoiceId}
-                invoice={{ invoiceNumber: invoice.invoice_number, jobReference: invoice.job_ref, clientName: invoice.client_name, clientEmail: invoice.client_email, invoiceDate: invoice.invoice_date, amount: Number(invoice.amount), currency: invoice.currency, status: invoice.status }}
+                invoice={{ invoiceNumber: invoice.invoice_number, jobReference: invoice.job_ref, clientName: invoice.client_name, clientEmail: invoice.client_email, invoiceDate: invoice.invoice_date, amount: signedInvoiceAmount, currency: invoice.currency, status: invoice.status }}
                 onSent={loadDetail}
               />
             )}
@@ -300,12 +368,12 @@ export default function DriverInvoiceDetailPage({ params }: { params: Promise<{ 
             <section className="driver-row-details">
               <div className="driver-detail-tabs"><strong>Payment</strong></div>
               <div className="driver-detail-grid">
-                <div className="driver-detail-item"><span>Invoice total</span><strong>{fmtCurrency(invoice.amount, invoice.currency)}</strong></div>
+                <div className="driver-detail-item"><span>Invoice total</span><strong>{fmtCurrency(signedInvoiceAmount, invoice.currency)}</strong></div>
                 <div className="driver-detail-item"><span>Total received</span><strong>{fmtCurrency(totalPaid, invoice.currency)}</strong></div>
                 <div className="driver-detail-item"><span>Outstanding</span><strong>{fmtCurrency(balance, invoice.currency)}</strong></div>
                 <div className="driver-detail-item"><span>Payment status</span><strong><StatusBadge value={invoice.payment_status.replace(/_/g, ' ')} tone={paymentTone(invoice.payment_status)} /></strong></div>
               </div>
-              {financeOperator && invoice.payment_status !== 'paid' && (
+              {financeOperator && invoice.document_type !== 'credit_note' && !['paid', 'refunded'].includes(invoice.payment_status) && (
                 <div className="driver-row-actions" style={{ marginTop: 5 }}><ActionButton tone="secondary" onClick={() => setShowPaymentForm((value) => !value)}>{showPaymentForm ? 'Cancel' : '+ Record Payment'}</ActionButton></div>
               )}
               {showPaymentForm && financeOperator && (

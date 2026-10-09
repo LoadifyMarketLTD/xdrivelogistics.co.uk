@@ -91,6 +91,8 @@ function dbToInvoiceData(row: Invoice): InvoiceData {
     bankAccountName: row.bank_account_name_snapshot ?? undefined,
     bankSortCode: row.bank_sort_code_snapshot ?? undefined,
     bankAccountNumber: row.bank_account_number_snapshot ?? undefined,
+    documentType: row.document_type ?? 'invoice',
+    adjustmentReason: row.adjustment_reason ?? undefined,
   };
 }
 
@@ -147,7 +149,13 @@ export default function InvoiceDetailPage() {
   const [recordingPayment, setRecordingPayment] = useState(false);
   const [markingPaid, setMarkingPaid] = useState(false);
   const [sendingInvoice, setSendingInvoice] = useState(false);
-  const [lifecycleAction, setLifecycleAction] = useState<'void' | 'credit_note' | null>(null);
+  const [lifecycleAction, setLifecycleAction] = useState<'void' | null>(null);
+  const [adjustmentType, setAdjustmentType] = useState<'supplementary' | 'credit_note'>('supplementary');
+  const [adjustmentAmount, setAdjustmentAmount] = useState('');
+  const [adjustmentReason, setAdjustmentReason] = useState('');
+  const [adjustmentWorking, setAdjustmentWorking] = useState(false);
+  const [showAdjustmentForm, setShowAdjustmentForm] = useState(false);
+  const [parentInvoiceNumber, setParentInvoiceNumber] = useState('');
   const [linkedJobId, setLinkedJobId] = useState<string | null>(prefillJobId);
   const [paymentInput, setPaymentInput] = useState({
     amount: '',
@@ -335,12 +343,24 @@ export default function InvoiceDetailPage() {
       }
       const { data, error } = await supabase
         .from('invoices')
-        .select('id, company_id, created_by, invoice_number, job_ref, job_id, invoice_date, due_date, status, payment_status, client_name, client_address, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, amount, net_amount, vat_amount, vat_rate, currency, payment_terms, late_fee, pod_photos, signature, recipient_name, load_id, customer_ref, vehicle_type, vehicle_registration, ordered_at, delivered_at, left_at, no_of_items, delivery_notes, cargo_summary, issuer_name_snapshot, issuer_address_snapshot, issuer_company_number_snapshot, issuer_vat_number_snapshot, issuer_xd_id_snapshot, issuer_email_snapshot, issuer_phone_snapshot, customer_company_number_snapshot, customer_vat_number_snapshot, customer_xd_id_snapshot, bank_account_name_snapshot, bank_sort_code_snapshot, bank_account_number_snapshot, created_at, updated_at')
+        .select('id, company_id, created_by, invoice_number, job_ref, job_id, invoice_date, due_date, status, payment_status, client_name, client_address, client_email, pickup_location, pickup_datetime, delivery_location, delivery_datetime, delivery_recipient, service_description, amount, net_amount, vat_amount, vat_rate, currency, payment_terms, late_fee, pod_photos, signature, recipient_name, load_id, customer_ref, vehicle_type, vehicle_registration, ordered_at, delivered_at, left_at, no_of_items, delivery_notes, cargo_summary, issuer_name_snapshot, issuer_address_snapshot, issuer_company_number_snapshot, issuer_vat_number_snapshot, issuer_xd_id_snapshot, issuer_email_snapshot, issuer_phone_snapshot, customer_company_number_snapshot, customer_vat_number_snapshot, customer_xd_id_snapshot, bank_account_name_snapshot, bank_sort_code_snapshot, bank_account_number_snapshot, document_type, parent_invoice_id, adjustment_reason, created_at, updated_at')
         .eq('id', invoiceId)
         .eq('company_id', companyId)
         .single();
       if (!error && data) {
-        setFormData(dbToInvoiceData(data as unknown as Invoice));
+        const mapped = dbToInvoiceData(data as unknown as Invoice);
+        let parentNumber = '';
+        if (typeof data.parent_invoice_id === 'string' && data.parent_invoice_id) {
+          const { data: parentInvoice } = await supabase
+            .from('invoices')
+            .select('invoice_number')
+            .eq('id', data.parent_invoice_id)
+            .eq('company_id', companyId)
+            .maybeSingle();
+          parentNumber = String(parentInvoice?.invoice_number ?? '');
+        }
+        setParentInvoiceNumber(parentNumber);
+        setFormData({ ...mapped, parentInvoiceNumber: parentNumber || undefined });
         setLinkedJobId(typeof data.job_id === 'string' ? data.job_id : null);
         await loadInvoiceLedger(invoiceId, companyId);
         return;
@@ -526,7 +546,7 @@ export default function InvoiceDetailPage() {
     setSendingInvoice(false);
   };
 
-  const handleInvoiceLifecycle = async (action: 'void' | 'credit_note') => {
+  const handleInvoiceLifecycle = async (action: 'void') => {
     if (isNew || !invoiceId || lifecycleAction) return;
     setLifecycleAction(action);
     const { data: sessionData } = await supabase.auth.getSession();
@@ -556,8 +576,58 @@ export default function InvoiceDetailPage() {
     }
 
     await loadInvoice();
-    setSaveMessage(action === 'void' ? 'Invoice voided successfully.' : 'Credit note request opened successfully.');
+    setSaveMessage('Invoice voided successfully.');
     setLifecycleAction(null);
+  };
+
+  const handleCreateAdjustment = async () => {
+    if (isNew || !invoiceId || adjustmentWorking) return;
+    const amount = Number(adjustmentAmount);
+    const reason = adjustmentReason.trim();
+    if (!Number.isFinite(amount) || amount <= 0) {
+      setSaveMessage('Enter a valid adjustment amount greater than zero.');
+      return;
+    }
+    if (reason.length < 5) {
+      setSaveMessage('Enter a clear adjustment reason of at least 5 characters.');
+      return;
+    }
+
+    setAdjustmentWorking(true);
+    setSaveMessage('');
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData?.session?.access_token;
+    if (!token) {
+      setSaveMessage('A live Supabase session is required to create invoice adjustments safely.');
+      setAdjustmentWorking(false);
+      return;
+    }
+
+    const response = await fetch(`/api/admin/invoices/${invoiceId}/adjustments`, {
+      method: 'POST',
+      headers: {
+        Authorization: 'Bearer ' + token,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        documentType: adjustmentType,
+        amount,
+        reason,
+      }),
+    });
+
+    const payload = await response.json().catch(() => ({})) as { error?: string; invoice?: { id?: string; invoice_number?: string } };
+    if (!response.ok || !payload.invoice?.id) {
+      setSaveMessage(`Error creating adjustment: ${payload.error ?? 'Invoice adjustment could not be created.'}`);
+      setAdjustmentWorking(false);
+      return;
+    }
+
+    setShowAdjustmentForm(false);
+    setAdjustmentAmount('');
+    setAdjustmentReason('');
+    setAdjustmentWorking(false);
+    router.push(`/admin/invoices/${payload.invoice.id}`);
   };
 
   const handleWhatsAppShare = () => {
@@ -622,7 +692,7 @@ export default function InvoiceDetailPage() {
     marginBottom: '4px',
   };
   const totalPaid = paymentHistory.reduce((sum, item) => sum + Number(item.amount || 0), 0);
-  const outstandingBalance = Math.max(0, Number(formData.amount || 0) - totalPaid);
+  const outstandingBalance = formData.documentType === 'credit_note' ? 0 : Math.max(0, Number(formData.amount || 0) - totalPaid);
 
   return (
     <ProtectedRoute>
@@ -811,10 +881,10 @@ export default function InvoiceDetailPage() {
                       {lifecycleAction === 'void' ? '⏳ Voiding…' : '🛑 Void Invoice'}
                     </button>
                   )}
-                  {!isNew && formData.status !== 'Cancelled' && (
+                  {!isNew && !['Draft', 'Cancelled'].includes(formData.status) && formData.documentType !== 'credit_note' && (
                     <button
-                      onClick={() => void handleInvoiceLifecycle('credit_note')}
-                      disabled={lifecycleAction !== null}
+                      onClick={() => { setShowAdjustmentForm((value) => !value); setAdjustmentType(formData.documentType === 'supplementary' ? 'credit_note' : 'supplementary'); }}
+                      disabled={adjustmentWorking}
                       style={{
                         padding: '0.75rem 1.25rem',
                         backgroundColor: '#7c3aed',
@@ -823,11 +893,11 @@ export default function InvoiceDetailPage() {
                         borderRadius: '8px',
                         fontSize: '0.95rem',
                         fontWeight: '600',
-                        cursor: lifecycleAction ? 'not-allowed' : 'pointer',
-                        opacity: lifecycleAction ? 0.7 : 1,
+                        cursor: adjustmentWorking ? 'not-allowed' : 'pointer',
+                        opacity: adjustmentWorking ? 0.7 : 1,
                       }}
                     >
-                      {lifecycleAction === 'credit_note' ? '⏳ Opening…' : '🧾 Credit Note'}
+                      {showAdjustmentForm ? 'Close Adjustment' : 'Supplementary / Credit Note'}
                     </button>
                   )}
                   <button
@@ -849,6 +919,29 @@ export default function InvoiceDetailPage() {
                     📱 WhatsApp
                   </button>
                 </div>
+                {showAdjustmentForm && !isNew && formData.documentType !== 'credit_note' && (
+                  <div style={{ marginTop: '1rem', padding: '0.9rem', border: '1px solid #ddd6fe', borderRadius: '8px', background: '#faf5ff', display: 'grid', gap: '0.65rem' }}>
+                    <strong style={{ color: '#5b21b6' }}>Create invoice adjustment</strong>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: '0.6rem' }}>
+                      <label style={labelStyle}>Document type
+                        <select style={inputStyle} value={adjustmentType} onChange={(event) => setAdjustmentType(event.target.value as 'supplementary' | 'credit_note')}>
+                          {formData.documentType === 'invoice' ? <option value="supplementary">Supplementary invoice</option> : null}
+                          <option value="credit_note">Credit note</option>
+                        </select>
+                      </label>
+                      <label style={labelStyle}>Gross amount (£)
+                        <input style={inputStyle} type="number" min="0.01" step="0.01" value={adjustmentAmount} onChange={(event) => setAdjustmentAmount(event.target.value)} placeholder="0.00" />
+                      </label>
+                    </div>
+                    <label style={labelStyle}>Reason
+                      <textarea style={{ ...inputStyle, minHeight: '70px', paddingTop: '8px' }} maxLength={1000} value={adjustmentReason} onChange={(event) => setAdjustmentReason(event.target.value)} placeholder="Explain the additional charge or credit clearly." />
+                    </label>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ color: '#64748b', fontSize: '0.8rem' }}>This creates a separate {adjustmentType === 'credit_note' ? 'credit note' : 'supplementary invoice'} linked to {parentInvoiceNumber || formData.invoiceNumber}.</span>
+                      <button type="button" onClick={() => void handleCreateAdjustment()} disabled={adjustmentWorking || !adjustmentAmount || adjustmentReason.trim().length < 5} style={{ padding: '0.65rem 1rem', border: 0, borderRadius: '7px', background: '#6d28d9', color: '#fff', fontWeight: 700, cursor: adjustmentWorking ? 'not-allowed' : 'pointer', opacity: adjustmentWorking ? 0.65 : 1 }}>{adjustmentWorking ? 'Creating…' : `Create ${adjustmentType === 'credit_note' ? 'Credit Note' : 'Supplementary Invoice'}`}</button>
+                    </div>
+                  </div>
+                )}
                 {saveMessage && (
                   <div
                     style={{
