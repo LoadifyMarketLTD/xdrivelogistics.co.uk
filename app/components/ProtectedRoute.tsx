@@ -66,7 +66,7 @@ export default function ProtectedRoute({ children, allowedRoles }: ProtectedRout
     }
   }, [user, isLoading, hasSupabaseSession, refreshUserContext, router, pathname, routeAccessAllowed]);
 
-  if (isLoading || (!user && hasSupabaseSession)) {
+  if ((isLoading && !user) || (!user && hasSupabaseSession)) {
     return (
       <div
         style={{
