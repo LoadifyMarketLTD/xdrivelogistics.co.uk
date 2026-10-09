@@ -881,3 +881,49 @@
     max-height: calc(100vh - 104px);
   }
 }
+
+
+/* Canonical operational shell parity — Owner Driver is the visual/structural reference.
+ * Every operational role shares the same two-row shell; role capabilities only change
+ * which navigation/actions are present, never the shell geometry. */
+@media (min-width: 1280px) {
+  .xdrive-canonical-workspace .top-workspace-shell__header {
+    height: 50px !important;
+    min-height: 50px !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-nav--primary,
+  .xdrive-canonical-workspace .top-workspace-nav--primary .top-workspace-nav__track,
+  .xdrive-canonical-workspace .top-workspace-nav__item {
+    height: 50px !important;
+    min-height: 50px !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-nav--primary {
+    top: 50px !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-nav--primary .top-workspace-nav__track {
+    justify-content: center !important;
+    gap: 10px !important;
+    padding: 0 18px !important;
+    overflow-x: auto !important;
+    overflow-y: visible !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-nav__item {
+    padding: 0 9px !important;
+    font-size: 14px !important;
+    line-height: 20px !important;
+    font-weight: 600 !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-nav__item[data-active="true"],
+  .xdrive-canonical-workspace .top-workspace-nav__item.is-active {
+    font-weight: 700 !important;
+  }
+
+  .xdrive-canonical-workspace .top-workspace-shell__content {
+    min-height: calc(100dvh - 100px) !important;
+  }
+}

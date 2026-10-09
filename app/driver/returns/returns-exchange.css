@@ -380,3 +380,20 @@
     grid-template-columns:minmax(0,42%) minmax(0,36%) minmax(220px,22%)!important;
   }
 }
+
+
+/* Audit repair 2026-10-09: Return Journeys controls remain readable in the narrow filter rail. */
+.driver-returns-exchange .driver-returns-prototype .row2 {
+  grid-template-columns: minmax(0, 1fr) 84px !important;
+}
+.driver-returns-exchange .driver-returns-prototype .row2 > * {
+  min-width: 0;
+}
+.driver-returns-exchange .driver-returns-prototype .return-tabs {
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+.driver-returns-exchange .driver-returns-prototype .return-tabs > * {
+  flex: 0 0 auto;
+}

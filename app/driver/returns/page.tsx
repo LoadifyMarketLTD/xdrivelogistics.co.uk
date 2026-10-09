@@ -372,7 +372,6 @@ export default function ReturnJourneysPage() {
               <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>My Journeys</button>
               <button type="button" className={tab === 'add' ? 'active' : ''} onClick={() => setTab('add')}>Add Journey</button>
               <span className="spacer" />
-              {tab !== 'add' && <button type="button" className="text-action" onClick={toggleExpandAll} disabled={!journeys.length}>{allVisibleExpanded ? 'Collapse all' : 'Expand all'}</button>}
               {tab !== 'add' && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>{pageSizeOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>}
               {tab !== 'add' && <span>{total ? `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize,total)} of ${total}` : '0 results'}</span>}
               {tab !== 'add' && <button type="button" className="rowbtn" disabled={page <= 1} onClick={() => void loadJourneys(tab === 'mine' ? 'mine' : 'marketplace', page - 1, false)}>Previous</button>}
