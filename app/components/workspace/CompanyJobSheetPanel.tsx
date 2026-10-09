@@ -8,6 +8,7 @@ import WorkspaceJobReplay from './WorkspaceJobReplay';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
 import CommercialAmendmentControls from './CommercialAmendmentControls';
 import { JobSmartAlertsPanel } from './JobSmartAlertsPanel';
+import { JobOperationalExceptionsPanel } from './JobOperationalExceptionsPanel';
 
 type JobSheet = {
   jobId: string;
@@ -82,7 +83,7 @@ type JobSheet = {
   unavailable: { bodyType: string | null; bookingFooter: string | null; extras: string | null; amendments?: string | null; payments?: string | null; disputes?: string | null; documents?: string | null };
 };
 
-export type JobSheetTab = 'agreement' | 'route' | 'progress' | 'evidence' | 'pod' | 'invoice' | 'payment' | 'dispute' | 'event-log';
+export type JobSheetTab = 'agreement' | 'route' | 'progress' | 'exception' | 'evidence' | 'pod' | 'invoice' | 'payment' | 'dispute' | 'event-log';
 export type LegacyJobSheetTab = 'order' | 'notes' | 'history' | 'replay' | 'documents';
 type JobSheetTabInput = JobSheetTab | LegacyJobSheetTab;
 type SheetMode = 'broker' | 'customer' | 'carrier';
@@ -90,6 +91,7 @@ const TABS: Array<{ id: JobSheetTab; label: string }> = [
   { id: 'agreement', label: 'Agreement' },
   { id: 'route', label: 'Route' },
   { id: 'progress', label: 'Progress' },
+  { id: 'exception', label: 'Exceptions' },
   { id: 'evidence', label: 'Evidence' },
   { id: 'pod', label: 'POD' },
   { id: 'invoice', label: 'Invoice' },
@@ -503,6 +505,8 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
           {mode !== 'carrier' ? <JobSmartAlertsPanel jobId={jobId} /> : null}
         </div>
       )}
+
+      {tab === 'exception' && <JobOperationalExceptionsPanel jobId={jobId} companyId={sheet.viewerCompanyId} />}
 
       {tab === 'evidence' && (
         <div style={{ display: 'grid', gap: 8 }}>
