@@ -7,9 +7,10 @@ import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
+import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
 
 type QuoteDirection = 'outgoing' | 'incoming';
-type TabId = 'received' | 'archived' | 'submitted' | 'unsuccessful';
+type TabId = 'received' | 'shortlisted' | 'submitted' | 'accepted' | 'unsuccessful' | 'withdrawn' | 'expired' | 'archived';
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
 type DetailAccess = 'marketplace' | 'assigned' | 'own' | 'protected';
 
@@ -23,6 +24,10 @@ type BidRow = {
   currency: string;
   message: string | null;
   status: string;
+  viewed_at: string | null;
+  shortlisted_at: string | null;
+  poster_archived_at: string | null;
+  bidder_archived_at: string | null;
   created_at: string;
   direction: QuoteDirection;
 };
@@ -122,10 +127,19 @@ function withinWindow(value: string | null, window: TimeWindow) {
   return timestamp >= Date.now() && timestamp <= Date.now() + Number(window) * 60 * 60 * 1000;
 }
 function quoteBucket(bid: BidRow): TabId {
-  if (bid.direction === 'incoming') return bid.status === 'submitted' ? 'received' : 'archived';
-  if (bid.status === 'submitted') return 'submitted';
-  if (['rejected', 'withdrawn'].includes(bid.status)) return 'unsuccessful';
-  return 'archived';
+  const stage = canonicalQuoteStage(bid, bid.direction === 'incoming' ? 'poster' : 'bidder');
+  if (stage === 'archived') return 'archived';
+  if (bid.direction === 'incoming') {
+    if (stage === 'shortlisted') return 'shortlisted';
+    if (stage === 'accepted') return 'accepted';
+    if (stage === 'unsuccessful' || stage === 'withdrawn' || stage === 'expired') return 'unsuccessful';
+    return 'received';
+  }
+  if (stage === 'accepted') return 'accepted';
+  if (stage === 'withdrawn') return 'withdrawn';
+  if (stage === 'expired') return 'expired';
+  if (stage === 'unsuccessful') return 'unsuccessful';
+  return 'submitted';
 }
 function normaliseCompany(value: unknown): { name: string } | null {
   if (Array.isArray(value)) return (value[0] as { name?: string | null } | undefined)?.name ? { name: String((value[0] as { name: string }).name) } : null;
@@ -163,7 +177,7 @@ export default function MyQuotesPage() {
     setLoading(true);
     setError('');
 
-    const bidSelect = 'id, job_id, company_id, bidder_user_id, bid_price_gbp, amount, currency, message, status, created_at';
+    const bidSelect = 'id, job_id, company_id, bidder_user_id, bid_price_gbp, amount, currency, message, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at';
     const outgoingRes = await supabase
       .from('job_bids')
       .select(bidSelect)
@@ -333,6 +347,31 @@ export default function MyQuotesPage() {
     void fetchBids();
   };
 
+  const updateQuoteLifecycle = async (
+    bidId: string,
+    action: 'viewed' | 'shortlist' | 'unshortlist' | 'archive_poster' | 'unarchive_poster' | 'archive_bidder' | 'unarchive_bidder',
+  ) => {
+    if (!isSupabaseConfigured || !userId) return;
+    setError('');
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (sessionError || !token) {
+      setError('Your session has expired. Please sign in again.');
+      return;
+    }
+    const response = await fetch(`/api/workspace/bids/${encodeURIComponent(bidId)}/lifecycle`, {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    const payload = (await response.json().catch(() => ({}))) as { error?: string };
+    if (!response.ok) {
+      setError(payload.error ?? 'The quote lifecycle could not be updated.');
+      return;
+    }
+    void fetchBids();
+  };
+
   const filteredBids = useMemo(() => bids.filter((bid) => {
     const view = viewForBid(bid);
     if (!withinWindow(view.pickupDatetime, appliedFilters.pickupWithin)) return false;
@@ -346,7 +385,7 @@ export default function MyQuotesPage() {
   }), [appliedFilters, bids, companyNames, viewForBid]);
 
   const counts = useMemo(() => {
-    const next: Record<TabId, number> = { received: 0, archived: 0, submitted: 0, unsuccessful: 0 };
+    const next: Record<TabId, number> = { received: 0, shortlisted: 0, submitted: 0, accepted: 0, unsuccessful: 0, withdrawn: 0, expired: 0, archived: 0 };
     filteredBids.forEach((bid) => { next[quoteBucket(bid)] += 1; });
     return next;
   }, [filteredBids]);
@@ -399,8 +438,12 @@ export default function MyQuotesPage() {
             </div>
             <div className="quote-tabs">
               <button type="button" className={activeTab === 'received' ? 'active' : ''} onClick={() => setActiveTab('received')}>Received <span>{counts.received}</span></button>
+              <button type="button" className={activeTab === 'shortlisted' ? 'active' : ''} onClick={() => setActiveTab('shortlisted')}>Shortlisted <span>{counts.shortlisted}</span></button>
               <button type="button" className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted <span>{counts.submitted}</span></button>
+              <button type="button" className={activeTab === 'accepted' ? 'active' : ''} onClick={() => setActiveTab('accepted')}>Accepted / Won <span>{counts.accepted}</span></button>
               <button type="button" className={activeTab === 'unsuccessful' ? 'active' : ''} onClick={() => setActiveTab('unsuccessful')}>Unsuccessful <span>{counts.unsuccessful}</span></button>
+              <button type="button" className={activeTab === 'withdrawn' ? 'active' : ''} onClick={() => setActiveTab('withdrawn')}>Withdrawn <span>{counts.withdrawn}</span></button>
+              <button type="button" className={activeTab === 'expired' ? 'active' : ''} onClick={() => setActiveTab('expired')}>Expired <span>{counts.expired}</span></button>
               <button type="button" className={activeTab === 'archived' ? 'active' : ''} onClick={() => setActiveTab('archived')}>Archived <span>{counts.archived}</span></button>
             </div>
             {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {activeTab} quotes found.</span></div> : (
@@ -413,11 +456,12 @@ export default function MyQuotesPage() {
                   const counterpartName = bid.direction === 'incoming' ? incomingCompanyName : view.postingCompanyName;
                   const counterpartCompanyId = bid.direction === 'incoming' ? bid.company_id : view.postingCompanyId;
                   const fullExecutionAccess = view.access === 'assigned' || view.access === 'own';
+                  const quoteStage = canonicalQuoteStage(bid, bid.direction === 'incoming' ? 'poster' : 'bidder');
                   return <article key={bid.id} className={`quote-entry quote-sheet${expanded ? ' open' : ''}`}>
                     <div className="quote-sheet-main">
                       <section className="quote-route"><div><span>From:</span><b>{view.pickup}</b></div><div><span>To:</span><b>{view.delivery}</b></div></section>
                       <section className="quote-times"><div><span>Pickup:</span><b>{fmtDate(view.pickupDatetime)}</b></div><div><span>Deliver:</span><b>{fmtDate(view.deliveryDatetime)}</b></div></section>
-                      <section className="quote-commercial"><div className={'quote-status-band ' + (bid.status === 'accepted' ? 'green' : bid.status === 'rejected' ? 'red' : 'amber')}>{bid.status.charAt(0).toUpperCase() + bid.status.slice(1)}</div><div className="quote-price-line"><span>{bid.direction === 'incoming' ? 'Quote' : 'Your Quote'}</span><b>{money(bidPrice, bid.currency || 'GBP')}</b></div><span className="meta">Submitted: {fmtDate(bid.created_at)}</span><span className="quote-vehicle">{view.vehicle?.replace(/_/g,' ') ?? 'Vehicle not supplied'}</span></section>
+                      <section className="quote-commercial"><div className={'quote-status-band ' + (quoteStage === 'accepted' ? 'green' : ['unsuccessful','withdrawn','expired'].includes(quoteStage) ? 'red' : 'amber')}>{quoteStageLabel(quoteStage)}</div><div className="quote-price-line"><span>{bid.direction === 'incoming' ? 'Quote' : 'Your Quote'}</span><b>{money(bidPrice, bid.currency || 'GBP')}</b></div><span className="meta">Submitted: {fmtDate(bid.created_at)}</span><span className="quote-vehicle">{view.vehicle?.replace(/_/g,' ') ?? 'Vehicle not supplied'}</span></section>
                     </div>
                     <div className={'quote-entry-extra ' + (expanded ? '' : 'hidden')}>
                       <section><b>Load</b><span>To Collection: {view.distanceToPickupMiles != null ? `${view.distanceToPickupMiles.toFixed(1)} mi` : 'Not available'}</span><span>Job Distance: {view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} mi` : 'Not available'}</span><span>Requested: {view.vehicle?.replace(/_/g,' ') ?? 'Not supplied'}</span></section>
@@ -426,10 +470,14 @@ export default function MyQuotesPage() {
                       <section className="quote-note"><b>Quote Notes</b><span>{bid.message ?? 'No quote message supplied.'}</span>{!fullExecutionAccess && <small>Execution details remain protected until authorised allocation.</small>}</section>
                     </div>
                     <div className="quote-sheet-footer">
-                      <button type="button" className="quote-expand" onClick={() => setExpandedIds((previous) => { const next = new Set(previous); if(next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })}>{expanded ? '⌃' : '⌄'}</button>
+                      <button type="button" className="quote-expand" onClick={() => { const opening = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if(next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; }); if (opening && bid.direction === 'incoming' && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }}>{expanded ? '⌃' : '⌄'}</button>
                       <button type="button" className="quote-primary-action" onClick={() => view.access === 'assigned' ? router.push(`/driver/jobs/${bid.job_id}`) : router.push(`/driver/loads/${bid.job_id}`)}>View Quote</button>
                       <span className="quote-id">{bid.job_id.slice(0,8).toUpperCase()}</span><span className="quote-spacer" />
+                      {bid.direction === 'incoming' && quoteStage === 'shortlisted' && <button type="button" className="text-action" onClick={() => void updateQuoteLifecycle(bid.id, 'unshortlist')}>Remove shortlist</button>}
+                      {bid.direction === 'incoming' && ['submitted','viewed'].includes(quoteStage) && <button type="button" className="text-action" onClick={() => void updateQuoteLifecycle(bid.id, 'shortlist')}>Shortlist</button>}
                       {bid.direction === 'outgoing' && bid.status === 'submitted' && <button type="button" className="text-action" onClick={() => void handleWithdrawBid(bid.id)}>Withdraw</button>}
+                      {quoteStage !== 'archived' && ['accepted','unsuccessful','withdrawn','expired'].includes(quoteStage) && <button type="button" className="text-action" onClick={() => void updateQuoteLifecycle(bid.id, bid.direction === 'incoming' ? 'archive_poster' : 'archive_bidder')}>Archive</button>}
+                      {quoteStage === 'archived' && <button type="button" className="text-action" onClick={() => void updateQuoteLifecycle(bid.id, bid.direction === 'incoming' ? 'unarchive_poster' : 'unarchive_bidder')}>Restore</button>}
                       <span className="quote-member-identity">{counterpartName}</span>
                     </div>
                   </article>;

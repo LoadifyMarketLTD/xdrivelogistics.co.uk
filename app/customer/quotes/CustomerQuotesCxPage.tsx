@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
 import { BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT } from '../../../lib/legal/paymentObligation';
+import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceBid, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import {
@@ -206,7 +207,7 @@ export default function CustomerQuotesCxPage() {
   const [message, setMessage] = useState('');
   const [identityError, setIdentityError] = useState('');
   const [identities, setIdentities] = useState<Map<string, BidderIdentity>>(new Map());
-  const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'pending_acceptance' | 'accepted' | 'rejected'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'shortlisted' | 'pending_acceptance' | 'accepted' | 'unsuccessful' | 'archived'>('all');
   const [reference, setReference] = useState('');
   const [carrierSearch, setCarrierSearch] = useState('');
   const [candidate, setCandidate] = useState<QuoteParticipant | null>(null);
@@ -259,7 +260,7 @@ export default function CustomerQuotesCxPage() {
     return () => document.removeEventListener('keydown', keydown);
   }, [candidate, messageCandidate, messageWorking, working]);
 
-  const allQuotes = useMemo(() => data.bids.filter((bid) => ['submitted', 'accepted', 'rejected'].includes(bid.status)), [data.bids]);
+  const allQuotes = useMemo(() => data.bids.filter((bid) => ['submitted', 'accepted', 'rejected', 'declined', 'unsuccessful', 'withdrawn'].includes(String(bid.status).toLowerCase())), [data.bids]);
   const pendingOfferByJob = useMemo(() => new Map(bookingOffers.filter((offer) => offer.status === 'pending').map((offer) => [offer.job_id, offer])), [bookingOffers]);
   const pendingOfferByBid = useMemo(() => new Map(bookingOffers.filter((offer) => offer.status === 'pending').map((offer) => [offer.bid_id, offer])), [bookingOffers]);
   const grouped = useMemo(() => {
@@ -273,8 +274,11 @@ export default function CustomerQuotesCxPage() {
           if (statusFilter === 'all') return true;
           const pendingOffer = pendingOfferByJob.get(job.id);
           if (statusFilter === 'pending_acceptance') return pendingOffer?.bid_id === bid.id;
-          if (statusFilter === 'submitted') return bid.status === 'submitted' && !pendingOffer;
-          return bid.status === statusFilter;
+          const stage = canonicalQuoteStage(bid, 'poster');
+          if (statusFilter === 'submitted') return ['submitted', 'viewed'].includes(stage) && !pendingOffer;
+          if (statusFilter === 'shortlisted') return stage === 'shortlisted' && !pendingOffer;
+          if (statusFilter === 'unsuccessful') return ['unsuccessful', 'withdrawn', 'expired'].includes(stage);
+          return stage === statusFilter;
         })
         .filter((bid) => {
           if (!carrierNeedle) return true;
@@ -309,6 +313,34 @@ export default function CustomerQuotesCxPage() {
     await data.refresh();
   };
 
+  const updateQuoteLifecycle = async (
+    id: string,
+    action: 'viewed' | 'shortlist' | 'unshortlist' | 'archive_poster' | 'unarchive_poster',
+  ) => {
+    setWorking(id);
+    setMessage('');
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+    if (!token) {
+      setWorking(null);
+      setMessage('Your session has expired. Sign in again.');
+      return;
+    }
+    const response = await fetch(`/api/workspace/bids/${encodeURIComponent(id)}/lifecycle`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string; auditWarning?: string | null };
+    setWorking(null);
+    if (!response.ok) {
+      setMessage(payload.error ?? 'Quote lifecycle could not be updated.');
+      return;
+    }
+    setMessage(payload.auditWarning || 'Quote lifecycle updated successfully.');
+    await data.refresh();
+  };
+
   const sendBidMessage = async () => {
     if (!messageCandidate || !messageBody.trim() || messageWorking) return;
     setMessageWorking(true);
@@ -334,10 +366,12 @@ export default function CustomerQuotesCxPage() {
 
   const counts = {
     all: allQuotes.length,
-    submitted: allQuotes.filter((bid) => bid.status === 'submitted' && !pendingOfferByJob.has(bid.job_id)).length,
+    submitted: allQuotes.filter((bid) => ['submitted', 'viewed'].includes(canonicalQuoteStage(bid, 'poster')) && !pendingOfferByJob.has(bid.job_id)).length,
+    shortlisted: allQuotes.filter((bid) => canonicalQuoteStage(bid, 'poster') === 'shortlisted' && !pendingOfferByJob.has(bid.job_id)).length,
     pending_acceptance: allQuotes.filter((bid) => pendingOfferByBid.has(bid.id)).length,
-    accepted: allQuotes.filter((bid) => bid.status === 'accepted').length,
-    rejected: allQuotes.filter((bid) => bid.status === 'rejected').length,
+    accepted: allQuotes.filter((bid) => canonicalQuoteStage(bid, 'poster') === 'accepted').length,
+    unsuccessful: allQuotes.filter((bid) => ['unsuccessful', 'withdrawn', 'expired'].includes(canonicalQuoteStage(bid, 'poster'))).length,
+    archived: allQuotes.filter((bid) => canonicalQuoteStage(bid, 'poster') === 'archived').length,
   };
 
   return (
@@ -353,15 +387,16 @@ export default function CustomerQuotesCxPage() {
       {identityError && <AlertBanner tone="warning">{identityError}</AlertBanner>}
       {bookingOfferError && <AlertBanner tone="warning">{bookingOfferError}</AlertBanner>}
       <div className="workspace-board-layout">
-        <aside className="workspace-filter-rail" aria-label="Customer quote filters"><div className="workspace-filter-rail__header">Search Quotes</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive or customer reference" /></label><label>CARRIER / MEMBER<input value={carrierSearch} onChange={(event) => setCarrierSearch(event.target.value)} placeholder="Company, owner driver or member ID" /></label><label>STATUS<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All quote activity</option><option value="submitted">Awaiting decision</option><option value="pending_acceptance">Awaiting carrier acceptance</option><option value="accepted">Accepted</option><option value="rejected">Rejected</option></select></label><ActionButton tone="secondary" onClick={() => { setReference(''); setCarrierSearch(''); setStatusFilter('all'); }}>Clear</ActionButton></div></aside>
+        <aside className="workspace-filter-rail" aria-label="Customer quote filters"><div className="workspace-filter-rail__header">Search Quotes</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive or customer reference" /></label><label>CARRIER / MEMBER<input value={carrierSearch} onChange={(event) => setCarrierSearch(event.target.value)} placeholder="Company, owner driver or member ID" /></label><label>STATUS<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All quote activity</option><option value="submitted">Awaiting decision</option><option value="shortlisted">Shortlisted</option><option value="pending_acceptance">Awaiting carrier acceptance</option><option value="accepted">Accepted</option><option value="unsuccessful">Unsuccessful</option><option value="archived">Archived</option></select></label><ActionButton tone="secondary" onClick={() => { setReference(''); setCarrierSearch(''); setStatusFilter('all'); }}>Clear</ActionButton></div></aside>
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{(['all', 'submitted', 'pending_acceptance', 'accepted', 'rejected'] as const).map((status) => <button key={status} type="button" data-active={statusFilter === status ? 'true' : 'false'} onClick={() => setStatusFilter(status)}>{status === 'all' ? 'All' : status === 'submitted' ? 'Awaiting Decision' : status === 'pending_acceptance' ? 'Awaiting Carrier' : status[0].toUpperCase() + status.slice(1)} {counts[status]}</button>)}</div>
+          <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{(['all', 'submitted', 'shortlisted', 'pending_acceptance', 'accepted', 'unsuccessful', 'archived'] as const).map((status) => <button key={status} type="button" data-active={statusFilter === status ? 'true' : 'false'} onClick={() => setStatusFilter(status)}>{status === 'all' ? 'All' : status === 'submitted' ? 'Awaiting Decision' : status === 'pending_acceptance' ? 'Awaiting Carrier' : status === 'shortlisted' ? 'Shortlisted' : status === 'unsuccessful' ? 'Unsuccessful' : status[0].toUpperCase() + status.slice(1)} {counts[status]}</button>)}</div>
           <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{grouped.length}</strong> load{grouped.length === 1 ? '' : 's'} with matching quotes</span><span>Lowest visible price shown first per load · one booking offer may await carrier acceptance at a time</span></div>
           {grouped.length === 0 ? <div className="workspace-panel"><EmptyState title={data.loading ? 'Loading quotes…' : 'No quotes in this view'} description="Carrier responses appear here after a load is published." /></div> : grouped.map(({ job, quotes }) => <section key={job.id} className="workspace-panel" style={{ marginBottom: 8 }}><div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{routeLabel(job)}</strong> · Pickup {when(job.pickup_datetime)} · XDrive XDL-{job.id.slice(0, 8).toUpperCase()}</span><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open load</ActionButton></div><DataTable columns={['Carrier', 'Price', 'Position', 'Message', 'Submitted', 'Status', 'Decision']} rows={quotes.map((bid, index) => {
             const identity = identities.get(bid.id);
             const isOwnerDriverBid = !bid.company_id && Boolean(identity?.driverId);
             const displayName = isOwnerDriverBid ? (identity?.personName || identity?.displayName || 'Owner Driver') : (identity?.companyName || bid.companies?.name || identity?.displayName || 'Carrier');
             const participant: QuoteParticipant = { bid, job, identity, displayName, isOwnerDriverBid };
+            const quoteStage = canonicalQuoteStage(bid, 'poster');
             const pendingOffer = pendingOfferByJob.get(job.id);
             const isPendingSelectedBid = pendingOffer?.bid_id === bid.id;
             const awardLocked = Boolean(pendingOffer);
@@ -372,13 +407,17 @@ export default function CustomerQuotesCxPage() {
               index === 0 ? <StatusBadge key="position" value="Best price" tone="green" /> : `#${index + 1}`,
               bid.message ?? 'No message',
               when(bid.created_at),
-              isPendingSelectedBid ? <StatusBadge key="status" value="Awaiting Carrier Acceptance" tone="orange" /> : <StatusBadge key="status" value={bid.status} />,
-              messagingAvailable ? <span key="actions" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+              isPendingSelectedBid ? <StatusBadge key="status" value="Awaiting Carrier Acceptance" tone="orange" /> : <StatusBadge key="status" value={quoteStageLabel(quoteStage)} />,
+              <span key="actions" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
                 {bid.status === 'submitted' && !awardLocked ? <ActionButton tone="success" disabled={working === bid.id} onClick={() => setCandidate(participant)}>Review & Send Offer</ActionButton> : null}
                 {isPendingSelectedBid ? <StatusBadge value="Offer sent · awaiting carrier" tone="orange" /> : null}
-                <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => { setMessageCandidate(participant); setMessageBody(''); setMessageError(''); }}>Message</ActionButton>
+                {messagingAvailable ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => { setMessageCandidate(participant); setMessageBody(''); setMessageError(''); }}>Message</ActionButton> : null}
+                {quoteStage === 'shortlisted' && !awardLocked ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unshortlist')}>Remove shortlist</ActionButton> : null}
+                {['submitted', 'viewed'].includes(quoteStage) && !awardLocked ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'shortlist')}>Shortlist</ActionButton> : null}
                 {bid.status === 'submitted' && !awardLocked ? <ActionButton tone="danger" disabled={working === bid.id} onClick={() => void reject(bid.id)}>Reject</ActionButton> : null}
-              </span> : '—',
+                {quoteStage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(quoteStage) ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'archive_poster')}>Archive</ActionButton> : null}
+                {quoteStage === 'archived' ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unarchive_poster')}>Restore</ActionButton> : null}
+              </span>,
             ];
           })} /></section>)}
         </main>

@@ -57,6 +57,10 @@ export type WorkspaceBid = {
   currency?: string | null;
   bidder_driver_id?: string | null;
   bidder_user_id?: string | null;
+  viewed_at?: string | null;
+  shortlisted_at?: string | null;
+  poster_archived_at?: string | null;
+  bidder_archived_at?: string | null;
   created_at: string;
   message?: string | null;
   companies?: { name?: string | null } | null;
@@ -730,7 +734,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
           }
           const bidsRes = await supabase
             .from('job_bids')
-            .select('id, job_id, company_id, status, amount, bid_price_gbp, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
+            .select('id, job_id, company_id, status, amount, bid_price_gbp, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
             .in('job_id', jobIds)
             .order('created_at', { ascending: false })
             .limit(1000);
@@ -750,7 +754,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
           }
           const ownBidsRes = await supabase
             .from('job_bids')
-            .select('id, job_id, company_id, status, amount, bid_price_gbp, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
+            .select('id, job_id, company_id, status, amount, bid_price_gbp, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
             .eq('bidder_user_id', userId)
             .order('created_at', { ascending: false })
             .limit(500);
@@ -777,7 +781,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
           }
           const acceptedFleetBidsRes = await supabase
             .from('job_bids')
-            .select('id, job_id, company_id, status, amount, bid_price_gbp, currency, bidder_driver_id, bidder_user_id, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
+            .select('id, job_id, company_id, status, amount, bid_price_gbp, currency, bidder_driver_id, bidder_user_id, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
             .eq('company_id', companyId)
             .eq('status', 'accepted')
             .in('job_id', wonJobIds)
@@ -795,7 +799,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         default: {
           const ownBidsRes = await supabase
             .from('job_bids')
-            .select('id, job_id, company_id, status, amount, bid_price_gbp, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
+            .select('id, job_id, company_id, status, amount, bid_price_gbp, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
             .eq('company_id', companyId)
             .order('created_at', { ascending: false })
             .limit(500);
@@ -805,7 +809,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
             : jobIds.length > 0
               ? await supabase
                 .from('job_bids')
-                .select('id, job_id, company_id, status, amount, bid_price_gbp, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
+                .select('id, job_id, company_id, status, amount, bid_price_gbp, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at, message, companies:companies!job_bids_company_id_fkey(name)')
                 .in('job_id', jobIds)
                 .order('created_at', { ascending: false })
                 .limit(1000)

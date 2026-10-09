@@ -10,6 +10,7 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { supabase } from '../../../lib/supabaseClient';
 import { marketplaceVehicleSizeOptions, marketplaceVehicleSizeRank } from '../../../lib/vehicleSizeRange';
 import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
+import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
 import { OperationalExpandAllControl } from './OperationalExpandAllControl';
 import {
@@ -34,13 +35,13 @@ type LoadRow = {
 };
 
 type BidJob = { id?: string; pickup_location?: string | null; pickup_postcode?: string | null; delivery_location?: string | null; delivery_postcode?: string | null; pickup_datetime?: string | null; delivery_datetime?: string | null; vehicle_type?: string | null; requested_vehicle_label?: string | null; status?: string | null; current_status?: string | null; budget_amount?: number | string | null; currency?: string | null; posterName?: string; posterMemberCode?: string | null; };
-type BidRow = { id: string; job_id: string; company_id: string | null; amount: number | string | null; bid_price_gbp: number | string | null; currency: string | null; message: string | null; status: string; created_at: string; job?: BidJob | null; };
+type BidRow = { id: string; job_id: string; company_id: string | null; amount: number | string | null; bid_price_gbp: number | string | null; currency: string | null; message: string | null; status: string; viewed_at?: string | null; shortlisted_at?: string | null; poster_archived_at?: string | null; bidder_archived_at?: string | null; created_at: string; job?: BidJob | null; };
 type WonRow = { id: string; pickup_location?: string | null; pickup_postcode?: string | null; delivery_location?: string | null; delivery_postcode?: string | null; pickup_datetime?: string | null; delivery_datetime?: string | null; vehicle_type?: string | null; requested_vehicle_label?: string | null; status?: string | null; current_status?: string | null; budget_amount?: number | string | null; currency?: string | null; posterName?: string; posterMemberCode?: string | null; };
 type SearchResponse = { rows?: LoadRow[]; total?: number; page?: number; pageSize?: number; totalPages?: number; radiusSearch?: { fromResolved?: boolean; toResolved?: boolean; fromRadius?: number; toRadius?: number; }; generatedAt?: string; error?: string; referenceId?: string; };
 type ListResponse<T> = { rows?: T[]; total?: number; generatedAt?: string; error?: string; referenceId?: string; };
 type Filters = { from: string; fromRadius: string; to: string; toRadius: string; vehicle: string; minVehicle: string; maxVehicle: string; body: string; freight: string; member: string; description: string; loadType: string; postedWithinHours: string; dateFrom: string; dateTo: string; minBudget: string; maxBudget: string; pageSize: string; };
 type RecentSearch = { id: string; label: string; filters: Filters; createdAt: string; };
-type QuoteStateView = 'all' | 'submitted' | 'accepted' | 'unsuccessful' | 'archived';
+type QuoteStateView = 'all' | 'submitted' | 'accepted' | 'unsuccessful' | 'withdrawn' | 'expired' | 'archived';
 type QuoteTimeWindow = 'any' | '2' | '4' | '8' | '24';
 type QuoteFilters = { pickupWithin: QuoteTimeWindow; deliveryWithin: QuoteTimeWindow; loadRef: string; bookedBy: string };
 
@@ -73,6 +74,7 @@ const withinQuoteWindow = (value: string | null | undefined, window: QuoteTimeWi
 const vehicleLabel = (row: Pick<LoadRow, 'requested_vehicle_label' | 'requested_vehicle_type' | 'vehicle_type'>) => row.requested_vehicle_label || row.requested_vehicle_type?.replace(/_/g, ' ') || row.vehicle_type?.replace(/_/g, ' ') || 'Vehicle not specified';
 const routeLabel = (location: string | null | undefined, postcode: string | null | undefined) => postcode || location || 'Not set';
 const bidAmount = (bid: Pick<BidRow, 'bid_price_gbp' | 'amount'>) => { const preferred = Number(bid.bid_price_gbp); if (Number.isFinite(preferred)) return preferred; const legacy = Number(bid.amount); return Number.isFinite(legacy) ? legacy : null; };
+const bidStage = (bid: BidRow) => canonicalQuoteStage(bid, 'bidder', { jobExpired: ['expired', 'cancelled'].includes(String(bid.job?.current_status ?? bid.job?.status ?? '').toLowerCase()) });
 const loadTypeLabel = (value: string) => LOAD_TYPES.find(([id]) => id === value)?.[1] ?? value.replace(/_/g, ' ');
 const descriptionLabel = (value: string) => DESCRIPTION_OPTIONS.find(([id]) => id === value)?.[1] ?? value.replace(/_/g, ' ');
 function friendlyError(payload: { error?: string; referenceId?: string }, fallback: string) { const message = payload.error || fallback; return payload.referenceId ? `${message} Reference: ${payload.referenceId}` : message; }
@@ -174,13 +176,55 @@ export default function CompanyMarketplaceExchange({
     catch { setError('The quote could not be withdrawn. Check your connection and retry.'); } finally { setWorking(false); }
   };
 
-  const statusCounts = useMemo(() => ({ submitted: bids.filter((bid) => bid.status === 'submitted').length, accepted: bids.filter((bid) => bid.status === 'accepted').length, unsuccessful: bids.filter((bid) => ['rejected', 'unsuccessful'].includes(bid.status)).length, withdrawn: bids.filter((bid) => bid.status === 'withdrawn').length }), [bids]);
+  const updateQuoteLifecycle = async (
+    bidId: string,
+    action: 'archive_bidder' | 'unarchive_bidder',
+  ) => {
+    setWorking(true);
+    setError('');
+    const token = await getToken();
+    if (!token) {
+      setWorking(false);
+      setError('Your session has expired. Sign in again.');
+      return;
+    }
+    try {
+      const response = await fetch(`/api/workspace/bids/${encodeURIComponent(bidId)}/lifecycle`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action }),
+      });
+      const payload = await response.json().catch(() => ({})) as { error?: string; auditWarning?: string | null };
+      if (!response.ok) {
+        setError(payload.error || 'Quote lifecycle could not be updated.');
+        return;
+      }
+      setNotice(payload.auditWarning || 'Quote lifecycle updated successfully.');
+      await loadListTab('bids');
+    } catch {
+      setError('Quote lifecycle could not be updated. Check your connection and retry.');
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const statusCounts = useMemo(() => ({
+    submitted: bids.filter((bid) => ['submitted', 'viewed', 'shortlisted'].includes(bidStage(bid))).length,
+    accepted: bids.filter((bid) => bidStage(bid) === 'accepted').length,
+    unsuccessful: bids.filter((bid) => bidStage(bid) === 'unsuccessful').length,
+    withdrawn: bids.filter((bid) => bidStage(bid) === 'withdrawn').length,
+    expired: bids.filter((bid) => bidStage(bid) === 'expired').length,
+    archived: bids.filter((bid) => bidStage(bid) === 'archived').length,
+  }), [bids]);
   const visibleBids = useMemo(() => bids.filter((bid) => {
+    const stage = bidStage(bid);
     const stateMatch = quoteStateView === 'all'
-      || (quoteStateView === 'submitted' && bid.status === 'submitted')
-      || (quoteStateView === 'accepted' && bid.status === 'accepted')
-      || (quoteStateView === 'unsuccessful' && ['rejected', 'unsuccessful'].includes(bid.status))
-      || (quoteStateView === 'archived' && bid.status === 'withdrawn');
+      || (quoteStateView === 'submitted' && ['submitted', 'viewed', 'shortlisted'].includes(stage))
+      || (quoteStateView === 'accepted' && stage === 'accepted')
+      || (quoteStateView === 'unsuccessful' && stage === 'unsuccessful')
+      || (quoteStateView === 'withdrawn' && stage === 'withdrawn')
+      || (quoteStateView === 'expired' && stage === 'expired')
+      || (quoteStateView === 'archived' && stage === 'archived');
     if (!stateMatch) return false;
     if (!withinQuoteWindow(bid.job?.pickup_datetime, appliedQuoteFilters.pickupWithin)) return false;
     if (!withinQuoteWindow(bid.job?.delivery_datetime, appliedQuoteFilters.deliveryWithin)) return false;
@@ -318,19 +362,22 @@ export default function CompanyMarketplaceExchange({
             ['submitted', 'Submitted', statusCounts.submitted],
             ['accepted', 'Accepted / Won', statusCounts.accepted],
             ['unsuccessful', 'Unsuccessful', statusCounts.unsuccessful],
-            ['archived', 'Archived', statusCounts.withdrawn],
+            ['withdrawn', 'Withdrawn', statusCounts.withdrawn],
+            ['expired', 'Expired', statusCounts.expired],
+            ['archived', 'Archived', statusCounts.archived],
           ] as const).map(([id, label, count]) => <button key={id} type="button" onClick={() => setQuoteStateView(id)} style={{ height: 38, border: 0, borderBottom: quoteStateView === id ? '2px solid #1d57d8' : '2px solid transparent', background: 'transparent', color: quoteStateView === id ? '#1d57d8' : '#64748b', fontSize: 11.5, lineHeight: '14px', fontWeight: quoteStateView === id ? 800 : 650, padding: '0 10px', whiteSpace: 'nowrap', cursor: 'pointer' }}>{label} {count}</button>)}<span style={{ marginLeft: 'auto' }}><OperationalExpandAllControl expanded={allVisibleQuotesExpanded} disabled={!visibleBids.length} onToggle={toggleAllVisibleQuotes} noun="quotes" /></span></div>
           <div style={{ display: 'grid', gap: 6 }}>
             {visibleBids.map((bid) => {
               const expandedQuote = expandedQuotes.has(bid.id);
+              const stage = bidStage(bid);
               return <article key={bid.id} style={{ border: '1px solid #cbd5e1', borderLeft: '3px solid #1d57d8', borderRadius: 4, background: '#fff', overflow: 'hidden' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
                   <section style={{ flex: '1.2 1 260px', padding: '9px 10px', borderRight: '1px solid #edf2f7' }}><strong style={{ fontSize: 13 }}>{routeLabel(bid.job?.pickup_location, bid.job?.pickup_postcode)} <span style={{ color: '#64748b' }}>→</span> {routeLabel(bid.job?.delivery_location, bid.job?.delivery_postcode)}</strong><div style={{ color: '#64748b', fontSize: 11, marginTop: 3 }}>Load {bid.job_id.slice(0, 8).toUpperCase()} · Quote {bid.id.slice(0, 8).toUpperCase()}</div></section>
                   <section style={{ flex: '1 1 220px', padding: '9px 10px', borderRight: '1px solid #edf2f7', fontSize: 11 }}><div><strong>{bid.job?.posterName || 'Marketplace member'}</strong>{bid.job?.posterMemberCode ? <span style={{ color: '#64748b' }}> · ID {bid.job.posterMemberCode}</span> : null}</div><div style={{ marginTop: 3, color: '#64748b' }}>Pickup {when(bid.job?.pickup_datetime)} · Delivery {when(bid.job?.delivery_datetime)}</div></section>
-                  <section style={{ flex: '.65 1 170px', padding: '9px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}><strong style={{ fontSize: 14 }}>{money(bidAmount(bid), bid.currency || 'GBP')}</strong><StatusBadge value={bid.status} /></section>
+                  <section style={{ flex: '.65 1 170px', padding: '9px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}><strong style={{ fontSize: 14 }}>{money(bidAmount(bid), bid.currency || 'GBP')}</strong><StatusBadge value={quoteStageLabel(stage)} /></section>
                 </div>
                 {expandedQuote && <div style={{ background: '#f8fafc', borderTop: '1px solid #dbe2ea', padding: '8px 10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8, fontSize: 11 }}><div><strong>Submitted</strong><div>{when(bid.created_at)}</div></div><div><strong>Vehicle</strong><div>{bid.job?.requested_vehicle_label || bid.job?.vehicle_type?.replace(/_/g, ' ') || 'Not supplied'}</div></div><div><strong>Marketplace budget</strong><div>{money(bid.job?.budget_amount, bid.job?.currency || 'GBP')}</div></div><div><strong>Commercial note</strong><div>{bid.message || 'No quote message'}</div></div></div>}
-                <div style={{ minHeight: 34, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderTop: '1px solid #edf2f7', background: '#fbfdff' }}><button type="button" onClick={() => setExpandedQuotes((current) => { const next = new Set(current); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })} aria-label={expandedQuote ? 'Collapse quote' : 'Expand quote'} style={{ width: 28, height: 26, border: '1px solid #cbd5e1', borderRadius: 3, background: '#fff', cursor: 'pointer', fontWeight: 900 }}>{expandedQuote ? '▴' : '▾'}</button><span style={{ color: '#64748b', fontSize: 11 }}>Updated {when(bid.created_at)}</span><span style={{ marginLeft: 'auto' }} />{bid.status === 'submitted' ? <ActionButton tone="secondary" disabled={working} onClick={() => void withdrawQuote(bid.id)}>Withdraw</ActionButton> : null}</div>
+                <div style={{ minHeight: 34, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderTop: '1px solid #edf2f7', background: '#fbfdff' }}><button type="button" onClick={() => setExpandedQuotes((current) => { const next = new Set(current); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })} aria-label={expandedQuote ? 'Collapse quote' : 'Expand quote'} style={{ width: 28, height: 26, border: '1px solid #cbd5e1', borderRadius: 3, background: '#fff', cursor: 'pointer', fontWeight: 900 }}>{expandedQuote ? '▴' : '▾'}</button><span style={{ color: '#64748b', fontSize: 11 }}>Updated {when(bid.created_at)}</span><span style={{ marginLeft: 'auto' }} />{bid.status === 'submitted' && stage !== 'archived' ? <ActionButton tone="secondary" disabled={working} onClick={() => void withdrawQuote(bid.id)}>Withdraw</ActionButton> : null}{stage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(stage) ? <ActionButton tone="secondary" disabled={working} onClick={() => void updateQuoteLifecycle(bid.id, 'archive_bidder')}>Archive</ActionButton> : null}{stage === 'archived' ? <ActionButton tone="secondary" disabled={working} onClick={() => void updateQuoteLifecycle(bid.id, 'unarchive_bidder')}>Restore</ActionButton> : null}</div>
               </article>;
             })}
             {!loading && visibleBids.length === 0 && <div className="carrier-exchange-empty" style={{ minHeight: 52, padding: 10, display: 'grid', placeItems: 'center', textAlign: 'center', color: '#64748b', border: '1px solid #dbe2ea', background: '#fff' }}>{bids.length === 0 ? 'No marketplace quotes have been submitted by this company.' : 'No quotes match the current state and search filters.'}</div>}

@@ -507,7 +507,7 @@ async function searchLoads(request: NextRequest, companyId: string) {
   if (jobIds.length > 0) {
     const { data: myBids, error: bidsError } = await supabaseAdmin!
       .from('job_bids')
-      .select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, created_at')
+      .select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at')
       .eq('company_id', companyId)
       .in('job_id', jobIds);
     if (bidsError) {
@@ -571,7 +571,7 @@ function bidJobProjection(row: Record<string, unknown>, companyId: string) {
 async function loadBids(companyId: string) {
   const { data: bidsData, error: bidsError } = await supabaseAdmin!
     .from('job_bids')
-    .select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, created_at')
+    .select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at')
     .eq('company_id', companyId)
     .order('created_at', { ascending: false })
     .limit(200);
@@ -821,7 +821,7 @@ export async function POST(request: NextRequest) {
       message: input.message?.trim() || null,
       status: 'submitted',
     })
-    .select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, created_at')
+    .select('id, job_id, company_id, amount, bid_price_gbp, currency, message, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at')
     .single();
 
   if (insertError) {

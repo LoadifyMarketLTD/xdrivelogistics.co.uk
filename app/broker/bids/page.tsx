@@ -6,6 +6,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
 import { useCompanyWorkspaceData, type WorkspaceBid } from '../../components/workspace/useCompanyWorkspaceData';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
+import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
 import {
   ActionButton,
   AlertBanner,
@@ -15,7 +16,7 @@ import {
   StatusBadge,
 } from '../../components/workspace/WorkspaceUI';
 
-type QuoteTab = 'received' | 'accepted' | 'archived' | 'unsuccessful';
+type QuoteTab = 'received' | 'shortlisted' | 'accepted' | 'archived' | 'unsuccessful';
 type BidderIdentity = {
   bidId: string;
   companyId: string | null;
@@ -43,11 +44,12 @@ const money = (value: number) => new Intl.NumberFormat('en-GB', { style: 'curren
 const priceOf = (bid: WorkspaceBid) => Number(bid.bid_price_gbp ?? bid.amount ?? 0);
 
 function matchesTab(bid: WorkspaceBid, tab: QuoteTab) {
-  const status = String(bid.status || '').toLowerCase();
-  if (tab === 'received') return status === 'submitted';
-  if (tab === 'accepted') return status === 'accepted';
-  if (tab === 'archived') return ['archived', 'cancelled'].includes(status);
-  return ['rejected', 'unsuccessful', 'declined'].includes(status);
+  const stage = canonicalQuoteStage(bid, 'poster');
+  if (tab === 'received') return ['submitted', 'viewed'].includes(stage);
+  if (tab === 'shortlisted') return stage === 'shortlisted';
+  if (tab === 'accepted') return stage === 'accepted';
+  if (tab === 'archived') return stage === 'archived';
+  return ['unsuccessful', 'withdrawn', 'expired'].includes(stage);
 }
 
 export default function BrokerQuotesPage() {
@@ -120,6 +122,7 @@ export default function BrokerQuotesPage() {
 
   const counts = useMemo(() => ({
     received: data.bids.filter((bid) => matchesTab(bid, 'received')).length,
+    shortlisted: data.bids.filter((bid) => matchesTab(bid, 'shortlisted')).length,
     accepted: data.bids.filter((bid) => matchesTab(bid, 'accepted')).length,
     archived: data.bids.filter((bid) => matchesTab(bid, 'archived')).length,
     unsuccessful: data.bids.filter((bid) => matchesTab(bid, 'unsuccessful')).length,
@@ -141,15 +144,44 @@ export default function BrokerQuotesPage() {
     await data.refresh();
   };
 
+  const updateQuoteLifecycle = async (
+    bidId: string,
+    action: 'viewed' | 'shortlist' | 'unshortlist' | 'archive_poster' | 'unarchive_poster',
+  ) => {
+    setWorking(bidId);
+    setMessage('');
+    const { data: session } = await supabase.auth.getSession();
+    const token = session.session?.access_token;
+    if (!token) {
+      setWorking(null);
+      setMessage('Your session has expired. Sign in again.');
+      return;
+    }
+    const response = await fetch(`/api/workspace/bids/${encodeURIComponent(bidId)}/lifecycle`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action }),
+    });
+    const payload = await response.json().catch(() => ({})) as { error?: string; auditWarning?: string | null };
+    setWorking(null);
+    if (!response.ok) {
+      setMessage(payload.error || 'Quote lifecycle could not be updated.');
+      return;
+    }
+    setMessage(payload.auditWarning || 'Quote lifecycle updated successfully.');
+    await data.refresh();
+  };
+
   const clearFilters = () => {
     setCustomer(''); setFrom(''); setTo(''); setCarrier(''); setReference('');
     if (deepJob) router.push('/broker/bids');
   };
   const tabs: Array<{ id: QuoteTab; label: string; count: number }> = [
     { id: 'received', label: 'Received', count: counts.received },
+    { id: 'shortlisted', label: 'Shortlisted', count: counts.shortlisted },
     { id: 'accepted', label: 'Accepted', count: counts.accepted },
-    { id: 'archived', label: 'Archived', count: counts.archived },
     { id: 'unsuccessful', label: 'Unsuccessful', count: counts.unsuccessful },
+    { id: 'archived', label: 'Archived', count: counts.archived },
   ];
   const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
   const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
@@ -198,6 +230,7 @@ export default function BrokerQuotesPage() {
                 const carrierCompanyId = identity?.companyId ?? bid.company_id;
                 const carrierDriverId = identity?.driverId ?? bid.bidder_driver_id ?? null;
                 const carrierType = identity?.companyType?.replace(/_/g, ' ') || (carrierCompanyId ? 'Carrier / Fleet' : carrierDriverId ? 'Owner Driver' : 'Member');
+                const quoteStage = canonicalQuoteStage(bid, 'poster');
 
                 return (
                   <article className="workspace-operational-row" key={bid.id} data-state={bid.status}>
@@ -205,7 +238,7 @@ export default function BrokerQuotesPage() {
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>CARRIER / MEMBER</div><strong><MemberIdentityLink companyId={carrierCompanyId} driverId={carrierDriverId}>{carrierName}</MemberIdentityLink></strong><div style={{ ...metaStyle, marginTop: 2 }}>{carrierType} · {(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div><div style={{ ...metaStyle, marginTop: 2 }}>{identity?.memberId ? `Member ID ${identity.memberId} · ` : ''}{identity?.quoteLevel === 'driver' ? `Driver ${identity.driverAvailability?.replaceAll('_', ' ') || 'availability not supplied'}` : `${identity?.fleetVehicleTypes.length ?? 0} fleet types`}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{quote > 0 ? money(quote) : 'Quote not priced'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={bid.status} /><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : bid.id)}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{quote > 0 ? money(quote) : 'Quote not priced'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={quoteStageLabel(quoteStage)} /><ActionButton tone="secondary" onClick={() => { const opening = !open; setExpanded(open ? null : bid.id); if (opening && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
                     </div>
                     <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span><span>Quote #{bid.id.slice(0, 8).toUpperCase()}</span><span>Customer budget: {budget > 0 ? money(budget) : 'Not set'}</span><span>{margin !== null ? `Est. spread: ${money(margin)}` : 'Spread unavailable'}</span></div>
                     {open && (
@@ -218,7 +251,7 @@ export default function BrokerQuotesPage() {
                           <div className="workspace-detail-item"><strong>Submitted</strong><div>{when(bid.created_at)}</div></div>
                           <div className="workspace-detail-item"><strong>Vehicle</strong><div>{(job.vehicle_type || 'Not specified').replaceAll('_', ' ')}</div></div>
                           <div className="workspace-detail-item"><strong>Customer</strong><div>{job.client_name || 'Customer'}</div></div>
-                          <div className="workspace-detail-item"><strong>Status</strong><div>{bid.status.replaceAll('_', ' ')}</div></div>
+                          <div className="workspace-detail-item"><strong>Status</strong><div>{quoteStageLabel(quoteStage)}</div></div>
                           <div className="workspace-detail-item"><strong>Member ID</strong><div>{identity?.memberId || 'Not supplied'}</div></div>
                           <div className="workspace-detail-item"><strong>Business contact</strong><div>{identity?.businessPhone || 'Not supplied'}</div></div>
                           <div className="workspace-detail-item"><strong>Quote scope</strong><div>{identity?.quoteLevel === 'driver' ? 'Named driver / owner driver' : 'Company / fleet'}</div></div>
@@ -230,6 +263,10 @@ export default function BrokerQuotesPage() {
                         <div style={{ marginTop: 5, padding: '5px 6px', border: '1px solid var(--ws-border-soft, #e2e7ed)', background: '#fff' }}><strong>Carrier message</strong><div style={{ marginTop: 2, whiteSpace: 'pre-wrap' }}>{bid.message || 'No message supplied'}</div></div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
                           {bid.status === 'submitted' && <ActionButton tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award carrier'}</ActionButton>}
+                          {quoteStage === 'shortlisted' ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unshortlist')}>Remove shortlist</ActionButton> : null}
+                          {['submitted', 'viewed'].includes(quoteStage) ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'shortlist')}>Shortlist</ActionButton> : null}
+                          {quoteStage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(quoteStage) ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'archive_poster')}>Archive</ActionButton> : null}
+                          {quoteStage === 'archived' ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unarchive_poster')}>Restore</ActionButton> : null}
                           <ActionButton tone="secondary" onClick={() => router.push(`/broker/bids?job=${job.id}`)}>Compare all quotes</ActionButton>
                           <ActionButton tone="secondary" onClick={() => router.push(`/broker/loads?job=${job.id}`)}>Open load</ActionButton>
                         </div>
