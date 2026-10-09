@@ -407,6 +407,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/driver/nearby', workspace: 'owner_operator' },
   { prefix: '/driver/freight-vision', workspace: 'owner_operator', anyOf: ['jobs.track'] },
   { prefix: '/driver/drivers-vehicles', workspace: 'owner_operator', roles: ['owner_driver'] },
+  { prefix: '/driver/drivers', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['drivers.manage'] },
   { prefix: '/driver/loads', workspace: 'owner_operator', anyOf: ['loads.view.marketplace'] },
   { prefix: '/driver/quotes', workspace: 'owner_operator', anyOf: ['quotes.submit'] },
   { prefix: '/driver/won-work', workspace: 'owner_operator', anyOf: ['jobs.view'] },

@@ -12,7 +12,7 @@ describe('driver finance role boundary', () => {
       workspaceRole.indexOf('const DRIVER_EXECUTION_NAV'),
     );
     expect(driverBlock).not.toContain("'invoices.carrier.manage'");
-    expect(workspaceRole).toContain("owner_driver: new Set<WorkspaceCapability>([...DRIVER_WORKSPACE_CAPABILITIES, 'invoices.carrier.manage', 'billing.manage'])");
+    expect(workspaceRole).toContain("owner_driver: new Set<WorkspaceCapability>([...DRIVER_WORKSPACE_CAPABILITIES, 'drivers.manage', 'company.members.manage', 'invoices.carrier.manage', 'billing.manage'])");
     expect(workspaceRole).toContain("capability: 'invoices.carrier.manage'");
   });
 

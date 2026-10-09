@@ -68,6 +68,7 @@ export default function DriverDriversVehiclesPage() {
 
   const assignedCount = vehicles.filter((vehicle) => vehicle.assigned_driver_id === driverId).length;
   const trackedCount = canonicalVehicleId ? 1 : 0;
+  const canManageDrivers = user?.ownerDriverWorkspace === true;
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
@@ -76,6 +77,7 @@ export default function DriverDriversVehiclesPage() {
           <span className="crumb">Workspace &nbsp;/&nbsp; <b>Drivers & Vehicles</b></span>
           <div className="sub-actions">
             <button type="button" className="btn" onClick={() => router.push('/driver/account')}>Company Profile</button>
+            {canManageDrivers && <button type="button" className="btn" onClick={() => router.push('/driver/drivers')}>Add Driver</button>}
             <button type="button" className="btn primary" disabled={!canManage} onClick={() => router.push('/driver/vehicles')}>Add Vehicle</button>
           </div>
         </div>
@@ -100,7 +102,7 @@ export default function DriverDriversVehiclesPage() {
               <button type="button" className={tab === 'events' ? 'active' : ''} onClick={() => setTab('events')}>Event Log</button>
             </div>
             {tab === 'users' && <div className="dv-panel active">
-              <div className="toolbar"><b>Users / Drivers</b><span className="spacer" /></div>
+              <div className="toolbar"><b>Users / Drivers</b><span className="spacer" />{canManageDrivers && <button type="button" className="btn primary" onClick={() => router.push('/driver/drivers')}>Open Driver Manager</button>}</div>
               <div className="tablewrap"><table style={{ minWidth: 900 }}><thead><tr><th>Name</th><th>Role</th><th>Mobile Access</th><th>Status</th><th>Actions</th></tr></thead><tbody>
                 <tr><td><b>{user?.email ?? 'Current driver'}</b></td><td>{user?.ownerDriverWorkspace ? 'Workspace Owner' : 'Driver'}</td><td>Enabled</td><td><StatusBadge value="Active" tone="green" /></td><td><button type="button" className="rowbtn blue" onClick={() => router.push('/driver/account')}>Manage</button></td></tr>
               </tbody></table></div>

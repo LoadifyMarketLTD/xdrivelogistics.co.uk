@@ -34,7 +34,7 @@
 .driver-prototype-port .avatar{width:29px;height:29px;border-radius:50%;display:grid;place-items:center;background:var(--navy);color:white;font-weight:700}
 .driver-prototype-port .app{height:calc(100vh - 58px);min-height:0}
 .driver-prototype-port .driver-prototype-app{margin-left:0;width:100%}
-.driver-prototype-port .page{height:100%;display:flex;flex-direction:column}
+.driver-prototype-port .page{width:100%;min-width:0;height:100%;display:flex;flex-direction:column}
 .driver-prototype-port .subbar{height:41px;display:flex;align-items:center;padding:0 12px;background:#fff;border-bottom:1px solid var(--line);gap:5px}
 .driver-prototype-port .crumb{font-size:11px;color:#7b8794}.driver-prototype-port .crumb b{font-size:12px;color:#263548}
 .driver-prototype-port .sub-actions{margin-left:auto;display:flex;gap:5px}
@@ -329,13 +329,13 @@
 .driver-prototype-port .main-nav::-webkit-scrollbar{display:none}
 .driver-prototype-port .main-nav button{flex:0 0 auto}
 
-.driver-prototype-port .pagebody.no-left{grid-template-columns:minmax(0,1fr)}
+.driver-prototype-port .pagebody.no-left{width:100%;min-width:0;grid-template-columns:minmax(0,1fr)}
 
 /* Pass 3: closer to CX workspace density */
 .driver-prototype-port .dash-op-kpis.compact{grid-template-columns:repeat(4,1fr)}
 .driver-prototype-port .dash-workboard.compact,.driver-prototype-port .dash-section-compact{margin-bottom:7px}
 .driver-prototype-port .dash-workboard .dash-empty.compact{padding:10px 12px}
-.driver-prototype-port .pagebody.no-left .main{padding-left:14px;padding-right:14px}
+.driver-prototype-port .pagebody.no-left .main{width:100%;min-width:0;padding-left:14px;padding-right:14px}
 .driver-prototype-port .fleet-ops-strip{min-height:46px;background:#fff;border:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr) auto;align-items:stretch;margin-bottom:0}
 .driver-prototype-port .fleet-ops-strip>button{border:0;border-right:1px solid var(--line);background:#fff;text-align:left;padding:7px 9px;cursor:pointer}
 .driver-prototype-port .fleet-ops-strip>button:hover,.driver-prototype-port .fleet-ops-strip>button.active{background:#f3f7fb}
