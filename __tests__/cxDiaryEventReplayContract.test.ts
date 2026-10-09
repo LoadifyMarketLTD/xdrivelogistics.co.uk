@@ -46,7 +46,7 @@ describe('CX-inspired Diary / Event Log / Journey Replay convergence', () => {
   });
 
   it('connects operational Diaries to the same Replay surface', () => {
-    expect(operationsDiary).toContain("['agreement','route','progress','evidence','pod','invoice','payment','dispute','event-log']");
+    expect(operationsDiary).toContain("['agreement','route','progress','exception','evidence','pod','invoice','payment','dispute','event-log']");
     expect(operationsDiary).toContain('onClick={() => openJobTab(job.id, tabId)}');
     expect(brokerDiary).toContain('/job-replay/${job.id}');
     expect(customerDiary).toContain('/job-replay/${job.id}');
