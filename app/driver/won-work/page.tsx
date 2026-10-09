@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'r
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import PendingBookingOffers from '../../components/workspace/PendingBookingOffers';
 import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
@@ -150,6 +151,7 @@ export default function WonWorkPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell subtitle="Work you have won and that is assigned to your driver account.">
+        <DriverIntegratedNav label="Quote tools" items={[{ href: '/driver/quotes', label: 'Quotes' }, { href: '/driver/won-work', label: 'Won Work' }]} />
         <h2 style={{ margin: '0 0 0.75rem', fontSize: '20px', lineHeight: '26px', fontWeight: 700, color: '#0f172a' }}>
           Won Work
         </h2>

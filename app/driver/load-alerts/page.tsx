@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase } from '../../../lib/supabaseClient';
 import { ActionButton, AlertBanner, StatusBadge } from '../../components/workspace/WorkspaceUI';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 
 type LoadAlertPreference = {
   enabled: boolean;
@@ -169,6 +170,7 @@ export default function DriverLoadAlertsPage() {
         availabilityLabel={preference.enabled ? 'Alerts on' : 'Alerts off'}
         headerActions={<ActionButton tone="secondary" onClick={() => void load()} disabled={loading}>Refresh</ActionButton>}
       >
+        <DriverIntegratedNav label="Load tools" items={[{ href: '/driver/loads', label: 'Loads' }, { href: '/driver/load-alerts', label: 'Matching & Alerts' }]} />
         {error && <AlertBanner tone={schemaUnavailable ? 'warning' : 'danger'}>{error}</AlertBanner>}
         {warning && <AlertBanner tone="warning">{warning}</AlertBanner>}
         {success && <AlertBanner tone="success">{success}</AlertBanner>}

@@ -6,6 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
+import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 
 type QuoteDirection = 'outgoing' | 'incoming';
 type TabId = 'received' | 'archived' | 'submitted' | 'unsuccessful';
@@ -375,6 +376,7 @@ export default function MyQuotesPage() {
             <button type="button" className="btn primary" onClick={() => setAppliedFilters(filters)}>Search</button>
           </div>
         </div>
+        <DriverIntegratedNav label="Quote tools" items={[{ href: '/driver/quotes', label: 'Quotes' }, { href: '/driver/won-work', label: 'Won Work' }]} />
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Quotes</div>

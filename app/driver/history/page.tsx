@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import DriverInvoicePreviewModal from '../_components/DriverInvoicePreviewModal';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
@@ -542,6 +543,7 @@ export default function JobHistoryPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell subtitle="Search, scan and expand every assigned booking from one operational diary." headerActions={<ActionButton tone="primary" onClick={() => void fetchHistory()} disabled={loading}>Refresh</ActionButton>}>
+        <DriverIntegratedNav label="Diary tools" items={[{ href: '/driver/history', label: 'Diary' }, { href: '/driver/jobs', label: 'My Jobs' }]} />
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
         <div className="driver-diary-board diary-pagebody">

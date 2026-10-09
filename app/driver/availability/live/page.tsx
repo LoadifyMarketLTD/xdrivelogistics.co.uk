@@ -212,7 +212,8 @@ export default function LiveAvailabilityPage() {
           <aside className="driver-more-rail driver-live-filter-rail">
             <div className="driver-live-mode">
               <button type="button" data-active="true" aria-pressed="true" disabled>Live</button>
-              <button type="button" onClick={() => router.push('/driver/availability')}>Future</button>
+              <button type="button" onClick={() => router.push('/driver/availability')}>Future & Schedule</button>
+              <button type="button" onClick={() => router.push('/driver/nearby')}>Nearby</button>
             </div>
 
             <div className="driver-more-rail__title">Search Panel</div>

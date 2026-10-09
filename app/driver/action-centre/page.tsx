@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { useAuth } from '../../components/AuthContext';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
@@ -130,6 +131,7 @@ export default function DriverActionCentrePage() {
         subtitle="Prioritised driver actions requiring review or acknowledgement."
         headerActions={<ActionButton tone="primary" disabled={loading} onClick={() => void loadRows()}>Refresh</ActionButton>}
       >
+        <DriverIntegratedNav label="Action Centre tools" items={[{ href: '/driver/action-centre', label: 'Actions' }, { href: '/driver/messages', label: 'Messages' }]} />
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         <div className="driver-board-layout driver-action-centre-board">
           {rail}

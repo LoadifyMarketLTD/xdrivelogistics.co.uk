@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 interface DriverDoc {
@@ -278,6 +279,7 @@ export default function DriverDocumentsPage() {
         subtitle="Keep the three Driver compliance records current. Expired and replaced copies are removed automatically."
         headerActions={<ActionButton tone="secondary" onClick={() => void loadDriver()} disabled={loading}>Refresh</ActionButton>}
       >
+        <DriverIntegratedNav label="Fleet resources" items={[{ href: '/driver/drivers-vehicles', label: 'Drivers & Vehicles' }, { href: '/driver/documents', label: 'Documents' }]} />
         {loadError && <AlertBanner tone="danger">{loadError}</AlertBanner>}
         {uploadError && <AlertBanner tone="danger">{uploadError}</AlertBanner>}
         {uploadSuccess && <AlertBanner tone="success">{uploadSuccess}</AlertBanner>}

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
@@ -178,6 +179,7 @@ export default function DriverJobsPage() {
         subtitle="Assigned work, live execution and POD hand-off in one compact board."
         headerActions={<ActionButton tone="primary" onClick={() => void loadJobs()} disabled={loading}>Refresh</ActionButton>}
       >
+        <DriverIntegratedNav label="Diary tools" items={[{ href: '/driver/history', label: 'Diary' }, { href: '/driver/jobs', label: 'My Jobs' }]} />
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         <div className="driver-board-layout driver-jobs-board">
           <aside className="driver-filter-rail" aria-label="Job board context">

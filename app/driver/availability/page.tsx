@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
+import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
@@ -293,6 +294,7 @@ export default function AvailabilityPage() {
         driverName={driverRow?.display_name ?? user?.email ?? 'Driver'}
         headerActions={<ActionButton tone="primary" onClick={() => void loadAllData()} disabled={loading}>Refresh</ActionButton>}
       >
+        <DriverIntegratedNav label="Availability tools" items={[{ href: '/driver/availability/live', label: 'Live' }, { href: '/driver/availability', label: 'Future & Schedule' }, { href: '/driver/nearby', label: "Who's Nearby" }]} />
         {successMsg && <AlertBanner tone="success">{successMsg}</AlertBanner>}
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {scheduleUnavailable && <AlertBanner tone="warning">Weekly schedule storage is unavailable. Live status, destination matching and vehicle identity signals remain available.</AlertBanner>}

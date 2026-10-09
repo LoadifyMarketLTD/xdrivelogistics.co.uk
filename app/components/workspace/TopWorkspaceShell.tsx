@@ -309,17 +309,7 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
     '/driver/messages',
   ]);
 
-  return ownerNav.map((group) => group.id !== 'owner-driver-more'
-    ? group
-    : {
-        ...group,
-        items: group.items.map((item) => {
-          if (item.href === '/driver/availability') return { ...item, label: 'Availability & Schedule' };
-          if (item.href === '/driver/load-alerts') return { ...item, label: 'Load Matching & Alerts' };
-          if (item.href === '/driver/finance') return { ...item, label: 'Finance & Invoices' };
-          return item;
-        }),
-      });
+  return ownerNav.filter((group) => group.id !== 'owner-driver-more');
 }
 
 export function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
