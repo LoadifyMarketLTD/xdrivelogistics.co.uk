@@ -16,7 +16,7 @@ describe('CX Diary Re-book / Re-post parity', () => {
   });
 
   it('authorises source prefill through the canonical company-admin boundary', () => {
-    expect(prefillApi).toContain('requireCompanyAdmin(request, companyId)');
+    expect(prefillApi).toContain("requireCompanyCapability(request, companyId, 'loads.create')");
     expect(prefillApi).toContain("String(job.company_id) !== admin.companyId");
     expect(prefillApi).toContain("REBOOK_STATUSES = new Set(['delivered', 'completed', 'cancelled', 'expired'])");
     expect(prefillApi).toContain("REPOST_STATUSES = new Set(['cancelled', 'expired'])");

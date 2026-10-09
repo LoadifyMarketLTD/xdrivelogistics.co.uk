@@ -65,8 +65,8 @@ describe('CX company operational settings parity contract', () => {
     expect(settingsWorkspace).toContain("label: 'Blocked Members'");
     expect(settingsWorkspace).toContain('<CompanyOperationsSettingsPanel');
     expect(settingsWorkspace).toContain('<CompanyBlockedMembersPanel');
-    expect(operationsRoute).toContain("const adminRoles = new Set(['owner', 'admin'])");
-    expect(blockedRoute).toContain("const adminRoles = new Set(['owner', 'admin'])");
+    expect(operationsRoute).toContain("requireCompanyCapability(request, companyId, 'settings.manage')");
+    expect(blockedRoute).toContain("requireCompanyCapability(request, companyId, 'company.manage')");
     expect(settingsWorkspace).not.toContain("companyOperationsVisible = role === 'fleet'");
   });
 
@@ -151,9 +151,9 @@ describe('CX company operational settings parity contract', () => {
     expect(memberProfile).toContain("section.state === 'available' && section.items?.length");
   });
 
-  it('keeps company operational preferences owner/admin scoped server-side', () => {
-    expect(operationsRoute).toContain('requireCompanyAdmin');
-    expect(operationsRoute).toContain("Company owner or admin access is required for company operations settings.");
+  it('keeps company operational preferences capability-scoped server-side', () => {
+    expect(operationsRoute).toContain("requireCompanyCapability(request, companyId, 'settings.manage')");
+    expect(operationsRoute).toContain('isCompanyCapabilityContext(auth)');
     expect(operationsRoute).toContain("feedbackViewDays: z.union([z.literal(30), z.literal(60), z.literal(90), z.literal(180), z.literal(365)])");
     expect(operationsRoute).toContain('acceptQuotesApprovedMembersOnly');
     expect(operationsRoute).toContain('showFullPostcodePostedLoads');

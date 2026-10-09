@@ -17,7 +17,7 @@ describe('CX-informed carrier Return Journey management contract', () => {
   });
 
   it('requires authorised fleet-operator context and a same-company active driver', () => {
-    expect(route).toContain('requireCompanyFleetOperator(request, parsed.data.companyId)');
+    expect(route).toContain("requireCompanyCapability(request, parsed.data.companyId, 'fleet.positions.view')");
     expect(route).toContain("eq('company_id', context.companyId)");
     expect(route).toContain("Return journeys can only be published for an active driver.");
   });

@@ -30,7 +30,7 @@ describe('Future Availability parity completion', () => {
     expect(driverReturns).toContain("fetch('/api/driver/future-position'");
     expect(driverReturns).toContain('Available until');
     expect(driverReturns).toContain('Availability notes');
-    expect(adminApi).toContain('requireCompanyFleetOperator');
+    expect(adminApi).toContain("requireCompanyCapability(request, parsed.data.companyId, 'drivers.manage')");
     expect(fleetResources).toContain('/api/admin/drivers/${encodeURIComponent(futureDriverId)}/future-position');
     expect(fleetResources).toContain('Available until');
     expect(fleetResources).toContain('Capacity / timing notes');

@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -20,20 +16,12 @@ const schema = z.object({
   serviceDescription: z.string().trim().max(2000).optional().nullable(),
 });
 
-const FINANCE_ROLES = new Set(['owner', 'admin', 'dispatcher', 'finance']);
 const roundMoney = (value: number) => Math.round((value + Number.EPSILON) * 100) / 100;
 
 export async function POST(request: NextRequest, { params }: Params) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Invoice adjustments are temporarily unavailable.' });
   }
-
-  const token = getBearerToken(request);
-  if (!token) return respond(401, { error: 'Unauthorized.' });
-
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: auth, error: authError } = await validator.auth.getUser(token);
-  if (authError || !auth.user) return respond(401, { error: 'Unauthorized.' });
 
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return respond(400, { error: 'Invalid invoice adjustment payload.' });
@@ -58,19 +46,10 @@ export async function POST(request: NextRequest, { params }: Params) {
   if (sourceError) return respond(500, { error: 'Source invoice could not be loaded.' });
   if (!source) return respond(404, { error: 'Source invoice not found.' });
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company')
-    .eq('company_id', source.company_id)
-    .eq('user_id', auth.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (membershipError) return respond(503, { error: 'Finance authority could not be verified.' });
-  const role = String(membership?.role_in_company ?? '').toLowerCase();
-  if (!FINANCE_ROLES.has(role)) {
-    return respond(403, { error: 'Finance workspace role is required to create invoice adjustments.' });
-  }
+  const finance = await requireCompanyCapability(request, String(source.company_id), {
+    anyOf: ['invoices.customer.manage', 'invoices.carrier.manage'],
+  });
+  if (!isCompanyCapabilityContext(finance)) return finance;
 
   const sourceDocumentType = String(source.document_type ?? 'invoice');
   const sourceStatus = String(source.status ?? '').trim().toLowerCase();
@@ -120,7 +99,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const row = {
     company_id: source.company_id,
-    created_by: auth.user.id,
+    created_by: finance.userId,
     invoice_number: invoiceNumber,
     job_ref: source.job_ref,
     job_id: source.job_id,
@@ -198,7 +177,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     from_status: null,
     to_status: 'draft',
     note: (parsed.data.documentType === 'credit_note' ? 'Credit note' : 'Supplementary invoice') + ' created against ' + baseNumber + ': ' + parsed.data.reason,
-    changed_by: auth.user.id,
+    changed_by: finance.userId,
     changed_at: now,
   }).then(() => undefined);
 

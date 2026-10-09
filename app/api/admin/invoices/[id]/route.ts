@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../_lib/requireCompanyCapability';
 import { toCanonicalInvoiceStatus } from '../../../../../lib/invoiceStatus';
 
 export const runtime = 'nodejs';
@@ -49,13 +45,6 @@ export async function PATCH(
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
     return respond(503, { error: 'Invoice editing is temporarily unavailable.' });
   }
-  const token = getBearerToken(request);
-  if (!token) return respond(401, { error: 'Unauthorized.' });
-
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return respond(401, { error: 'Unauthorized.' });
-
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return respond(400, { error: 'Invoice details are invalid.' });
   const { id } = await params;
@@ -68,20 +57,10 @@ export async function PATCH(
   if (invoiceError) return respond(500, { error: 'Invoice could not be loaded.' });
   if (!invoice) return respond(404, { error: 'Invoice not found.' });
   if (String(invoice.company_id) !== parsed.data.companyId) return respond(403, { error: 'Invoice company mismatch.' });
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company, companies!inner(status)')
-    .eq('company_id', parsed.data.companyId)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .eq('companies.status', 'active')
-    .maybeSingle();
-  if (membershipError) return respond(500, { error: 'Finance access could not be verified.' });
-
-  const role = String(membership?.role_in_company ?? '').toLowerCase();
-  if (!['owner', 'admin', 'dispatcher', 'finance'].includes(role)) {
-    return respond(403, { error: 'Finance workspace role is required to edit invoices.' });
-  }
+  const finance = await requireCompanyCapability(request, parsed.data.companyId, {
+    anyOf: ['invoices.customer.manage', 'invoices.carrier.manage'],
+  });
+  if (!isCompanyCapabilityContext(finance)) return finance;
 
   if (toCanonicalInvoiceStatus(invoice.status) !== 'Draft') {
     return respond(409, { error: 'Only draft invoices can be edited.' });

@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../_lib/requireCompanyCapability';
 import { hasCompletePodEvidence } from '../../../../lib/jobs/podCompletion';
 
 export const runtime = 'nodejs';
@@ -50,30 +46,13 @@ export async function POST(request: NextRequest) {
     return respond(503, { error: 'Invoice creation is temporarily unavailable.' });
   }
 
-  const token = getBearerToken(request);
-  if (!token) return respond(401, { error: 'Unauthorized.' });
-
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return respond(401, { error: 'Unauthorized.' });
-
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return respond(400, { error: 'Invoice details are invalid.' });
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company, companies!inner(status)')
-    .eq('company_id', parsed.data.companyId)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .eq('companies.status', 'active')
-    .maybeSingle();
-  if (membershipError) return respond(500, { error: 'Finance access could not be verified.' });
-
-  const role = String(membership?.role_in_company ?? '').toLowerCase();
-  if (!['owner', 'admin', 'dispatcher', 'finance'].includes(role)) {
-    return respond(403, { error: 'Finance workspace role is required to create invoices.' });
-  }
+  const finance = await requireCompanyCapability(request, parsed.data.companyId, {
+    anyOf: ['invoices.customer.manage', 'invoices.carrier.manage'],
+  });
+  if (!isCompanyCapabilityContext(finance)) return finance;
 
   if (parsed.data.jobId) {
     const { data: job, error: jobError } = await supabaseAdmin
@@ -127,7 +106,7 @@ export async function POST(request: NextRequest) {
     .from('invoices')
     .insert({
       company_id: parsed.data.companyId,
-      created_by: authData.user.id,
+      created_by: finance.userId,
       invoice_number: parsed.data.invoiceNumber,
       job_ref: parsed.data.jobRef,
       job_id: parsed.data.jobId ?? null,

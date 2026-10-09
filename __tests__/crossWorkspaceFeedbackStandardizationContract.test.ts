@@ -16,7 +16,7 @@ describe('cross-workspace feedback standardization', () => {
 
   it('keeps one company review per booking/reviewer while resolving the counterparty server-side', () => {
     expect(api).toContain('resolveFeedbackCounterpartyCompanyId(job, companyId)');
-    expect(api).toContain("operatorRoles = new Set(['owner', 'admin', 'dispatcher', 'fleet_manager'])");
+    expect(api).toContain("requireCompanyCapability(request, companyId, 'jobs.track')");
     expect(api).toContain(".eq('reviewer_company_id', companyId)");
     expect(api).toContain("kind: 'company_feedback'");
     expect(api).toContain('reviewed_company_id: targetCompanyId');

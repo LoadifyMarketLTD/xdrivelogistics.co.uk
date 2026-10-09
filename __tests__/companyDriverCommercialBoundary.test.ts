@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const read = (path: string) => readFileSync(join(process.cwd(), path), 'utf8');
 
 const jobsCreate = read('app/api/jobs/create/route.ts');
-const requireCompanyAdmin = read('app/api/admin/_lib/requireCompanyAdmin.ts');
+const requireCompanyCapability = read('app/api/admin/_lib/requireCompanyCapability.ts');
 const adminManage = read('app/api/admin/jobs/[id]/manage/route.ts');
 const driverLib = read('app/api/driver/mobile/_lib.ts');
 const driverEligibility = read('app/api/driver/_lib/operationalEligibility.ts');
@@ -21,8 +21,9 @@ describe('Company Driver commercial boundary', () => {
   });
 
   it('never allows company drivers to republish or direct-invite company jobs', () => {
-    expect(requireCompanyAdmin).toContain("const ADMIN_ROLES = ['owner', 'admin', 'dispatcher'] as const;");
-    expect(adminManage).toContain('requireCompanyAdmin(request, parsed.data.companyId)');
+    expect(requireCompanyCapability).toContain('hasWorkspaceCapability');
+    expect(adminManage).toContain('requireCompanyCapability(request, parsed.data.companyId');
+    expect(adminManage).toContain("anyOf: ['loads.publish', 'jobs.dispatch']");
   });
 
   it('keeps company_driver as an explicit driver identity under its company', () => {

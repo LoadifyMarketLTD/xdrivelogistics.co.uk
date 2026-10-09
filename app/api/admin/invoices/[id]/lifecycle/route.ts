@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../lib/invoiceStatus';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
@@ -24,13 +20,6 @@ export async function POST(
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const token = getBearerToken(request);
-  if (!token) return respond(401, { error: 'Unauthorized.' });
-
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return respond(401, { error: 'Unauthorized.' });
-
   const body = await request.json().catch(() => null);
   const parsed = schema.safeParse(body);
   if (!parsed.success) return respond(400, { error: 'Invalid lifecycle action payload.' });
@@ -44,19 +33,10 @@ export async function POST(
   if (invoiceError) return respond(500, { error: invoiceError.message });
   if (!invoice) return respond(404, { error: 'Invoice not found.' });
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company')
-    .eq('company_id', invoice.company_id)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (membershipError) return respond(500, { error: membershipError.message });
-
-  const role = String(membership?.role_in_company ?? '').toLowerCase();
-  if (!['owner', 'admin', 'dispatcher', 'finance'].includes(role)) {
-    return respond(403, { error: 'Finance workspace role is required to manage invoice lifecycle.' });
-  }
+  const finance = await requireCompanyCapability(request, String(invoice.company_id), {
+    anyOf: ['invoices.customer.manage', 'invoices.carrier.manage'],
+  });
+  if (!isCompanyCapabilityContext(finance)) return finance;
 
   const currentStatus = toCanonicalInvoiceStatus(invoice.status);
   if (parsed.data.action === 'void') {

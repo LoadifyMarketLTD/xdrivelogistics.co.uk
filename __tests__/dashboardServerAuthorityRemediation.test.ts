@@ -32,7 +32,7 @@ describe('dashboard server-authority remediation contract', () => {
     expect(quotes).toContain("fetch('/api/admin/quotes'");
     expect(quotes).not.toMatch(/\.from\(['"]quotes['"]\)/);
     expect(api).toContain(".from('quotes')");
-    expect(api).toContain('requireCompanyAdmin');
+    expect(api).toContain('requireCompanyCapability');
     expect(convert).toContain(".from('jobs')");
     expect(convert).toContain('compensation failed');
   });
@@ -46,7 +46,7 @@ describe('dashboard server-authority remediation contract', () => {
     expect(jobs).not.toMatch(/\.from\(['"]job_documents['"]\)[\s\S]{0,120}\.insert\(/);
     expect(route).toContain(".from('job_documents')");
     expect(route).toContain(".from('load-documents')");
-    expect(route).toContain('requireCompanyAdmin');
+    expect(route).toContain("requireCompanyCapability(request, parsed.data.companyId, 'documents.company.manage')");
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS doc_type text');
     expect(migration).toContain('ADD COLUMN IF NOT EXISTS file_path text');
     expect(migration).toContain('REVOKE INSERT, UPDATE, DELETE ON TABLE public.job_documents FROM authenticated');
@@ -88,7 +88,7 @@ describe('dashboard server-authority remediation contract', () => {
 
     expect(jobs).toContain('/manage`');
     expect(jobs).not.toMatch(/\.from\(['"]jobs['"]\)[\s\S]{0,160}\.update\(/);
-    expect(manage).toContain('requireCompanyAdmin');
+    expect(manage).toContain('requireCompanyCapability');
     expect(manage).toContain("cancel_unassigned_exchange_job_atomic");
     expect(manage).toContain("request_awarded_job_cancellation_atomic");
     expect(manage).toContain("exchange_visibility: visibility");
@@ -105,7 +105,7 @@ describe('dashboard server-authority remediation contract', () => {
     expect(companies).not.toMatch(/\.from\(['"]profiles['"]\)[\s\S]{0,140}\.update\(/);
     expect(companies).not.toMatch(/\.from\(['"]companies['"]\)[\s\S]{0,140}\.update\(/);
     expect(companies).toContain('readOnly aria-readonly="true"');
-    expect(api).toContain('requireCompanyAdmin');
+    expect(api).toContain("requireCompanyCapability(request, id, 'company.manage')");
     expect(api).not.toContain('company_number: parsed.data');
     expect(api).toContain('immutable: true');
   });

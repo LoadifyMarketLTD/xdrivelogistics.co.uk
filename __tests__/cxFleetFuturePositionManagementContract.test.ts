@@ -4,7 +4,7 @@ import path from 'node:path';
 describe('CX-style Fleet future-position management contract', () => {
   const page = fs.readFileSync(path.join(process.cwd(), 'app/admin/fleet/resources/page.tsx'), 'utf8');
   const route = fs.readFileSync(path.join(process.cwd(), 'app/api/admin/drivers/[id]/future-position/route.ts'), 'utf8');
-  const auth = fs.readFileSync(path.join(process.cwd(), 'app/api/admin/_lib/requireCompanyFleetOperator.ts'), 'utf8');
+  const auth = fs.readFileSync(path.join(process.cwd(), 'app/api/admin/_lib/requireCompanyCapability.ts'), 'utf8');
 
   it('exposes Future Position, Return Journey and Track actions from the consolidated fleet row', () => {
     expect(page).toContain('>Future Position</ActionButton>');
@@ -16,7 +16,7 @@ describe('CX-style Fleet future-position management contract', () => {
 
   it('uses a dedicated authenticated admin endpoint rather than impersonating the Driver endpoint', () => {
     expect(page).toContain('/api/admin/drivers/${encodeURIComponent(futureDriverId)}/future-position');
-    expect(route).toContain('requireCompanyFleetOperator(request, parsed.data.companyId)');
+    expect(route).toContain("requireCompanyCapability(request, parsed.data.companyId, 'drivers.manage')");
     expect(route).not.toContain('requireActiveWebDriver');
   });
 
@@ -28,7 +28,9 @@ describe('CX-style Fleet future-position management contract', () => {
     expect(route).toContain('future_position_date: futureDate');
   });
 
-  it('authorises only the existing Fleet operator membership roles', () => {
-    expect(auth).toContain("const FLEET_OPERATOR_ROLES = ['owner', 'admin', 'fleet_manager', 'dispatcher'] as const;");
+  it('authorises Fleet writes through the canonical workspace capability matrix', () => {
+    expect(auth).toContain("fleet_manager: 'fleet_manager'");
+    expect(auth).toContain("dispatcher: 'dispatcher'");
+    expect(auth).toContain('hasWorkspaceCapability');
   });
 });

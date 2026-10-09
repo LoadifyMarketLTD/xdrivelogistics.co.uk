@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { supabaseAdmin } from '../../../_lib/supabaseAdmin';
-import { isCompanyAdminContext, requireCompanyAdmin } from '../../_lib/requireCompanyAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../_lib/requireCompanyCapability';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,8 +37,8 @@ export async function PATCH(
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return respond(400, { error: 'Company details are invalid.' });
 
-  const admin = await requireCompanyAdmin(request, id);
-  if (!isCompanyAdminContext(admin)) return admin;
+  const admin = await requireCompanyCapability(request, id, 'company.manage');
+  if (!isCompanyCapabilityContext(admin)) return admin;
 
   const { data: current, error: currentError } = await supabaseAdmin
     .from('companies')

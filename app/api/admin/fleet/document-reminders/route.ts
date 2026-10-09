@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
-import { isCompanyFleetOperatorContext, requireCompanyFleetOperator } from '../../_lib/requireCompanyFleetOperator';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../_lib/requireCompanyCapability';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store, max-age=0' } });
@@ -13,8 +13,8 @@ export async function POST(request: NextRequest) {
 
   const body = await request.json().catch(() => ({})) as { companyId?: string; daysAhead?: number };
   const companyId = typeof body.companyId === 'string' ? body.companyId.trim() : '';
-  const admin = await requireCompanyFleetOperator(request, companyId);
-  if (!isCompanyFleetOperatorContext(admin)) return admin;
+  const admin = await requireCompanyCapability(request, companyId, 'documents.company.manage');
+  if (!isCompanyCapabilityContext(admin)) return admin;
 
   const daysAhead = Number.isFinite(Number(body.daysAhead))
     ? Math.max(1, Math.min(90, Math.floor(Number(body.daysAhead))))

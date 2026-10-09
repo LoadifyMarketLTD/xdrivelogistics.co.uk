@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
-import { isCompanyAdminContext, requireCompanyAdmin } from '../../_lib/requireCompanyAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../_lib/requireCompanyCapability';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -41,8 +41,8 @@ export async function PATCH(
   const parsed = schema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return respond(400, { error: 'Job details are invalid.' });
 
-  const admin = await requireCompanyAdmin(request, parsed.data.companyId);
-  if (!isCompanyAdminContext(admin)) return admin;
+  const admin = await requireCompanyCapability(request, parsed.data.companyId, 'loads.create');
+  if (!isCompanyCapabilityContext(admin)) return admin;
 
   const { id } = await params;
   const { data: job, error: jobError } = await supabaseAdmin

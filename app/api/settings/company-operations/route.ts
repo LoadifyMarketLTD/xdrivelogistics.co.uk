@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+import { supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../admin/_lib/requireCompanyCapability';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -14,8 +10,6 @@ export const revalidate = 0;
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store, max-age=0' } });
 
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const adminRoles = new Set(['owner', 'admin']);
 const text = (value: unknown, max = 2000) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 
 const SPECIALIST_CODES = [
@@ -111,32 +105,6 @@ type OperationsSettingsRow = {
   updated_at?: string | null;
 };
 
-async function requireCompanyAdmin(request: NextRequest, companyId: string) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return json(503, { error: 'Company operations settings are temporarily unavailable.' });
-  }
-  const token = getBearerToken(request);
-  if (!token) return json(401, { error: 'Your session has expired. Sign in again.' });
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return json(401, { error: 'Your session has expired. Sign in again.' });
-  if (!uuidPattern.test(companyId)) return json(400, { error: 'A valid company workspace is required.' });
-
-  const { data: membership, error } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company,status')
-    .eq('company_id', companyId)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (error) return json(500, { error: 'We could not verify company access.' });
-  if (!membership || !adminRoles.has(String(membership.role_in_company ?? '').toLowerCase())) {
-    return json(403, { error: 'Company owner or admin access is required for company operations settings.' });
-  }
-  return { userId: authData.user.id, companyId };
-}
-
 const SETTINGS_FIELDS = [
   'company_id',
   'operator_licence_number',
@@ -169,8 +137,8 @@ const SETTINGS_FIELDS = [
 
 export async function GET(request: NextRequest) {
   const companyId = new URL(request.url).searchParams.get('companyId')?.trim() ?? '';
-  const auth = await requireCompanyAdmin(request, companyId);
-  if (auth instanceof NextResponse) return auth;
+  const auth = await requireCompanyCapability(request, companyId, 'settings.manage');
+  if (!isCompanyCapabilityContext(auth)) return auth;
 
   const [settingsResult, capabilitiesResult] = await Promise.all([
     supabaseAdmin!.from('company_settings').select(SETTINGS_FIELDS).eq('company_id', companyId).maybeSingle(),
@@ -223,8 +191,8 @@ export async function PUT(request: NextRequest) {
   const parsed = payloadSchema.safeParse(body);
   if (!parsed.success) return json(400, { error: 'Invalid company operations settings payload.' });
 
-  const auth = await requireCompanyAdmin(request, parsed.data.companyId);
-  if (auth instanceof NextResponse) return auth;
+  const auth = await requireCompanyCapability(request, parsed.data.companyId, 'settings.manage');
+  if (!isCompanyCapabilityContext(auth)) return auth;
 
   const cleanEmail = text(parsed.data.financeEmail, 320);
   if (cleanEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(cleanEmail)) {

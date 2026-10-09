@@ -32,7 +32,7 @@ describe('missing and expiring compliance document reminders', () => {
   });
 
   it('keeps manual Fleet reminder execution behind existing company Fleet authority', () => {
-    expect(endpoint).toContain('requireCompanyFleetOperator');
+    expect(endpoint).toContain("requireCompanyCapability(request, companyId, 'documents.company.manage')");
     expect(endpoint).toContain("rpc('enqueue_compliance_document_reminders'");
     expect(compliance).toContain('Send due reminders');
     expect(compliance).toContain('/api/admin/fleet/document-reminders');

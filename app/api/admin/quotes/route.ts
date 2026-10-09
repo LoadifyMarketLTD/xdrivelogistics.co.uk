@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
-import { isCompanyAdminContext, requireCompanyAdmin } from '../_lib/requireCompanyAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../_lib/requireCompanyCapability';
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store, max-age=0' } });
@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
   }
 
   const companyId = new URL(request.url).searchParams.get('companyId')?.trim() ?? '';
-  const admin = await requireCompanyAdmin(request, companyId);
-  if (!isCompanyAdminContext(admin)) return admin;
+  const admin = await requireCompanyCapability(request, companyId, 'company.manage');
+  if (!isCompanyCapabilityContext(admin)) return admin;
 
   const { data, error } = await supabaseAdmin
     .from('quotes')
@@ -49,8 +49,8 @@ export async function POST(request: NextRequest) {
   const parsed = createQuoteSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return json(400, { error: 'Quote details are invalid.' });
 
-  const admin = await requireCompanyAdmin(request, parsed.data.companyId);
-  if (!isCompanyAdminContext(admin)) return admin;
+  const admin = await requireCompanyCapability(request, parsed.data.companyId, 'company.manage');
+  if (!isCompanyCapabilityContext(admin)) return admin;
 
   const { data, error } = await supabaseAdmin
     .from('quotes')

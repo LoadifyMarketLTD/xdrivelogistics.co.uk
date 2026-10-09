@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { CARGO_TYPE_LABELS, VEHICLE_TYPE_LABELS } from '../../../../../../lib/vehicleTypes';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
-import { isCompanyAdminContext, requireCompanyAdmin } from '../../../_lib/requireCompanyAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -63,8 +63,8 @@ export async function GET(
   const action = url.searchParams.get('action')?.trim().toLowerCase() as CloneAction;
   if (!['rebook', 'repost'].includes(action)) return respond(400, { error: 'A valid clone action is required.' });
 
-  const admin = await requireCompanyAdmin(request, companyId);
-  if (!isCompanyAdminContext(admin)) return admin;
+  const admin = await requireCompanyCapability(request, companyId, 'loads.create');
+  if (!isCompanyCapabilityContext(admin)) return admin;
   const { id } = await params;
 
   const { data: job, error: jobError } = await supabaseAdmin

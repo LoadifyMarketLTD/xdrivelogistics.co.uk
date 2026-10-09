@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../../../_lib/supabaseAdmin';
-import { hasBidDecisionRole } from '../../_lib/ownerRoles';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
 import { BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION } from '../../../../../../lib/legal/paymentObligation';
 import { getTransportBuyerRiskSnapshot, logTransportBuyerRiskBlockedEvent, transportBuyerRiskBlockedPayload } from '../../../../_lib/transportBuyerRisk';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
@@ -23,19 +18,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     );
   }
 
-  // ── 1. Authenticate the caller ──────────────────────────────────────────────
-  const token = getBearerToken(request);
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized — no bearer token.' }, { status: 401 });
-  }
-
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: { user }, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized — invalid token.' }, { status: 401 });
-  }
-
-  // ── 2. Resolve bid id ───────────────────────────────────────────────────────
+  // ── 1. Resolve bid id ───────────────────────────────────────────────────────
   const body = await request.json().catch(() => ({})) as { paymentObligationAcknowledged?: boolean };
   if (body.paymentObligationAcknowledged !== true) {
     return NextResponse.json({ error: 'You must explicitly acknowledge the transport buyer payment obligation before awarding this quote.', code: 'PAYMENT_OBLIGATION_ACK_REQUIRED' }, { status: 409 });
@@ -63,28 +46,8 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Bid not found.' }, { status: 404 });
   }
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('id, role_in_company, companies!inner(status)')
-    .eq('user_id', user.id)
-    .eq('company_id', jobCompanyId)
-    .eq('status', 'active')
-    .eq('companies.status', 'active')
-    .maybeSingle();
-
-  if (membershipError || !membership) {
-    return NextResponse.json(
-      { error: 'Forbidden — you are not a member of the job-owning company.' },
-      { status: 403 }
-    );
-  }
-
-  if (!hasBidDecisionRole(membership.role_in_company as string | null)) {
-    return NextResponse.json(
-      { error: 'Forbidden — insufficient role to accept bids.' },
-      { status: 403 }
-    );
-  }
+  const decision = await requireCompanyCapability(request, jobCompanyId, 'quotes.award');
+  if (!isCompanyCapabilityContext(decision)) return decision;
 
   const carrierCompanyId = (bidJob as { company_id?: string | null }).company_id;
   if (!carrierCompanyId) {
@@ -177,7 +140,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     const risk = await getTransportBuyerRiskSnapshot(supabaseAdmin, jobCompanyId, projectedAmount);
     if (!risk.infrastructureAvailable || !risk.snapshot) return NextResponse.json({ error: 'Transport buyer risk controls are temporarily unavailable.', code: 'TRANSPORT_BUYER_RISK_UNAVAILABLE' }, { status: 503 });
     if (!risk.snapshot.allowed) {
-      await logTransportBuyerRiskBlockedEvent(supabaseAdmin, risk.snapshot, 'award_blocked', user.id, { operation: 'admin_award', bid_id: bidId });
+      await logTransportBuyerRiskBlockedEvent(supabaseAdmin, risk.snapshot, 'award_blocked', decision.userId, { operation: 'admin_award', bid_id: bidId });
       return NextResponse.json(transportBuyerRiskBlockedPayload(risk.snapshot), { status: 409 });
     }
   } catch {
@@ -189,7 +152,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     'award_job_bid_pending_atomic',
     {
       p_bid_id: bidId,
-      p_actor_user_id: user.id,
+      p_actor_user_id: decision.userId,
       p_payment_obligation_acknowledged: true,
       p_payment_obligation_terms_version: BOOKING_PAYMENT_OBLIGATION_TERMS_VERSION,
     }

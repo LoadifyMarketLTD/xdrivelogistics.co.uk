@@ -1,17 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
 import { canLeaveCompanyFeedback, resolveFeedbackCounterpartyCompanyId } from '../../../../../../lib/feedback/canonicalFeedback';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const operatorRoles = new Set(['owner', 'admin', 'dispatcher', 'fleet_manager']);
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const normalizeComment = (value: unknown) => typeof value === 'string' ? value.trim().slice(0, 2000) : '';
@@ -30,12 +25,6 @@ export async function POST(
     return json(503, { error: 'Feedback is temporarily unavailable.' });
   }
 
-  const token = getBearerToken(request);
-  if (!token) return json(401, { error: 'Your session has expired. Sign in again.' });
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return json(401, { error: 'Your session has expired. Sign in again.' });
-
   let body: FeedbackBody;
   try {
     body = await request.json() as FeedbackBody;
@@ -53,17 +42,8 @@ export async function POST(
   const { id: jobId } = await context.params;
   if (!uuidPattern.test(jobId)) return json(400, { error: 'A valid booking is required.' });
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company, status')
-    .eq('company_id', companyId)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (membershipError) return json(500, { error: 'We could not verify company access.' });
-  if (!membership || !operatorRoles.has(String(membership.role_in_company ?? '').toLowerCase())) {
-    return json(403, { error: 'Owner, admin, dispatcher or fleet manager access is required to leave company feedback.' });
-  }
+  const operator = await requireCompanyCapability(request, companyId, 'jobs.track');
+  if (!isCompanyCapabilityContext(operator)) return operator;
 
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
@@ -90,7 +70,7 @@ export async function POST(
     company_id: targetCompanyId,
     reviewer_company_id: companyId,
     job_id: jobId,
-    reviewer_user_id: authData.user.id,
+    reviewer_user_id: operator.userId,
     reviewed_user_id: null,
     rating,
     comment: normalizeComment(body.comment) || null,
@@ -107,7 +87,7 @@ export async function POST(
   const { error: auditError } = await supabaseAdmin.from('job_tracking_events').insert({
     job_id: jobId,
     event_type: 'note',
-    created_by: authData.user.id,
+    created_by: operator.userId,
     message: existing?.id ? 'Company feedback updated.' : 'Company feedback submitted.',
     meta: {
       kind: 'company_feedback',

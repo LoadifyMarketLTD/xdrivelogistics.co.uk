@@ -13,9 +13,9 @@ describe('CX Company Finance Settings parity', () => {
     expect(panel).toContain('Save Finance Settings');
   });
 
-  it('keeps finance mutation at owner/admin boundary', () => {
-    expect(api).toContain("adminRoles = new Set(['owner', 'admin'])");
-    expect(api).toContain('Company owner or admin access is required for finance settings.');
+  it('keeps finance mutation on the canonical billing capability boundary', () => {
+    expect(api).toContain("requireCompanyCapability(request, companyId, 'billing.manage')");
+    expect(api).toContain('isCompanyCapabilityContext(auth)');
     expect(migration).toContain('DROP POLICY IF EXISTS company_settings_update_operator');
     expect(migration).toContain('WITH CHECK (public.is_company_admin(company_id))');
   });

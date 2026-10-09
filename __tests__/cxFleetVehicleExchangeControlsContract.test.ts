@@ -27,7 +27,7 @@ describe('CX-style Fleet vehicle exchange controls contract', () => {
   });
 
   it('keeps tracking-notification changes company-scoped and Fleet-operator-only', () => {
-    expect(notifyRoute).toContain('requireCompanyFleetOperator(request, parsed.data.companyId)');
+    expect(notifyRoute).toContain("requireCompanyCapability(request, parsed.data.companyId, 'vehicles.manage')");
     expect(notifyRoute).toContain(".eq('company_id', operator.companyId)");
     expect(notifyRoute).toContain('notify_when_tracked: parsed.data.notifyWhenTracked');
   });

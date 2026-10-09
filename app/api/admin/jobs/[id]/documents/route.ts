@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
-import { isCompanyAdminContext, requireCompanyAdmin } from '../../../_lib/requireCompanyAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -55,8 +55,8 @@ export async function POST(
   const parsed = payloadSchema.safeParse(await request.json().catch(() => null));
   if (!parsed.success) return json(400, { error: 'Job document metadata is invalid.' });
 
-  const admin = await requireCompanyAdmin(request, parsed.data.companyId);
-  if (!isCompanyAdminContext(admin)) return admin;
+  const admin = await requireCompanyCapability(request, parsed.data.companyId, 'documents.company.manage');
+  if (!isCompanyCapabilityContext(admin)) return admin;
 
   const { id } = await context.params;
   const jobId = id?.trim();

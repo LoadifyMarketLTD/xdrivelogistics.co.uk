@@ -1,18 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+import { supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../admin/_lib/requireCompanyCapability';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
-const adminRoles = new Set(['owner', 'admin']);
 
 const createSchema = z.object({
   companyId: z.string().uuid(),
@@ -27,31 +22,10 @@ const updateSchema = z.object({
   description: z.string().trim().max(500).optional().nullable(),
 });
 
-async function requireDepartmentAdmin(request: NextRequest, companyId: string) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return { error: json(503, { error: 'Departments service is unavailable.' }) };
-  const token = getBearerToken(request);
-  if (!token) return { error: json(401, { error: 'Your session has expired. Sign in again.' }) };
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return { error: json(401, { error: 'Your session has expired. Sign in again.' }) };
-  const { data: membership, error } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company,status')
-    .eq('company_id', companyId)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (error) return { error: json(500, { error: 'We could not verify company access.' }) };
-  if (!membership || !adminRoles.has(String(membership.role_in_company ?? '').toLowerCase())) {
-    return { error: json(403, { error: 'Company owner or admin access is required to manage departments.' }) };
-  }
-  return { userId: authData.user.id, companyId };
-}
-
 export async function GET(request: NextRequest) {
   const companyId = request.nextUrl.searchParams.get('companyId')?.trim() ?? '';
-  const auth = await requireDepartmentAdmin(request, companyId);
-  if ('error' in auth) return auth.error;
+  const auth = await requireCompanyCapability(request, companyId, 'company.members.manage');
+  if (!isCompanyCapabilityContext(auth)) return auth;
   const { data, error } = await supabaseAdmin!
     .from('company_departments')
     .select('id,name,description,created_at,updated_at')
@@ -65,8 +39,8 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return json(400, { error: 'Invalid department payload.' });
-  const auth = await requireDepartmentAdmin(request, parsed.data.companyId);
-  if ('error' in auth) return auth.error;
+  const auth = await requireCompanyCapability(request, parsed.data.companyId, 'company.members.manage');
+  if (!isCompanyCapabilityContext(auth)) return auth;
   const { data, error } = await supabaseAdmin!
     .rpc('manage_company_department', {
       p_company_id: parsed.data.companyId,
@@ -85,8 +59,8 @@ export async function PATCH(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = updateSchema.safeParse(body);
   if (!parsed.success) return json(400, { error: 'Invalid department update.' });
-  const auth = await requireDepartmentAdmin(request, parsed.data.companyId);
-  if ('error' in auth) return auth.error;
+  const auth = await requireCompanyCapability(request, parsed.data.companyId, 'company.members.manage');
+  if (!isCompanyCapabilityContext(auth)) return auth;
   const { data, error } = await supabaseAdmin!
     .rpc('manage_company_department', {
       p_company_id: parsed.data.companyId,
@@ -106,8 +80,8 @@ export async function DELETE(request: NextRequest) {
   const body = await request.json().catch(() => null);
   const parsed = z.object({ companyId: z.string().uuid(), departmentId: z.string().uuid() }).safeParse(body);
   if (!parsed.success) return json(400, { error: 'Invalid department delete request.' });
-  const auth = await requireDepartmentAdmin(request, parsed.data.companyId);
-  if ('error' in auth) return auth.error;
+  const auth = await requireCompanyCapability(request, parsed.data.companyId, 'company.members.manage');
+  if (!isCompanyCapabilityContext(auth)) return auth;
   const { error } = await supabaseAdmin!
     .rpc('manage_company_department', {
       p_company_id: parsed.data.companyId,

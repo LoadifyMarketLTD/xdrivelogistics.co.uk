@@ -11,7 +11,7 @@ describe('finance server-authority remediation', () => {
 
     expect(page).toContain("fetch('/api/admin/invoices'");
     expect(page).not.toMatch(/\.from\(['"]invoices['"]\)[\s\S]{0,120}\.insert\(/);
-    expect(route).toContain("['owner', 'admin', 'dispatcher', 'finance']");
+    expect(route).toContain("anyOf: ['invoices.customer.manage', 'invoices.carrier.manage']");
     expect(route).toContain("late_fee: 0");
     expect(route).toContain('vatRegistered ? parsed.data.vatRate : 0');
     expect(route).toContain(".from('jobs')");
@@ -25,7 +25,7 @@ describe('finance server-authority remediation', () => {
     expect(page).toContain('/api/admin/invoices/');
     expect(page).not.toContain('saveInvoiceWithSchemaCompat');
     expect(route).toContain("Only draft invoices can be edited.");
-    expect(route).toContain("['owner', 'admin', 'dispatcher', 'finance']");
+    expect(route).toContain("anyOf: ['invoices.customer.manage', 'invoices.carrier.manage']");
     expect(route).toContain('late_fee: 0');
     expect(types).toContain('late_fee: number;');
   });

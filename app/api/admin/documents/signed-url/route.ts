@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
-import { isCompanyFleetOperatorContext, requireCompanyFleetOperator } from '../../_lib/requireCompanyFleetOperator';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../_lib/requireCompanyCapability';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -49,8 +49,8 @@ export async function GET(request: NextRequest) {
   const documentId = text(url.searchParams.get('id'), 80);
   const download = url.searchParams.get('download') === '1';
 
-  const admin = await requireCompanyFleetOperator(request, companyId);
-  if (!isCompanyFleetOperatorContext(admin)) return admin;
+  const admin = await requireCompanyCapability(request, companyId, 'documents.company.manage');
+  if (!isCompanyCapabilityContext(admin)) return admin;
   if (!documentId || !['driver', 'vehicle'].includes(kind)) {
     return json(400, { error: 'Document kind and id are required.' });
   }

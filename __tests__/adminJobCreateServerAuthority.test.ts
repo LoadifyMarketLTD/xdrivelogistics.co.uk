@@ -13,7 +13,7 @@ describe('Admin Job creation server authority', () => {
     expect(page).not.toMatch(/\.from\(['"]jobs['"]\)[\s\S]{0,160}\.insert\(/);
     expect(route).toContain("mode: z.enum(['broker', 'customer', 'admin'])");
     expect(route).toContain("jobStatus: z.enum(['draft', 'posted'])");
-    expect(route).toContain("visibility: z.enum(['private', 'exchange'])");
+    expect(route).toContain("visibility: z.enum(['private', 'exchange', 'private_group'])");
     expect(route).toContain("requestedStatus === 'draft' ? 'private' : requestedVisibility");
     expect(route).toContain('document_checklist: input.documentChecklist');
     expect(route).toContain('delivery_tail_lift_required: input.deliveryTailLift');

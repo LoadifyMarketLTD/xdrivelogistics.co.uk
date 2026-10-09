@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
-import { isCompanyFleetOperatorContext, requireCompanyFleetOperator } from '../_lib/requireCompanyFleetOperator';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../_lib/requireCompanyCapability';
 
 const payloadSchema = z.object({
   companyId: z.string().uuid(),
@@ -35,8 +35,8 @@ export async function PUT(request: NextRequest) {
     return respond(400, { error: 'Invalid return journey payload.' });
   }
 
-  const context = await requireCompanyFleetOperator(request, parsed.data.companyId);
-  if (!isCompanyFleetOperatorContext(context)) return context;
+  const context = await requireCompanyCapability(request, parsed.data.companyId, 'fleet.positions.view');
+  if (!isCompanyCapabilityContext(context)) return context;
 
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')

@@ -9,20 +9,14 @@ import {
   expectedVatRateForTreatment,
   normalizeInvoiceVatTreatment,
 } from '../../../../lib/invoiceVat';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+import { supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../admin/_lib/requireCompanyCapability';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
 const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store, max-age=0' } });
-const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const adminRoles = new Set(['owner', 'admin']);
 const text = (value: unknown, max = 500) => typeof value === 'string' ? value.trim().slice(0, max) : '';
 const digits = (value: unknown) => String(value ?? '').replace(/\D/g, '');
 
@@ -40,35 +34,12 @@ type FinanceSettingsPayload = {
   invoiceEmailMessage?: unknown;
 };
 
-async function requireFinanceAdmin(request: NextRequest, companyId: string) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return json(503, { error: 'Company finance settings are temporarily unavailable.' });
-  const token = getBearerToken(request);
-  if (!token) return json(401, { error: 'Your session has expired. Sign in again.' });
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return json(401, { error: 'Your session has expired. Sign in again.' });
-  if (!uuidPattern.test(companyId)) return json(400, { error: 'A valid company workspace is required.' });
-
-  const { data: membership, error } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company,status')
-    .eq('company_id', companyId)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (error) return json(500, { error: 'We could not verify company access.' });
-  if (!membership || !adminRoles.has(String(membership.role_in_company ?? '').toLowerCase())) {
-    return json(403, { error: 'Company owner or admin access is required for finance settings.' });
-  }
-  return { userId: authData.user.id, companyId };
-}
-
 const selectFields = 'company_id,job_ref_prefix,invoice_prefix,default_vat_rate,default_vat_treatment,default_payment_terms,currency,bank_account_name,bank_sort_code,bank_account_number,invoice_email_subject_template,invoice_email_message_template,updated_at';
 
 export async function GET(request: NextRequest) {
   const companyId = new URL(request.url).searchParams.get('companyId')?.trim() ?? '';
-  const auth = await requireFinanceAdmin(request, companyId);
-  if (auth instanceof NextResponse) return auth;
+  const auth = await requireCompanyCapability(request, companyId, 'billing.manage');
+  if (!isCompanyCapabilityContext(auth)) return auth;
 
   const { data, error } = await supabaseAdmin!
     .from('company_settings')
@@ -101,8 +72,8 @@ export async function PUT(request: NextRequest) {
   catch { return json(400, { error: 'Invalid company finance settings payload.' }); }
 
   const companyId = typeof body.companyId === 'string' ? body.companyId.trim() : '';
-  const auth = await requireFinanceAdmin(request, companyId);
-  if (auth instanceof NextResponse) return auth;
+  const auth = await requireCompanyCapability(request, companyId, 'billing.manage');
+  if (!isCompanyCapabilityContext(auth)) return auth;
 
   const jobRefPrefix = text(body.jobRefPrefix, 12).toUpperCase();
   const invoicePrefix = text(body.invoicePrefix, 12).toUpperCase();

@@ -3,7 +3,7 @@ import { z } from 'zod';
 
 import { getFeatureFlags, getGlobalSettingNumber } from '../../../../_lib/platformFlags';
 import { supabaseAdmin } from '../../../../_lib/supabaseAdmin';
-import { isCompanyAdminContext, requireCompanyAdmin } from '../../../_lib/requireCompanyAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
 import { areCompaniesBlocked } from '../../../../_lib/companyBlocks';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../../../_lib/stripeCommercialReadiness';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../../../_lib/commercialLegalReadiness';
@@ -69,8 +69,10 @@ export async function POST(
   const parsed = schema.safeParse(body);
   if (!parsed.success) return respond(400, { error: 'Invalid job management request.' });
 
-  const admin = await requireCompanyAdmin(request, parsed.data.companyId);
-  if (!isCompanyAdminContext(admin)) return admin;
+  const admin = await requireCompanyCapability(request, parsed.data.companyId, {
+    anyOf: ['loads.publish', 'jobs.dispatch'],
+  });
+  if (!isCompanyCapabilityContext(admin)) return admin;
 
   const { id } = await params;
   const { data: job, error: jobError } = await supabaseAdmin

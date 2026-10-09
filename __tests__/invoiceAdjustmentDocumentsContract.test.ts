@@ -26,7 +26,8 @@ describe('Supplementary invoice and credit note completion', () => {
 
   it('creates authorised supplementary invoices and credit notes as separate linked financial documents', () => {
     expect(adjustmentApi).toContain("z.enum(['supplementary', 'credit_note'])");
-    expect(adjustmentApi).toContain("const FINANCE_ROLES = new Set(['owner', 'admin', 'dispatcher', 'finance'])");
+    expect(adjustmentApi).toContain("anyOf: ['invoices.customer.manage', 'invoices.carrier.manage']");
+    expect(adjustmentApi).toContain('created_by: finance.userId');
     expect(adjustmentApi).toContain("document_type: parsed.data.documentType");
     expect(adjustmentApi).toContain('parent_invoice_id: source.id');
     expect(adjustmentApi).toContain('adjustment_reason: parsed.data.reason');

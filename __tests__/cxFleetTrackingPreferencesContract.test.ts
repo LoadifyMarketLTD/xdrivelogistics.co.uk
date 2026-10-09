@@ -16,7 +16,7 @@ describe('Fleet tracking preferences contract', () => {
   });
 
   it('keeps preference changes company-scoped and Fleet-operator-only', () => {
-    expect(route).toContain('requireCompanyFleetOperator(request, parsed.data.companyId)');
+    expect(route).toContain("requireCompanyCapability(request, parsed.data.companyId, 'vehicles.manage')");
     expect(route).toContain(".eq('company_id', operator.companyId)");
     expect(route).toContain('notify_when_tracked: parsed.data.notifyWhenTracked');
   });

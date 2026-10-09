@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
-import { isCompanyFleetOperatorContext, requireCompanyFleetOperator } from '../../../_lib/requireCompanyFleetOperator';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
 
 const payloadSchema = z.object({
   companyId: z.string().uuid(),
@@ -24,8 +24,8 @@ export async function PATCH(
   const parsed = payloadSchema.safeParse(body);
   if (!parsed.success) return respond(400, { error: 'Invalid tracking-preference payload.' });
 
-  const operator = await requireCompanyFleetOperator(request, parsed.data.companyId);
-  if (!isCompanyFleetOperatorContext(operator)) return operator;
+  const operator = await requireCompanyCapability(request, parsed.data.companyId, 'vehicles.manage');
+  if (!isCompanyCapabilityContext(operator)) return operator;
 
   const { id } = await context.params;
   const vehicleId = id?.trim();

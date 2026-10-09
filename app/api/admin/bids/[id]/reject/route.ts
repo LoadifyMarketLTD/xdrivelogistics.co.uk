@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../../../_lib/supabaseAdmin';
-import { hasBidDecisionRole } from '../../_lib/ownerRoles';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -18,19 +13,7 @@ export async function POST(request: NextRequest, { params }: Params) {
     );
   }
 
-  // ── 1. Authenticate the caller ──────────────────────────────────────────────
-  const token = getBearerToken(request);
-  if (!token) {
-    return NextResponse.json({ error: 'Unauthorized — no bearer token.' }, { status: 401 });
-  }
-
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: { user }, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized — invalid token.' }, { status: 401 });
-  }
-
-  // ── 2. Resolve the bid ──────────────────────────────────────────────────────
+  // ── 1. Resolve the bid ──────────────────────────────────────────────────────
   const { id: bidId } = await params;
   if (!bidId) {
     return NextResponse.json({ error: 'Bad request — missing bid id.' }, { status: 400 });
@@ -57,31 +40,11 @@ export async function POST(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: 'Job not found.' }, { status: 404 });
   }
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('id, role_in_company, companies!inner(status)')
-    .eq('user_id', user.id)
-    .eq('company_id', job.company_id as string)
-    .eq('status', 'active')
-    .eq('companies.status', 'active')
-    .maybeSingle();
+  const decision = await requireCompanyCapability(request, String(job.company_id), 'quotes.award');
+  if (!isCompanyCapabilityContext(decision)) return decision;
 
-  if (membershipError || !membership) {
-    return NextResponse.json(
-      { error: 'Forbidden — you are not a member of the job-owning company.' },
-      { status: 403 }
-    );
-  }
-
-  if (!hasBidDecisionRole(membership.role_in_company as string | null)) {
-    return NextResponse.json(
-      { error: 'Forbidden — insufficient role to reject bids.' },
-      { status: 403 }
-    );
-  }
-
-  // ── 4. Guard: exchange/direct bids only ──────────────────────────────────────
-  if (!['exchange', 'direct'].includes((job.exchange_visibility as string | null) ?? '')) {
+  // ── 4. Guard: marketplace/direct/private-group bids only ────────────────────
+  if (!['exchange', 'direct', 'private_group'].includes((job.exchange_visibility as string | null) ?? '')) {
     return NextResponse.json(
       { error: 'Bad request — this job is not on the exchange.' },
       { status: 400 }

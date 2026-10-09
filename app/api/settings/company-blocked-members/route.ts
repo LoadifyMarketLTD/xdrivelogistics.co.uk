@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../_lib/supabaseAdmin';
+import { supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../admin/_lib/requireCompanyCapability';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -14,34 +10,7 @@ const json = (status: number, body: Record<string, unknown>) =>
   NextResponse.json(body, { status, headers: { 'Cache-Control': 'no-store, max-age=0' } });
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const adminRoles = new Set(['owner', 'admin']);
 const clean = (value: unknown, max = 500) => typeof value === 'string' ? value.trim().slice(0, max) : '';
-
-async function requireCompanyAdmin(request: NextRequest, companyId: string) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
-    return json(503, { error: 'Blocked-member settings are temporarily unavailable.' });
-  }
-  const token = getBearerToken(request);
-  if (!token) return json(401, { error: 'Your session has expired. Sign in again.' });
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return json(401, { error: 'Your session has expired. Sign in again.' });
-  if (!uuidPattern.test(companyId)) return json(400, { error: 'A valid company workspace is required.' });
-
-  const { data: membership, error } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company,status')
-    .eq('company_id', companyId)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .maybeSingle();
-
-  if (error) return json(500, { error: 'We could not verify company access.' });
-  if (!membership || !adminRoles.has(String(membership.role_in_company ?? '').toLowerCase())) {
-    return json(403, { error: 'Company owner or admin access is required to manage blocked members.' });
-  }
-  return { userId: authData.user.id, companyId };
-}
 
 async function resolveBlockedCompany(reference: string) {
   if (!supabaseAdmin) return null;
@@ -65,8 +34,8 @@ async function resolveBlockedCompany(reference: string) {
 
 export async function GET(request: NextRequest) {
   const companyId = new URL(request.url).searchParams.get('companyId')?.trim() ?? '';
-  const auth = await requireCompanyAdmin(request, companyId);
-  if (auth instanceof NextResponse) return auth;
+  const auth = await requireCompanyCapability(request, companyId, 'company.manage');
+  if (!isCompanyCapabilityContext(auth)) return auth;
 
   const { data: blocks, error } = await supabaseAdmin!
     .from('company_member_blocks')
@@ -100,8 +69,8 @@ export async function POST(request: NextRequest) {
   const companyId = clean(body?.companyId, 80);
   const reference = clean(body?.blockedCompanyReference, 160);
   const reason = clean(body?.reason, 500);
-  const auth = await requireCompanyAdmin(request, companyId);
-  if (auth instanceof NextResponse) return auth;
+  const auth = await requireCompanyCapability(request, companyId, 'company.manage');
+  if (!isCompanyCapabilityContext(auth)) return auth;
   if (!reference) return json(400, { error: 'Enter a company XD ID, company number or exact company name.' });
 
   const blocked = await resolveBlockedCompany(reference);
@@ -127,8 +96,8 @@ export async function DELETE(request: NextRequest) {
   const body = await request.json().catch(() => null) as { companyId?: unknown; blockId?: unknown } | null;
   const companyId = clean(body?.companyId, 80);
   const blockId = clean(body?.blockId, 80);
-  const auth = await requireCompanyAdmin(request, companyId);
-  if (auth instanceof NextResponse) return auth;
+  const auth = await requireCompanyCapability(request, companyId, 'company.manage');
+  if (!isCompanyCapabilityContext(auth)) return auth;
   if (!uuidPattern.test(blockId)) return json(400, { error: 'A valid block record is required.' });
 
   const { error } = await supabaseAdmin!

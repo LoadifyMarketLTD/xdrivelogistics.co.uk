@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import {
-  getBearerToken,
-  isSupabaseAdminConfigured,
-  supabaseAdmin,
-  supabaseValidator,
-} from '../../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { isCompanyCapabilityContext, requireCompanyCapability } from '../../../_lib/requireCompanyCapability';
 
 const bodySchema = z.object({
   nextStatus: z.enum([
@@ -83,12 +79,6 @@ export async function POST(
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const token = getBearerToken(request);
-  if (!token) return respond(401, { error: 'Unauthorized.' });
-  const validator = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validator.auth.getUser(token);
-  if (authError || !authData.user) return respond(401, { error: 'Unauthorized.' });
-
   const body = await request.json().catch(() => null);
   const parsed = bodySchema.safeParse(body);
   if (!parsed.success) return respond(400, { error: 'Invalid transition request.' });
@@ -102,17 +92,9 @@ export async function POST(
   if (jobError) return respond(500, { error: jobError.message });
   if (!job) return respond(404, { error: 'Job not found.' });
 
-  const operatingCompanyId = job.awarded_carrier_company_id ?? job.company_id;
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('role_in_company')
-    .eq('company_id', operatingCompanyId)
-    .eq('user_id', authData.user.id)
-    .eq('status', 'active')
-    .in('role_in_company', ['owner', 'admin', 'fleet_manager', 'dispatcher'])
-    .maybeSingle();
-  if (membershipError) return respond(500, { error: membershipError.message });
-  if (!membership) return respond(403, { error: 'Only an operator of the executing company may update this job.' });
+  const operatingCompanyId = String(job.awarded_carrier_company_id ?? job.company_id ?? '');
+  const operator = await requireCompanyCapability(request, operatingCompanyId, 'jobs.dispatch');
+  if (!isCompanyCapabilityContext(operator)) return operator;
 
   const currentStatus = String(job.current_status ?? job.status ?? '').toLowerCase();
   if (parsed.data.expectedStatus && currentStatus !== parsed.data.expectedStatus.toLowerCase()) {
@@ -144,7 +126,7 @@ export async function POST(
         status: parsed.data.nextStatus,
         label: parsed.data.nextStatus.replaceAll('_', ' '),
         timestamp: now,
-        actor_user_id: authData.user.id,
+        actor_user_id: operator.userId,
         source: 'operator_api',
         note: parsed.data.note ?? null,
       },
@@ -171,13 +153,13 @@ export async function POST(
   const { error: trackingError } = await supabaseAdmin.from('job_tracking_events').insert({
     job_id: id,
     event_type: eventType[parsed.data.nextStatus],
-    created_by: authData.user.id,
+    created_by: operator.userId,
     message: parsed.data.note || `Operator changed status to ${parsed.data.nextStatus.replaceAll('_', ' ')}.`,
     meta: {
       source: 'operator_api',
       previous_status: currentStatus,
       next_status: parsed.data.nextStatus,
-      role: membership.role_in_company,
+      role: operator.roleInCompany,
     },
   });
   if (trackingError) {
