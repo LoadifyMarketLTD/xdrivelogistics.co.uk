@@ -61,6 +61,7 @@ type SearchLoadRow = Record<string, unknown> & {
   load_details: string | null;
   special_requirements: string | null;
   service_mode: string | null;
+  load_type: string | null;
   direct_delivery_required: boolean | null;
   distance_miles: number | string | null;
   job_distance_miles: number | string | null;
@@ -85,7 +86,7 @@ const SEARCH_SELECT = [
   'load_details', 'special_requirements',
   'collection_tail_lift_required', 'collection_forklift_available', 'collection_handball_required',
   'delivery_tail_lift_required', 'delivery_forklift_available', 'delivery_handball_required',
-  'service_mode', 'direct_delivery_required', 'distance_miles', 'job_distance_miles', 'exchange_posted_at', 'exchange_expires_at',
+  'service_mode', 'load_type', 'direct_delivery_required', 'distance_miles', 'job_distance_miles', 'exchange_posted_at', 'exchange_expires_at',
   'exchange_visibility', 'direct_invite_company_id',
   'companies!jobs_company_id_fkey(name,xd_id,phone,company_type,created_at)',
 ].join(',');
@@ -210,6 +211,8 @@ function jobDescription(row: SearchLoadRow) {
 }
 
 function loadType(row: SearchLoadRow) {
+  const canonical = String(row.load_type ?? '').toLowerCase();
+  if (canonical === 'daily_hire' || canonical === 'regular_load' || canonical === 'on_demand') return canonical;
   const service = String(row.service_mode ?? '').toLowerCase();
   if (service.includes('daily') || service.includes('hire')) return 'daily_hire';
   if (service.includes('regular')) return 'regular_load';

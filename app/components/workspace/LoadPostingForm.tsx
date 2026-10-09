@@ -15,6 +15,15 @@ import './load-posting-exchange.css';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
 const CARGO = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
+type CanonicalLoadType = 'on_demand' | 'regular_load' | 'daily_hire';
+const LOAD_TYPES: Array<{ value: CanonicalLoadType; label: string; detail: string }> = [
+  { value: 'on_demand', label: 'On Demand', detail: 'One-off collection and delivery.' },
+  { value: 'regular_load', label: 'Regular Load', detail: 'Recurring work on selected operating days.' },
+  { value: 'daily_hire', label: 'Daily Hire', detail: 'Vehicle / driver capacity hired for a defined day period.' },
+];
+const REGULAR_DAYS = [
+  ['mon', 'Mon'], ['tue', 'Tue'], ['wed', 'Wed'], ['thu', 'Thu'], ['fri', 'Fri'], ['sat', 'Sat'], ['sun', 'Sun'],
+] as const;
 const MAX_DOCUMENT_FILES = 12;
 const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
 const ALLOWED_DOCUMENT_MIME_TYPES = new Set([
@@ -207,6 +216,10 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [documentFiles, setDocumentFiles] = useState<File[]>([]);
   const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
   const [form, setForm] = useState({
+    loadType: 'on_demand' as CanonicalLoadType,
+    regularDays: [] as Array<(typeof REGULAR_DAYS)[number][0]>,
+    regularEndDate: '',
+    hireEndTime: '',
     clientName: '', clientEmail: '', clientPhone: '',
     pickupDate: '', pickupTime: '', pickupAddress: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
     deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
@@ -365,6 +378,13 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     now: clockNow,
   }));
   const hasRequiredErrors = hasStopErrors(collectionErrors) || hasStopErrors(deliveryErrors) || additionalStopErrors.some(hasStopErrors);
+  const loadTypeError = form.loadType === 'regular_load' && form.regularDays.length === 0
+    ? 'Select at least one operating day for a Regular Load.'
+    : form.loadType === 'daily_hire' && !form.hireEndTime
+      ? 'Choose an end time for Daily Hire.'
+      : form.loadType === 'daily_hire' && form.pickupTime && form.hireEndTime && (quarterHourSlotMinutes(form.hireEndTime) ?? -1) <= (quarterHourSlotMinutes(form.pickupTime) ?? -1)
+        ? 'Daily Hire end time must be later than the start time.'
+        : '';
 
   const dimensionErrors = {
     length: dimensionError(form.length),
@@ -397,8 +417,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     }
     setShowValidation(true);
 
-    if (hasRequiredErrors || hasDimensionErrors) {
-      setError('Load details are incomplete or invalid. Complete the fields highlighted in red.');
+    if (hasRequiredErrors || hasDimensionErrors || loadTypeError) {
+      setError(loadTypeError || 'Load details are incomplete or invalid. Complete the fields highlighted in red.');
       focusFirstInvalidField();
       return;
     }
@@ -447,6 +467,9 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           idempotencyKey: idempotencyKeyRef.current,
           companyId,
           mode: mode === 'owner' ? 'admin' : mode,
+          loadType: form.loadType,
+          regularSchedule: form.loadType === 'regular_load' ? { days: form.regularDays, endDate: form.regularEndDate || null } : null,
+          hireEndDateTime: form.loadType === 'daily_hire' ? dateTime(form.pickupDate, form.hireEndTime) : null,
           publish,
           directInviteCompanyId: publish ? directCarrier?.id ?? null : null,
           clientName: form.clientName || null,
@@ -662,6 +685,53 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           )}
         </Panel>
       )}
+
+      <Panel title="Load type & schedule" description="Choose the commercial load pattern. Marketplace and Diary use this canonical type across every workspace.">
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: '8px' }}>
+          {LOAD_TYPES.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => setForm((current) => ({ ...current, loadType: option.value, regularDays: option.value === 'regular_load' ? current.regularDays : [], regularEndDate: option.value === 'regular_load' ? current.regularEndDate : '', hireEndTime: option.value === 'daily_hire' ? current.hireEndTime : '' }))}
+              aria-pressed={form.loadType === option.value}
+              style={{ border: form.loadType === option.value ? '2px solid #1d57d8' : '1px solid #cfd7e3', borderRadius: 6, background: form.loadType === option.value ? '#eff6ff' : '#fff', padding: '10px', textAlign: 'left', cursor: 'pointer' }}
+            >
+              <strong style={{ display: 'block', color: '#172033', fontSize: 12 }}>{option.label}</strong>
+              <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: 11, lineHeight: '15px' }}>{option.detail}</span>
+            </button>
+          ))}
+        </div>
+
+        {form.loadType === 'regular_load' && (
+          <div style={{ marginTop: 10, display: 'grid', gap: 8 }}>
+            <div style={labelStyle}>Operating days</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+              {REGULAR_DAYS.map(([value, label]) => {
+                const selected = form.regularDays.includes(value);
+                return <button key={value} type="button" aria-pressed={selected} onClick={() => setForm((current) => ({ ...current, regularDays: selected ? current.regularDays.filter((day) => day !== value) : [...current.regularDays, value] }))} style={{ ...microButtonStyle, background: selected ? '#0b2f6b' : '#fff', color: selected ? '#fff' : '#334155' }}>{label}</button>;
+              })}
+            </div>
+            <label style={labelStyle}>Repeat until (optional)
+              <input style={fieldStyle} type="date" min={form.pickupDate || todayKey || undefined} value={form.regularEndDate} onChange={(event) => set('regularEndDate', event.target.value)} />
+            </label>
+            {showValidation && loadTypeError ? <span style={validationMessageStyle}>{loadTypeError}</span> : null}
+          </div>
+        )}
+
+        {form.loadType === 'daily_hire' && (
+          <div style={{ marginTop: 10, display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 }}>
+            <label style={labelStyle}>Hire date<div style={readOnlyStyle}>{form.pickupDate || 'Set the collection / hire start date below'}</div></label>
+            <label style={labelStyle}>Hire start<div style={readOnlyStyle}>{form.pickupTime || 'Set the hire start time below'}</div></label>
+            <label style={labelStyle}>Hire end time
+              <select style={{ ...fieldStyle, ...(showValidation && loadTypeError ? invalidFieldStyle : {}) }} aria-invalid={showValidation && loadTypeError ? 'true' : undefined} value={form.hireEndTime} onChange={(event) => set('hireEndTime', event.target.value)}>
+                <option value="">Choose end time</option>
+                {QUARTER_HOUR_SLOTS.filter((slot) => !form.pickupTime || (quarterHourSlotMinutes(slot) ?? -1) > (quarterHourSlotMinutes(form.pickupTime) ?? -1)).map((slot) => <option key={slot} value={slot}>{slot}</option>)}
+              </select>
+              {showValidation && loadTypeError ? <span style={validationMessageStyle}>{loadTypeError}</span> : null}
+            </label>
+          </div>
+        )}
+      </Panel>
 
       {mode !== 'customer' && (
         <Panel title="Customer" description={mode === 'broker' ? 'The customer whose transport request is being managed by the broker.' : 'Optional customer details for work being posted by this operating account.'}>

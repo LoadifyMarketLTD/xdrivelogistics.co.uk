@@ -132,6 +132,8 @@ function publicLoad(
     delivery_handball_required: typeof job.delivery_handball_required === 'boolean' ? job.delivery_handball_required : null,
     handling_requirements: quoteSafeRequirementFlags(job),
     service_mode: marketplaceText(job.service_mode),
+    load_type: marketplaceText(job.load_type) ?? 'on_demand',
+    loadType: marketplaceText(job.load_type) ?? 'on_demand',
     direct_delivery_required: job.direct_delivery_required === true,
     distance_miles: marketplaceNumber(job.job_distance_miles ?? job.distance_miles),
     distance_minutes: marketplaceNumber(job.job_distance_minutes),

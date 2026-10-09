@@ -34,6 +34,12 @@ const bodySchema = z.object({
   jobStatus: z.enum(['draft', 'posted']).optional(),
   visibility: z.enum(['private', 'exchange']).optional(),
   serviceMode: z.enum(['asap_direct', 'timed_direct', 'coload_permitted', 'flexible', 'multi_drop']).optional().nullable(),
+  loadType: z.enum(['on_demand', 'regular_load', 'daily_hire']).optional().default('on_demand'),
+  regularSchedule: z.object({
+    days: z.array(z.enum(['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'])).min(1).max(7),
+    endDate: z.string().trim().optional().nullable(),
+  }).optional().nullable(),
+  hireEndDateTime: z.string().trim().optional().nullable(),
   publish: z.boolean(),
   directInviteCompanyId: z.string().uuid().optional().nullable(),
   clientName: optionalText,
@@ -129,6 +135,17 @@ export async function POST(request: NextRequest) {
     });
   }
   const input = parsed.data;
+  if (input.loadType === 'regular_load' && !input.regularSchedule?.days.length) {
+    return respond(400, { error: 'Regular Load requires at least one operating day.' });
+  }
+  if (input.loadType === 'daily_hire') {
+    if (!input.hireEndDateTime) return respond(400, { error: 'Daily Hire requires an end time.' });
+    const hireStart = new Date(input.pickupDateTime).getTime();
+    const hireEnd = new Date(input.hireEndDateTime).getTime();
+    if (!Number.isFinite(hireStart) || !Number.isFinite(hireEnd) || hireEnd <= hireStart) {
+      return respond(400, { error: 'Daily Hire end time must be later than the hire start time.' });
+    }
+  }
   if (input.serviceMode === 'coload_permitted' && input.pickupTimeSlot.trim().toUpperCase() === 'ASAP') {
     return respond(400, { error: 'Backload / co-load jobs require a timed or flexible collection window, not ASAP.' });
   }
@@ -411,6 +428,7 @@ export async function POST(request: NextRequest) {
         source: input.mode,
         creation_action: creationAction,
         visibility: directInviteTarget ? 'direct' : (input.publish ? 'exchange' : 'private'),
+        load_type: input.loadType,
       },
     });
     if (eventError) {
@@ -493,6 +511,9 @@ export async function POST(request: NextRequest) {
     // `notes` is retained as the backwards-compatible execution-private key.
     notes: executionInstructions,
     executionInstructions,
+    loadType: input.loadType,
+    regularSchedule: input.loadType === 'regular_load' ? input.regularSchedule ?? null : null,
+    hireEndDateTime: input.loadType === 'daily_hire' ? input.hireEndDateTime ?? null : null,
   });
 
   const routeMetrics = await calculateJobRouteMetrics([
@@ -558,6 +579,9 @@ export async function POST(request: NextRequest) {
     is_fixed_price: input.isFixedPrice,
     special_requirements: specialRequirements || null,
     load_details: loadDetails,
+    load_type: input.loadType,
+    recurrence_rule: input.loadType === 'regular_load' ? input.regularSchedule ?? null : null,
+    hire_end_datetime: input.loadType === 'daily_hire' ? input.hireEndDateTime ?? null : null,
     exchange_visibility: deferPublication ? 'private' : publishedVisibility,
     direct_invite_company_id: directInviteTarget?.id ?? null,
     exchange_posted_at: deferPublication ? null : (wantsExchangePublication ? now : null),
