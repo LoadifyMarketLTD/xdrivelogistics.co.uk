@@ -522,6 +522,42 @@ async function handleOnboardingInvite(event: NotificationEvent) {
   );
 }
 
+async function handleComplianceDocumentReminder(event: NotificationEvent) {
+  const userId = event.recipient_user_id;
+  if (!userId) return false;
+  if (!await userEmailEnabled(userId, event.event_type)) return true;
+  const user = await getUserEmail(userId);
+  if (!user) return false;
+
+  const missingDocuments = Array.isArray(event.payload.missing_documents)
+    ? event.payload.missing_documents.map((value) => String(value).trim()).filter(Boolean)
+    : [];
+  const documentType = typeof event.payload.document_type === 'string'
+    ? event.payload.document_type.trim()
+    : '';
+  const message = typeof event.payload.message === 'string' && event.payload.message.trim()
+    ? event.payload.message.trim()
+    : event.event_type === 'compliance_document_expiring'
+      ? 'A compliance document is approaching expiry.'
+      : 'Required compliance documents are still outstanding.';
+  const rawActionUrl = typeof event.payload.action_url === 'string' ? event.payload.action_url : '/admin/documents';
+  const actionUrl = buildAppUrl(rawActionUrl.startsWith('/') ? rawActionUrl : '/admin/documents');
+  const list = missingDocuments.length
+    ? `<ul>${missingDocuments.map((item) => `<li style="margin:6px 0"><strong>${escapeHtml(item.replaceAll('_', ' '))}</strong></li>`).join('')}</ul>`
+    : documentType
+      ? `<p><strong>Document:</strong> ${escapeHtml(documentType.replaceAll('_', ' '))}</p>`
+      : '';
+
+  return sendEmail(
+    user.email,
+    event.event_type === 'compliance_document_expiring'
+      ? 'Compliance document expiry reminder - XDrive Logistics'
+      : 'Compliance documents required - XDrive Logistics',
+    `<h2>${event.event_type === 'compliance_document_expiring' ? 'Document expiry approaching' : 'Compliance documents required'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>${escapeHtml(message)}</p>${list}<p><a href="${escapeHtml(actionUrl)}" style="display:inline-block;padding:11px 18px;background:#1d57d8;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Review documents</a></p><p>XDrive Logistics</p>`,
+    notificationIdempotencyKey(event.id, userId),
+  );
+}
+
 async function handleOnboardingDocumentsRequired(event: NotificationEvent) {
   const userId = event.recipient_user_id
     ?? (typeof event.payload.recipient_user_id === 'string' ? event.payload.recipient_user_id : null);
@@ -714,6 +750,10 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       case 'onboarding_invite':
       case 'onboarding_invite_resent':
         success = await handleOnboardingInvite(event);
+        break;
+      case 'compliance_documents_missing':
+      case 'compliance_document_expiring':
+        success = await handleComplianceDocumentReminder(event);
         break;
       case 'onboarding_documents_required':
       case 'onboarding_documents_reminder':
