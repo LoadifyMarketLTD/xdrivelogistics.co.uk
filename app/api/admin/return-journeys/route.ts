@@ -12,7 +12,13 @@ const payloadSchema = z.object({
   availableFrom: z.string().datetime({ offset: true }).nullable(),
   availableTo: z.string().datetime({ offset: true }).nullable(),
   vehicleType: z.string().max(100).nullable(),
-  notes: z.string().max(4000).nullable(),
+  notes: z.string().max(3000).nullable(),
+  journeyKind: z.enum(['ad_hoc', 'regular']).default('ad_hoc'),
+  viaLocations: z.array(z.string().max(160)).max(8).default([]),
+  bodyType: z.string().max(100).nullable().default(null),
+  weightKg: z.number().nonnegative().nullable().default(null),
+  spaceUnits: z.number().nonnegative().nullable().default(null),
+  goAnywhere: z.boolean().default(false),
 });
 
 const respond = (status: number, body: Record<string, unknown>) =>
@@ -51,9 +57,18 @@ export async function PUT(request: NextRequest) {
   }
 
   const fromPostcode = parsed.data.fromPostcode?.trim().toUpperCase() || null;
-  const toPostcode = parsed.data.toPostcode?.trim().toUpperCase() || null;
+  const toPostcode = parsed.data.goAnywhere ? null : (parsed.data.toPostcode?.trim().toUpperCase() || null);
   const vehicleType = parsed.data.vehicleType?.trim() || null;
-  const notes = parsed.data.notes?.trim() || null;
+  const notes = parsed.data.notes?.trim() || '';
+  const encodedNotes = JSON.stringify({
+    source: 'xdrive_return_exchange_v2',
+    notes,
+    journeyKind: parsed.data.journeyKind,
+    viaLocations: parsed.data.viaLocations.map((value) => value.trim()).filter(Boolean),
+    bodyType: parsed.data.bodyType?.trim() || '',
+    weightKg: parsed.data.weightKg,
+    spaceUnits: parsed.data.spaceUnits,
+  });
 
   const { error } = await supabaseAdmin.rpc('replace_driver_return_journey_canonical', {
     p_driver_id: parsed.data.driverId,
@@ -63,7 +78,7 @@ export async function PUT(request: NextRequest) {
     p_available_from: parsed.data.availableFrom,
     p_available_to: parsed.data.availableTo,
     p_vehicle_type: vehicleType,
-    p_notes: notes,
+    p_notes: fromPostcode ? encodedNotes : null,
   });
 
   if (error) {
@@ -83,7 +98,7 @@ export async function PUT(request: NextRequest) {
           available_from: parsed.data.availableFrom,
           available_to: parsed.data.availableTo,
           vehicle_type: vehicleType,
-          notes,
+          notes: encodedNotes,
           status: 'available',
         }
       : null,

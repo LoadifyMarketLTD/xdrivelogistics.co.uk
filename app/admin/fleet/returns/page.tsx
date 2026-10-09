@@ -30,6 +30,15 @@ type ReturnJourney = {
   created_at: string | null;
 };
 
+type ReturnJourneyMeta = {
+  notes: string;
+  journeyKind: 'ad_hoc' | 'regular';
+  viaLocations: string[];
+  bodyType: string;
+  weightKg: number | null;
+  spaceUnits: number | null;
+};
+
 type ReturnTab = 'active' | 'all' | 'closed';
 
 const RETURN_COLUMNS = [
@@ -49,6 +58,29 @@ const RETURN_COLUMNS = [
 const ACTIVE_STATUSES = new Set(['active', 'available']);
 const CLOSED_STATUSES = new Set(['cancelled', 'closed', 'expired', 'completed']);
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
+const finiteNumber = (value: unknown) => {
+  if (value === '' || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+const decodeJourneyMeta = (value: string | null | undefined): ReturnJourneyMeta => {
+  const fallback: ReturnJourneyMeta = { notes: value ?? '', journeyKind: 'ad_hoc', viaLocations: [], bodyType: '', weightKg: null, spaceUnits: null };
+  if (!value) return fallback;
+  try {
+    const parsed = JSON.parse(value) as Record<string, unknown>;
+    if (parsed.source !== 'xdrive_return_exchange_v2') return fallback;
+    return {
+      notes: typeof parsed.notes === 'string' ? parsed.notes : '',
+      journeyKind: parsed.journeyKind === 'regular' ? 'regular' : 'ad_hoc',
+      viaLocations: Array.isArray(parsed.viaLocations) ? parsed.viaLocations.map((item) => String(item ?? '').trim()).filter(Boolean).slice(0, 8) : [],
+      bodyType: typeof parsed.bodyType === 'string' ? parsed.bodyType : '',
+      weightKg: finiteNumber(parsed.weightKg),
+      spaceUnits: finiteNumber(parsed.spaceUnits),
+    };
+  } catch {
+    return fallback;
+  }
+};
 const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
   : 'Not supplied';
@@ -90,6 +122,9 @@ export default function CompanyReturnJourneysPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [driverSearch, setDriverSearch] = useState('');
+  const [journeyKindFilter, setJourneyKindFilter] = useState<'all' | 'ad_hoc' | 'regular'>('all');
+  const [vehicleFilter, setVehicleFilter] = useState('all');
+  const [bodyFilter, setBodyFilter] = useState('all');
   const [editorOpen, setEditorOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [editDriverId, setEditDriverId] = useState('');
@@ -98,6 +133,12 @@ export default function CompanyReturnJourneysPage() {
   const [editAvailableFrom, setEditAvailableFrom] = useState('');
   const [editAvailableTo, setEditAvailableTo] = useState('');
   const [editVehicleType, setEditVehicleType] = useState('');
+  const [editVia, setEditVia] = useState('');
+  const [editBodyType, setEditBodyType] = useState('');
+  const [editWeightKg, setEditWeightKg] = useState('');
+  const [editSpaceUnits, setEditSpaceUnits] = useState('');
+  const [editJourneyKind, setEditJourneyKind] = useState<'ad_hoc' | 'regular'>('ad_hoc');
+  const [editGoAnywhere, setEditGoAnywhere] = useState(false);
   const [editNotes, setEditNotes] = useState('');
   const canManageReturnJourneys = ['owner', 'admin', 'fleet_manager', 'dispatcher'].includes(String(user?.membershipRole ?? '').toLowerCase());
 
@@ -171,6 +212,12 @@ export default function CompanyReturnJourneysPage() {
     setEditAvailableFrom('');
     setEditAvailableTo('');
     setEditVehicleType('');
+    setEditVia('');
+    setEditBodyType('');
+    setEditWeightKg('');
+    setEditSpaceUnits('');
+    setEditJourneyKind('ad_hoc');
+    setEditGoAnywhere(false);
     setEditNotes('');
   };
 
@@ -182,13 +229,20 @@ export default function CompanyReturnJourneysPage() {
   };
 
   const openJourney = (journey: ReturnJourney) => {
+    const meta = decodeJourneyMeta(journey.notes);
     setEditDriverId(journey.driver_id ?? '');
     setEditFrom(journey.from_postcode ?? '');
     setEditTo(journey.to_postcode ?? '');
     setEditAvailableFrom(toLocalDateTime(journey.available_from));
     setEditAvailableTo(toLocalDateTime(journey.available_to));
     setEditVehicleType(journey.vehicle_type ?? '');
-    setEditNotes(journey.notes ?? '');
+    setEditVia(meta.viaLocations.join(', '));
+    setEditBodyType(meta.bodyType);
+    setEditWeightKg(meta.weightKg == null ? '' : String(meta.weightKg));
+    setEditSpaceUnits(meta.spaceUnits == null ? '' : String(meta.spaceUnits));
+    setEditJourneyKind(meta.journeyKind);
+    setEditGoAnywhere(!journey.to_postcode);
+    setEditNotes(meta.notes);
     setError('');
     setNotice('');
     setEditorOpen(true);
@@ -225,6 +279,12 @@ export default function CompanyReturnJourneysPage() {
           availableTo: clear || !editAvailableTo ? null : new Date(editAvailableTo).toISOString(),
           vehicleType: clear ? null : editVehicleType.trim() || null,
           notes: clear ? null : editNotes.trim() || null,
+          journeyKind: clear ? 'ad_hoc' : editJourneyKind,
+          viaLocations: clear ? [] : editVia.split(',').map((value) => value.trim()).filter(Boolean),
+          bodyType: clear ? null : editBodyType.trim() || null,
+          weightKg: clear || !editWeightKg.trim() ? null : Number(editWeightKg),
+          spaceUnits: clear || !editSpaceUnits.trim() ? null : Number(editSpaceUnits),
+          goAnywhere: clear ? false : editGoAnywhere,
         }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
@@ -241,6 +301,9 @@ export default function CompanyReturnJourneysPage() {
     }
   };
 
+  const vehicleOptions = useMemo(() => [...new Set(journeys.map((journey) => journey.vehicle_type).filter((value): value is string => Boolean(value)))].sort(), [journeys]);
+  const bodyOptions = useMemo(() => [...new Set(journeys.map((journey) => decodeJourneyMeta(journey.notes).bodyType).filter(Boolean))].sort(), [journeys]);
+
   const visible = useMemo(() => {
     const fromTerm = from.trim().toLowerCase();
     const toTerm = to.trim().toLowerCase();
@@ -254,12 +317,15 @@ export default function CompanyReturnJourneysPage() {
       })
       .filter((journey) => !fromTerm || String(journey.from_postcode ?? '').toLowerCase().includes(fromTerm))
       .filter((journey) => !toTerm || String(journey.to_postcode ?? '').toLowerCase().includes(toTerm))
+      .filter((journey) => journeyKindFilter === 'all' || decodeJourneyMeta(journey.notes).journeyKind === journeyKindFilter)
+      .filter((journey) => vehicleFilter === 'all' || normalise(journey.vehicle_type) === normalise(vehicleFilter))
+      .filter((journey) => bodyFilter === 'all' || normalise(decodeJourneyMeta(journey.notes).bodyType) === normalise(bodyFilter))
       .filter((journey) => {
         if (!driverTerm) return true;
         const driver = journey.driver_id ? driverById.get(journey.driver_id) : undefined;
         return `${driver?.display_name ?? ''} ${driver?.email ?? ''}`.toLowerCase().includes(driverTerm);
       });
-  }, [driverById, driverSearch, from, journeys, tab, to]);
+  }, [bodyFilter, driverById, driverSearch, from, journeyKindFilter, journeys, tab, to, vehicleFilter]);
 
   const mapPoints = useMemo<FleetMapPoint[]>(() => {
     const points: FleetMapPoint[] = [];
@@ -323,10 +389,16 @@ export default function CompanyReturnJourneysPage() {
               if (vehicle?.type) setEditVehicleType(vehicle.type);
             }}><option value="">Choose active driver</option>{activeDrivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.display_name ?? driver.email ?? 'Driver'}</option>)}</select></label>
             <label>FROM<input value={editFrom} onChange={(event) => setEditFrom(event.target.value)} placeholder="Postcode / area" /></label>
-            <label>TO<input value={editTo} onChange={(event) => setEditTo(event.target.value)} placeholder="Postcode / anywhere" /></label>
+            <label>TO<input value={editTo} disabled={editGoAnywhere} onChange={(event) => setEditTo(event.target.value)} placeholder="Postcode / anywhere" /></label>
             <label>VEHICLE<input value={editVehicleType} onChange={(event) => setEditVehicleType(event.target.value)} placeholder="Vehicle type" /></label>
             <label>AVAILABLE FROM<input type="datetime-local" value={editAvailableFrom} onChange={(event) => setEditAvailableFrom(event.target.value)} /></label>
             <label>AVAILABLE TO<input type="datetime-local" value={editAvailableTo} onChange={(event) => setEditAvailableTo(event.target.value)} /></label>
+            <label>JOURNEY TYPE<select value={editJourneyKind} onChange={(event) => setEditJourneyKind(event.target.value as 'ad_hoc' | 'regular')}><option value="ad_hoc">Ad hoc</option><option value="regular">Regular</option></select></label>
+            <label>BODY TYPE<input value={editBodyType} onChange={(event) => setEditBodyType(event.target.value)} placeholder="e.g. box / curtain side" /></label>
+            <label>WEIGHT KG<input type="number" min="0" value={editWeightKg} onChange={(event) => setEditWeightKg(event.target.value)} placeholder="Available payload" /></label>
+            <label>SPACE / PALLETS<input type="number" min="0" value={editSpaceUnits} onChange={(event) => setEditSpaceUnits(event.target.value)} placeholder="Available units" /></label>
+            <label style={{ gridColumn: 'span 2' }}>VIA LOCATIONS<input value={editVia} onChange={(event) => setEditVia(event.target.value)} placeholder="Comma-separated via locations" /></label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" checked={editGoAnywhere} onChange={(event) => { setEditGoAnywhere(event.target.checked); if (event.target.checked) setEditTo(''); }} />GO ANYWHERE</label>
             <label style={{ gridColumn: 'span 2' }}>NOTES<input value={editNotes} onChange={(event) => setEditNotes(event.target.value)} placeholder="Return capacity notes" /></label>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, paddingTop: 8 }}>
@@ -342,8 +414,11 @@ export default function CompanyReturnJourneysPage() {
             <label>FROM<input value={from} onChange={(event) => setFrom(event.target.value)} placeholder="Postcode" /></label>
             <label>TO<input value={to} onChange={(event) => setTo(event.target.value)} placeholder="Postcode" /></label>
             <label>DRIVER<input value={driverSearch} onChange={(event) => setDriverSearch(event.target.value)} placeholder="Name / email" /></label>
+            <label>JOURNEY TYPE<select value={journeyKindFilter} onChange={(event) => setJourneyKindFilter(event.target.value as 'all' | 'ad_hoc' | 'regular')}><option value="all">All journey types</option><option value="ad_hoc">Ad hoc</option><option value="regular">Regular</option></select></label>
+            <label>VEHICLE<select value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="all">All vehicle types</option>{vehicleOptions.map((value) => <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>)}</select></label>
+            <label>BODY TYPE<select value={bodyFilter} onChange={(event) => setBodyFilter(event.target.value)}><option value="all">All body types</option>{bodyOptions.map((value) => <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>)}</select></label>
             <div style={{ fontSize: 11, color: '#64748b', lineHeight: '15px' }}>Filters apply live to company return records.</div>
-            <ActionButton tone="secondary" onClick={() => { setFrom(''); setTo(''); setDriverSearch(''); }}>Clear filters</ActionButton>
+            <ActionButton tone="secondary" onClick={() => { setFrom(''); setTo(''); setDriverSearch(''); setJourneyKindFilter('all'); setVehicleFilter('all'); setBodyFilter('all'); }}>Clear filters</ActionButton>
           </div>
         </aside>
 
@@ -382,6 +457,7 @@ export default function CompanyReturnJourneysPage() {
           ) : viewMode === 'list' ? (
             <div className="workspace-record-list">
               {visible.map((journey) => {
+                const meta = decodeJourneyMeta(journey.notes);
                 const driver = journey.driver_id ? driverById.get(journey.driver_id) : undefined;
                 const location = journey.driver_id ? latestLocationByDriver.get(journey.driver_id) : undefined;
                 const locationTimestamp = location?.recorded_at ?? location?.updated_at ?? null;
@@ -399,13 +475,13 @@ export default function CompanyReturnJourneysPage() {
                       </div>
                       <div className="workspace-operational-cell">
                         <span className="workspace-operational-label">To</span>
-                        <strong>{journey.to_postcode || 'Go anywhere / not supplied'}</strong>
-                        <span>{journey.available_to ? `Until ${when(journey.available_to)}` : 'Open-ended availability window'}</span>
+                        <strong>{journey.to_postcode || 'Go Anywhere'}</strong>
+                        <span>{meta.viaLocations.length ? `Via ${meta.viaLocations.join(' · ')}` : journey.available_to ? `Until ${when(journey.available_to)}` : 'Open-ended availability window'}</span>
                       </div>
                       <div className="workspace-operational-cell">
                         <span className="workspace-operational-label">Vehicle / driver</span>
                         <strong>{(journey.vehicle_type || 'Not supplied').replace(/_/g, ' ')}</strong>
-                        <span>{driver?.display_name ?? driver?.email ?? 'Driver not supplied'}{driver?.phone ? ` · ${driver.phone}` : ''}</span>
+                        <span>{meta.bodyType ? `${meta.bodyType.replace(/_/g, ' ')} · ` : ''}{meta.weightKg != null ? `${meta.weightKg} kg · ` : ''}{meta.spaceUnits != null ? `${meta.spaceUnits} units · ` : ''}{driver?.display_name ?? driver?.email ?? 'Driver not supplied'}{driver?.phone ? ` · ${driver.phone}` : ''}</span>
                       </div>
                       <div className="workspace-operational-cell">
                         <span className="workspace-operational-label">Status / position</span>
@@ -417,15 +493,16 @@ export default function CompanyReturnJourneysPage() {
                       </div>
                     </div>
 
-                    {journey.notes?.trim() ? (
+                    {meta.notes.trim() ? (
                       <div style={{ padding: '7px 10px', borderTop: '1px solid var(--ws-border-soft)', background: '#f8fafc', color: 'var(--ws-text)', fontSize: 12, lineHeight: '16px' }}>
-                        <strong style={{ color: 'var(--ws-navy)' }}>Return notes:</strong> {journey.notes.trim()}
+                        <strong style={{ color: 'var(--ws-navy)' }}>Return notes:</strong> {meta.notes.trim()}
                       </div>
                     ) : null}
 
                     <div className="workspace-record-meta">
                       <span>Return #{journey.id.slice(0, 8).toUpperCase()}</span>
                       <span>Created {when(journey.created_at)}</span>
+                      <span>{meta.journeyKind === 'regular' ? 'Regular journey' : 'Ad hoc journey'}</span>
                       <span>Company-owned return capacity</span>
                       <div style={{ marginLeft: 'auto', display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
                         {location ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Locate</ActionButton> : null}
