@@ -10,9 +10,11 @@ describe('CX-close Driver Diary persistent action contract', () => {
 
   it('keeps operational actions visible before the expanded detail panel', () => {
     const railIndex = diary.indexOf('driver-diary-action-rail');
-    const expandedIndex = diary.indexOf('{expanded && (', railIndex);
+    const companyExpandedIndex = diary.indexOf('{expanded && !isOwnAssignedJob && (', railIndex);
+    const ownExpandedIndex = diary.indexOf('{expanded && isOwnAssignedJob && (', railIndex);
     expect(railIndex).toBeGreaterThan(0);
-    expect(expandedIndex).toBeGreaterThan(railIndex);
+    expect(companyExpandedIndex).toBeGreaterThan(railIndex);
+    expect(ownExpandedIndex).toBeGreaterThan(railIndex);
     expect(diary).toContain("{ id: 'pod', label: 'POD' }");
     expect(diary).toContain("{ id: 'order', label: 'Order' }");
     expect(diary).toContain("{ id: 'notes', label: 'Notes' }");

@@ -11,6 +11,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
+import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type CompanyRelation = { name: string } | Array<{ name: string }> | null;
@@ -240,7 +241,8 @@ function withinDateRange(value: string | null, range: DateRange) {
     const target = new Date(value);
     return target.getFullYear() === now.getFullYear() && target.getMonth() === now.getMonth() && target.getDate() === now.getDate();
   }
-  return timestamp >= Date.now() - (range === '7d' ? 7 : 30) * 86400000;
+  const nowMs = Date.now();
+  return timestamp >= nowMs - (range === '7d' ? 7 : 30) * 86400000 && timestamp <= nowMs;
 }
 function groupByJobId<T extends { job_id: string | null }>(rows: T[]) {
   const grouped: Record<string, T[]> = {};
@@ -300,7 +302,11 @@ export default function JobHistoryPage() {
   const { user, isLoading: authLoading } = useAuth();
   const router = useRouter();
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
+  const companyId = typeof user?.companyId === 'string' ? user.companyId.trim() : '';
   const canGenerateInvoices = user?.membershipRole === 'owner' || user?.membershipRole === 'admin';
+  const canViewCompanyDiary = canGenerateInvoices && Boolean(companyId);
+  const [selectedDiaryScope, setSelectedDiaryScope] = useState<'company' | 'mine'>('company');
+  const diaryScope: 'company' | 'mine' = canViewCompanyDiary ? selectedDiaryScope : 'mine';
   const [jobs, setJobs] = useState<HistoryJob[]>([]);
   const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>({});
   const [documentsByJob, setDocumentsByJob] = useState<Record<string, DocumentRow[]>>({});
@@ -365,42 +371,81 @@ export default function JobHistoryPage() {
     if (hasLoadedRef.current) setRefreshing(true); else setLoading(true);
     setError(''); setDetailWarning('');
 
-    const { data, error: fetchError } = await supabase
-      .from('jobs')
-      .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)')
-      .eq('assigned_driver_id', driverId)
-      .order('updated_at', { ascending: false })
-      .limit(250);
-
-    if (fetchError) {
-      setError('Diary records could not be loaded. Please refresh and try again.');
-      if (!hasLoadedRef.current) setJobs([]);
-      finishLoad();
-      return;
-    }
-    const normalized = ((data ?? []) as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>).map((job) => ({ ...job, companies: normalizeCompany(job.companies) }));
-    let resolvedJobs = normalized;
     const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    if (token) {
+    let token = sessionData.session?.access_token;
+    if (!token) {
+      const refreshed = await supabase.auth.refreshSession();
+      token = refreshed.data.session?.access_token;
+    }
+
+    let resolvedJobs: HistoryJob[] = [];
+    let companyReviews: ReviewRow[] | null = null;
+
+    if (diaryScope === 'company' && canViewCompanyDiary) {
+      if (!token) {
+        setError('Your session has expired. Sign in again.');
+        finishLoad();
+        return;
+      }
       try {
-        const memberResponse = await fetch('/api/driver/diary/company-names', {
+        const response = await fetch('/api/driver/diary/company-snapshot', {
           headers: { Authorization: `Bearer ${token}` },
           cache: 'no-store',
         });
-        const memberPayload = await memberResponse.json().catch(() => ({})) as { members?: DiaryMemberRow[] };
-        if (memberResponse.ok && Array.isArray(memberPayload.members)) {
-          const memberByJob = new Map(memberPayload.members.map((row) => [row.jobId, row]));
-          resolvedJobs = normalized.map((job) => {
-            if (job.companies?.name) return job;
-            const member = memberByJob.get(job.id);
-            return member?.name ? { ...job, companies: { name: member.name } } : job;
+        const payload = await response.json().catch(() => ({})) as {
+          jobs?: Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>;
+          reviews?: ReviewRow[];
+          warning?: string;
+          error?: string;
+        };
+        if (!response.ok || !Array.isArray(payload.jobs)) throw new Error(payload.error || 'Company Diary could not be loaded.');
+        resolvedJobs = payload.jobs.map((job) => ({ ...job, companies: normalizeCompany(job.companies) }));
+        companyReviews = Array.isArray(payload.reviews) ? payload.reviews : [];
+        if (payload.warning) setDetailWarning(payload.warning);
+      } catch (reason) {
+        setError(reason instanceof Error ? reason.message : 'Company Diary could not be loaded.');
+        if (!hasLoadedRef.current) setJobs([]);
+        finishLoad();
+        return;
+      }
+    } else {
+      const { data, error: fetchError } = await supabase
+        .from('jobs')
+        .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)')
+        .eq('assigned_driver_id', driverId)
+        .order('updated_at', { ascending: false })
+        .limit(250);
+
+      if (fetchError) {
+        setError('Diary records could not be loaded. Please refresh and try again.');
+        if (!hasLoadedRef.current) setJobs([]);
+        finishLoad();
+        return;
+      }
+
+      const normalized = ((data ?? []) as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>).map((job) => ({ ...job, companies: normalizeCompany(job.companies) }));
+      resolvedJobs = normalized;
+      if (token) {
+        try {
+          const memberResponse = await fetch('/api/driver/diary/company-names', {
+            headers: { Authorization: `Bearer ${token}` },
+            cache: 'no-store',
           });
+          const memberPayload = await memberResponse.json().catch(() => ({})) as { members?: DiaryMemberRow[] };
+          if (memberResponse.ok && Array.isArray(memberPayload.members)) {
+            const memberByJob = new Map(memberPayload.members.map((row) => [row.jobId, row]));
+            resolvedJobs = normalized.map((job) => {
+              if (job.companies?.name) return job;
+              const member = memberByJob.get(job.id);
+              return member?.name ? { ...job, companies: { name: member.name } } : job;
+            });
+          }
+        } catch {
+          setDetailWarning('Diary member names could not be refreshed. Existing booking data remains available.');
         }
-      } catch {
-        setDetailWarning('Diary member names could not be refreshed. Existing booking data remains available.');
       }
     }
+
     setJobs(resolvedJobs);
     const jobIds = resolvedJobs.map((job) => job.id);
     if (!jobIds.length) {
@@ -408,7 +453,9 @@ export default function JobHistoryPage() {
     }
 
     const [reviewsRes, documentsRes, eventsRes] = await Promise.all([
-      supabase.from('reviews').select('id, job_id, rating, comment, created_at').in('job_id', jobIds).order('created_at', { ascending: false }),
+      companyReviews !== null
+        ? Promise.resolve({ data: companyReviews, error: null })
+        : supabase.from('reviews').select('id, job_id, rating, comment, created_at').in('job_id', jobIds).order('created_at', { ascending: false }),
       supabase.from('job_documents').select('id, job_id, file_name, file_type, file_url, uploaded_at').in('job_id', jobIds).order('uploaded_at', { ascending: false }),
       supabase.from('job_tracking_events').select('id, job_id, event_type, event_time, user_name, notes, message').in('job_id', jobIds).order('event_time', { ascending: false }),
     ]);
@@ -416,9 +463,9 @@ export default function JobHistoryPage() {
     if (reviewsRes.error) warnings.push('feedback'); else setReviewsByJob(groupByJobId((reviewsRes.data ?? []) as ReviewRow[]));
     if (documentsRes.error) warnings.push('documents'); else setDocumentsByJob(groupByJobId((documentsRes.data ?? []) as DocumentRow[]));
     if (eventsRes.error) warnings.push('history'); else setEventsByJob(groupByJobId((eventsRes.data ?? []) as TrackingEventRow[]));
-    if (warnings.length) setDetailWarning(`Some Diary detail data is temporarily unavailable: ${warnings.join(', ')}.`);
+    if (warnings.length) setDetailWarning((current) => current || `Some Diary detail data is temporarily unavailable: ${warnings.join(', ')}.`);
     finishLoad();
-  }, [authLoading, driverId]);
+  }, [authLoading, canViewCompanyDiary, diaryScope, driverId]);
 
   const createInvoiceForJob = async (job: HistoryJob) => {
     if (!canGenerateInvoices) {
@@ -535,17 +582,24 @@ export default function JobHistoryPage() {
   useEffect(() => { setPage(1); }, [statusFilter, feedbackMode, appliedSearch, itemsPerPage]);
 
   const allExpanded = visibleJobs.length > 0 && visibleJobs.every((job) => expandedIds.has(job.id));
+  const prefetchOrderSheets = useCallback(async (rows: HistoryJob[]) => {
+    const ownRows = rows.filter((job) => job.assigned_driver_id === driverId);
+    for (let index = 0; index < ownRows.length; index += 4) {
+      await Promise.all(ownRows.slice(index, index + 4).map((job) => fetchOrderSheet(job.id)));
+    }
+  }, [driverId, fetchOrderSheet]);
+
   const toggleExpandAll = () => {
     const expanding = !allExpanded;
     setExpandedIds((previous) => { const next = new Set(previous); visibleJobs.forEach((job) => { if (expanding) next.add(job.id); else next.delete(job.id); }); return next; });
-    if (expanding) visibleJobs.forEach((job) => void fetchOrderSheet(job.id));
+    if (expanding) void prefetchOrderSheets(visibleJobs);
   };
 
   const filterRail = (
     <aside className="left driver-filter-rail diary-filter-rail" aria-label="Diary search filters">
       <div className="left-title">Search Panel</div>
       <div className="diary-filter-body">
-        <div className="filter"><span className="label">Booking Scope</span><select value="assigned" disabled aria-label="Diary source"><option value="assigned">Assigned driver jobs</option></select></div>
+        <div className="filter"><span className="label">Booking Scope</span><select value={diaryScope} disabled={!canViewCompanyDiary} aria-label="Diary source" onChange={(e) => setSelectedDiaryScope(e.target.value as 'company' | 'mine')}><option value="company">Company Diary</option><option value="mine">My assigned jobs</option></select></div>
         <div className="filter"><span className="label">Date</span><select value={search.dateRange} onChange={(e) => setSearch((current) => ({ ...current, dateRange: e.target.value as DateRange }))}><option value="any">Anytime</option><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select></div>
         <div className="filter"><span className="label">Pickup Time Within</span><select value={search.pickupWithin} onChange={(e) => setSearch((current) => ({ ...current, pickupWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
         <div className="filter"><span className="label">Delivery Time Within</span><select value={search.deliveryWithin} onChange={(e) => setSearch((current) => ({ ...current, deliveryWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
@@ -592,7 +646,10 @@ export default function JobHistoryPage() {
                   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : (Array.isArray(job.delivery_photos) ? job.delivery_photos : []);
                   const hasPod = hasCompletePodEvidence(job); const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews); const expired = isDerivedExpired(job);
                   const currentStatus = effectiveStatus(job);
-                  const canRequestCancellation = ['allocated', 'accepted'].includes(currentStatus);
+                  const stage = jobStage(job);
+                  const isOwnAssignedJob = job.assigned_driver_id === driverId;
+                  const canRequestCancellation = ['allocated', 'accepted', 'awarded'].includes(currentStatus) || stage === 'awarded' || stage === 'in_progress';
+                  const cancellationLabel = isOwnAssignedJob && ['allocated', 'accepted'].includes(currentStatus) ? 'Decline' : 'Request cancellation';
                   const historyRows = [
                     ...(Array.isArray(job.status_history) ? job.status_history.map((entry, index) => ({ key: `status-${index}`, label: STATUS_LABELS[entry.status ?? ''] ?? entry.status ?? 'Status update', at: entry.timestamp ?? entry.at ?? null, detail: 'Job status history' })) : []),
                     ...trackingEvents.map((event) => ({ key: event.id, label: event.event_type ? (STATUS_LABELS[event.event_type] ?? event.event_type.replace(/_/g, ' ')) : 'Tracking event', at: event.event_time, detail: event.message ?? event.notes ?? event.user_name ?? 'Operational event' })),
@@ -623,11 +680,11 @@ export default function JobHistoryPage() {
                       <div className="driver-load-row__meta">
                         <span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking: {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
                         <StatusBadge value={expired ? 'Expired' : workspaceJobOperationalLabel(job)} tone={expired ? 'grey' : statusTone(job)} />{hasPod && <StatusBadge value="POD captured" tone="green" />}{awaitingFeedback && <StatusBadge value="Awaiting feedback" tone="orange" />}{feedbackReceived && <StatusBadge value="Feedback received" tone="green" />}
-                        <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand) void fetchOrderSheet(job.id); }}>{expanded ? 'Collapse' : 'Details'}</ActionButton><ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</ActionButton></div>
+                        <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }}>{expanded ? 'Collapse' : 'Details'}</ActionButton>{isOwnAssignedJob && <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</ActionButton>}</div>
                       </div>
 
                       <div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
-                        {currentStatus === 'delivered' && !hasPod ? (
+                        {isOwnAssignedJob && currentStatus === 'delivered' && !hasPod ? (
                           <button
                             type="button"
                             data-operation="primary"
@@ -643,10 +700,10 @@ export default function JobHistoryPage() {
                             disabled={cancellingJobId === job.id}
                             onClick={() => void requestDiaryCancellation(job)}
                           >
-                            {cancellingJobId === job.id ? 'Sending…' : 'Decline'}
+                            {cancellingJobId === job.id ? 'Sending…' : cancellationLabel}
                           </button>
                         ) : null}
-                        {DETAIL_TABS
+                        {isOwnAssignedJob && DETAIL_TABS
                           .filter((detailItem) => detailItem.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices))
                           .map((detailItem) => (
                             <button
@@ -678,7 +735,11 @@ export default function JobHistoryPage() {
                         {feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
                       </div>
 
-                      {expanded && (
+                      {expanded && !isOwnAssignedJob && (
+                        <div className="driver-row-details driver-diary-details"><CompanyJobSheetPanel jobId={job.id} mode="carrier" /></div>
+                      )}
+
+                      {expanded && isOwnAssignedJob && (
                         <div className="driver-row-details driver-diary-details">
                           <div className="driver-diary-detail-panel">
                             {detailTab === 'order' && (orderLoading ? <EmptyState compact title="Loading Order confirmation…" /> : (

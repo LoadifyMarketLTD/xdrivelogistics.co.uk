@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
@@ -217,6 +217,8 @@ export default function OperationsDiaryPage() {
   const [drivers, setDrivers] = useState<DriverRow[]>([]);
   const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>({});
   const [loading, setLoading] = useState(true);
+  const hasLoadedRef = useRef(false);
+  const loadInFlightRef = useRef(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [tab, setTab] = useState<DiaryTab>('all');
@@ -251,8 +253,16 @@ export default function OperationsDiaryPage() {
   const canLeaveCompanyFeedback = canManageCompanyBookings;
 
   const load = useCallback(async () => {
-    if (!companyId || !user?.id) { setJobs([]); setDrivers([]); setReviewsByJob({}); setSavedViews([]); setGroups([]); setGroupJobs([]); setLoading(false); return; }
-    setLoading(true); setError('');
+    if (loadInFlightRef.current) return;
+    loadInFlightRef.current = true;
+    const finishLoad = () => {
+      loadInFlightRef.current = false;
+      hasLoadedRef.current = true;
+      setLoading(false);
+    };
+    if (!companyId || !user?.id) { setJobs([]); setDrivers([]); setReviewsByJob({}); setSavedViews([]); setGroups([]); setGroupJobs([]); finishLoad(); return; }
+    if (!hasLoadedRef.current) setLoading(true);
+    setError('');
     const [jobsResult, driversResult, reviewsResult, savedViewsResult, groupsResult, groupJobsResult] = await Promise.all([
       supabase
         .from('jobs')
@@ -326,7 +336,7 @@ export default function OperationsDiaryPage() {
       setGroupJobs((groupJobsResult.data ?? []) as DiaryGroupJobRow[]);
       setGroupNameDrafts(Object.fromEntries(((groupsResult.data ?? []) as DiaryGroupRow[]).map((group) => [group.id, group.name])));
     }
-    setLoading(false);
+    finishLoad();
   }, [companyId, user?.id]);
 
   useEffect(() => { void load(); }, [load]);

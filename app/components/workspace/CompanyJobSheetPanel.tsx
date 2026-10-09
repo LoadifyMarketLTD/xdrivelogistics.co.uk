@@ -107,6 +107,24 @@ const when = (value: string | null) => value ? new Date(value).toLocaleString('e
 const money = (value: number | null, currency = 'GBP') => value == null ? 'Not supplied' : new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value);
 const human = (value: string | null | undefined) => value ? value.replace(/_/g, ' ') : 'Not supplied';
 
+const SHEET_FETCH_CONCURRENCY = 4;
+let activeSheetFetches = 0;
+const sheetFetchQueue: Array<() => void> = [];
+
+function runSheetFetchLimited<T>(task: () => Promise<T>): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const execute = () => {
+      activeSheetFetches += 1;
+      void task().then(resolve, reject).finally(() => {
+        activeSheetFetches -= 1;
+        sheetFetchQueue.shift()?.();
+      });
+    };
+    if (activeSheetFetches < SHEET_FETCH_CONCURRENCY) execute();
+    else sheetFetchQueue.push(execute);
+  });
+}
+
 function normalizeComparable(value: string | null | undefined) {
   return (value ?? '').trim().replace(/[,.]+$/g, '').replace(/\s+/g, ' ').toUpperCase();
 }
@@ -172,20 +190,23 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
     const run = async () => {
       setLoading(true); setError('');
       try {
-        const { data: session } = await supabase.auth.getSession();
-        const token = session.session?.access_token;
-        if (!token) throw new Error('Session expired.');
-        const response = await fetch(`/api/workspace/jobs/${encodeURIComponent(jobId)}/sheet`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
-        const payload = await response.json().catch(() => ({})) as { sheet?: JobSheet; error?: string };
-        if (!response.ok || !payload.sheet) throw new Error(payload.error || 'Job sheet unavailable.');
-        if (!cancelled) setSheet(payload.sheet);
+        const loadedSheet = await runSheetFetchLimited(async () => {
+          const { data: session } = await supabase.auth.getSession();
+          const token = session.session?.access_token;
+          if (!token) throw new Error('Session expired.');
+          const response = await fetch(`/api/workspace/jobs/${encodeURIComponent(jobId)}/sheet`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
+          const payload = await response.json().catch(() => ({})) as { sheet?: JobSheet; error?: string };
+          if (!response.ok || !payload.sheet) throw new Error(payload.error || 'Job sheet unavailable.');
+          return payload.sheet;
+        });
+        if (!cancelled) setSheet(loadedSheet);
       } catch (reason) {
         if (!cancelled) { setSheet(null); setError(reason instanceof Error ? reason.message : 'Job sheet unavailable.'); }
       } finally { if (!cancelled) setLoading(false); }
     };
     void run();
     return () => { cancelled = true; };
-  }, [jobId]);
+  }, [jobId, mode]);
 
   const dimensions = useMemo(() => {
     if (!sheet) return 'Not supplied';

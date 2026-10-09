@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import {
@@ -578,6 +578,8 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
   const [partialData, setPartialData] = useState(false);
   const [queryErrors, setQueryErrors] = useState<WorkspaceQueryError[]>([]);
   const [datasets, setDatasets] = useState<WorkspaceDataDatasets>(() => createDatasetMap(plan.datasets));
+  const hasLoadedRef = useRef(false);
+  const refreshInFlightRef = useRef(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -594,6 +596,13 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
   }, [userId, userCompanyId]);
 
   const refresh = useCallback(async () => {
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
+    const finishRefresh = () => {
+      refreshInFlightRef.current = false;
+      hasLoadedRef.current = true;
+      setLoading(false);
+    };
     const nextDatasets = createDatasetMap(plan.datasets);
     const nextQueryErrors: WorkspaceQueryError[] = [];
     const requested = new Set(plan.datasets);
@@ -624,7 +633,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
       setQueryErrors([]);
       setPartialData(false);
       setError(plan.blocker);
-      setLoading(false);
+      finishRefresh();
       return;
     }
 
@@ -635,7 +644,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
       setQueryErrors(nextQueryErrors);
       setPartialData(false);
       setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
-      setLoading(false);
+      finishRefresh();
       return;
     }
 
@@ -649,7 +658,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
       if (sessionResult.error || !session) {
         // Do not clear or re-resolve auth from a data hook. A short-lived storage/
         // token race must not log the owner out or blank the current workspace.
-        setLoading(false);
+        finishRefresh();
         return;
       }
     }
@@ -660,11 +669,11 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
       setQueryErrors(nextQueryErrors);
       setPartialData(false);
       setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
-      setLoading(false);
+      finishRefresh();
       return;
     }
 
-    setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError('');
 
     if (requested.has('jobs')) {
@@ -993,10 +1002,13 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
     setQueryErrors(nextQueryErrors);
     setPartialData(Object.values(nextDatasets).some((dataset) => dataset.partialData));
     setError(buildWorkspaceError(plan.blocker, nextQueryErrors));
-    setLoading(false);
+    finishRefresh();
   }, [companyId, plan, driverId, userId]);
 
   useEffect(() => {
+    hasLoadedRef.current = false;
+    refreshInFlightRef.current = false;
+    setLoading(true);
     setDatasets(createDatasetMap(plan.datasets));
   }, [plan.datasets]);
 

@@ -22,9 +22,10 @@ describe('Driver Diary POD and cancellation contract', () => {
     expect(podHelper).toContain('recipientName.length > 0');
   });
 
-  it('offers cancellation only for allocated or accepted bookings', () => {
-    expect(diary).toContain("const canRequestCancellation = ['allocated', 'accepted'].includes(currentStatus)");
-    expect(diary).toContain("cancellingJobId === job.id ? 'Sending…' : 'Decline'");
+  it('keeps pre-execution decline and exposes cancellation requests after execution starts', () => {
+    expect(diary).toContain("['allocated', 'accepted', 'awarded'].includes(currentStatus) || stage === 'awarded' || stage === 'in_progress'");
+    expect(diary).toContain("? 'Decline' : 'Request cancellation'");
+    expect(diary).toContain("cancellingJobId === job.id ? 'Sending…' : cancellationLabel");
     expect(diary).toContain('requestDiaryCancellation(job)');
   });
 
