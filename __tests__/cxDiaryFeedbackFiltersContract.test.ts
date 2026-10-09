@@ -21,8 +21,8 @@ describe('CX Diary P1 feedback and search parity', () => {
     expect(migration).toContain('reviewer_company_id');
     expect(migration).toContain('reviews_job_reviewer_company_unique');
     expect(feedbackApi).toContain(".eq('reviewer_company_id', companyId)");
-    expect(feedbackApi).toContain("operatorRoles = new Set(['owner', 'admin', 'dispatcher'])");
-    expect(feedbackApi).toContain("targetCompanyId = job.awarded_carrier_company_id ?? job.assigned_company_id");
+    expect(feedbackApi).toContain("operatorRoles = new Set(['owner', 'admin', 'dispatcher', 'fleet_manager'])");
+    expect(feedbackApi).toContain('resolveFeedbackCounterpartyCompanyId(job, companyId)');
   });
 
   it('wires Leave Feedback / Edit Feedback to the authorised API', () => {

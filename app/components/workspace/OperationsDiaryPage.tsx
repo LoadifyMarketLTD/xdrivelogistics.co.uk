@@ -7,6 +7,7 @@ import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket, type CanonicalDiaryRole } from '../../../lib/diary/canonicalDiary';
 import { supabase } from '../../../lib/supabaseClient';
+import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../lib/feedback/canonicalFeedback';
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
 import {
@@ -168,13 +169,17 @@ function hasRecentFeedback(reviews: ReviewRow[]) {
   return reviews.length > 0;
 }
 
-function isAwaitingFeedback(job: JobRow, reviews: ReviewRow[]) {
-  return matchesCanonicalDiaryBucket(job, 'awaiting_feedback', { hasFeedback: hasRecentFeedback(reviews) });
+function isAwaitingFeedback(job: JobRow, reviews: ReviewRow[], companyId: string | null) {
+  return matchesCanonicalDiaryBucket(job, 'awaiting_feedback', {
+    hasFeedback: hasRecentFeedback(reviews),
+    feedbackEligible: isCompanyFeedbackEligible(job, companyId),
+  });
 }
 
-function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = []) {
+function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = [], companyId: string | null = null) {
   return matchesCanonicalDiaryBucket(job, tab, {
     hasFeedback: hasRecentFeedback(reviews),
+    feedbackEligible: isCompanyFeedbackEligible(job, companyId),
     hasEvidence: job.pod_generated === true || (job.delivery_photos?.length ?? 0) > 0,
   });
 }
@@ -233,7 +238,7 @@ export default function OperationsDiaryPage() {
   const [groupWorking, setGroupWorking] = useState(false);
   const canManageCompanyBookings = Boolean(user?.membershipRole && ['owner', 'admin', 'dispatcher'].includes(user.membershipRole));
   const canManageDiaryGroups = Boolean(user?.membershipRole && ['owner', 'admin', 'fleet_manager', 'dispatcher'].includes(user.membershipRole));
-  const canLeaveCompanyFeedback = canManageCompanyBookings;
+  const canLeaveCompanyFeedback = Boolean(user?.membershipRole && ['owner', 'admin', 'dispatcher', 'fleet_manager'].includes(user.membershipRole));
   const diaryRole: CanonicalDiaryRole = user?.membershipRole === 'fleet_manager'
     ? 'fleet_manager'
     : user?.membershipRole === 'dispatcher'
@@ -376,7 +381,7 @@ export default function OperationsDiaryPage() {
     const toDate = appliedSearch.dateTo ? new Date(`${appliedSearch.dateTo}T23:59:59`).getTime() : null;
 
     return jobs
-      .filter((job) => matchesTab(job, tab, reviewsByJob[job.id] ?? []))
+      .filter((job) => matchesTab(job, tab, reviewsByJob[job.id] ?? [], companyId))
       .filter((job) => !selectedGroupFilter || (groupIdsByJob.get(job.id) ?? []).includes(selectedGroupFilter))
       .filter((job) => appliedSearch.scope === 'all' || (appliedSearch.scope === 'ours' ? job.company_id === companyId : job.company_id !== companyId))
       .filter((job) => !from || `${job.pickup_location ?? ''} ${job.pickup_postcode ?? ''}`.toLowerCase().includes(from))
@@ -415,7 +420,7 @@ export default function OperationsDiaryPage() {
       });
   }, [appliedSearch, companyId, driverById, groupIdsByJob, intelligence.jobDetailById, jobs, reviewsByJob, selectedGroupFilter, tab]);
 
-  const counts = useMemo(() => Object.fromEntries(diaryTabs.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [])).length])) as Partial<Record<DiaryTab, number>>, [diaryTabs, jobs, reviewsByJob]);
+  const counts = useMemo(() => Object.fromEntries(diaryTabs.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [], companyId)).length])) as Partial<Record<DiaryTab, number>>, [companyId, diaryTabs, jobs, reviewsByJob]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
@@ -811,7 +816,7 @@ export default function OperationsDiaryPage() {
                 const agreedRate = moneyLabel(detail?.agreedRate, detail?.currency ?? 'GBP');
                 const bookedTo = detail?.awardedCompanyName ?? detail?.executionCompanyName ?? null;
                 const counterpartyPhone = job.company_id === companyId ? detail?.awardedCompanyPhone : detail?.ownerCompanyPhone;
-                const feedbackAvailable = Boolean(job.company_id === companyId && (job.awarded_carrier_company_id || (job.assigned_company_id && job.assigned_company_id !== companyId)) && ['completed', 'cancelled'].includes(stage));
+                const feedbackAvailable = isCompanyFeedbackEligible(job, companyId);
                 const assignedGroupIds = groupIdsByJob.get(job.id) ?? [];
                 const assignedGroups = assignedGroupIds.map((groupId) => groupById.get(groupId)).filter((group): group is DiaryGroupRow => Boolean(group));
                 const availableGroups = groups.filter((group) => !assignedGroupIds.includes(group.id));
@@ -837,7 +842,7 @@ export default function OperationsDiaryPage() {
                         <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>Load #{job.id.slice(0, 8).toUpperCase()} · {job.client_name ?? 'Customer not supplied'}</div>
                         {detail?.ownerCompanyName && <div style={{ color: '#475569', fontSize: 11, lineHeight: '14px', marginTop: 3 }}>Posted by <strong>{detail.ownerCompanyName}</strong>{bookedTo ? <> · Booked to <strong>{bookedTo}</strong></> : null}{counterpartyPhone ? <> · <a href={`tel:${counterpartyPhone.replace(/\s+/g, '')}`} style={{ color: '#1d57d8', fontWeight: 800, textDecoration: 'none' }}>{counterpartyPhone}</a></> : null}</div>}
                         {(agreedRate || detail?.paymentTerms) && <div style={{ color: '#475569', fontSize: 11, lineHeight: '14px', marginTop: 2 }}>{agreedRate ? <>Agreed rate <strong>{agreedRate}</strong></> : null}{agreedRate && detail?.paymentTerms ? ' · ' : ''}{detail?.paymentTerms ? <>Payment terms <strong>{detail.paymentTerms}</strong></> : null}</div>}
-                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>{job.pod_generated ? <StatusBadge value="POD generated" tone="green" /> : evidenceCount > 0 ? <><StatusBadge value={String(evidenceCount) + ' evidence file(s)'} tone="blue" /><StatusBadge value="POD pending" tone="orange" /></> : <StatusBadge value="POD pending" tone="orange" />}{isAwaitingFeedback(job, reviewsByJob[job.id] ?? []) && <StatusBadge value="Awaiting feedback" tone="orange" />}{hasRecentFeedback(reviewsByJob[job.id] ?? []) && <StatusBadge value="Recent feedback" tone="green" />}</div>
+                        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>{job.pod_generated ? <StatusBadge value="POD generated" tone="green" /> : evidenceCount > 0 ? <><StatusBadge value={String(evidenceCount) + ' evidence file(s)'} tone="blue" /><StatusBadge value="POD pending" tone="orange" /></> : <StatusBadge value="POD pending" tone="orange" />}{isAwaitingFeedback(job, reviewsByJob[job.id] ?? [], companyId) && <StatusBadge value="Awaiting feedback" tone="orange" />}{hasRecentFeedback(reviewsByJob[job.id] ?? []) && <StatusBadge value="Recent feedback" tone="green" />}</div>
                       </section>
                     </div>
                     <div className="workspace-record-meta" style={{ minHeight: 28 }}>

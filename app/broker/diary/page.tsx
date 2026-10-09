@@ -9,6 +9,7 @@ import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/wor
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
 import { brokerDiaryStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
+import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../lib/feedback/canonicalFeedback';
 
 type DiaryTab = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'awaiting_feedback' | 'recent_feedback';
 type ReviewRow = {
@@ -24,12 +25,8 @@ const when = (value: string | null | undefined) => value ? new Date(value).toLoc
 const postcodeOrLocation = (postcode: string | null | undefined, location: string | null | undefined) => postcode || location || 'Not set';
 
 const hasRecentFeedback = (reviews: ReviewRow[]) => reviews.length > 0;
-const hasExternalCarrier = (job: WorkspaceJob, companyId: string | null) => Boolean(
-  job.awarded_carrier_company_id
-  || (job.assigned_company_id && job.assigned_company_id !== companyId),
-);
 const isAwaitingFeedback = (job: WorkspaceJob, reviews: ReviewRow[], companyId: string | null) =>
-  brokerDiaryStage(job) === 'completed' && hasExternalCarrier(job, companyId) && !hasRecentFeedback(reviews);
+  brokerDiaryStage(job) === 'completed' && isCompanyFeedbackEligible(job, companyId) && !hasRecentFeedback(reviews);
 
 function matchesTab(job: WorkspaceJob, tab: DiaryTab, reviews: ReviewRow[], companyId: string | null) {
   if (tab === 'all') return true;
@@ -249,7 +246,7 @@ export default function BrokerDiaryPage() {
                 const carrierName = carrierInfo?.companyName ?? (carrierCompanyId ? 'Executing carrier' : 'Not awarded');
                 const reviews = reviewsByJob[job.id] ?? [];
                 const review = reviews[0];
-                const feedbackAvailable = hasExternalCarrier(job, companyId) && ['completed', 'cancelled'].includes(brokerDiaryStage(job));
+                const feedbackAvailable = isCompanyFeedbackEligible(job, companyId);
                 return (
                   <article className="workspace-operational-row" key={job.id} data-state={normalizedJobStatus(job)}>
                     <div className="workspace-operational-row__top">

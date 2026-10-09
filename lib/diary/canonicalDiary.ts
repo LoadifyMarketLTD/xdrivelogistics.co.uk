@@ -31,6 +31,7 @@ export type CanonicalDiaryJob = WorkspaceStageJob & {
 export type CanonicalDiaryContext = {
   hasSubmittedQuote?: boolean;
   hasFeedback?: boolean;
+  feedbackEligible?: boolean;
   hasEvidence?: boolean;
 };
 
@@ -101,6 +102,7 @@ export function matchesCanonicalDiaryBucket(
 
   const stage = classifyWorkspaceJobStage(job);
   const hasFeedback = context.hasFeedback === true;
+  const feedbackEligible = context.feedbackEligible !== false;
   const hasEvidence = context.hasEvidence === true || job.pod_generated === true;
 
   if (bucket === 'open') return stage === 'open' && context.hasSubmittedQuote !== true;
@@ -112,7 +114,7 @@ export function matchesCanonicalDiaryBucket(
   if (bucket === 'completed') return stage === 'completed';
   if (bucket === 'cancelled') return stage === 'cancelled' || stage === 'disputed';
   if (bucket === 'expired') return stage === 'expired';
-  if (bucket === 'awaiting_feedback') return stage === 'completed' && !hasFeedback;
+  if (bucket === 'awaiting_feedback') return stage === 'completed' && feedbackEligible && !hasFeedback;
   if (bucket === 'recent_feedback') return hasFeedback;
   return stage === 'completed' && hasEvidence;
 }

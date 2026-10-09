@@ -13,7 +13,9 @@ import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiary
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
+import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 
 type CompanyRelation = { name: string } | Array<{ name: string }> | null;
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
@@ -26,6 +28,8 @@ type StatusHistoryEntry = { status?: string | null; timestamp?: string | null; a
 type HistoryJob = {
   id: string;
   company_id: string;
+  assigned_company_id?: string | null;
+  awarded_carrier_company_id?: string | null;
   status: string;
   current_status: string | null;
   assigned_driver_id: string | null;
@@ -160,7 +164,7 @@ type OrderSheet = {
   unavailable: { bodyType: string; extras: string; bookingFooter: string };
 };
 
-type ReviewRow = { id: string; job_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
+type ReviewRow = { id: string; job_id: string | null; reviewer_company_id?: string | null; rating: number | null; comment: string | null; created_at: string | null };
 type DocumentRow = { id: string; job_id: string | null; file_name: string | null; file_type: string | null; file_url: string | null; uploaded_at: string | null };
 type TrackingEventRow = { id: string; job_id: string | null; event_type: string | null; event_time: string | null; user_name: string | null; notes: string | null; message: string | null };
 type DiaryMemberRow = { jobId: string; companyId: string | null; name: string | null };
@@ -248,14 +252,17 @@ function groupByJobId<T extends { job_id: string | null }>(rows: T[]) {
 function isDerivedExpired(job: HistoryJob) {
   return jobStage(job) === 'expired';
 }
-function hasRecentFeedback(job: HistoryJob, reviews: ReviewRow[]) {
-  return reviews.length > 0 || ['received', 'completed', 'submitted', 'left', 'recent'].includes((job.feedback_status ?? '').toLowerCase());
+function hasRecentFeedback(_job: HistoryJob, reviews: ReviewRow[]) {
+  return reviews.length > 0;
 }
-function isAwaitingFeedback(job: HistoryJob, reviews: ReviewRow[]) { return jobStage(job) === 'completed' && !hasRecentFeedback(job, reviews); }
+function isAwaitingFeedback(job: HistoryJob, reviews: ReviewRow[], reviewerCompanyId?: string | null) {
+  return jobStage(job) === 'completed' && canLeaveCompanyFeedback(job, reviewerCompanyId) && !hasRecentFeedback(job, reviews);
+}
 function isClosedRecord(job: HistoryJob) { const stage = jobStage(job); return stage === 'completed' || stage === 'cancelled' || stage === 'expired'; }
-function filterMatches(job: HistoryJob, filter: HistoryFilter, reviews: ReviewRow[]) {
+function filterMatches(job: HistoryJob, filter: HistoryFilter, reviews: ReviewRow[], reviewerCompanyId?: string | null) {
   return matchesCanonicalDiaryBucket(job, filter, {
     hasFeedback: hasRecentFeedback(job, reviews),
+    feedbackEligible: canLeaveCompanyFeedback(job, reviewerCompanyId),
     hasEvidence: hasCompletePodEvidence(job),
   });
 }
@@ -294,6 +301,7 @@ export default function JobHistoryPage() {
   const canViewCompanyDiary = canGenerateInvoices && Boolean(companyId);
   const [selectedDiaryScope, setSelectedDiaryScope] = useState<'company' | 'mine'>('company');
   const diaryScope: 'company' | 'mine' = canViewCompanyDiary ? selectedDiaryScope : 'mine';
+  const feedbackReviewerCompanyId = canViewCompanyDiary && diaryScope === 'company' ? companyId : null;
   const historyFilters = useMemo(() => getCanonicalDiaryTabs(canViewCompanyDiary ? 'owner_driver' : 'driver'), [canViewCompanyDiary]);
   const [jobs, setJobs] = useState<HistoryJob[]>([]);
   const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>({});
@@ -318,6 +326,7 @@ export default function JobHistoryPage() {
   const [invoicePreview, setInvoicePreview] = useState<{ id: string; number: string | null } | null>(null);
   const [invoiceCreatingJobId, setInvoiceCreatingJobId] = useState<string | null>(null);
   const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
+  const [feedbackJobId, setFeedbackJobId] = useState<string | null>(null);
 
   const fetchOrderSheet = useCallback(async (jobId: string) => {
     if (orderSheetsByJob[jobId] !== undefined || orderLoadingByJob[jobId]) return;
@@ -562,7 +571,7 @@ export default function JobHistoryPage() {
     if (memberNeedle && !(job.companies?.name ?? '').toLowerCase().includes(memberNeedle)) return false;
     return true;
   }), [appliedSearch, jobs]);
-  const visibleFiltered = useMemo(() => searchedJobs.filter((job) => filterMatches(job, statusFilter, reviewsByJob[job.id] ?? [])), [reviewsByJob, searchedJobs, statusFilter]);
+  const visibleFiltered = useMemo(() => searchedJobs.filter((job) => filterMatches(job, statusFilter, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)), [feedbackReviewerCompanyId, reviewsByJob, searchedJobs, statusFilter]);
   const totalPages = Math.max(1, Math.ceil(visibleFiltered.length / itemsPerPage));
   const safePage = Math.min(page, totalPages);
   const visibleJobs = visibleFiltered.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
@@ -610,7 +619,7 @@ export default function JobHistoryPage() {
           {filterRail}
           <main className="driver-board-main main diary-main">
             <div className="diary-tabs" role="tablist" aria-label="Diary states">
-              {historyFilters.map((item) => <button key={item.id} type="button" role="tab" aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [])).length}</span></button>)}
+              {historyFilters.map((item) => <button key={item.id} type="button" role="tab" aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)).length}</span></button>)}
             </div>
             <div className="diary-head diary-head-cx">
               <span>{visibleFiltered.length} booking{visibleFiltered.length === 1 ? '' : 's'} · showing {visibleJobs.length}</span>
@@ -631,7 +640,8 @@ export default function JobHistoryPage() {
                   const sheet = orderSheetsByJob[job.id]; const orderLoading = orderLoadingByJob[job.id] === true; const orderError = orderErrorsByJob[job.id] || '';
                   const invoice = sheet?.invoices?.[0] ?? null;
                   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : (Array.isArray(job.delivery_photos) ? job.delivery_photos : []);
-                  const hasPod = hasCompletePodEvidence(job); const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews); const expired = isDerivedExpired(job);
+                  const hasPod = hasCompletePodEvidence(job); const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews, feedbackReviewerCompanyId); const expired = isDerivedExpired(job);
+                  const canManageFeedback = Boolean(feedbackReviewerCompanyId && canLeaveCompanyFeedback(job, feedbackReviewerCompanyId));
                   const currentStatus = effectiveStatus(job);
                   const stage = jobStage(job);
                   const isOwnAssignedJob = job.assigned_driver_id === driverId;
@@ -719,7 +729,7 @@ export default function JobHistoryPage() {
                                     : detailItem.label}
                             </button>
                           ))}
-                        {feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
+                        {canManageFeedback && <button type="button" onClick={() => setFeedbackJobId(job.id)}>{feedbackReceived ? 'Edit Feedback' : 'Leave Feedback'}</button>}{feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
                       </div>
 
                       {expanded && !isOwnAssignedJob && (
@@ -783,6 +793,13 @@ export default function JobHistoryPage() {
           </main>
         </div>
 
+        {feedbackJobId && feedbackReviewerCompanyId ? (() => {
+          const job = jobs.find((item) => item.id === feedbackJobId);
+          const existing = reviewsByJob[feedbackJobId]?.[0] ?? null;
+          if (!job) return null;
+          const counterpartyLabel = job.company_id === feedbackReviewerCompanyId ? 'Executing carrier' : (job.companies?.name ?? 'Posting company');
+          return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={feedbackReviewerCompanyId} existing={existing ? { rating: existing.rating, comment: existing.comment } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={fetchHistory} />;
+        })() : null}
         <DriverInvoicePreviewModal invoiceId={invoicePreview?.id ?? null} invoiceNumber={invoicePreview?.number ?? null} onClose={() => setInvoicePreview(null)} />
       </DriverWorkspaceShell>
     </ProtectedRoute>

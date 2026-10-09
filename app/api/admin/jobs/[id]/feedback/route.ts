@@ -6,12 +6,12 @@ import {
   supabaseAdmin,
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
+import { canLeaveCompanyFeedback, resolveFeedbackCounterpartyCompanyId } from '../../../../../../lib/feedback/canonicalFeedback';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-const terminalStatuses = new Set(['delivered', 'completed', 'cancelled']);
-const operatorRoles = new Set(['owner', 'admin', 'dispatcher']);
+const operatorRoles = new Set(['owner', 'admin', 'dispatcher', 'fleet_manager']);
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const normalizeComment = (value: unknown) => typeof value === 'string' ? value.trim().slice(0, 2000) : '';
@@ -62,7 +62,7 @@ export async function POST(
     .maybeSingle();
   if (membershipError) return json(500, { error: 'We could not verify company access.' });
   if (!membership || !operatorRoles.has(String(membership.role_in_company ?? '').toLowerCase())) {
-    return json(403, { error: 'Owner, admin or dispatcher access is required to leave company feedback.' });
+    return json(403, { error: 'Owner, admin, dispatcher or fleet manager access is required to leave company feedback.' });
   }
 
   const { data: job, error: jobError } = await supabaseAdmin
@@ -71,18 +71,11 @@ export async function POST(
     .eq('id', jobId)
     .maybeSingle();
   if (jobError) return json(500, { error: 'We could not verify this booking.' });
-  if (!job || job.company_id !== companyId) {
-    return json(404, { error: 'Company booking not found.' });
-  }
+  if (!job) return json(404, { error: 'Booking not found.' });
 
-  const status = String(job.current_status ?? job.status ?? '').trim().toLowerCase();
-  if (!terminalStatuses.has(status)) {
-    return json(409, { error: 'Feedback is available after delivery, completion or cancellation.' });
-  }
-
-  const targetCompanyId = job.awarded_carrier_company_id ?? job.assigned_company_id;
-  if (!targetCompanyId || targetCompanyId === companyId) {
-    return json(409, { error: 'No external carrier is available for feedback on this booking.' });
+  const targetCompanyId = resolveFeedbackCounterpartyCompanyId(job, companyId);
+  if (!canLeaveCompanyFeedback(job, companyId) || !targetCompanyId) {
+    return json(409, { error: 'Feedback is available only after delivery, completion or cancellation and only between the booking owner and executing carrier.' });
   }
 
   const { data: existing, error: existingError } = await supabaseAdmin
@@ -111,5 +104,24 @@ export async function POST(
     .single();
   if (reviewError || !review) return json(500, { error: 'We could not save company feedback.' });
 
-  return json(200, { review, updated: Boolean(existing?.id) });
+  const { error: auditError } = await supabaseAdmin.from('job_tracking_events').insert({
+    job_id: jobId,
+    event_type: 'note',
+    created_by: authData.user.id,
+    message: existing?.id ? 'Company feedback updated.' : 'Company feedback submitted.',
+    meta: {
+      kind: 'company_feedback',
+      reviewer_company_id: companyId,
+      reviewed_company_id: targetCompanyId,
+      rating,
+      review_id: review.id,
+    },
+  });
+
+  return json(200, {
+    review,
+    updated: Boolean(existing?.id),
+    targetCompanyId,
+    auditWarning: auditError ? 'Feedback saved, but its tracking audit event could not be written.' : null,
+  });
 }

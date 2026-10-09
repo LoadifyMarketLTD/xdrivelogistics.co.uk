@@ -26,12 +26,12 @@ describe('CX-close feedback and disputes parity', () => {
     expect(brokerApi).toContain('[DISPUTE_${action.toUpperCase()}]');
   });
 
-  it('shows real driver feedback without fabricating a writable driver contract', () => {
+  it('keeps employed Driver feedback read-only while allowing authorised Owner Driver company feedback', () => {
     expect(driverDiary).toContain("supabase.from('reviews').select('id, job_id, rating, comment, created_at')");
     expect(driverDiary).toContain('View feedback');
     expect(driverDiary).toContain('Awaiting feedback');
-    expect(driverDiary).not.toContain('Leave Feedback');
-    expect(driverDiary).not.toContain('Edit Feedback');
+    expect(driverDiary).toContain("const feedbackReviewerCompanyId = canViewCompanyDiary && diaryScope === 'company' ? companyId : null");
+    expect(driverDiary).toContain('feedbackReviewerCompanyId && canLeaveCompanyFeedback');
     expect(reviewRls).toContain('CREATE POLICY "reviews_insert_non_driver"');
     expect(reviewRls).toContain('public.is_company_non_driver(company_id)');
   });

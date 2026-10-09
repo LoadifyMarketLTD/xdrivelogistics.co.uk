@@ -1,30 +1,35 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
+import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
+import { useAuth } from '../../components/AuthContext';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket } from '../../../lib/diary/canonicalDiary';
 import { supabase } from '../../../lib/supabaseClient';
+import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 
 type DiaryTab = CanonicalDiaryBucket;
-type ReviewRow = { job_id: string | null; created_at: string | null };
+type ReviewRow = { id: string; job_id: string | null; reviewer_company_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
 const CUSTOMER_DIARY_TABS = getCanonicalDiaryTabs('customer');
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 
-function matchesTab(job: WorkspaceJob, tab: DiaryTab, hasSubmittedQuote: boolean, hasFeedback: boolean) {
+function matchesTab(job: WorkspaceJob, tab: DiaryTab, hasSubmittedQuote: boolean, hasFeedback: boolean, companyId: string | null) {
   return matchesCanonicalDiaryBucket(job, tab, {
     hasSubmittedQuote,
     hasFeedback,
+    feedbackEligible: canLeaveCompanyFeedback(job, companyId),
     hasEvidence: job.pod_generated === true || job.has_delivery_evidence === true || (job.delivery_photos?.length ?? 0) > 0 || (job.pod_photos?.length ?? 0) > 0,
   });
 }
 
 export default function CustomerDiaryPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const data = useCompanyWorkspaceData();
   const [tab, setTab] = useState<DiaryTab>('all');
   const [reference, setReference] = useState('');
@@ -36,25 +41,34 @@ export default function CustomerDiaryPage() {
   const [expandAll, setExpandAll] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [feedbackJobIds, setFeedbackJobIds] = useState<Set<string>>(new Set());
+  const [reviewsByJob, setReviewsByJob] = useState<Record<string, ReviewRow[]>>({});
+  const [feedbackJobId, setFeedbackJobId] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const companyId = data.companyId;
+  const canManageFeedback = Boolean(user?.membershipRole && ['owner', 'admin', 'dispatcher', 'fleet_manager'].includes(user.membershipRole));
+
+  const loadReviews = useCallback(async () => {
     const jobIds = data.jobs.map((job) => job.id).filter(Boolean);
-    if (!jobIds.length) {
-      setFeedbackJobIds(new Set());
-      return () => { cancelled = true; };
+    if (!companyId || !jobIds.length) {
+      setReviewsByJob({});
+      return;
     }
-    void supabase
+    const { data: reviews, error } = await supabase
       .from('reviews')
-      .select('job_id, created_at')
+      .select('id, job_id, reviewer_company_id, rating, comment, created_at')
+      .eq('reviewer_company_id', companyId)
       .in('job_id', jobIds)
-      .then(({ data: reviews, error }) => {
-        if (cancelled || error) return;
-        setFeedbackJobIds(new Set(((reviews ?? []) as ReviewRow[]).map((row) => row.job_id).filter((value): value is string => Boolean(value))));
-      });
-    return () => { cancelled = true; };
-  }, [data.jobs]);
+      .order('created_at', { ascending: false });
+    if (error) return;
+    const grouped: Record<string, ReviewRow[]> = {};
+    for (const review of (reviews ?? []) as ReviewRow[]) {
+      if (!review.job_id) continue;
+      (grouped[review.job_id] ??= []).push(review);
+    }
+    setReviewsByJob(grouped);
+  }, [companyId, data.jobs]);
+
+  useEffect(() => { void loadReviews(); }, [loadReviews]);
 
   const quoteInfoByJob = useMemo(() => {
     const map = new Map<string, {
@@ -87,7 +101,7 @@ export default function CustomerDiaryPage() {
     const deliveryNeedle = delivery.trim().toLowerCase();
     const carrierNeedle = carrier.trim().toLowerCase();
     return data.jobs
-      .filter((job) => matchesTab(job, tab, (quoteInfoByJob.get(job.id)?.submitted ?? 0) > 0, feedbackJobIds.has(job.id)))
+      .filter((job) => matchesTab(job, tab, (quoteInfoByJob.get(job.id)?.submitted ?? 0) > 0, (reviewsByJob[job.id]?.length ?? 0) > 0, companyId))
       .filter((job) => !refNeedle || `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(refNeedle))
       .filter((job) => !pickupNeedle || `${job.pickup_postcode ?? ''} ${job.pickup_location ?? ''}`.toLowerCase().includes(pickupNeedle))
       .filter((job) => !deliveryNeedle || `${job.delivery_postcode ?? ''} ${job.delivery_location ?? ''}`.toLowerCase().includes(deliveryNeedle))
@@ -98,7 +112,7 @@ export default function CustomerDiaryPage() {
       })
       .filter((job) => !date || String(job.pickup_datetime ?? '').slice(0, 10) === date)
       .sort((a, b) => String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')));
-  }, [carrier, data.jobs, date, delivery, feedbackJobIds, pickup, quoteInfoByJob, reference, tab]);
+  }, [carrier, companyId, data.jobs, date, delivery, pickup, quoteInfoByJob, reference, reviewsByJob, tab]);
 
   const counts = useMemo(() => Object.fromEntries(
     CUSTOMER_DIARY_TABS.map((item) => [
@@ -107,10 +121,11 @@ export default function CustomerDiaryPage() {
         job,
         item.id,
         (quoteInfoByJob.get(job.id)?.submitted ?? 0) > 0,
-        feedbackJobIds.has(job.id),
+        (reviewsByJob[job.id]?.length ?? 0) > 0,
+        companyId,
       )).length,
     ]),
-  ) as Record<DiaryTab, number>, [data.jobs, feedbackJobIds, quoteInfoByJob]);
+  ) as Record<DiaryTab, number>, [companyId, data.jobs, quoteInfoByJob, reviewsByJob]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, totalPages);
@@ -175,13 +190,15 @@ export default function CustomerDiaryPage() {
                 const awardedDriverId = quoteInfo?.acceptedDriverId ?? null;
                 const awardedOwnerDriverId = !carrierCompanyId ? awardedDriverId : null;
                 const carrierName = quoteInfo?.acceptedCompanyName ?? (carrierCompanyId ? 'Awarded carrier' : awardedOwnerDriverId ? 'Owner Driver' : 'Not awarded');
+                const review = reviewsByJob[job.id]?.[0] ?? null;
+                const feedbackAvailable = canLeaveCompanyFeedback(job, companyId);
                 return (
                   <article key={job.id} className="workspace-operational-row" data-state={normalizedJobStatus(job)}>
                     <div className="workspace-operational-row__top">
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>AWARDED CARRIER / MEMBER</div><strong>{carrierCompanyId || awardedOwnerDriverId ? <MemberIdentityLink companyId={carrierCompanyId} driverId={awardedOwnerDriverId}>{carrierName}</MemberIdentityLink> : carrierName}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{quoteInfo?.submitted ?? 0} submitted quote{(quoteInfo?.submitted ?? 0) === 1 ? '' : 's'}{job.assigned_driver_id ? ' · executing driver assigned' : ''}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={workspaceJobOperationalLabel(job)} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}>{open ? 'Collapse' : 'Expand'}</ActionButton>{classifyWorkspaceJobStage(job) !== 'open' ? <ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open full booking</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</ActionButton></div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={workspaceJobOperationalLabel(job)} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}>{open ? 'Collapse' : 'Expand'}</ActionButton>{classifyWorkspaceJobStage(job) !== 'open' ? <ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open full booking</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</ActionButton>{canManageFeedback && feedbackAvailable ? <ActionButton tone="secondary" onClick={() => setFeedbackJobId(job.id)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</ActionButton> : null}</div></div>
                     </div>
                     <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Delivery photo: {deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</span><span>Updated {when(job.updated_at)}</span></div>
                     {open && <CompanyJobSheetPanel jobId={job.id} mode="customer" />}
@@ -194,6 +211,13 @@ export default function CustomerDiaryPage() {
 
         </main>
       </div>
+      {feedbackJobId && companyId ? (() => {
+        const job = data.jobs.find((item) => item.id === feedbackJobId);
+        const quoteInfo = job ? quoteInfoByJob.get(job.id) : null;
+        const counterpartyLabel = quoteInfo?.acceptedCompanyName ?? (job?.awarded_carrier_company_id ? 'Awarded carrier' : 'Executing carrier');
+        const existing = reviewsByJob[feedbackJobId]?.[0] ?? null;
+        return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={companyId} existing={existing ? { rating: existing.rating, comment: existing.comment } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={loadReviews} />;
+      })() : null}
     </PageFrame>
   );
 }

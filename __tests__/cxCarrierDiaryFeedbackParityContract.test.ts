@@ -6,19 +6,20 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 describe('CX carrier Diary feedback parity contract', () => {
   const diary = read('app/components/workspace/OperationsDiaryPage.tsx');
   const reviewRls = read('supabase/migrations/20260819153500_reconcile_driver_diary_review_reads.sql');
+  const canonicalDiary = read('lib/diary/canonicalDiary.ts');
 
   it('uses real company-scoped review reads for Feedback views', () => {
     expect(diary).toContain(".from('reviews')");
-    expect(diary).toContain(".eq('company_id', companyId)");
-    expect(diary).toContain("'awaiting_feedback'");
-    expect(diary).toContain("'recent_feedback'");
-    expect(diary).toContain("label: 'Awaiting Feedback'");
-    expect(diary).toContain("label: 'Recent Feedback'");
+    expect(diary).toContain(".eq('reviewer_company_id', companyId)");
+    expect(diary).toContain('isCompanyFeedbackEligible(job, companyId)');
+    expect(canonicalDiary).toContain("{ id: 'awaiting_feedback', label: 'Awaiting Feedback' }");
+    expect(canonicalDiary).toContain("{ id: 'recent_feedback', label: 'Recent Feedback' }");
   });
 
   it('derives awaiting feedback only from completed jobs with no real review', () => {
-    expect(diary).toContain("classifyWorkspaceJobStage(job) === 'completed'");
-    expect(diary).toContain('!hasRecentFeedback(reviews)');
+    expect(diary).toContain("matchesCanonicalDiaryBucket(job, 'awaiting_feedback'");
+    expect(diary).toContain('feedbackEligible: isCompanyFeedbackEligible(job, companyId)');
+    expect(canonicalDiary).toContain("stage === 'completed' && feedbackEligible && !hasFeedback");
     expect(diary).not.toContain('feedbackCount: 0');
   });
 
