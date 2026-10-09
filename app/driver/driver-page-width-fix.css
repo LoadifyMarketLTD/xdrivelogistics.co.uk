@@ -1,0 +1,37 @@
+/* 2026-10-09: hard stop for Driver page shrink-to-rail regression. */
+.xdrive-driver-workspace .top-workspace-shell__content.driver-prototype-app {
+  display: block !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+.xdrive-driver-workspace .top-workspace-shell__content > .driver-prototype-page-shell {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  align-self: stretch !important;
+}
+.xdrive-driver-workspace .driver-prototype-page-shell > .pagebody.no-left {
+  display: grid !important;
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+.xdrive-driver-workspace .driver-prototype-page-shell > .pagebody.no-left > .main {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+.xdrive-driver-workspace .driver-action-centre-board,
+.xdrive-driver-workspace .driver-live-availability-canonical {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
+.xdrive-driver-workspace .driver-action-centre-board > .driver-board-main,
+.xdrive-driver-workspace .driver-live-availability-canonical > .driver-live-availability-main {
+  width: 100% !important;
+  max-width: none !important;
+  min-width: 0 !important;
+}
