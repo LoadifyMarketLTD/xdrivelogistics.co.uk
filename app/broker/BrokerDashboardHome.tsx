@@ -25,7 +25,6 @@ import {
   AlertBanner,
   EmptyState,
   PageFrame,
-  PageHeader,
   StatusBadge,
 } from '../components/workspace/WorkspaceUI';
 
@@ -163,22 +162,6 @@ export default function BrokerDashboardHome() {
   return (
     <PageFrame>
       <div className="broker-clean-dashboard">
-        <PageHeader
-          eyebrow="Broker workspace"
-          title="Transport control"
-          description="Manage customer loads, carrier decisions, live execution and commercial position from one clear workflow."
-          actions={
-            <>
-              <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>
-                Compare Quotes
-              </ActionButton>
-              <ActionButton tone="secondary" onClick={() => router.push('/broker/jobs')}>
-                Active Jobs
-              </ActionButton>
-            </>
-          }
-        />
-
         {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
         {quoteDecisionUnavailable ? (
           <AlertBanner tone="warning">
@@ -190,7 +173,14 @@ export default function BrokerDashboardHome() {
           </AlertBanner>
         ) : null}
 
-        <div className="broker-clean-kpis" aria-label="Broker summary">
+        <section className="broker-clean-box broker-owner-reports-card">
+          <div className="broker-clean-box__head">
+            <div>
+              <strong>Reports & Statistics</strong>
+              <span>Live broker transport and commercial position.</span>
+            </div>
+          </div>
+          <div className="broker-clean-kpis" aria-label="Broker summary">
           <button type="button" onClick={() => router.push('/broker/loads')}>
             <span>Open loads</span>
             <strong>{metricState(jobsDataset, metrics.openLoads.length)}</strong>
@@ -211,9 +201,10 @@ export default function BrokerDashboardHome() {
             <strong>{metricState(invoicesDataset, money(metrics.grossMargin))}</strong>
             <small>Revenue less carrier cost</small>
           </button>
-        </div>
+          </div>
+        </section>
 
-        <div className="broker-clean-grid">
+        <div className="broker-clean-grid broker-owner-attention">
           <section className="broker-clean-box">
             <div className="broker-clean-box__head">
               <div>
@@ -260,10 +251,10 @@ export default function BrokerDashboardHome() {
           </section>
         </div>
 
-        <section className="broker-clean-box">
+        <section className="broker-clean-box broker-owner-activity">
           <div className="broker-clean-box__head">
             <div>
-              <strong>Current transport</strong>
+              <strong>Activity at a glance</strong>
               <span>Same job lifecycle seen by Customer, Driver, Fleet and Broker</span>
             </div>
             <ActionButton tone="secondary" onClick={() => router.push('/broker/jobs')}>View all jobs</ActionButton>
@@ -348,10 +339,10 @@ export default function BrokerDashboardHome() {
           </div>
         </section>
 
-        <section className="broker-clean-box">
+        <section className="broker-clean-box broker-owner-commercial">
           <div className="broker-clean-box__head">
             <div>
-              <strong>Commercial position</strong>
+              <strong>Commercial & Finance</strong>
               <span>Broker-only financial visibility, kept separate from operational execution</span>
             </div>
             <ActionButton tone="secondary" onClick={() => router.push('/broker/finance')}>Open Finance</ActionButton>
@@ -379,14 +370,19 @@ export default function BrokerDashboardHome() {
           </div>
         </section>
 
-        <div className="broker-clean-footer-links">
+        <section className="broker-clean-box broker-owner-reports-links">
+          <div className="broker-clean-box__head">
+            <div><strong>Reports</strong><span>Direct routes to broker operational registers.</span></div>
+          </div>
+          <div className="broker-clean-footer-links">
           <button type="button" onClick={() => router.push('/broker/customers')}>Customers</button>
           <button type="button" onClick={() => router.push('/broker/carrier-network')}>Carrier Network</button>
           <button type="button" onClick={() => router.push('/broker/diary')}>Diary</button>
           <button type="button" onClick={() => router.push('/broker/messages')}>Messages</button>
           <button type="button" onClick={() => router.push('/broker/event-log')}>Event Log</button>
           <button type="button" onClick={() => router.push('/broker/disputes')}>Disputes</button>
-        </div>
+          </div>
+        </section>
       </div>
     </PageFrame>
   );

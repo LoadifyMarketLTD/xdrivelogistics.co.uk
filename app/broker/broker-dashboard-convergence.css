@@ -49,13 +49,36 @@
 /* Broker workspace cleanup — action-first, lifecycle-aligned dashboard. */
 .broker-clean-dashboard {
   display: grid;
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.broker-clean-dashboard > .workspace-alert,
+.broker-clean-dashboard > [role="alert"] {
+  grid-column: 1 / -1;
+}
+
+.broker-owner-reports-card,
+.broker-owner-commercial,
+.broker-owner-reports-links {
+  grid-column: 1;
+}
+
+.broker-owner-activity,
+.broker-owner-attention {
+  grid-column: 2;
+}
+
+.broker-owner-activity {
+  grid-row: 1 / span 3;
 }
 
 .broker-clean-kpis {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
+  padding: 8px 10px;
 }
 
 .broker-clean-kpis button,
@@ -276,6 +299,19 @@
 }
 
 @media (max-width: 1024px) {
+  .broker-clean-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .broker-owner-reports-card,
+  .broker-owner-commercial,
+  .broker-owner-reports-links,
+  .broker-owner-activity,
+  .broker-owner-attention {
+    grid-column: 1;
+    grid-row: auto;
+  }
+
   .broker-clean-kpis {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }

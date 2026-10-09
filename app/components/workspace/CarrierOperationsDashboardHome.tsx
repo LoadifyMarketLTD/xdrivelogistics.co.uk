@@ -18,11 +18,9 @@ import {
   OperationalFilterSelect,
   OperationalFilters,
   OperationalPageLayout,
-  OperationalToolbar,
   StatusBadge,
   workspaceTheme,
 } from './WorkspaceUI';
-import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import styles from './WorkspaceUI.module.css';
 import {
   daysUntil,
@@ -119,7 +117,7 @@ function CarrierControlSignals({ signals }: { signals: ControlSignal[] }) {
       aria-label="Carrier control signals"
       style={{ border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', background: workspaceTheme.surface, marginBottom: '8px' }}
     >
-      <div className={styles.carrierControlSignalsGrid}>
+      <div className={styles.carrierControlSignalsGrid} style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
         {signals.map((signal) => (
           <button
             className={styles.carrierControlSignal}
@@ -295,22 +293,61 @@ export default function CarrierOperationsDashboardHome() {
 
   return (
     <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '8px 10px 12px' }}>
-      <DashboardHomeHeader
-        eyebrow="Carrier operations"
-        title="Carrier Control Desk"
-        badge="Live operations"
-        description="Awarded carrier work, allocation, live delivery, delivery photo evidence and exceptions in one operational desk."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Open Diary</ActionButton>}
-      />
-
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
-      <OperationalToolbar>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flexWrap: 'wrap' }}><strong style={{ color: workspaceTheme.navy, fontSize: '12px' }}>Operations</strong><span style={{ color: workspaceTheme.muted, fontSize: '11px' }}>Allocation · execution · delivery photo evidence · exception recovery</span></div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Jobs</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/live-availability')}>Live Availability</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Live Positions</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/freight-vision')}>Freight Vision</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/marketplace/directory')}>Directory</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/messages')}>Messages</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/event-log')}>Event Log</ActionButton><ActionButton tone="primary" disabled={data.loading} onClick={() => { void data.refresh(); }}>{data.loading ? 'Refreshing…' : 'Refresh'}</ActionButton></div>
-      </OperationalToolbar>
+      <div className="carrier-owner-parity-grid">
+        <div className="carrier-owner-parity-column">
+          <OperationalCard title="Reports & Statistics" subtitle="Live carrier operations and commercial position.">
+            <CarrierControlSignals signals={signals} />
+          </OperationalCard>
 
-      <CarrierControlSignals signals={signals} />
+          <div className="carrier-owner-parity-subgrid">
+            <OperationalCard title="Commercial & Finance" subtitle="Verified commercial signals from awarded work and invoices.">
+              <CommercialRow label="Won work value" detail="Accepted carrier quotes backed by an award" value={metricValue(data, ['bids', 'jobs'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/won-work')} />
+              <CommercialRow label="Overdue invoices" detail="Past-due carrier invoices" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
+              <CommercialRow label="Submitted quotes" detail="Marketplace pricing awaiting an outcome" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && normalise(bid.status) === 'submitted').length)} onClick={() => router.push('/admin/exchange-quotes')} />
+              <CommercialRow label="Compliance due" detail="Driver and vehicle evidence expiring within 30 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => metrics.expiringDocuments)} onClick={() => router.push('/admin/fleet/compliance')} />
+            </OperationalCard>
+
+            <OperationalCard title="Reports" subtitle="Direct routes to the operational registers behind each report.">
+              <WorkflowLink label="Invoices / accounts" detail="Draft, awaiting payment, overdue, disputed and paid invoices" onClick={() => router.push('/admin/invoices')} />
+              <WorkflowLink label="Bookings / Diary" detail="Operational booking history, evidence and feedback" onClick={() => router.push('/admin/diary')} />
+              <WorkflowLink label="Return Journeys" detail="Published and available return capacity" onClick={() => router.push('/admin/fleet/returns')} />
+              <WorkflowLink label="Fleet resources" detail="Drivers, vehicles and live availability" onClick={() => router.push('/admin/fleet/resources')} />
+            </OperationalCard>
+          </div>
+        </div>
+
+        <div className="carrier-owner-parity-column">
+          <OperationalCard title="Activity at a glance" subtitle="Latest awarded bookings ordered for practical day-to-day transport control." flush>
+            <DataTable
+              columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Evidence', 'Action']}
+              rows={latestBookings.map((job) => {
+                const completed = classifyWorkspaceJobStage(job) === 'completed';
+                const evidenceReady = (job.delivery_photos?.length ?? 0) > 0;
+                const needsAllocation = isUnallocatedJob(job);
+                return [
+                  <span key="route"><strong style={{ display: 'block' }}>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>#{job.id.slice(0, 8).toUpperCase()}</span></span>,
+                  when(job.pickup_datetime),
+                  (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
+                  <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
+                  completed ? <StatusBadge key="evidence" value={evidenceReady ? 'POD / photos recorded' : 'Evidence attention'} tone={evidenceReady ? 'green' : 'orange'} /> : '—',
+                  <ActionButton key="action" tone={needsAllocation ? 'success' : 'secondary'} onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}>{needsAllocation ? 'Allocate' : completed ? 'POD / booking' : 'Open booking'}</ActionButton>,
+                ];
+              })}
+              empty={<EmptyState compact title="No recent carrier bookings" description="Awarded carrier work will appear here when available." />}
+            />
+          </OperationalCard>
+
+          <OperationalCard title="Carrier workflow" subtitle="Shortcuts follow the exchange operating sequence without changing lifecycle authority.">
+            <WorkflowLink label="1. Find marketplace work" detail="Search suitable loads and lanes" onClick={() => router.push('/admin/marketplace')} />
+            <WorkflowLink label="2. Price and review marketplace quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/exchange-quotes')} />
+            <WorkflowLink label="3. Allocate awarded work" detail="Select an eligible driver and vehicle" onClick={() => router.push('/admin/fleet/assignments')} />
+            <WorkflowLink label="4. Control live execution" detail="Monitor active jobs and positions" onClick={() => router.push('/admin/fleet/active-jobs')} />
+            <WorkflowLink label="5. Review POD and exceptions" detail="Review delivery evidence and operational exceptions" onClick={() => router.push('/admin/pod')} />
+          </OperationalCard>
+        </div>
+      </div>
 
       <OperationalPageLayout
         style={{ padding: 0 }}
@@ -374,53 +411,6 @@ export default function CarrierOperationsDashboardHome() {
           <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of currently available job data` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register →</button></div>
         </section>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.35fr)', gap: '8px', marginTop: '12px', alignItems: 'start' }}>
-          <div style={{ display: 'grid', gap: '8px' }}>
-            <OperationalCard title="Commercial position" subtitle="CX-style commercial signals using only verified XDrive records.">
-              <CommercialRow label="Won work value" detail="Accepted carrier quotes backed by an award" value={metricValue(data, ['bids', 'jobs'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/won-work')} />
-              <CommercialRow label="Overdue invoices" detail="Past-due carrier invoices" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
-              <CommercialRow label="Submitted quotes" detail="Marketplace pricing awaiting an outcome" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && normalise(bid.status) === 'submitted').length)} onClick={() => router.push('/admin/exchange-quotes')} />
-              <CommercialRow label="Compliance due" detail="Driver and vehicle evidence expiring within 30 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => metrics.expiringDocuments)} onClick={() => router.push('/admin/fleet/compliance')} />
-            </OperationalCard>
-
-            <OperationalCard title="Reports & finance" subtitle="CX-equivalent reporting entry points mapped to verified XDrive registers instead of estimated dashboard figures.">
-              <WorkflowLink label="Invoices / accounts" detail="Draft, awaiting payment, overdue, disputed and paid invoices" onClick={() => router.push('/admin/invoices')} />
-              <WorkflowLink label="Gross margin / subcontract reporting" detail="Open Finance reports and exports; XDrive does not fabricate dashboard margin estimates" onClick={() => router.push('/admin/finance/reports')} />
-              <WorkflowLink label="Bookings / Diary" detail="Operational booking history, evidence and feedback" onClick={() => router.push('/admin/diary')} />
-              <WorkflowLink label="Return Journeys" detail="Published and available return capacity" onClick={() => router.push('/admin/fleet/returns')} />
-            </OperationalCard>
-          </div>
-
-          <div style={{ display: 'grid', gap: '8px' }}>
-            <OperationalCard title="Activity at a glance" subtitle="Latest awarded bookings ordered for practical day-to-day transport control." flush>
-              <DataTable
-                columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Evidence', 'Action']}
-                rows={latestBookings.map((job) => {
-                  const completed = classifyWorkspaceJobStage(job) === 'completed';
-                  const evidenceReady = (job.delivery_photos?.length ?? 0) > 0;
-                  const needsAllocation = isUnallocatedJob(job);
-                  return [
-                    <span key="route"><strong style={{ display: 'block' }}>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>#{job.id.slice(0, 8).toUpperCase()}</span></span>,
-                    when(job.pickup_datetime),
-                    (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-                    <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
-                    completed ? <StatusBadge key="evidence" value={evidenceReady ? 'POD / photos recorded' : 'Evidence attention'} tone={evidenceReady ? 'green' : 'orange'} /> : '—',
-                    <ActionButton key="action" tone={needsAllocation ? 'success' : 'secondary'} onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}>{needsAllocation ? 'Allocate' : completed ? 'POD / booking' : 'Open booking'}</ActionButton>,
-                  ];
-                })}
-                empty={<EmptyState compact title="No recent carrier bookings" description="Awarded carrier work will appear here when available." />}
-              />
-            </OperationalCard>
-
-            <OperationalCard title="Carrier workflow" subtitle="Shortcuts follow the exchange operating sequence without changing XDrive lifecycle authority.">
-              <WorkflowLink label="1. Find marketplace work" detail="Search suitable loads and lanes" onClick={() => router.push('/admin/marketplace')} />
-              <WorkflowLink label="2. Price and review marketplace quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/exchange-quotes')} />
-              <WorkflowLink label="3. Allocate awarded work" detail="Select an eligible driver and their assigned vehicle for execution" onClick={() => router.push('/admin/fleet/assignments')} />
-              <WorkflowLink label="4. Control live execution" detail="Monitor active jobs and positions" onClick={() => router.push('/admin/fleet/active-jobs')} />
-              <WorkflowLink label="5. Review POD, evidence and exceptions" detail="Review completed delivery evidence and operational exceptions" onClick={() => router.push('/admin/pod')} />
-            </OperationalCard>
-          </div>
-        </div>
       </OperationalPageLayout>
     </div>
   );

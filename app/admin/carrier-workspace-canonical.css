@@ -588,3 +588,42 @@
     width: 100% !important;
   }
 }
+
+/* Owner Driver dashboard geometry is the canonical cross-role dashboard frame. */
+.xdrive-carrier-workspace .carrier-owner-parity-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
+  gap: 12px;
+  align-items: start;
+  margin-bottom: 12px;
+}
+
+.xdrive-carrier-workspace .carrier-owner-parity-column {
+  min-width: 0;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.xdrive-carrier-workspace .carrier-owner-parity-subgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.xdrive-carrier-workspace .carrier-owner-parity-grid .carrier-control-signals {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 1024px) {
+  .xdrive-carrier-workspace .carrier-owner-parity-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .xdrive-carrier-workspace .carrier-owner-parity-subgrid,
+  .xdrive-carrier-workspace .carrier-owner-parity-grid .carrier-control-signals {
+    grid-template-columns: 1fr;
+  }
+}

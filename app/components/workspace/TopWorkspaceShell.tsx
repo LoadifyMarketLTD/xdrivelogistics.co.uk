@@ -743,7 +743,7 @@ export default function TopWorkspaceShell({
   const actionRole = resolveActionCentreRole(role);
   const notificationsHref = getNotificationsRoute(actionRole);
   const primaryAction =
-    !CARRIER_NAV_ROLES.has(role) && role !== 'owner_driver' && role !== 'customer' &&
+    !CARRIER_NAV_ROLES.has(role) && role !== 'owner_driver' &&
     definition.primaryAction &&
     (!definition.primaryAction.capability || hasWorkspaceCapability(role, definition.primaryAction.capability))
       ? definition.primaryAction
@@ -777,10 +777,16 @@ export default function TopWorkspaceShell({
   const showBookDirectAction =
     CARRIER_NAV_ROLES.has(role) ||
     role === 'owner_driver' ||
+    role === 'customer' ||
+    role === 'broker' ||
     (role === 'driver' && user?.canCommercialBid === true);
   const bookDirectHref = CARRIER_NAV_ROLES.has(role)
     ? '/admin/marketplace/directory'
-    : '/driver/directory';
+    : role === 'customer'
+      ? '/customer/network/directory'
+      : role === 'broker'
+        ? '/broker/carrier-network/directory'
+        : '/driver/directory';
 
   useEffect(() => {
     if (!user?.companyId || !isSupabaseConfigured) {
@@ -918,12 +924,10 @@ export default function TopWorkspaceShell({
               className="top-workspace-shell__logo"
             />
           </button>
-          {!CARRIER_NAV_ROLES.has(role) && (
-            <div className="top-workspace-shell__identity">
-              <span>{definition.label}</span>
-              {role !== 'customer' ? <strong>{companyName}</strong> : null}
-            </div>
-          )}
+          <div className="top-workspace-shell__identity">
+            <span>{definition.label}</span>
+            <strong>{companyName}</strong>
+          </div>
         </div>
 
         <div className="top-workspace-shell__actions">

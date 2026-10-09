@@ -18,7 +18,6 @@ import {
   EmptyState,
   OperationalCard,
   PageFrame,
-  PageHeader,
   StatusBadge,
 } from '../components/workspace/WorkspaceUI';
 
@@ -332,13 +331,6 @@ export default function CustomerDashboardHome() {
   return (
     <PageFrame>
       <div className="customer-operational-page customer-dashboard-owner-parity">
-        <PageHeader
-          eyebrow="Customer workspace"
-          title="Transport overview"
-          description="Monitor posted loads, carrier quotes, active bookings, delivery progress, POD and finance from one operational view."
-          actions={<ActionButton tone="secondary" onClick={() => void Promise.all([data.refresh(), loadBookingOffers()])}>Refresh</ActionButton>}
-        />
-
         {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
         {bookingOfferError ? <AlertBanner tone="warning">{bookingOfferError}</AlertBanner> : null}
         {invoicesDataset.availability !== 'available' ? (
