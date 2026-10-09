@@ -562,7 +562,7 @@
   line-height: 19px !important;
   font-weight: 800 !important;
 }
-@media (max-width: 1200px) {
+@media (max-width: 760px) {
   .xdrive-driver-workspace .driver-board-layout,
   .xdrive-driver-workspace .driver-reference-availability .driver-availability-board,
   .xdrive-driver-workspace .driver-returns-exchange .driver-returns-board,
