@@ -7,6 +7,7 @@ import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import DriverNearbyMap from '../../_components/DriverNearbyMap';
 import { supabase } from '../../../../lib/supabaseClient';
 import { StatusBadge } from '../../../components/workspace/WorkspaceUI';
+import { matchesAvailabilityFilters } from '../../../../lib/availability/canonicalAvailability';
 
 type Visibility = 'private' | 'fleet' | 'exchange';
 type Presence = { visibility: Visibility; available_until: string; recorded_at: string };
@@ -20,6 +21,7 @@ type NearbyPosition = {
   lat: number;
   lng: number;
   vehicle_type?: string | null;
+  body_type?: string | null;
   payload_kg?: number | null;
   pallets_capacity?: number | null;
   has_tail_lift?: boolean | null;
@@ -67,10 +69,14 @@ export default function LiveAvailabilityPage() {
   const [nearbyError, setNearbyError] = useState('');
   const [search, setSearch] = useState('');
   const [vehicle, setVehicle] = useState('all');
+  const [bodyType, setBodyType] = useState('all');
+  const [minPayload, setMinPayload] = useState('');
+  const [minPallets, setMinPallets] = useState('');
+  const [tailLiftOnly, setTailLiftOnly] = useState(false);
   const [audience, setAudience] = useState<Audience>('all');
   const [postcode, setPostcode] = useState('');
   const [radius, setRadius] = useState('100');
-  const [query, setQuery] = useState({ postcode: '', radius: '100' });
+  const [query, setQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false });
 
   const authHeader = useCallback(async () => {
     const { data } = await supabase.auth.getSession();
@@ -99,6 +105,11 @@ export default function LiveAvailabilityPage() {
     const params = new URLSearchParams();
     if (query.postcode.trim()) params.set('postcode', query.postcode.trim());
     params.set('radiusMiles', query.radius);
+    if (query.vehicle !== 'all') params.set('vehicleType', query.vehicle);
+    if (query.body !== 'all') params.set('bodyType', query.body);
+    if (query.minPayload.trim()) params.set('minPayloadKg', query.minPayload.trim());
+    if (query.minPallets.trim()) params.set('minPallets', query.minPallets.trim());
+    if (query.tailLiftOnly) params.set('tailLift', 'true');
     try {
       const response = await fetch(`/api/availability/nearby?${params.toString()}`, {
         headers: { Authorization: auth },
@@ -117,7 +128,7 @@ export default function LiveAvailabilityPage() {
     } finally {
       setNearbyLoading(false);
     }
-  }, [authHeader, query.postcode, query.radius]);
+  }, [authHeader, query.body, query.minPallets, query.minPayload, query.postcode, query.radius, query.tailLiftOnly, query.vehicle]);
 
   useEffect(() => {
     void Promise.all([loadPresence(), loadNearby()]);
@@ -173,22 +184,23 @@ export default function LiveAvailabilityPage() {
   };
 
   const vehicleOptions = useMemo(() => [...new Set(positions.map((position) => position.vehicle_type).filter((value): value is string => Boolean(value)))].sort(), [positions]);
+  const bodyOptions = useMemo(() => [...new Set(positions.map((position) => position.body_type).filter((value): value is string => Boolean(value)))].sort(), [positions]);
 
-  const visible = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    return positions.filter((position) => {
-      if (vehicle !== 'all' && position.vehicle_type !== vehicle) return false;
-      const driverOrSubcontractor = position.scope === 'fleet' || isDriverOrSubcontractor(position.member_type);
-      if (audience === 'drivers-subcontractors' && !driverOrSubcontractor) return false;
-      if (audience === 'other-drivers' && driverOrSubcontractor) return false;
-      if (!needle) return true;
-      return [position.member_name, position.member_code, position.member_type, position.vehicle_type]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase()
-        .includes(needle);
-    });
-  }, [audience, positions, search, vehicle]);
+  const visible = useMemo(() => positions.filter((position) => {
+    if (!matchesAvailabilityFilters(position, {
+      search,
+      scope: 'all',
+      vehicleType: vehicle,
+      bodyType,
+      minPayloadKg: minPayload.trim() ? Number(minPayload) : null,
+      minPallets: minPallets.trim() ? Number(minPallets) : null,
+      tailLiftOnly,
+    })) return false;
+    const driverOrSubcontractor = position.scope === 'fleet' || isDriverOrSubcontractor(position.member_type);
+    if (audience === 'drivers-subcontractors' && !driverOrSubcontractor) return false;
+    if (audience === 'other-drivers' && driverOrSubcontractor) return false;
+    return true;
+  }), [audience, bodyType, minPallets, minPayload, positions, search, tailLiftOnly, vehicle]);
 
   const openApproximateArea = (position: NearbyPosition) => {
     if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return;
@@ -279,9 +291,14 @@ export default function LiveAvailabilityPage() {
               </select>
             </label>
 
+            <label className="driver-more-filter"><span>Body type</span><select value={bodyType} onChange={(event) => setBodyType(event.target.value)}><option value="all">Any body</option>{bodyOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}</select></label>
+            <label className="driver-more-filter"><span>Min payload (kg)</span><input type="number" min="0" value={minPayload} onChange={(event) => setMinPayload(event.target.value)} placeholder="Any" /></label>
+            <label className="driver-more-filter"><span>Min pallets</span><input type="number" min="0" value={minPallets} onChange={(event) => setMinPallets(event.target.value)} placeholder="Any" /></label>
+            <label className="driver-more-filter"><span>Equipment</span><span><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} /> Tail lift required</span></label>
+
             <div className="driver-live-search-actions">
-              <button type="button" className="driver-more-button driver-more-button--success" onClick={() => setQuery({ postcode: postcode.trim(), radius })}>Find Nearest</button>
-              <button type="button" className="driver-more-link-button" onClick={() => { setPostcode(''); setRadius('100'); setQuery({ postcode: '', radius: '100' }); setSearch(''); setVehicle('all'); setAudience('all'); }}>Clear filters</button>
+              <button type="button" className="driver-more-button driver-more-button--success" onClick={() => setQuery({ postcode: postcode.trim(), radius, vehicle, body: bodyType, minPayload, minPallets, tailLiftOnly })}>Find Nearest</button>
+              <button type="button" className="driver-more-link-button" onClick={() => { setPostcode(''); setRadius('100'); setQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false }); setSearch(''); setVehicle('all'); setBodyType('all'); setMinPayload(''); setMinPallets(''); setTailLiftOnly(false); setAudience('all'); }}>Clear filters</button>
             </div>
           </aside>
 
@@ -332,7 +349,7 @@ export default function LiveAvailabilityPage() {
                   {visible.map((position, index) => (
                     <tr key={`${position.company_id ?? 'fleet'}:${position.vehicle_type ?? 'vehicle'}:${position.recorded_at ?? index}`}>
                       <td><b>{position.scope === 'fleet' ? 'My Fleet' : position.member_name ?? 'Exchange member'}</b><span>{position.member_code ? `Member ID ${position.member_code}` : position.member_type ?? (position.scope === 'fleet' ? 'Own company resource' : 'Trading member')}</span></td>
-                      <td>{vehicleLabel(position.vehicle_type)}<span>{position.payload_kg != null ? `${position.payload_kg} kg` : 'Capacity not published'}{position.pallets_capacity != null ? ` ┬À ${position.pallets_capacity} pallets` : ''}</span></td>
+                      <td>{vehicleLabel(position.vehicle_type)}<span>{position.body_type ? `${vehicleLabel(position.body_type)} · ` : ''}{position.payload_kg != null ? `${position.payload_kg} kg` : 'Capacity not published'}{position.pallets_capacity != null ? ` · ${position.pallets_capacity} pallets` : ''}{position.has_tail_lift === true ? ' · Tail lift' : ''}</span></td>
                       <td>{position.distance_miles != null ? `${position.distance_miles.toFixed(1)} miles from search` : 'Privacy-rounded area'}</td>
                       <td>{when(position.recorded_at)}</td>
                       <td>{when(position.available_until)}</td>

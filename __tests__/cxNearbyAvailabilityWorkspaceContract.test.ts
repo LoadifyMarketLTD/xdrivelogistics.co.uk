@@ -13,7 +13,8 @@ describe('CX nearby availability workspace contract', () => {
 
   it('surfaces the existing nearby availability backend in a dedicated Exchange view', () => {
     expect(page).toContain('/api/availability/nearby?');
-    expect(page).toContain("type Tab = 'live' | 'future' | 'nearby';");
+    expect(page).toContain('type Tab = AvailabilityTab;');
+    expect(page).toContain("import { matchesAvailabilityFilters, type AvailabilityTab }");
     expect(page).toContain('Nearby Exchange');
     expect(page).toContain("position.scope === 'exchange'");
     expect(page).toContain(`title="Who's nearby"`);

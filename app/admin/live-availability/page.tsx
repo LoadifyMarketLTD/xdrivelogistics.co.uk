@@ -7,6 +7,7 @@ import { OperationalSignalStrip } from '../../components/workspace/OperationalCo
 import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../components/workspace/useCompanyWorkspaceData';
 import { useOperationsIntelligence } from '../../components/workspace/useOperationsIntelligence';
 import { supabase } from '../../../lib/supabaseClient';
+import { matchesAvailabilityFilters, type AvailabilityTab } from '../../../lib/availability/canonicalAvailability';
 import {
   ActionButton,
   AlertBanner,
@@ -19,7 +20,7 @@ import {
   TwoColumn,
 } from '../../components/workspace/WorkspaceUI';
 
-type Tab = 'live' | 'future' | 'nearby';
+type Tab = AvailabilityTab;
 type FreshnessFilter = 'all' | 'live' | 'stale' | 'missing';
 
 const LIVE_AVAILABILITY_DEFAULTS_KEY = 'xdrive:carrier:live-availability:defaults';
@@ -34,6 +35,7 @@ type NearbyAvailabilityPosition = {
   lat: number;
   lng: number;
   vehicle_type?: string | null;
+  body_type?: string | null;
   payload_kg?: number | null;
   pallets_capacity?: number | null;
   has_tail_lift?: boolean | null;
@@ -83,9 +85,13 @@ export default function LiveAvailabilityPage() {
   const [availability, setAvailability] = useState('all');
   const [freshness, setFreshness] = useState<FreshnessFilter>('all');
   const [nearbyVehicle, setNearbyVehicle] = useState('all');
+  const [nearbyBody, setNearbyBody] = useState('all');
+  const [nearbyMinPayload, setNearbyMinPayload] = useState('');
+  const [nearbyMinPallets, setNearbyMinPallets] = useState('');
+  const [nearbyTailLiftOnly, setNearbyTailLiftOnly] = useState(false);
   const [nearbyPostcode, setNearbyPostcode] = useState('');
   const [nearbyRadius, setNearbyRadius] = useState('100');
-  const [nearbyQuery, setNearbyQuery] = useState({ postcode: '', radius: '100' });
+  const [nearbyQuery, setNearbyQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false });
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [nearbyPositions, setNearbyPositions] = useState<NearbyAvailabilityPosition[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(true);
@@ -108,6 +114,12 @@ export default function LiveAvailabilityPage() {
       const params = new URLSearchParams();
       if (nearbyQuery.postcode.trim()) params.set('postcode', nearbyQuery.postcode.trim());
       params.set('radiusMiles', nearbyQuery.radius);
+      params.set('scope', 'exchange');
+      if (nearbyQuery.vehicle !== 'all') params.set('vehicleType', nearbyQuery.vehicle);
+      if (nearbyQuery.body !== 'all') params.set('bodyType', nearbyQuery.body);
+      if (nearbyQuery.minPayload.trim()) params.set('minPayloadKg', nearbyQuery.minPayload.trim());
+      if (nearbyQuery.minPallets.trim()) params.set('minPallets', nearbyQuery.minPallets.trim());
+      if (nearbyQuery.tailLiftOnly) params.set('tailLift', 'true');
       const response = await fetch(`/api/availability/nearby?${params.toString()}`, {
         headers: { Authorization: `Bearer ${token}` },
         cache: 'no-store',
@@ -125,7 +137,7 @@ export default function LiveAvailabilityPage() {
     } finally {
       setNearbyLoading(false);
     }
-  }, [nearbyQuery.postcode, nearbyQuery.radius]);
+  }, [nearbyQuery.body, nearbyQuery.minPallets, nearbyQuery.minPayload, nearbyQuery.postcode, nearbyQuery.radius, nearbyQuery.tailLiftOnly, nearbyQuery.vehicle]);
 
   useEffect(() => {
     void loadNearby();
@@ -140,9 +152,13 @@ export default function LiveAvailabilityPage() {
     setAvailability('all');
     setFreshness('all');
     setNearbyVehicle('all');
+    setNearbyBody('all');
+    setNearbyMinPayload('');
+    setNearbyMinPallets('');
+    setNearbyTailLiftOnly(false);
     setNearbyPostcode('');
     setNearbyRadius('100');
-    setNearbyQuery({ postcode: '', radius: '100' });
+    setNearbyQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false });
     setFilterNotice('');
   };
 
@@ -153,6 +169,10 @@ export default function LiveAvailabilityPage() {
       availability,
       freshness,
       nearbyVehicle,
+      nearbyBody,
+      nearbyMinPayload,
+      nearbyMinPallets,
+      nearbyTailLiftOnly,
       nearbyPostcode,
       nearbyRadius,
     }));
@@ -167,16 +187,25 @@ export default function LiveAvailabilityPage() {
         setFilterNotice('No saved availability defaults are available on this device.');
         return;
       }
-      const parsed = JSON.parse(raw) as Partial<{ tab: Tab; availability: string; freshness: FreshnessFilter; nearbyVehicle: string; nearbyPostcode: string; nearbyRadius: string }>;
+      const parsed = JSON.parse(raw) as Partial<{ tab: Tab; availability: string; freshness: FreshnessFilter; nearbyVehicle: string; nearbyBody: string; nearbyMinPayload: string; nearbyMinPallets: string; nearbyTailLiftOnly: boolean; nearbyPostcode: string; nearbyRadius: string }>;
       if (parsed.tab === 'live' || parsed.tab === 'future' || parsed.tab === 'nearby') setTab(parsed.tab);
       if (typeof parsed.availability === 'string') setAvailability(parsed.availability);
       if (parsed.freshness === 'all' || parsed.freshness === 'live' || parsed.freshness === 'stale' || parsed.freshness === 'missing') setFreshness(parsed.freshness);
-      if (typeof parsed.nearbyVehicle === 'string') setNearbyVehicle(parsed.nearbyVehicle);
+      const savedVehicle = typeof parsed.nearbyVehicle === 'string' ? parsed.nearbyVehicle : 'all';
+      const savedBody = typeof parsed.nearbyBody === 'string' ? parsed.nearbyBody : 'all';
+      const savedMinPayload = typeof parsed.nearbyMinPayload === 'string' ? parsed.nearbyMinPayload : '';
+      const savedMinPallets = typeof parsed.nearbyMinPallets === 'string' ? parsed.nearbyMinPallets : '';
+      const savedTailLift = parsed.nearbyTailLiftOnly === true;
+      setNearbyVehicle(savedVehicle);
+      setNearbyBody(savedBody);
+      setNearbyMinPayload(savedMinPayload);
+      setNearbyMinPallets(savedMinPallets);
+      setNearbyTailLiftOnly(savedTailLift);
       const savedPostcode = typeof parsed.nearbyPostcode === 'string' ? parsed.nearbyPostcode : '';
       const savedRadius = typeof parsed.nearbyRadius === 'string' ? parsed.nearbyRadius : '100';
       setNearbyPostcode(savedPostcode);
       setNearbyRadius(savedRadius);
-      setNearbyQuery({ postcode: savedPostcode, radius: savedRadius });
+      setNearbyQuery({ postcode: savedPostcode, radius: savedRadius, vehicle: savedVehicle, body: savedBody, minPayload: savedMinPayload, minPallets: savedMinPallets, tailLiftOnly: savedTailLift });
       setFilterNotice('Saved availability defaults loaded.');
     } catch {
       setFilterNotice('Saved availability defaults could not be read.');
@@ -222,19 +251,24 @@ export default function LiveAvailabilityPage() {
       if (needle && !text.includes(needle)) return false;
       if (availability !== 'all' && String(driver.availability_status ?? 'offline').toLowerCase() !== availability) return false;
       if (tab === 'live' && freshness !== 'all' && freshnessState !== freshness) return false;
+      if (nearbyVehicle !== 'all' && String(vehicle?.type ?? '').toLowerCase() !== nearbyVehicle.toLowerCase()) return false;
+      if (nearbyBody !== 'all' && String(vehicle?.body_type ?? '').toLowerCase() !== nearbyBody.toLowerCase()) return false;
+      if (nearbyMinPayload.trim() && Number(vehicle?.payload_kg ?? 0) < Number(nearbyMinPayload)) return false;
+      if (nearbyMinPallets.trim() && Number(vehicle?.pallets_capacity ?? 0) < Number(nearbyMinPallets)) return false;
+      if (nearbyTailLiftOnly && vehicle?.has_tail_lift !== true) return false;
       return true;
     });
-  }, [availability, driverRows, freshness, search, tab]);
+  }, [availability, driverRows, freshness, nearbyBody, nearbyMinPallets, nearbyMinPayload, nearbyTailLiftOnly, nearbyVehicle, search, tab]);
 
-  const filteredNearby = useMemo(() => {
-    const needle = search.trim().toLowerCase();
-    return nearbyPositions.filter((position) => {
-      const text = `${position.member_name ?? ''} ${position.member_code ?? ''} ${position.member_type ?? ''} ${position.vehicle_type ?? ''}`.toLowerCase();
-      if (needle && !text.includes(needle)) return false;
-      if (nearbyVehicle !== 'all' && position.vehicle_type !== nearbyVehicle) return false;
-      return true;
-    });
-  }, [nearbyPositions, nearbyVehicle, search]);
+  const filteredNearby = useMemo(() => nearbyPositions.filter((position) => matchesAvailabilityFilters(position, {
+    search,
+    scope: 'exchange',
+    vehicleType: nearbyVehicle,
+    bodyType: nearbyBody,
+    minPayloadKg: nearbyMinPayload.trim() ? Number(nearbyMinPayload) : null,
+    minPallets: nearbyMinPallets.trim() ? Number(nearbyMinPallets) : null,
+    tailLiftOnly: nearbyTailLiftOnly,
+  })), [nearbyBody, nearbyMinPallets, nearbyMinPayload, nearbyPositions, nearbyTailLiftOnly, nearbyVehicle, search]);
 
   const livePoints = useMemo<FleetMapPoint[]>(() => filtered.flatMap(({ driver, location, stale }) => {
     if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) return [];
@@ -276,7 +310,8 @@ export default function LiveAvailabilityPage() {
   }), [filteredNearby]);
 
   const availabilityValues = useMemo(() => [...new Set(data.drivers.map((driver) => String(driver.availability_status ?? 'offline').toLowerCase()))].sort(), [data.drivers]);
-  const nearbyVehicleTypes = useMemo(() => [...new Set(nearbyPositions.map((position) => position.vehicle_type).filter((value): value is string => Boolean(value)))].sort(), [nearbyPositions]);
+  const nearbyVehicleTypes = useMemo(() => [...new Set([...nearbyPositions.map((position) => position.vehicle_type), ...data.vehicles.map((vehicle) => vehicle.type)].filter((value): value is string => Boolean(value)))].sort(), [data.vehicles, nearbyPositions]);
+  const nearbyBodyTypes = useMemo(() => [...new Set([...nearbyPositions.map((position) => position.body_type), ...data.vehicles.map((vehicle) => vehicle.body_type)].filter((value): value is string => Boolean(value)))].sort(), [data.vehicles, nearbyPositions]);
   const futurePublished = driverRows.filter((row) => Boolean(row.future?.futurePosition || row.returnJourney)).length;
   const availabilityConflicts = driverRows.filter((row) => row.driver.availability_status === 'available' && row.currentJob).length;
   const signals = [
@@ -321,12 +356,16 @@ export default function LiveAvailabilityPage() {
           {tab === 'live' && <label style={labelStyle}>Tracking freshness<select style={inputStyle} value={freshness} onChange={(event) => setFreshness(event.target.value as FreshnessFilter)}><option value="all">All freshness</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>}
           {tab === 'nearby' && <label style={labelStyle}>Near postcode / outcode<input style={inputStyle} value={nearbyPostcode} onChange={(event) => setNearbyPostcode(event.target.value)} placeholder="BB1" /></label>}
           {tab === 'nearby' && <label style={labelStyle}>Radius<select style={inputStyle} value={nearbyRadius} onChange={(event) => setNearbyRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} mi</option>)}</select></label>}
-          {tab === 'nearby' && <label style={labelStyle}>Vehicle<select style={inputStyle} value={nearbyVehicle} onChange={(event) => setNearbyVehicle(event.target.value)}><option value="all">All vehicle types</option>{nearbyVehicleTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
+          <label style={labelStyle}>Vehicle<select style={inputStyle} value={nearbyVehicle} onChange={(event) => setNearbyVehicle(event.target.value)}><option value="all">All vehicle types</option>{nearbyVehicleTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>
+          <label style={labelStyle}>Body type<select style={inputStyle} value={nearbyBody} onChange={(event) => setNearbyBody(event.target.value)}><option value="all">All body types</option>{nearbyBodyTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>
+          <label style={labelStyle}>Min payload (kg)<input style={inputStyle} type="number" min="0" value={nearbyMinPayload} onChange={(event) => setNearbyMinPayload(event.target.value)} placeholder="Any" /></label>
+          <label style={labelStyle}>Min pallets<input style={inputStyle} type="number" min="0" value={nearbyMinPallets} onChange={(event) => setNearbyMinPallets(event.target.value)} placeholder="Any" /></label>
+          <label style={{ ...labelStyle, alignContent: 'end' }}><span>Equipment</span><span style={{ minHeight: 32, display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" checked={nearbyTailLiftOnly} onChange={(event) => setNearbyTailLiftOnly(event.target.checked)} />Tail lift required</span></label>
         </div>
         <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 8 }}>
           <ActionButton tone="secondary" onClick={saveDefaults}>Save Default</ActionButton>
           <ActionButton tone="secondary" onClick={loadDefaults}>Load Default</ActionButton>
-          {tab === 'nearby' && <ActionButton tone="success" onClick={() => setNearbyQuery({ postcode: nearbyPostcode.trim(), radius: nearbyRadius })}>Find Nearest</ActionButton>}
+          {tab === 'nearby' && <ActionButton tone="success" onClick={() => setNearbyQuery({ postcode: nearbyPostcode.trim(), radius: nearbyRadius, vehicle: nearbyVehicle, body: nearbyBody, minPayload: nearbyMinPayload, minPallets: nearbyMinPallets, tailLiftOnly: nearbyTailLiftOnly })}>Find Nearest</ActionButton>}
           <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
         </div>
       </Panel>
@@ -385,7 +424,7 @@ export default function LiveAvailabilityPage() {
                 const pointId = nearbyPointKey(position, index);
                 return [
                   <div key="member"><strong style={{ display: 'block' }}>{position.member_name ?? 'Exchange member'}</strong><span style={{ color: '#64748b' }}>{position.member_code ? `ID ${position.member_code}` : position.member_type ?? 'Member profile'}</span></div>,
-                  (position.vehicle_type ?? 'Vehicle not published').replaceAll('_', ' '),
+                  <div key="vehicle"><strong>{(position.vehicle_type ?? 'Vehicle not published').replaceAll('_', ' ')}</strong><span style={{ display: 'block', color: '#64748b' }}>{position.body_type ? position.body_type.replaceAll('_', ' ') : 'Body type not published'}</span></div>,
                   capacityLabel(position),
                   position.distance_miles != null ? `${position.distance_miles.toFixed(1)} mi` : '—',
                   position.has_tail_lift === true ? <StatusBadge key="equipment" value="Tail lift" tone="blue" /> : position.has_tail_lift === false ? 'No tail lift' : 'Equipment not published',

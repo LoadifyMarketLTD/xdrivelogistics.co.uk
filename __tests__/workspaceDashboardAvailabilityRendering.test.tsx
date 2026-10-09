@@ -235,7 +235,7 @@ describe('active workspace dashboard degraded-state rendering', () => {
     expect(html).toContain('Job data unavailable');
     expect(html).not.toContain('No jobs require attention');
     expect(html).toContain('Document expiry alerts');
-    expect(html).toContain('Commercial position');
+    expect(html).toContain('Commercial &amp; Finance');
     expect(html).not.toContain('£0.00');
   });
 
@@ -250,7 +250,7 @@ describe('active workspace dashboard degraded-state rendering', () => {
 
     const html = render(<CarrierOperationsDashboardHome />);
     expect(html).toContain('Overdue invoices');
-    expect(html).toContain('Commercial position');
+    expect(html).toContain('Commercial &amp; Finance');
     expect(html).not.toContain('£0.00');
   });
 

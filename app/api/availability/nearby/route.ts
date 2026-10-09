@@ -63,6 +63,7 @@ type NearbyPosition = {
   lat: number;
   lng: number;
   vehicle_type: unknown;
+  body_type: unknown;
   payload_kg: unknown;
   pallets_capacity: unknown;
   has_tail_lift: unknown;
@@ -74,6 +75,12 @@ type NearbyPosition = {
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return NextResponse.json({ error: 'Availability is temporarily unavailable.' }, { status: 503 });
   const searchPostcode = request.nextUrl.searchParams.get('postcode')?.trim() ?? '';
+  const requestedVehicleType = request.nextUrl.searchParams.get('vehicleType')?.trim().toLowerCase() ?? '';
+  const requestedBodyType = request.nextUrl.searchParams.get('bodyType')?.trim().toLowerCase() ?? '';
+  const requestedScope = request.nextUrl.searchParams.get('scope')?.trim().toLowerCase() ?? 'all';
+  const minPayloadKg = Number(request.nextUrl.searchParams.get('minPayloadKg') ?? '');
+  const minPallets = Number(request.nextUrl.searchParams.get('minPallets') ?? '');
+  const tailLiftOnly = request.nextUrl.searchParams.get('tailLift') === 'true';
   const requestedRadius = Number(request.nextUrl.searchParams.get('radiusMiles') ?? 100);
   const radiusMiles = Number.isFinite(requestedRadius) ? Math.min(300, Math.max(1, requestedRadius)) : 100;
   const searchOrigin = searchPostcode ? await resolveSearchCoordinates(searchPostcode) : null;
@@ -138,7 +145,7 @@ export async function GET(request: NextRequest) {
       .limit(2000),
     supabaseAdmin
       .from('vehicles')
-      .select('assigned_driver_id, type, payload_kg, pallets_capacity, has_tail_lift')
+      .select('assigned_driver_id, type, body_type, payload_kg, pallets_capacity, has_tail_lift')
       .in('assigned_driver_id', eligibleIds)
       .limit(1000),
     companyIds.length
@@ -178,6 +185,7 @@ export async function GET(request: NextRequest) {
         lat: Number(row.exact_lat),
         lng: Number(row.exact_lng),
         vehicle_type: vehicle?.type ?? null,
+        body_type: vehicle?.body_type ?? null,
         payload_kg: vehicle?.payload_kg ?? null,
         pallets_capacity: vehicle?.pallets_capacity ?? null,
         has_tail_lift: vehicle?.has_tail_lift ?? null,
@@ -202,6 +210,7 @@ export async function GET(request: NextRequest) {
       lat: Number(row.exchange_lat),
       lng: Number(row.exchange_lng),
       vehicle_type: vehicle?.type ?? null,
+      body_type: vehicle?.body_type ?? null,
       payload_kg: vehicle?.payload_kg ?? null,
       pallets_capacity: vehicle?.pallets_capacity ?? null,
       has_tail_lift: vehicle?.has_tail_lift ?? null,
@@ -210,7 +219,19 @@ export async function GET(request: NextRequest) {
     }];
   });
 
-  const rangedPositions = positions
+  const capabilityFiltered = positions.filter((position) => {
+    if (requestedScope === 'fleet' || requestedScope === 'exchange') {
+      if (position.scope !== requestedScope) return false;
+    }
+    if (requestedVehicleType && String(position.vehicle_type ?? '').toLowerCase() !== requestedVehicleType) return false;
+    if (requestedBodyType && String(position.body_type ?? '').toLowerCase() !== requestedBodyType) return false;
+    if (Number.isFinite(minPayloadKg) && minPayloadKg > 0 && Number(position.payload_kg ?? 0) < minPayloadKg) return false;
+    if (Number.isFinite(minPallets) && minPallets > 0 && Number(position.pallets_capacity ?? 0) < minPallets) return false;
+    if (tailLiftOnly && position.has_tail_lift !== true) return false;
+    return true;
+  });
+
+  const rangedPositions = capabilityFiltered
     .map((position) => {
       if (!searchOrigin) return position;
       const coordinates = validCoordinates(position.lat, position.lng);
@@ -225,6 +246,12 @@ export async function GET(request: NextRequest) {
     search: {
       postcode: searchPostcode || null,
       radiusMiles,
+      vehicleType: requestedVehicleType || null,
+      bodyType: requestedBodyType || null,
+      scope: requestedScope,
+      minPayloadKg: Number.isFinite(minPayloadKg) && minPayloadKg > 0 ? minPayloadKg : null,
+      minPallets: Number.isFinite(minPallets) && minPallets > 0 ? minPallets : null,
+      tailLiftOnly,
       resolved: searchPostcode ? Boolean(searchOrigin) : null,
     },
   }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });

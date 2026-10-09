@@ -15,7 +15,8 @@ describe("Driver Who's Nearby workspace contract", () => {
   });
 
   it('uses the authorised nearby API and exchange scope only', () => {
-    expect(page).toContain("fetch('/api/availability/nearby'");
+    expect(page).toContain('fetch(`/api/availability/nearby?${params.toString()}`');
+    expect(page).toContain("params.set('scope', 'exchange')");
     expect(page).toContain("position.scope === 'exchange'");
     expect(api).toContain("scope: 'exchange'");
   });
