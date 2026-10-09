@@ -7,6 +7,7 @@ import {
   supabaseValidator,
 } from '../../../../_lib/supabaseAdmin';
 import { buildSignedPodPresentations } from '../../../../driver/mobile/podPresentation';
+import { canonicalPodEvidence, canonicalPodStateLabel } from '../../../../../../lib/pod/canonicalPodEvidence';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, {
@@ -33,7 +34,7 @@ export async function GET(
   const { data: job, error: jobError } = await supabaseAdmin
     .from('jobs')
     .select(
-      'id, company_id, awarded_carrier_company_id, assigned_company_id, created_by, pod_generated, pod_generated_at, updated_at, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, driver_notes, status_history',
+      'id, company_id, awarded_carrier_company_id, assigned_company_id, created_by, pod_required, pod_generated, pod_generated_at, updated_at, delivery_photos, damage_photos, pod_photos, delivery_signature_data, client_signature_name, broker_pod_review_status, driver_notes, status_history',
     )
     .eq('id', jobId)
     .maybeSingle();
@@ -77,8 +78,22 @@ export async function GET(
       [job],
       storageCompanyId,
     );
+    const presentation = presentations.get(jobId) ?? null;
+    const evidence = canonicalPodEvidence(job);
     return respond(200, {
-      pod: presentations.get(jobId) ?? null,
+      pod: presentation ? {
+        ...presentation,
+        canonicalState: evidence.state,
+        canonicalStateLabel: canonicalPodStateLabel(evidence.state),
+        canonicalComplete: evidence.complete,
+        reviewStatus: evidence.reviewStatus,
+        evidenceChecklist: {
+          generated: evidence.generated,
+          deliveryPhoto: evidence.deliveryPhotoCount > 0,
+          recipientSignature: evidence.signatureRecorded,
+          recipientName: evidence.recipientRecorded,
+        },
+      } : null,
       jobId,
     });
   } catch (reason) {

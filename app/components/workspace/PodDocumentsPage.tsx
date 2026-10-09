@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import { classifyWorkspaceJobStage, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
+import { canonicalPodEvidence, canonicalPodStateLabel, canonicalPodStateTone } from '../../../lib/pod/canonicalPodEvidence';
 import { useCompanyWorkspaceData, type WorkspaceJob } from './useCompanyWorkspaceData';
 import PodWorkspaceViewer from './PodWorkspaceViewer';
 import {
@@ -49,15 +50,16 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
 
   const rows = useMemo(
-    () =>
-      workspace.jobs.filter((job) =>
-        photoPaths(job).length > 0 || classifyWorkspaceJobStage(job) === 'completed'
-      ),
+    () => workspace.jobs.filter((job) => {
+      const pod = canonicalPodEvidence(job);
+      return pod.hasAnyEvidence || classifyWorkspaceJobStage(job) === 'completed';
+    }),
     [workspace.jobs]
   );
 
-  const availableCount = rows.filter((job) => photoPaths(job).length > 0).length;
-  const missingPhotoCount = rows.filter((job) => photoPaths(job).length === 0).length;
+  const completeCount = rows.filter((job) => canonicalPodEvidence(job).complete).length;
+  const incompleteCount = rows.filter((job) => canonicalPodEvidence(job).required && !canonicalPodEvidence(job).complete).length;
+  const approvedCount = rows.filter((job) => canonicalPodEvidence(job).state === 'approved').length;
 
   const getAuthHeader = async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -118,9 +120,9 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
       return;
     }
     const messages: Record<PodReviewAction, string> = {
-      approve: 'Delivery photo evidence review recorded as approved.',
-      reject: 'Delivery photo evidence review recorded as rejected.',
-      request_missing: 'Missing proof of delivery requested — review note recorded.',
+      approve: 'Canonical POD review recorded as approved.',
+      reject: 'POD review recorded as rejected.',
+      request_missing: 'Missing or incomplete POD requested — review note recorded.',
     };
     setNotice(messages[action]);
     setReviewNotes((prev) => {
@@ -128,6 +130,7 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
       delete next[jobId];
       return next;
     });
+    await workspace.refresh();
   };
 
   const customerMode = mode === 'customer';
@@ -139,8 +142,8 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
         title={customerMode ? 'POD & Documents' : 'POD Review'}
         description={
           customerMode
-            ? 'Open delivery photo evidence for your own transport jobs through short-lived authorised links. Full POD state is shown in the booking / job sheet where the complete evidence contract is available.'
-            : 'Review delivery photo evidence for broker-managed loads. This feed does not by itself prove the full recipient, signature and generated-POD state.'
+            ? 'Inspect canonical POD evidence for your transport jobs through short-lived authorised links. Complete POD means generated POD, delivery photo, recipient signature and recipient name.'
+            : 'Review canonical POD for broker-managed loads. Approval is available only when the complete recipient, signature, photo and generated-POD contract is satisfied.'
         }
       />
 
@@ -149,8 +152,9 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
       <KpiGrid>
-        <KpiCard label="Photo evidence available" value={availableCount} tone="green" />
-        <KpiCard label="No delivery photos" value={missingPhotoCount} tone="orange" />
+        <KpiCard label="Canonical POD complete" value={completeCount} tone="green" />
+        <KpiCard label="POD incomplete / missing" value={incompleteCount} tone={incompleteCount > 0 ? 'orange' : 'green'} />
+        {!customerMode ? <KpiCard label="POD approved" value={approvedCount} tone="green" /> : null}
         <KpiCard label="Jobs in register" value={rows.length} tone="navy" />
       </KpiGrid>
 
@@ -163,7 +167,7 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
 
       <Panel
         title={customerMode ? 'Delivery evidence register' : 'Delivery evidence review queue'}
-        description="Links expire automatically and are issued only after server-side job and company checks. Photo evidence is not presented here as proof that the complete POD contract is satisfied."
+        description="Links expire automatically and are issued only after server-side job and company checks. POD state uses the same canonical evidence contract as job completion and broker review."
       >
         <DataTable
           columns={
@@ -173,6 +177,7 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
           }
           rows={rows.map((job) => {
             const paths = photoPaths(job);
+            const pod = canonicalPodEvidence(job);
             const baseRow: React.ReactNode[] = [
               job.id.slice(0, 8).toUpperCase(),
               <strong key="route">
@@ -181,11 +186,7 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
               </strong>,
               when(job.delivery_datetime),
               <StatusBadge key="job-status" value={workspaceJobPresentationStatus(job)} />,
-              paths.length > 0 ? (
-                <StatusBadge key="evidence-status" value="photo evidence available" tone="green" />
-              ) : (
-                <StatusBadge key="evidence-status" value="no delivery photos" tone="orange" />
-              ),
+              <StatusBadge key="evidence-status" value={canonicalPodStateLabel(pod.state)} tone={canonicalPodStateTone(pod.state)} />,
               paths.length > 0 ? (
                 <div key="files" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
                   {paths.map((path, index) => {
@@ -205,7 +206,7 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
               ) : (
                 'No photo uploaded'
               ),
-              job.pod_generated ? (
+              pod.complete ? (
                 <ActionButton
                   key="pod-view"
                   tone="secondary"
@@ -229,16 +230,16 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
                     style={{ border: '1px solid #cbd5e1', borderRadius: '6px', padding: '0.4rem 0.55rem', fontSize: '0.74rem', resize: 'vertical', width: '100%' }}
                   />
                   <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap' }}>
-                    {paths.length > 0 && (
+                    {pod.complete && (
                       <ActionButton
                         tone="success"
                         disabled={reviewingKey === `${job.id}:approve`}
                         onClick={() => void reviewPod(job.id, 'approve')}
                       >
-                        {reviewingKey === `${job.id}:approve` ? 'Saving…' : 'Approve evidence'}
+                        {reviewingKey === `${job.id}:approve` ? 'Saving…' : 'Approve POD'}
                       </ActionButton>
                     )}
-                    {paths.length > 0 && (
+                    {pod.hasAnyEvidence && (
                       <ActionButton
                         tone="danger"
                         disabled={reviewingKey === `${job.id}:reject`}
@@ -247,7 +248,7 @@ export default function PodDocumentsPage({ mode }: PodDocumentsPageProps) {
                         {reviewingKey === `${job.id}:reject` ? 'Saving…' : 'Reject evidence'}
                       </ActionButton>
                     )}
-                    {paths.length === 0 && (
+                    {!pod.complete && (
                       <ActionButton
                         tone="warning"
                         disabled={reviewingKey === `${job.id}:request_missing`}

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import { supabase } from '../../../lib/supabaseClient';
+import { canonicalPodStateTone, type CanonicalPodState } from '../../../lib/pod/canonicalPodEvidence';
 import {
   ActionButton,
   AlertBanner,
@@ -34,6 +35,16 @@ type PodPresentation = {
   completedBy?: string;
   completedByRole?: string;
   auditHistory?: unknown[];
+  canonicalState?: CanonicalPodState;
+  canonicalStateLabel?: string;
+  canonicalComplete?: boolean;
+  reviewStatus?: string | null;
+  evidenceChecklist?: {
+    generated?: boolean;
+    deliveryPhoto?: boolean;
+    recipientSignature?: boolean;
+    recipientName?: boolean;
+  };
 };
 
 const safeUrls = (value: unknown) =>
@@ -160,8 +171,19 @@ export default function PodWorkspaceViewer({
             POD status
           </div>
           <div style={{ marginTop: 4 }}>
-            <StatusBadge value="Complete" tone="green" />
+            <StatusBadge value={pod.canonicalStateLabel ?? (pod.canonicalComplete ? 'POD complete' : 'POD incomplete')} tone={canonicalPodStateTone(pod.canonicalState ?? (pod.canonicalComplete ? 'complete' : 'incomplete'))} />
           </div>
+        </div>
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+            Evidence contract
+          </div>
+          <strong style={{ display: 'block', marginTop: 4 }}>{[
+            pod.evidenceChecklist?.generated ? 'Generated' : 'Generation missing',
+            pod.evidenceChecklist?.deliveryPhoto ? 'Photo' : 'Photo missing',
+            pod.evidenceChecklist?.recipientSignature ? 'Signature' : 'Signature missing',
+            pod.evidenceChecklist?.recipientName ? 'Recipient' : 'Recipient missing',
+          ].join(' · ')}</strong>
         </div>
         <div>
           <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>

@@ -9,6 +9,7 @@ import {
   workspaceJobPresentationStatus,
 } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
+import { canonicalPodEvidence, canonicalPodStateLabel, canonicalPodStateTone } from '../../../lib/pod/canonicalPodEvidence';
 import { useCompanyWorkspaceData, type WorkspaceJob } from './useCompanyWorkspaceData';
 import PodWorkspaceViewer from './PodWorkspaceViewer';
 import {
@@ -54,8 +55,9 @@ export default function OperationsPodQueuePage() {
     [workspace.jobs]
   );
 
-  const availableCount = jobs.filter((job) => photoPaths(job).length > 0).length;
-  const missingCount = jobs.length - availableCount;
+  const completeCount = jobs.filter((job) => canonicalPodEvidence(job).complete).length;
+  const incompleteCount = jobs.filter((job) => !canonicalPodEvidence(job).complete && canonicalPodEvidence(job).required).length;
+  const notRequiredCount = jobs.filter((job) => canonicalPodEvidence(job).state === 'not_required').length;
 
   const openEvidence = async (jobId: string, path: string, index: number) => {
     const key = `${jobId}:${index}`;
@@ -94,7 +96,7 @@ export default function OperationsPodQueuePage() {
       <PageHeader
         eyebrow="Daily operations"
         title="POD Queue"
-        description="Delivery-stage and completed jobs available for proof-of-delivery inspection. Delivery photos are evidence signals; the Job Sheet remains the source for the complete POD contract."
+        description="Delivery-stage and completed jobs available for canonical proof-of-delivery inspection. Complete POD requires generated POD state, delivery photo evidence, recipient signature and recipient name."
       />
 
       {workspace.error && <AlertBanner>{workspace.error}</AlertBanner>}
@@ -102,8 +104,9 @@ export default function OperationsPodQueuePage() {
 
       <KpiGrid>
         <KpiCard label="POD inspection queue" value={jobs.length} tone="navy" />
-        <KpiCard label="Delivery photos available" value={availableCount} tone="green" />
-        <KpiCard label="Delivery photos missing" value={missingCount} tone={missingCount > 0 ? 'orange' : 'green'} />
+        <KpiCard label="Canonical POD complete" value={completeCount} tone="green" />
+        <KpiCard label="POD incomplete / missing" value={incompleteCount} tone={incompleteCount > 0 ? 'orange' : 'green'} />
+        <KpiCard label="POD not required" value={notRequiredCount} tone="navy" />
       </KpiGrid>
 
       {selectedJobId ? (
@@ -112,7 +115,7 @@ export default function OperationsPodQueuePage() {
 
       <Panel
         title="Proof-of-delivery inspection"
-        description="This queue does not mark POD approved or complete. Open the Job Sheet to inspect the full recipient, signature, photo and generated-document state."
+        description="This queue uses the same canonical recipient, signature, photo and generated-POD contract as completion. Review decisions remain separate from evidence completeness."
       >
         <OperationalTable<WorkspaceJob>
           columns={[
@@ -144,11 +147,10 @@ export default function OperationsPodQueuePage() {
             {
               id: 'evidence',
               header: 'Evidence',
-              cell: (job) => photoPaths(job).length > 0 ? (
-                <StatusBadge value="delivery photos available" tone="green" />
-              ) : (
-                <StatusBadge value="delivery photos missing" tone="orange" />
-              ),
+              cell: (job) => {
+                const pod = canonicalPodEvidence(job);
+                return <StatusBadge value={canonicalPodStateLabel(pod.state)} tone={canonicalPodStateTone(pod.state)} />;
+              },
             },
             {
               id: 'actions',
@@ -171,7 +173,7 @@ export default function OperationsPodQueuePage() {
                         </ActionButton>
                       );
                     })}
-                    {job.pod_generated ? (
+                    {canonicalPodEvidence(job).hasAnyEvidence ? (
                       <ActionButton
                         tone="secondary"
                         onClick={() => setSelectedJobId(job.id)}

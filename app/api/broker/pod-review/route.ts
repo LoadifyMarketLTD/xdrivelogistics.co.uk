@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { canonicalPodEvidence } from '../../../../lib/pod/canonicalPodEvidence';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -70,7 +71,7 @@ export async function PATCH(request: NextRequest) {
   // Verify job belongs to this broker's company
   const { data: job, error: jobErr } = await supabaseAdmin
     .from('jobs')
-    .select('id, company_id, status, delivery_photos, pod_photos')
+    .select('id, company_id, status, pod_required, pod_generated, delivery_photos, pod_photos, delivery_signature_data, client_signature_name, broker_pod_review_status')
     .eq('id', jobId)
     .maybeSingle();
 
@@ -78,6 +79,14 @@ export async function PATCH(request: NextRequest) {
   if (!job) return json(404, { error: 'Job not found.' });
   if (job.company_id !== companyId) {
     return json(403, { error: 'Forbidden — job belongs to a different company.' });
+  }
+
+  const pod = canonicalPodEvidence(job);
+  if (action === 'approve' && !pod.complete) {
+    return json(409, {
+      error: 'Cannot approve POD until generated POD, delivery photo, recipient signature and recipient name are all recorded.',
+      podState: pod.state,
+    });
   }
 
   const reviewStatusMap: Record<string, string> = {
@@ -113,5 +122,18 @@ export async function PATCH(request: NextRequest) {
     return json(500, { error: updateErr.message });
   }
 
-  return json(200, { job: updated, action, success: true });
+  const { error: auditError } = await supabaseAdmin.from('job_tracking_events').insert({
+    job_id: jobId,
+    event_type: 'note',
+    created_by: caller.userId,
+    message: `POD review ${action.replaceAll('_', ' ')}.`,
+    meta: { kind: 'pod_review', action, pod_state: pod.state },
+  });
+
+  return json(200, {
+    job: updated,
+    action,
+    success: true,
+    auditWarning: auditError ? 'POD review saved, but its tracking audit event could not be written.' : null,
+  });
 }
