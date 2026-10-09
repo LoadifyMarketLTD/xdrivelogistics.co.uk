@@ -234,6 +234,9 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     regularDays: [] as Array<(typeof REGULAR_DAYS)[number][0]>,
     regularEndDate: '',
     hireEndTime: '',
+    proximityAlertsEnabled: false,
+    pickupAlertRadiusMiles: '1',
+    deliveryAlertRadiusMiles: '1',
     clientName: '', clientEmail: '', clientPhone: '',
     pickupDate: '', pickupTime: '', pickupAddress: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
     deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
@@ -527,6 +530,9 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           regularSchedule: form.loadType === 'regular_load' ? { days: form.regularDays, endDate: form.regularEndDate || null } : null,
           hireEndDateTime: form.loadType === 'daily_hire' ? dateTime(form.pickupDate, form.hireEndTime) : null,
           publish,
+          proximityAlertsEnabled: form.proximityAlertsEnabled,
+          pickupAlertRadiusMiles: Number(form.pickupAlertRadiusMiles || 1),
+          deliveryAlertRadiusMiles: Number(form.deliveryAlertRadiusMiles || 1),
           visibility: publish && !directCarrierId && directTargetMode === 'marketplace' && visibilityGroupId ? 'private_group' : undefined,
           visibilityGroupId: publish && !directCarrierId && directTargetMode === 'marketplace' && visibilityGroupId ? visibilityGroupId : null,
           directInviteCompanyId: publish ? directCarrier?.id ?? null : null,
@@ -903,6 +909,27 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             </label>
           </div>
         )}
+      </Panel>
+
+      <Panel title="Smart / Pro Alerts" description="Optional booking-level proximity alerts. XDrive uses authorised live or telematics positions and never exposes the driver's exact coordinates in the notification.">
+        <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+          <input type="checkbox" checked={form.proximityAlertsEnabled} onChange={(event) => set('proximityAlertsEnabled', event.target.checked)} />
+          <span><strong>Enable pickup and delivery proximity alerts</strong><br /><span style={{ color: '#64748b', fontSize: 11 }}>Notify the posting company when the assigned vehicle enters the configured collection or delivery radius.</span></span>
+        </label>
+        {form.proximityAlertsEnabled ? (
+          <div style={{ ...gridStyle, marginTop: 10 }}>
+            <label style={labelStyle}>Pickup alert radius
+              <select style={fieldStyle} value={form.pickupAlertRadiusMiles} onChange={(event) => set('pickupAlertRadiusMiles', event.target.value)}>
+                {['1','2','5','10'].map((value) => <option key={value} value={value}>{value} mile{value === '1' ? '' : 's'}</option>)}
+              </select>
+            </label>
+            <label style={labelStyle}>Delivery alert radius
+              <select style={fieldStyle} value={form.deliveryAlertRadiusMiles} onChange={(event) => set('deliveryAlertRadiusMiles', event.target.value)}>
+                {['1','2','5','10'].map((value) => <option key={value} value={value}>{value} mile{value === '1' ? '' : 's'}</option>)}
+              </select>
+            </label>
+          </div>
+        ) : null}
       </Panel>
 
       {mode !== 'customer' && (

@@ -6,6 +6,7 @@ const publisher = readFileSync(resolve(process.cwd(), 'app/hooks/useDriverLocati
 const ingest = readFileSync(resolve(process.cwd(), 'app/api/driver/location/route.ts'), 'utf8');
 const readApi = readFileSync(resolve(process.cwd(), 'app/api/tracking/jobs/[jobId]/route.ts'), 'utf8');
 const trafficEta = readFileSync(resolve(process.cwd(), 'lib/tracking/trafficEta.ts'), 'utf8');
+const operationalAlerts = readFileSync(resolve(process.cwd(), 'lib/tracking/operationalAlerts.ts'), 'utf8');
 const etaMigration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260826095500_job_tracking_eta_cache.sql'), 'utf8');
 const customer = readFileSync(resolve(process.cwd(), 'app/customer/jobs/[id]/page.tsx'), 'utf8');
 const broker = readFileSync(resolve(process.cwd(), 'app/broker/jobs/page.tsx'), 'utf8');
@@ -56,8 +57,9 @@ describe('CX-style live job tracking server contract', () => {
     expect(trafficEta).toContain("admin.rpc('reserve_tracking_provider_request'");
     expect(readApi).toContain('readTrafficEtaSnapshot');
     expect(readApi).not.toContain('mapbox/driving-traffic');
-    expect(ingest).toContain('DELIVERY_ETA_STATUSES');
-    expect(ingest).toContain("event_type: 'tracking_eta_alert'");
+    expect(ingest).toContain('maybeCreateOperationalLocationAlerts');
+    expect(operationalAlerts).toContain('DELIVERY_ETA_STATUSES');
+    expect(operationalAlerts).toContain("event_type: 'tracking_eta_alert'");
     expect(etaMigration).toContain('tracking_provider_usage_monthly');
     expect(etaMigration).toContain('reserve_tracking_provider_request');
     expect(etaMigration).toContain('REVOKE ALL ON TABLE public.tracking_provider_usage_monthly FROM PUBLIC, anon, authenticated');

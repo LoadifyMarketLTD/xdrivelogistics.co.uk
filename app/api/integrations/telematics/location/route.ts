@@ -1,6 +1,7 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { maybeCreateOperationalLocationAlerts, type OperationalAlertJob } from '../../../../../lib/tracking/operationalAlerts';
 
 export const runtime = 'nodejs';
 
@@ -47,13 +48,10 @@ type VehicleRow = {
   status: string | null;
 };
 
-type JobRow = {
-  id: string;
+type JobRow = OperationalAlertJob & {
   assigned_driver_id: string | null;
   vehicle_id: string | null;
   awarded_carrier_company_id: string | null;
-  current_status: string | null;
-  status: string | null;
 };
 
 function statusOf(job: Pick<JobRow, 'current_status' | 'status'>) {
@@ -210,7 +208,7 @@ export async function POST(request: NextRequest) {
   }
   const vehicleRow = vehicle as VehicleRow;
 
-  const jobSelect = 'id, assigned_driver_id, vehicle_id, awarded_carrier_company_id, current_status, status';
+  const jobSelect = 'id, company_id, assigned_driver_id, vehicle_id, awarded_carrier_company_id, current_status, status, pickup_lat, pickup_lng, delivery_lat, delivery_lng, pickup_postcode, delivery_postcode, delivery_datetime, proximity_alerts_enabled, pickup_proximity_alert_enabled, delivery_proximity_alert_enabled, pickup_alert_radius_miles, delivery_alert_radius_miles, smart_alert_in_app_enabled, smart_alert_email_enabled, smart_alert_push_enabled';
   let jobRow: JobRow | null = null;
   if (requestedJobId) {
     const { data, error } = await supabaseAdmin.from('jobs').select(jobSelect).eq('id', requestedJobId).maybeSingle();
@@ -260,5 +258,6 @@ export async function POST(request: NextRequest) {
     return json(500, { error: 'Telematics location could not be stored.' });
   }
 
+  await maybeCreateOperationalLocationAlerts(supabaseAdmin, jobRow, lat, lng, 'telematics').catch(() => undefined);
   return json(200, { ok: true, duplicate: false, job_id: jobRow.id });
 }

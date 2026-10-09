@@ -7,6 +7,7 @@ import { MemberIdentityLink } from './MemberProfile';
 import WorkspaceJobReplay from './WorkspaceJobReplay';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
 import CommercialAmendmentControls from './CommercialAmendmentControls';
+import { JobSmartAlertsPanel } from './JobSmartAlertsPanel';
 
 type JobSheet = {
   jobId: string;
@@ -400,6 +401,7 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
             <Detail label="Body type" value={sheet.vehicle?.bodyType ? human(sheet.vehicle.bodyType) : 'Not supplied'} detail={!sheet.vehicle?.bodyType ? availabilityCopy(sheet.unavailable.bodyType, 'Not available for this booking.') : undefined} />
           </div>
           {visibleNotes.length ? <div style={{ display: 'grid', gap: 6 }}>{visibleNotes.map(([label, value]) => <div key={label} className="workspace-detail-item"><strong>{label}</strong><div>{value}</div></div>)}</div> : <EmptyState compact title="No operational notes recorded" />}
+          {mode !== 'carrier' ? <JobSmartAlertsPanel jobId={jobId} /> : null}
         </div>
       )}
 

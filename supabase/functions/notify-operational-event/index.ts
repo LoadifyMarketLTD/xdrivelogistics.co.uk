@@ -454,6 +454,56 @@ async function handleLoadAlert(event: NotificationEvent) {
   return emailOk && pushOk;
 }
 
+async function handleOperationalSmartAlert(event: NotificationEvent) {
+  const userId = event.recipient_user_id;
+  if (!userId) return true;
+
+  const titles: Record<string, string> = {
+    pickup_proximity_alert: 'Driver near pickup',
+    delivery_proximity_alert: 'Driver near delivery',
+    tracking_eta_alert: 'Delivery ETA alert',
+    job_on_site_pickup_alert: 'Driver on site at pickup',
+    job_loaded_alert: 'Load collected',
+    job_on_site_delivery_alert: 'Driver on site at delivery',
+    job_pod_submitted_alert: 'POD submitted',
+  };
+  const title = titles[event.event_type] ?? 'Booking update';
+  const jobId = String(event.payload.job_id ?? event.entity_id);
+  const message = String(event.payload.message ?? title);
+  const emailEnabled = event.payload.email_enabled === true && await userEmailEnabled(userId, event.event_type);
+  const pushEnabled = event.payload.push_enabled === true;
+  if (!emailEnabled && !pushEnabled) return true;
+
+  let emailOk = true;
+  if (emailEnabled) {
+    const user = await getUserEmail(userId);
+    if (user) {
+      const pickup = event.payload.pickup_outcode ? `<li><strong>Pickup area:</strong> ${escapeHtml(event.payload.pickup_outcode)}</li>` : '';
+      const delivery = event.payload.delivery_outcode ? `<li><strong>Delivery area:</strong> ${escapeHtml(event.payload.delivery_outcode)}</li>` : '';
+      emailOk = await sendEmail(
+        user.email,
+        `${title} - XDrive Logistics`,
+        `<h2>${escapeHtml(title)}</h2><p>Hi ${escapeHtml(user.name)},</p><p>${escapeHtml(message)}</p><ul>${pickup}${delivery}</ul><p><a href="${escapeHtml(buildAppUrl('/'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
+        notificationIdempotencyKey(event.id, userId),
+      );
+    }
+  }
+
+  const pushOk = pushEnabled
+    ? await sendDriverPush(
+      userId,
+      title,
+      message,
+      {
+        event_type: event.event_type,
+        job_id: jobId,
+        deep_link: `xdrive://job/${jobId}`,
+      },
+    )
+    : true;
+
+  return emailOk && pushOk;
+}
 async function handleOnboardingInvite(event: NotificationEvent) {
   const userId = typeof event.payload.recipient_user_id === 'string'
     ? event.payload.recipient_user_id
@@ -652,6 +702,15 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       case 'bid_accepted': success = await handleBidAccepted(event); break;
       case 'pod_uploaded': success = await handlePodUploaded(event); break;
       case 'load_alert': success = await handleLoadAlert(event); break;
+      case 'pickup_proximity_alert':
+      case 'delivery_proximity_alert':
+      case 'tracking_eta_alert':
+      case 'job_on_site_pickup_alert':
+      case 'job_loaded_alert':
+      case 'job_on_site_delivery_alert':
+      case 'job_pod_submitted_alert':
+        success = await handleOperationalSmartAlert(event);
+        break;
       case 'onboarding_invite':
       case 'onboarding_invite_resent':
         success = await handleOnboardingInvite(event);
