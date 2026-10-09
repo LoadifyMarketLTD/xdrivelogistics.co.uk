@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
@@ -309,6 +309,8 @@ export default function JobHistoryPage() {
   const [orderLoadingByJob, setOrderLoadingByJob] = useState<Record<string, boolean>>({});
   const [orderErrorsByJob, setOrderErrorsByJob] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const hasLoadedRef = useRef(false);
   const [error, setError] = useState('');
   const [detailWarning, setDetailWarning] = useState('');
   const [statusFilter, setStatusFilter] = useState<HistoryFilter>('all');
@@ -351,8 +353,14 @@ export default function JobHistoryPage() {
 
   const fetchHistory = useCallback(async () => {
     if (!isSupabaseConfigured || authLoading) return;
-    if (!driverId) { setLoading(false); return; }
-    setLoading(true); setError(''); setDetailWarning('');
+    const finishLoad = () => {
+      hasLoadedRef.current = true;
+      setLoading(false);
+      setRefreshing(false);
+    };
+    if (!driverId) { finishLoad(); return; }
+    if (hasLoadedRef.current) setRefreshing(true); else setLoading(true);
+    setError(''); setDetailWarning('');
 
     const { data, error: fetchError } = await supabase
       .from('jobs')
@@ -362,7 +370,10 @@ export default function JobHistoryPage() {
       .limit(250);
 
     if (fetchError) {
-      setError('Diary records could not be loaded. Please refresh and try again.'); setJobs([]); setLoading(false); return;
+      setError('Diary records could not be loaded. Please refresh and try again.');
+      if (!hasLoadedRef.current) setJobs([]);
+      finishLoad();
+      return;
     }
     const normalized = ((data ?? []) as unknown as Array<Omit<HistoryJob, 'companies'> & { companies: CompanyRelation }>).map((job) => ({ ...job, companies: normalizeCompany(job.companies) }));
     let resolvedJobs = normalized;
@@ -386,7 +397,7 @@ export default function JobHistoryPage() {
     setJobs(resolvedJobs);
     const jobIds = resolvedJobs.map((job) => job.id);
     if (!jobIds.length) {
-      setReviewsByJob({}); setDocumentsByJob({}); setEventsByJob({}); setLoading(false); return;
+      setReviewsByJob({}); setDocumentsByJob({}); setEventsByJob({}); finishLoad(); return;
     }
 
     const [reviewsRes, documentsRes, eventsRes] = await Promise.all([
@@ -399,7 +410,7 @@ export default function JobHistoryPage() {
     if (documentsRes.error) warnings.push('documents'); else setDocumentsByJob(groupByJobId((documentsRes.data ?? []) as DocumentRow[]));
     if (eventsRes.error) warnings.push('history'); else setEventsByJob(groupByJobId((eventsRes.data ?? []) as TrackingEventRow[]));
     if (warnings.length) setDetailWarning(`Some Diary detail data is temporarily unavailable: ${warnings.join(', ')}.`);
-    setLoading(false);
+    finishLoad();
   }, [authLoading, driverId]);
 
   const createInvoiceForJob = async (job: HistoryJob) => {
@@ -542,7 +553,7 @@ export default function JobHistoryPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Search, scan and expand every assigned booking from one operational diary." headerActions={<ActionButton tone="primary" onClick={() => void fetchHistory()} disabled={loading}>Refresh</ActionButton>}>
+      <DriverWorkspaceShell subtitle="Search, scan and expand every assigned booking from one operational diary." headerActions={<ActionButton tone="primary" onClick={() => void fetchHistory()} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</ActionButton>}>
         <DriverIntegratedNav label="Diary tools" items={[{ href: '/driver/history', label: 'Diary' }, { href: '/driver/jobs', label: 'My Jobs' }]} />
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
@@ -564,7 +575,7 @@ export default function JobHistoryPage() {
               </span>
             </div>
 
-            {loading ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : (
+            {loading && jobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : (
               <div className="diary-bookings">
                 {visibleJobs.map((job) => {
                   const expanded = expandedIds.has(job.id); const reviews = reviewsByJob[job.id] ?? [];
