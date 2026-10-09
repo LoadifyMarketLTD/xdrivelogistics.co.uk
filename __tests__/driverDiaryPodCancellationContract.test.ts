@@ -32,6 +32,7 @@ describe('Driver Diary POD and cancellation contract', () => {
     expect(diary).toContain("/api/driver/jobs/${encodeURIComponent(job.id)}/cancellation");
     expect(diary).toContain('A cancellation reason of at least 5 characters is required.');
     expect(cancellationRoute).toContain("request_awarded_job_cancellation_atomic");
-    expect(cancellationRoute).toContain('p_actor_user_id: auth.user.id');
+    expect(cancellationRoute).toContain('requireActiveWebDriver(request)');
+    expect(cancellationRoute).toContain('p_actor_user_id: driver.userId');
   });
 });

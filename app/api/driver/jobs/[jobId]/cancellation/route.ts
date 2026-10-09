@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
+import { isWebDriverContext, requireActiveWebDriver } from '../../../_lib/webDriverContext';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -11,11 +12,8 @@ export async function POST(
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const token = getBearerToken(request);
-  if (!token) return respond(401, { error: 'Missing bearer token.' });
-
-  const { data: auth, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !auth.user) return respond(401, { error: 'Invalid session.' });
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
 
   const { jobId } = await context.params;
   const body = await request.json().catch(() => null) as { reason?: string } | null;
@@ -26,7 +24,7 @@ export async function POST(
 
   const { data, error } = await supabaseAdmin.rpc('request_awarded_job_cancellation_atomic', {
     p_job_id: jobId,
-    p_actor_user_id: auth.user.id,
+    p_actor_user_id: driver.userId,
     p_reason: reason,
   });
 

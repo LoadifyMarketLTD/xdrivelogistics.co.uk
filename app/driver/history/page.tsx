@@ -311,6 +311,7 @@ export default function JobHistoryPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const hasLoadedRef = useRef(false);
+  const refreshInFlightRef = useRef(false);
   const [error, setError] = useState('');
   const [detailWarning, setDetailWarning] = useState('');
   const [statusFilter, setStatusFilter] = useState<HistoryFilter>('all');
@@ -352,8 +353,10 @@ export default function JobHistoryPage() {
   }, [fetchOrderSheet]);
 
   const fetchHistory = useCallback(async () => {
-    if (!isSupabaseConfigured || authLoading) return;
+    if (!isSupabaseConfigured || authLoading || refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
     const finishLoad = () => {
+      refreshInFlightRef.current = false;
       hasLoadedRef.current = true;
       setLoading(false);
       setRefreshing(false);
@@ -380,18 +383,22 @@ export default function JobHistoryPage() {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token;
     if (token) {
-      const memberResponse = await fetch('/api/driver/diary/company-names', {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-      });
-      const memberPayload = await memberResponse.json().catch(() => ({})) as { members?: DiaryMemberRow[] };
-      if (memberResponse.ok && Array.isArray(memberPayload.members)) {
-        const memberByJob = new Map(memberPayload.members.map((row) => [row.jobId, row]));
-        resolvedJobs = normalized.map((job) => {
-          if (job.companies?.name) return job;
-          const member = memberByJob.get(job.id);
-          return member?.name ? { ...job, companies: { name: member.name } } : job;
+      try {
+        const memberResponse = await fetch('/api/driver/diary/company-names', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
         });
+        const memberPayload = await memberResponse.json().catch(() => ({})) as { members?: DiaryMemberRow[] };
+        if (memberResponse.ok && Array.isArray(memberPayload.members)) {
+          const memberByJob = new Map(memberPayload.members.map((row) => [row.jobId, row]));
+          resolvedJobs = normalized.map((job) => {
+            if (job.companies?.name) return job;
+            const member = memberByJob.get(job.id);
+            return member?.name ? { ...job, companies: { name: member.name } } : job;
+          });
+        }
+      } catch {
+        setDetailWarning('Diary member names could not be refreshed. Existing booking data remains available.');
       }
     }
     setJobs(resolvedJobs);

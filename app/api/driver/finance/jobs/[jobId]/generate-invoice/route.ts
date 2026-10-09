@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
+import { isWebDriverContext, requireActiveWebDriver, type WebDriverContext } from '../../../../_lib/webDriverContext';
 import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../../../../../../../lib/invoiceStatus';
 import { getFeatureFlag, getGlobalSettingNumber } from '../../../../../_lib/platformFlags';
 import { hasCompletePodEvidence } from '../../../../../../../lib/jobs/podCompletion';
@@ -45,35 +46,23 @@ const addDays = (date: string, days: number) => {
   return result.toISOString().slice(0, 10);
 };
 
-async function resolveFinanceOwner(request: NextRequest) {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-  const token = getBearerToken(request);
-  if (!token) return null;
-
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !authData.user) return null;
-
-  const { data: driver } = await supabaseAdmin
-    .from('drivers')
-    .select('id, company_id, user_id')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (!driver) return null;
+async function resolveFinanceOwner(driver: WebDriverContext) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin || !driver.companyId) return null;
 
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
     .select('role_in_company')
-    .eq('company_id', driver.company_id)
-    .eq('user_id', authData.user.id)
+    .eq('company_id', driver.companyId)
+    .eq('user_id', driver.userId)
     .eq('status', 'active')
     .maybeSingle();
   if (membershipError) throw new Error(membershipError.message);
 
   const role = String(membership?.role_in_company ?? '').toLowerCase();
   return {
-    userId: authData.user.id,
-    driverId: driver.id as string,
-    companyId: driver.company_id as string,
+    userId: driver.userId,
+    driverId: driver.driverId,
+    companyId: driver.companyId,
     canManageFinance: role === 'owner' || role === 'admin',
   };
 }
@@ -86,9 +75,12 @@ export async function POST(
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
+
   let actor: Awaited<ReturnType<typeof resolveFinanceOwner>>;
   try {
-    actor = await resolveFinanceOwner(request);
+    actor = await resolveFinanceOwner(driver);
   } catch (reason) {
     return respond(500, {
       error: reason instanceof Error ? reason.message : 'Finance access could not be verified.',

@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import {
-  getBearerToken,
   isSupabaseAdminConfigured,
   supabaseAdmin,
 } from '../../../_lib/supabaseAdmin';
+import { isWebDriverContext, requireActiveWebDriver } from '../../_lib/webDriverContext';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -24,24 +24,13 @@ export async function GET(request: NextRequest) {
     return respond(503, { error: 'Server auth is not configured.' });
   }
 
-  const token = getBearerToken(request);
-  if (!token) return respond(401, { error: 'Missing bearer token.' });
-
-  const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(token);
-  if (authError || !authData.user) return respond(401, { error: 'Invalid session.' });
-
-  const { data: driver, error: driverError } = await supabaseAdmin
-    .from('drivers')
-    .select('id')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-  if (driverError) return respond(500, { error: driverError.message });
-  if (!driver) return respond(403, { error: 'Driver record not found.' });
+  const driver = await requireActiveWebDriver(request);
+  if (!isWebDriverContext(driver)) return driver;
 
   const { data: jobs, error: jobsError } = await supabaseAdmin
     .from('jobs')
     .select('id, company_id')
-    .eq('assigned_driver_id', driver.id)
+    .eq('assigned_driver_id', driver.driverId)
     .limit(250);
   if (jobsError) return respond(500, { error: jobsError.message });
 
