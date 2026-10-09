@@ -4,7 +4,8 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { classifyWorkspaceJobStage, isCompanyExecutionJob } from '../../../lib/jobs/workspaceJobStage';
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
-import { getWorkspaceDatasetMetricValue, useCompanyWorkspaceData } from './useCompanyWorkspaceData';
+import { classifyAccountsDirection } from '../../../lib/finance/accounts';
+import { useCompanyWorkspaceData } from './useCompanyWorkspaceData';
 import {
   ActionButton,
   AlertBanner,
@@ -31,7 +32,9 @@ export default function FinanceControlDashboardHome() {
   const data = useCompanyWorkspaceData();
 
   const totals = useMemo(() => {
-    const unpaid = data.invoices.filter(
+    const receivables = data.invoices.filter((invoice) => classifyAccountsDirection(invoice, data.companyId) === 'receivable');
+    const payables = data.invoices.filter((invoice) => classifyAccountsDirection(invoice, data.companyId) === 'payable');
+    const unpaid = receivables.filter(
       (invoice) =>
         invoice.payment_status !== 'paid' &&
         !['paid', 'Paid', 'void', 'cancelled'].includes(invoice.status),
@@ -46,20 +49,27 @@ export default function FinanceControlDashboardHome() {
         new Date(invoice.due_date).getTime() >= Date.now() &&
         new Date(invoice.due_date).getTime() <= Date.now() + 7 * 86_400_000,
     );
-    const paid = data.invoices.filter(
+    const paid = receivables.filter(
       (invoice) => invoice.payment_status === 'paid' || ['paid', 'Paid'].includes(invoice.status),
+    );
+    const payableUnpaid = payables.filter(
+      (invoice) => invoice.payment_status !== 'paid' && !['paid', 'Paid', 'void', 'cancelled'].includes(invoice.status),
     );
 
     return {
+      receivables,
+      payables,
       unpaid,
       overdue,
       dueSoon,
       outstandingValue: unpaid.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
       overdueValue: overdue.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
       paidValue: paid.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
+      payableOutstandingValue: payableUnpaid.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0),
+      payableUnpaid,
       paid,
     };
-  }, [data.invoices]);
+  }, [data.companyId, data.invoices]);
 
   const issuedInvoiceJobIds = useMemo(
     () => new Set(
@@ -130,12 +140,13 @@ export default function FinanceControlDashboardHome() {
         ariaLabel="Finance operational signals"
         items={[
           { key: 'ready-to-invoice', label: 'Ready to Invoice', value: metricValue(data, ['jobs', 'invoices'], () => readyToInvoice.length), detail: 'Completed work without invoice', tone: readyToInvoiceUnavailable ? 'blue' : readyToInvoice.length ? 'orange' : 'green' },
-          { key: 'draft', label: 'Draft', value: getWorkspaceDatasetMetricValue(data.datasets.invoices, (rows) => rows.filter((invoice) => ['draft', 'Draft'].includes(invoice.status)).length), detail: 'Requires issue', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/invoices') },
+          { key: 'draft', label: 'AR Draft', value: metricValue(data, ['invoices'], () => totals.receivables.filter((invoice) => ['draft', 'Draft'].includes(invoice.status)).length), detail: 'Receivables requiring issue', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/finance/customer-invoices') },
           { key: 'unpaid', label: 'Unpaid', value: metricValue(data, ['invoices'], () => totals.unpaid.length), detail: 'Awaiting payment', tone: invoicesUnavailable ? 'blue' : totals.unpaid.length ? 'orange' : 'green', onClick: () => router.push('/admin/invoices') },
           { key: 'overdue', label: 'Overdue', value: metricValue(data, ['invoices'], () => totals.overdue.length), detail: 'Past due date', tone: invoicesUnavailable ? 'blue' : totals.overdue.length ? 'red' : 'green', onClick: () => router.push('/admin/invoices') },
           { key: 'due-soon', label: 'Due 7d', value: metricValue(data, ['invoices'], () => totals.dueSoon.length), detail: 'Upcoming receivables', tone: invoicesUnavailable ? 'blue' : totals.dueSoon.length ? 'orange' : 'navy', onClick: () => router.push('/admin/invoices') },
-          { key: 'outstanding-value', label: 'Outstanding', value: metricValue(data, ['invoices'], () => money(totals.outstandingValue)), detail: 'Unpaid balance', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/invoices') },
-          { key: 'paid-value', label: 'Paid', value: metricValue(data, ['invoices'], () => money(totals.paidValue)), detail: 'Settled invoices', tone: invoicesUnavailable ? 'blue' : 'green', onClick: () => router.push('/admin/invoices') },
+          { key: 'outstanding-value', label: 'AR Outstanding', value: metricValue(data, ['invoices'], () => money(totals.outstandingValue)), detail: 'Receivables balance', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/finance/customer-invoices') },
+          { key: 'payable-value', label: 'AP Outstanding', value: metricValue(data, ['invoices'], () => money(totals.payableOutstandingValue)), detail: 'Payables balance', tone: invoicesUnavailable ? 'blue' : 'orange', onClick: () => router.push('/admin/finance/carrier-invoices') },
+          { key: 'paid-value', label: 'AR Paid', value: metricValue(data, ['invoices'], () => money(totals.paidValue)), detail: 'Settled receivables', tone: invoicesUnavailable ? 'blue' : 'green', onClick: () => router.push('/admin/finance/customer-invoices') },
         ]}
       />
 
@@ -220,7 +231,14 @@ export default function FinanceControlDashboardHome() {
                     background: totals.overdue.length ? '#FEF2F2' : '#F0FDF4',
                   },
                   {
-                    label: 'Settled value',
+                    label: 'Accounts Payable',
+                    detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.payableUnpaid.length} invoice(s)`,
+                    value: metricValue(data, ['invoices'], () => money(totals.payableOutstandingValue)),
+                    color: workspaceTheme.orange,
+                    background: '#FFF7ED',
+                  },
+                  {
+                    label: 'Settled AR value',
                     detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.paid.length} paid invoice(s)`,
                     value: metricValue(data, ['invoices'], () => money(totals.paidValue)),
                     color: workspaceTheme.green,
@@ -233,6 +251,8 @@ export default function FinanceControlDashboardHome() {
             <OperationalCard title="Finance actions" subtitle="Finance-only reporting and invoice routes.">
               <QuickActionGrid
                 actions={[
+                  { key: 'ar', label: 'Accounts Receivable', onClick: () => router.push('/admin/finance/customer-invoices') },
+                  { key: 'ap', label: 'Accounts Payable', onClick: () => router.push('/admin/finance/carrier-invoices') },
                   { key: 'invoices', label: 'Invoice register', onClick: () => router.push('/admin/invoices') },
                   { key: 'balances', label: 'Balances', onClick: () => router.push('/admin/finance/balances') },
                   { key: 'payments', label: 'Payments', onClick: () => router.push('/admin/finance/payments') },

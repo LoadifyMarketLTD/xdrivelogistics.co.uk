@@ -873,7 +873,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
           const invoicesRes = await supabase
             .from('invoices')
             .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name')
-            .or(`company_id.eq.${companyId},buyer_company_id.eq.${companyId}`)
+            .or(`company_id.eq.${companyId},buyer_company_id.eq.${companyId},supplier_company_id.eq.${companyId}`)
             .order('created_at', { ascending: false })
             .limit(500);
           const invoiceError = getFirstError(invoicesRes as QueryResult<WorkspaceInvoice>);

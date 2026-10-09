@@ -1,4 +1,5 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
+import { invoiceAgingBucket, type AgingBucket } from '../../../../../lib/finance/accounts';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -14,6 +15,8 @@ const numberValue = (value: unknown) => {
 };
 const COMPLETED_JOB_STATUSES = new Set(['delivered', 'completed']);
 const ARCHIVE_STATUSES = new Set(['cancelled', 'void', 'voided', 'refunded']);
+const AGING_BUCKETS: AgingBucket[] = ['current', '1_30', '31_60', '61_90', '90_plus', 'no_due_date'];
+const emptyAging = () => Object.fromEntries(AGING_BUCKETS.map((bucket) => [bucket, 0])) as Record<AgingBucket, number>;
 
 type InvoiceRow = Record<string, unknown>;
 type PaymentRow = Record<string, unknown>;
@@ -67,6 +70,7 @@ function classifyInvoice(row: InvoiceRow, companyIds: Set<string>, paidAmount: n
     vatRate: numberValue(row.vat_rate),
     invoiceDate: text(row.invoice_date) ?? text(row.created_at),
     dueDate: dueAt,
+    agingBucket: invoiceAgingBucket(dueAt, Math.max(0, gross - paidAmount)),
     createdAt: text(row.created_at),
   };
 }
@@ -91,7 +95,7 @@ export async function GET(request: NextRequest) {
     .filter((value): value is string => Boolean(value)))];
   if (!companyIds.length) return json(200, {
     invoices: [], readyToInvoice: [], counterparties: [],
-    summary: { receivableOutstanding: 0, payableOutstanding: 0, overdueCount: 0, overdueValue: 0, paidValue: 0, readyToInvoiceCount: 0 },
+    summary: { receivableOutstanding: 0, payableOutstanding: 0, overdueCount: 0, overdueValue: 0, paidValue: 0, readyToInvoiceCount: 0, receivableAging: emptyAging(), payableAging: emptyAging() },
     note: 'No active company membership is available for company finance control.',
   });
 
@@ -189,12 +193,17 @@ export async function GET(request: NextRequest) {
   }
 
   const summary = enrichedInvoices.reduce((acc, invoice) => {
-    if (invoice.direction === 'receivable') acc.receivableOutstanding += invoice.outstandingAmount;
-    else acc.payableOutstanding += invoice.outstandingAmount;
+    if (invoice.direction === 'receivable') {
+      acc.receivableOutstanding += invoice.outstandingAmount;
+      acc.receivableAging[invoice.agingBucket] += invoice.outstandingAmount;
+    } else {
+      acc.payableOutstanding += invoice.outstandingAmount;
+      acc.payableAging[invoice.agingBucket] += invoice.outstandingAmount;
+    }
     if (invoice.lifecycle === 'overdue') { acc.overdueCount += 1; acc.overdueValue += invoice.outstandingAmount; }
     if (invoice.lifecycle === 'paid') acc.paidValue += invoice.gross;
     return acc;
-  }, { receivableOutstanding: 0, payableOutstanding: 0, overdueCount: 0, overdueValue: 0, paidValue: 0, readyToInvoiceCount: readyToInvoice.length });
+  }, { receivableOutstanding: 0, payableOutstanding: 0, overdueCount: 0, overdueValue: 0, paidValue: 0, readyToInvoiceCount: readyToInvoice.length, receivableAging: emptyAging(), payableAging: emptyAging() });
 
   return json(200, {
     invoices: enrichedInvoices,

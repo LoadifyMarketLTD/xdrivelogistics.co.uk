@@ -7,6 +7,7 @@ import {
   toCanonicalPaymentStatus,
 } from '../../../lib/invoiceStatus';
 import { isCustomerVisibleWorkspaceInvoice, useCompanyWorkspaceData, type WorkspaceInvoice } from './useCompanyWorkspaceData';
+import { classifyAccountsDirection } from '../../../lib/finance/accounts';
 import {
   ActionButton,
   AlertBanner,
@@ -76,14 +77,14 @@ const config: Record<Mode, { eyebrow: string; title: string; description: string
   },
   'finance-customer': {
     eyebrow: 'Finance workspace',
-    title: 'Customer Invoices',
-    description: 'Invoices issued by this company to customer or buyer companies.',
+    title: 'Accounts Receivable',
+    description: 'Customer or buyer invoices issued by this company. This is the Accounts Receivable register.',
     detailBase: '/admin/invoices',
   },
   'finance-carrier': {
     eyebrow: 'Finance workspace',
-    title: 'Carrier Invoices',
-    description: 'Carrier or supplier invoices payable by this company.',
+    title: 'Accounts Payable',
+    description: 'Carrier or supplier invoices payable by this company. This is the Accounts Payable register.',
     detailBase: '/admin/invoices',
   },
 };
@@ -99,8 +100,8 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
       if (mode === 'customer') {
         return isCustomerVisibleWorkspaceInvoice(invoice, workspace.companyId);
       }
-      if (isOutgoingMode(mode)) return invoice.company_id === workspace.companyId;
-      return invoice.buyer_company_id === workspace.companyId;
+      if (isOutgoingMode(mode)) return classifyAccountsDirection(invoice, workspace.companyId) === 'receivable';
+      return classifyAccountsDirection(invoice, workspace.companyId) === 'payable';
     });
     if (filter === 'all') return scoped;
     const [dimension, value] = filter.split(':') as ['invoice' | 'payment', string];
@@ -115,8 +116,8 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
     if (mode === 'customer') {
       return isCustomerVisibleWorkspaceInvoice(invoice, workspace.companyId);
     }
-    if (isOutgoingMode(mode)) return invoice.company_id === workspace.companyId;
-    return invoice.buyer_company_id === workspace.companyId;
+    if (isOutgoingMode(mode)) return classifyAccountsDirection(invoice, workspace.companyId) === 'receivable';
+    return classifyAccountsDirection(invoice, workspace.companyId) === 'payable';
   }), [mode, workspace.companyId, workspace.invoices]);
 
   const total = allScoped.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0);

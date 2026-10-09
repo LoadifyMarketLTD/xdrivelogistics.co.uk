@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
+import { AGING_BUCKET_LABELS, type AgingBucket } from '../../../lib/finance/accounts';
 import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, Panel, StatusBadge } from './WorkspaceUI';
 
 type Role = 'carrier' | 'broker' | 'customer';
-type View = 'all' | 'ready' | 'awaiting' | 'overdue' | 'paid' | 'counterparties' | 'archive';
+type View = 'all' | 'receivable' | 'payable' | 'ready' | 'awaiting' | 'overdue' | 'paid' | 'counterparties' | 'aging' | 'archive';
 type Invoice = {
   id: string;
   invoiceNumber: string;
@@ -25,6 +26,7 @@ type Invoice = {
   vatRate: number;
   invoiceDate: string | null;
   dueDate: string | null;
+  agingBucket: AgingBucket;
 };
 type ReadyJob = { id: string; pickupLocation: string | null; deliveryLocation: string | null; clientName: string | null; updatedAt: string | null };
 type Counterparty = { id: string; name: string; receivable: number; payable: number; overdue: number; invoices: number };
@@ -32,7 +34,7 @@ type Payload = {
   invoices: Invoice[];
   readyToInvoice: ReadyJob[];
   counterparties: Counterparty[];
-  summary: { receivableOutstanding: number; payableOutstanding: number; overdueCount: number; overdueValue: number; paidValue: number; readyToInvoiceCount: number };
+  summary: { receivableOutstanding: number; payableOutstanding: number; overdueCount: number; overdueValue: number; paidValue: number; readyToInvoiceCount: number; receivableAging: Record<AgingBucket, number>; payableAging: Record<AgingBucket, number> };
   generatedAt?: string;
   note?: string;
   error?: string;
@@ -43,8 +45,8 @@ const date = (value: string | null) => value ? new Date(value).toLocaleDateStrin
 const csvCell = (value: unknown) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
 function downloadRows(rows: Invoice[]) {
-  const columns = ['Direction', 'Invoice', 'Job', 'Counterparty', 'Net', 'VAT', 'Gross', 'Paid', 'Outstanding', 'Currency', 'Due', 'Lifecycle'];
-  const body = rows.map((invoice) => [invoice.direction, invoice.invoiceNumber, invoice.jobId ?? '', invoice.counterpartyName, invoice.net, invoice.vat, invoice.gross, invoice.paidAmount, invoice.outstandingAmount, invoice.currency, invoice.dueDate ?? '', invoice.lifecycle]);
+  const columns = ['Direction', 'Invoice', 'Job', 'Counterparty', 'Net', 'VAT', 'Gross', 'Paid', 'Outstanding', 'Currency', 'Due', 'Aging', 'Lifecycle'];
+  const body = rows.map((invoice) => [invoice.direction, invoice.invoiceNumber, invoice.jobId ?? '', invoice.counterpartyName, invoice.net, invoice.vat, invoice.gross, invoice.paidAmount, invoice.outstandingAmount, invoice.currency, invoice.dueDate ?? '', AGING_BUCKET_LABELS[invoice.agingBucket], invoice.lifecycle]);
   const csv = [columns, ...body].map((row) => row.map(csvCell).join(',')).join('\n');
   const blob = new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' });
   const href = URL.createObjectURL(blob);
@@ -92,7 +94,9 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
 
   const invoices = useMemo(() => payload?.invoices ?? [], [payload?.invoices]);
   const visibleInvoices = useMemo(() => {
-    if (view === 'all' || view === 'counterparties' || view === 'ready') return invoices;
+    if (view === 'all' || view === 'counterparties' || view === 'ready' || view === 'aging') return invoices;
+    if (view === 'receivable') return invoices.filter((invoice) => invoice.direction === 'receivable');
+    if (view === 'payable') return invoices.filter((invoice) => invoice.direction === 'payable');
     if (view === 'awaiting') return invoices.filter((invoice) => invoice.lifecycle === 'awaiting_payment' || invoice.lifecycle === 'draft');
     return invoices.filter((invoice) => invoice.lifecycle === view);
   }, [invoices, view]);
@@ -100,8 +104,10 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
   const showReceivables = role !== 'customer';
   const tabs: Array<[View, string]> = [
     ['all', 'All'],
+    ...(role === 'customer' ? [] : [['receivable', 'Accounts Receivable'] as [View, string]]),
+    ['payable', 'Accounts Payable'],
     ...(role === 'customer' ? [] : [['ready', 'Ready to Invoice'] as [View, string]]),
-    ['awaiting', 'Awaiting Payment'], ['overdue', 'Overdue'], ['paid', 'Paid'], ['counterparties', 'Counterparties'], ['archive', 'Archive'],
+    ['awaiting', 'Awaiting Payment'], ['overdue', 'Overdue'], ['paid', 'Paid'], ['aging', 'Aging'], ['counterparties', 'Counterparties'], ['archive', 'Archive'],
   ];
 
   return (
@@ -136,6 +142,16 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
             ])}
             empty={<EmptyState title={loading ? 'Loading invoice readiness…' : 'No completed jobs waiting for an invoice'} />}
           />
+        ) : view === 'aging' ? (
+          <DataTable
+            columns={['Aging bucket', ...(showReceivables ? ['Accounts Receivable'] : []), 'Accounts Payable']}
+            rows={(Object.keys(AGING_BUCKET_LABELS) as AgingBucket[]).map((bucket) => [
+              AGING_BUCKET_LABELS[bucket],
+              ...(showReceivables ? [money(summary?.receivableAging?.[bucket] ?? 0)] : []),
+              money(summary?.payableAging?.[bucket] ?? 0),
+            ])}
+            empty={<EmptyState title={loading ? 'Loading aging analysis…' : 'No aging data'} />}
+          />
         ) : view === 'counterparties' ? (
           <DataTable
             columns={['Counterparty', 'Invoices', 'Receivable', 'Payable', 'Overdue']}
@@ -144,7 +160,7 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
           />
         ) : (
           <DataTable
-            columns={['Direction', 'Invoice', 'Counterparty', 'Net', 'VAT', 'Gross', 'Paid', 'Outstanding', 'Due', 'State', 'Action']}
+            columns={['Direction', 'Invoice', 'Counterparty', 'Net', 'VAT', 'Gross', 'Paid', 'Outstanding', 'Due', 'Aging', 'State', 'Action']}
             rows={visibleInvoices.map((invoice) => [
               <StatusBadge key="direction" value={invoice.direction === 'receivable' ? 'AR' : 'AP'} tone={invoice.direction === 'receivable' ? 'blue' : 'orange'} />,
               invoice.invoiceNumber,
@@ -155,6 +171,7 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
               money(invoice.paidAmount, invoice.currency),
               money(invoice.outstandingAmount, invoice.currency),
               date(invoice.dueDate),
+              AGING_BUCKET_LABELS[invoice.agingBucket],
               <StatusBadge key="state" value={invoice.lifecycle.replace(/_/g, ' ')} tone={invoice.lifecycle === 'paid' ? 'green' : invoice.lifecycle === 'overdue' ? 'red' : invoice.lifecycle === 'archive' ? 'grey' : 'orange'} />,
               <ActionButton key="open" tone="secondary" onClick={() => router.push(detailHref(role, invoice))}>Open</ActionButton>,
             ])}
