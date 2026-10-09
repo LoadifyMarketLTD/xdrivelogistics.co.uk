@@ -42,6 +42,23 @@ const bodySchema = z.object({
   hireEndDateTime: z.string().trim().optional().nullable(),
   publish: z.boolean(),
   directInviteCompanyId: z.string().uuid().optional().nullable(),
+  directBookingTarget: z.discriminatedUnion('type', [
+    z.object({ type: z.literal('exchange_member'), companyId: z.string().uuid() }),
+    z.object({
+      type: z.literal('external_subcontractor'),
+      contactName: z.string().trim().min(2).max(160),
+      companyName: z.string().trim().max(200).optional().nullable(),
+      email: z.string().trim().email().optional().nullable().or(z.literal('')),
+      phone: z.string().trim().min(5).max(60),
+      agreedRate: optionalNumber,
+      paymentTerms: z.string().trim().max(160).optional().nullable(),
+    }),
+    z.object({
+      type: z.literal('internal_resource'),
+      driverId: z.string().uuid(),
+      vehicleId: z.string().uuid(),
+    }),
+  ]).optional().nullable(),
   clientName: optionalText,
   clientEmail: z.string().trim().email().optional().nullable().or(z.literal('')),
   clientPhone: optionalText,
@@ -240,24 +257,31 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  const requestedDirectTarget = input.directBookingTarget
+    ?? (input.directInviteCompanyId ? { type: 'exchange_member' as const, companyId: input.directInviteCompanyId } : null);
+  const exchangeTargetCompanyId = requestedDirectTarget?.type === 'exchange_member' ? requestedDirectTarget.companyId : null;
+  if (requestedDirectTarget && !input.publish) {
+    return respond(400, { error: 'Direct Booking requires the booking to be confirmed rather than saved as a draft.' });
+  }
+
   let directInviteTarget: { id: string; name: string | null } | null = null;
-  if (input.directInviteCompanyId) {
-    if (!input.publish) {
-      return respond(400, { error: 'Direct Booking requires the load to be published to the selected carrier.' });
-    }
-    if (input.directInviteCompanyId === input.companyId) {
+  let internalDirectTarget: { driverId: string; vehicleId: string } | null = null;
+  const externalDirectTarget = requestedDirectTarget?.type === 'external_subcontractor' ? requestedDirectTarget : null;
+
+  if (exchangeTargetCompanyId) {
+    if (exchangeTargetCompanyId === input.companyId) {
       return respond(400, { error: 'A company cannot send a Direct Booking to itself.' });
     }
     const { data: target, error: targetError } = await supabaseAdmin
       .from('companies')
       .select('id, name, status')
-      .eq('id', input.directInviteCompanyId)
+      .eq('id', exchangeTargetCompanyId)
       .maybeSingle();
     if (targetError) {
       return operationalError({
         status: 503,
         message: 'The selected Direct Booking carrier could not be verified. Please try again.',
-        context: `jobs.create.direct-target:${input.directInviteCompanyId}`,
+        context: `jobs.create.direct-target:${exchangeTargetCompanyId}`,
         cause: targetError,
         retryable: true,
       });
@@ -276,7 +300,7 @@ export async function POST(request: NextRequest) {
       return operationalError({
         status: 503,
         message: 'The selected carrier legal readiness could not be verified. Please try again.',
-        context: `jobs.create.direct-target-legal:${input.directInviteCompanyId}`,
+        context: `jobs.create.direct-target-legal:${exchangeTargetCompanyId}`,
         cause: error,
         retryable: true,
       });
@@ -298,7 +322,7 @@ export async function POST(request: NextRequest) {
       return operationalError({
         status: 503,
         message: 'The selected carrier Stripe commercial readiness could not be verified. Please try again.',
-        context: `jobs.create.direct-target-stripe:${input.directInviteCompanyId}`,
+        context: `jobs.create.direct-target-stripe:${exchangeTargetCompanyId}`,
         cause: error,
         retryable: true,
       });
@@ -313,11 +337,46 @@ export async function POST(request: NextRequest) {
     }
 
     directInviteTarget = { id: String(target.id), name: typeof target.name === 'string' ? target.name : null };
+  }
 
+  if (requestedDirectTarget?.type === 'internal_resource') {
+    const [{ data: driver, error: driverError }, { data: vehicle, error: vehicleError }] = await Promise.all([
+      supabaseAdmin
+        .from('drivers')
+        .select('id, company_id, status')
+        .eq('id', requestedDirectTarget.driverId)
+        .eq('company_id', input.companyId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('vehicles')
+        .select('id, company_id, status, assigned_driver_id')
+        .eq('id', requestedDirectTarget.vehicleId)
+        .eq('company_id', input.companyId)
+        .maybeSingle(),
+    ]);
+    if (driverError || vehicleError) {
+      return operationalError({
+        status: 503,
+        message: 'Internal Direct Booking resources could not be verified. Please retry.',
+        context: `jobs.create.internal-direct.company:${input.companyId}`,
+        cause: driverError ?? vehicleError,
+        retryable: true,
+      });
+    }
+    if (!driver || String(driver.status ?? '').toLowerCase() !== 'active') {
+      return respond(409, { error: 'The selected internal driver is not active in this company.' });
+    }
+    if (!vehicle || String(vehicle.status ?? '').toLowerCase() !== 'active') {
+      return respond(409, { error: 'The selected internal vehicle is not active in this company.' });
+    }
+    if (vehicle.assigned_driver_id && String(vehicle.assigned_driver_id) !== String(driver.id)) {
+      return respond(409, { error: 'The selected vehicle is already assigned to another driver.' });
+    }
+    internalDirectTarget = { driverId: String(driver.id), vehicleId: String(vehicle.id) };
   }
 
   let exchangeAutoExpireHours = 72;
-  if (input.publish && !directInviteTarget) {
+  if (input.publish && !requestedDirectTarget) {
     const flags = await getFeatureFlags(supabaseAdmin, ['exchange_marketplace']);
     if (!flags.get('exchange_marketplace')) {
       return respond(503, { error: 'The exchange marketplace is currently disabled. You can save this job as a draft.' });
@@ -374,7 +433,12 @@ export async function POST(request: NextRequest) {
         retryable: true,
       });
     }
-    if (count !== expectedStopCount || (input.publish && String(job.status) !== 'posted')) {
+    const expectedPublishedStatus = requestedDirectTarget?.type === 'internal_resource'
+      ? 'allocated'
+      : requestedDirectTarget?.type === 'external_subcontractor'
+        ? 'awarded'
+        : 'posted';
+    if (count !== expectedStopCount || (input.publish && String(job.status) !== expectedPublishedStatus)) {
       return respond(409, {
         error: 'An earlier multi-drop save did not finish cleanly. Open the draft and retry before publishing.',
       });
@@ -385,8 +449,12 @@ export async function POST(request: NextRequest) {
   const ensureCreationEvent = async (job: { id: string; status: unknown }) => {
     const creationAction = String(job.status) === 'draft'
       ? 'load_draft_saved'
-      : directInviteTarget
-        ? 'direct_booking_sent'
+      : requestedDirectTarget
+        ? requestedDirectTarget.type === 'internal_resource'
+          ? 'direct_booking_internal_allocated'
+          : requestedDirectTarget.type === 'external_subcontractor'
+            ? 'direct_booking_external_confirmed'
+            : 'direct_booking_sent'
         : 'load_published';
     const eventType = 'created';
     const { data: existingEvent, error: existingEventError } = await adminClient
@@ -422,12 +490,17 @@ export async function POST(request: NextRequest) {
         ? 'Load draft saved.'
         : creationAction === 'direct_booking_sent'
           ? 'Direct Booking sent to the selected carrier.'
-          : 'Load published to the carrier marketplace.',
+          : creationAction === 'direct_booking_internal_allocated'
+            ? 'Direct Booking allocated to an internal driver and vehicle.'
+            : creationAction === 'direct_booking_external_confirmed'
+              ? 'Direct Booking confirmed with an external subcontractor.'
+              : 'Load published to the carrier marketplace.',
       meta: {
         company_id: input.companyId,
         source: input.mode,
         creation_action: creationAction,
-        visibility: directInviteTarget ? 'direct' : (input.publish ? 'exchange' : 'private'),
+        visibility: directInviteTarget ? 'direct' : requestedDirectTarget ? 'private' : (input.publish ? 'exchange' : 'private'),
+        direct_booking_target_type: requestedDirectTarget?.type ?? null,
         load_type: input.loadType,
       },
     });
@@ -486,13 +559,19 @@ export async function POST(request: NextRequest) {
   ].filter(Boolean).join(', ');
 
   const now = new Date().toISOString();
-  const requestedStatus = input.mode === 'admin' && input.jobStatus
-    ? input.jobStatus
-    : (input.publish ? 'posted' : 'draft');
+  const requestedStatus = internalDirectTarget
+    ? 'allocated'
+    : externalDirectTarget
+      ? 'awarded'
+      : input.mode === 'admin' && input.jobStatus
+        ? input.jobStatus
+        : (input.publish ? 'posted' : 'draft');
   const requestedVisibility = directInviteTarget
     ? 'direct'
-    : (input.mode === 'admin' ? (input.visibility ?? (input.publish ? 'exchange' : 'private')) : (input.publish ? 'exchange' : 'private'));
-  const wantsExchangePublication = requestedStatus === 'posted' && requestedVisibility !== 'private';
+    : requestedDirectTarget
+      ? 'private'
+      : (input.mode === 'admin' ? (input.visibility ?? (input.publish ? 'exchange' : 'private')) : (input.publish ? 'exchange' : 'private'));
+  const wantsExchangePublication = requestedStatus === 'posted' && requestedVisibility !== 'private' && !externalDirectTarget && !internalDirectTarget;
   const deferPublication = wantsExchangePublication && input.additionalStops.length > 0;
   const publishedVisibility = requestedStatus === 'draft' ? 'private' : requestedVisibility;
   const status = deferPublication ? 'draft' : requestedStatus;
@@ -582,6 +661,17 @@ export async function POST(request: NextRequest) {
     load_type: input.loadType,
     recurrence_rule: input.loadType === 'regular_load' ? input.regularSchedule ?? null : null,
     hire_end_datetime: input.loadType === 'daily_hire' ? input.hireEndDateTime ?? null : null,
+    direct_booking_target_type: requestedDirectTarget?.type ?? null,
+    external_subcontractor_name: externalDirectTarget?.contactName ?? null,
+    external_subcontractor_company: externalDirectTarget?.companyName ?? null,
+    external_subcontractor_email: externalDirectTarget?.email || null,
+    external_subcontractor_phone: externalDirectTarget?.phone ?? null,
+    external_subcontractor_payment_terms: externalDirectTarget?.paymentTerms ?? null,
+    assigned_driver_id: internalDirectTarget?.driverId ?? null,
+    vehicle_id: internalDirectTarget?.vehicleId ?? null,
+    assigned_company_id: internalDirectTarget ? input.companyId : null,
+    agreed_rate: externalDirectTarget?.agreedRate ?? null,
+    payment_terms: externalDirectTarget?.paymentTerms ?? null,
     exchange_visibility: deferPublication ? 'private' : publishedVisibility,
     direct_invite_company_id: directInviteTarget?.id ?? null,
     exchange_posted_at: deferPublication ? null : (wantsExchangePublication ? now : null),
@@ -747,6 +837,12 @@ export async function POST(request: NextRequest) {
     job: createdJob,
     replayed: false,
     idempotencyProtected: idempotencyAvailable,
-    directBooking: directInviteTarget ? { companyId: directInviteTarget.id, companyName: directInviteTarget.name } : null,
+    directBooking: directInviteTarget
+      ? { type: 'exchange_member', companyId: directInviteTarget.id, companyName: directInviteTarget.name }
+      : externalDirectTarget
+        ? { type: 'external_subcontractor', companyName: externalDirectTarget.companyName ?? null, contactName: externalDirectTarget.contactName }
+        : internalDirectTarget
+          ? { type: 'internal_resource', driverId: internalDirectTarget.driverId, vehicleId: internalDirectTarget.vehicleId }
+          : null,
   });
 }

@@ -191,6 +191,9 @@ const dimensionError = (value: string) => {
 };
 
 type LoadPostingMode = 'broker' | 'customer' | 'admin' | 'owner';
+type DirectTargetMode = 'marketplace' | 'external_subcontractor' | 'internal_resource';
+type InternalDirectDriver = { id: string; name: string; availabilityStatus: string | null; driverType: string | null };
+type InternalDirectVehicle = { id: string; registration: string; type: string | null; assignedDriverId: string | null };
 
 export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const { user } = useAuth();
@@ -211,6 +214,13 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [postingCompany, setPostingCompany] = useState<{ id: string; name: string | null; memberId: string | null } | null>(null);
   const [directCarrier, setDirectCarrier] = useState<{ id: string; name: string; memberId: string | null } | null>(null);
   const [directCarrierError, setDirectCarrierError] = useState('');
+  const [directTargetMode, setDirectTargetMode] = useState<DirectTargetMode>('marketplace');
+  const [externalTarget, setExternalTarget] = useState({ contactName: '', companyName: '', email: '', phone: '', agreedRate: '', paymentTerms: '' });
+  const [internalDrivers, setInternalDrivers] = useState<InternalDirectDriver[]>([]);
+  const [internalVehicles, setInternalVehicles] = useState<InternalDirectVehicle[]>([]);
+  const [internalDriverId, setInternalDriverId] = useState('');
+  const [internalVehicleId, setInternalVehicleId] = useState('');
+  const [internalResourcesError, setInternalResourcesError] = useState('');
   const [cloneNotice, setCloneNotice] = useState('');
   const [cloneLoading, setCloneLoading] = useState(false);
   const [documentFiles, setDocumentFiles] = useState<File[]>([]);
@@ -261,6 +271,40 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     void resolvePostingIdentity();
     return () => { cancelled = true; };
   }, [user?.companyId, user?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadInternalResources = async () => {
+      setInternalResourcesError('');
+      if (directTargetMode !== 'internal_resource' || !postingCompany?.id) return;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+      if (!token) {
+        if (!cancelled) setInternalResourcesError('Your session has expired. Sign in again.');
+        return;
+      }
+      try {
+        const response = await fetch(`/api/jobs/direct-booking-resources?companyId=${encodeURIComponent(postingCompany.id)}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        });
+        const payload = await response.json().catch(() => ({})) as {
+          drivers?: InternalDirectDriver[];
+          vehicles?: InternalDirectVehicle[];
+          error?: string;
+        };
+        if (!response.ok) throw new Error(payload.error || 'Internal resources could not be loaded.');
+        if (!cancelled) {
+          setInternalDrivers(Array.isArray(payload.drivers) ? payload.drivers : []);
+          setInternalVehicles(Array.isArray(payload.vehicles) ? payload.vehicles : []);
+        }
+      } catch (reason) {
+        if (!cancelled) setInternalResourcesError(reason instanceof Error ? reason.message : 'Internal resources could not be loaded.');
+      }
+    };
+    void loadInternalResources();
+    return () => { cancelled = true; };
+  }, [directTargetMode, postingCompany?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -443,6 +487,14 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       setError(directCarrierError || 'The Direct Booking carrier could not be verified. Return to Directory and choose the member again.');
       return;
     }
+    if (publish && !directCarrierId && directTargetMode === 'external_subcontractor' && (!externalTarget.contactName.trim() || !externalTarget.phone.trim())) {
+      setError('External Direct Booking requires a subcontractor contact name and phone number.');
+      return;
+    }
+    if (publish && !directCarrierId && directTargetMode === 'internal_resource' && (!internalDriverId || !internalVehicleId)) {
+      setError('Internal Direct Booking requires both a driver and a vehicle.');
+      return;
+    }
 
     const pickupPostcode = normalizePostcode(form.pickupPostcode);
     const deliveryPostcode = normalizePostcode(form.deliveryPostcode);
@@ -472,6 +524,23 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           hireEndDateTime: form.loadType === 'daily_hire' ? dateTime(form.pickupDate, form.hireEndTime) : null,
           publish,
           directInviteCompanyId: publish ? directCarrier?.id ?? null : null,
+          directBookingTarget: publish
+            ? directCarrier
+              ? { type: 'exchange_member', companyId: directCarrier.id }
+              : directTargetMode === 'external_subcontractor'
+                ? {
+                    type: 'external_subcontractor',
+                    contactName: externalTarget.contactName.trim(),
+                    companyName: externalTarget.companyName.trim() || null,
+                    email: externalTarget.email.trim() || null,
+                    phone: externalTarget.phone.trim(),
+                    agreedRate: numberOrNull(externalTarget.agreedRate),
+                    paymentTerms: externalTarget.paymentTerms.trim() || null,
+                  }
+                : directTargetMode === 'internal_resource'
+                  ? { type: 'internal_resource', driverId: internalDriverId, vehicleId: internalVehicleId }
+                  : null
+            : null,
           clientName: form.clientName || null,
           clientEmail: form.clientEmail || '',
           clientPhone: form.clientPhone || null,
@@ -613,7 +682,11 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         publish
           ? directCarrier
             ? `Load ${reference} sent directly to ${directCarrier.name}.`
-            : `Load ${reference} published to the carrier marketplace.`
+            : directTargetMode === 'external_subcontractor'
+              ? `Direct Booking ${reference} confirmed with the external subcontractor.`
+              : directTargetMode === 'internal_resource'
+                ? `Direct Booking ${reference} allocated to the selected internal driver and vehicle.`
+                : `Load ${reference} published to the carrier marketplace.`
           : `Draft load ${reference} saved.`,
       );
       const destination = mode === 'broker'
@@ -682,6 +755,85 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             </div>
           ) : (
             <div style={{ color: '#64748b', fontSize: '11px' }}>Verifying selected carrier…</div>
+          )}
+        </Panel>
+      )}
+
+      {!directCarrierId && (
+        <Panel title="Booking target" description="Choose whether to publish to the XDrive Exchange or confirm a Direct Booking with a permitted target.">
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(190px,1fr))', gap: 8 }}>
+            <button
+              type="button"
+              aria-pressed={directTargetMode === 'marketplace'}
+              onClick={() => setDirectTargetMode('marketplace')}
+              style={{ border: directTargetMode === 'marketplace' ? '2px solid #1d57d8' : '1px solid #cfd7e3', borderRadius: 6, background: directTargetMode === 'marketplace' ? '#eff6ff' : '#fff', padding: 10, textAlign: 'left', cursor: 'pointer' }}
+            >
+              <strong style={{ display: 'block', fontSize: 12, color: '#172033' }}>XDrive Exchange</strong>
+              <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: '#64748b' }}>Publish to eligible carriers and receive quotes.</span>
+            </button>
+            {mode !== 'customer' && (
+              <button
+                type="button"
+                aria-pressed={directTargetMode === 'external_subcontractor'}
+                onClick={() => setDirectTargetMode('external_subcontractor')}
+                style={{ border: directTargetMode === 'external_subcontractor' ? '2px solid #1d57d8' : '1px solid #cfd7e3', borderRadius: 6, background: directTargetMode === 'external_subcontractor' ? '#eff6ff' : '#fff', padding: 10, textAlign: 'left', cursor: 'pointer' }}
+              >
+                <strong style={{ display: 'block', fontSize: 12, color: '#172033' }}>External subcontractor</strong>
+                <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: '#64748b' }}>Confirm work with a non-XDrive subcontractor and retain the commercial record.</span>
+              </button>
+            )}
+            {(mode === 'admin' || mode === 'owner') && (
+              <button
+                type="button"
+                aria-pressed={directTargetMode === 'internal_resource'}
+                onClick={() => setDirectTargetMode('internal_resource')}
+                style={{ border: directTargetMode === 'internal_resource' ? '2px solid #1d57d8' : '1px solid #cfd7e3', borderRadius: 6, background: directTargetMode === 'internal_resource' ? '#eff6ff' : '#fff', padding: 10, textAlign: 'left', cursor: 'pointer' }}
+              >
+                <strong style={{ display: 'block', fontSize: 12, color: '#172033' }}>Company driver + vehicle</strong>
+                <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: '#64748b' }}>Create and allocate the booking directly to internal resources.</span>
+              </button>
+            )}
+          </div>
+
+          {directTargetMode === 'external_subcontractor' && mode !== 'customer' && (
+            <div style={{ ...gridStyle, marginTop: 10 }}>
+              <label style={labelStyle}>Contact name
+                <input style={fieldStyle} value={externalTarget.contactName} onChange={(event) => setExternalTarget((current) => ({ ...current, contactName: event.target.value }))} />
+              </label>
+              <label style={labelStyle}>Company name
+                <input style={fieldStyle} value={externalTarget.companyName} onChange={(event) => setExternalTarget((current) => ({ ...current, companyName: event.target.value }))} />
+              </label>
+              <label style={labelStyle}>Phone
+                <input style={fieldStyle} value={externalTarget.phone} onChange={(event) => setExternalTarget((current) => ({ ...current, phone: event.target.value }))} />
+              </label>
+              <label style={labelStyle}>Email
+                <input style={fieldStyle} type="email" value={externalTarget.email} onChange={(event) => setExternalTarget((current) => ({ ...current, email: event.target.value }))} />
+              </label>
+              <label style={labelStyle}>Agreed rate (£)
+                <input style={fieldStyle} type="number" min="0" value={externalTarget.agreedRate} onChange={(event) => setExternalTarget((current) => ({ ...current, agreedRate: event.target.value }))} />
+              </label>
+              <label style={labelStyle}>Payment terms
+                <input style={fieldStyle} value={externalTarget.paymentTerms} onChange={(event) => setExternalTarget((current) => ({ ...current, paymentTerms: event.target.value }))} placeholder="e.g. 30 days" />
+              </label>
+            </div>
+          )}
+
+          {directTargetMode === 'internal_resource' && (mode === 'admin' || mode === 'owner') && (
+            <div style={{ ...gridStyle, marginTop: 10 }}>
+              {internalResourcesError ? <AlertBanner tone="danger">{internalResourcesError}</AlertBanner> : null}
+              <label style={labelStyle}>Driver
+                <select style={fieldStyle} value={internalDriverId} onChange={(event) => setInternalDriverId(event.target.value)}>
+                  <option value="">Choose driver</option>
+                  {internalDrivers.map((driver) => <option key={driver.id} value={driver.id}>{driver.name}{driver.availabilityStatus ? ` · ${driver.availabilityStatus}` : ''}</option>)}
+                </select>
+              </label>
+              <label style={labelStyle}>Vehicle
+                <select style={fieldStyle} value={internalVehicleId} onChange={(event) => setInternalVehicleId(event.target.value)}>
+                  <option value="">Choose vehicle</option>
+                  {internalVehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{vehicle.registration}{vehicle.type ? ` · ${vehicle.type}` : ''}</option>)}
+                </select>
+              </label>
+            </div>
           )}
         </Panel>
       )}
@@ -992,7 +1144,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       <div className="xdrive-postload-actions">
         <ActionButton tone="secondary" disabled={saving} onClick={() => void save(false)}>{saving ? 'Saving…' : 'Save Draft'}</ActionButton>
         <ActionButton tone="warning" disabled={saving || Boolean(directCarrierId && !directCarrier)} onClick={() => void save(true)}>
-          {saving ? 'Publishing…' : directCarrierId ? 'Send Direct Booking' : 'Publish Load'}
+          {saving ? 'Publishing…' : directCarrierId ? 'Send Direct Booking' : directTargetMode === 'external_subcontractor' ? 'Confirm External Booking' : directTargetMode === 'internal_resource' ? 'Create & Allocate Booking' : 'Publish Load'}
         </ActionButton>
       </div>
     </div>
