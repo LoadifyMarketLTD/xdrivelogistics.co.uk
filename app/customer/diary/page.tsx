@@ -7,19 +7,20 @@ import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
+import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket } from '../../../lib/diary/canonicalDiary';
+import { supabase } from '../../../lib/supabaseClient';
 
-type DiaryTab = 'all' | 'open' | 'awaiting_award' | 'awarded' | 'in_progress' | 'delivered' | 'cancelled';
+type DiaryTab = CanonicalDiaryBucket;
+type ReviewRow = { job_id: string | null; created_at: string | null };
+const CUSTOMER_DIARY_TABS = getCanonicalDiaryTabs('customer');
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 
-function matchesTab(job: WorkspaceJob, tab: DiaryTab, hasSubmittedQuote: boolean) {
-  if (tab === 'all') return true;
-  const stage = classifyWorkspaceJobStage(job);
-  if (tab === 'open') return stage === 'open' && !hasSubmittedQuote;
-  if (tab === 'awaiting_award') return stage === 'open' && hasSubmittedQuote;
-  if (tab === 'awarded') return stage === 'awarded' || stage === 'allocated';
-  if (tab === 'in_progress') return stage === 'in_progress';
-  if (tab === 'delivered') return stage === 'completed';
-  return stage === 'cancelled';
+function matchesTab(job: WorkspaceJob, tab: DiaryTab, hasSubmittedQuote: boolean, hasFeedback: boolean) {
+  return matchesCanonicalDiaryBucket(job, tab, {
+    hasSubmittedQuote,
+    hasFeedback,
+    hasEvidence: job.pod_generated === true || job.has_delivery_evidence === true || (job.delivery_photos?.length ?? 0) > 0 || (job.pod_photos?.length ?? 0) > 0,
+  });
 }
 
 export default function CustomerDiaryPage() {
@@ -35,6 +36,25 @@ export default function CustomerDiaryPage() {
   const [expandAll, setExpandAll] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
+  const [feedbackJobIds, setFeedbackJobIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    let cancelled = false;
+    const jobIds = data.jobs.map((job) => job.id).filter(Boolean);
+    if (!jobIds.length) {
+      setFeedbackJobIds(new Set());
+      return () => { cancelled = true; };
+    }
+    void supabase
+      .from('reviews')
+      .select('job_id, created_at')
+      .in('job_id', jobIds)
+      .then(({ data: reviews, error }) => {
+        if (cancelled || error) return;
+        setFeedbackJobIds(new Set(((reviews ?? []) as ReviewRow[]).map((row) => row.job_id).filter((value): value is string => Boolean(value))));
+      });
+    return () => { cancelled = true; };
+  }, [data.jobs]);
 
   const quoteInfoByJob = useMemo(() => {
     const map = new Map<string, {
@@ -67,7 +87,7 @@ export default function CustomerDiaryPage() {
     const deliveryNeedle = delivery.trim().toLowerCase();
     const carrierNeedle = carrier.trim().toLowerCase();
     return data.jobs
-      .filter((job) => matchesTab(job, tab, (quoteInfoByJob.get(job.id)?.submitted ?? 0) > 0))
+      .filter((job) => matchesTab(job, tab, (quoteInfoByJob.get(job.id)?.submitted ?? 0) > 0, feedbackJobIds.has(job.id)))
       .filter((job) => !refNeedle || `${job.id} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(refNeedle))
       .filter((job) => !pickupNeedle || `${job.pickup_postcode ?? ''} ${job.pickup_location ?? ''}`.toLowerCase().includes(pickupNeedle))
       .filter((job) => !deliveryNeedle || `${job.delivery_postcode ?? ''} ${job.delivery_location ?? ''}`.toLowerCase().includes(deliveryNeedle))
@@ -78,35 +98,26 @@ export default function CustomerDiaryPage() {
       })
       .filter((job) => !date || String(job.pickup_datetime ?? '').slice(0, 10) === date)
       .sort((a, b) => String(b.updated_at ?? b.created_at ?? '').localeCompare(String(a.updated_at ?? a.created_at ?? '')));
-  }, [carrier, data.jobs, date, delivery, pickup, quoteInfoByJob, reference, tab]);
+  }, [carrier, data.jobs, date, delivery, feedbackJobIds, pickup, quoteInfoByJob, reference, tab]);
 
-  const counts = useMemo(() => {
-    const count = (target: DiaryTab) => data.jobs.filter((job) => matchesTab(job, target, (quoteInfoByJob.get(job.id)?.submitted ?? 0) > 0)).length;
-    return {
-      all: data.jobs.length,
-      open: count('open'),
-      awaiting_award: count('awaiting_award'),
-      awarded: count('awarded'),
-      in_progress: count('in_progress'),
-      delivered: count('delivered'),
-      cancelled: count('cancelled'),
-    };
-  }, [data.jobs, quoteInfoByJob]);
+  const counts = useMemo(() => Object.fromEntries(
+    CUSTOMER_DIARY_TABS.map((item) => [
+      item.id,
+      data.jobs.filter((job) => matchesTab(
+        job,
+        item.id,
+        (quoteInfoByJob.get(job.id)?.submitted ?? 0) > 0,
+        feedbackJobIds.has(job.id),
+      )).length,
+    ]),
+  ) as Record<DiaryTab, number>, [data.jobs, feedbackJobIds, quoteInfoByJob]);
 
   const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visibleRows = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
   useEffect(() => { setPage(1); setExpanded(null); setExpandAll(false); }, [tab, reference, pickup, delivery, carrier, date, pageSize]);
 
-  const tabs: Array<{ id: DiaryTab; label: string; count: number }> = [
-    { id: 'all', label: 'All', count: counts.all },
-    { id: 'open', label: 'Open', count: counts.open },
-    { id: 'awaiting_award', label: 'Awaiting Award', count: counts.awaiting_award },
-    { id: 'awarded', label: 'Awarded', count: counts.awarded },
-    { id: 'in_progress', label: 'In Progress', count: counts.in_progress },
-    { id: 'delivered', label: 'Delivered', count: counts.delivered },
-    { id: 'cancelled', label: 'Cancelled', count: counts.cancelled },
-  ];
+  const tabs = CUSTOMER_DIARY_TABS.map((item) => ({ ...item, count: counts[item.id] ?? 0 }));
   const clear = () => { setReference(''); setPickup(''); setDelivery(''); setCarrier(''); setDate(''); };
   const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
   const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;

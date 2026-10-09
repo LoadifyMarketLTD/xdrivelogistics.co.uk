@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../../lib/jobs/workspaceJobStage';
+import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket, type CanonicalDiaryRole } from '../../../lib/diary/canonicalDiary';
 import { supabase } from '../../../lib/supabaseClient';
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
@@ -18,7 +19,7 @@ import {
 } from './WorkspaceUI';
 
 type DiaryViewMode = 'list' | 'split';
-type DiaryTab = 'all' | 'unallocated' | 'allocated' | 'in_progress' | 'completed' | 'cancelled' | 'expired' | 'awaiting_feedback' | 'recent_feedback' | 'evidence';
+type DiaryTab = CanonicalDiaryBucket;
 type JobRow = {
   id: string;
   company_id: string | null;
@@ -103,18 +104,7 @@ type DiaryGroupRow = { id: string; name: string; created_at: string | null; upda
 type DiaryGroupJobRow = { group_id: string; job_id: string };
 
 const EMPTY_SEARCH: SearchState = { scope: 'all', from: '', to: '', reference: '', customer: '', driver: '', bookedBy: '', pickupWindow: 'any', deliveryWindow: 'any', dateFrom: '', dateTo: '' };
-const TABS: Array<{ id: DiaryTab; label: string }> = [
-  { id: 'all', label: 'All' },
-  { id: 'unallocated', label: 'Unallocated' },
-  { id: 'allocated', label: 'Allocated' },
-  { id: 'in_progress', label: 'In Progress' },
-  { id: 'completed', label: 'Completed' },
-  { id: 'cancelled', label: 'Cancelled' },
-  { id: 'expired', label: 'Expired' },
-  { id: 'awaiting_feedback', label: 'Awaiting Feedback' },
-  { id: 'recent_feedback', label: 'Recent Feedback' },
-  { id: 'evidence', label: 'POD / Evidence' },
-];
+
 
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
 const when = (value: string | null | undefined) => value
@@ -179,21 +169,14 @@ function hasRecentFeedback(reviews: ReviewRow[]) {
 }
 
 function isAwaitingFeedback(job: JobRow, reviews: ReviewRow[]) {
-  return classifyWorkspaceJobStage(job) === 'completed' && !hasRecentFeedback(reviews);
+  return matchesCanonicalDiaryBucket(job, 'awaiting_feedback', { hasFeedback: hasRecentFeedback(reviews) });
 }
 
 function matchesTab(job: JobRow, tab: DiaryTab, reviews: ReviewRow[] = []) {
-  if (tab === 'all') return true;
-  const stage = classifyWorkspaceJobStage(job);
-  if (tab === 'unallocated') return (stage === 'awarded' || stage === 'allocated') && !job.assigned_driver_id;
-  if (tab === 'allocated') return (stage === 'awarded' || stage === 'allocated') && Boolean(job.assigned_driver_id);
-  if (tab === 'in_progress') return stage === 'in_progress';
-  if (tab === 'completed') return stage === 'completed';
-  if (tab === 'cancelled') return stage === 'cancelled' || stage === 'disputed';
-  if (tab === 'expired') return stage === 'expired';
-  if (tab === 'awaiting_feedback') return isAwaitingFeedback(job, reviews);
-  if (tab === 'recent_feedback') return hasRecentFeedback(reviews);
-  return stage === 'completed' && job.pod_generated === true;
+  return matchesCanonicalDiaryBucket(job, tab, {
+    hasFeedback: hasRecentFeedback(reviews),
+    hasEvidence: job.pod_generated === true || (job.delivery_photos?.length ?? 0) > 0,
+  });
 }
 
 function stageTone(job: JobRow): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' {
@@ -251,6 +234,12 @@ export default function OperationsDiaryPage() {
   const canManageCompanyBookings = Boolean(user?.membershipRole && ['owner', 'admin', 'dispatcher'].includes(user.membershipRole));
   const canManageDiaryGroups = Boolean(user?.membershipRole && ['owner', 'admin', 'fleet_manager', 'dispatcher'].includes(user.membershipRole));
   const canLeaveCompanyFeedback = canManageCompanyBookings;
+  const diaryRole: CanonicalDiaryRole = user?.membershipRole === 'fleet_manager'
+    ? 'fleet_manager'
+    : user?.membershipRole === 'dispatcher'
+      ? 'dispatcher'
+      : 'carrier';
+  const diaryTabs = useMemo(() => getCanonicalDiaryTabs(diaryRole), [diaryRole]);
 
   const load = useCallback(async () => {
     if (loadInFlightRef.current) return;
@@ -426,7 +415,7 @@ export default function OperationsDiaryPage() {
       });
   }, [appliedSearch, companyId, driverById, groupIdsByJob, intelligence.jobDetailById, jobs, reviewsByJob, selectedGroupFilter, tab]);
 
-  const counts = useMemo(() => Object.fromEntries(TABS.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [])).length])) as Record<DiaryTab, number>, [jobs, reviewsByJob]);
+  const counts = useMemo(() => Object.fromEntries(diaryTabs.map((item) => [item.id, jobs.filter((job) => matchesTab(job, item.id, reviewsByJob[job.id] ?? [])).length])) as Partial<Record<DiaryTab, number>>, [diaryTabs, jobs, reviewsByJob]);
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const safePage = Math.min(page, totalPages);
   const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
@@ -760,7 +749,7 @@ export default function OperationsDiaryPage() {
             </span>
           </div>
           <div className="workspace-tab-strip" role="tablist" aria-label="Diary states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            {TABS.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} <span>{counts[item.id]}</span></button>)}
+            {diaryTabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} <span>{counts[item.id] ?? 0}</span></button>)}
           </div>
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Diary…" /></div>
