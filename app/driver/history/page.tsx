@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import DriverInvoicePreviewModal from '../_components/DriverInvoicePreviewModal';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
@@ -14,7 +13,7 @@ import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
 import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
-import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, EmptyState } from '../../components/workspace/WorkspaceUI';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 
@@ -256,9 +255,6 @@ function isDerivedExpired(job: HistoryJob) {
 function hasRecentFeedback(_job: HistoryJob, reviews: ReviewRow[]) {
   return reviews.length > 0;
 }
-function isAwaitingFeedback(job: HistoryJob, reviews: ReviewRow[], reviewerCompanyId?: string | null) {
-  return jobStage(job) === 'completed' && canLeaveCompanyFeedback(job, reviewerCompanyId) && !hasRecentFeedback(job, reviews);
-}
 function isClosedRecord(job: HistoryJob) { const stage = jobStage(job); return stage === 'completed' || stage === 'cancelled' || stage === 'expired'; }
 function filterMatches(job: HistoryJob, filter: HistoryFilter, reviews: ReviewRow[], reviewerCompanyId?: string | null) {
   return matchesCanonicalDiaryBucket(job, filter, {
@@ -266,15 +262,6 @@ function filterMatches(job: HistoryJob, filter: HistoryFilter, reviews: ReviewRo
     feedbackEligible: canLeaveCompanyFeedback(job, reviewerCompanyId),
     hasEvidence: hasCompletePodEvidence(job),
   });
-}
-function statusTone(job: HistoryJob): 'blue' | 'green' | 'red' | 'purple' | 'orange' | 'grey' {
-  const stage = jobStage(job);
-  if (stage === 'expired') return 'grey';
-  if (stage === 'completed') return 'green';
-  if (stage === 'cancelled') return 'red';
-  if (stage === 'disputed') return 'purple';
-  if (stage === 'awarded' || stage === 'allocated' || stage === 'in_progress') return 'blue';
-  return 'orange';
 }
 function parsePrivateNotes(value: string | null) {
   const raw = value?.trim();
@@ -286,11 +273,6 @@ function parsePrivateNotes(value: string | null) {
     const candidate = object.executionInstructions ?? object.notes;
     return typeof candidate === 'string' && candidate.trim() ? candidate.trim() : null;
   } catch { return raw; }
-}
-function cargoDimensions(sheet: OrderSheet | null | undefined, job: HistoryJob) {
-  const cargo = sheet?.cargo;
-  const values = [cargo?.lengthCm ?? job.length_cm, cargo?.widthCm ?? job.width_cm, cargo?.heightCm ?? job.height_cm];
-  return values.every((value) => value == null) ? 'Not supplied' : `${values.map((value) => value == null ? '—' : value).join(' × ')} cm`;
 }
 
 export default function JobHistoryPage() {
@@ -326,7 +308,6 @@ export default function JobHistoryPage() {
   const [detailTabs, setDetailTabs] = useState<Record<string, DetailTab>>({});
   const [invoicePreview, setInvoicePreview] = useState<{ id: string; number: string | null } | null>(null);
   const [invoiceCreatingJobId, setInvoiceCreatingJobId] = useState<string | null>(null);
-  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
   const [feedbackJobId, setFeedbackJobId] = useState<string | null>(null);
 
   const fetchOrderSheet = useCallback(async (jobId: string) => {
@@ -504,42 +485,6 @@ export default function JobHistoryPage() {
     }
   };
 
-  const requestDiaryCancellation = useCallback(async (job: HistoryJob) => {
-    const rawReason = window.prompt('Reason for declining/cancelling this booking (minimum 5 characters):');
-    if (rawReason === null) return;
-    const reason = rawReason.trim();
-    if (reason.length < 5) {
-      setDetailWarning('A cancellation reason of at least 5 characters is required.');
-      return;
-    }
-
-    setCancellingJobId(job.id);
-    setDetailWarning('');
-    try {
-      const { data } = await supabase.auth.getSession();
-      let token = data.session?.access_token;
-      if (!token) {
-        const refreshed = await supabase.auth.refreshSession();
-        token = refreshed.data.session?.access_token;
-      }
-      if (!token) throw new Error('Your session has expired. Sign in again.');
-
-      const response = await fetch(`/api/driver/jobs/${encodeURIComponent(job.id)}/cancellation`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ reason }),
-      });
-      const payload = await response.json().catch(() => null) as { error?: string } | null;
-      if (!response.ok) throw new Error(payload?.error ?? 'Cancellation could not be requested.');
-
-      await fetchHistory();
-    } catch (reasonValue) {
-      setDetailWarning(reasonValue instanceof Error ? reasonValue.message : 'Cancellation could not be requested.');
-    } finally {
-      setCancellingJobId(null);
-    }
-  }, [fetchHistory]);
-
   useEffect(() => { void fetchHistory(); }, [fetchHistory]);
   useVisibleRefresh(fetchHistory, { intervalMs: 10_000, minGapMs: 2_500 });
 
@@ -580,7 +525,7 @@ export default function JobHistoryPage() {
     <aside className="left driver-filter-rail diary-filter-rail" aria-label="Diary search filters">
       <div className="left-title">Search Panel</div>
       <div className="diary-filter-body">
-        <div className="filter"><span className="label">Booking Scope</span><select value={diaryScope} disabled={!canViewCompanyDiary} aria-label="Diary source" onChange={(e) => setSelectedDiaryScope(e.target.value as 'company' | 'mine')}><option value="company">Company Diary</option><option value="mine">My assigned jobs</option></select></div>
+        <div className="filter"><span className="label">View</span><select value={diaryScope} disabled={!canViewCompanyDiary} aria-label="Diary source" onChange={(e) => setSelectedDiaryScope(e.target.value as 'company' | 'mine')}><option value="company">All bookings</option><option value="mine">My bookings</option></select></div>
         <div className="filter"><span className="label">Date</span><select value={search.dateRange} onChange={(e) => setSearch((current) => ({ ...current, dateRange: e.target.value as DateRange }))}><option value="any">Anytime</option><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select></div>
         <div className="filter"><span className="label">Pickup Time Within</span><select value={search.pickupWithin} onChange={(e) => setSearch((current) => ({ ...current, pickupWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
         <div className="filter"><span className="label">Delivery Time Within</span><select value={search.deliveryWithin} onChange={(e) => setSearch((current) => ({ ...current, deliveryWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
@@ -596,7 +541,6 @@ export default function JobHistoryPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell subtitle="Search, scan and expand every assigned booking from one operational diary." headerActions={<ActionButton tone="primary" onClick={() => void fetchHistory()} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</ActionButton>}>
-        <DriverIntegratedNav label="Diary tools" items={[{ href: '/driver/history', label: 'Diary' }, { href: '/driver/jobs', label: 'My Jobs' }]} />
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
         <div className="driver-diary-board diary-pagebody">
@@ -624,13 +568,10 @@ export default function JobHistoryPage() {
                   const sheet = orderSheetsByJob[job.id]; const orderLoading = orderLoadingByJob[job.id] === true; const orderError = orderErrorsByJob[job.id] || '';
                   const invoice = sheet?.invoices?.[0] ?? null;
                   const podPhotos = Array.isArray(job.pod_photos) ? job.pod_photos : (Array.isArray(job.delivery_photos) ? job.delivery_photos : []);
-                  const hasPod = hasCompletePodEvidence(job); const feedbackReceived = hasRecentFeedback(job, reviews); const awaitingFeedback = isAwaitingFeedback(job, reviews, feedbackReviewerCompanyId); const expired = isDerivedExpired(job);
+                  const hasPod = hasCompletePodEvidence(job); const feedbackReceived = hasRecentFeedback(job, reviews); const expired = isDerivedExpired(job);
                   const canManageFeedback = Boolean(feedbackReviewerCompanyId && canLeaveCompanyFeedback(job, feedbackReviewerCompanyId));
                   const currentStatus = effectiveStatus(job);
-                  const stage = jobStage(job);
                   const isOwnAssignedJob = job.assigned_driver_id === driverId;
-                  const canRequestCancellation = ['allocated', 'accepted', 'awarded'].includes(currentStatus) || stage === 'awarded' || stage === 'in_progress';
-                  const cancellationLabel = isOwnAssignedJob && ['allocated', 'accepted'].includes(currentStatus) ? 'Decline' : 'Request cancellation';
                   const historyRows = [
                     ...(Array.isArray(job.status_history) ? job.status_history.map((entry, index) => ({ key: `status-${index}`, label: STATUS_LABELS[entry.status ?? ''] ?? entry.status ?? 'Status update', at: entry.timestamp ?? entry.at ?? null, detail: 'Job status history' })) : []),
                     ...trackingEvents.map((event) => ({ key: event.id, label: event.event_type ? (STATUS_LABELS[event.event_type] ?? event.event_type.replace(/_/g, ' ')) : 'Tracking event', at: event.event_time, detail: event.message ?? event.notes ?? event.user_name ?? 'Operational event' })),
@@ -648,7 +589,7 @@ export default function JobHistoryPage() {
                   const pickupAddress = sheet?.pickup.address ?? job.pickup_location; const pickupPostcode = sheet?.pickup.postcode ?? job.pickup_postcode;
                   const deliveryAddress = sheet?.delivery.address ?? job.delivery_location; const deliveryPostcode = sheet?.delivery.postcode ?? job.delivery_postcode;
                   const cargoType = human(sheet?.cargo.type ?? job.requested_cargo_label ?? job.cargo_type);
-                  const cargoWeight = sheet?.cargo.weightKg ?? job.weight_kg; const cargoPallets = sheet?.cargo.pallets ?? job.pallets; const cargoValue = sheet?.cargo.cargoValueGbp ?? job.cargo_value_gbp;
+                  const cargoWeight = sheet?.cargo.weightKg ?? job.weight_kg; const cargoPallets = sheet?.cargo.pallets ?? job.pallets;
 
                   return (
                     <article key={job.id} className="diary-booking driver-diary-entry" data-state={expired ? 'expired' : currentStatus}>
@@ -656,11 +597,10 @@ export default function JobHistoryPage() {
                         <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{formatExecutionAddress(job.pickup_location, job.pickup_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.pickup_location, job.pickup_postcode)}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.delivery_location, job.delivery_postcode)}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Timing / load</span><strong className="driver-cell-primary">Pickup {fmtDate(job.pickup_datetime ?? job.collection_window_start)}</strong><span className="driver-cell-secondary">Deliver {fmtDate(job.delivery_datetime ?? job.delivery_window_start)} · {human(job.vehicle_type)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Status / member</span><strong className="driver-cell-primary">{expired ? 'Expired' : workspaceJobOperationalLabel(job)}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={job.company_id}>{job.companies?.name ?? 'Member not supplied'}</MemberIdentityLink> · Commercial terms in Order</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Status / member</span><strong className="driver-cell-primary">{expired ? 'Expired' : workspaceJobOperationalLabel(job)}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={job.company_id}>{job.companies?.name ?? 'Member not supplied'}</MemberIdentityLink></span></div>
                       </div>
                       <div className="driver-load-row__meta">
-                        <span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking: {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
-                        <StatusBadge value={expired ? 'Expired' : workspaceJobOperationalLabel(job)} tone={expired ? 'grey' : statusTone(job)} />{hasPod && <StatusBadge value="POD captured" tone="green" />}{awaitingFeedback && <StatusBadge value="Awaiting feedback" tone="orange" />}{feedbackReceived && <StatusBadge value="Feedback received" tone="green" />}
+                        <span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking: {job.booking_reference}</span>}
                         <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }}>{expanded ? 'Collapse' : 'Details'}</ActionButton>{isOwnAssignedJob && <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</ActionButton>}</div>
                       </div>
 
@@ -672,16 +612,6 @@ export default function JobHistoryPage() {
                             onClick={() => router.push(`/driver/jobs/${job.id}`)}
                           >
                             Complete POD
-                          </button>
-                        ) : null}
-                        {canRequestCancellation ? (
-                          <button
-                            type="button"
-                            data-operation="cancel"
-                            disabled={cancellingJobId === job.id}
-                            onClick={() => void requestDiaryCancellation(job)}
-                          >
-                            {cancellingJobId === job.id ? 'Sending…' : cancellationLabel}
                           </button>
                         ) : null}
                         {isOwnAssignedJob && DETAIL_TABS
@@ -726,35 +656,27 @@ export default function JobHistoryPage() {
                             {detailTab === 'order' && (orderLoading ? <EmptyState compact title="Loading Order confirmation…" /> : (
                               <>
                                 {orderError && <AlertBanner tone="warning">{orderError} Available booking details are still shown below.</AlertBanner>}
-                                {sheet?.partial && <AlertBanner tone="warning">Part of this execution sheet could not be enriched. Verified job data is shown and missing values stay explicit.</AlertBanner>}
                                 <div className="driver-detail-grid">
                                   <div className="driver-detail-item"><span>Booking / job reference</span><strong>{sheet?.bookingReference ?? job.booking_reference ?? sheet?.reference ?? `XDL-${job.id.slice(0, 8).toUpperCase()}`}</strong></div>
-                                  <div className="driver-detail-item"><span>Booked / allocated</span><strong>{sheet?.bookedAt ? fmtDate(sheet.bookedAt) : 'Timestamp not supplied'}</strong></div>
+                                  {sheet?.bookedAt && <div className="driver-detail-item"><span>Booked</span><strong>{fmtDate(sheet.bookedAt)}</strong></div>}
                                   <div className="driver-detail-item"><span>Requested vehicle</span><strong>{requestedVehicle}</strong></div>
                                   <div className="driver-detail-item"><span>{sheet?.allocatedVehicle.source === 'driver_current' ? 'Current driver vehicle' : 'Allocated vehicle'}</span><strong>{allocatedVehicleName}</strong><small>{sheet?.allocatedVehicle.ref ? `Vehicle ref: ${sheet.allocatedVehicle.ref}` : 'Vehicle ref not supplied'}{sheet?.allocatedVehicle.source === 'driver_current' ? ' · no job-level vehicle snapshot' : ''}</small></div>
-                                  <div className="driver-detail-item"><span>Body type</span><strong>Not supplied</strong><small>{sheet?.unavailable.bodyType ?? 'Not available for this booking.'}</small></div>
                                   <div className="driver-detail-item"><span>Subcontracted by</span><strong><MemberIdentityLink companyId={sheet?.postingCompanyId ?? job.company_id}>{sheet?.bookedBy ?? job.companies?.name ?? 'Not supplied'}</MemberIdentityLink></strong><small>{[sheet?.memberCode ? `Member ID ${sheet.memberCode}` : null, sheet?.memberPhone].filter(Boolean).join(' · ') || 'Business contact not supplied'}</small></div>
                                   <div className="driver-detail-item"><span>Executing driver / carrier</span><strong>{sheet?.driverName ?? 'Assigned driver'}</strong><small>{sheet?.executingCompanyId ? <MemberIdentityLink companyId={sheet.executingCompanyId}>Open executing carrier profile</MemberIdentityLink> : 'Executing company not supplied'}</small></div>
                                   <div className="driver-detail-item"><span>Agreed rate</span><strong>{sheet?.agreedRate != null ? money(sheet.agreedRate, sheet.currency) : 'Not supplied'}</strong><small>{sheet?.agreedGross != null ? `Gross ${money(sheet.agreedGross, sheet.currency)}${sheet.vatRate != null ? ` · VAT ${sheet.vatRate}%` : ''}` : sheet?.commercialSnapshotAvailable ? 'Agreed rate recorded at award' : 'Historical agreed-rate record unavailable'}</small></div>
-                                  <div className="driver-detail-item"><span>Extras</span><strong>Not supplied</strong><small>{sheet?.unavailable.extras ?? 'No historical extras record is available for this booking.'}</small></div>
-                                  <div className="driver-detail-item"><span>Payment terms</span><strong>{sheet?.paymentTerms ?? 'Historical terms unavailable'}</strong><small>{sheet?.paymentDueDays != null ? `${sheet.paymentDueDays} day(s)` : 'Due-day value not supplied'}</small></div>
+                                  {sheet?.paymentTerms && <div className="driver-detail-item"><span>Payment terms</span><strong>{sheet.paymentTerms}</strong>{sheet.paymentDueDays != null && <small>{sheet.paymentDueDays} day(s)</small>}</div>}
                                   <div className="driver-detail-item"><span>POD</span><strong>Digital POD mandatory</strong><small>Hard-copy: {sheet?.hardCopyPod ?? job.hard_copy_pod ?? 'No additional requirement supplied'}</small></div>
-                                  <div className="driver-detail-item"><span>Customer</span><strong>{sheet?.customerName ?? 'Not supplied'}</strong></div>
-                                  <div className="driver-detail-item"><span>Customer ref</span><strong>{sheet?.customerReference ?? job.customer_reference ?? 'Not supplied'}</strong></div>
-                                  <div className="driver-detail-item"><span>PO number</span><strong>{sheet?.purchaseOrderNumber ?? job.purchase_order_number ?? 'Not supplied'}</strong></div>
-                                  <div className="driver-detail-item"><span>Distance</span><strong>{sheet?.distanceMiles != null ? `${sheet.distanceMiles} miles` : 'Not supplied'}</strong></div>
+                                  {(sheet?.customerReference || job.customer_reference) && <div className="driver-detail-item"><span>Customer ref</span><strong>{sheet?.customerReference ?? job.customer_reference}</strong></div>}
+                                  {sheet?.distanceMiles != null && <div className="driver-detail-item"><span>Distance</span><strong>{sheet.distanceMiles} miles</strong></div>}
                                   <div className="driver-detail-item"><span>Cargo</span><strong>{cargoType}</strong><small>{cargoWeight != null ? `${cargoWeight} kg` : 'Weight not supplied'}{cargoPallets != null ? ` · ${cargoPallets} pallet(s)` : ''}</small></div>
-                                  <div className="driver-detail-item"><span>Dimensions</span><strong>{cargoDimensions(sheet, job)}</strong></div>
-                                  <div className="driver-detail-item"><span>Cargo value</span><strong>{cargoValue != null ? money(cargoValue) : 'Not supplied'}</strong></div>
                                 </div>
 
                                 <div className="driver-diary-note-list">
-                                  <div className="driver-diary-text-block"><strong>Pickup</strong><span>{formatExecutionAddress(pickupAddress, pickupPostcode)} · {transportSchedule(sheet?.pickup.dateTime ?? job.pickup_datetime ?? job.collection_window_start, sheet?.pickup.slot ?? null)}</span><span>Company context: {sheet?.bookedBy ?? job.companies?.name ?? 'Not separately supplied'}</span><span>Contact: {sheet?.pickup.contactName ?? job.collection_contact_name ?? 'Not supplied'} · {sheet?.pickup.contactPhone ?? job.collection_contact_phone ?? 'Phone not supplied'}</span>{sheet?.pickup.notes && <span>Notes: {sheet.pickup.notes}</span>}</div>
-                                  <div className="driver-diary-text-block"><strong>Delivery</strong><span>{formatExecutionAddress(deliveryAddress, deliveryPostcode)} · {transportSchedule(sheet?.delivery.dateTime ?? job.delivery_datetime ?? job.delivery_window_start, sheet?.delivery.slot ?? null)}</span><span>Company context: {sheet?.customerName ?? 'Not separately supplied'}</span><span>Contact: {sheet?.delivery.contactName ?? job.delivery_contact_name ?? 'Not supplied'} · {sheet?.delivery.contactPhone ?? job.delivery_contact_phone ?? 'Phone not supplied'}</span>{sheet?.delivery.notes && <span>Notes: {sheet.delivery.notes}</span>}</div>
+                                  <div className="driver-diary-text-block"><strong>Pickup</strong><span>{formatExecutionAddress(pickupAddress, pickupPostcode)} · {transportSchedule(sheet?.pickup.dateTime ?? job.pickup_datetime ?? job.collection_window_start, sheet?.pickup.slot ?? null)}</span>{(sheet?.pickup.contactName || job.collection_contact_name || sheet?.pickup.contactPhone || job.collection_contact_phone) && <span>Contact: {[sheet?.pickup.contactName ?? job.collection_contact_name, sheet?.pickup.contactPhone ?? job.collection_contact_phone].filter(Boolean).join(' · ')}</span>}{sheet?.pickup.notes && <span>Notes: {sheet.pickup.notes}</span>}</div>
+                                  <div className="driver-diary-text-block"><strong>Delivery</strong><span>{formatExecutionAddress(deliveryAddress, deliveryPostcode)} · {transportSchedule(sheet?.delivery.dateTime ?? job.delivery_datetime ?? job.delivery_window_start, sheet?.delivery.slot ?? null)}</span>{(sheet?.delivery.contactName || job.delivery_contact_name || sheet?.delivery.contactPhone || job.delivery_contact_phone) && <span>Contact: {[sheet?.delivery.contactName ?? job.delivery_contact_name, sheet?.delivery.contactPhone ?? job.delivery_contact_phone].filter(Boolean).join(' · ')}</span>}{sheet?.delivery.notes && <span>Notes: {sheet.delivery.notes}</span>}</div>
                                 </div>
                                 {(sheet?.publicQuoteNotes || sheet?.executionInstructions) && <div className="driver-diary-note-list">{sheet.publicQuoteNotes && <div className="driver-diary-text-block"><strong>Public quote notes</strong><span>{sheet.publicQuoteNotes}</span></div>}{sheet.executionInstructions && <div className="driver-diary-text-block"><strong>Private execution instructions</strong><span>{sheet.executionInstructions}</span></div>}</div>}
                                 {((sheet?.requirements.length ?? 0) > 0 || (sheet?.documentChecklist.length ?? 0) > 0) && <div className="driver-diary-text-block"><strong>Working &amp; paperwork requirements</strong>{sheet?.requirements.map((instruction) => <span key={instruction}>{instruction}</span>)}{sheet?.documentChecklist.length ? <span>Paperwork: {sheet.documentChecklist.join(' · ')}</span> : null}<span>Digital POD: mandatory · Hard-copy: {sheet?.hardCopyPod ?? 'No additional requirement supplied'}</span></div>}
-                                <div className="driver-diary-text-block"><strong>Booking footer / working instructions</strong><span>{sheet?.unavailable.bookingFooter ?? 'Not available for this historical booking.'}</span></div>
                               </>
                             ))}
 

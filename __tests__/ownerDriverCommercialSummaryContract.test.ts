@@ -41,7 +41,7 @@ describe('Owner Driver commercial summary contract', () => {
     expect(dashboard).toContain('Gross Margin');
     expect(dashboard).toContain('Sub-contract Spend');
     expect(dashboard).toContain('Accounts Payable');
-    expect(dashboard).toContain('POD Required');
+    expect(dashboard).not.toContain('POD Required');
     expect(dashboard).toContain('feedback90Days.receivedRatingAverage');
     expect(dashboard).toContain('Activity at a glance');
     expect(dashboard).toContain('Latest Bookings');

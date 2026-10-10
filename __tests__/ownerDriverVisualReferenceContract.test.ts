@@ -28,11 +28,14 @@ describe('Owner Driver canonical visual reference', () => {
       'Feedback in Last 90 Days',
       'Activity at a glance',
       'Latest Bookings',
-      'Compliance & Positioning',
-      'POD Required',
     ]) expect(dashboard).toContain(marker);
 
     expect(dashboard).toContain('/api/driver/dashboard/commercial-summary');
+    expect(dashboard).not.toContain('Compliance & Positioning');
+    expect(dashboard).not.toContain('POD Required');
+    expect(dashboard).not.toContain('Quick Actions');
+    expect(dashboard).not.toContain('Work & Marketplace');
+    expect(dashboard).not.toContain('Current / Next Work');
     expect(dashboard).not.toContain('Freight Messenger');
     expect(dashboard).not.toContain('fleet allocation');
     expect(dashboard).not.toContain('multi-driver controls');

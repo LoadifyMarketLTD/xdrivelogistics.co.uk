@@ -258,27 +258,6 @@ export default function DriverDashboard() {
     [myJobs],
   );
 
-  const ownerDriverQuoteStats = useMemo(() => {
-    const awaitingStatuses = new Set(["pending", "submitted", "active", "viewed", "shortlisted"]);
-    const wonStatuses = new Set(["accepted", "awarded", "won"]);
-    return {
-      awaiting: data.bids.filter((bid) => awaitingStatuses.has(String(bid.status ?? "").toLowerCase())).length,
-      won: data.bids.filter((bid) => wonStatuses.has(String(bid.status ?? "").toLowerCase())).length,
-    };
-  }, [data.bids]);
-
-  const ownerDriverPodOutstanding = useMemo(
-    () => myJobs.filter((job) => {
-      const status = canonicalJobStatus(job.current_status, job.status);
-      if (status !== "delivered") return false;
-      return !job.pod_generated_at
-        && !job.pod_generated
-        && !(job.pod_photos?.length)
-        && !job.delivery_signature_data
-        && !job.client_signature_name;
-    }).length,
-    [myJobs],
-  );
 
   const loadDriverContext = useCallback(async () => {
     const driverId = user?.driverId?.trim() ?? '';
@@ -744,29 +723,11 @@ export default function DriverDashboard() {
               <div style={{ display: "grid", gap: 12 }}>
                 <OperationalCard
                   title="Activity at a glance"
-                  subtitle="Your latest bookings and the next operational action."
+                  subtitle="Your latest bookings, statuses and POD actions."
                   actions={<ActionButton tone="secondary" onClick={() => router.push("/driver/history")}>View All</ActionButton>}
                   flush
                 >
                   <div style={{ padding: 8, display: "grid", gap: 7 }}>
-                    {currentJob ? (
-                      <div style={{ padding: 9, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: "#F8FAFC" }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                          <strong style={{ fontSize: 12 }}>Current job</strong>
-                          <ActionButton tone="success" onClick={() => router.push(`/driver/jobs/${currentJob.id}`)}>Open current job</ActionButton>
-                        </div>
-                        <div style={{ marginTop: 8 }}>{renderJobSummary(currentJob)}</div>
-                      </div>
-                    ) : null}
-                    {nextBooking ? (
-                      <div style={{ padding: 9, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surface }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                          <strong style={{ fontSize: 12 }}>Next booking</strong>
-                          <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${nextBooking.id}`)}>View booking</ActionButton>
-                        </div>
-                        <div style={{ marginTop: 8 }}>{renderJobSummary(nextBooking)}</div>
-                      </div>
-                    ) : null}
                     <strong style={{ fontSize: 12 }}>Latest Bookings</strong>
                     {latestBookings.length === 0 ? (
                       <EmptyState compact title="No bookings yet" description="Won and assigned work will appear here." />
@@ -795,28 +756,6 @@ export default function DriverDashboard() {
                         </article>
                       );
                     })}
-                  </div>
-                </OperationalCard>
-
-                <OperationalCard title="Compliance & Positioning" subtitle="Your own vehicle, availability, return journey and compliance records.">
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8 }}>
-                    {[
-                      ["Availability", humanize(profile?.availability_status) || "Not set", "/driver/availability"],
-                      ["My Vehicle", vehicle?.reg_plate ?? "Not assigned", "/driver/vehicles"],
-                      ["Return Journey", profile?.future_position ?? "Not published", "/driver/returns"],
-                      ["Documents", "Compliance", "/driver/documents"],
-                    ].map(([label, detail, href]) => (
-                      <button key={label} type="button" onClick={() => router.push(href)} style={{ minHeight: 68, padding: 9, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surface, textAlign: "left", cursor: "pointer" }}>
-                        <span style={{ display: "block", color: workspaceTheme.muted, fontSize: 10 }}>{label}</span>
-                        <strong style={{ display: "block", marginTop: 8, color: workspaceTheme.navy, fontSize: 13 }}>{detail}</strong>
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ marginTop: 8, display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 8 }}>
-                    <button type="button" onClick={() => router.push("/driver/loads")} style={{ minHeight: 52, padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: "left", cursor: "pointer" }}><strong>Find Loads</strong><small style={{ display: "block", color: workspaceTheme.muted }}>Marketplace</small></button>
-                    <button type="button" onClick={() => router.push("/driver/quotes")} style={{ minHeight: 52, padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: "left", cursor: "pointer" }}><strong>Quotes</strong><small style={{ display: "block", color: workspaceTheme.muted }}>{ownerDriverQuoteStats.awaiting} awaiting</small></button>
-                    <button type="button" onClick={() => router.push("/driver/load-alerts")} style={{ minHeight: 52, padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: "left", cursor: "pointer" }}><strong>Load Alerts</strong><small style={{ display: "block", color: workspaceTheme.muted }}>Matching</small></button>
-                    <button type="button" onClick={() => router.push("/driver/history")} style={{ minHeight: 52, padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: "left", cursor: "pointer" }}><strong>POD Required</strong><small style={{ display: "block", color: workspaceTheme.muted }}>{ownerDriverPodOutstanding} awaiting action</small></button>
                   </div>
                 </OperationalCard>
               </div>

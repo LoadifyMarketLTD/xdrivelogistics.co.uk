@@ -79,7 +79,7 @@ export const CANONICAL_DIARY_TABS_BY_ROLE: Record<CanonicalDiaryRole, CanonicalD
     { id: 'cancelled', label: 'Cancelled' },
     { id: 'evidence', label: 'POD / Evidence' },
   ],
-  owner_driver: BASE_OPERATIONAL_TABS,
+  owner_driver: BASE_OPERATIONAL_TABS.filter((tab) => tab.id !== 'evidence'),
   driver: [
     { id: 'all', label: 'All' },
     { id: 'allocated', label: 'Accepted' },
