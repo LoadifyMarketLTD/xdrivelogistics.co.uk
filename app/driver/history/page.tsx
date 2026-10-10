@@ -16,6 +16,7 @@ import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbac
 import { ActionButton, AlertBanner, EmptyState } from '../../components/workspace/WorkspaceUI';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
+import { formatPaymentTermsLabel } from '../../../lib/paymentTermsDisplay';
 
 type CompanyRelation = { name: string } | Array<{ name: string }> | null;
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
@@ -682,7 +683,7 @@ export default function JobHistoryPage() {
                                     {(cargoWeight != null || cargoPallets != null) && <div style={{ marginTop: 6 }}><span style={{ color: '#64748b' }}>Cargo: </span>{[cargoWeight != null ? `${cargoWeight} kg` : null, cargoPallets != null ? `${cargoPallets} pallet(s)` : null].filter(Boolean).join(' · ')}</div>}
                                   </div>
                                   <div style={{ padding: 10 }}>
-                                    {sheet?.paymentTerms && <div><span style={{ color: '#64748b' }}>Payment terms: </span><strong>{sheet.paymentTerms}</strong></div>}
+                                    {sheet?.paymentTerms && <div><span style={{ color: '#64748b' }}>Payment terms: </span><strong>{formatPaymentTermsLabel(sheet.paymentTerms)}</strong></div>}
                                     <div style={{ marginTop: 6 }}><span style={{ color: '#64748b' }}>POD: </span><strong>Digital</strong>{sheet?.hardCopyPod && <span> · Hard-copy {sheet.hardCopyPod}</span>}</div>
                                     {(sheet?.customerReference || job.customer_reference) && <div style={{ marginTop: 6 }}><span style={{ color: '#64748b' }}>Customer ref: </span>{sheet?.customerReference ?? job.customer_reference}</div>}
                                   </div>

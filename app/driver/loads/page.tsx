@@ -10,6 +10,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { ActionButton } from '../../components/workspace/WorkspaceUI';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
+import { formatPaymentTermsLabel } from '../../../lib/paymentTermsDisplay';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -469,7 +470,7 @@ export default function AvailableLoadsPage() {
                         </div>
                         <div className="load-facts-col">
                           <div><b>Requested</b><span>{selectedVehicleLabel}</span></div>
-                          <div><b>Payment Terms</b><span>{load.payment_terms ?? 'Not supplied'}</span></div>
+                          <div><b>Payment Terms</b><span>{formatPaymentTermsLabel(load.payment_terms) ?? 'Not supplied'}</span></div>
                           <div><b>POD</b><span>Digital required · Hard-copy: {load.hard_copy_pod ?? 'No additional requirement'}</span></div>
                         </div>
                       </div>
