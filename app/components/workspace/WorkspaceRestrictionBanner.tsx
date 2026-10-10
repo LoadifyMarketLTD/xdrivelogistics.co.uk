@@ -96,6 +96,20 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
   if (!error && blockers.length === 0 && current) return null;
   const root = role === 'driver' || role === 'owner_driver' ? '/driver' : role === 'customer' ? '/customer' : role === 'broker' ? '/broker' : '/admin';
   const buttonStyle = { border: 0, borderRadius: 6, padding: '8px 12px', background: '#0b2f6b', color: '#fff', fontWeight: 700, cursor: 'pointer', whiteSpace: 'normal' as const };
+  if (inline) {
+    return (
+      <section aria-label="Workspace restrictions" aria-busy={loading} style={{ margin: '6px 0', border: '1px solid #f0c7c2', borderRadius: 6, background: '#fff9f8', color: '#7a271a', padding: '7px 10px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minWidth: 0 }}>
+        <strong style={{ fontSize: 12 }}>Account check</strong>
+        <span role={error ? 'alert' : undefined} style={{ fontSize: 12, flex: '1 1 320px', minWidth: 0 }}>{error || blockers[0]?.message || 'Account requirements need attention.'}</span>
+        {blockers[0]?.actionType === 'stripe_setup' && blockers[0].companyId ? <StripeSetupAction
+          companyId={blockers[0].companyId} context={operation ?? 'commercial'}
+          getAccessToken={async () => { const { data } = await supabase.auth.getSession(); return data.session?.access_token ?? null; }}
+        /> : null}
+        <button type="button" disabled={loading} onClick={() => void refresh()} style={{ ...buttonStyle, padding: '6px 9px', fontSize: 12 }}>{loading ? 'Checking...' : 'Retry'}</button>
+        <button type="button" onClick={() => router.push(current?.unauthorized ? '/login' : root + '/support?reason=readiness-check')} style={{ ...buttonStyle, padding: '6px 9px', fontSize: 12, background: '#334155' }}>{current?.unauthorized ? 'Sign in' : 'Support'}</button>
+      </section>
+    );
+  }
   return (
     <section aria-label="Workspace restrictions" aria-busy={loading} style={{ margin: inline ? '10px 0' : '10px 12px 0', border: '1px solid #f5b8b1', borderRadius: 8, background: '#fff6f5', color: '#7a271a', overflow: 'hidden', minWidth: 0 }}>
       <div style={{ padding: '10px 12px', fontWeight: 800 }}>{loading && !current ? 'Checking account requirements...' : 'Account requirements and restrictions'}</div>
