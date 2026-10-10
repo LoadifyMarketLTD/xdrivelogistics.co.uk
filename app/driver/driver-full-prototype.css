@@ -4113,3 +4113,29 @@
 .driver-prototype-port .driver-loads-prototype .main{
   padding-top:0!important;
 }
+/* PR675 Loads: freeze result-control geometry during realtime/background refresh */
+.driver-prototype-port .driver-loads-prototype .load-result-controls-stable{
+  margin-left:auto!important;
+  display:grid!important;
+  grid-template-columns:116px 154px 118px 54px 66px 68px 48px 58px!important;
+  align-items:center!important;
+  justify-content:end!important;
+  column-gap:6px!important;
+  flex:0 0 auto!important;
+  white-space:nowrap!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-controls-stable>*{
+  min-width:0!important;
+  box-sizing:border-box!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-sort-control{width:116px!important}
+.driver-prototype-port .driver-loads-prototype .load-sort-control select{width:78px!important;min-width:78px!important;max-width:78px!important}
+.driver-prototype-port .driver-loads-prototype .load-expand-control{width:154px!important;min-width:154px!important;text-align:center!important;overflow:hidden!important}
+.driver-prototype-port .driver-loads-prototype .load-page-size-control{width:118px!important}
+.driver-prototype-port .driver-loads-prototype .load-page-size-control select{width:44px!important;min-width:44px!important;max-width:44px!important}
+.driver-prototype-port .driver-loads-prototype .load-range-count{width:54px!important;text-align:center!important;font-variant-numeric:tabular-nums!important}
+.driver-prototype-port .driver-loads-prototype .load-prev-stable{width:66px!important;min-width:66px!important}
+.driver-prototype-port .driver-loads-prototype .load-page-count{width:68px!important;text-align:center!important;font-variant-numeric:tabular-nums!important}
+.driver-prototype-port .driver-loads-prototype .load-next-stable{width:48px!important;min-width:48px!important}
+.driver-prototype-port .driver-loads-prototype .load-refresh-stable{width:58px!important;min-width:58px!important;max-width:58px!important}
+.driver-prototype-port .driver-loads-prototype .load-refresh-stable[aria-busy='true']{opacity:1!important}
