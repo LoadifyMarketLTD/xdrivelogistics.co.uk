@@ -1111,3 +1111,51 @@
   .driver-diary-route .diary-toolbar-single{scrollbar-width:thin!important}
   .driver-diary-route .diary-toolbar-single .diary-tabs button{padding:0 7px!important;font-size:9.3px!important}
 }
+/* PR675 Diary: compact CX-inspired operational timeline */
+.driver-diary-route .driver-diary-operational-timeline{
+  display:grid!important;
+  grid-template-columns:repeat(4,minmax(0,1fr))!important;
+  border-top:1px solid #d7e0ea!important;
+  border-bottom:1px solid #d7e0ea!important;
+  background:#fff!important;
+}
+.driver-diary-route .driver-diary-operational-timeline>div{
+  min-height:48px!important;
+  padding:7px 10px!important;
+  border-right:1px solid #d7e0ea!important;
+  border-bottom:1px solid #edf1f5!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  gap:2px!important;
+}
+.driver-diary-route .driver-diary-operational-timeline>div:nth-child(4n){border-right:0!important}
+.driver-diary-route .driver-diary-operational-timeline>div:nth-last-child(-n+3){border-bottom:0!important}
+.driver-diary-route .driver-diary-operational-timeline span{
+  color:#65758a!important;
+  font-size:9.8px!important;
+  line-height:12px!important;
+  font-weight:650!important;
+}
+.driver-diary-route .driver-diary-operational-timeline strong{
+  color:#172033!important;
+  font-size:10.7px!important;
+  line-height:14px!important;
+  font-weight:750!important;
+}
+.driver-diary-route .driver-diary-operational-timeline>div[data-complete='true'] span{color:#4d7f31!important}
+.driver-diary-route .driver-diary-operational-timeline>div[data-complete='true'] strong{color:#234f18!important}
+.driver-diary-route .driver-diary-operational-timeline>div[data-complete='false'] strong{color:#8a96a6!important;font-weight:600!important}
+.driver-diary-route .driver-diary-order-notes{
+  padding:7px 10px!important;
+  border-bottom:1px solid #d7e0ea!important;
+  background:#fff!important;
+  font-size:10.3px!important;
+  line-height:14px!important;
+}
+.driver-diary-route .driver-diary-order-notes>strong{font-size:10.5px!important}
+@media(max-width:1200px){
+  .driver-diary-route .driver-diary-operational-timeline{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+  .driver-diary-route .driver-diary-operational-timeline>div:nth-child(4n){border-right:1px solid #d7e0ea!important}
+  .driver-diary-route .driver-diary-operational-timeline>div:nth-child(2n){border-right:0!important}
+}

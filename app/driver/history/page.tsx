@@ -585,6 +585,19 @@ export default function JobHistoryPage() {
                   const pickupAddress = sheet?.pickup.address ?? job.pickup_location; const pickupPostcode = sheet?.pickup.postcode ?? job.pickup_postcode;
                   const deliveryAddress = sheet?.delivery.address ?? job.delivery_location; const deliveryPostcode = sheet?.delivery.postcode ?? job.delivery_postcode;
                   const cargoWeight = sheet?.cargo.weightKg ?? job.weight_kg; const cargoPallets = sheet?.cargo.pallets ?? job.pallets;
+                  const eventAt = (...statuses: string[]) => {
+                    const tracking = trackingEvents.find((event) => event.event_type && statuses.includes(event.event_type));
+                    if (tracking?.event_time) return tracking.event_time;
+                    const statusEntry = (Array.isArray(job.status_history) ? job.status_history : []).find((entry) => entry.status && statuses.includes(entry.status));
+                    return statusEntry?.timestamp ?? statusEntry?.at ?? null;
+                  };
+                  const operationalTimeline = [
+                    { label: 'On my way to pickup', at: eventAt('on_my_way', 'on_my_way_to_pickup') },
+                    { label: 'On site at pickup', at: eventAt('on_site_pickup') },
+                    { label: 'Loaded', at: eventAt('loaded', 'collected') },
+                    { label: 'On site at delivery', at: eventAt('on_site_delivery') },
+                    { label: 'Delivered', at: eventAt('delivered', 'completed') },
+                  ];
 
                   return (
                     <article key={job.id} className="diary-booking driver-diary-entry" data-state={expired ? 'expired' : currentStatus}>
@@ -690,8 +703,25 @@ export default function JobHistoryPage() {
                                   </div>
                                 </div>
 
+                                <div className="driver-diary-operational-timeline" aria-label="Operational timeline">
+                                  {operationalTimeline.map((milestone) => (
+                                    <div key={milestone.label} data-complete={milestone.at ? 'true' : 'false'}>
+                                      <span>{milestone.label}</span>
+                                      <strong>{milestone.at ? fmtDate(milestone.at) : 'Pending'}</strong>
+                                    </div>
+                                  ))}
+                                  <div data-complete={job.client_signature_name ? 'true' : 'false'}>
+                                    <span>Received by</span>
+                                    <strong>{job.client_signature_name ?? 'Pending'}</strong>
+                                  </div>
+                                  <div data-complete={currentStatus === 'delivered' || currentStatus === 'completed' ? 'true' : 'false'}>
+                                    <span>Delivery status</span>
+                                    <strong>{workspaceJobOperationalLabel(job)}</strong>
+                                  </div>
+                                </div>
+
                                 {(sheet?.publicQuoteNotes || sheet?.executionInstructions || (sheet?.requirements.length ?? 0) > 0) && (
-                                  <div style={{ padding: 10, border: '1px solid #d8e0ea', borderTop: 0, background: '#fff' }}>
+                                  <div className="driver-diary-order-notes">
                                     <strong>Notes / requirements</strong>
                                     {sheet?.publicQuoteNotes && <div style={{ marginTop: 5 }}>{sheet.publicQuoteNotes}</div>}
                                     {sheet?.executionInstructions && <div style={{ marginTop: 5 }}>{sheet.executionInstructions}</div>}
