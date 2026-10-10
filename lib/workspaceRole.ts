@@ -188,22 +188,15 @@ const DRIVER_EXECUTION_NAV: WorkspaceNavGroup[] = [
 const OWNER_DRIVER_NAV: WorkspaceNavGroup[] = [
   ...DRIVER_EXECUTION_NAV,
   { id: 'commercial', label: 'Commercial', items: [
-    { id: 'live-availability', label: 'Live Availability', href: '/driver/availability/live', icon: '◷' },
     { id: 'loads', label: 'Loads', href: '/driver/loads', icon: '▦' },
     { id: 'quotes', label: 'Quotes', href: '/driver/quotes', icon: '◫' },
-    { id: 'won-work', label: 'Won Work', href: '/driver/won-work', icon: '✓' },
-    { id: 'auto-match', label: 'Auto-match & Alerts', href: '/driver/load-alerts', icon: '◷' },
+    { id: 'auto-match', label: 'Load Alerts', href: '/driver/load-alerts', icon: '◷' },
     { id: 'nearby', label: "Who's Nearby", href: '/driver/nearby', icon: '⌖' },
-    { id: 'tracking', label: 'Tracking', href: '/driver/freight-vision', icon: '◎' },
     { id: 'directory', label: 'Directory', href: '/driver/directory', icon: '⊕' },
     { id: 'returns', label: 'Return Journeys', href: '/driver/returns', icon: '↩' },
   ] },
   { id: 'business', label: 'Business', items: [
-    { id: 'invoices', label: 'Invoices', href: '/driver/finance', icon: '£', capability: 'invoices.carrier.manage' },
-    { id: 'company-profile', label: 'Company Profile', href: '/driver/settings?section=company', icon: '◎' },
-    { id: 'drivers-staff', label: 'Drivers & Staff', href: '/driver/drivers-vehicles', icon: '◎' },
-    { id: 'manage-drivers', label: 'Manage Drivers', href: '/driver/drivers', icon: 'DRV', capability: 'drivers.manage' },
-    { id: 'settings', label: 'Company Settings', href: '/driver/settings?section=overview', icon: '⚙' },
+    { id: 'invoices', label: 'Finance / Invoices', href: '/driver/finance', icon: '£', capability: 'invoices.carrier.manage' },
     { id: 'billing', label: 'Membership & Billing', href: '/driver/settings/billing', icon: '£', capability: 'billing.manage' },
   ] },
 ];
@@ -218,7 +211,7 @@ const CAPABILITIES: Record<WorkspaceRole, ReadonlySet<WorkspaceCapability>> = {
   fleet_manager: new Set<WorkspaceCapability>(['jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'fleet.maintenance.manage', 'documents.company.manage', 'invoices.carrier.manage', 'incidents.manage']),
   dispatcher: new Set<WorkspaceCapability>(['loads.create', 'loads.publish', 'jobs.view', 'jobs.allocate', 'jobs.dispatch', 'jobs.track', 'jobs.review_pod', 'drivers.manage', 'vehicles.manage', 'fleet.positions.view', 'incidents.manage', 'settings.manage']),
   driver: new Set<WorkspaceCapability>(DRIVER_WORKSPACE_CAPABILITIES),
-  owner_driver: new Set<WorkspaceCapability>([...DRIVER_WORKSPACE_CAPABILITIES, 'drivers.manage', 'company.members.manage', 'invoices.carrier.manage', 'billing.manage']),
+  owner_driver: new Set<WorkspaceCapability>([...DRIVER_WORKSPACE_CAPABILITIES, 'invoices.carrier.manage', 'billing.manage']),
   finance: new Set<WorkspaceCapability>(['jobs.view', 'invoices.customer.manage', 'invoices.carrier.manage', 'payments.manage', 'margins.view', 'settings.manage']),
   compliance: new Set<WorkspaceCapability>(['drivers.manage', 'vehicles.manage', 'documents.company.manage', 'documents.verify', 'incidents.manage', 'settings.manage']),
   viewer: new Set<WorkspaceCapability>(['jobs.view']),
