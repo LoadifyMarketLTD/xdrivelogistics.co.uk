@@ -4391,3 +4391,23 @@
 @media(max-width:1500px){
   .driver-prototype-port .driver-loads-prototype .load-toolbar-single{overflow-x:auto!important;scrollbar-width:thin!important}
 }
+/* PR675 Loads typography: CX-inspired weight hierarchy */
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line>span,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-time-line>span{font-size:10.8px!important;line-height:15px!important;font-weight:450!important;color:#5e6874!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line>b,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-time-line>b{font-size:12px!important;line-height:16px!important;font-weight:600!important;color:#303842!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-town{font-size:12.5px!important;font-weight:700!important;color:#2f3740!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-postcode,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-place-separator{font-size:12px!important;font-weight:450!important;color:#5c6570!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-postedby{font-size:10.8px!important;line-height:15px!important;font-weight:450!important;color:#4f5964!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-postedby b{font-size:12px!important;font-weight:700!important;color:#303842!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-member .meta{font-size:10px!important;line-height:14px!important;font-weight:400!important;color:#6f7985!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-type{font-size:12px!important;font-weight:650!important;color:#26323d!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-vehicle{font-size:11px!important;font-weight:600!important;color:#323a43!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-facts-row b{font-size:10.5px!important;line-height:14px!important;font-weight:500!important;color:#52606d!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-facts-row span{font-size:11px!important;line-height:15px!important;font-weight:450!important;color:#303842!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>b{font-size:10.5px!important;font-weight:600!important;color:#4d5966!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>span{font-size:11px!important;font-weight:450!important;color:#303842!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-quote-footer{font-weight:650!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer .text-action{font-weight:600!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-footer-identity{font-weight:500!important}

@@ -1159,3 +1159,17 @@
   .driver-diary-route .driver-diary-operational-timeline>div:nth-child(4n){border-right:1px solid #d7e0ea!important}
   .driver-diary-route .driver-diary-operational-timeline>div:nth-child(2n){border-right:0!important}
 }
+/* PR675 Diary typography: match Loads/CX hierarchy */
+.driver-diary-route .driver-diary-entry .driver-cell-label{font-size:10.8px!important;line-height:15px!important;font-weight:450!important;color:#5e6874!important}
+.driver-diary-route .driver-diary-entry .driver-cell-primary{font-size:12px!important;line-height:16px!important;font-weight:600!important;color:#303842!important}
+.driver-diary-route .driver-diary-entry .driver-cell-secondary{font-size:10px!important;line-height:14px!important;font-weight:400!important;color:#6f7985!important}
+.driver-diary-route .driver-diary-status-band{font-size:12px!important;font-weight:650!important;color:#26323d!important}
+.driver-diary-route .driver-diary-detail-panel{font-size:11px!important;font-weight:450!important;color:#303842!important}
+.driver-diary-route .driver-diary-detail-panel strong{font-weight:600!important}
+.driver-diary-route .driver-diary-detail-panel span{font-weight:400!important}
+.driver-diary-route .driver-diary-operational-timeline span{font-size:10.5px!important;font-weight:500!important;color:#52606d!important}
+.driver-diary-route .driver-diary-operational-timeline strong{font-size:11px!important;font-weight:600!important;color:#303842!important}
+.driver-diary-route .driver-diary-action-rail button{font-weight:500!important}
+.driver-diary-route .driver-diary-action-rail button[data-active='true']{font-weight:600!important}
+.driver-diary-route .driver-diary-order-notes{font-size:11px!important;font-weight:450!important;color:#303842!important}
+.driver-diary-route .driver-diary-order-notes>strong{font-weight:600!important}

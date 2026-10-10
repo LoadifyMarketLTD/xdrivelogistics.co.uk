@@ -127,6 +127,12 @@ function fmtSchedule(value: string | null, slot: string | null) {
   const time = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   return `${time} · ${day}`;
 }
+function splitTownPostcode(value: string) {
+  const raw = value.trim();
+  const idx = raw.lastIndexOf(',');
+  if (idx <= 0) return { town: raw, postcode: '' };
+  return { town: raw.slice(0, idx).trim(), postcode: raw.slice(idx + 1).trim() };
+}
 function fmtPostedAt(value: string | null) {
   if (!value) return 'Posted time unavailable';
   const date = new Date(value);
@@ -440,11 +446,13 @@ export default function AvailableLoadsPage() {
                   const toCollection = load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} miles${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Current location unavailable';
                   const jobDistance = load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available';
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
+                  const pickupArea = splitTownPostcode(load.pickup_area);
+                  const deliveryArea = splitTownPostcode(load.delivery_area);
                   return <article key={load.id} className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}>
                     <div className="load-primary">
                       <div className="load-route">
-                        <div className="load-route-line"><span>From:</span><b>{load.pickup_area}</b></div>
-                        <div className="load-route-line"><span>To:</span><b>{load.delivery_area}</b></div>
+                        <div className="load-route-line"><span>From:</span><b><span className="load-town">{pickupArea.town}</span>{pickupArea.postcode ? <><span className="load-place-separator">, </span><span className="load-postcode">{pickupArea.postcode}</span></> : null}</b></div>
+                        <div className="load-route-line"><span>To:</span><b><span className="load-town">{deliveryArea.town}</span>{deliveryArea.postcode ? <><span className="load-place-separator">, </span><span className="load-postcode">{deliveryArea.postcode}</span></> : null}</b></div>
                       </div>
                       <div className="load-times">
                         <div className="load-time-line"><span>Pickup:</span><b>{fmtSchedule(load.pickup_datetime, load.pickup_time_slot)}</b></div>
