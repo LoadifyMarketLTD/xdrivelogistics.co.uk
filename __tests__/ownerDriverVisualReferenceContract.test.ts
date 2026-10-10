@@ -6,6 +6,10 @@ const dashboard = fs.readFileSync(path.join(root, 'app/driver/page.tsx'), 'utf8'
 const availability = fs.readFileSync(path.join(root, 'app/driver/availability/page.tsx'), 'utf8');
 const messages = fs.readFileSync(path.join(root, 'app/driver/messages/page.tsx'), 'utf8');
 const vehicles = fs.readFileSync(path.join(root, 'app/driver/vehicles/page.tsx'), 'utf8');
+const nearby = fs.readFileSync(path.join(root, 'app/driver/nearby/page.tsx'), 'utf8');
+const loadSearch = fs.readFileSync(path.join(root, 'app/driver/loads/search/page.tsx'), 'utf8');
+const accountNav = fs.readFileSync(path.join(root, 'app/driver/_components/AccountSectionNav.tsx'), 'utf8');
+const profile = fs.readFileSync(path.join(root, 'app/driver/profile/page.tsx'), 'utf8');
 const shellCss = fs.readFileSync(path.join(root, 'app/components/workspace/top-workspace-shell.css'), 'utf8');
 const ownerAdapter = fs.readFileSync(path.join(root, 'app/components/workspace/non-driver-owner-reference.css'), 'utf8');
 
@@ -47,6 +51,20 @@ describe('Owner Driver canonical visual reference', () => {
     expect(messages).not.toContain('fabricated read-state');
     expect(vehicles).not.toContain('Canonical Active');
     expect(availability).not.toContain('Canonical active-vehicle');
+  });
+
+  it('keeps secondary Owner Driver pages inside the sole-trader route set', () => {
+    expect(nearby).not.toContain("href: '/driver/availability/live'");
+    expect(nearby).toContain("href: '/driver/returns'");
+    expect(nearby).toContain('>My Vehicle</button>');
+    expect(loadSearch).not.toContain("router.push('/driver/won-work')");
+    expect(loadSearch).toContain("router.push('/driver/jobs')");
+    expect(messages).not.toContain("href: '/driver/action-centre'");
+    expect(accountNav).toContain("!ownerDriver || section.href !== '/driver/event-log'");
+    expect(profile).toContain("ownerDriver ? 'Owner Driver' : 'Driver'");
+    expect(profile).toContain("ownerDriver ? 'My Vehicle' : 'Vehicle'");
+    expect(profile).toContain("ownerDriver ? 'POD & Documents' : 'Documents'");
+    expect(profile).not.toContain('canonical active-vehicle identity signals');
   });
 
   it('preserves the canonical desktop Driver shell geometry', () => {

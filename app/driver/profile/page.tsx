@@ -8,6 +8,7 @@ import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 import { ActionButton, AlertBanner, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 
 type DriverProfileRow = {
   id: string;
@@ -36,6 +37,7 @@ function getWorkspaceModeLabel(user: ReturnType<typeof useAuth>['user']) {
 export default function DriverProfilePage() {
   const { user } = useAuth();
   const router = useRouter();
+  const ownerDriver = resolveWorkspaceRole(user) === 'owner_driver';
   const driverId = typeof user?.driverId === 'string' ? user.driverId.trim() : '';
 
   const [driver, setDriver] = useState<DriverProfileRow | null>(null);
@@ -131,7 +133,9 @@ export default function DriverProfilePage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Manage driver identity, account status and operational records from one compact account workspace."
+        subtitle={ownerDriver
+          ? 'Manage your sole-trader profile, availability, vehicle, documents and finance details.'
+          : 'Manage your driver identity, account status and operational records.'}
         driverName={driver?.display_name ?? user?.email ?? 'Driver'}
         availabilityLabel={availabilityLabel}
       >
@@ -153,7 +157,7 @@ export default function DriverProfilePage() {
               <>
                 <div className="driver-account-member-card">
                   <div><span>Email</span><strong>{contactEmail}</strong></div>
-                  <div><span>Role</span><strong>Driver</strong></div>
+                  <div><span>Role</span><strong>{ownerDriver ? 'Owner Driver' : 'Driver'}</strong></div>
                   <div><span>Account status</span><strong>{driver?.status ?? 'Unknown'}</strong></div>
                   <div><span>Availability</span><strong><StatusBadge value={availabilityLabel} tone={availabilityTone} /></strong></div>
                 </div>
@@ -176,13 +180,13 @@ export default function DriverProfilePage() {
                 <span><strong>Availability & matching</strong><small>Current state: {availabilityLabel}</small></span><span aria-hidden="true">→</span>
               </button>
               <button type="button" className="driver-account-link" onClick={() => router.push('/driver/vehicles')}>
-                <span><strong>Vehicle</strong><small>Assigned and canonical active-vehicle identity signals</small></span><span aria-hidden="true">→</span>
+                <span><strong>{ownerDriver ? 'My Vehicle' : 'Vehicle'}</strong><small>{ownerDriver ? 'Keep your vehicle identity, capacity and equipment current' : 'View the vehicle assigned to your Driver profile'}</small></span><span aria-hidden="true">→</span>
               </button>
               <button type="button" className="driver-account-link" onClick={() => router.push('/driver/documents')}>
-                <span><strong>Documents & compliance</strong><small>Maintain driver document records</small></span><span aria-hidden="true">→</span>
+                <span><strong>{ownerDriver ? 'POD & Documents' : 'Documents'}</strong><small>{ownerDriver ? 'Manage your compliance records and open job evidence' : 'Maintain your Driver document records'}</small></span><span aria-hidden="true">→</span>
               </button>
               <button type="button" className="driver-account-link" onClick={() => router.push('/driver/finance')}>
-                <span><strong>Finance</strong><small>Invoices, earnings and payment records</small></span><span aria-hidden="true">→</span>
+                <span><strong>{ownerDriver ? 'Finance / Invoices' : 'Finance'}</strong><small>Invoices, earnings and payment records</small></span><span aria-hidden="true">→</span>
               </button>
             </div>
           </section>

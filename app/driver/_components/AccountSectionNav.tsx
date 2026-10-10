@@ -29,9 +29,22 @@ export default function AccountSectionNav() {
   const pathname = usePathname();
   const { user } = useAuth();
   const canSeeContractualHistory = user?.ownerDriverWorkspace === true || user?.workspaceRole === 'owner_driver';
-  const sections = ACCOUNT_SECTIONS.filter(
-    (section) => section.href !== LEGAL_AGREEMENTS_HREF || canSeeContractualHistory,
-  );
+  const ownerDriver = canSeeContractualHistory;
+  const sections = ACCOUNT_SECTIONS
+    .filter((section) => section.href !== LEGAL_AGREEMENTS_HREF || canSeeContractualHistory)
+    .filter((section) => !ownerDriver || section.href !== '/driver/event-log')
+    .map((section) => ownerDriver
+      ? {
+          ...section,
+          label: section.href === '/driver/vehicles'
+            ? 'My Vehicle'
+            : section.href === '/driver/documents'
+              ? 'POD & Documents'
+              : section.href === '/driver/finance'
+                ? 'Finance / Invoices'
+                : section.label,
+        }
+      : section);
 
   return (
     <nav className="driver-account-section-nav" aria-label="Account sections">
