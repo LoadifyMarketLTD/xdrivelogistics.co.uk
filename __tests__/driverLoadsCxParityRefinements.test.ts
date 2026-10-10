@@ -32,8 +32,8 @@ describe('Driver Loads CX parity refinements', () => {
     expect(source).toContain('<b>Payment Terms</b>');
   });
 
-  it('keeps the footer identity separated for scanability', () => {
-    expect(source).toContain('className="load-card-footer-identity"');
+  it('keeps the footer identity compact and scanable', () => {
+    expect(source).toContain('className="load-footer-identity"');
     expect(source).toContain("{load.member.memberId ?? 'Member ID unavailable'}");
   });
 });

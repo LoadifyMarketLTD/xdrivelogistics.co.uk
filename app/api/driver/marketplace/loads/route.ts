@@ -78,6 +78,29 @@ function exchangePostActive(job: JobRow, nowMs = Date.now()) {
   return Number.isFinite(expires) && expires > nowMs;
 }
 
+function publicTownLabel(cityValue: unknown, locationValue: unknown, postcodeValue: unknown) {
+  const explicitCity = marketplaceText(cityValue)?.trim();
+  if (explicitCity) return explicitCity;
+  const location = marketplaceText(locationValue)?.trim();
+  if (!location) return null;
+  const postcode = marketplaceText(postcodeValue)?.trim();
+  let withoutPostcode = location;
+  if (postcode) withoutPostcode = withoutPostcode.replace(new RegExp(postcode.replace(/[.*+?^${}()|[\\]\\]/g, '\\$&'), 'i'), '');
+  const parts = withoutPostcode.split(',').map((part) => part.trim()).filter(Boolean);
+  const candidate = parts.at(-1) ?? null;
+  if (!candidate) return null;
+  if (/\d/.test(candidate)) return null;
+  if (/\b(street|st|road|rd|avenue|ave|lane|ln|drive|dr|close|court|ct|way|industrial estate|business park)\b/i.test(candidate)) return null;
+  return candidate;
+}
+
+function publicTownArea(cityValue: unknown, locationValue: unknown, postcodeValue: unknown, countryValue: unknown, fallback: string) {
+  const town = publicTownLabel(cityValue, locationValue, postcodeValue);
+  const outcode = publicOutcode(postcodeValue);
+  if (town && outcode) return `${town.toUpperCase()}, ${outcode}`;
+  return publicAreaLabel(postcodeValue, countryValue, fallback);
+}
+
 function publicLoad(
   job: JobRow,
   companyById: Map<string, CompanyRow>,
@@ -96,14 +119,14 @@ function publicLoad(
     id: String(job.id),
     company_id: companyId,
     status: marketplaceText(job.status) ?? 'posted',
-    pickup_area: publicAreaLabel(job.pickup_postcode, job.pickup_country_code, 'Collection area TBC'),
+    pickup_area: publicTownArea(job.pickup_city, job.pickup_location, job.pickup_postcode, job.pickup_country_code, 'Collection area TBC'),
     pickup_postcode_area: publicOutcode(job.pickup_postcode),
     // Pre-award marketplace privacy: never expose the exact pickup postcode to quoting drivers.
     pickup_postcode_full: null,
     pickup_datetime: marketplaceText(job.pickup_datetime),
     pickup_time_slot: marketplaceText(job.pickup_time_slot),
     collection_window_end: marketplaceText(job.collection_window_end),
-    delivery_area: publicAreaLabel(job.delivery_postcode, job.delivery_country_code, 'Delivery area TBC'),
+    delivery_area: publicTownArea(job.delivery_city, job.delivery_location, job.delivery_postcode, job.delivery_country_code, 'Delivery area TBC'),
     delivery_postcode_area: publicOutcode(job.delivery_postcode),
     // Pre-award marketplace privacy: never expose the exact delivery postcode to quoting drivers.
     delivery_postcode_full: null,
