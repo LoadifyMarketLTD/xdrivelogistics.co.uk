@@ -1,7 +1,7 @@
 # CX Reference Cartography — XDrive Visual & Functional Baseline
 
-Date: 2026-10-10  
-Scope: all operational XDrive workspaces except Super Admin  
+Date: 2026-10-10
+Scope: all operational XDrive workspaces except Super Admin
 PR context: #675 — Owner Driver / Sole Trader reconstruction
 
 ## 1. Source inventory
