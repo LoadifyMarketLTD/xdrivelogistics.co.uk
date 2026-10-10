@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { supabase } from '../../../lib/supabaseClient';
+import { useVisibleRefresh } from './useVisibleRefresh';
 
 export type OperationsCapabilityState = 'available' | 'unavailable';
 
@@ -128,8 +129,10 @@ export function useOperationsIntelligence(companyId: string | null): OperationsI
   const [jobDetails, setJobDetails] = useState<OperationsJobDetail[]>([]);
   const [trackingEvents, setTrackingEvents] = useState<OperationsTrackingEvent[]>([]);
   const [capabilities, setCapabilities] = useState<Record<string, OperationsCapabilityState>>(initialCapabilities);
+  const refreshInFlightRef = useRef(false);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
+    if (refreshInFlightRef.current) return;
     if (!companyId) {
       setFuturePositions([]);
       setVehicleAdvertising([]);
@@ -142,11 +145,13 @@ export function useOperationsIntelligence(companyId: string | null): OperationsI
       return;
     }
 
-    setLoading(true);
+    refreshInFlightRef.current = true;
+    if (!background) setLoading(true);
     setError('');
     const { data } = await supabase.auth.getSession();
     const token = data.session?.access_token ?? null;
     if (!token) {
+      refreshInFlightRef.current = false;
       setLoading(false);
       setError('Your session has expired. Sign in again.');
       return;
@@ -175,6 +180,7 @@ export function useOperationsIntelligence(companyId: string | null): OperationsI
     } catch {
       setError('Operations intelligence could not be loaded. Check your connection and retry.');
     } finally {
+      refreshInFlightRef.current = false;
       setLoading(false);
     }
   }, [companyId]);
@@ -182,6 +188,10 @@ export function useOperationsIntelligence(companyId: string | null): OperationsI
   useEffect(() => {
     void refresh();
   }, [refresh]);
+  useVisibleRefresh(
+    () => refresh({ background: true }),
+    { enabled: Boolean(companyId), intervalMs: 30_000, minGapMs: 2_500 },
+  );
 
   const futureByDriver = useMemo(() => new Map(futurePositions.map((row) => [row.id, row])), [futurePositions]);
   const advertisingByVehicle = useMemo(() => new Map(vehicleAdvertising.map((row) => [row.id, row.advertisingState])), [vehicleAdvertising]);

@@ -137,11 +137,6 @@ export default function FreightVisionPage() {
     await Promise.all([refreshWorkspace(), refreshIntelligence()]);
   }, [refreshIntelligence, refreshWorkspace]);
 
-  useEffect(() => {
-    const interval = window.setInterval(() => { void refreshAll(); }, 60_000);
-    return () => window.clearInterval(interval);
-  }, [refreshAll]);
-
   const latestLocations = useMemo(() => {
     const map = new Map<string, WorkspaceLocation>();
     for (const location of data.locations) {
@@ -225,7 +220,7 @@ export default function FreightVisionPage() {
         title="Freight Vision"
         description="Active jobs, live driver positions, planned targets, tracking freshness and exception signals in one operational control desk. Behind ETA is a schedule-risk rule, not traffic-predicted ETA."
         actions={<ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
-        meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Operational data'} · Auto refresh 60s</span>}
+        meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Operational data'} · Visible-only background refresh</span>}
       />
 
       {data.error && <AlertBanner tone="warning">{data.error}</AlertBanner>}

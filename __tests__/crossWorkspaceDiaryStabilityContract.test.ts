@@ -14,7 +14,8 @@ describe('cross-workspace Diary stability contract', () => {
   it('prevents overlapping background refreshes and preserves loaded workspace data during polling', () => {
     expect(workspaceData).toContain('refreshInFlightRef.current');
     expect(workspaceData).toContain('if (!hasLoadedRef.current) setLoading(true)');
-    expect(workspaceData).toContain('window.setInterval(refreshIfVisible, 10000)');
+    expect(workspaceData).toContain('useVisibleRefresh(refresh');
+    expect(workspaceData).toContain('intervalMs: 10_000');
     expect(operationsDiary).toContain('loadInFlightRef.current');
     expect(operationsDiary).toContain('if (!hasLoadedRef.current) setLoading(true)');
   });

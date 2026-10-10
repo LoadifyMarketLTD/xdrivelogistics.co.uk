@@ -3,12 +3,13 @@
 import WorkspaceRestrictionBanner from '../../components/workspace/WorkspaceRestrictionBanner';
 import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { ActionButton } from '../../components/workspace/WorkspaceUI';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
+import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -191,6 +192,7 @@ export default function AvailableLoadsPage() {
   const [pageSize, setPageSize] = useState<PageSize>(25);
   const [visibleCount, setVisibleCount] = useState(25);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+  const refreshInFlightRef = useRef(false);
 
   const getAuthHeader = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -200,6 +202,8 @@ export default function AvailableLoadsPage() {
 
   const fetchLoads = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (!isSupabaseConfigured) { setLoads([]); setLoading(false); setRefreshing(false); return; }
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
     if (background) setRefreshing(true); else setLoading(true);
     setError('');
     try {
@@ -210,29 +214,20 @@ export default function AvailableLoadsPage() {
       if (!response.ok) throw new Error(payload.error || 'The live load board could not be loaded.');
       setLoads(payload.loads ?? []);
     } catch (reason) {
-      setLoads([]); setError(reason instanceof Error ? reason.message : 'The live load board could not be loaded. Please refresh and try again.');
-    } finally { setLoading(false); setRefreshing(false); }
+      if (!background) setLoads([]);
+      setError(reason instanceof Error ? reason.message : 'The live load board could not be loaded. Please refresh and try again.');
+    } finally {
+      refreshInFlightRef.current = false;
+      setLoading(false);
+      setRefreshing(false);
+    }
   }, [getAuthHeader]);
 
   useEffect(() => { void fetchLoads(); }, [fetchLoads]);
-  useEffect(() => {
-    let lastRefreshAt = 0;
-    const refreshIfVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      const now = Date.now();
-      if (now - lastRefreshAt < 2500) return;
-      lastRefreshAt = now;
-      void fetchLoads({ background: true });
-    };
-    const interval = window.setInterval(refreshIfVisible, 10000);
-    window.addEventListener('focus', refreshIfVisible);
-    document.addEventListener('visibilitychange', refreshIfVisible);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', refreshIfVisible);
-      document.removeEventListener('visibilitychange', refreshIfVisible);
-    };
-  }, [fetchLoads]);
+  useVisibleRefresh(
+    () => fetchLoads({ background: true }),
+    { intervalMs: 10_000, minGapMs: 2_500 },
+  );
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(LOAD_FILTER_STORAGE_KEY); if (!raw) return;

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
@@ -8,6 +8,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
+import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 
 type QuoteDirection = 'outgoing' | 'incoming';
 type TabId = 'received' | 'shortlisted' | 'submitted' | 'accepted' | 'unsuccessful' | 'withdrawn' | 'expired' | 'archived';
@@ -171,10 +172,13 @@ export default function MyQuotesPage() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [pageSize, setPageSize] = useState(25);
   const [visibleCount, setVisibleCount] = useState(25);
+  const refreshInFlightRef = useRef(false);
 
-  const fetchBids = useCallback(async () => {
+  const fetchBids = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (!isSupabaseConfigured || !userId) { setLoading(false); return; }
-    setLoading(true);
+    if (refreshInFlightRef.current) return;
+    refreshInFlightRef.current = true;
+    if (!background) setLoading(true);
     setError('');
 
     const bidSelect = 'id, job_id, company_id, bidder_user_id, bid_price_gbp, amount, currency, message, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, created_at';
@@ -187,7 +191,8 @@ export default function MyQuotesPage() {
 
     if (outgoingRes.error) {
       setError('Your submitted quotes could not be loaded. Please refresh and try again.');
-      setBids([]);
+      if (!background) setBids([]);
+      refreshInFlightRef.current = false;
       setLoading(false);
       return;
     }
@@ -263,28 +268,15 @@ export default function MyQuotesPage() {
     setOwnJobsById(Object.fromEntries(ownJobs.map((job) => [job.id, job])));
     setCompanyNames(nameMap);
     setBids(allRows);
+    refreshInFlightRef.current = false;
     setLoading(false);
   }, [companyId, driverId, userId]);
 
   useEffect(() => { void fetchBids(); }, [fetchBids]);
-  useEffect(() => {
-    let lastRefreshAt = 0;
-    const refreshIfVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      const now = Date.now();
-      if (now - lastRefreshAt < 2500) return;
-      lastRefreshAt = now;
-      void fetchBids();
-    };
-    const interval = window.setInterval(refreshIfVisible, 10000);
-    window.addEventListener('focus', refreshIfVisible);
-    document.addEventListener('visibilitychange', refreshIfVisible);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', refreshIfVisible);
-      document.removeEventListener('visibilitychange', refreshIfVisible);
-    };
-  }, [fetchBids]);
+  useVisibleRefresh(
+    () => fetchBids({ background: true }),
+    { intervalMs: 10_000, minGapMs: 2_500 },
+  );
 
   const viewForBid = useCallback((bid: BidRow): QuoteView => {
     if (bid.direction === 'incoming') {

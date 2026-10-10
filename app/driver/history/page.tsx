@@ -16,6 +16,7 @@ import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheet
 import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
+import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 
 type CompanyRelation = { name: string } | Array<{ name: string }> | null;
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
@@ -540,24 +541,7 @@ export default function JobHistoryPage() {
   }, [fetchHistory]);
 
   useEffect(() => { void fetchHistory(); }, [fetchHistory]);
-  useEffect(() => {
-    let lastRefreshAt = 0;
-    const refreshIfVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      const now = Date.now();
-      if (now - lastRefreshAt < 2500) return;
-      lastRefreshAt = now;
-      void fetchHistory();
-    };
-    const interval = window.setInterval(refreshIfVisible, 10000);
-    window.addEventListener('focus', refreshIfVisible);
-    document.addEventListener('visibilitychange', refreshIfVisible);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', refreshIfVisible);
-      document.removeEventListener('visibilitychange', refreshIfVisible);
-    };
-  }, [fetchHistory]);
+  useVisibleRefresh(fetchHistory, { intervalMs: 10_000, minGapMs: 2_500 });
 
   const searchedJobs = useMemo(() => jobs.filter((job) => {
     const refDate = job.pickup_datetime ?? job.collection_window_start ?? job.updated_at ?? job.created_at;

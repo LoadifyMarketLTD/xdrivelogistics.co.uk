@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
@@ -8,6 +8,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { StatusBadge } from '../../components/workspace/WorkspaceUI';
 import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import DriverFreightVisionMap, { type DriverFreightVisionPoint } from '../_components/DriverFreightVisionMap';
+import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 
 type JobRow = {
   id: string;
@@ -56,8 +57,10 @@ export default function DriverFreightVisionPage() {
   const [scope, setScope] = useState<'all' | 'tracked'>('all');
   const [search, setSearch] = useState('');
   const [riskFilter, setRiskFilter] = useState<'all' | 'on_time' | 'at_risk' | 'late' | 'untracked'>('all');
+  const refreshInFlightRef = useRef(false);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
+    if (refreshInFlightRef.current) return;
     if (!driverId) {
       setJobs([]);
       setTrackingByJob({});
@@ -65,7 +68,8 @@ export default function DriverFreightVisionPage() {
       return;
     }
 
-    setLoading(true);
+    refreshInFlightRef.current = true;
+    if (!background) setLoading(true);
     setError('');
 
     const { data, error: queryError } = await supabase
@@ -76,9 +80,12 @@ export default function DriverFreightVisionPage() {
       .limit(100);
 
     if (queryError) {
-      setJobs([]);
-      setTrackingByJob({});
-      setError('Freight Vision could not load the current Driver job register.');
+      if (!background) {
+        setJobs([]);
+        setTrackingByJob({});
+      }
+      setError('Freight Vision could not refresh the current Driver job register.');
+      refreshInFlightRef.current = false;
       setLoading(false);
       return;
     }
@@ -90,7 +97,8 @@ export default function DriverFreightVisionPage() {
     const { data: sessionData } = await supabase.auth.getSession();
     const token = sessionData.session?.access_token ?? null;
     if (!token || live.length === 0) {
-      setTrackingByJob({});
+      if (!background || live.length === 0) setTrackingByJob({});
+      refreshInFlightRef.current = false;
       setLoading(false);
       return;
     }
@@ -108,19 +116,24 @@ export default function DriverFreightVisionPage() {
       }
     }));
 
-    setTrackingByJob(Object.fromEntries(
-      snapshots
-        .filter((snapshot): snapshot is TrackingSnapshot => Boolean(snapshot?.job_id))
-        .map((snapshot) => [snapshot.job_id, snapshot]),
-    ));
+    setTrackingByJob((current) => {
+      const next: Record<string, TrackingSnapshot> = {};
+      live.forEach((job, index) => {
+        const snapshot = snapshots[index];
+        if (snapshot?.job_id) next[job.id] = snapshot;
+        else if (background && current[job.id]) next[job.id] = current[job.id];
+      });
+      return next;
+    });
+    refreshInFlightRef.current = false;
     setLoading(false);
   }, [driverId]);
 
   useEffect(() => { void load(); }, [load]);
-  useEffect(() => {
-    const timer = window.setInterval(() => { void load(); }, 60_000);
-    return () => window.clearInterval(timer);
-  }, [load]);
+  useVisibleRefresh(
+    () => load({ background: true }),
+    { enabled: Boolean(driverId), intervalMs: 30_000, minGapMs: 2_500 },
+  );
 
   const liveJobs = useMemo(() => jobs.filter(activeJob), [jobs]);
 

@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../lib/supabaseClient';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel, workspaceJobPresentationStatus } from '../../lib/jobs/workspaceJobStage';
 import { CompanyJobSheetPanel } from '../components/workspace/CompanyJobSheetPanel';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../components/workspace/useCompanyWorkspaceData';
+import { useVisibleRefresh } from '../components/workspace/useVisibleRefresh';
 import {
   ActionButton,
   AlertBanner,
@@ -209,6 +210,7 @@ export function CustomerDeliveriesOperationalPage() {
   const [reference, setReference] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
   const [trackingSnapshots, setTrackingSnapshots] = useState<Record<string, CustomerTrackingSnapshot>>({});
+  const trackingRefreshInFlightRef = useRef(false);
 
   const trackingJobs = useMemo(() => data.jobs.filter((job) => ['awarded', 'allocated', 'in_progress', 'completed'].includes(classifyWorkspaceJobStage(job))), [data.jobs]);
   const isDelayed = (job: WorkspaceJob) => classifyWorkspaceJobStage(job) === 'in_progress' && Boolean(job.delivery_datetime) && new Date(job.delivery_datetime as string).getTime() < Date.now();
@@ -226,13 +228,14 @@ export function CustomerDeliveriesOperationalPage() {
   }, [reference, tab, trackingJobs]);
   const count = (target: typeof tab) => trackingJobs.filter((job) => target === 'all' || target === 'upcoming' ? (target === 'all' || ['awarded', 'allocated'].includes(classifyWorkspaceJobStage(job))) : target === 'live' ? classifyWorkspaceJobStage(job) === 'in_progress' : target === 'delayed' ? isDelayed(job) : target === 'delivered' ? classifyWorkspaceJobStage(job) === 'completed' : (job.delivery_photos?.length ?? 0) > 0).length;
 
-  useEffect(() => {
-    let cancelled = false;
-    const loadTracking = async () => {
+  const loadTracking = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
+    if (trackingRefreshInFlightRef.current) return;
+    trackingRefreshInFlightRef.current = true;
+    try {
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
       if (!token) {
-        if (!cancelled) setTrackingSnapshots({});
+        if (!background) setTrackingSnapshots({});
         return;
       }
       const entries = await Promise.all(trackingJobs.map(async (job) => {
@@ -241,19 +244,32 @@ export function CustomerDeliveriesOperationalPage() {
             headers: { Authorization: `Bearer ${token}` },
             cache: 'no-store',
           });
-          if (!response.ok) return [job.id, {} as CustomerTrackingSnapshot] as const;
+          if (!response.ok) return [job.id, null] as const;
           const payload = await response.json().catch(() => ({})) as CustomerTrackingSnapshot;
           return [job.id, payload] as const;
         } catch {
-          return [job.id, {} as CustomerTrackingSnapshot] as const;
+          return [job.id, null] as const;
         }
       }));
-      if (!cancelled) setTrackingSnapshots(Object.fromEntries(entries));
-    };
-    void loadTracking();
-    const timer = window.setInterval(() => void loadTracking(), 60_000);
-    return () => { cancelled = true; window.clearInterval(timer); };
+      setTrackingSnapshots((current) => {
+        const next: Record<string, CustomerTrackingSnapshot> = {};
+        for (const [jobId, snapshot] of entries) {
+          if (snapshot) next[jobId] = snapshot;
+          else if (background && current[jobId]) next[jobId] = current[jobId];
+          else next[jobId] = {};
+        }
+        return next;
+      });
+    } finally {
+      trackingRefreshInFlightRef.current = false;
+    }
   }, [trackingJobs]);
+
+  useEffect(() => { void loadTracking(); }, [loadTracking]);
+  useVisibleRefresh(
+    () => loadTracking({ background: true }),
+    { intervalMs: 30_000, minGapMs: 2_500 },
+  );
 
   useEffect(() => { setExpanded(null); }, [tab, reference]);
 

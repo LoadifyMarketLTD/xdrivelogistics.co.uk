@@ -30,9 +30,10 @@ describe('CX-close Freight Vision operational signals', () => {
   });
 
   it('keeps Freight Vision live with contextual contact parity', () => {
-    expect(source).toContain('window.setInterval');
-    expect(source).toContain('60_000');
-    expect(source).toContain('Auto refresh 60s');
+    expect(source).toContain('useCompanyWorkspaceData');
+    expect(source).toContain('useOperationsIntelligence');
+    expect(source).toContain('Visible-only background refresh');
+    expect(source).not.toContain('window.setInterval');
     expect(source).toContain('/admin/messages?jobId=');
     expect(source).toContain('Message');
     expect(source).toContain('availability_status');

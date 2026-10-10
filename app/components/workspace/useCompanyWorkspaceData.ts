@@ -11,6 +11,7 @@ import {
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { isMissingColumnError } from '../../../lib/supabaseSchemaCompat';
 import { isCompanyExecutionJob } from '../../../lib/jobs/workspaceJobStage';
+import { useVisibleRefresh } from './useVisibleRefresh';
 
 export type WorkspaceJob = {
   id: string;
@@ -1027,25 +1028,11 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  useEffect(() => {
-    if (plan.blocker) return;
-    let lastRefreshAt = 0;
-    const refreshIfVisible = () => {
-      if (document.visibilityState !== 'visible') return;
-      const now = Date.now();
-      if (now - lastRefreshAt < 2500) return;
-      lastRefreshAt = now;
-      void refresh();
-    };
-    const interval = window.setInterval(refreshIfVisible, 10000);
-    window.addEventListener('focus', refreshIfVisible);
-    document.addEventListener('visibilitychange', refreshIfVisible);
-    return () => {
-      window.clearInterval(interval);
-      window.removeEventListener('focus', refreshIfVisible);
-      document.removeEventListener('visibilitychange', refreshIfVisible);
-    };
-  }, [plan.blocker, refresh]);
+  useVisibleRefresh(refresh, {
+    enabled: !plan.blocker,
+    intervalMs: 10_000,
+    minGapMs: 2_500,
+  });
 
   return {
     companyId,
