@@ -472,7 +472,7 @@ export default function MyQuotesPage() {
             {error && <div className="vision-note">{error}</div>}
             <div className="quote-head quote-head-cx">
               <div className="quote-toolbar-spacer" />
-              <div className="quote-toolbar-controls">
+              <div className="quote-toolbar-controls" style={{ marginLeft: 'auto', justifyContent: 'flex-end' }}>
                 <button type="button" className="text-action" onClick={toggleExpandAll}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select className="fleet-page-size" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={25}>25</option><option value={50}>50</option></select></label>
                 <span className="quote-count">{tabBids.length ? `1-${Math.min(visibleCount, tabBids.length)} of ${tabBids.length}` : '0 records'}</span>
