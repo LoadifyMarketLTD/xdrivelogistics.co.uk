@@ -1,8 +1,8 @@
-import fs from 'node:fs';
-import path from 'node:path';
+import { describe, expect, it } from 'vitest';
+import { composeDriverPrimaryNav } from '../app/components/workspace/TopWorkspaceShell';
+import { getVisibleWorkspaceNav } from '../lib/workspaceRole';
 import { isCapabilityAllowedForPath } from '../lib/roleCapabilities';
 
-const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
 const context = {
   workspaceRole: 'owner_driver' as const,
   driverId: 'owner-driver-1',
@@ -13,30 +13,20 @@ const context = {
   companyStatus: 'active',
 };
 
-describe('Owner Driver integrated navigation after Preview 656', () => {
-  const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
-
-  it('keeps secondary work, availability and business destinations directly reachable', () => {
-    const block = shell.slice(shell.indexOf('const ownerNav = composeRolePrimaryNav(groups, ['), shell.indexOf('export function composeDispatcherPrimaryNav'));
-    for (const marker of [
-      'Availability & Schedule',
-      '/driver/won-work',
-      'Load Matching & Alerts',
-      '/driver/nearby',
-      '/driver/documents',
-      'Finance & Invoices',
-      '/driver/messages',
-    ]) expect(block).toContain(marker);
-    expect(block).toContain("return ownerNav.filter((group) => group.id !== 'owner-driver-more')");
+describe('Owner Driver sole-trader navigation', () => {
+  it('keeps the approved primary modules and More tools', () => {
+    const nav = composeDriverPrimaryNav(getVisibleWorkspaceNav('owner_driver'), true);
+    expect(nav.map((group) => group.label)).toEqual([
+      'Dashboard','Loads','Quotes','My Jobs','Diary','Availability','Return Journeys','Directory','Finance','More',
+    ]);
   });
 
-  it('keeps every integrated Owner Driver route authorised', () => {
-    for (const href of ['/driver/jobs','/driver/availability','/driver/won-work','/driver/load-alerts','/driver/nearby','/driver/documents','/driver/finance','/driver/messages']) {
+  it('authorises sole-trader tools and denies fleet controls', () => {
+    for (const href of ['/driver/jobs','/driver/availability','/driver/load-alerts','/driver/nearby','/driver/documents','/driver/finance','/driver/messages','/driver/vehicles']) {
       expect(isCapabilityAllowedForPath(href, 'driver', context), href).toBe(true);
     }
-  });
-
-  it('retires the duplicated legacy /driver/more card page', () => {
-    expect(read('app/driver/more/page.tsx')).toContain("redirect('/driver')");
+    for (const href of ['/driver/availability/live','/driver/drivers','/driver/drivers-vehicles']) {
+      expect(isCapabilityAllowedForPath(href, 'driver', context), href).toBe(false);
+    }
   });
 });
