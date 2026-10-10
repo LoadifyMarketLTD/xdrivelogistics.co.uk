@@ -60,6 +60,6 @@ describe('Customer clean workspace contract', () => {
   });
 
   it('does not render the customer company name beside the workspace label', () => {
-    expect(shell).toContain("role !== 'customer' ? <strong>{companyName}</strong> : null");
+    expect(shell).toContain("role !== 'customer' && !CARRIER_NAV_ROLES.has(role) ? <strong>{companyName}</strong> : null");
   });
 });

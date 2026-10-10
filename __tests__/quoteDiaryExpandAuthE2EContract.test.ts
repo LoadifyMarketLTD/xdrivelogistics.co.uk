@@ -38,9 +38,9 @@ describe('workspace session stability and cross-surface sync',()=>{
   });
   it('keeps loads, quotes and diary on the same canonical job_bids dataset and refreshes visible workspaces',()=>{
     expect(dataHook).toContain(".from('job_bids')");
-    expect(dataHook).toContain('window.setInterval(refreshIfVisible, 10000)');
-    expect(dataHook).toContain("window.addEventListener('focus', refreshIfVisible)");
-    expect(dataHook).toContain("document.addEventListener('visibilitychange', refreshIfVisible)");
+    expect(dataHook).toContain('useVisibleRefresh(refresh, {');
+    expect(dataHook).toContain('intervalMs: 10_000');
+    expect(dataHook).toContain('minGapMs: 2_500');
     expect(loads).toContain('useCompanyWorkspaceData()');
     expect(quotes).toContain('useCompanyWorkspaceData()');
     expect(diary).toContain('useCompanyWorkspaceData()');

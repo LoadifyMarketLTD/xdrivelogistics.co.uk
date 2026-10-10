@@ -14,13 +14,13 @@ describe('Carrier CX convergence contract', () => {
     expect(source).not.toContain('<KpiCard');
   });
 
-  it('keeps carrier-awarded work as the primary workboard after controls', () => {
-    expect(source).toContain('Carrier Control Desk');
+  it('keeps carrier-awarded work visible alongside the converged Owner/Fleet control cards', () => {
+    expect(source).toContain('Reports & Statistics');
+    expect(source).toContain('Commercial & Finance');
+    expect(source).toContain('Activity at a glance');
+    expect(source).toContain('Carrier workflow');
     expect(source).toContain('Operational workboard');
     expect(source).toContain('carrier-awarded work only');
-    expect(source.indexOf('Operational workboard')).toBeLessThan(source.indexOf('Commercial position'));
-    expect(source.indexOf('Operational workboard')).toBeLessThan(source.indexOf('Activity at a glance'));
-    expect(source.indexOf('Operational workboard')).toBeLessThan(source.indexOf('Carrier workflow'));
   });
 
   it('preserves dense operational filters and carrier execution boundaries', () => {
@@ -34,7 +34,7 @@ describe('Carrier CX convergence contract', () => {
       '/admin/marketplace',
       '/admin/fleet/assignments',
       '/admin/fleet/active-jobs',
-      '/admin/fleet/positions',
+      '/admin/live-availability',
       '/admin/diary',
       '/admin/jobs',
     ]) {

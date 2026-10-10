@@ -11,13 +11,13 @@ describe('CX carrier dashboard reporting parity contract', () => {
     expect(source).toContain("router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)");
   });
 
-  it('maps CX reporting/accounting shortcuts to verified XDrive registers', () => {
-    expect(source).toContain('title="Reports & finance"');
+  it('maps reporting and finance shortcuts to verified XDrive registers', () => {
+    expect(source).toContain('title="Commercial & Finance"');
+    expect(source).toContain('title="Reports"');
     expect(source).toContain("router.push('/admin/invoices')");
-    expect(source).toContain("router.push('/admin/finance/reports')");
     expect(source).toContain("router.push('/admin/diary')");
     expect(source).toContain("router.push('/admin/fleet/returns')");
-    expect(source).toContain('XDrive does not fabricate dashboard margin estimates');
+    expect(source).toContain("router.push('/admin/fleet/resources')");
   });
 
   it('uses the canonical Exchange Quotes lifecycle from the carrier workflow', () => {

@@ -293,7 +293,15 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
     ['owner-driver-returns-primary', 'Return Journeys', '/driver/returns'],
     ['owner-driver-loads-primary', 'Loads', '/driver/loads'],
     ['owner-driver-quotes-primary', 'Quotes', '/driver/quotes'],
+    ['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs'],
     ['owner-driver-diary-primary', 'Diary', '/driver/history'],
+    ['owner-driver-availability-primary', 'Availability & Schedule', '/driver/availability'],
+    ['owner-driver-won-work-primary', 'Won Work', '/driver/won-work'],
+    ['owner-driver-alerts-primary', 'Load Matching & Alerts', '/driver/load-alerts'],
+    ['owner-driver-nearby-primary', "Who's Nearby", '/driver/nearby'],
+    ['owner-driver-documents-primary', 'Documents', '/driver/documents'],
+    ['owner-driver-finance-primary', 'Finance & Invoices', '/driver/finance'],
+    ['owner-driver-messages-primary', 'Messages', '/driver/messages'],
     ['owner-driver-event-log-primary', 'Event Log', '/driver/event-log'],
     ['owner-driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision'],
     ['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles'],
@@ -926,7 +934,7 @@ export default function TopWorkspaceShell({
           </button>
           <div className="top-workspace-shell__identity">
             <span>{definition.label}</span>
-            <strong>{companyName}</strong>
+            {role !== 'customer' && !CARRIER_NAV_ROLES.has(role) ? <strong>{companyName}</strong> : null}
           </div>
         </div>
 

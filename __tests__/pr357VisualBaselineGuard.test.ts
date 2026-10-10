@@ -65,7 +65,7 @@ describe('PR #357 approved visual baseline', () => {
   });
 
   it('keeps the Customer transport-control dashboard structure', () => {
-    expect(customerDashboard).toContain('title="Transport overview"');
+    expect(customerDashboard).toContain('title="Reports & Statistics"');
     expect(customerDashboard).toContain('customer-owner-stat-grid');
     expect(customerDashboard).toContain('Needs your attention');
     expect(customerDashboard).toContain('Activity at a glance');
@@ -73,14 +73,14 @@ describe('PR #357 approved visual baseline', () => {
   });
 
   it('keeps Carrier/Admin and Broker operational control surfaces', () => {
-    expect(carrierDashboard).toContain('Carrier Control Desk');
+    expect(carrierDashboard).toContain('Reports & Statistics');
     expect(carrierDashboard).toContain('Operational workboard');
-    expect(carrierDashboard).toContain('carrierControlSignals');
+    expect(carrierDashboard).toContain('CarrierControlSignals');
 
-    expect(brokerDashboard).toContain('title="Transport control"');
+    expect(brokerDashboard).toContain('Reports & Statistics');
     expect(brokerDashboard).toContain('broker-clean-kpis');
     expect(brokerDashboard).toContain('Needs your attention');
     expect(brokerDashboard).toContain('Current transport');
-    expect(brokerDashboard).toContain('Commercial position');
+    expect(brokerDashboard).toContain('Commercial & Finance');
   });
 });

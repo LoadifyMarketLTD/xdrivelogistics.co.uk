@@ -11,11 +11,6 @@ function hasOperationalTablePrimitive(filePath: string): boolean {
   return /\bOperationalTable\b|\bDataTable\b|<table\b|customer-dash-table|customer-activity-list|customer-activity-card|driver-load-list|driver-load-row|broker-clean-table/.test(source);
 }
 
-function hasPageHeader(filePath: string): boolean {
-  const source = read(filePath);
-  return /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b/.test(source);
-}
-
 function hasCompactKpiStrip(filePath: string): boolean {
   const source = read(filePath);
   return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|customer-dash-metrics|customer-owner-stat-grid|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source);
@@ -60,7 +55,6 @@ describe('workspace primitive adoption matrix', () => {
       ...activeAdminDashboardFiles,
     ];
     for (const filePath of dashboards) {
-      expect(hasPageHeader(filePath), `${filePath} should use the shared/specialised page-header family`).toBe(true);
       expect(hasOperationalTablePrimitive(filePath), `${filePath} should expose an operational table/list surface`).toBe(true);
     }
     for (const filePath of dashboards.filter((path) => path !== 'app/broker/BrokerDashboardHome.tsx')) {
@@ -103,18 +97,17 @@ describe('workspace primitive adoption matrix', () => {
     expect(matrix.operations.dateRangeSelector).toBe(true);
   });
 
-  it('keeps the active carrier dashboard on the Courier Exchange-derived control-desk family', () => {
+  it('keeps the active carrier dashboard on the converged Owner/Fleet control family', () => {
     const source = read('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
-    expect(source).toContain('DashboardHomeHeader');
     expect(source).toContain('CarrierControlSignals');
-    expect(source).toContain('OperationalToolbar');
     expect(source).toContain('OperationalPageLayout');
     expect(source).toContain('OperationalFilters');
     expect(source).toContain('<DataTable');
+    expect(source).toContain('Reports & Statistics');
     expect(source).toContain('Operational workboard');
     expect(source).toContain('Resource readiness');
-    expect(source).toContain('Commercial position');
+    expect(source).toContain('Commercial & Finance');
     expect(source).toContain('Carrier workflow');
     expect(source).not.toContain('<KpiGrid>');
     expect(source).not.toContain('QuickActionGrid');

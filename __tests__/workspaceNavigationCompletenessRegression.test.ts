@@ -53,8 +53,18 @@ describe('all operational workspace navigation remains visually reachable', () =
     assertCanonicalPreserved('dispatcher', composeDispatcherPrimaryNav(getVisibleWorkspaceNav('dispatcher')));
   });
 
-  it('preserves every canonical Owner Driver route', () => {
-    assertCanonicalPreserved('owner_driver', composeDriverPrimaryNav(getVisibleWorkspaceNav('owner_driver'), true));
+  it('keeps every Owner Driver capability visually reachable after integrating More into primary modules', () => {
+    const presented = composeDriverPrimaryNav(getVisibleWorkspaceNav('owner_driver'), true);
+    const visible = new Set(hrefs(presented));
+    for (const href of ['/driver/jobs','/driver/won-work','/driver/availability','/driver/load-alerts','/driver/nearby','/driver/finance','/driver/documents','/driver/messages']) {
+      expect(visible.has(href), `owner_driver lost integrated route ${href}`).toBe(true);
+    }
+    for (const parent of ['/driver/settings','/driver/drivers-vehicles']) {
+      expect(visible.has(parent), `owner_driver lost integrated parent ${parent}`).toBe(true);
+    }
+    const shell = readFileSync(join(process.cwd(), 'app/components/workspace/TopWorkspaceShell.tsx'), 'utf8');
+    expect(shell).toContain('onClick={() => router.push(notificationsHref)}');
+    expect(shell).toContain("return ownerNav.filter((group) => group.id !== 'owner-driver-more')");
   });
 
   it('preserves every canonical Driver route', () => {

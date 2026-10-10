@@ -6,7 +6,7 @@ describe('Broker dashboard convergence contract', () => {
   const shell = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/TopWorkspaceShell.tsx'), 'utf8');
 
   it('is action-first and avoids dense duplicate dashboard modules', () => {
-    for (const marker of ['Needs your attention','Current transport','Commercial position']) {
+    for (const marker of ['Needs your attention','Current transport','Commercial & Finance']) {
       expect(source).toContain(marker);
     }
     expect(source).not.toContain('<OperationalToolbar>');

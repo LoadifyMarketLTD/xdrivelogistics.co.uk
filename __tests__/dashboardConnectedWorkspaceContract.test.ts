@@ -31,12 +31,12 @@ describe('connected workspace dashboard completion', () => {
     expect(broker).toContain("router.push('/broker/event-log')");
   });
 
-  it('connects carrier directory, live availability, Freight Vision, messages and event log', () => {
+  it('keeps carrier directory, availability, Freight Vision, messages and event log reachable from canonical navigation while the dashboard stays action-focused', () => {
     const routes = ['/admin/marketplace/directory', '/admin/live-availability', '/admin/freight-vision', '/admin/messages', '/admin/event-log'];
-    for (const route of routes) {
-      expect(roles).toContain("href: '" + route + "'");
-      expect(carrier).toContain("router.push('" + route + "')");
-    }
+    for (const route of routes) expect(roles).toContain("href: '" + route + "'");
+    expect(carrier).toContain("router.push('/admin/live-availability')");
+    expect(carrier).toContain("router.push('/admin/marketplace')");
+    expect(carrier).toContain("router.push('/admin/fleet/active-jobs')");
   });
 
   it('connects fleet finance, Freight Vision, messages and event log', () => {

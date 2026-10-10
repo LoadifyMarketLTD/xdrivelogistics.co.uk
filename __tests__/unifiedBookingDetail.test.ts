@@ -10,9 +10,9 @@ const customerDiary = readFileSync(join(process.cwd(),'app/customer/diary/page.t
 const brokerDiary = readFileSync(join(process.cwd(),'app/broker/diary/page.tsx'),'utf8');
 
 describe('unified booking detail', () => {
-  const tabs = ['agreement','route','progress','evidence','pod','invoice','payment','dispute','event-log'] as const;
+  const tabs = ['agreement','route','progress','exception','evidence','pod','invoice','payment','dispute','event-log'] as const;
 
-  it('exposes the nine canonical booking detail tabs', () => {
+  it('exposes the canonical booking detail tabs including operational exceptions', () => {
     for (const tab of tabs) expect(panel).toContain(`{ id: '${tab}'`);
     expect(panel).toContain("label: 'Agreement'");
     expect(panel).toContain("label: 'Event Log'");
@@ -68,7 +68,7 @@ describe('unified booking detail', () => {
   });
 
   it('updates Operations Diary quick tabs to the canonical booking detail sections', () => {
-    expect(diary).toContain("['agreement','route','progress','evidence','pod','invoice','payment','dispute','event-log']");
+    expect(diary).toContain("['agreement','route','progress','exception','evidence','pod','invoice','payment','dispute','event-log']");
     expect(diary).toContain("initialTab={detailTabByJob[selectedJobId] ?? 'agreement'}");
     expect(diary).not.toContain("['order','notes','history','documents','pod','invoice','replay']");
   });

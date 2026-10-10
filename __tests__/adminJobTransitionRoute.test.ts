@@ -79,7 +79,7 @@ describe('POST /api/admin/jobs/[id]/transition', () => {
       delivery_signature_data: { ok: true },
       client_signature_name: 'Recipient',
     };
-    mocks.membershipResult = { role_in_company: 'owner' };
+    mocks.membershipResult = { id: 'membership-1', company_id: 'carrier-1', role_in_company: 'owner', companies: { status: 'active' } };
     mocks.updatedJobResult = {
       id: 'job-1',
       status: 'delivered',
@@ -91,19 +91,12 @@ describe('POST /api/admin/jobs/[id]/transition', () => {
     mocks.from.mockImplementation((table: string) => {
       if (table === 'jobs') return makeJobsTable();
       if (table === 'company_memberships') {
-        return {
-          select: () => ({
-            eq: () => ({
-              eq: () => ({
-                eq: () => ({
-                  in: () => ({
-                    maybeSingle: async () => ({ data: mocks.membershipResult, error: null }),
-                  }),
-                }),
-              }),
-            }),
-          }),
+        const query = {
+          eq: vi.fn(() => query),
+          limit: vi.fn(() => query),
+          maybeSingle: vi.fn(async () => ({ data: mocks.membershipResult, error: null })),
         };
+        return { select: () => query };
       }
       if (table === 'job_tracking_events') {
         return {

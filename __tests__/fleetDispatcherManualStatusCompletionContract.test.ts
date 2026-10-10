@@ -10,8 +10,8 @@ describe('Fleet / Dispatcher manual operational status completion',()=>{
   const panel=read('app/components/workspace/CompanyJobSheetPanel.tsx');
 
   it('keeps operator status authority restricted to the executing company and Fleet operator roles',()=>{
-    expect(transition).toContain(".in('role_in_company', ['owner', 'admin', 'fleet_manager', 'dispatcher'])");
-    expect(transition).toContain('const operatingCompanyId = job.awarded_carrier_company_id ?? job.company_id');
+    expect(transition).toContain("requireCompanyCapability(request, operatingCompanyId, 'jobs.dispatch')");
+    expect(transition).toContain("const operatingCompanyId = String(job.awarded_carrier_company_id ?? job.company_id ?? '')");
     expect(sheetApi).toContain('viewerRole');
     expect(panel).toContain("OPERATOR_STATUS_ROLES = new Set(['owner', 'admin', 'fleet_manager', 'dispatcher'])");
     expect(panel).toContain('sheet.viewerCompanyId === operatingCompanyId');
@@ -47,6 +47,6 @@ describe('Fleet / Dispatcher manual operational status completion',()=>{
     expect(transition).toContain("source: 'operator_api'");
     expect(transition).toContain('previous_status: currentStatus');
     expect(transition).toContain('next_status: parsed.data.nextStatus');
-    expect(transition).toContain('role: membership.role_in_company');
+    expect(transition).toContain('role: operator.roleInCompany');
   });
 });

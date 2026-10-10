@@ -5,9 +5,10 @@ const shell = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace
 const fleet = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/FleetControlDashboardHome.tsx'), 'utf8');
 
 describe('carrier navbar and Fleet header space cleanup', () => {
-  it('hides the redundant company/role identity block for carrier roles only', () => {
-    expect(shell).toContain("!CARRIER_NAV_ROLES.has(role) && (");
+  it('keeps one compact workspace identity and suppresses redundant carrier company text', () => {
     expect(shell).toContain('top-workspace-shell__identity');
+    expect(shell).toContain('<span>{definition.label}</span>');
+    expect(shell).toContain("role !== 'customer' && !CARRIER_NAV_ROLES.has(role) ? <strong>{companyName}</strong> : null");
   });
 
   it('keeps only operational Fleet page actions that are not duplicated in the main navigation', () => {

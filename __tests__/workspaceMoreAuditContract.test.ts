@@ -81,9 +81,9 @@ describe('workspace More audit contract', () => {
     for (const duplicate of ['/driver/notifications', '/driver/change-password', '/driver/profile', '/driver/settings?section=company', '/driver/settings?section=overview', '/settings/billing']) {
       expect(owner).not.toContain(`'${duplicate}'`);
     }
-    expect(owner).toContain("label: 'Availability & Schedule'");
-    expect(owner).toContain("label: 'Load Matching & Alerts'");
-    expect(owner).toContain("label: 'Finance & Invoices'");
+    expect(owner).toContain("['owner-driver-availability-primary', 'Availability & Schedule', '/driver/availability']");
+    expect(owner).toContain("['owner-driver-alerts-primary', 'Load Matching & Alerts', '/driver/load-alerts']");
+    expect(owner).toContain("['owner-driver-finance-primary', 'Finance & Invoices', '/driver/finance']");
     expect(shell).toContain("'/driver/jobs': 'Work'");
     expect(shell).toContain("'/driver/availability': 'Matching & Availability'");
     expect(shell).toContain("'/driver/finance': 'Business'");

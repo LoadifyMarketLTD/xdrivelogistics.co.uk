@@ -16,9 +16,10 @@ describe('company Departments model', () => {
     expect(migration).toContain("RAISE EXCEPTION 'Department is outside this company workspace.'");
   });
 
-  it('limits department management to company owner/admin', () => {
-    expect(api).toContain("adminRoles = new Set(['owner', 'admin'])");
-    expect(api).toContain('Company owner or admin access is required to manage departments.');
+  it('limits department management through the canonical company-members capability', () => {
+    expect(api).toContain("requireCompanyCapability(request, companyId, 'company.members.manage')");
+    expect(api).toContain("requireCompanyCapability(request, parsed.data.companyId, 'company.members.manage')");
+    expect(api).toContain('isCompanyCapabilityContext');
     expect(migration).toContain('public.is_company_admin(company_id)');
   });
 
