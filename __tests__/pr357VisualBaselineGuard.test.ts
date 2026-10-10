@@ -48,9 +48,11 @@ describe('PR #357 approved visual baseline', () => {
       'Current assignment',
       'Next booking',
       'Driver readiness',
-      'Reports & Statistics',
-      'Accounts Payable',
-      'Activity at a glance',
+      'Current / Next Work',
+      'Work & Marketplace',
+      'Availability & Positioning',
+      'My Business',
+      'Recent Bookings',
     ]) expect(driverDashboard).toContain(marker);
 
     for (const stale of [
