@@ -6,7 +6,6 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
-import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import { formatPaymentTermsLabel } from '../../../lib/paymentTermsDisplay';
@@ -458,41 +457,42 @@ export default function MyQuotesPage() {
       <section className="page driver-quotes-prototype">
         <div className="subbar">
           <span className="crumb">Workspace &nbsp;/&nbsp; <b>Quotes</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" onClick={clearFilters}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => setAppliedFilters(filters)}>Search</button>
-          </div>
         </div>
-        <DriverIntegratedNav label="Quote tools" items={[{ href: '/driver/quotes', label: 'Quotes' }, { href: '/driver/jobs', label: 'My Jobs' }]} />
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Quotes</div>
             <div className="filter"><span className="label">Pickup Time Within</span><select className="select" value={filters.pickupWithin} onChange={(event) => setFilters((current) => ({ ...current, pickupWithin: event.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
             <div className="filter"><span className="label">Delivery Time Within</span><select className="select" value={filters.deliveryWithin} onChange={(event) => setFilters((current) => ({ ...current, deliveryWithin: event.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
             <div className="filter"><span className="label">Load ID / Ref</span><input className="input" value={filters.loadRef} onChange={(event) => setFilters((current) => ({ ...current, loadRef: event.target.value }))} placeholder="Load ID / reference" /></div>
-            <div className="filter"><span className="label">Member / Company</span><input className="input" value={filters.bookedBy} onChange={(event) => setFilters((current) => ({ ...current, bookedBy: event.target.value }))} placeholder="Name / XD member ID" /></div>
+            <div className="filter"><span className="label">Booked by</span><input className="input" value={filters.bookedBy} onChange={(event) => setFilters((current) => ({ ...current, bookedBy: event.target.value }))} placeholder="Member / company" /></div>
+            <div className="quote-search-actions"><button type="button" className="quote-search-button" onClick={() => setAppliedFilters(filters)}>Search</button><button type="button" className="quote-clear-button" onClick={clearFilters}>Clear</button></div>
           </aside>
           <main className="main">
-            <div className="head"><div><h1>Quotes</h1><p>Submitted offers, counter-offers, awards and quote outcomes</p></div></div>
+            <div className="head quote-page-title"><div><h1>Quotes</h1></div></div>
             {error && <div className="vision-note">{error}</div>}
             <div className="quote-head quote-head-cx">
-              <div><b>Quote Register</b><span>Marketplace offers, counter-offers and outcomes</span></div>
-              <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+              <div className="quote-toolbar-spacer" />
+              <div className="quote-toolbar-controls">
                 <button type="button" className="text-action" onClick={toggleExpandAll}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
                 <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select className="fleet-page-size" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={25}>25</option><option value={50}>50</option></select></label>
                 <span className="quote-count">{tabBids.length ? `1-${Math.min(visibleCount, tabBids.length)} of ${tabBids.length}` : '0 records'}</span>
                 {canLoadMore && <button type="button" className="rowbtn blue" onClick={() => setVisibleCount((current) => current + pageSize)}>Next</button>}
               </div>
             </div>
-            <div className="quote-tabs">
+            <div className="quote-tabs quote-tabs-cx">
               <button type="button" className={activeTab === 'received' ? 'active' : ''} onClick={() => setActiveTab('received')}>Received <span>{counts.received}</span></button>
-              <button type="button" className={activeTab === 'shortlisted' ? 'active' : ''} onClick={() => setActiveTab('shortlisted')}>Shortlisted <span>{counts.shortlisted}</span></button>
-              <button type="button" className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted <span>{counts.submitted}</span></button>
-              <button type="button" className={activeTab === 'accepted' ? 'active' : ''} onClick={() => setActiveTab('accepted')}>Accepted / Won <span>{counts.accepted}</span></button>
-              <button type="button" className={activeTab === 'unsuccessful' ? 'active' : ''} onClick={() => setActiveTab('unsuccessful')}>Unsuccessful <span>{counts.unsuccessful}</span></button>
-              <button type="button" className={activeTab === 'withdrawn' ? 'active' : ''} onClick={() => setActiveTab('withdrawn')}>Withdrawn <span>{counts.withdrawn}</span></button>
-              <button type="button" className={activeTab === 'expired' ? 'active' : ''} onClick={() => setActiveTab('expired')}>Expired <span>{counts.expired}</span></button>
               <button type="button" className={activeTab === 'archived' ? 'active' : ''} onClick={() => setActiveTab('archived')}>Archived <span>{counts.archived}</span></button>
+              <button type="button" className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted <span>{counts.submitted}</span></button>
+              <button type="button" className={activeTab === 'unsuccessful' ? 'active' : ''} onClick={() => setActiveTab('unsuccessful')}>Unsuccessful <span>{counts.unsuccessful}</span></button>
+              <label className="quote-more-statuses">More statuses
+                <select value={['shortlisted','accepted','withdrawn','expired'].includes(activeTab) ? activeTab : ''} onChange={(event) => { const next = event.target.value as TabId | ''; if (next) setActiveTab(next); }}>
+                  <option value="">Select…</option>
+                  <option value="shortlisted">Shortlisted ({counts.shortlisted})</option>
+                  <option value="accepted">Accepted / Won ({counts.accepted})</option>
+                  <option value="withdrawn">Withdrawn ({counts.withdrawn})</option>
+                  <option value="expired">Expired ({counts.expired})</option>
+                </select>
+              </label>
             </div>
             {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {activeTab} quotes found.</span></div> : (
               <div className="quote-entries quote-register">
