@@ -290,7 +290,6 @@ export default function JobHistoryPage() {
   const [orderLoadingByJob, setOrderLoadingByJob] = useState<Record<string, boolean>>({});
   const [orderErrorsByJob, setOrderErrorsByJob] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
   const hasLoadedRef = useRef(false);
   const refreshInFlightRef = useRef(false);
   const [error, setError] = useState('');
@@ -339,10 +338,9 @@ export default function JobHistoryPage() {
       refreshInFlightRef.current = false;
       hasLoadedRef.current = true;
       setLoading(false);
-      setRefreshing(false);
     };
     if (!driverId) { finishLoad(); return; }
-    if (hasLoadedRef.current) setRefreshing(true); else setLoading(true);
+    if (!hasLoadedRef.current) setLoading(true);
     setError(''); setDetailWarning('');
 
     const { data: sessionData } = await supabase.auth.getSession();
@@ -536,7 +534,7 @@ export default function JobHistoryPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Search, scan and expand every assigned booking from one operational diary." headerActions={<ActionButton tone="primary" onClick={() => void fetchHistory()} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</ActionButton>}>
+      <DriverWorkspaceShell subtitle="Search, scan and expand every assigned booking from one operational diary." headerActions={<ActionButton tone="primary" onClick={() => void fetchHistory()} disabled={loading}>Refresh</ActionButton>}>
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
         <div className="driver-diary-board diary-pagebody">
