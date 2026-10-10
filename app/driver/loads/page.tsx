@@ -403,6 +403,7 @@ export default function AvailableLoadsPage() {
             <div className="head"><div><h1>Loads</h1><p>Search live freight, inspect privacy-safe details and prepare a quote</p></div></div>
             {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
+            <div className="load-toolbar-single">
             <div className="load-nav-unified">
               <div className="load-tabs"><button type="button" className={loadTypeFilter === 'all' ? 'active' : ''} onClick={() => setLoadTypeFilter('all')}>All Live</button><button type="button" className={loadTypeFilter === 'on_demand' ? 'active' : ''} onClick={() => setLoadTypeFilter('on_demand')}>On Demand</button><button type="button" className={loadTypeFilter === 'regular_load' ? 'active' : ''} onClick={() => setLoadTypeFilter('regular_load')}>Regular Load</button><button type="button" className={loadTypeFilter === 'daily_hire' ? 'active' : ''} onClick={() => setLoadTypeFilter('daily_hire')}>Daily Hire</button></div>
               <div className="load-posted"><span>Posted within</span><select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">All</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
@@ -419,6 +420,7 @@ export default function AvailableLoadsPage() {
                 <button type="button" className="rowbtn blue load-next-stable" disabled={safePage >= totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}>Next</button>
                 <button type="button" className="btn load-refresh-stable" onClick={() => void fetchLoads({ background: true })} aria-busy={refreshing ? 'true' : 'false'}>Refresh</button>
               </div>
+            </div>
             </div>
             {loading ? <div className="xd2-calm-empty"><b>Loading exchange loads…</b><span>Refreshing live freight.</span></div> : loads.length === 0 ? <div className="xd2-calm-empty"><b>No exchange loads available right now</b><span>Refresh the board or keep your availability and return journey current.</span></div> : filteredLoads.length === 0 ? <div className="xd2-calm-empty"><b>No loads match these filters</b><span>Broaden the route, vehicle, freight or date criteria.</span></div> : viewMode === 'map' ? (
               <MarketplaceLoadMap
