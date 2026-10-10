@@ -595,12 +595,31 @@ export default function JobHistoryPage() {
                       <div className="driver-load-row__top driver-diary-entry__top">
                         <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{formatExecutionAddress(job.pickup_location, job.pickup_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.pickup_location, job.pickup_postcode)}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.delivery_location, job.delivery_postcode)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Timing / load</span><strong className="driver-cell-primary">Pickup {fmtDate(job.pickup_datetime ?? job.collection_window_start)}</strong><span className="driver-cell-secondary">Deliver {fmtDate(job.delivery_datetime ?? job.delivery_window_start)} · {human(job.vehicle_type)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Status / member</span><strong className="driver-cell-primary">{expired ? 'Expired' : workspaceJobOperationalLabel(job)}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={job.company_id}>{job.companies?.name ?? 'Member not supplied'}</MemberIdentityLink></span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Timing / load</span><strong className="driver-cell-primary">Pickup {fmtDate(job.pickup_datetime ?? job.collection_window_start)}</strong><span className="driver-cell-secondary">Deliver {fmtDate(job.delivery_datetime ?? job.delivery_window_start)} · {human(job.requested_vehicle_label ?? job.vehicle_type)}</span></div>
+                        <div className="driver-load-cell"><span className="driver-cell-label">Status</span><strong className="driver-cell-primary">{expired ? 'Expired' : workspaceJobOperationalLabel(job)}</strong><span className="driver-cell-secondary">Load #{job.id.slice(0, 8).toUpperCase()}</span></div>
                       </div>
-                      <div className="driver-load-row__meta">
-                        <span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking: {job.booking_reference}</span>}
-                        <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }}>{expanded ? 'Collapse' : 'Details'}</ActionButton>{isOwnAssignedJob && <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</ActionButton>}</div>
+                      <div className="driver-load-row__meta" style={{ justifyContent: 'flex-start', gap: 12 }}>
+                        <button
+                          type="button"
+                          aria-label={expanded ? 'Collapse booking' : 'Expand booking'}
+                          onClick={() => {
+                            const willExpand = !expanded;
+                            setExpandedIds((previous) => {
+                              const next = new Set(previous);
+                              if (next.has(job.id)) next.delete(job.id); else next.add(job.id);
+                              return next;
+                            });
+                            if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id);
+                          }}
+                          style={{ width: 24, minWidth: 24, height: 22, border: 0, background: 'transparent', cursor: 'pointer', fontSize: 13, padding: 0 }}
+                        >
+                          {expanded ? '▼' : '▶'}
+                        </button>
+                        <span>Load #{job.id.slice(0, 8).toUpperCase()}</span>
+                        {job.booking_reference && <span>Booking: {job.booking_reference}</span>}
+                        <span><strong>Booked by:</strong> {job.companies?.name ?? 'Member'}</span>
+                        <span><strong>Vehicle:</strong> {human(job.requested_vehicle_label ?? job.vehicle_type)}</span>
+                        <span><strong>POD:</strong> Digital{job.hard_copy_pod ? ` · ${job.hard_copy_pod}` : ''}</span>
                       </div>
 
                       <div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
