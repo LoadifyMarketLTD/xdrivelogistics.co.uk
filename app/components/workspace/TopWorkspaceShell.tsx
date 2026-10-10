@@ -4,7 +4,7 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { BellRing, Briefcase, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, ReceiptText, RefreshCw, Trophy } from 'lucide-react';
+import { BellRing, ChevronDown, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, RefreshCw } from 'lucide-react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -368,12 +368,8 @@ function composeCompliancePrimaryNav(groups: WorkspaceNavGroup[]) {
 }
 
 const OWNER_DRIVER_MORE_ICONS = {
-  '/driver/jobs': Briefcase,
-  '/driver/won-work': Trophy,
-  '/driver/availability': CalendarClock,
   '/driver/load-alerts': BellRing,
   '/driver/nearby': MapPin,
-  '/driver/finance': ReceiptText,
   '/driver/documents': FileText,
   '/driver/messages': MessageSquare,
 } as const;
@@ -383,14 +379,12 @@ function OwnerDriverMoreIcon({ item }: { item: WorkspaceNavItem }) {
   return Icon ? <Icon aria-hidden="true" size={14} strokeWidth={1.8} /> : null;
 }
 const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
-  '/driver/jobs': 'Work',
-  '/driver/won-work': 'Work',
-  '/driver/availability': 'Matching & Availability',
   '/driver/load-alerts': 'Matching & Availability',
   '/driver/nearby': 'Matching & Availability',
-  '/driver/finance': 'Business',
   '/driver/documents': 'Business',
   '/driver/messages': 'Business',
+  '/driver/vehicles': 'Business',
+  '/driver/settings': 'Account',
 };
 
 const CUSTOMER_MORE_ICONS = {

@@ -21,9 +21,31 @@ describe('owner driver sole-trader boundary', () => {
     expect(hrefs).not.toContain('/driver/drivers-vehicles');
   });
 
-  it('keeps fleet-style routes denied while preserving own vehicle access', () => {
-    expect(isCapabilityAllowedForPath('/driver/drivers', 'driver', context)).toBe(false);
-    expect(isCapabilityAllowedForPath('/driver/drivers-vehicles', 'driver', context)).toBe(false);
-    expect(isCapabilityAllowedForPath('/driver/vehicles', 'driver', context)).toBe(true);
+  it('keeps fleet and duplicate control surfaces denied while preserving sole-trader routes', () => {
+    for (const path of [
+      '/driver/drivers',
+      '/driver/drivers-vehicles',
+      '/driver/freight-vision',
+      '/driver/won-work',
+      '/driver/event-log',
+      '/driver/action-centre',
+    ]) {
+      expect(isCapabilityAllowedForPath(path, 'driver', context), path).toBe(false);
+    }
+
+    for (const path of [
+      '/driver/vehicles',
+      '/driver/jobs',
+      '/driver/history',
+      '/driver/availability',
+      '/driver/returns',
+      '/driver/load-alerts',
+      '/driver/nearby',
+      '/driver/documents',
+      '/driver/messages',
+      '/driver/settings',
+    ]) {
+      expect(isCapabilityAllowedForPath(path, 'driver', context), path).toBe(true);
+    }
   });
 });

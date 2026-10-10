@@ -46,7 +46,7 @@ describe('all operational workspace navigation remains visually reachable', () =
     for (const href of ['/driver','/driver/loads','/driver/quotes','/driver/jobs','/driver/history','/driver/availability','/driver/returns','/driver/directory','/driver/finance','/driver/load-alerts','/driver/nearby','/driver/documents','/driver/messages','/driver/vehicles','/driver/settings']) {
       expect(visible.has(href), `owner_driver lost approved route ${href}`).toBe(true);
     }
-    for (const forbidden of ['/driver/availability/live','/driver/drivers-vehicles','/driver/drivers','/driver/freight-vision','/driver/won-work']) {
+    for (const forbidden of ['/driver/availability/live','/driver/drivers-vehicles','/driver/drivers','/driver/freight-vision','/driver/won-work','/driver/event-log','/driver/action-centre']) {
       expect(visible.has(forbidden), `owner_driver still exposes non-shell route ${forbidden}`).toBe(false);
     }
     expect(presented.some((group) => group.label === 'More')).toBe(true);

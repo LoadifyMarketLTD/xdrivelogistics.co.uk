@@ -658,7 +658,7 @@ export default function DriverDashboard() {
               <div style={{ display: "grid", gap: 12 }}>
                 <OperationalCard
                   title="Current / Next Work"
-                  subtitle="Your own bookings only — no fleet allocation or multi-driver controls."
+                  subtitle="Your active and upcoming bookings, focused on the work you personally carry out."
                   actions={<ActionButton tone="secondary" onClick={() => router.push("/driver/jobs")}>My Jobs</ActionButton>}
                 >
                   <div style={{ display: "grid", gap: 10 }}>
