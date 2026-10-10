@@ -505,7 +505,7 @@ export default function MyQuotesPage() {
                   const counterpartCompanyId = bid.direction === 'incoming' ? bid.company_id : view.postingCompanyId;
                   const fullExecutionAccess = view.access === 'assigned' || view.access === 'own';
                   const quoteStage = canonicalQuoteStage(bid, bid.direction === 'incoming' ? 'poster' : 'bidder');
-                  return <article key={bid.id} className={`quote-entry quote-sheet quote-sheet-cx${expanded ? ' open' : ''}`}>
+                  return <article key={bid.id} className={`quote-entry quote-sheet${expanded ? ' open' : ''} quote-sheet-cx`}>
                     <div className="quote-sheet-main">
                       <section className="quote-route">
                         <div><span>From:</span><b>{view.pickup}</b></div>
@@ -527,7 +527,7 @@ export default function MyQuotesPage() {
                         <div><span>To Collection</span><b>{view.distanceToPickupMiles != null ? `${view.distanceToPickupMiles.toFixed(1)} mi` : 'Not available'}</b></div>
                       </section>
                       <section className="quote-cx-loadfacts">
-                        <div><span>Dist:</span><b>{view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} miles` : 'Not supplied'}</b></div>
+                        <div><span>Job Distance</span><b>{view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} miles` : 'Not supplied'}</b></div>
                         <div><span>Weight:</span><b>{view.weightKg != null ? `${view.weightKg} kg` : 'Not supplied'}</b></div>
                         <div><span>Packaging:</span><b>{view.pallets != null ? `${view.pallets} pallet${view.pallets === 1 ? '' : 's'}` : 'Not supplied'}</b></div>
                         <div><span>Dims:</span><b>{view.dimensions ?? 'Not supplied'}</b></div>
