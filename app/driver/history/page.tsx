@@ -540,6 +540,7 @@ export default function JobHistoryPage() {
         <div className="driver-diary-board diary-pagebody">
           {filterRail}
           <main className="driver-board-main main diary-main">
+            <div className="diary-toolbar-single">
             <div className="diary-tabs" role="tablist" aria-label="Diary states">
               {historyFilters.map((item) => <button key={item.id} type="button" role="tab" aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)).length}</span></button>)}
             </div>
@@ -552,6 +553,7 @@ export default function JobHistoryPage() {
                 <span>{visibleFiltered.length === 0 ? '0' : `${(safePage - 1) * itemsPerPage + 1}-${Math.min(safePage * itemsPerPage, visibleFiltered.length)} of ${visibleFiltered.length}`}</span>
                 <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>›</button>
               </span>
+            </div>
             </div>
 
             {loading && jobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : (
