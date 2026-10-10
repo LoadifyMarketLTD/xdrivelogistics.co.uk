@@ -1173,3 +1173,80 @@
 .driver-diary-route .driver-diary-action-rail button[data-active='true']{font-weight:600!important}
 .driver-diary-route .driver-diary-order-notes{font-size:11px!important;font-weight:450!important;color:#303842!important}
 .driver-diary-route .driver-diary-order-notes>strong{font-weight:600!important}
+
+/* PR675 Diary screenshot remediation — 2026-10-10 */
+.driver-diary-route .diary-toolbar-single{
+  height:30px!important;min-height:30px!important;padding:0!important;
+  border-color:#cfd9e4!important;overflow-x:auto!important;
+}
+.driver-diary-route .diary-toolbar-single .diary-tabs button{
+  height:29px!important;min-height:29px!important;padding:0 10px!important;
+  font-size:10.5px!important;line-height:14px!important;font-weight:600!important;
+  gap:3px!important;border-right:1px solid #dbe3eb!important;
+}
+.driver-diary-route .diary-toolbar-single .diary-tabs button span{
+  font-size:10.5px!important;line-height:14px!important;font-weight:600!important;
+}
+.driver-diary-route .diary-toolbar-single .diary-tabs button[data-active='true']{
+  background:#eef5ff!important;color:#0b57d0!important;border-bottom:2px solid #0b6ff4!important;
+}
+.driver-diary-route .diary-toolbar-single .diary-head-cx>span:first-child{
+  height:29px!important;display:inline-flex!important;align-items:center!important;
+  justify-content:center!important;font-size:10px!important;line-height:14px!important;
+}
+.driver-diary-route .diary-toolbar-single .driver-diary-summary-actions>label{height:29px!important}
+.driver-diary-route .diary-toolbar-single .driver-diary-summary-actions>button:first-of-type,
+.driver-diary-route .diary-toolbar-single .driver-diary-summary-actions>button:not(:first-of-type),
+.driver-diary-route .diary-toolbar-single .driver-diary-summary-actions select{
+  height:24px!important;min-height:24px!important;
+}
+.driver-diary-route .driver-diary-entry__top{
+  grid-template-columns:minmax(0,1.16fr) minmax(0,1fr) minmax(250px,.82fr)!important;
+  min-height:72px!important;
+}
+.driver-diary-route .driver-diary-entry__top>*{
+  min-height:72px!important;padding:9px 12px!important;justify-content:flex-start!important;
+}
+.driver-diary-route .driver-diary-entry__top>.driver-diary-status-cell{
+  min-height:72px!important;padding:35px 12px 8px!important;
+  justify-content:flex-start!important;gap:3px!important;
+}
+.driver-diary-route .driver-diary-status-band{
+  top:7px!important;left:10px!important;right:10px!important;
+  height:20px!important;min-height:20px!important;line-height:20px!important;
+  padding:0 7px!important;font-size:11px!important;font-weight:600!important;border-radius:0!important;
+}
+.driver-diary-route .driver-diary-status-cell .driver-cell-secondary{
+  min-height:14px!important;display:block!important;font-size:10px!important;
+  line-height:14px!important;font-weight:400!important;color:#5f6d7c!important;
+}
+.driver-diary-route .driver-diary-entry:not([data-state='completed']):not([data-state='delivered']) .driver-diary-status-band{
+  background:#eaf3fb!important;border-color:#c5d6e6!important;color:#26323d!important;
+}
+.driver-diary-route .driver-diary-action-rail{
+  min-height:30px!important;height:30px!important;display:flex!important;
+  align-items:stretch!important;gap:0!important;padding:0!important;
+  background:#fff!important;border-top:1px solid #d7e0ea!important;
+}
+.driver-diary-route .driver-diary-action-rail button{
+  flex:0 0 auto!important;min-width:72px!important;height:29px!important;min-height:29px!important;
+  display:inline-flex!important;align-items:center!important;justify-content:center!important;
+  padding:0 11px!important;border:0!important;border-right:1px solid #d7e0ea!important;
+  border-radius:0!important;background:#fff!important;color:#26364a!important;
+  font-size:10.5px!important;line-height:14px!important;font-weight:600!important;box-shadow:none!important;
+}
+.driver-diary-route .driver-diary-action-rail button:hover:not(:disabled),
+.driver-diary-route .driver-diary-action-rail button:focus-visible:not(:disabled),
+.driver-diary-route .driver-diary-action-rail button[data-active='true']{
+  background:#eef5ff!important;color:#0b57d0!important;box-shadow:inset 0 -2px 0 #0b6ff4!important;
+}
+.driver-diary-route .driver-diary-action-rail button[data-operation='primary'],
+.driver-diary-route .driver-diary-action-rail button[data-operation='cancel']{
+  min-width:96px!important;
+}
+@media(max-width:1250px){
+  .driver-diary-route .driver-diary-entry__top{grid-template-columns:1fr 1fr!important}
+  .driver-diary-route .driver-diary-entry__top>.driver-diary-status-cell{
+    grid-column:1/-1!important;min-height:64px!important;
+  }
+}
