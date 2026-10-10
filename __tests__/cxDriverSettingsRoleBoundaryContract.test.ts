@@ -23,4 +23,11 @@ describe('CX-informed Driver vs Owner Driver settings boundary', () => {
     expect(settings).toContain("role === 'owner' || role === 'driver'");
     expect(settings).toContain("role !== 'owner' && role !== 'driver'");
   });
+
+  it('keeps Owner Driver settings sole-trader scoped rather than fleet scoped', () => {
+    expect(settings).toContain("const companyOperationsVisible = canEditCompany && role === 'carrier';");
+    expect(settings).toContain("label: role === 'owner' ? 'My Vehicle' : 'Vehicles / Assets'");
+    expect(settings).not.toContain("role === 'owner' ? [{ label: 'Drivers / Staff'");
+    expect(settings).toContain("routes.audit && role !== 'customer' && role !== 'owner'");
+  });
 });

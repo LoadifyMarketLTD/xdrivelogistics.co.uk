@@ -5,7 +5,6 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 interface DriverDoc {
@@ -276,10 +275,16 @@ export default function DriverDocumentsPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Keep the three Driver compliance records current. Expired and replaced copies are removed automatically."
+        subtitle="Keep your Driver compliance records current and open job-level POD or delivery evidence from My Jobs."
         headerActions={<ActionButton tone="secondary" onClick={() => void loadDriver()} disabled={loading}>Refresh</ActionButton>}
       >
-        <DriverIntegratedNav label="Fleet resources" items={[{ href: '/driver/drivers-vehicles', label: 'Drivers & Vehicles' }, { href: '/driver/documents', label: 'Documents' }]} />
+        <div className="driver-register-toolbar">
+          <div>
+            <strong>POD & job evidence</strong>
+            <span>Delivery evidence belongs to each completed job rather than to your company document register.</span>
+          </div>
+          <ActionButton tone="secondary" onClick={() => { window.location.href = '/driver/jobs'; }}>Open My Jobs</ActionButton>
+        </div>
         {loadError && <AlertBanner tone="danger">{loadError}</AlertBanner>}
         {uploadError && <AlertBanner tone="danger">{uploadError}</AlertBanner>}
         {uploadSuccess && <AlertBanner tone="success">{uploadSuccess}</AlertBanner>}

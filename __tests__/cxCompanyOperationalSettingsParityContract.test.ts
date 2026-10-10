@@ -59,8 +59,8 @@ describe('CX company operational settings parity contract', () => {
     expect(migration).not.toContain('ADD COLUMN IF NOT EXISTS default_payment_terms');
   });
 
-  it('exposes the CX-derived company operations sections to company owners/admins but not Fleet Manager', () => {
-    expect(settingsWorkspace).toContain("const companyOperationsVisible = canEditCompany && (role === 'carrier' || role === 'owner')");
+  it('keeps CX-derived company operations on Carrier settings and out of Owner Driver', () => {
+    expect(settingsWorkspace).toContain("const companyOperationsVisible = canEditCompany && role === 'carrier';");
     expect(settingsWorkspace).toContain("label: 'Company Operations'");
     expect(settingsWorkspace).toContain("label: 'Blocked Members'");
     expect(settingsWorkspace).toContain('<CompanyOperationsSettingsPanel');
