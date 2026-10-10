@@ -284,40 +284,39 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
     ], 'driver-more');
   }
 
-  const ownerNav = composeRolePrimaryNav(groups, [
+  const items = uniqueNavItems(groups);
+  const primarySpec: Array<[string, string, string]> = [
     ['owner-driver-dashboard-primary', 'Dashboard', '/driver'],
-    ['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre'],
-    ['owner-driver-directory-primary', 'Directory', '/driver/directory'],
-    ['owner-driver-live-availability-primary', 'Live Availability', '/driver/availability/live'],
-    ['owner-driver-my-fleet-primary', 'My Fleet', '/driver/vehicles'],
-    ['owner-driver-returns-primary', 'Return Journeys', '/driver/returns'],
     ['owner-driver-loads-primary', 'Loads', '/driver/loads'],
     ['owner-driver-quotes-primary', 'Quotes', '/driver/quotes'],
     ['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs'],
     ['owner-driver-diary-primary', 'Diary', '/driver/history'],
-    ['owner-driver-availability-primary', 'Availability & Schedule', '/driver/availability'],
-    ['owner-driver-won-work-primary', 'Won Work', '/driver/won-work'],
-    ['owner-driver-alerts-primary', 'Load Matching & Alerts', '/driver/load-alerts'],
-    ['owner-driver-nearby-primary', "Who's Nearby", '/driver/nearby'],
-    ['owner-driver-documents-primary', 'Documents', '/driver/documents'],
-    ['owner-driver-finance-primary', 'Finance & Invoices', '/driver/finance'],
-    ['owner-driver-messages-primary', 'Messages', '/driver/messages'],
-    ['owner-driver-event-log-primary', 'Event Log', '/driver/event-log'],
-    ['owner-driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision'],
-    ['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles'],
-    ['owner-driver-settings-primary', 'Settings', '/driver/settings'],
-  ], 'owner-driver-more', 'More', [
-    '/driver/jobs',
-    '/driver/availability',
-    '/driver/won-work',
-    '/driver/load-alerts',
-    '/driver/nearby',
-    '/driver/documents',
-    '/driver/finance',
-    '/driver/messages',
-  ]);
+    ['owner-driver-availability-primary', 'Availability', '/driver/availability'],
+    ['owner-driver-returns-primary', 'Return Journeys', '/driver/returns'],
+    ['owner-driver-directory-primary', 'Directory', '/driver/directory'],
+    ['owner-driver-finance-primary', 'Finance', '/driver/finance'],
+  ];
+  const moreSpec: Array<[string, string]> = [
+    ['/driver/load-alerts', 'Load Alerts'],
+    ['/driver/nearby', "Who's Nearby"],
+    ['/driver/documents', 'POD & Documents'],
+    ['/driver/messages', 'Messages'],
+    ['/driver/vehicles', 'My Vehicle'],
+    ['/driver/settings', 'Account / Settings'],
+  ];
 
-  return ownerNav.filter((group) => group.id !== 'owner-driver-more');
+  const primary = primarySpec.flatMap(([id, label, href]) => {
+    const item = items.get(href);
+    return item ? [singleGroup(id, label, { ...item, label })] : [];
+  });
+  const moreItems = moreSpec.flatMap(([href, label]) => {
+    const item = items.get(href);
+    return item ? [{ ...item, label }] : [];
+  });
+
+  return moreItems.length
+    ? [...primary, { id: 'owner-driver-more', label: 'More', items: moreItems }]
+    : primary;
 }
 
 export function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
