@@ -1250,3 +1250,66 @@
     grid-column:1/-1!important;min-height:64px!important;
   }
 }
+/* PR675 Diary: exact typographic family parity with Loads */
+.driver-diary-route,
+.driver-diary-route button,
+.driver-diary-route input,
+.driver-diary-route select,
+.driver-diary-route textarea{
+  font-family:"Segoe UI",Arial,sans-serif!important;
+}
+.driver-diary-route .driver-diary-entry strong,
+.driver-diary-route .driver-diary-entry b,
+.driver-diary-route .driver-diary-entry a{
+  font-family:"Segoe UI",Arial,sans-serif!important;
+}
+.driver-diary-route .driver-diary-entry .driver-cell-label{
+  font-size:10.8px!important;
+  line-height:15px!important;
+  font-weight:450!important;
+  color:#5e6874!important;
+}
+.driver-diary-route .driver-diary-entry .driver-cell-primary,
+.driver-diary-route .driver-diary-entry .driver-cell-primary strong,
+.driver-diary-route .driver-diary-entry .driver-cell-primary b{
+  font-size:12px!important;
+  line-height:16px!important;
+  font-weight:600!important;
+  color:#303842!important;
+}
+.driver-diary-route .driver-diary-entry .driver-cell-secondary,
+.driver-diary-route .driver-diary-entry .driver-cell-secondary strong,
+.driver-diary-route .driver-diary-entry .driver-cell-secondary b{
+  font-size:10px!important;
+  line-height:14px!important;
+  font-weight:400!important;
+  color:#6f7985!important;
+}
+.driver-diary-route .driver-diary-status-band,
+.driver-diary-route .driver-diary-status-band strong,
+.driver-diary-route .driver-diary-status-band b{
+  font-size:12px!important;
+  line-height:16px!important;
+  font-weight:650!important;
+}
+.driver-diary-route .driver-diary-action-rail button{
+  font-size:10.5px!important;
+  line-height:14px!important;
+  font-weight:500!important;
+}
+.driver-diary-route .driver-diary-action-rail button[data-active='true'],
+.driver-diary-route .driver-diary-action-rail button[data-operation='cancel'],
+.driver-diary-route .driver-diary-action-rail button[data-operation='primary']{
+  font-weight:600!important;
+}
+.driver-diary-route .driver-diary-detail-panel,
+.driver-diary-route .driver-diary-detail-panel a{
+  font-size:11px!important;
+  line-height:15px!important;
+  font-weight:450!important;
+  color:#303842!important;
+}
+.driver-diary-route .driver-diary-detail-panel strong,
+.driver-diary-route .driver-diary-detail-panel b{
+  font-weight:600!important;
+}
