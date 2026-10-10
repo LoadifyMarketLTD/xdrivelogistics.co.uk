@@ -29,11 +29,11 @@ describe('Driver Loads CX parity refinements', () => {
   it('surfaces posted timezone, vehicle glyph and payment terms', () => {
     expect(source).toContain("timeZone: 'Europe/London'");
     expect(source).toContain('<VehicleGlyph />');
-    expect(source).toContain('<b>Payment terms:</b>');
+    expect(source).toContain('<b>Payment Terms</b>');
   });
 
   it('keeps the footer identity separated for scanability', () => {
-    expect(source).toContain('<span aria-hidden="true">|</span>');
+    expect(source).toContain('className="load-card-footer-identity"');
     expect(source).toContain("{load.member.memberId ?? 'Member ID unavailable'}");
   });
 });

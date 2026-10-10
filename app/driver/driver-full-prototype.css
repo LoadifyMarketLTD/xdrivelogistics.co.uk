@@ -4071,3 +4071,33 @@
     flex-wrap: wrap;
   }
 }
+
+/* PR675 Loads card structural reflow — 2026-10-10 */
+.driver-prototype-port .driver-loads-prototype .cx-load-card{display:block!important;min-height:190px!important;overflow:hidden!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-primary{display:grid!important;grid-template-columns:minmax(0,1.12fr) minmax(0,1fr) minmax(300px,.98fr)!important;align-items:stretch!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-primary>.load-route,.driver-prototype-port .driver-loads-prototype .cx-load-card .load-primary>.load-times,.driver-prototype-port .driver-loads-prototype .cx-load-card .load-primary>.load-member{min-height:96px!important;padding:14px 18px!important;line-height:1.45!important;border-right:1px solid #d7e0ea!important;box-sizing:border-box!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-primary>.load-member{border-right:0!important;position:relative!important;padding-top:39px!important;gap:5px!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route,.driver-prototype-port .driver-loads-prototype .cx-load-card .load-times{display:flex!important;flex-direction:column!important;justify-content:center!important;gap:10px!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line,.driver-prototype-port .driver-loads-prototype .cx-load-card .load-time-line{display:grid!important;grid-template-columns:70px minmax(0,1fr)!important;align-items:baseline!important;gap:10px!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line span,.driver-prototype-port .driver-loads-prototype .cx-load-card .load-time-line span{font-size:11px!important;line-height:16px!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line b,.driver-prototype-port .driver-loads-prototype .cx-load-card .load-time-line b{font-size:13px!important;line-height:18px!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-member .load-type{top:8px!important;left:12px!important;right:12px!important;min-height:22px!important;height:22px!important;line-height:22px!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-member .load-vehicle{margin-top:4px!important;margin-left:0!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-facts-row{display:grid!important;grid-template-columns:1.15fr 1fr .7fr .85fr 1fr 1fr 1.65fr!important;border-top:1px solid #d7e0ea!important;border-bottom:1px solid #d7e0ea!important;background:#f8fbfe!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-facts-row>div{min-width:0!important;min-height:54px!important;padding:9px 12px!important;border-right:1px solid #e3e8ee!important;display:flex!important;flex-direction:column!important;justify-content:center!important;gap:4px!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-facts-row>div:last-child{border-right:0!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-facts-row b{color:#2474bb!important;font-size:10px!important;line-height:13px!important;font-weight:800!important;text-transform:uppercase!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-facts-row span{color:#25364b!important;font-size:11.2px!important;line-height:15px!important;font-weight:600!important;overflow-wrap:anywhere!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra{grid-template-columns:1fr!important;grid-template-rows:auto auto auto!important;padding:0!important;border-top:0!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note{min-height:auto!important;padding:12px 16px!important;margin:0!important;border-top:1px solid #d7e0ea!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-note>b{margin-bottom:4px!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-extra-requirements{min-height:auto!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer{height:auto!important;min-height:58px!important;display:block!important;padding:0!important;background:#fff!important;border-top:0!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer-main{min-height:36px!important;display:flex!important;align-items:center!important;justify-content:space-between!important;gap:12px!important;padding:0 12px 0 0!important;border-bottom:1px solid #e4e9ef!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer-actions{display:flex!important;align-items:stretch!important;min-height:36px!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-expand{width:32px!important;min-width:32px!important;height:36px!important;border-right:1px solid #d7e0ea!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-quote-footer{min-width:124px!important;height:36px!important;padding:0 18px!important;font-size:11.5px!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer-main .text-action{font-size:11px!important;padding:6px 4px!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer-identity{min-height:30px!important;display:flex!important;align-items:center!important;justify-content:flex-end!important;gap:0!important;padding:6px 12px!important;background:#fbfcfe!important;color:#344153!important;font-size:10.5px!important;font-weight:650!important;line-height:16px!important;flex-wrap:wrap!important}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer-identity span+span::before{content:"|";color:#9aa7b5;margin:0 9px}
+@media(max-width:1250px){.driver-prototype-port .driver-loads-prototype .cx-load-card .load-primary{grid-template-columns:1fr 1fr!important}.driver-prototype-port .driver-loads-prototype .cx-load-card .load-primary>.load-member{grid-column:1/-1!important;border-top:1px solid #d7e0ea!important}.driver-prototype-port .driver-loads-prototype .cx-load-card .load-facts-row{grid-template-columns:repeat(4,minmax(0,1fr))!important}}

@@ -116,12 +116,6 @@ const VEHICLE_LABELS: Record<string, string> = {
   temperature_controlled_vehicle: 'Temperature Controlled Vehicle',
 };
 
-function fmtDate(value: string | null) {
-  if (!value) return 'TBC';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'TBC';
-  return date.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-}
 function fmtSchedule(value: string | null, slot: string | null) {
   if (!value) return slot?.trim() || 'TBC';
   const date = new Date(value);
@@ -446,18 +440,49 @@ export default function AvailableLoadsPage() {
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
                   return <article key={load.id} className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}>
                     <div className="load-primary">
-                      <div className="load-route"><div className="load-route-line"><span>From:</span><b>{load.pickup_area}</b></div><div className="load-route-line"><span>To:</span><b>{load.delivery_area}</b></div><div className="load-quickfacts"><span>{jobDistance}</span><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Weight not supplied'}</span></div></div>
-                      <div className="load-times"><div className="load-time-line"><span>Pickup:</span><b>{fmtSchedule(load.pickup_datetime, load.pickup_time_slot)}</b></div><div className="load-time-line"><span>Deliver:</span><b>{fmtSchedule(load.delivery_datetime, load.delivery_time_slot)}</b></div><div className="load-requested"><span>Requested:</span><b>{selectedVehicleLabel}</b></div></div>
-                      <div className="load-member"><span className="load-type">{commercialTimingLabel(load)}</span><div className="load-postedby">Posted by <b>{load.member.postedBy ?? load.member.name}</b></div><span className="meta">{fmtPostedAt(load.exchange_posted_at)} · Load ID: {load.id.slice(0,8).toUpperCase()}</span><span className="load-vehicle" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><VehicleGlyph />{selectedVehicleLabel}</span><span className="meta"><b>Payment terms:</b> {load.payment_terms ?? 'Not supplied'}</span></div>
+                      <div className="load-route">
+                        <div className="load-route-line"><span>From:</span><b>{load.pickup_area}</b></div>
+                        <div className="load-route-line"><span>To:</span><b>{load.delivery_area}</b></div>
+                      </div>
+                      <div className="load-times">
+                        <div className="load-time-line"><span>Pickup:</span><b>{fmtSchedule(load.pickup_datetime, load.pickup_time_slot)}</b></div>
+                        <div className="load-time-line"><span>Deliver:</span><b>{fmtSchedule(load.delivery_datetime, load.delivery_time_slot)}</b></div>
+                      </div>
+                      <div className="load-member">
+                        <span className="load-type">{commercialTimingLabel(load)}</span>
+                        <div className="load-postedby">Posted by <b>{load.member.postedBy ?? load.member.name}</b></div>
+                        <span className="meta">{fmtPostedAt(load.exchange_posted_at)} · Load ID: {load.id.slice(0,8).toUpperCase()}</span>
+                        <span className="load-vehicle" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><VehicleGlyph />{selectedVehicleLabel}</span>
+                      </div>
+                    </div>
+                    <div className="load-facts-row" aria-label="Load quick facts">
+                      <div><b>To Collection</b><span>{toCollection}</span></div>
+                      <div><b>Job Distance</b><span>{jobDistance}</span></div>
+                      <div><b>Weight</b><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</span></div>
+                      <div><b>Packaging</b><span>{cargoLabel}</span></div>
+                      <div><b>Dimensions</b><span>{dim ?? 'Not supplied'}</span></div>
+                      <div><b>Payment Terms</b><span>{load.payment_terms ?? 'Not supplied'}</span></div>
+                      <div><b>POD</b><span>Digital required · Hard-copy: {load.hard_copy_pod ?? 'No additional requirement'}</span></div>
                     </div>
                     <div className={'load-extra cx-load-extra ' + (expanded ? '' : 'hidden')}>
-                      <div className="load-extra-col"><div><b>To Collection</b><span>{toCollection}</span></div><div><b>Job Distance</b><span>{jobDistance}</span></div><div><b>Weight</b><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</span></div><div><b>Packaging</b><span>{cargoLabel}</span></div></div>
-                      <div className="load-extra-col"><div><b>Dimensions</b><span>{dim ?? 'Not supplied'}</span></div><div><b>Requested</b><span>{selectedVehicleLabel}</span></div><div><b>Payment Terms</b><span>{load.payment_terms ?? 'Not supplied'}</span></div><div><b>POD</b><span>Digital required · Hard-copy: {load.hard_copy_pod ?? 'No additional requirement'}</span></div></div>
-                      <div className="load-extra-note"><b>Load Notes</b><span>{load.public_quote_notes ?? 'No public quote notes supplied.'}</span><small>Pre-award execution contacts and exact private addresses remain protected until authorised award/allocation.</small></div>
+                      {load.public_quote_notes ? <div className="load-extra-note"><b>Load Notes</b><span>{load.public_quote_notes}</span><small>Pre-award execution contacts and exact private addresses remain protected until authorised award/allocation.</small></div> : null}
                       {load.handling_requirements.length > 0 && <div className="load-extra-note load-extra-requirements"><b>Requirements</b><span>{load.handling_requirements.join(' · ')}</span></div>}
                       {bidLoadId === load.id && !quoted && <div className="driver-inline-quote"><div className="driver-filter-field"><label>Your quote (£)</label><input type="number" min="1" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} /></div><div className="driver-filter-field"><label>Message</label><textarea rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} /></div><ActionButton tone="success" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit(load.id)}>{bidLoading ? 'Submitting…' : 'Submit Quote'}</ActionButton><ActionButton tone="secondary" onClick={() => setBidLoadId(null)}>Cancel</ActionButton></div>}
                     </div>
-                    <div className="load-card-footer"><button type="button" className="load-expand" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '⌃' : '⌄'}</button>{!quoted && <button type="button" className="load-quote-footer" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}<span className="load-footer-spacer" /><button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button><span aria-hidden="true">|</span><span className="load-footer-identity">{load.member.memberId ?? 'Member ID unavailable'}</span><span aria-hidden="true">|</span><span className="load-footer-identity">{load.member.name}</span>{load.member.phone ? <><span aria-hidden="true">|</span><span className="load-footer-identity">{load.member.phone}</span></> : null}</div>
+                    <div className="load-card-footer">
+                      <div className="load-card-footer-main">
+                        <div className="load-card-footer-actions">
+                          <button type="button" className="load-expand" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '⌃' : '⌄'}</button>
+                          {!quoted && <button type="button" className="load-quote-footer" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}
+                        </div>
+                        <button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button>
+                      </div>
+                      <div className="load-card-footer-identity">
+                        <span>{load.member.memberId ?? 'Member ID unavailable'}</span>
+                        <span>{load.member.name}</span>
+                        {load.member.phone ? <span>{load.member.phone}</span> : null}
+                      </div>
+                    </div>
                   </article>;
                 })}
               </div>
