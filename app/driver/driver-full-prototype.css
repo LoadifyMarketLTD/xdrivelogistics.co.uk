@@ -4411,3 +4411,17 @@
 .driver-prototype-port .driver-loads-prototype .cx-load-card .load-quote-footer{font-weight:650!important}
 .driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer .text-action{font-weight:600!important}
 .driver-prototype-port .driver-loads-prototype .cx-load-card .load-footer-identity{font-weight:500!important}
+/* PR675 Loads: keep town and postcode inline */
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line>b .load-town,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line>b .load-place-separator,
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line>b .load-postcode{
+  display:inline!important;
+  width:auto!important;
+  white-space:nowrap!important;
+  margin:0!important;
+}
+.driver-prototype-port .driver-loads-prototype .cx-load-card .load-route-line>b{
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+}
