@@ -82,6 +82,11 @@ type HistoryJob = {
   created_at: string | null;
   customer_reference: string | null;
   booking_reference: string | null;
+  job_distance_miles: number | null;
+  agreed_rate_gbp: number | null;
+  agreed_rate: number | null;
+  currency: string | null;
+  payment_terms: string | null;
   companies: { name: string } | null;
 };
 
@@ -387,7 +392,7 @@ export default function JobHistoryPage() {
     } else {
       const { data, error: fetchError } = await supabase
         .from('jobs')
-        .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, companies:companies!jobs_company_id_fkey(name)')
+        .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, job_distance_miles, agreed_rate_gbp, agreed_rate, currency, payment_terms, companies:companies!jobs_company_id_fkey(name)')
         .eq('assigned_driver_id', driverId)
         .order('updated_at', { ascending: false })
         .limit(250);
@@ -658,6 +663,17 @@ export default function JobHistoryPage() {
                           <span className="driver-cell-secondary">Load ID: {job.id.slice(0, 8).toUpperCase()}</span>
                           <span className="driver-cell-secondary">{job.companies?.name ?? 'Member'}</span>
                         </div>
+                      </div>
+
+                      <div className="driver-diary-collapsed-facts" aria-label="Booking quick facts">
+                        <div><span>Booked by</span><strong>{job.companies?.name ?? 'Member'}</strong></div>
+                        <div><span>Agreed rate</span><strong>{job.agreed_rate_gbp != null || job.agreed_rate != null ? money(job.agreed_rate_gbp ?? job.agreed_rate, job.currency ?? 'GBP') : 'Not supplied'}</strong></div>
+                        <div><span>Distance</span><strong>{job.job_distance_miles != null ? `${job.job_distance_miles} miles` : 'Not supplied'}</strong></div>
+                        <div><span>Weight</span><strong>{job.weight_kg != null ? `${job.weight_kg} kg` : 'Not supplied'}</strong></div>
+                        <div><span>Packaging</span><strong>{job.pallets != null ? `${job.pallets} pallet${job.pallets === 1 ? '' : 's'}` : 'Not supplied'}</strong></div>
+                        <div><span>Requested</span><strong>{human(job.requested_vehicle_label ?? job.vehicle_type) || 'Not supplied'}</strong></div>
+                        <div><span>Payment terms</span><strong>{formatPaymentTermsLabel(job.payment_terms) ?? 'Not supplied'}</strong></div>
+                        <div><span>POD</span><strong>{job.pod_required === false ? 'Not required' : job.hard_copy_pod ? `Digital · ${job.hard_copy_pod}` : 'Digital'}</strong></div>
                       </div>
 
                       <div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>

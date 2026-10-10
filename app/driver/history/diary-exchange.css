@@ -1370,3 +1370,46 @@
 .driver-diary-route .driver-diary-action-rail button[data-operation='cancel']{
   min-width:92px!important;
 }
+/* PR675 Diary collapsed quick facts: CX information density without forced expand */
+.driver-diary-route .driver-diary-collapsed-facts{
+  order:2!important;
+  display:grid!important;
+  grid-template-columns:1.15fr .8fr .72fr .65fr .72fr .9fr 1fr 1fr!important;
+  min-height:48px!important;
+  border-top:1px solid #d7e0ea!important;
+  border-bottom:1px solid #d7e0ea!important;
+  background:#fbfcfd!important;
+}
+.driver-diary-route .driver-diary-collapsed-facts>div{
+  min-width:0!important;
+  padding:7px 10px!important;
+  border-right:1px solid #d7e0ea!important;
+  display:flex!important;
+  flex-direction:column!important;
+  justify-content:center!important;
+  gap:2px!important;
+}
+.driver-diary-route .driver-diary-collapsed-facts>div:last-child{border-right:0!important}
+.driver-diary-route .driver-diary-collapsed-facts span{
+  font-size:10.5px!important;
+  line-height:14px!important;
+  font-weight:500!important;
+  color:#58708b!important;
+}
+.driver-diary-route .driver-diary-collapsed-facts strong{
+  font-size:11px!important;
+  line-height:15px!important;
+  font-weight:500!important;
+  color:#303842!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  white-space:nowrap!important;
+}
+.driver-diary-route .diary-booking.driver-diary-entry>.driver-diary-entry__top{order:1!important}
+.driver-diary-route .diary-booking.driver-diary-entry>.driver-diary-collapsed-facts{order:2!important}
+.driver-diary-route .diary-booking.driver-diary-entry>.driver-row-details{order:3!important}
+.driver-diary-route .diary-booking.driver-diary-entry>.driver-diary-action-rail{order:4!important}
+@media(max-width:1350px){
+  .driver-diary-route .driver-diary-collapsed-facts{grid-template-columns:repeat(4,minmax(0,1fr))!important}
+  .driver-diary-route .driver-diary-collapsed-facts>div{border-bottom:1px solid #e8edf2!important}
+}
