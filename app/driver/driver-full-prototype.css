@@ -4101,3 +4101,15 @@
 .driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer-identity{display:inline!important;min-height:0!important;padding:0 10px 0 8px!important;background:transparent!important;color:#344153!important;font-size:10.5px!important;font-weight:650!important;line-height:30px!important;white-space:nowrap!important}
 .driver-prototype-port .driver-loads-prototype .cx-load-card .load-card-footer-identity span+span::before{content:"|";color:#9aa7b5;margin:0 9px}
 @media(max-width:1250px){.driver-prototype-port .driver-loads-prototype .cx-load-card .load-primary{grid-template-columns:1fr 1fr!important}.driver-prototype-port .driver-loads-prototype .cx-load-card .load-primary>.load-member{grid-column:1/-1!important;border-top:1px solid #d7e0ea!important}.driver-prototype-port .driver-loads-prototype .cx-load-card .load-facts-row{grid-template-columns:1fr 1fr!important}.driver-prototype-port .driver-loads-prototype .cx-load-card .load-facts-row>.load-facts-col:last-child{grid-column:1/-1!important;border-top:1px solid #d7e0ea!important}}
+/* PR675 Loads: remove redundant page title band to reclaim vertical workspace */
+.driver-prototype-port .driver-loads-prototype .main>.head{
+  display:none!important;
+  height:0!important;
+  min-height:0!important;
+  margin:0!important;
+  padding:0!important;
+  overflow:hidden!important;
+}
+.driver-prototype-port .driver-loads-prototype .main{
+  padding-top:0!important;
+}
