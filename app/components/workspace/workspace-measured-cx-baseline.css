@@ -7,6 +7,7 @@
 
 .xdrive-workspace-measured {
   --ws-header-h: 50px;
+  --ws-nav-h: 42px;
   --ws-page-x: 12px;
   --ws-page-y: 12px;
   --ws-gap-micro: 4px;
@@ -515,4 +516,101 @@
     border-right: 0 !important;
     border-bottom: 1px solid var(--ws-border-soft) !important;
   }
+}
+
+/* PR675 unified non-Super-Admin workspace identity */
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-shell__header{
+  height:var(--ws-header-h)!important;
+  min-height:var(--ws-header-h)!important;
+  padding:0 20px!important;
+  gap:20px!important;
+  align-items:center!important;
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-shell__brand{gap:14px!important}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-shell__identity span{
+  font-size:10.5px!important;line-height:13px!important;font-weight:450!important;color:#667487!important
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-shell__identity strong{
+  font-size:12.5px!important;line-height:15px!important;font-weight:600!important;color:#303842!important
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav--primary,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__track{
+  height:var(--ws-nav-h)!important;min-height:var(--ws-nav-h)!important
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__track{
+  justify-content:center!important;gap:0!important;padding:0 12px!important
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__item{
+  height:var(--ws-nav-h)!important;min-height:var(--ws-nav-h)!important;
+  padding:0 13px!important;font-size:13px!important;line-height:18px!important;
+  font-weight:600!important;letter-spacing:0!important;text-transform:uppercase!important;color:#4a4f55!important
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__item[data-active='true'],
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__item.is-active{
+  color:#2f3338!important;font-weight:600!important;box-shadow:inset 0 -2px 0 var(--ws-blue)!important
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__caret{
+  width:11px!important;height:11px!important;margin-left:5px!important
+}
+.xdrive-workspace-measured .workspace-operational-row,
+.xdrive-workspace-measured .driver-load-row,
+.xdrive-workspace-measured .driver-job-row{
+  border:1px solid var(--ws-border)!important;border-radius:0!important;background:#fff!important;box-shadow:none!important
+}
+.xdrive-workspace-measured .workspace-operational-cell,
+.xdrive-workspace-measured .driver-load-cell{
+  padding:8px 10px!important;border-right:1px solid var(--ws-border-soft)!important
+}
+.xdrive-workspace-measured .driver-cell-label,
+.xdrive-workspace-measured .workspace-operational-cell>span:first-child{
+  font-size:10.8px!important;line-height:15px!important;font-weight:450!important;color:#5e6874!important
+}
+.xdrive-workspace-measured .driver-cell-primary,
+.xdrive-workspace-measured .workspace-operational-cell>strong{
+  font-size:12px!important;line-height:18px!important;font-weight:600!important;color:#303842!important
+}
+.xdrive-workspace-measured .driver-cell-secondary,
+.xdrive-workspace-measured .workspace-record-meta{
+  font-size:10px!important;line-height:14px!important;font-weight:400!important;color:#6f7985!important
+}
+.xdrive-workspace-measured .workspace-record-meta,
+.xdrive-workspace-measured .driver-load-row__meta{
+  min-height:22px!important;padding:3px 8px!important;gap:8px!important
+}
+.xdrive-workspace-measured .workspace-detail-item,
+.xdrive-workspace-measured .driver-detail-item{
+  min-height:44px!important;padding:7px 9px!important;border-radius:0!important
+}
+.xdrive-workspace-measured .workspace-detail-item>strong,
+.xdrive-workspace-measured .driver-detail-item>strong{
+  font-size:12px!important;line-height:16px!important;font-weight:600!important;color:#303842!important
+}
+.xdrive-workspace-measured [class*='status-badge'],
+.xdrive-workspace-measured [class*='StatusBadge']{
+  min-height:20px!important;padding:2px 7px!important;font-size:12px!important;line-height:16px!important;font-weight:650!important
+}
+@media(max-width:1450px){
+  .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__item{
+    padding:0 10px!important;font-size:12.5px!important
+  }
+}
+/* Cross-role text/action adapters for legacy operational cells. */
+.xdrive-workspace-measured .workspace-operational-cell>div:first-child{
+  font-size:10.8px!important;line-height:15px!important;font-weight:500!important;color:#5e6874!important
+}
+.xdrive-workspace-measured label,
+.xdrive-workspace-measured .driver-filter-field label,
+.xdrive-workspace-measured .workspace-filter-rail label{
+  font-size:10.8px!important;line-height:15px!important;font-weight:500!important;color:#5e6874!important
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-action,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-notification{
+  height:36px!important;min-height:36px!important;border-radius:4px!important;
+  font-size:11.5px!important;line-height:16px!important;font-weight:600!important
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-action{
+  padding:0 14px!important
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-notification{
+  width:36px!important;min-width:36px!important
 }
