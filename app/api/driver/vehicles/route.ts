@@ -65,7 +65,7 @@ const resolveDriver = async (request: NextRequest) => {
 
   const { data: driver, error: driverError } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id, status')
+    .select('id, company_id, status, driver_type')
     .eq('user_id', authData.user.id)
     .maybeSingle();
 
@@ -106,18 +106,20 @@ const resolveDriver = async (request: NextRequest) => {
   }
 
   const canManageCompanyVehicles = ['owner', 'admin'].includes(String(membership?.role_in_company ?? '').toLowerCase());
+  const isOwnerDriver = String(driver.driver_type ?? '').trim().toLowerCase() === 'owner_driver';
   return {
     user: authData.user,
     driverId: driver.id,
     companyId: driver.company_id as string,
     canManageCompanyVehicles,
+    isOwnerDriver,
   };
 };
 
 export async function GET(request: NextRequest) {
   const resolved = await resolveDriver(request);
   if ('error' in resolved) return resolved.error;
-  const { driverId, companyId, canManageCompanyVehicles } = resolved;
+  const { driverId, companyId, canManageCompanyVehicles, isOwnerDriver } = resolved;
   const admin = supabaseAdmin!;
 
   let query = admin
@@ -129,7 +131,7 @@ export async function GET(request: NextRequest) {
 
   // Company drivers see only vehicle records assigned to them. Fleet inventory
   // belongs to Fleet/Company administration, not to the Driver workspace.
-  if (!canManageCompanyVehicles) query = query.eq('assigned_driver_id', driverId);
+  if (isOwnerDriver || !canManageCompanyVehicles) query = query.eq('assigned_driver_id', driverId);
 
   const { data: vehicles, error } = await query;
 
@@ -170,11 +172,31 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const resolved = await resolveDriver(request);
   if ('error' in resolved) return resolved.error;
-  const { companyId, canManageCompanyVehicles } = resolved;
+  const { companyId, driverId, canManageCompanyVehicles, isOwnerDriver } = resolved;
   if (!canManageCompanyVehicles) {
     return json(403, { error: 'Only an owner/admin driver can add company vehicles. Fleet changes are managed by your company.' });
   }
   const admin = supabaseAdmin!;
+
+  if (isOwnerDriver) {
+    const { count, error: existingError } = await admin
+      .from('vehicles')
+      .select('id', { count: 'exact', head: true })
+      .eq('company_id', companyId)
+      .eq('assigned_driver_id', driverId);
+    if (existingError) {
+      return operationalError({
+        status: 500,
+        message: 'We could not verify your current vehicle. Please try again.',
+        context: `driver.vehicles.owner-driver-count:${driverId}`,
+        cause: existingError,
+        retryable: true,
+      });
+    }
+    if ((count ?? 0) > 0) {
+      return json(409, { error: 'Owner Driver accounts manage one active vehicle here. Edit the existing vehicle instead of adding a fleet record.' });
+    }
+  }
 
   let body: unknown;
   try {
@@ -190,7 +212,7 @@ export async function POST(request: NextRequest) {
 
   const { data: inserted, error: insertError } = await admin
     .from('vehicles')
-    .insert({ ...parsed.data, company_id: companyId })
+    .insert({ ...parsed.data, company_id: companyId, ...(isOwnerDriver ? { assigned_driver_id: driverId } : {}) })
     .select('id, type, reg_plate, make, model, payload_kg, pallets_capacity, has_tail_lift, has_straps, has_blankets')
     .maybeSingle();
 
@@ -210,7 +232,7 @@ export async function POST(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
   const resolved = await resolveDriver(request);
   if ('error' in resolved) return resolved.error;
-  const { companyId, driverId, canManageCompanyVehicles } = resolved;
+  const { companyId, driverId, canManageCompanyVehicles, isOwnerDriver } = resolved;
   if (!canManageCompanyVehicles) {
     return json(403, { error: 'Only an owner/admin driver can change company vehicle records. Contact your fleet manager for assignment changes.' });
   }
@@ -241,6 +263,9 @@ export async function PATCH(request: NextRequest) {
       });
     }
     if (!vehicle) return json(404, { error: 'Vehicle not found.' });
+    if (isOwnerDriver && vehicle.assigned_driver_id !== driverId) {
+      return json(403, { error: 'Owner Driver access is limited to the vehicle assigned to this driver profile.' });
+    }
     if (vehicle.company_id !== companyId) {
       return json(403, { error: 'Access denied — vehicle does not belong to your company.' });
     }
@@ -276,7 +301,7 @@ export async function PATCH(request: NextRequest) {
 
   const { data: vehicle, error: vehicleError } = await admin
     .from('vehicles')
-    .select('id, company_id')
+    .select('id, company_id, assigned_driver_id')
     .eq('id', vehicleId)
     .maybeSingle();
 
@@ -290,6 +315,9 @@ export async function PATCH(request: NextRequest) {
     });
   }
   if (!vehicle) return json(404, { error: 'Vehicle not found.' });
+  if (isOwnerDriver && vehicle.assigned_driver_id !== driverId) {
+    return json(403, { error: 'Owner Driver access is limited to the vehicle assigned to this driver profile.' });
+  }
   if (vehicle.company_id !== companyId) {
     return json(403, { error: 'Access denied — vehicle does not belong to your company.' });
   }

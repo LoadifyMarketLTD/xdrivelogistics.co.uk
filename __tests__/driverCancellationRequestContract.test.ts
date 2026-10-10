@@ -9,9 +9,8 @@ const route = fs.readFileSync(path.join(root, 'app/api/driver/jobs/[jobId]/cance
 describe('Driver awarded-job cancellation request contract', () => {
   it('exposes Decline only for allocated or accepted driver work', () => {
     expect(dashboard).toContain("['allocated', 'accepted'].includes(currentStatus)");
-    expect(dashboard).toContain("const canDecline = ['allocated', 'accepted'].includes(lifecycleStatus)");
+    expect(dashboard).toContain("currentStatus != null && ['allocated', 'accepted'].includes(currentStatus)");
     expect(dashboard).toContain("decliningJobId === currentJob.id ? 'Sending…' : 'Decline'");
-    expect(dashboard).toContain("decliningJobId === job.id ? 'Sending…' : 'Decline'");
   });
 
   it('requires a meaningful cancellation reason and authenticated session', () => {

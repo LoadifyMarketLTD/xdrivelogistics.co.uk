@@ -4,7 +4,7 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { BellRing, Briefcase, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, ReceiptText, RefreshCw, Trophy } from 'lucide-react';
+import { BellRing, ChevronDown, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, RefreshCw } from 'lucide-react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -284,40 +284,40 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
     ], 'driver-more');
   }
 
-  const ownerNav = composeRolePrimaryNav(groups, [
+  const items = uniqueNavItems(groups);
+  const primarySpec: Array<[string, string, string]> = [
     ['owner-driver-dashboard-primary', 'Dashboard', '/driver'],
-    ['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre'],
-    ['owner-driver-directory-primary', 'Directory', '/driver/directory'],
-    ['owner-driver-live-availability-primary', 'Live Availability', '/driver/availability/live'],
-    ['owner-driver-my-fleet-primary', 'My Fleet', '/driver/vehicles'],
-    ['owner-driver-returns-primary', 'Return Journeys', '/driver/returns'],
     ['owner-driver-loads-primary', 'Loads', '/driver/loads'],
     ['owner-driver-quotes-primary', 'Quotes', '/driver/quotes'],
     ['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs'],
     ['owner-driver-diary-primary', 'Diary', '/driver/history'],
-    ['owner-driver-availability-primary', 'Availability & Schedule', '/driver/availability'],
-    ['owner-driver-won-work-primary', 'Won Work', '/driver/won-work'],
-    ['owner-driver-alerts-primary', 'Load Matching & Alerts', '/driver/load-alerts'],
-    ['owner-driver-nearby-primary', "Who's Nearby", '/driver/nearby'],
-    ['owner-driver-documents-primary', 'Documents', '/driver/documents'],
-    ['owner-driver-finance-primary', 'Finance & Invoices', '/driver/finance'],
-    ['owner-driver-messages-primary', 'Messages', '/driver/messages'],
-    ['owner-driver-event-log-primary', 'Event Log', '/driver/event-log'],
-    ['owner-driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision'],
-    ['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles'],
-    ['owner-driver-settings-primary', 'Settings', '/driver/settings'],
-  ], 'owner-driver-more', 'More', [
-    '/driver/jobs',
-    '/driver/availability',
-    '/driver/won-work',
-    '/driver/load-alerts',
-    '/driver/nearby',
-    '/driver/documents',
-    '/driver/finance',
-    '/driver/messages',
-  ]);
+    ['owner-driver-availability-primary', 'Availability', '/driver/availability'],
+    ['owner-driver-returns-primary', 'Return Journeys', '/driver/returns'],
+    ['owner-driver-directory-primary', 'Directory', '/driver/directory'],
+  ];
+  const moreSpec: Array<[string, string]> = [
+    ['/driver/load-alerts', 'Load Alerts'],
+    ['/driver/nearby', "Who's Nearby"],
+    ['/driver/messages', 'Messages'],
+    ['/driver/vehicles', 'My Vehicle'],
+    ['/driver/finance', 'Finance'],
+    ['/driver/documents', 'Documents'],
+    ['/driver/settings/billing', 'Membership & Billing'],
+    ['/driver/settings', 'Account / Settings'],
+  ];
 
-  return ownerNav.filter((group) => group.id !== 'owner-driver-more');
+  const primary = primarySpec.flatMap(([id, label, href]) => {
+    const item = items.get(href);
+    return item ? [singleGroup(id, label, { ...item, label })] : [];
+  });
+  const moreItems = moreSpec.flatMap(([href, label]) => {
+    const item = items.get(href);
+    return item ? [{ ...item, label }] : [];
+  });
+
+  return moreItems.length
+    ? [...primary, { id: 'owner-driver-more', label: 'More', items: moreItems }]
+    : primary;
 }
 
 export function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
@@ -369,12 +369,8 @@ function composeCompliancePrimaryNav(groups: WorkspaceNavGroup[]) {
 }
 
 const OWNER_DRIVER_MORE_ICONS = {
-  '/driver/jobs': Briefcase,
-  '/driver/won-work': Trophy,
-  '/driver/availability': CalendarClock,
   '/driver/load-alerts': BellRing,
   '/driver/nearby': MapPin,
-  '/driver/finance': ReceiptText,
   '/driver/documents': FileText,
   '/driver/messages': MessageSquare,
 } as const;
@@ -384,14 +380,14 @@ function OwnerDriverMoreIcon({ item }: { item: WorkspaceNavItem }) {
   return Icon ? <Icon aria-hidden="true" size={14} strokeWidth={1.8} /> : null;
 }
 const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
-  '/driver/jobs': 'Work',
-  '/driver/won-work': 'Work',
-  '/driver/availability': 'Matching & Availability',
   '/driver/load-alerts': 'Matching & Availability',
   '/driver/nearby': 'Matching & Availability',
-  '/driver/finance': 'Business',
-  '/driver/documents': 'Business',
   '/driver/messages': 'Business',
+  '/driver/vehicles': 'Business',
+  '/driver/finance': 'Business',
+  '/driver/documents': 'Compliance',
+  '/driver/settings/billing': 'Account',
+  '/driver/settings': 'Account',
 };
 
 const CUSTOMER_MORE_ICONS = {
@@ -914,6 +910,7 @@ export default function TopWorkspaceShell({
     <div
       className={`top-workspace-shell${driverPrototypeScope ? ' driver-prototype-port' : ''}`}
       data-workspace-role={role}
+      data-workspace-surface={pathname?.startsWith('/driver/history') ? 'diary' : pathname?.startsWith('/driver/loads') ? 'loads' : undefined}
     >
       <header className="top-workspace-shell__header">
         <div className="top-workspace-shell__brand">
@@ -1074,7 +1071,7 @@ export default function TopWorkspaceShell({
                             role="menuitem"
                             className="top-workspace-nav__menu-item"
                             data-active={active ? 'true' : 'false'}
-                            data-section-start={group.id === 'owner-driver-more' && item.href === '/driver/documents' ? 'true' : undefined}
+                            data-section-start={group.id === 'owner-driver-more' && (item.href === '/driver/finance' || item.href === '/driver/documents') ? 'true' : undefined}
                             onClick={() => openRoute(item.href)}
                           >
                             <span className="top-workspace-nav__menu-icon" aria-hidden="true">

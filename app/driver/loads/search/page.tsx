@@ -355,7 +355,7 @@ export default function SearchLoadsPage() {
               <button type="button" onClick={() => router.push('/driver/loads')}>All Live</button>
               <button type="button" data-active="true">Advanced Search <span>{total}</span></button>
               <button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button>
-              <button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button>
+              <button type="button" onClick={() => router.push('/driver/jobs')}>My Jobs</button>
               <button type="button" onClick={() => router.push('/driver/returns')}>Return Journeys</button>
             </div>
 

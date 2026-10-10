@@ -10,6 +10,7 @@ import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { ActionButton } from '../../components/workspace/WorkspaceUI';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
+import { formatPaymentTermsLabel } from '../../../lib/paymentTermsDisplay';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -84,11 +85,14 @@ type RegionFilter = 'any' | 'uk_roi' | 'euro';
 type PostedWithinFilter = 'any' | '15m' | '30m' | '1h' | '2h' | '4h' | '8h' | '24h';
 type JobTimingFilter = 'any' | 'same_day_timed' | 'same_day_non_timed' | 'next_day_timed' | 'next_day_non_timed';
 type LoadTypeFilter = 'all' | 'on_demand' | 'regular_load' | 'daily_hire';
+type BodyTypeFilter = 'any' | 'van' | 'luton' | 'curtainside' | 'box' | 'flatbed' | 'refrigerated' | 'tail_lift' | 'artic' | 'specialist';
 type PageSize = 10 | 25 | 50;
 
 type SavedLoadFilters = {
   vehicleFilter: string;
+  bodyTypeFilter: BodyTypeFilter;
   pickupFilter: string;
+  radiusMilesFilter: string;
   deliveryFilter: string;
   cargoFilter: string;
   weightMinFilter: string;
@@ -113,11 +117,42 @@ const VEHICLE_LABELS: Record<string, string> = {
   temperature_controlled_vehicle: 'Temperature Controlled Vehicle',
 };
 
-function fmtDate(value: string | null) {
-  if (!value) return 'TBC';
+function fmtSchedule(value: string | null, slot: string | null) {
+  if (!value) return slot?.trim() || 'TBC';
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'TBC';
-  return date.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+  if (Number.isNaN(date.getTime())) return slot?.trim() || 'TBC';
+  const day = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+  const normalized = slot?.trim();
+  if (normalized) return `${normalized.toUpperCase() === 'ASAP' ? 'ASAP' : normalized} · ${day}`;
+  const time = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return `${time} · ${day}`;
+}
+function splitTownPostcode(value: string) {
+  const raw = value.trim();
+  const idx = raw.lastIndexOf(',');
+  if (idx <= 0) return { town: raw, postcode: '' };
+  return { town: raw.slice(0, idx).trim(), postcode: raw.slice(idx + 1).trim() };
+}
+function fmtPostedAt(value: string | null) {
+  if (!value) return 'Posted time unavailable';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Posted time unavailable';
+  return `Posted ${date.toLocaleString('en-GB', { timeZone: 'Europe/London', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}`;
+}
+function bodyTypeFor(load: MarketplaceLoad): Exclude<BodyTypeFilter, 'any'> {
+  const value = `${load.vehicle_type ?? ''} ${load.requested_vehicle_type ?? ''} ${load.requested_vehicle_label ?? ''}`.toLowerCase();
+  if (value.includes('curtain')) return 'curtainside';
+  if (value.includes('flatbed')) return 'flatbed';
+  if (value.includes('refriger') || value.includes('temperature')) return 'refrigerated';
+  if (value.includes('tail lift')) return 'tail_lift';
+  if (value.includes('luton')) return 'luton';
+  if (value.includes('box')) return 'box';
+  if (value.includes('artic') || value.includes('44t')) return 'artic';
+  if (value.includes('van') || value.includes('car')) return 'van';
+  return 'specialist';
+}
+function VehicleGlyph() {
+  return <svg aria-hidden="true" width="18" height="13" viewBox="0 0 24 16" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 2h13v9H1V2Zm13 3h4l4 4v2h-8V5Z" fill="currentColor"/><circle cx="5" cy="13" r="2" fill="currentColor"/><circle cx="18" cy="13" r="2" fill="currentColor"/></svg>;
 }
 function postedWithinMs(filter: PostedWithinFilter) {
   const values: Record<Exclude<PostedWithinFilter, 'any'>, number> = {
@@ -145,6 +180,16 @@ function matchesTiming(load: MarketplaceLoad, filter: JobTimingFilter) {
   if (filter === 'same_day_non_timed') return relation === 'same_day' && !timed;
   if (filter === 'next_day_timed') return relation === 'next_day' && timed;
   return relation === 'next_day' && !timed;
+}
+function commercialTimingLabel(load: MarketplaceLoad) {
+  const relation = dateRelation(load);
+  const timed = isTimedLoad(load);
+  if (relation === 'same_day') return timed ? 'Same Day - Timed' : 'Same Day - Non Timed';
+  if (relation === 'next_day') return timed ? 'Next Day - Timed' : 'Next Day - Non Timed';
+  const type = loadType(load);
+  if (type === 'daily_hire') return 'Daily Hire';
+  if (type === 'regular_load') return 'Regular Load';
+  return load.direct_delivery_required ? 'Deliver Direct' : 'On Demand';
 }
 function loadType(load: MarketplaceLoad): Exclude<LoadTypeFilter, 'all'> {
   const service = String(load.service_mode ?? '').toLowerCase();
@@ -176,7 +221,9 @@ export default function AvailableLoadsPage() {
   const [bidMessage, setBidMessage] = useState('');
   const [bidLoading, setBidLoading] = useState(false);
   const [vehicleFilter, setVehicleFilter] = useState('any');
+  const [bodyTypeFilter, setBodyTypeFilter] = useState<BodyTypeFilter>('any');
   const [pickupFilter, setPickupFilter] = useState('');
+  const [radiusMilesFilter, setRadiusMilesFilter] = useState('');
   const [deliveryFilter, setDeliveryFilter] = useState('');
   const [cargoFilter, setCargoFilter] = useState('');
   const [weightMinFilter, setWeightMinFilter] = useState('');
@@ -190,7 +237,7 @@ export default function AvailableLoadsPage() {
   const [sortBy, setSortBy] = useState<SortMode>('date_desc');
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [pageSize, setPageSize] = useState<PageSize>(25);
-  const [visibleCount, setVisibleCount] = useState(25);
+  const [currentPage, setCurrentPage] = useState(1);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const refreshInFlightRef = useRef(false);
 
@@ -232,7 +279,7 @@ export default function AvailableLoadsPage() {
     try {
       const raw = window.localStorage.getItem(LOAD_FILTER_STORAGE_KEY); if (!raw) return;
       const saved = JSON.parse(raw) as Partial<SavedLoadFilters>;
-      setVehicleFilter(saved.vehicleFilter ?? 'any'); setPickupFilter(saved.pickupFilter ?? ''); setDeliveryFilter(saved.deliveryFilter ?? '');
+      setVehicleFilter(saved.vehicleFilter ?? 'any'); setBodyTypeFilter(saved.bodyTypeFilter ?? 'any'); setPickupFilter(saved.pickupFilter ?? ''); setRadiusMilesFilter(saved.radiusMilesFilter ?? ''); setDeliveryFilter(saved.deliveryFilter ?? '');
       setCargoFilter(saved.cargoFilter ?? ''); setWeightMinFilter(saved.weightMinFilter ?? ''); setDateFromFilter(saved.dateFromFilter ?? '');
       setDateToFilter(saved.dateToFilter ?? ''); setMemberFilter(saved.memberFilter ?? ''); setRegionFilter(saved.regionFilter ?? 'any');
       setPostedWithinFilter(saved.postedWithinFilter ?? 'any'); setJobTimingFilter(saved.jobTimingFilter ?? 'any'); setLoadTypeFilter(saved.loadTypeFilter ?? 'all'); setSortBy(saved.sortBy ?? 'date_desc'); setSaveAsDefault(true);
@@ -241,16 +288,21 @@ export default function AvailableLoadsPage() {
 
   const filteredLoads = useMemo(() => {
     const pickupNeedle = pickupFilter.trim().toLowerCase(); const deliveryNeedle = deliveryFilter.trim().toLowerCase();
-    const cargoNeedle = cargoFilter.trim().toLowerCase(); const memberNeedle = memberFilter.trim().toLowerCase(); const minWeight = Number(weightMinFilter);
+    const cargoNeedle = cargoFilter.trim().toLowerCase(); const memberNeedle = memberFilter.trim().toLowerCase(); const minWeight = Number(weightMinFilter); const radiusMiles = Number(radiusMilesFilter);
     const fromDate = dateFromFilter ? new Date(`${dateFromFilter}T00:00:00`).getTime() : null;
     const toDate = dateToFilter ? new Date(`${dateToFilter}T23:59:59`).getTime() : null; const postedWindow = postedWithinMs(postedWithinFilter);
     const filtered = loads.filter((load) => {
       if (vehicleFilter !== 'any' && load.vehicle_type !== vehicleFilter) return false;
+      if (bodyTypeFilter !== 'any' && bodyTypeFor(load) !== bodyTypeFilter) return false;
       const pickupSearch = `${load.pickup_area} ${load.pickup_postcode_area ?? ''}`.toLowerCase();
       const deliverySearch = `${load.delivery_area} ${load.delivery_postcode_area ?? ''}`.toLowerCase();
       const cargoSearch = `${load.cargo_type ?? ''} ${load.requested_cargo_label ?? ''} ${load.handling_requirements.join(' ')}`.toLowerCase();
       const memberSearch = `${load.member.name} ${load.member.memberId ?? ''} ${load.member.postedBy ?? ''} ${load.company_id} ${load.id}`.toLowerCase();
       if (pickupNeedle && !pickupSearch.includes(pickupNeedle)) return false;
+      if (radiusMilesFilter.trim()) {
+        if (Number.isNaN(radiusMiles) || radiusMiles <= 0) return false;
+        if (load.distance_to_pickup_miles == null || load.distance_to_pickup_miles > radiusMiles) return false;
+      }
       if (deliveryNeedle && !deliverySearch.includes(deliveryNeedle)) return false;
       if (cargoNeedle && !cargoSearch.includes(cargoNeedle)) return false;
       if (memberNeedle && !memberSearch.includes(memberNeedle)) return false;
@@ -277,13 +329,13 @@ export default function AvailableLoadsPage() {
       const priceA = a.budget_amount ?? 0; const priceB = b.budget_amount ?? 0;
       switch (sortBy) { case 'date_asc': return dateA - dateB; case 'price_desc': return priceB - priceA; case 'price_asc': return priceA - priceB; default: return dateB - dateA; }
     });
-  }, [cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loadTypeFilter, loads, memberFilter, pickupFilter, postedWithinFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
+  }, [bodyTypeFilter, cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loadTypeFilter, loads, memberFilter, pickupFilter, postedWithinFilter, radiusMilesFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
 
-  useEffect(() => { setVisibleCount(pageSize); setExpandAll(false); }, [vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
-  const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy });
-  const applySearch = () => { setVisibleCount(pageSize); if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); };
+  useEffect(() => { setCurrentPage(1); setExpandAll(false); }, [vehicleFilter, bodyTypeFilter, pickupFilter, radiusMilesFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
+  const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, bodyTypeFilter, pickupFilter, radiusMilesFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy });
+  const applySearch = () => { setCurrentPage(1); if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); };
   const clearFilters = () => {
-    setVehicleFilter('any'); setPickupFilter(''); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
+    setVehicleFilter('any'); setBodyTypeFilter('any'); setPickupFilter(''); setRadiusMilesFilter(''); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
     setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
   const handleBidSubmit = async (loadId: string) => {
@@ -310,8 +362,11 @@ export default function AvailableLoadsPage() {
     }
   };
 
-  const visibleLoads = filteredLoads.slice(0, visibleCount);
-  const canLoadMore = visibleCount < filteredLoads.length;
+  const totalPages = Math.max(1, Math.ceil(filteredLoads.length / pageSize));
+  const safePage = Math.min(currentPage, totalPages);
+  const pageStart = (safePage - 1) * pageSize;
+  const pageEnd = Math.min(pageStart + pageSize, filteredLoads.length);
+  const visibleLoads = filteredLoads.slice(pageStart, pageEnd);
   const mapLoads = useMemo(() => filteredLoads.map((load) => ({
     id: load.id,
     pickupLabel: load.pickup_area,
@@ -339,11 +394,12 @@ export default function AvailableLoadsPage() {
           <aside className="left">
             <div className="left-title">Search Loads</div>
             <div className="filter"><span className="label">Scope</span><div className="load-scope"><button type="button" className={regionFilter !== 'euro' ? 'active' : ''} onClick={() => setRegionFilter('uk_roi')}>UK & ROI</button><button type="button" className={regionFilter === 'euro' ? 'active' : ''} onClick={() => setRegionFilter('euro')}>Euro</button></div></div>
-            <div className="filter"><span className="label">From / Radius</span><input className="input" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Blackburn BB1 / postcode" /></div>
-            <div className="filter"><span className="label">To</span><input className="input" value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Enter destination" /></div>
+            <div className="filter"><span className="label">From / Radius</span><div className="row2"><div style={{ position: 'relative' }}><input className="input" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Blackburn BB1 / postcode" style={{ paddingRight: pickupFilter ? 26 : undefined }} />{pickupFilter && <button type="button" aria-label="Clear origin" onClick={() => setPickupFilter('')} style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 800 }}>×</button>}</div><select className="select" value={radiusMilesFilter} onChange={(event) => setRadiusMilesFilter(event.target.value)} aria-label="Pickup radius"><option value="">Any radius</option><option value="10">10 miles</option><option value="20">20 miles</option><option value="30">30 miles</option><option value="50">50 miles</option><option value="75">75 miles</option><option value="100">100 miles</option></select></div></div>
+            <div className="filter"><span className="label">To</span><div style={{ position: 'relative' }}><input className="input" value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Enter destination" style={{ paddingRight: deliveryFilter ? 26 : undefined }} />{deliveryFilter && <button type="button" aria-label="Clear destination" onClick={() => setDeliveryFilter('')} style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 800 }}>×</button>}</div></div>
             <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="any">Any exact / specialist</option>{Object.entries(VEHICLE_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
-            <div className="filter"><span className="label">Freight Type</span><input className="input" value={cargoFilter} onChange={(event) => setCargoFilter(event.target.value)} placeholder="Pallets, cartons, machinery" /></div>
-            <div className="filter"><span className="label">Member Name / ID</span><input className="input" value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Member name / ID" /></div>
+            <div className="filter"><span className="label">Body Type</span><select className="select" value={bodyTypeFilter} onChange={(event) => setBodyTypeFilter(event.target.value as BodyTypeFilter)}><option value="any">Any body type</option><option value="van">Van / Car</option><option value="luton">Luton</option><option value="curtainside">Curtainside</option><option value="box">Box</option><option value="flatbed">Flatbed</option><option value="refrigerated">Refrigerated / Temperature Controlled</option><option value="tail_lift">Tail Lift</option><option value="artic">Artic / 44T</option><option value="specialist">Specialist</option></select></div>
+            <div className="filter"><span className="label">Freight Type</span><select className="select" value={cargoFilter} onChange={(event) => setCargoFilter(event.target.value)}><option value="">Any freight type</option><option value="pallet">Pallets</option><option value="carton">Cartons / Parcels</option><option value="machin">Machinery</option><option value="fragile">Fragile Goods</option><option value="adr">ADR / Dangerous Goods</option><option value="temperature">Temperature Controlled</option></select></div>
+            <div className="filter"><span className="label">Member Name / ID</span><div style={{ position: 'relative' }}><input className="input" value={memberFilter} onChange={(event) => setMemberFilter(event.target.value)} placeholder="Member name / ID" style={{ paddingRight: memberFilter ? 26 : undefined }} />{memberFilter && <button type="button" aria-label="Clear member" onClick={() => setMemberFilter('')} style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 800 }}>×</button>}</div></div>
             <div className="filter"><span className="label">Job Timing</span><select className="select" value={jobTimingFilter} onChange={(event) => setJobTimingFilter(event.target.value as JobTimingFilter)}><option value="any">Any timing</option><option value="same_day_timed">Same Day - Timed</option><option value="same_day_non_timed">Same Day - Non Timed</option><option value="next_day_timed">Next Day - Timed</option><option value="next_day_non_timed">Next Day - Non Timed</option></select></div>
             <div className="filter"><span className="label">Posted Within</span><select className="select" value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">All</option><option value="15m">15 minutes</option><option value="30m">30 minutes</option><option value="1h">1 hour</option><option value="2h">2 hours</option><option value="4h">4 hours</option><option value="8h">8 hours</option><option value="24h">24 hours</option></select></div>
             <div className="filter"><span className="label">Pickup Window</span><div className="row2"><input className="input" type="date" value={dateFromFilter} onChange={(event) => setDateFromFilter(event.target.value)} /><input className="input" type="date" value={dateToFilter} onChange={(event) => setDateToFilter(event.target.value)} /></div></div>
@@ -354,22 +410,24 @@ export default function AvailableLoadsPage() {
             <div className="head"><div><h1>Loads</h1><p>Search live freight, inspect privacy-safe details and prepare a quote</p></div></div>
             {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
+            <div className="load-toolbar-single">
             <div className="load-nav-unified">
-              <div className="load-market-nav"><button type="button" className="active" aria-current="page">Available Loads</button><button type="button" onClick={() => router.push('/driver/load-alerts')}>Matching & Alerts</button><button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button><button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button></div>
-              <span className="load-nav-divider" aria-hidden="true" />
               <div className="load-tabs"><button type="button" className={loadTypeFilter === 'all' ? 'active' : ''} onClick={() => setLoadTypeFilter('all')}>All Live</button><button type="button" className={loadTypeFilter === 'on_demand' ? 'active' : ''} onClick={() => setLoadTypeFilter('on_demand')}>On Demand</button><button type="button" className={loadTypeFilter === 'regular_load' ? 'active' : ''} onClick={() => setLoadTypeFilter('regular_load')}>Regular Load</button><button type="button" className={loadTypeFilter === 'daily_hire' ? 'active' : ''} onClick={() => setLoadTypeFilter('daily_hire')}>Daily Hire</button></div>
-              <div className="load-posted">Show loads posted within last <select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">all</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
+              <div className="load-posted"><span>Posted within</span><select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">All</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
             </div>
             <div className="load-result-head">
-              <div><b>Search Loads Results</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
-              <div className="load-view-switch"><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}>Map View</button></div>
-              <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" className="text-action" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }}>{expandAll ? 'Collapse all visible loads' : 'Expand all visible loads'}</button>
-                <label className="load-page-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-                <span>{filteredLoads.length ? `1-${Math.min(visibleCount, filteredLoads.length)} of ${filteredLoads.length}` : '0 results'}</span>
-                {canLoadMore && <button type="button" className="rowbtn blue" onClick={() => setVisibleCount((current) => current + pageSize)}>Next</button>}
-                <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
+              <div className="load-result-left"><span className="load-result-count">{loading ? 'Loading…' : `${filteredLoads.length} live ${filteredLoads.length === 1 ? 'result' : 'results'}`}</span><div className="load-view-switch"><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}><span aria-hidden="true" className="load-view-icon">☷</span>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}><span aria-hidden="true" className="load-view-icon">⌖</span>Map View</button></div></div>
+              <div className="load-result-controls load-result-controls-stable">
+                <label className="load-page-text load-sort-control" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Sort <select value={sortBy} onChange={(event) => setSortBy(event.target.value as SortMode)}><option value="date_desc">Newest</option><option value="date_asc">Oldest</option><option value="price_desc">Price high-low</option><option value="price_asc">Price low-high</option></select></label>
+                <button type="button" className="text-action load-expand-control" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }}>{expandAll ? 'Collapse all visible loads' : 'Expand all visible loads'}</button>
+                <label className="load-page-text load-page-size-control" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setCurrentPage(1); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+                <span className="load-range-count">{filteredLoads.length ? `${pageStart + 1}-${pageEnd} of ${filteredLoads.length}` : '0 results'}</span>
+                <button type="button" className="rowbtn blue load-prev-stable" disabled={safePage <= 1} onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}>Previous</button>
+                <span className="load-page-count">Page {safePage} of {totalPages}</span>
+                <button type="button" className="rowbtn blue load-next-stable" disabled={safePage >= totalPages} onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}>Next</button>
+                <button type="button" className="btn load-refresh-stable" onClick={() => void fetchLoads({ background: true })} aria-busy={refreshing ? 'true' : 'false'}>Refresh</button>
               </div>
+            </div>
             </div>
             {loading ? <div className="xd2-calm-empty"><b>Loading exchange loads…</b><span>Refreshing live freight.</span></div> : loads.length === 0 ? <div className="xd2-calm-empty"><b>No exchange loads available right now</b><span>Refresh the board or keep your availability and return journey current.</span></div> : filteredLoads.length === 0 ? <div className="xd2-calm-empty"><b>No loads match these filters</b><span>Broaden the route, vehicle, freight or date criteria.</span></div> : viewMode === 'map' ? (
               <MarketplaceLoadMap
@@ -385,23 +443,56 @@ export default function AvailableLoadsPage() {
                   const selectedVehicleLabel = load.requested_vehicle_label ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g,' ')) : 'Any vehicle');
                   const cargoLabel = load.requested_cargo_label ?? load.cargo_type?.replace(/_/g,' ') ?? 'Freight';
                   const dim = dimensions(load);
-                  const toCollection = load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} miles${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available';
+                  const toCollection = load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} miles${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Current location unavailable';
                   const jobDistance = load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available';
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
+                  const pickupArea = splitTownPostcode(load.pickup_area);
+                  const deliveryArea = splitTownPostcode(load.delivery_area);
                   return <article key={load.id} className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}>
                     <div className="load-primary">
-                      <div className="load-route"><div className="load-route-line"><span>From:</span><b>{load.pickup_area}</b></div><div className="load-route-line"><span>To:</span><b>{load.delivery_area}</b></div><div className="load-quickfacts"><span>{jobDistance}</span><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Weight not supplied'}</span></div></div>
-                      <div className="load-times"><div className="load-time-line"><span>Pickup:</span><b>{fmtDate(load.pickup_datetime)}</b></div><div className="load-time-line"><span>Deliver:</span><b>{fmtDate(load.delivery_datetime)}</b></div><div className="load-requested"><span>Requested:</span><b>{selectedVehicleLabel}</b></div></div>
-                      <div className="load-member"><span className="load-type">{load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace')}</span><div className="load-postedby">Posted by <b>{load.member.postedBy ?? load.member.name}</b></div><span className="meta">{fmtDate(load.exchange_posted_at)} · Load ID: {load.id.slice(0,8).toUpperCase()}</span><span className="load-vehicle">{selectedVehicleLabel}</span></div>
+                      <div className="load-route">
+                        <div className="load-route-line"><span>From:</span><b><span className="load-town">{pickupArea.town}</span>{pickupArea.postcode ? <><span className="load-place-separator">, </span><span className="load-postcode">{pickupArea.postcode}</span></> : null}</b></div>
+                        <div className="load-route-line"><span>To:</span><b><span className="load-town">{deliveryArea.town}</span>{deliveryArea.postcode ? <><span className="load-place-separator">, </span><span className="load-postcode">{deliveryArea.postcode}</span></> : null}</b></div>
+                      </div>
+                      <div className="load-times">
+                        <div className="load-time-line"><span>Pickup:</span><b>{fmtSchedule(load.pickup_datetime, load.pickup_time_slot)}</b></div>
+                        <div className="load-time-line"><span>Deliver:</span><b>{fmtSchedule(load.delivery_datetime, load.delivery_time_slot)}</b></div>
+                      </div>
+                      <div className="load-member">
+                        <span className="load-type">{commercialTimingLabel(load)}</span>
+                        <div className="load-postedby">Posted by <b>{load.member.postedBy ?? load.member.name}</b></div>
+                        <span className="meta">{fmtPostedAt(load.exchange_posted_at)} · Load ID: {load.id.slice(0,8).toUpperCase()}</span>
+                        <span className="load-vehicle" style={{ display: 'inline-flex', alignItems: 'center', gap: 5 }}><VehicleGlyph />{selectedVehicleLabel}</span>
+                      </div>
                     </div>
                     <div className={'load-extra cx-load-extra ' + (expanded ? '' : 'hidden')}>
-                      <div className="load-extra-col"><div><b>To Collection</b><span>{toCollection}</span></div><div><b>Job Distance</b><span>{jobDistance}</span></div><div><b>Weight</b><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</span></div><div><b>Packaging</b><span>{cargoLabel}</span></div></div>
-                      <div className="load-extra-col"><div><b>Dimensions</b><span>{dim ?? 'Not supplied'}</span></div><div><b>Requested</b><span>{selectedVehicleLabel}</span></div><div><b>Payment Terms</b><span>{load.payment_terms ?? 'Not supplied'}</span></div><div><b>POD</b><span>Digital required · Hard-copy: {load.hard_copy_pod ?? 'No additional requirement'}</span></div></div>
-                      <div className="load-extra-note"><b>Load Notes</b><span>{load.public_quote_notes ?? 'No public quote notes supplied.'}</span><small>Pre-award execution contacts and exact private addresses remain protected until authorised award/allocation.</small></div>
+                      <div className="load-facts-row" aria-label="Load quick facts">
+                        <div className="load-facts-col">
+                          <div><b>To Collection</b><span>{toCollection}</span></div>
+                          <div><b>Job Distance</b><span>{jobDistance}</span></div>
+                        </div>
+                        <div className="load-facts-col">
+                          <div><b>Weight</b><span>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</span></div>
+                          <div><b>Packaging</b><span>{cargoLabel}</span></div>
+                          <div><b>Dimensions</b><span>{dim ?? 'Not supplied'}</span></div>
+                        </div>
+                        <div className="load-facts-col">
+                          <div><b>Requested</b><span>{selectedVehicleLabel}</span></div>
+                          <div><b>Payment Terms</b><span>{formatPaymentTermsLabel(load.payment_terms) ?? 'Not supplied'}</span></div>
+                          <div><b>POD</b><span>Digital required · Hard-copy: {load.hard_copy_pod ?? 'No additional requirement'}</span></div>
+                        </div>
+                      </div>
+                      {load.public_quote_notes ? <div className="load-extra-note"><b>Load Notes</b><span>{load.public_quote_notes}</span><small>Pre-award execution contacts and exact private addresses remain protected until authorised award/allocation.</small></div> : null}
                       {load.handling_requirements.length > 0 && <div className="load-extra-note load-extra-requirements"><b>Requirements</b><span>{load.handling_requirements.join(' · ')}</span></div>}
                       {bidLoadId === load.id && !quoted && <div className="driver-inline-quote"><div className="driver-filter-field"><label>Your quote (£)</label><input type="number" min="1" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} /></div><div className="driver-filter-field"><label>Message</label><textarea rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} /></div><ActionButton tone="success" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit(load.id)}>{bidLoading ? 'Submitting…' : 'Submit Quote'}</ActionButton><ActionButton tone="secondary" onClick={() => setBidLoadId(null)}>Cancel</ActionButton></div>}
                     </div>
-                    <div className="load-card-footer"><button type="button" className="load-expand" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '⌃' : '⌄'}</button>{!quoted && <button type="button" className="load-quote-footer" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}<span className="load-footer-spacer" /><button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button><span className="load-footer-identity">{load.member.memberId ?? 'Member ID unavailable'} · {load.member.name}{load.member.phone ? ` · ${load.member.phone}` : ''}</span></div>
+                    <div className="load-card-footer">
+                      <button type="button" className="load-expand" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '⌃' : '⌄'}</button>
+                      {!quoted && <button type="button" className="load-quote-footer" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}
+                      <span className="load-footer-spacer" />
+                      <button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button>
+                      <span className="load-footer-identity">{load.member.memberId ?? 'Member ID unavailable'} · {load.member.name}{load.member.phone ? ` · ${load.member.phone}` : ''}</span>
+                    </div>
                   </article>;
                 })}
               </div>

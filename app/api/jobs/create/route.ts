@@ -119,6 +119,56 @@ const bodySchema = z.object({
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
 
+async function resolvePostTown(postcode: string) {
+  const normalized = postcode.trim().toUpperCase();
+  if (!normalized) return null;
+
+  const idealKey = process.env.IDEAL_POSTCODES_API_KEY?.trim();
+  if (idealKey) {
+    try {
+      const url = new URL(`https://api.ideal-postcodes.co.uk/v1/postcodes/${encodeURIComponent(normalized)}`);
+      url.searchParams.set('api_key', idealKey);
+      const response = await fetch(url, { signal: AbortSignal.timeout(5_000), cache: 'no-store' });
+      if (response.ok) {
+        const payload = await response.json() as { result?: Array<{ post_town?: string | null }> };
+        const town = payload.result?.find((row) => row.post_town?.trim())?.post_town?.trim();
+        if (town) return town;
+      }
+    } catch {
+      // Fall through to the next resolver.
+    }
+  }
+
+  const getAddressKey = process.env.GETADDRESS_API_KEY?.trim();
+  if (getAddressKey) {
+    try {
+      const url = new URL(`https://api.getAddress.io/find/${encodeURIComponent(normalized)}`);
+      url.searchParams.set('api-key', getAddressKey);
+      url.searchParams.set('expand', 'true');
+      const response = await fetch(url, { signal: AbortSignal.timeout(5_000), cache: 'no-store' });
+      if (response.ok) {
+        const payload = await response.json() as { addresses?: Array<{ town_or_city?: string | null }> };
+        const town = payload.addresses?.find((row) => row.town_or_city?.trim())?.town_or_city?.trim();
+        if (town) return town;
+      }
+    } catch {
+      // Fall through to the public postcode resolver.
+    }
+  }
+
+  try {
+    const response = await fetch(`https://api.postcodes.io/postcodes/${encodeURIComponent(normalized)}`, {
+      signal: AbortSignal.timeout(5_000),
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const payload = await response.json() as { result?: { admin_district?: string | null } | null };
+    return payload.result?.admin_district?.trim() || null;
+  } catch {
+    return null;
+  }
+}
+
 const isMissingIdempotencyColumn = (error: { code?: string | null; message?: string | null } | null | undefined) => {
   if (!error) return false;
   const code = String(error.code ?? '');
@@ -654,6 +704,10 @@ export async function POST(request: NextRequest) {
     ...input.additionalStops.map((stop) => stop.postcode),
     input.deliveryPostcode,
   ]);
+  const [pickupCity, deliveryCity] = await Promise.all([
+    resolvePostTown(input.pickupPostcode),
+    resolvePostTown(input.deliveryPostcode),
+  ]);
 
   const row: Record<string, unknown> = {
     company_id: input.companyId,
@@ -661,10 +715,12 @@ export async function POST(request: NextRequest) {
     status,
     current_status: status,
     pickup_location: `${input.pickupAddress}, ${input.pickupPostcode.toUpperCase()}`,
+    pickup_city: pickupCity,
     pickup_postcode: input.pickupPostcode.toUpperCase(),
     pickup_datetime: input.pickupDateTime,
     pickup_time_slot: input.pickupTimeSlot,
     delivery_location: `${input.deliveryAddress}, ${input.deliveryPostcode.toUpperCase()}`,
+    delivery_city: deliveryCity,
     delivery_postcode: input.deliveryPostcode.toUpperCase(),
     delivery_datetime: input.deliveryDateTime || null,
     delivery_time_slot: input.deliveryTimeSlot,

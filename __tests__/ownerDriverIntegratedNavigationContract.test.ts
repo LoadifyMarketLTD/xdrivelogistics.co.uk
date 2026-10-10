@@ -1,37 +1,44 @@
-import fs from 'node:fs';
-import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { composeDriverPrimaryNav } from '../app/components/workspace/TopWorkspaceShell';
-import { getVisibleWorkspaceNav } from '../lib/workspaceRole';
+import { getVisibleWorkspaceNav, hasWorkspaceCapability } from '../lib/workspaceRole';
 
-describe('owner-driver navigation integration contract', () => {
-  it('removes the generic More bucket from the owner-driver primary shell', () => {
+const hrefs = (groups: Array<{ items: Array<{ href: string }> }>) =>
+  groups.flatMap((group) => group.items.map((item) => item.href));
+
+describe('owner-driver sole-trader navigation contract', () => {
+  it('keeps a focused primary navigation and a compact More bucket', () => {
     const nav = composeDriverPrimaryNav(getVisibleWorkspaceNav('owner_driver'), true);
-    expect(nav.some((group) => group.id === 'owner-driver-more')).toBe(false);
-    expect(nav.some((group) => group.label === 'More')).toBe(false);
+    expect(nav.map((group) => group.label)).toEqual([
+      'Dashboard',
+      'Loads',
+      'Quotes',
+      'My Jobs',
+      'Diary',
+      'Availability',
+      'Return Journeys',
+      'Directory',
+      'More',
+    ]);
+
+    const more = nav.find((group) => group.id === 'owner-driver-more');
+    expect(more?.items.map((item) => item.label)).toEqual([
+      'Load Alerts',
+      "Who's Nearby",
+      'Messages',
+      'My Vehicle',
+      'Finance',
+      'Documents',
+      'Membership & Billing',
+      'Account / Settings',
+    ]);
   });
 
-  it('integrates former More routes into their parent workspaces', () => {
-    const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), 'utf8');
-
-    expect(read('app/driver/action-centre/page.tsx')).toContain("href: '/driver/messages'");
-    expect(read('app/driver/messages/page.tsx')).toContain("href: '/driver/action-centre'");
-
-    expect(read('app/driver/availability/page.tsx')).toContain("href: '/driver/availability/live'");
-    expect(read('app/driver/availability/page.tsx')).toContain("href: '/driver/nearby'");
-    expect(read('app/driver/availability/live/page.tsx')).toContain("router.push('/driver/nearby')");
-    expect(read('app/driver/nearby/page.tsx')).toContain("href: '/driver/availability'");
-
-    expect(read('app/driver/loads/page.tsx')).toContain("router.push('/driver/load-alerts')");
-    expect(read('app/driver/load-alerts/page.tsx')).toContain("href: '/driver/loads'");
-
-    expect(read('app/driver/quotes/page.tsx')).toContain("href: '/driver/won-work'");
-    expect(read('app/driver/won-work/page.tsx')).toContain("href: '/driver/quotes'");
-
-    expect(read('app/driver/history/page.tsx')).toContain("href: '/driver/jobs'");
-    expect(read('app/driver/jobs/page.tsx')).toContain("href: '/driver/history'");
-
-    expect(read('app/driver/drivers-vehicles/page.tsx')).toContain("onClick={() => router.push('/driver/documents')}");
-    expect(read('app/driver/documents/page.tsx')).toContain("href: '/driver/drivers-vehicles'");
+  it('does not expose fleet administration in the owner-driver shell', () => {
+    const visible = hrefs(composeDriverPrimaryNav(getVisibleWorkspaceNav('owner_driver'), true));
+    for (const forbidden of ['/driver/availability/live', '/driver/drivers-vehicles', '/driver/drivers']) {
+      expect(visible).not.toContain(forbidden);
+    }
+    expect(hasWorkspaceCapability('owner_driver', 'drivers.manage')).toBe(false);
+    expect(hasWorkspaceCapability('owner_driver', 'company.members.manage')).toBe(false);
   });
 });

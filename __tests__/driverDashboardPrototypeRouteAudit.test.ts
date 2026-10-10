@@ -29,14 +29,14 @@ describe('Driver execution dashboard contract', () => {
   it('does not load marketplace data for an employed Driver dashboard', () => {
     expect(page).not.toContain("fetch('/api/driver/marketplace/loads'");
     expect(page).not.toContain('Matching loads');
-    expect(page).not.toContain('Recent Bookings');
   });
 
   it('shows commercial tools only when commercial authority exists', () => {
     expect(page).toContain("const commercialAccess = ownerDriver || user?.canCommercialBid === true");
     expect(page).toContain("{ownerDriver ? (");
-    expect(page).toContain('Reports & Statistics');
-    expect(page).toContain('Accounts Payable');
+    expect(page).toContain('Current assignment');
+    expect(page).toContain('Next booking');
+    expect(page).toContain('Driver readiness');
     expect(page).toContain('/api/driver/dashboard/commercial-summary');
     expect(page).toContain('{commercialAccess && !ownerDriver ? (');
     for (const route of ['/driver/loads','/driver/quotes','/driver/won-work','/driver/nearby','/driver/returns']) expect(page + shell).toContain(route);

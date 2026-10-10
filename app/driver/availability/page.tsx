@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
@@ -95,7 +94,7 @@ export default function AvailabilityPage() {
 
   const loadCanonicalVehicle = useCallback(async (): Promise<{ vehicle: VehicleRow | null; error: string | null }> => {
     const auth = await getAuthHeader();
-    if (!auth) return { vehicle: null, error: 'Canonical active-vehicle session could not be verified.' };
+    if (!auth) return { vehicle: null, error: 'Your vehicle session could not be verified.' };
     try {
       const response = await fetch('/api/driver/vehicles', { headers: { Authorization: auth } });
       const payload = (await response.json().catch(() => ({}))) as {
@@ -104,8 +103,8 @@ export default function AvailabilityPage() {
         canonicalVehicleSignalAvailable?: boolean;
         error?: string;
       };
-      if (!response.ok) return { vehicle: null, error: payload.error || 'Canonical active-vehicle signal could not be loaded.' };
-      if (payload.canonicalVehicleSignalAvailable === false) return { vehicle: null, error: 'Canonical active-vehicle signal is temporarily unavailable.' };
+      if (!response.ok) return { vehicle: null, error: payload.error || 'Your active vehicle could not be loaded.' };
+      if (payload.canonicalVehicleSignalAvailable === false) return { vehicle: null, error: 'Your active vehicle status is temporarily unavailable.' };
       const vehicles = payload.vehicles ?? [];
       return {
         vehicle: payload.canonicalVehicleId
@@ -114,7 +113,7 @@ export default function AvailabilityPage() {
         error: null,
       };
     } catch {
-      return { vehicle: null, error: 'Canonical active-vehicle signal could not be loaded.' };
+      return { vehicle: null, error: 'Your active vehicle could not be loaded.' };
     }
   }, [getAuthHeader]);
 
@@ -279,24 +278,21 @@ export default function AvailabilityPage() {
   const availabilityOption = AVAILABILITY_OPTIONS.find((option) => option.value === availability) ?? AVAILABILITY_OPTIONS[2];
   const availabilityLabel = availabilityOption.label;
   const hasSavedSchedule = Object.keys(weeklySlots).length > 0;
-  const vehicleLabel = vehicle ? (VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? humanize(vehicle.type)) : 'No canonical active vehicle';
+  const vehicleLabel = vehicle ? (VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? humanize(vehicle.type)) : 'No active vehicle selected';
   const hasValidCurrentLocation = typeof currentLocation?.lat === 'number'
     && Number.isFinite(currentLocation.lat)
     && typeof currentLocation?.lng === 'number'
     && Number.isFinite(currentLocation.lng);
-  const locationLabel = hasValidCurrentLocation
-    ? `${currentLocation!.lat!.toFixed(5)}, ${currentLocation!.lng!.toFixed(5)}`
-    : 'Not recorded';
+  const locationLabel = hasValidCurrentLocation ? 'Current location recorded' : 'Not recorded';
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Keep current status, matching profile, canonical active-vehicle identity and weekly availability current."
+        subtitle="Keep your current status, vehicle, matching preferences and weekly availability up to date."
         availabilityLabel={availabilityLabel}
         driverName={driverRow?.display_name ?? user?.email ?? 'Driver'}
         headerActions={<ActionButton tone="primary" onClick={() => void loadAllData()} disabled={loading}>Refresh</ActionButton>}
       >
-        <DriverIntegratedNav label="Availability tools" items={[{ href: '/driver/availability/live', label: 'Live' }, { href: '/driver/availability', label: 'Future & Schedule' }, { href: '/driver/nearby', label: "Who's Nearby" }]} />
         {successMsg && <AlertBanner tone="success">{successMsg}</AlertBanner>}
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {scheduleUnavailable && <AlertBanner tone="warning">Weekly schedule storage is unavailable. Live status, destination matching and vehicle identity signals remain available.</AlertBanner>}
@@ -313,7 +309,7 @@ export default function AvailabilityPage() {
                 ))}
               </div>
               <dl className="driver-availability-facts">
-                <div><dt>Canonical vehicle</dt><dd>{vehicleLabel}</dd></div>
+                <div><dt>My vehicle</dt><dd>{vehicleLabel}</dd></div>
                 <div><dt>Location</dt><dd>{locationLabel}</dd></div>
                 <div><dt>Updated</dt><dd>{fmtDate(currentLocation?.recorded_at ?? null)}</dd></div>
                 <div><dt>Message</dt><dd>{availabilityOption.description}</dd></div>
@@ -321,11 +317,11 @@ export default function AvailabilityPage() {
             </div>
 
             <div className="driver-availability-section">
-              <div className="driver-availability-section__head"><strong>Canonical active vehicle</strong></div>
+              <div className="driver-availability-section__head"><strong>My vehicle</strong></div>
               <dl className="driver-availability-facts">
                 <div><dt>Vehicle</dt><dd>{vehicleLabel}</dd></div><div><dt>Registration</dt><dd>{vehicle?.reg_plate ?? '—'}</dd></div><div><dt>Payload</dt><dd>{vehicle?.payload_kg ? `${vehicle.payload_kg} kg` : '—'}</dd></div><div><dt>Tail lift</dt><dd>{vehicle ? (vehicle.has_tail_lift ? 'Yes' : 'No') : '—'}</dd></div>
               </dl>
-              <div style={{ marginTop: 6, color: '#64748b', fontSize: 11, lineHeight: '15px' }}>Vehicle identity only; full operational eligibility is revalidated by the server when quoting or allocating work.</div>
+              <div style={{ marginTop: 6, color: '#64748b', fontSize: 11, lineHeight: '15px' }}>Vehicle details are checked automatically when you quote for or carry out work.</div>
             </div>
 
             <div className="driver-availability-section">
@@ -343,10 +339,10 @@ export default function AvailabilityPage() {
                 <label className="driver-availability-field"><span>Radius</span><span className="driver-availability-input-suffix"><select value={destinationRadiusMiles} onChange={(event) => setDestinationRadiusMiles(event.target.value)} disabled={!destinationPriority}><option value="10">10</option><option value="20">20</option><option value="30">30</option><option value="50">50</option><option value="100">100</option><option value="200">200</option><option value="300">300</option></select><em>miles</em></span></label>
               </div>
               <div className="driver-availability-readiness-strip">
-                <div><span>Driver type</span><strong>{humanize(driverRow?.driver_type)}</strong></div>
-                <div><span>Commercial bid flag</span><StatusBadge value={driverRow?.can_commercial_bid ? 'Enabled' : 'Restricted'} tone={driverRow?.can_commercial_bid ? 'green' : 'orange'} /></div>
+                <div><span>Account type</span><strong>{humanize(driverRow?.driver_type)}</strong></div>
+                <div><span>Load quoting</span><StatusBadge value={driverRow?.can_commercial_bid ? 'Enabled' : 'Restricted'} tone={driverRow?.can_commercial_bid ? 'green' : 'orange'} /></div>
                 <div><span>International work</span><StatusBadge value={driverRow?.international_work_approved ? 'Approved' : 'UK only'} tone={driverRow?.international_work_approved ? 'green' : 'grey'} /></div>
-                <div><span>Driver record</span><StatusBadge value={humanize(driverRow?.status)} tone={String(driverRow?.status ?? '').toLowerCase() === 'active' ? 'green' : 'grey'} /></div>
+                <div><span>Account status</span><StatusBadge value={humanize(driverRow?.status)} tone={String(driverRow?.status ?? '').toLowerCase() === 'active' ? 'green' : 'grey'} /></div>
               </div>
             </section>
 

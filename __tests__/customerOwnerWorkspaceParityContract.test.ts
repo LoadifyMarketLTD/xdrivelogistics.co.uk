@@ -36,13 +36,13 @@ describe('Customer and Owner Driver workspace structure parity', () => {
       '/customer/invoices',
       '/customer/team',
       '/customer/settings',
-    ]) expect(shell).toContain(`href: '${href}'`);
+    ]) expect(shell).toContain("href: '" + href + "'");
   });
 
   it('promotes the core Customer lifecycle and keeps secondary functions under More', () => {
     const customer = shell.slice(shell.indexOf('function composeCustomerPrimaryNav'), shell.indexOf('function composeBrokerPrimaryNav'));
     for (const href of ['/customer/post-load', '/customer/loads', '/customer/quotes', '/customer/bookings', '/customer/diary', '/customer/tracking', '/customer/network', '/customer/action-centre']) {
-      expect(customer).toContain(`'${href}'`);
+      expect(customer).toContain("'" + href + "'");
     }
     expect(customer).toContain("], 'customer-more');");
     expect(shell).toContain('<CustomerMoreIcon item={item} />');
@@ -57,10 +57,11 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(settings).toContain("{ label: 'Security'");
   });
 
-  it('gives Customer the same two-column control-desk geometry as Owner Driver', () => {
-    expect(ownerDashboard).toContain("gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)'");
-    expect(ownerDashboard).toContain('Reports & Statistics');
-    expect(ownerDashboard).toContain('Activity at a glance');
+  it('keeps Customer control-desk geometry while Owner Driver uses the focused sole-trader dashboard', () => {
+    expect(ownerDashboard).toContain('Current assignment');
+    expect(ownerDashboard).toContain('Next booking');
+    expect(ownerDashboard).toContain('Driver readiness');
+    expect(ownerDashboard).toContain('/api/driver/dashboard/commercial-summary');
     expect(customerDashboard).toContain('customer-owner-parity-grid');
     expect(customerDashboard).toContain('Reports & Statistics');
     expect(customerDashboard).toContain('Activity at a glance');
@@ -82,6 +83,7 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(customerDashboard).not.toContain('on-time %');
     expect(customerDashboard).not.toContain('tracked %');
   });
+
   it('surfaces pending carrier acceptance consistently instead of reporting Driver Assigned too early', () => {
     expect(customerDashboard).toContain("fetch('/api/customer/booking-offers'");
     expect(customerDashboard).toContain('Awaiting Carrier Acceptance');
@@ -90,10 +92,10 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(customerDashboard).toContain("router.push('/customer/quotes?status=pending_acceptance')");
   });
 
-  it('does not disturb the canonical Owner Driver More workflow', () => {
-    expect(shell).toContain("'/driver/jobs': 'Work'");
-    expect(shell).toContain("'/driver/availability': 'Matching & Availability'");
-    expect(shell).toContain("'/driver/finance': 'Business'");
+  it('keeps Owner Driver secondary navigation grouped under More', () => {
+    expect(shell).toContain("id: 'owner-driver-more'");
+    expect(shell).toContain("['/driver/vehicles', 'My Vehicle']");
+    expect(shell).toContain("['/driver/settings', 'Account / Settings']");
     expect(shell).toContain('<OwnerDriverMoreIcon item={item} />');
   });
 });

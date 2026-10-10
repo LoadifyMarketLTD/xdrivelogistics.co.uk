@@ -45,3 +45,78 @@
     position: static !important;
   }
 }
+
+/* PR675 Quotes: CX operational card reconstruction */
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx{border:1px solid #2f93ff!important;border-radius:0!important;box-shadow:none!important;background:#fff!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-sheet-main{display:grid!important;grid-template-columns:minmax(0,33%) minmax(0,36%) minmax(300px,31%)!important;min-height:94px!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-route,
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-times,
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-commercial{min-height:94px!important;padding:9px 11px!important;border-right:1px solid #d6dde5!important;background:#fff!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-commercial{border-right:0!important;padding-top:33px!important;position:relative!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-route,
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-times{display:flex!important;flex-direction:column!important;justify-content:flex-start!important;gap:7px!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-route>div,
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-times>div{display:grid!important;grid-template-columns:68px minmax(0,1fr)!important;align-items:baseline!important;gap:7px!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-route span,
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-times span{font-size:10.8px!important;line-height:15px!important;font-weight:450!important;color:#5c6672!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-route b,
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-times b{font-size:12px!important;line-height:18px!important;font-weight:600!important;color:#303842!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-status-band{position:absolute!important;top:7px!important;left:10px!important;right:10px!important;height:22px!important;display:flex!important;align-items:center!important;justify-content:center!important;background:#b9dcf7!important;color:#202c37!important;font-size:12px!important;line-height:16px!important;font-weight:650!important;border:0!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-posted-by{font-size:11px!important;line-height:15px!important;font-weight:450!important;color:#505b66!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-posted-by b{font-size:12px!important;font-weight:650!important;color:#303842!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-commercial .meta{display:block!important;margin-top:3px!important;max-width:calc(100% - 92px)!important;font-size:10px!important;line-height:14px!important;font-weight:400!important;color:#6f7985!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-vehicle{right:11px!important;bottom:9px!important;font-size:11px!important;line-height:15px!important;font-weight:600!important;color:#303842!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-cx-facts{display:grid!important;grid-template-columns:minmax(0,33%) minmax(0,36%) minmax(300px,31%)!important;min-height:76px!important;background:#fbfbfb!important;border-top:1px solid #e1e5ea!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-cx-facts>section{padding:7px 10px!important;border-right:1px solid #d6dde5!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-cx-facts>section:last-child{border-right:0!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-cx-facts section>div{display:grid!important;grid-template-columns:86px minmax(0,1fr)!important;gap:7px!important;align-items:baseline!important;margin:0 0 3px!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-cx-facts span{font-size:10.5px!important;line-height:14px!important;font-weight:500!important;color:#356fa8!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-cx-facts b{font-size:11px!important;line-height:15px!important;font-weight:450!important;color:#303842!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-cx-blank{display:flex!important;align-items:flex-start!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-cx-notes{padding:6px 10px!important;border-top:1px solid #e1e5ea!important;background:#fff!important;font-size:10.8px!important;line-height:15px!important;color:#303842!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-cx-notes>div+div{margin-top:2px!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-cx-notes span{color:#356fa8!important;font-weight:500!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-cx-notes small{display:block!important;margin-top:3px!important;font-size:9.8px!important;line-height:13px!important;color:#6f7985!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-entry-extra{grid-template-columns:1fr 1fr 1fr!important;border-top:1px solid #d6dde5!important;background:#f8fafc!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-entry-extra>section{min-height:58px!important;padding:6px 9px!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-sheet-footer{min-height:28px!important;height:28px!important;border-top:1px solid #cfd7df!important;background:#f7f7f7!important;display:flex!important;align-items:center!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-expand{width:20px!important;min-width:20px!important;height:27px!important;padding:0!important;border-right:1px solid #d6dde5!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-withdraw-action,
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-primary-action{height:27px!important;min-width:108px!important;padding:0 10px!important;border:0!important;font-size:10.5px!important;line-height:14px!important;font-weight:600!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-withdraw-action{background:#e42b2b!important;color:#fff!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-you-quoted{padding:0 10px!important;font-size:10.5px!important;line-height:14px!important;font-weight:450!important;color:#4d5965!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-you-quoted b{font-size:11px!important;font-weight:650!important;color:#303842!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-stage-meta{font-size:9.8px!important;line-height:13px!important;font-weight:500!important;color:#6f7985!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-view-details{border:0!important;background:transparent!important;color:#0673e8!important;text-decoration:underline!important;font-size:10.5px!important;font-weight:600!important;cursor:pointer!important;padding:0 5px!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-member-identity{padding-right:7px!important;font-size:10px!important;line-height:14px!important;font-weight:500!important;color:#4f5964!important;white-space:nowrap!important}
+@media(max-width:1250px){
+  .driver-quotes-exchange .driver-quotes-prototype .quote-sheet-cx .quote-sheet-main,
+  .driver-quotes-exchange .driver-quotes-prototype .quote-cx-facts{grid-template-columns:minmax(250px,34%) minmax(260px,34%) minmax(280px,32%)!important}
+}
+
+/* PR675 Quotes: CX search panel and tab grammar */
+.driver-quotes-exchange .driver-quotes-prototype .subbar{min-height:30px!important;height:30px!important;padding:0 10px!important;border-bottom:1px solid #cfd7df!important;background:#fff!important}
+.driver-quotes-exchange .driver-quotes-prototype .pagebody{grid-template-columns:188px minmax(0,1fr)!important;gap:0!important}
+.driver-quotes-exchange .driver-quotes-prototype .left{width:188px!important;min-width:188px!important;border-right:1px solid #cfd7df!important;background:#f8fafc!important}
+.driver-quotes-exchange .driver-quotes-prototype .left-title{min-height:34px!important;padding:8px 10px!important;font-size:12px!important;line-height:16px!important;font-weight:600!important;color:#303842!important;border-bottom:1px solid #d7dee6!important}
+.driver-quotes-exchange .driver-quotes-prototype .filter{padding:7px 10px!important;border-bottom:1px solid #e2e7ec!important}
+.driver-quotes-exchange .driver-quotes-prototype .filter .label{display:block!important;margin-bottom:4px!important;font-size:10.8px!important;line-height:14px!important;font-weight:500!important;color:#4f5e6d!important;text-transform:none!important}
+.driver-quotes-exchange .driver-quotes-prototype .filter .input,
+.driver-quotes-exchange .driver-quotes-prototype .filter .select{height:30px!important;min-height:30px!important;font-size:11px!important;line-height:14px!important;padding:0 8px!important;border:1px solid #c9d3df!important;border-radius:4px!important;background:#fff!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-search-actions{display:flex!important;gap:8px!important;padding:10px!important;align-items:center!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-search-button{height:30px!important;min-width:70px!important;padding:0 14px!important;border:0!important;border-radius:16px!important;background:#62c51a!important;color:#fff!important;font-size:11px!important;font-weight:700!important;cursor:pointer!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-clear-button{height:28px!important;min-width:54px!important;padding:0 12px!important;border:1px solid #bdc6d0!important;border-radius:14px!important;background:#fff!important;color:#4a5560!important;font-size:10.5px!important;font-weight:500!important;cursor:pointer!important}
+.driver-quotes-exchange .driver-quotes-prototype .main{padding:0!important;min-width:0!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-page-title{min-height:34px!important;padding:7px 10px 5px!important;border-bottom:0!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-page-title h1{margin:0!important;font-size:18px!important;line-height:22px!important;font-weight:500!important;color:#303842!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-head-cx{min-height:30px!important;height:30px!important;padding:0 8px!important;border-top:1px solid #d5dce4!important;border-bottom:1px solid #d5dce4!important;background:#fff!important;display:flex!important;align-items:center!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-toolbar-spacer{flex:1 1 auto!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-toolbar-controls{display:inline-flex!important;align-items:center!important;gap:8px!important;font-size:10px!important;color:#52606d!important;white-space:nowrap!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-tabs-cx{height:34px!important;min-height:34px!important;display:flex!important;align-items:stretch!important;background:#eef5fb!important;border-bottom:1px solid #bfcbd7!important;overflow-x:auto!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-tabs-cx>button{height:34px!important;min-height:34px!important;padding:0 12px!important;border:0!important;border-right:3px solid #fff!important;border-radius:0!important;background:#cfe7fa!important;color:#4b5967!important;font-size:11px!important;line-height:16px!important;font-weight:600!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-tabs-cx>button.active{background:#9fd0f6!important;color:#303842!important;box-shadow:inset 0 -3px 0 #4a9fe8!important;position:relative!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-tabs-cx>button.active:after{content:''!important;position:absolute!important;left:50%!important;bottom:-8px!important;transform:translateX(-50%)!important;border-left:8px solid transparent!important;border-right:8px solid transparent!important;border-top:8px solid #4a9fe8!important;z-index:2!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-tabs-cx>button span{font-size:10px!important;font-weight:500!important;margin-left:3px!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-more-statuses{margin-left:auto!important;display:inline-flex!important;align-items:center!important;gap:5px!important;padding:0 8px!important;font-size:10px!important;font-weight:500!important;color:#52606d!important;background:#fff!important;border-left:1px solid #d4dde6!important}
+.driver-quotes-exchange .driver-quotes-prototype .quote-more-statuses select{height:26px!important;min-width:132px!important;font-size:10.5px!important;border:1px solid #c9d3df!important;border-radius:3px!important;background:#fff!important}
+@media(max-width:1100px){.driver-quotes-exchange .driver-quotes-prototype .pagebody{grid-template-columns:170px minmax(0,1fr)!important}.driver-quotes-exchange .driver-quotes-prototype .left{width:170px!important;min-width:170px!important}.driver-quotes-exchange .driver-quotes-prototype .quote-more-statuses{display:none!important}}

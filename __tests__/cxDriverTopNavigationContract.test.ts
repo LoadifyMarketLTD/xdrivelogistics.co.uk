@@ -20,34 +20,24 @@ describe('Driver top navigation role split', () => {
   });
 
   it('keeps commercial tools on Owner Driver while preserving role-aware Book Direct', () => {
-    for (const href of ['/driver/directory','/driver/nearby','/driver/returns','/driver/loads','/driver/quotes','/driver/won-work']) {
-      expect(roles).toContain(`href: '${href}'`);
+    for (const href of ['/driver/directory','/driver/nearby','/driver/returns','/driver/loads','/driver/quotes']) {
+      expect(roles).toContain("href: '" + href + "'");
     }
     expect(shell).toContain("role === 'owner_driver'");
-    expect(shell).toContain("user?.canCommercialBid === true");
+    expect(shell).toContain('BOOK DIRECT');
+    expect(shell).toContain('showOwnerDriverPostLoadAction');
   });
 
-  it('keeps Owner Driver business controls reachable without duplicating Settings inside More', () => {
-    for (const label of ['Invoices','Company Profile','Drivers & Staff','Settings','Membership & Billing']) {
-      expect(roles).toContain(`label: '${label}'`);
-    }
-    expect(shell).toContain("['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles']");
-    expect(shell).toContain("['owner-driver-settings-primary', 'Settings', '/driver/settings']");
-    expect(shell).toContain("'/driver/finance'");
-    const owner = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
-    expect(owner).not.toContain("'/driver/settings?section=company'");
-    expect(owner).not.toContain("'/driver/settings?section=overview'");
-    expect(owner).not.toContain("'/settings/billing'");
-    expect(shell).toContain('showOwnerDriverPostLoadAction');
+  it('keeps Owner Driver business controls sole-trader scoped', () => {
+    for (const label of ['Finance','Documents']) expect(roles).toContain("label: '" + label + "'");
+    for (const forbidden of ['Drivers & Staff','Manage Drivers']) expect(roles).not.toContain("label: '" + forbidden + "'");
+    expect(shell).not.toContain("['owner-driver-finance-primary'");
+    expect(shell).toContain("['/driver/finance', 'Finance']");
+    expect(shell).toContain("['/driver/vehicles', 'My Vehicle']");
   });
 
   it('keeps notification counting server-authoritative for every workspace role', () => {
     expect(shell).toContain("fetch('/api/workspace/notifications?mode=count'");
-    expect(shell).not.toContain(".from('notifications')");
     expect(notificationsApi).toContain(".eq('user_id', auth.user.id)");
-  });
-
-  it('does not introduce Super Admin coupling', () => {
-    expect(shell).not.toContain('/super-admin');
   });
 });

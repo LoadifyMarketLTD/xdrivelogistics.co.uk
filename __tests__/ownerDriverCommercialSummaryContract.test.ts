@@ -37,11 +37,13 @@ describe('Owner Driver commercial summary contract', () => {
     expect(dashboard).toContain("params.set('from', commercialFrom)");
     expect(dashboard).toContain("params.set('to', commercialTo)");
     expect(dashboard).toContain('/api/driver/dashboard/commercial-summary?');
-    expect(dashboard).toContain('Reports period');
-    expect(dashboard).toContain('Sub-contract Spend');
+    expect(dashboard).toContain('Income period');
     expect(dashboard).toContain('Gross Margin');
-    expect(dashboard).toContain('feedback90Days.receivedRatingAverage');
-    expect(dashboard).toContain('Reports & Statistics');
+    expect(dashboard).toContain('Sub-contract Spend');
     expect(dashboard).toContain('Accounts Payable');
+    expect(dashboard).not.toContain('POD Required');
+    expect(dashboard).toContain('feedback90Days.receivedRatingAverage');
+    expect(dashboard).toContain('Activity at a glance');
+    expect(dashboard).toContain('Latest Bookings');
   });
 });

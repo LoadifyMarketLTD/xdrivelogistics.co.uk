@@ -22,7 +22,7 @@ describe('PR #357 approved visual baseline', () => {
     expect(navIndex).toBeGreaterThan(actionsIndex);
   });
 
-  it('keeps Driver navigation aligned to the approved full prototype order', () => {
+  it('keeps Driver navigation aligned to the approved execution and sole-trader split', () => {
     for (const item of [
       "label: 'Today', href: '/driver'",
       "label: 'My Jobs', href: '/driver/jobs'",
@@ -33,13 +33,12 @@ describe('PR #357 approved visual baseline', () => {
       "label: 'Return Journeys', href: '/driver/returns'",
       "label: 'Loads', href: '/driver/loads'",
       "label: 'Quotes', href: '/driver/quotes'",
-      "label: 'Won Work', href: '/driver/won-work'",
-      "label: 'Auto-match & Alerts', href: '/driver/load-alerts'",
-      "label: 'Tracking', href: '/driver/freight-vision'",
-      "label: 'Invoices', href: '/driver/finance'",
-      "label: 'Drivers & Staff', href: '/driver/drivers-vehicles'",
+      "label: 'Load Alerts', href: '/driver/load-alerts'",
+      "label: 'Finance / Invoices', href: '/driver/finance'",
     ]) expect(driverNav).toContain(item);
     expect(driverNav).toContain('label: "Who\'s Nearby"');
+    expect(driverNav).not.toContain("label: 'Drivers & Staff', href: '/driver/drivers-vehicles'");
+    expect(driverNav).not.toContain("label: 'Manage Drivers', href: '/driver/drivers'");
   });
 
   it('keeps the current dense Driver operational dashboard structure', () => {
@@ -49,9 +48,9 @@ describe('PR #357 approved visual baseline', () => {
       'Current assignment',
       'Next booking',
       'Driver readiness',
-      'Reports & Statistics',
-      'Accounts Payable',
-      'Activity at a glance',
+      'Current assignment',
+      'Next booking',
+      'Driver readiness',
     ]) expect(driverDashboard).toContain(marker);
 
     for (const stale of [
