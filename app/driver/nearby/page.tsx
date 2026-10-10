@@ -152,7 +152,7 @@ export default function DriverNearbyPage() {
             <button type="button" className="btn primary" onClick={() => setQuery({ postcode: postcode.trim(), radius, vehicle, body: bodyType, minPayload, minPallets, tailLiftOnly, groupId: privateGroupId })} disabled={loading}>{loading ? 'Refreshing…' : 'Search'}</button>
           </div>
         </div>
-        <DriverIntegratedNav label="Availability tools" items={[{ href: '/driver/availability/live', label: 'Live' }, { href: '/driver/availability', label: 'Future & Schedule' }, { href: '/driver/nearby', label: "Who's Nearby" }]} />
+        <DriverIntegratedNav label="Availability tools" items={[{ href: '/driver/availability', label: 'Availability' }, { href: '/driver/returns', label: 'Return Journeys' }, { href: '/driver/nearby', label: "Who's Nearby" }]} />
 
         <div className="pagebody">
           <aside className="left">
@@ -176,7 +176,7 @@ export default function DriverNearbyPage() {
               <div className="avail-audience"><button type="button" className={audience === 'all' ? 'active' : ''} onClick={() => setAudience('all')}>All</button><button type="button" className={audience === 'drivers-subcontractors' ? 'active' : ''} onClick={() => setAudience('drivers-subcontractors')}>Drivers & Sub-contractors</button><button type="button" className={audience === 'other-drivers' ? 'active' : ''} onClick={() => setAudience('other-drivers')}>Other Drivers</button></div>
               <button type="button" className="text-action" onClick={openVisibleMap}>Open map in new window</button>
             </div>
-            <div className="toolbar"><b>Who's Nearby</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button></div>
+            <div className="toolbar"><b>Who's Nearby</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>My Vehicle</button></div>
             <div className="availgrid" style={viewMode === 'list' ? { gridTemplateColumns: '1fr' } : undefined}>
               <div className="map availmap" style={viewMode === 'list' ? { display: 'none' } : undefined}>
                 {viewMode === 'map' && (

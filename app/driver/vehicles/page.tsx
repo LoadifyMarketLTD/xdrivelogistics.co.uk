@@ -245,7 +245,7 @@ export default function DriverVehiclesPage() {
             {error && <div className="vision-note">{error}</div>}
             {notice && <div className="vision-note">{notice}</div>}
             {!canonicalVehicleSignalAvailable && (
-              <div className="vision-note">Canonical active-vehicle status is temporarily unavailable. Your saved vehicle details remain visible.</div>
+              <div className="vision-note">Active vehicle status is temporarily unavailable. Your saved vehicle details remain visible.</div>
             )}
 
             {showForm && canManageVehicles ? (
@@ -293,7 +293,7 @@ export default function DriverVehiclesPage() {
                     <span className="meta">{currentVehicle.reg_plate ?? 'Registration not supplied'}</span>
                   </div>
                   <StatusBadge
-                    value={currentVehicle.id === canonicalVehicleId ? 'Canonical Active' : 'Assigned'}
+                    value={currentVehicle.id === canonicalVehicleId ? 'Active' : 'Assigned'}
                     tone={currentVehicle.id === canonicalVehicleId ? 'green' : 'blue'}
                   />
                 </div>

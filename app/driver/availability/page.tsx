@@ -94,7 +94,7 @@ export default function AvailabilityPage() {
 
   const loadCanonicalVehicle = useCallback(async (): Promise<{ vehicle: VehicleRow | null; error: string | null }> => {
     const auth = await getAuthHeader();
-    if (!auth) return { vehicle: null, error: 'Canonical active-vehicle session could not be verified.' };
+    if (!auth) return { vehicle: null, error: 'Your vehicle session could not be verified.' };
     try {
       const response = await fetch('/api/driver/vehicles', { headers: { Authorization: auth } });
       const payload = (await response.json().catch(() => ({}))) as {
@@ -103,8 +103,8 @@ export default function AvailabilityPage() {
         canonicalVehicleSignalAvailable?: boolean;
         error?: string;
       };
-      if (!response.ok) return { vehicle: null, error: payload.error || 'Canonical active-vehicle signal could not be loaded.' };
-      if (payload.canonicalVehicleSignalAvailable === false) return { vehicle: null, error: 'Canonical active-vehicle signal is temporarily unavailable.' };
+      if (!response.ok) return { vehicle: null, error: payload.error || 'Your active vehicle could not be loaded.' };
+      if (payload.canonicalVehicleSignalAvailable === false) return { vehicle: null, error: 'Your active vehicle status is temporarily unavailable.' };
       const vehicles = payload.vehicles ?? [];
       return {
         vehicle: payload.canonicalVehicleId
@@ -113,7 +113,7 @@ export default function AvailabilityPage() {
         error: null,
       };
     } catch {
-      return { vehicle: null, error: 'Canonical active-vehicle signal could not be loaded.' };
+      return { vehicle: null, error: 'Your active vehicle could not be loaded.' };
     }
   }, [getAuthHeader]);
 
@@ -278,7 +278,7 @@ export default function AvailabilityPage() {
   const availabilityOption = AVAILABILITY_OPTIONS.find((option) => option.value === availability) ?? AVAILABILITY_OPTIONS[2];
   const availabilityLabel = availabilityOption.label;
   const hasSavedSchedule = Object.keys(weeklySlots).length > 0;
-  const vehicleLabel = vehicle ? (VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? humanize(vehicle.type)) : 'No canonical active vehicle';
+  const vehicleLabel = vehicle ? (VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? humanize(vehicle.type)) : 'No active vehicle selected';
   const hasValidCurrentLocation = typeof currentLocation?.lat === 'number'
     && Number.isFinite(currentLocation.lat)
     && typeof currentLocation?.lng === 'number'

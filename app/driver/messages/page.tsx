@@ -158,7 +158,7 @@ export default function DriverMessagesPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Participant messages are separate from operational notifications. Messages are immutable once sent; the current schema does not store read/unread state."
+        subtitle="Message members involved in your work. Operational notifications remain separate from conversations."
         headerActions={<ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
       >
         <DriverIntegratedNav label="Action Centre tools" items={[{ href: '/driver/action-centre', label: 'Actions' }, { href: '/driver/messages', label: 'Messages' }]} />
@@ -199,7 +199,7 @@ export default function DriverMessagesPage() {
               <button type="button" data-active="true">Conversations <span>{threads.length}</span></button>
             </div>
             <div className="driver-board-summary">
-              <span>{threads.length} conversation{threads.length === 1 ? '' : 's'} · no fabricated read-state</span>
+              <span>{threads.length} conversation{threads.length === 1 ? '' : 's'}</span>
               <StatusBadge value="Participant scoped" tone="green" />
             </div>
 

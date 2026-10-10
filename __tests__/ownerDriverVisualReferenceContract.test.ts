@@ -4,6 +4,8 @@ import path from 'node:path';
 const root = process.cwd();
 const dashboard = fs.readFileSync(path.join(root, 'app/driver/page.tsx'), 'utf8');
 const availability = fs.readFileSync(path.join(root, 'app/driver/availability/page.tsx'), 'utf8');
+const messages = fs.readFileSync(path.join(root, 'app/driver/messages/page.tsx'), 'utf8');
+const vehicles = fs.readFileSync(path.join(root, 'app/driver/vehicles/page.tsx'), 'utf8');
 const shellCss = fs.readFileSync(path.join(root, 'app/components/workspace/top-workspace-shell.css'), 'utf8');
 const ownerAdapter = fs.readFileSync(path.join(root, 'app/components/workspace/non-driver-owner-reference.css'), 'utf8');
 
@@ -38,6 +40,13 @@ describe('Owner Driver canonical visual reference', () => {
     expect(availability).toContain('Current location recorded');
     expect(availability).toContain('My vehicle');
     expect(availability).toContain('Load quoting');
+  });
+
+  it('keeps Owner Driver copy user-facing rather than implementation-facing', () => {
+    expect(messages).not.toContain('current schema');
+    expect(messages).not.toContain('fabricated read-state');
+    expect(vehicles).not.toContain('Canonical Active');
+    expect(availability).not.toContain('Canonical active-vehicle');
   });
 
   it('preserves the canonical desktop Driver shell geometry', () => {
