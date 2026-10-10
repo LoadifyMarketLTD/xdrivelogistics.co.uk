@@ -7,6 +7,7 @@
 
 .xdrive-workspace-measured {
   --ws-header-h: 50px;
+  --ws-nav-h: 42px;
   --ws-page-x: 12px;
   --ws-page-y: 12px;
   --ws-gap-micro: 4px;
