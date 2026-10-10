@@ -11,7 +11,7 @@ describe('approved Owner Driver primary navigation', () => {
   const messages = read('app/driver/messages/page.tsx');
 
   it('uses the canonical sole-trader modules in the shared shell', () => {
-    for (const label of ['Directory','Availability','Vehicle','Return Journeys','Loads','Quotes','Load Alerts','Finance / Invoices']) {
+    for (const label of ['Directory','Availability','Vehicle','Return Journeys','Loads','Quotes','Load Alerts','Finance','Documents']) {
       expect(roles).toContain("label: '" + label + "'");
     }
     for (const primary of [
@@ -23,8 +23,10 @@ describe('approved Owner Driver primary navigation', () => {
       "['owner-driver-availability-primary', 'Availability', '/driver/availability']",
       "['owner-driver-returns-primary', 'Return Journeys', '/driver/returns']",
       "['owner-driver-directory-primary', 'Directory', '/driver/directory']",
-      "['owner-driver-finance-primary', 'Finance', '/driver/finance']",
     ]) expect(shell).toContain(primary);
+    expect(shell).not.toContain("['owner-driver-finance-primary'");
+    expect(shell).toContain("['/driver/finance', 'Finance']");
+    expect(shell).toContain("['/driver/documents', 'Documents']");
     expect(shell).not.toContain("['owner-driver-my-fleet-primary'");
     expect(shell).not.toContain("['owner-driver-drivers-vehicles-primary'");
   });

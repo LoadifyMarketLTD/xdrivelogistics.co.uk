@@ -17,7 +17,7 @@ describe('Owner Driver sole-trader navigation', () => {
   it('keeps the approved primary modules and More tools', () => {
     const nav = composeDriverPrimaryNav(getVisibleWorkspaceNav('owner_driver'), true);
     expect(nav.map((group) => group.label)).toEqual([
-      'Dashboard','Loads','Quotes','My Jobs','Diary','Availability','Return Journeys','Directory','Finance','More',
+      'Dashboard','Loads','Quotes','My Jobs','Diary','Availability','Return Journeys','Directory','More',
     ]);
   });
 

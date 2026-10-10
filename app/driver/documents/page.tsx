@@ -275,15 +275,15 @@ export default function DriverDocumentsPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Keep your Driver compliance records current and open job-level POD or delivery evidence from My Jobs."
+        subtitle="Keep your personal and vehicle compliance documents current."
         headerActions={<ActionButton tone="secondary" onClick={() => void loadDriver()} disabled={loading}>Refresh</ActionButton>}
       >
         <div className="driver-register-toolbar">
           <div>
-            <strong>POD & job evidence</strong>
-            <span>Delivery evidence belongs to each completed job rather than to your company document register.</span>
+            <strong>Compliance documents</strong>
+            <span>POD, order paperwork and job evidence are managed from each booking in My Jobs or Diary.</span>
           </div>
-          <ActionButton tone="secondary" onClick={() => { window.location.href = '/driver/jobs'; }}>Open My Jobs</ActionButton>
+          <ActionButton tone="secondary" onClick={() => { window.location.href = '/driver/history'; }}>Open Diary</ActionButton>
         </div>
         {loadError && <AlertBanner tone="danger">{loadError}</AlertBanner>}
         {uploadError && <AlertBanner tone="danger">{uploadError}</AlertBanner>}

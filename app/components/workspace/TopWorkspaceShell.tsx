@@ -294,14 +294,14 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
     ['owner-driver-availability-primary', 'Availability', '/driver/availability'],
     ['owner-driver-returns-primary', 'Return Journeys', '/driver/returns'],
     ['owner-driver-directory-primary', 'Directory', '/driver/directory'],
-    ['owner-driver-finance-primary', 'Finance', '/driver/finance'],
   ];
   const moreSpec: Array<[string, string]> = [
     ['/driver/load-alerts', 'Load Alerts'],
     ['/driver/nearby', "Who's Nearby"],
-    ['/driver/documents', 'POD & Documents'],
     ['/driver/messages', 'Messages'],
     ['/driver/vehicles', 'My Vehicle'],
+    ['/driver/finance', 'Finance'],
+    ['/driver/documents', 'Documents'],
     ['/driver/settings', 'Account / Settings'],
   ];
 
@@ -381,9 +381,10 @@ function OwnerDriverMoreIcon({ item }: { item: WorkspaceNavItem }) {
 const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
   '/driver/load-alerts': 'Matching & Availability',
   '/driver/nearby': 'Matching & Availability',
-  '/driver/documents': 'Business',
   '/driver/messages': 'Business',
   '/driver/vehicles': 'Business',
+  '/driver/finance': 'Business',
+  '/driver/documents': 'Compliance',
   '/driver/settings': 'Account',
 };
 
@@ -1067,7 +1068,7 @@ export default function TopWorkspaceShell({
                             role="menuitem"
                             className="top-workspace-nav__menu-item"
                             data-active={active ? 'true' : 'false'}
-                            data-section-start={group.id === 'owner-driver-more' && item.href === '/driver/documents' ? 'true' : undefined}
+                            data-section-start={group.id === 'owner-driver-more' && (item.href === '/driver/finance' || item.href === '/driver/documents') ? 'true' : undefined}
                             onClick={() => openRoute(item.href)}
                           >
                             <span className="top-workspace-nav__menu-icon" aria-hidden="true">

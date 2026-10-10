@@ -183,10 +183,10 @@ export default function DriverProfilePage() {
                 <span><strong>{ownerDriver ? 'My Vehicle' : 'Vehicle'}</strong><small>{ownerDriver ? 'Keep your vehicle identity, capacity and equipment current' : 'View the vehicle assigned to your Driver profile'}</small></span><span aria-hidden="true">→</span>
               </button>
               <button type="button" className="driver-account-link" onClick={() => router.push('/driver/documents')}>
-                <span><strong>{ownerDriver ? 'POD & Documents' : 'Documents'}</strong><small>{ownerDriver ? 'Manage your compliance records and open job evidence' : 'Maintain your Driver document records'}</small></span><span aria-hidden="true">→</span>
+                <span><strong>Documents</strong><small>{ownerDriver ? 'Manage your personal and vehicle compliance records' : 'Maintain your Driver document records'}</small></span><span aria-hidden="true">→</span>
               </button>
               <button type="button" className="driver-account-link" onClick={() => router.push('/driver/finance')}>
-                <span><strong>{ownerDriver ? 'Finance / Invoices' : 'Finance'}</strong><small>Invoices, earnings and payment records</small></span><span aria-hidden="true">→</span>
+                <span><strong>Finance</strong><small>Invoices, earnings and payment records</small></span><span aria-hidden="true">→</span>
               </button>
             </div>
           </section>

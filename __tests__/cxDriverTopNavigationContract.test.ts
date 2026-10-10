@@ -29,9 +29,10 @@ describe('Driver top navigation role split', () => {
   });
 
   it('keeps Owner Driver business controls sole-trader scoped', () => {
-    for (const label of ['Finance / Invoices','Membership & Billing']) expect(roles).toContain("label: '" + label + "'");
+    for (const label of ['Finance','Documents']) expect(roles).toContain("label: '" + label + "'");
     for (const forbidden of ['Drivers & Staff','Manage Drivers']) expect(roles).not.toContain("label: '" + forbidden + "'");
-    expect(shell).toContain("['owner-driver-finance-primary', 'Finance', '/driver/finance']");
+    expect(shell).not.toContain("['owner-driver-finance-primary'");
+    expect(shell).toContain("['/driver/finance', 'Finance']");
     expect(shell).toContain("['/driver/vehicles', 'My Vehicle']");
   });
 

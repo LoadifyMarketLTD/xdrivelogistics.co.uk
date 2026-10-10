@@ -23,15 +23,16 @@ describe('Owner Driver secondary navigation contract', () => {
     expect(more?.items.map((item) => item.href)).toEqual([
       '/driver/load-alerts',
       '/driver/nearby',
-      '/driver/documents',
       '/driver/messages',
       '/driver/vehicles',
+      '/driver/finance',
+      '/driver/documents',
       '/driver/settings',
     ]);
   });
 
   it('keeps secondary routes real and permitted', () => {
-    for (const href of ['/driver/load-alerts','/driver/nearby','/driver/documents','/driver/messages','/driver/vehicles','/driver/settings']) {
+    for (const href of ['/driver/load-alerts','/driver/nearby','/driver/messages','/driver/vehicles','/driver/finance','/driver/documents','/driver/settings']) {
       const routePath = path.join(process.cwd(), 'app', ...href.split('/').filter(Boolean), 'page.tsx');
       expect(fs.existsSync(routePath), href).toBe(true);
       expect(isCapabilityAllowedForPath(href, 'driver', ownerContext), href).toBe(true);

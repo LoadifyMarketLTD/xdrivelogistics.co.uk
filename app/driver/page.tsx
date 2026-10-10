@@ -799,9 +799,10 @@ export default function DriverDashboard() {
                       <span style={{ display: "block", color: workspaceTheme.muted, fontSize: 11 }}>Invoiced Revenue</span>
                       <strong style={{ display: "block", marginTop: 10, color: workspaceTheme.navy, fontSize: 20 }}>{commercialSummaryLoading ? "Loading..." : commercialSummary ? money(commercialSummary.revenueGross) : "Unavailable"}</strong>
                     </button>
-                    <button type="button" onClick={() => router.push("/driver/documents")} style={{ minHeight: 88, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surface, textAlign: "left", cursor: "pointer" }}>
+                    <button type="button" onClick={() => router.push("/driver/history")} style={{ minHeight: 88, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surface, textAlign: "left", cursor: "pointer" }}>
                       <span style={{ display: "block", color: workspaceTheme.muted, fontSize: 11 }}>POD Requiring Action</span>
                       <strong style={{ display: "block", marginTop: 10, color: workspaceTheme.navy, fontSize: 20 }}>{ownerDriverPodOutstanding}</strong>
+                      <small style={{ display: "block", marginTop: 4, color: workspaceTheme.muted }}>Open Diary to complete POD on the booking</small>
                     </button>
                     <button type="button" onClick={() => router.push("/driver/quotes")} style={{ minHeight: 76, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surface, textAlign: "left", cursor: "pointer" }}>
                       <span style={{ display: "block", color: workspaceTheme.muted, fontSize: 11 }}>Quotes Won</span>
@@ -819,6 +820,20 @@ export default function DriverDashboard() {
                             : "Unavailable"}
                       </strong>
                     </button>
+                  </div>
+
+                  <div style={{ marginTop: 10, display: "grid", gridTemplateColumns: "repeat(4,minmax(0,1fr))", gap: 6 }}>
+                    {[
+                      ["Invoices Received", commercialSummary?.accountsPayable.received ?? 0],
+                      ["Due for Payment", commercialSummary?.accountsPayable.dueForPayment ?? 0],
+                      ["Awaiting Payment", commercialSummary?.accountsPayable.awaitingPayment ?? 0],
+                      ["Invoice Total", commercialSummary ? money(commercialSummary.accountsPayable.totalGross) : "Unavailable"],
+                    ].map(([label, value]) => (
+                      <button key={label} type="button" onClick={() => router.push("/driver/finance")} style={{ minHeight: 60, padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surfaceMuted, textAlign: "left", cursor: "pointer" }}>
+                        <span style={{ display: "block", color: workspaceTheme.muted, fontSize: 10 }}>{label}</span>
+                        <strong style={{ display: "block", marginTop: 6, color: workspaceTheme.navy, fontSize: 14 }}>{commercialSummaryLoading ? "..." : String(value)}</strong>
+                      </button>
+                    ))}
                   </div>
                 </OperationalCard>
 

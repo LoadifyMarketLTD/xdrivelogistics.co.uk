@@ -17,7 +17,6 @@ describe('owner-driver sole-trader navigation contract', () => {
       'Availability',
       'Return Journeys',
       'Directory',
-      'Finance',
       'More',
     ]);
 
@@ -25,9 +24,10 @@ describe('owner-driver sole-trader navigation contract', () => {
     expect(more?.items.map((item) => item.label)).toEqual([
       'Load Alerts',
       "Who's Nearby",
-      'POD & Documents',
       'Messages',
       'My Vehicle',
+      'Finance',
+      'Documents',
       'Account / Settings',
     ]);
   });

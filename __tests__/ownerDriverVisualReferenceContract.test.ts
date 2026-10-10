@@ -27,7 +27,9 @@ describe('Owner Driver canonical visual reference', () => {
     ]) expect(dashboard).toContain(marker);
 
     expect(dashboard).toContain('/api/driver/dashboard/commercial-summary');
-    expect(dashboard).not.toContain('Accounts Payable');
+    expect(dashboard).toContain('Invoices Received');
+    expect(dashboard).toContain('Due for Payment');
+    expect(dashboard).toContain('Awaiting Payment');
     expect(dashboard).not.toContain('Gross Margin');
     expect(dashboard).not.toContain('Sub-contract Spend');
     expect(dashboard).not.toContain('Freight Messenger');
@@ -63,7 +65,7 @@ describe('Owner Driver canonical visual reference', () => {
     expect(accountNav).toContain("!ownerDriver || section.href !== '/driver/event-log'");
     expect(profile).toContain("ownerDriver ? 'Owner Driver' : 'Driver'");
     expect(profile).toContain("ownerDriver ? 'My Vehicle' : 'Vehicle'");
-    expect(profile).toContain("ownerDriver ? 'POD & Documents' : 'Documents'");
+    expect(profile).not.toContain("ownerDriver ? 'POD & Documents' : 'Documents'");
     expect(profile).not.toContain('canonical active-vehicle identity signals');
   });
 
