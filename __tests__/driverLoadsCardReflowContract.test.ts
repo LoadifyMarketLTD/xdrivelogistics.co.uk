@@ -33,9 +33,9 @@ describe('Driver Loads card breathing-room structure', () => {
 
   it('adds breathing room without removing information', () => {
     expect(css).toContain('PR675 Loads card structural reflow');
-    expect(css).toContain('min-height:96px!important');
-    expect(css).toContain('min-height:54px!important');
-    expect(css).toContain('min-height:58px!important');
+    expect(css).toContain('min-height:74px!important');
+    expect(css).toContain('min-height:42px!important');
+    expect(css).toContain('min-height:50px!important');
   });
 
   it('removes the unused fmtDate helper that broke Netlify lint', () => {
