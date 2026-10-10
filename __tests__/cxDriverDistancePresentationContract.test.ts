@@ -10,7 +10,6 @@ describe('CX-style driver distance presentation contract', () => {
   const loadBoard = read('app/driver/loads/page.tsx');
   const loadDetail = read('app/driver/loads/[id]/page.tsx');
   const quotes = read('app/driver/quotes/page.tsx');
-  const wonWork = read('app/driver/won-work/page.tsx');
   const dashboard = read('app/driver/page.tsx');
 
   it('keeps driver-to-collection distance and ETA dynamic', () => {
@@ -32,7 +31,7 @@ describe('CX-style driver distance presentation contract', () => {
   });
 
   it('labels the two metrics separately throughout the driver UI', () => {
-    for (const source of [loadBoard, loadDetail, quotes, wonWork]) {
+    for (const source of [loadBoard, loadDetail, quotes]) {
       expect(source).toContain('To Collection');
       expect(source).toContain('Job Distance');
     }

@@ -246,8 +246,9 @@ const isDriverCommercialRoute = (pathname: string) => {
     clean.startsWith('/driver/loads/') ||
     clean === '/driver/quotes' ||
     clean.startsWith('/driver/quotes/') ||
-    clean === '/driver/won-work' ||
-    clean.startsWith('/driver/won-work/') ||
+    clean === '/driver/load-alerts' ||
+    clean.startsWith('/driver/load-alerts/') ||
+
     clean === '/driver/finance' ||
     clean.startsWith('/driver/finance/') ||
     clean === '/driver/returns' ||
@@ -394,28 +395,29 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/customer', workspace: 'shipper', anyOf: ['loads.view.own'], exact: true },
 
   // owner_operator (/driver)
-  { prefix: '/driver/action-centre', workspace: 'owner_operator' },
+  { prefix: '/driver/action-centre', workspace: 'owner_operator', roles: ['driver'] },
   { prefix: '/driver/post-load', workspace: 'owner_operator', roles: ['owner_driver'] },
   { prefix: '/driver/support', workspace: 'owner_operator' },
   { prefix: '/driver/vehicle-readiness', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
   { prefix: '/driver/settings', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
-  { prefix: '/driver/load-alerts', workspace: 'owner_operator', roles: ['owner_driver'] },
+  { prefix: '/driver/load-alerts', workspace: 'owner_operator', roles: ['driver', 'owner_driver'], anyOf: ['loads.view.marketplace'] },
   { prefix: '/driver/directory', workspace: 'owner_operator' },
   { prefix: '/driver/network', workspace: 'owner_operator' },
   { prefix: '/driver/loads/directory', workspace: 'owner_operator' },
   { prefix: '/driver/nearby', workspace: 'owner_operator' },
-  { prefix: '/driver/freight-vision', workspace: 'owner_operator', anyOf: ['jobs.track'] },
-  { prefix: '/driver/drivers-vehicles', workspace: 'owner_operator', roles: ['owner_driver'] },
+  { prefix: '/driver/freight-vision', workspace: 'owner_operator', roles: ['driver'], anyOf: ['jobs.track'] },
+  { prefix: '/driver/drivers-vehicles', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['drivers.manage'] },
   { prefix: '/driver/drivers', workspace: 'owner_operator', roles: ['owner_driver'], anyOf: ['drivers.manage'] },
   { prefix: '/driver/loads', workspace: 'owner_operator', anyOf: ['loads.view.marketplace'] },
   { prefix: '/driver/quotes', workspace: 'owner_operator', anyOf: ['quotes.submit'] },
-  { prefix: '/driver/won-work', workspace: 'owner_operator', anyOf: ['jobs.view'] },
+  { prefix: '/driver/won-work', workspace: 'owner_operator', roles: ['driver', 'owner_driver'], anyOf: ['jobs.view'] },
   { prefix: '/driver/finance', workspace: 'owner_operator', anyOf: ['invoices.carrier.manage'] },
   { prefix: '/driver/returns', workspace: 'owner_operator' },
   { prefix: '/driver/jobs', workspace: 'owner_operator', anyOf: ['jobs.execute'] },
   { prefix: '/driver/history', workspace: 'owner_operator', anyOf: ['jobs.view'] },
-  { prefix: '/driver/event-log', workspace: 'owner_operator', anyOf: ['jobs.view'] },
+  { prefix: '/driver/event-log', workspace: 'owner_operator', roles: ['driver'], anyOf: ['jobs.view'] },
+  { prefix: '/driver/availability/live', workspace: 'owner_operator', anyOf: ['fleet.positions.view'] },
   { prefix: '/driver/availability', workspace: 'owner_operator' },
   { prefix: '/driver/vehicles', workspace: 'owner_operator' },
   { prefix: '/driver/documents', workspace: 'owner_operator', anyOf: ['documents.own.manage'] },

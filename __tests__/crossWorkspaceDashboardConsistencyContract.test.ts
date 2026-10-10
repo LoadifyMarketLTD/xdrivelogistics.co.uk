@@ -118,12 +118,10 @@ describe('cross-workspace dashboard consistency', () => {
     const driverSurfaces = [
       read('app/driver/jobs/page.tsx'),
       read('app/driver/history/page.tsx'),
-      read('app/driver/won-work/page.tsx'),
       read('app/driver/freight-vision/page.tsx'),
     ];
     for (const surface of driverSurfaces) expect(surface).toContain('workspaceJobOperationalLabel');
     expect(driverSurfaces[0]).not.toContain('const STATUS_LABELS');
-    expect(driverSurfaces[2]).not.toContain('const STATUS_LABELS');
   });
   it('does not expose internal design/comparison language in dashboard copy', () => {
     const carrier = read('app/components/workspace/CarrierOperationsDashboardHome.tsx');

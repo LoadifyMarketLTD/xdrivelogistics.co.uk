@@ -7,6 +7,7 @@ const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), rela
 describe('Driver execution dashboard contract', () => {
   const page = read('app/driver/page.tsx');
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
+  const wonWorkCompatibility = read('app/driver/won-work/page.tsx');
 
   it('keeps the home screen focused on current execution', () => {
     for (const marker of ['Current assignment','NEXT ACTION','Next booking','Driver readiness']) expect(page).toContain(marker);
@@ -29,21 +30,26 @@ describe('Driver execution dashboard contract', () => {
   it('does not load marketplace data for an employed Driver dashboard', () => {
     expect(page).not.toContain("fetch('/api/driver/marketplace/loads'");
     expect(page).not.toContain('Matching loads');
-    expect(page).not.toContain('Recent Bookings');
   });
 
   it('shows commercial tools only when commercial authority exists', () => {
     expect(page).toContain("const commercialAccess = ownerDriver || user?.canCommercialBid === true");
     expect(page).toContain("{ownerDriver ? (");
-    expect(page).toContain('Reports & Statistics');
-    expect(page).toContain('Accounts Payable');
+    expect(page).toContain('Current / Next Work');
+    expect(page).toContain('Work & Marketplace');
+    expect(page).toContain('My Business');
     expect(page).toContain('/api/driver/dashboard/commercial-summary');
     expect(page).toContain('{commercialAccess && !ownerDriver ? (');
-    for (const route of ['/driver/loads','/driver/quotes','/driver/won-work','/driver/nearby','/driver/returns']) expect(page + shell).toContain(route);
+    for (const route of ['/driver/loads','/driver/quotes','/driver/load-alerts','/driver/nearby','/driver/returns']) expect(page + shell).toContain(route);
     expect(page).not.toContain('Owner-driver commercial tools');
   });
 
   it('keeps core execution routes one click away through the unified shell', () => {
-    for (const route of ['/driver/jobs','/driver/history','/driver/availability','/driver/vehicles','/driver/documents','/driver/messages','/driver/event-log']) expect(page + shell).toContain(route);
+    for (const route of ['/driver/jobs','/driver/history','/driver/availability','/driver/vehicles','/driver/documents','/driver/messages','/driver/settings']) expect(page + shell).toContain(route);
+  });
+
+  it('collapses the duplicate Won Work screen into My Jobs', () => {
+    expect(wonWorkCompatibility).toContain("redirect('/driver/jobs')");
+    expect(page).not.toContain("router.push('/driver/won-work')");
   });
 });

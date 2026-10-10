@@ -725,7 +725,7 @@ export default function JobHistoryPage() {
                           <div className="driver-diary-detail-panel">
                             {detailTab === 'order' && (orderLoading ? <EmptyState compact title="Loading Order confirmation…" /> : (
                               <>
-                                {orderError && <AlertBanner tone="warning">{orderError} Existing assigned-job fields remain visible; unavailable commercial fields are not fabricated.</AlertBanner>}
+                                {orderError && <AlertBanner tone="warning">{orderError} Available booking details are still shown below.</AlertBanner>}
                                 {sheet?.partial && <AlertBanner tone="warning">Part of this execution sheet could not be enriched. Verified job data is shown and missing values stay explicit.</AlertBanner>}
                                 <div className="driver-detail-grid">
                                   <div className="driver-detail-item"><span>Booking / job reference</span><strong>{sheet?.bookingReference ?? job.booking_reference ?? sheet?.reference ?? `XDL-${job.id.slice(0, 8).toUpperCase()}`}</strong></div>
