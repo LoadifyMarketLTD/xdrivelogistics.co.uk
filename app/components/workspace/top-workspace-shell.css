@@ -1077,3 +1077,41 @@
   .top-workspace-shell[data-workspace-role='owner_driver'] .top-workspace-nav__track{padding:0 8px!important}
   .top-workspace-shell[data-workspace-role='owner_driver'] .top-workspace-nav__item{padding:0 10px!important;font-size:12.5px!important}
 }
+/* PR675 Diary surface: hard parity with Loads primary navigation */
+.top-workspace-shell[data-workspace-role='owner_driver'][data-workspace-surface='diary'] .top-workspace-nav--primary{
+  height:42px!important;
+  min-height:42px!important;
+}
+.top-workspace-shell[data-workspace-role='owner_driver'][data-workspace-surface='diary'] .top-workspace-nav__track{
+  height:42px!important;
+  min-height:42px!important;
+  justify-content:center!important;
+  gap:0!important;
+  padding:0 12px!important;
+}
+.top-workspace-shell[data-workspace-role='owner_driver'][data-workspace-surface='diary'] .top-workspace-nav__item{
+  height:42px!important;
+  min-height:42px!important;
+  padding:0 13px!important;
+  font-size:13px!important;
+  line-height:18px!important;
+  font-weight:600!important;
+  letter-spacing:0!important;
+  color:#4a4f55!important;
+}
+.top-workspace-shell[data-workspace-role='owner_driver'][data-workspace-surface='diary'] .top-workspace-nav__item[data-active='true']{
+  color:#2f3338!important;
+  font-weight:600!important;
+  box-shadow:inset 0 -2px 0 #1d57d8!important;
+}
+.top-workspace-shell[data-workspace-role='owner_driver'][data-workspace-surface='diary'] .top-workspace-nav__caret{
+  width:11px!important;
+  height:11px!important;
+  margin-left:5px!important;
+}
+@media(max-width:1450px){
+  .top-workspace-shell[data-workspace-role='owner_driver'][data-workspace-surface='diary'] .top-workspace-nav__item{
+    padding:0 10px!important;
+    font-size:12.5px!important;
+  }
+}

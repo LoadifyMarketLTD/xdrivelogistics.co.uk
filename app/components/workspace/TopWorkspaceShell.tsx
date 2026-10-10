@@ -908,6 +908,7 @@ export default function TopWorkspaceShell({
     <div
       className={`top-workspace-shell${driverPrototypeScope ? ' driver-prototype-port' : ''}`}
       data-workspace-role={role}
+      data-workspace-surface={pathname?.startsWith('/driver/history') ? 'diary' : pathname?.startsWith('/driver/loads') ? 'loads' : undefined}
     >
       <header className="top-workspace-shell__header">
         <div className="top-workspace-shell__brand">
