@@ -573,9 +573,20 @@
 .driver-diary-route .driver-diary-entry{
   min-height:0!important;
   border-radius:2px!important;
+  overflow:hidden!important;
+}
+.driver-diary-route .driver-diary-entry[data-state="completed"],
+.driver-diary-route .driver-diary-entry[data-state="delivered"]{
+  border-color:#65b646!important;
+}
+.driver-diary-route .driver-diary-entry[data-state="completed"] .driver-diary-status-band,
+.driver-diary-route .driver-diary-entry[data-state="delivered"] .driver-diary-status-band{
+  background:#7dbb5f!important;
+  border-color:#7dbb5f!important;
+  color:#14210f!important;
 }
 .driver-diary-route .driver-diary-entry__top{
-  grid-template-columns:minmax(150px,1.45fr) minmax(150px,1.45fr) minmax(170px,.9fr) minmax(170px,.9fr)!important;
+  grid-template-columns:minmax(280px,1.1fr) minmax(240px,1fr) minmax(220px,.82fr)!important;
   gap:0!important;
   padding:0!important;
 }

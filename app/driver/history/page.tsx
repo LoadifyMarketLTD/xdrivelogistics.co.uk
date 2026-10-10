@@ -217,10 +217,6 @@ function formatExecutionAddress(address: string | null, postcode: string | null)
   if (!cleanPostcode) return cleanAddress;
   return normalizeComparable(cleanAddress).includes(normalizeComparable(cleanPostcode)) ? cleanAddress : `${cleanAddress}, ${cleanPostcode}`;
 }
-function postcodeSecondary(address: string | null, postcode: string | null) {
-  if (!postcode) return '—';
-  return normalizeComparable(address).includes(normalizeComparable(postcode)) ? 'Route address' : postcode;
-}
 function money(value: number, currency = 'GBP') { return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value); }
 function human(value: string | null | undefined) { return value ? value.replace(/_/g, ' ') : 'Not supplied'; }
 function effectiveStatus(job: HistoryJob) { return String(job.current_status || job.status || '').trim().toLowerCase(); }
@@ -593,33 +589,20 @@ export default function JobHistoryPage() {
                   return (
                     <article key={job.id} className="diary-booking driver-diary-entry" data-state={expired ? 'expired' : currentStatus}>
                       <div className="driver-load-row__top driver-diary-entry__top">
-                        <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{formatExecutionAddress(job.pickup_location, job.pickup_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.pickup_location, job.pickup_postcode)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.delivery_location, job.delivery_postcode)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Timing / load</span><strong className="driver-cell-primary">Pickup {fmtDate(job.pickup_datetime ?? job.collection_window_start)}</strong><span className="driver-cell-secondary">Deliver {fmtDate(job.delivery_datetime ?? job.delivery_window_start)} · {human(job.requested_vehicle_label ?? job.vehicle_type)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Status</span><strong className="driver-cell-primary">{expired ? 'Expired' : workspaceJobOperationalLabel(job)}</strong><span className="driver-cell-secondary">Load #{job.id.slice(0, 8).toUpperCase()}</span></div>
-                      </div>
-                      <div className="driver-load-row__meta" style={{ justifyContent: 'flex-start', gap: 12 }}>
-                        <button
-                          type="button"
-                          aria-label={expanded ? 'Collapse booking' : 'Expand booking'}
-                          onClick={() => {
-                            const willExpand = !expanded;
-                            setExpandedIds((previous) => {
-                              const next = new Set(previous);
-                              if (next.has(job.id)) next.delete(job.id); else next.add(job.id);
-                              return next;
-                            });
-                            if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id);
-                          }}
-                          style={{ width: 24, minWidth: 24, height: 22, border: 0, background: 'transparent', cursor: 'pointer', fontSize: 13, padding: 0 }}
-                        >
-                          {expanded ? '▼' : '▶'}
-                        </button>
-                        <span>Load #{job.id.slice(0, 8).toUpperCase()}</span>
-                        {job.booking_reference && <span>Booking: {job.booking_reference}</span>}
-                        <span><strong>Booked by:</strong> {job.companies?.name ?? 'Member'}</span>
-                        <span><strong>Vehicle:</strong> {human(job.requested_vehicle_label ?? job.vehicle_type)}</span>
-                        <span><strong>POD:</strong> Digital{job.hard_copy_pod ? ` · ${job.hard_copy_pod}` : ''}</span>
+                        <div className="driver-load-cell">
+                          <div><span className="driver-cell-label">From: </span><strong className="driver-cell-primary">{formatExecutionAddress(job.pickup_location, job.pickup_postcode)}</strong></div>
+                          <div style={{ marginTop: 4 }}><span className="driver-cell-label">To: </span><strong className="driver-cell-primary">{formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</strong></div>
+                        </div>
+                        <div className="driver-load-cell">
+                          <div><span className="driver-cell-label">Pickup: </span><strong className="driver-cell-primary">{fmtDate(job.pickup_datetime ?? job.collection_window_start)}</strong></div>
+                          <div style={{ marginTop: 4 }}><span className="driver-cell-label">Deliver: </span><strong className="driver-cell-primary">{fmtDate(job.delivery_datetime ?? job.delivery_window_start)}</strong></div>
+                          <div className="driver-cell-secondary" style={{ marginTop: 4 }}>{human(job.requested_vehicle_label ?? job.vehicle_type)}</div>
+                        </div>
+                        <div className="driver-load-cell driver-diary-status-cell">
+                          <strong className="driver-diary-status-band">{expired ? 'Expired' : workspaceJobOperationalLabel(job)}</strong>
+                          <span className="driver-cell-secondary">Load ID: {job.id.slice(0, 8).toUpperCase()}</span>
+                          <span className="driver-cell-secondary">{job.companies?.name ?? 'Member'}</span>
+                        </div>
                       </div>
 
                       <div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
