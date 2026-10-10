@@ -7,18 +7,23 @@ const shellCss = fs.readFileSync(path.join(root, 'app/components/workspace/top-w
 const ownerAdapter = fs.readFileSync(path.join(root, 'app/components/workspace/non-driver-owner-reference.css'), 'utf8');
 
 describe('Owner Driver canonical visual reference', () => {
-  it('preserves the approved Owner Driver dashboard composition', () => {
-    expect(dashboard).toContain('Reports & Statistics');
-    expect(dashboard).toContain('Accounts Payable');
-    expect(dashboard).toContain('Feedback in Last 90 Days');
-    expect(dashboard).toContain('Activity at a glance');
-    expect(dashboard).toContain('Latest assigned bookings');
-    expect(dashboard).toContain('Freight Messenger');
-    expect(dashboard).toContain('Reports period');
+  it('preserves the approved sole-trader dashboard composition', () => {
+    for (const marker of [
+      'Current / Next Work',
+      'Work & Marketplace',
+      'Recent Bookings',
+      'Availability & Positioning',
+      'My Business',
+      'Quick Actions',
+      'Invoiced Revenue',
+      'POD Requiring Action',
+    ]) expect(dashboard).toContain(marker);
+
     expect(dashboard).toContain('/api/driver/dashboard/commercial-summary');
-    expect(dashboard).not.toContain('Owner Driver business desk');
-    expect(dashboard).not.toContain('Invoice readiness');
-    expect(dashboard).not.toContain('Return capacity');
+    expect(dashboard).not.toContain('Accounts Payable');
+    expect(dashboard).not.toContain('Gross Margin');
+    expect(dashboard).not.toContain('Sub-contract Spend');
+    expect(dashboard).not.toContain('Freight Messenger');
   });
 
   it('preserves the canonical desktop Driver shell geometry', () => {
