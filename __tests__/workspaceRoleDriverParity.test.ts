@@ -40,7 +40,18 @@ describe('driver parity across dual identity contexts', () => {
       '/driver/load-alerts','/driver/nearby','/driver/directory','/driver/returns','/driver/finance',
     ]) expect(hrefs).toContain(required);
 
-    for (const forbidden of ['/driver/availability/live','/driver/drivers-vehicles','/driver/drivers']) {
+    for (const forbidden of [
+      '/driver/availability/live',
+      '/driver/drivers-vehicles',
+      '/driver/drivers',
+      '/driver/freight-vision',
+      '/driver/won-work',
+      '/driver/event-log',
+      '/driver/action-centre',
+      '/driver/settings/billing',
+      '/driver/change-password',
+      '/driver/profile',
+    ]) {
       expect(hrefs).not.toContain(forbidden);
     }
   });

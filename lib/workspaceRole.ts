@@ -186,18 +186,28 @@ const DRIVER_EXECUTION_NAV: WorkspaceNavGroup[] = [
 ];
 
 const OWNER_DRIVER_NAV: WorkspaceNavGroup[] = [
-  ...DRIVER_EXECUTION_NAV,
-  { id: 'commercial', label: 'Commercial', items: [
+  { id: 'owner-driver-home', label: 'Owner Driver', items: [
+    { id: 'dashboard', label: 'Dashboard', href: '/driver', icon: 'HOME' },
+  ] },
+  { id: 'owner-driver-marketplace', label: 'Marketplace', items: [
     { id: 'loads', label: 'Loads', href: '/driver/loads', icon: '▦' },
     { id: 'quotes', label: 'Quotes', href: '/driver/quotes', icon: '◫' },
-    { id: 'auto-match', label: 'Load Alerts', href: '/driver/load-alerts', icon: '◷' },
+    { id: 'load-alerts', label: 'Load Alerts', href: '/driver/load-alerts', icon: '◷' },
     { id: 'nearby', label: "Who's Nearby", href: '/driver/nearby', icon: '⌖' },
     { id: 'directory', label: 'Directory', href: '/driver/directory', icon: '⊕' },
     { id: 'returns', label: 'Return Journeys', href: '/driver/returns', icon: '↩' },
   ] },
-  { id: 'business', label: 'Business', items: [
-    { id: 'invoices', label: 'Finance / Invoices', href: '/driver/finance', icon: '£', capability: 'invoices.carrier.manage' },
-    { id: 'billing', label: 'Membership & Billing', href: '/driver/settings/billing', icon: '£', capability: 'billing.manage' },
+  { id: 'owner-driver-work', label: 'My Work', items: [
+    { id: 'jobs', label: 'My Jobs', href: '/driver/jobs', icon: '▣' },
+    { id: 'diary', label: 'Diary', href: '/driver/history', icon: '□' },
+    { id: 'availability', label: 'Availability', href: '/driver/availability', icon: '◷' },
+  ] },
+  { id: 'owner-driver-business', label: 'Business', items: [
+    { id: 'finance', label: 'Finance / Invoices', href: '/driver/finance', icon: '£', capability: 'invoices.carrier.manage' },
+    { id: 'documents', label: 'POD & Documents', href: '/driver/documents', icon: '▤' },
+    { id: 'messages', label: 'Messages', href: '/driver/messages', icon: '◫' },
+    { id: 'vehicle', label: 'My Vehicle', href: '/driver/vehicles', icon: '▰' },
+    { id: 'settings', label: 'Account / Settings', href: '/driver/settings', icon: '⚙', capability: 'settings.manage' },
   ] },
 ];
 
