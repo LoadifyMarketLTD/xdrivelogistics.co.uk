@@ -588,7 +588,6 @@ export default function JobHistoryPage() {
                   const allocatedVehicleName = [sheet?.allocatedVehicle.make, sheet?.allocatedVehicle.model].filter(Boolean).join(' ') || human(sheet?.allocatedVehicle.type ?? null);
                   const pickupAddress = sheet?.pickup.address ?? job.pickup_location; const pickupPostcode = sheet?.pickup.postcode ?? job.pickup_postcode;
                   const deliveryAddress = sheet?.delivery.address ?? job.delivery_location; const deliveryPostcode = sheet?.delivery.postcode ?? job.delivery_postcode;
-                  const cargoType = human(sheet?.cargo.type ?? job.requested_cargo_label ?? job.cargo_type);
                   const cargoWeight = sheet?.cargo.weightKg ?? job.weight_kg; const cargoPallets = sheet?.cargo.pallets ?? job.pallets;
 
                   return (
@@ -656,27 +655,47 @@ export default function JobHistoryPage() {
                             {detailTab === 'order' && (orderLoading ? <EmptyState compact title="Loading Order confirmation…" /> : (
                               <>
                                 {orderError && <AlertBanner tone="warning">{orderError} Available booking details are still shown below.</AlertBanner>}
-                                <div className="driver-detail-grid">
-                                  <div className="driver-detail-item"><span>Booking / job reference</span><strong>{sheet?.bookingReference ?? job.booking_reference ?? sheet?.reference ?? `XDL-${job.id.slice(0, 8).toUpperCase()}`}</strong></div>
-                                  {sheet?.bookedAt && <div className="driver-detail-item"><span>Booked</span><strong>{fmtDate(sheet.bookedAt)}</strong></div>}
-                                  <div className="driver-detail-item"><span>Requested vehicle</span><strong>{requestedVehicle}</strong></div>
-                                  <div className="driver-detail-item"><span>{sheet?.allocatedVehicle.source === 'driver_current' ? 'Current driver vehicle' : 'Allocated vehicle'}</span><strong>{allocatedVehicleName}</strong><small>{sheet?.allocatedVehicle.ref ? `Vehicle ref: ${sheet.allocatedVehicle.ref}` : 'Vehicle ref not supplied'}{sheet?.allocatedVehicle.source === 'driver_current' ? ' · no job-level vehicle snapshot' : ''}</small></div>
-                                  <div className="driver-detail-item"><span>Subcontracted by</span><strong><MemberIdentityLink companyId={sheet?.postingCompanyId ?? job.company_id}>{sheet?.bookedBy ?? job.companies?.name ?? 'Not supplied'}</MemberIdentityLink></strong><small>{[sheet?.memberCode ? `Member ID ${sheet.memberCode}` : null, sheet?.memberPhone].filter(Boolean).join(' · ') || 'Business contact not supplied'}</small></div>
-                                  <div className="driver-detail-item"><span>Executing driver / carrier</span><strong>{sheet?.driverName ?? 'Assigned driver'}</strong><small>{sheet?.executingCompanyId ? <MemberIdentityLink companyId={sheet.executingCompanyId}>Open executing carrier profile</MemberIdentityLink> : 'Executing company not supplied'}</small></div>
-                                  <div className="driver-detail-item"><span>Agreed rate</span><strong>{sheet?.agreedRate != null ? money(sheet.agreedRate, sheet.currency) : 'Not supplied'}</strong><small>{sheet?.agreedGross != null ? `Gross ${money(sheet.agreedGross, sheet.currency)}${sheet.vatRate != null ? ` · VAT ${sheet.vatRate}%` : ''}` : sheet?.commercialSnapshotAvailable ? 'Agreed rate recorded at award' : 'Historical agreed-rate record unavailable'}</small></div>
-                                  {sheet?.paymentTerms && <div className="driver-detail-item"><span>Payment terms</span><strong>{sheet.paymentTerms}</strong>{sheet.paymentDueDays != null && <small>{sheet.paymentDueDays} day(s)</small>}</div>}
-                                  <div className="driver-detail-item"><span>POD</span><strong>Digital POD mandatory</strong><small>Hard-copy: {sheet?.hardCopyPod ?? job.hard_copy_pod ?? 'No additional requirement supplied'}</small></div>
-                                  {(sheet?.customerReference || job.customer_reference) && <div className="driver-detail-item"><span>Customer ref</span><strong>{sheet?.customerReference ?? job.customer_reference}</strong></div>}
-                                  {sheet?.distanceMiles != null && <div className="driver-detail-item"><span>Distance</span><strong>{sheet.distanceMiles} miles</strong></div>}
-                                  <div className="driver-detail-item"><span>Cargo</span><strong>{cargoType}</strong><small>{cargoWeight != null ? `${cargoWeight} kg` : 'Weight not supplied'}{cargoPallets != null ? ` · ${cargoPallets} pallet(s)` : ''}</small></div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr 1fr', gap: 0, border: '1px solid #d8e0ea', background: '#fff' }}>
+                                  <div style={{ padding: 10, borderRight: '1px solid #d8e0ea' }}>
+                                    <div style={{ marginBottom: 8 }}><span style={{ color: '#64748b' }}>Booked by: </span><strong><MemberIdentityLink companyId={sheet?.postingCompanyId ?? job.company_id}>{sheet?.bookedBy ?? job.companies?.name ?? 'Member'}</MemberIdentityLink></strong></div>
+                                    {sheet?.memberPhone && <div style={{ marginBottom: 6 }}><span style={{ color: '#64748b' }}>Phone: </span>{sheet.memberPhone}</div>}
+                                    {sheet?.agreedRate != null && <div><span style={{ color: '#64748b' }}>Agreed rate: </span><strong>{money(sheet.agreedRate, sheet.currency)}</strong></div>}
+                                  </div>
+                                  <div style={{ padding: 10, borderRight: '1px solid #d8e0ea' }}>
+                                    <div><span style={{ color: '#64748b' }}>Vehicle: </span><strong>{allocatedVehicleName || requestedVehicle}</strong></div>
+                                    {sheet?.distanceMiles != null && <div style={{ marginTop: 6 }}><span style={{ color: '#64748b' }}>Distance: </span>{sheet.distanceMiles} miles</div>}
+                                    {(cargoWeight != null || cargoPallets != null) && <div style={{ marginTop: 6 }}><span style={{ color: '#64748b' }}>Cargo: </span>{[cargoWeight != null ? `${cargoWeight} kg` : null, cargoPallets != null ? `${cargoPallets} pallet(s)` : null].filter(Boolean).join(' · ')}</div>}
+                                  </div>
+                                  <div style={{ padding: 10 }}>
+                                    {sheet?.paymentTerms && <div><span style={{ color: '#64748b' }}>Payment terms: </span><strong>{sheet.paymentTerms}</strong></div>}
+                                    <div style={{ marginTop: 6 }}><span style={{ color: '#64748b' }}>POD: </span><strong>Digital</strong>{sheet?.hardCopyPod && <span> · Hard-copy {sheet.hardCopyPod}</span>}</div>
+                                    {(sheet?.customerReference || job.customer_reference) && <div style={{ marginTop: 6 }}><span style={{ color: '#64748b' }}>Customer ref: </span>{sheet?.customerReference ?? job.customer_reference}</div>}
+                                  </div>
                                 </div>
 
-                                <div className="driver-diary-note-list">
-                                  <div className="driver-diary-text-block"><strong>Pickup</strong><span>{formatExecutionAddress(pickupAddress, pickupPostcode)} · {transportSchedule(sheet?.pickup.dateTime ?? job.pickup_datetime ?? job.collection_window_start, sheet?.pickup.slot ?? null)}</span>{(sheet?.pickup.contactName || job.collection_contact_name || sheet?.pickup.contactPhone || job.collection_contact_phone) && <span>Contact: {[sheet?.pickup.contactName ?? job.collection_contact_name, sheet?.pickup.contactPhone ?? job.collection_contact_phone].filter(Boolean).join(' · ')}</span>}{sheet?.pickup.notes && <span>Notes: {sheet.pickup.notes}</span>}</div>
-                                  <div className="driver-diary-text-block"><strong>Delivery</strong><span>{formatExecutionAddress(deliveryAddress, deliveryPostcode)} · {transportSchedule(sheet?.delivery.dateTime ?? job.delivery_datetime ?? job.delivery_window_start, sheet?.delivery.slot ?? null)}</span>{(sheet?.delivery.contactName || job.delivery_contact_name || sheet?.delivery.contactPhone || job.delivery_contact_phone) && <span>Contact: {[sheet?.delivery.contactName ?? job.delivery_contact_name, sheet?.delivery.contactPhone ?? job.delivery_contact_phone].filter(Boolean).join(' · ')}</span>}{sheet?.delivery.notes && <span>Notes: {sheet.delivery.notes}</span>}</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', border: '1px solid #d8e0ea', borderTop: 0, background: '#fff' }}>
+                                  <div style={{ padding: 10, borderRight: '1px solid #d8e0ea' }}>
+                                    <strong>Pickup</strong>
+                                    <div>{formatExecutionAddress(pickupAddress, pickupPostcode)}</div>
+                                    <div>{transportSchedule(sheet?.pickup.dateTime ?? job.pickup_datetime ?? job.collection_window_start, sheet?.pickup.slot ?? null)}</div>
+                                    {(sheet?.pickup.contactName || job.collection_contact_name || sheet?.pickup.contactPhone || job.collection_contact_phone) && <div style={{ marginTop: 5, color: '#64748b' }}>{[sheet?.pickup.contactName ?? job.collection_contact_name, sheet?.pickup.contactPhone ?? job.collection_contact_phone].filter(Boolean).join(' · ')}</div>}
+                                  </div>
+                                  <div style={{ padding: 10 }}>
+                                    <strong>Delivery</strong>
+                                    <div>{formatExecutionAddress(deliveryAddress, deliveryPostcode)}</div>
+                                    <div>{transportSchedule(sheet?.delivery.dateTime ?? job.delivery_datetime ?? job.delivery_window_start, sheet?.delivery.slot ?? null)}</div>
+                                    {(sheet?.delivery.contactName || job.delivery_contact_name || sheet?.delivery.contactPhone || job.delivery_contact_phone) && <div style={{ marginTop: 5, color: '#64748b' }}>{[sheet?.delivery.contactName ?? job.delivery_contact_name, sheet?.delivery.contactPhone ?? job.delivery_contact_phone].filter(Boolean).join(' · ')}</div>}
+                                  </div>
                                 </div>
-                                {(sheet?.publicQuoteNotes || sheet?.executionInstructions) && <div className="driver-diary-note-list">{sheet.publicQuoteNotes && <div className="driver-diary-text-block"><strong>Public quote notes</strong><span>{sheet.publicQuoteNotes}</span></div>}{sheet.executionInstructions && <div className="driver-diary-text-block"><strong>Private execution instructions</strong><span>{sheet.executionInstructions}</span></div>}</div>}
-                                {((sheet?.requirements.length ?? 0) > 0 || (sheet?.documentChecklist.length ?? 0) > 0) && <div className="driver-diary-text-block"><strong>Working &amp; paperwork requirements</strong>{sheet?.requirements.map((instruction) => <span key={instruction}>{instruction}</span>)}{sheet?.documentChecklist.length ? <span>Paperwork: {sheet.documentChecklist.join(' · ')}</span> : null}<span>Digital POD: mandatory · Hard-copy: {sheet?.hardCopyPod ?? 'No additional requirement supplied'}</span></div>}
+
+                                {(sheet?.publicQuoteNotes || sheet?.executionInstructions || (sheet?.requirements.length ?? 0) > 0) && (
+                                  <div style={{ padding: 10, border: '1px solid #d8e0ea', borderTop: 0, background: '#fff' }}>
+                                    <strong>Notes / requirements</strong>
+                                    {sheet?.publicQuoteNotes && <div style={{ marginTop: 5 }}>{sheet.publicQuoteNotes}</div>}
+                                    {sheet?.executionInstructions && <div style={{ marginTop: 5 }}>{sheet.executionInstructions}</div>}
+                                    {sheet?.requirements.map((instruction) => <div key={instruction} style={{ marginTop: 5 }}>• {instruction}</div>)}
+                                  </div>
+                                )}
                               </>
                             ))}
 
