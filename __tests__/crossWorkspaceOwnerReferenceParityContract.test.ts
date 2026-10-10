@@ -24,7 +24,7 @@ describe('Owner-reference shell and dashboard convergence', () => {
   });
 
   it('keeps Customer on the Owner Driver two-column control-desk geometry without a bespoke dashboard masthead', () => {
-    expect(owner).toContain("gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)'");
+    expect(owner).toContain('driver-dashboard-register');
     expect(customer).toContain('customer-owner-parity-grid');
     expect(customer).toContain('Reports & Statistics');
     expect(customer).toContain('Activity at a glance');

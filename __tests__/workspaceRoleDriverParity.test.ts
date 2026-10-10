@@ -36,7 +36,7 @@ describe('driver parity across dual identity contexts', () => {
     const hrefs = getVisibleWorkspaceNav('owner_driver').flatMap((group) => group.items.map((item) => item.href));
     for (const required of [
       '/driver','/driver/jobs','/driver/history','/driver/availability','/driver/vehicles',
-      '/driver/documents','/driver/messages','/driver/settings','/driver/loads','/driver/quotes',
+      '/driver/documents','/driver/messages','/driver/settings','/driver/settings/billing','/driver/loads','/driver/quotes',
       '/driver/load-alerts','/driver/nearby','/driver/directory','/driver/returns','/driver/finance',
     ]) expect(hrefs).toContain(required);
 
@@ -48,7 +48,6 @@ describe('driver parity across dual identity contexts', () => {
       '/driver/won-work',
       '/driver/event-log',
       '/driver/action-centre',
-      '/driver/settings/billing',
       '/driver/change-password',
       '/driver/profile',
     ]) {

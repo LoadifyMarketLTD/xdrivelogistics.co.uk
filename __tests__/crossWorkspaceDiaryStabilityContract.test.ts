@@ -29,7 +29,7 @@ describe('cross-workspace Diary stability contract', () => {
   it('gives owner/admin Driver workspace a company Diary while keeping employed drivers on assigned jobs', () => {
     expect(driverDiary).toContain("const diaryScope: 'company' | 'mine' = canViewCompanyDiary ? selectedDiaryScope : 'mine'");
     expect(driverDiary).toContain('Company Diary');
-    expect(driverDiary).toContain('My assigned jobs');
+    expect(driverDiary).toContain('<option value="mine">My bookings</option>');
     expect(driverDiary).toContain('/api/driver/diary/company-snapshot');
     expect(companySnapshot).toContain("if (!['owner', 'admin'].includes(role))");
     expect(companySnapshot).toContain('assigned_company_id.eq.');

@@ -28,6 +28,7 @@ describe('owner-driver sole-trader navigation contract', () => {
       'My Vehicle',
       'Finance',
       'Documents',
+      'Membership & Billing',
       'Account / Settings',
     ]);
   });

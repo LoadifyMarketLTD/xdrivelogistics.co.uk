@@ -32,15 +32,17 @@ describe('workspace More audit contract', () => {
     expect(more?.items.map((item) => item.href)).toEqual([
       '/driver/load-alerts',
       '/driver/nearby',
-      '/driver/documents',
       '/driver/messages',
       '/driver/vehicles',
+      '/driver/finance',
+      '/driver/documents',
+      '/driver/settings/billing',
       '/driver/settings',
     ]);
   });
 
   it('keeps retained Owner Driver More routes permitted', () => {
-    for (const pathname of ['/driver/load-alerts','/driver/nearby','/driver/documents','/driver/messages','/driver/vehicles','/driver/settings']) {
+    for (const pathname of ['/driver/load-alerts','/driver/nearby','/driver/messages','/driver/vehicles','/driver/finance','/driver/documents','/driver/settings/billing','/driver/settings']) {
       expect(isCapabilityAllowedForPath(pathname, 'driver', activeContext('owner_driver')), pathname).toBe(true);
     }
   });

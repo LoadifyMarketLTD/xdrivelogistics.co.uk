@@ -20,7 +20,6 @@ describe('operational shell and onboarding recovery contract', () => {
       "['carrier-settings', 'Settings', '/admin/settings']",
       "{ id: 'customer-settings', label: 'Settings', href: '/customer/settings'",
       "['broker-settings-primary', 'Settings', '/broker/settings']",
-      "['owner-driver-settings-primary', 'Settings', '/driver/settings']",
       "['driver-settings-primary', 'Settings', '/driver/settings']",
       "['dispatcher-settings-primary', 'Settings', '/admin/settings']",
       "['finance-settings-primary', 'Settings', '/admin/settings']",
@@ -29,6 +28,10 @@ describe('operational shell and onboarding recovery contract', () => {
     expect(roles).toContain("{ id: 'dispatcher-settings', label: 'Settings'");
     expect(roles).toContain("{ id: 'finance-settings', label: 'Settings'");
     expect(roles).toContain("{ id: 'compliance-settings', label: 'Settings'");
+    expect(roles).toContain("label: 'Membership & Billing', href: '/driver/settings/billing'");
+    expect(roles).toContain("label: 'Account / Settings', href: '/driver/settings'");
+    expect(shell).toContain("['/driver/settings/billing', 'Membership & Billing']");
+    expect(shell).toContain("['/driver/settings', 'Account / Settings']");
   });
 
   it('does not duplicate Customer primary navigation as dashboard quick links', () => {

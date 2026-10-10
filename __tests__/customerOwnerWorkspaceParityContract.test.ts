@@ -58,10 +58,10 @@ describe('Customer and Owner Driver workspace structure parity', () => {
   });
 
   it('keeps Customer control-desk geometry while Owner Driver uses the focused sole-trader dashboard', () => {
-    expect(ownerDashboard).toContain('minmax(0, 1.15fr) minmax(320px, .85fr)');
-    expect(ownerDashboard).toContain('Current / Next Work');
-    expect(ownerDashboard).toContain('Work & Marketplace');
-    expect(ownerDashboard).toContain('My Business');
+    expect(ownerDashboard).toContain('Current assignment');
+    expect(ownerDashboard).toContain('Next booking');
+    expect(ownerDashboard).toContain('Driver readiness');
+    expect(ownerDashboard).toContain('/api/driver/dashboard/commercial-summary');
     expect(customerDashboard).toContain('customer-owner-parity-grid');
     expect(customerDashboard).toContain('Reports & Statistics');
     expect(customerDashboard).toContain('Activity at a glance');

@@ -207,6 +207,7 @@ const OWNER_DRIVER_NAV: WorkspaceNavGroup[] = [
     { id: 'documents', label: 'POD & Documents', href: '/driver/documents', icon: '▤' },
     { id: 'messages', label: 'Messages', href: '/driver/messages', icon: '◫' },
     { id: 'vehicle', label: 'My Vehicle', href: '/driver/vehicles', icon: '▰' },
+    { id: 'billing', label: 'Membership & Billing', href: '/driver/settings/billing', icon: '£', capability: 'billing.manage' },
     { id: 'settings', label: 'Account / Settings', href: '/driver/settings', icon: '⚙', capability: 'settings.manage' },
   ] },
 ];

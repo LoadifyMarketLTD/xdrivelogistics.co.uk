@@ -291,6 +291,7 @@ export default function JobHistoryPage() {
   const [orderLoadingByJob, setOrderLoadingByJob] = useState<Record<string, boolean>>({});
   const [orderErrorsByJob, setOrderErrorsByJob] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const hasLoadedRef = useRef(false);
   const refreshInFlightRef = useRef(false);
   const [error, setError] = useState('');
@@ -304,6 +305,7 @@ export default function JobHistoryPage() {
   const [detailTabs, setDetailTabs] = useState<Record<string, DetailTab>>({});
   const [invoicePreview, setInvoicePreview] = useState<{ id: string; number: string | null } | null>(null);
   const [invoiceCreatingJobId, setInvoiceCreatingJobId] = useState<string | null>(null);
+  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
   const [feedbackJobId, setFeedbackJobId] = useState<string | null>(null);
 
   const fetchOrderSheet = useCallback(async (jobId: string) => {
@@ -339,9 +341,10 @@ export default function JobHistoryPage() {
       refreshInFlightRef.current = false;
       hasLoadedRef.current = true;
       setLoading(false);
+      setRefreshing(false);
     };
     if (!driverId) { finishLoad(); return; }
-    if (!hasLoadedRef.current) setLoading(true);
+    if (hasLoadedRef.current) setRefreshing(true); else setLoading(true);
     setError(''); setDetailWarning('');
 
     const { data: sessionData } = await supabase.auth.getSession();
@@ -480,6 +483,41 @@ export default function JobHistoryPage() {
     }
   };
 
+  const requestDiaryCancellation = useCallback(async (job: HistoryJob) => {
+    const rawReason = window.prompt('Reason for declining/cancelling this booking (minimum 5 characters):');
+    if (rawReason === null) return;
+    const reason = rawReason.trim();
+    if (reason.length < 5) {
+      setDetailWarning('A cancellation reason of at least 5 characters is required.');
+      return;
+    }
+
+    setCancellingJobId(job.id);
+    setDetailWarning('');
+    try {
+      const { data } = await supabase.auth.getSession();
+      let token = data.session?.access_token;
+      if (!token) {
+        const refreshed = await supabase.auth.refreshSession();
+        token = refreshed.data.session?.access_token;
+      }
+      if (!token) throw new Error('Your session has expired. Sign in again.');
+
+      const response = await fetch(`/api/driver/jobs/${encodeURIComponent(job.id)}/cancellation`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+      });
+      const payload = await response.json().catch(() => null) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? 'Cancellation could not be requested.');
+      await fetchHistory();
+    } catch (reasonValue) {
+      setDetailWarning(reasonValue instanceof Error ? reasonValue.message : 'Cancellation could not be requested.');
+    } finally {
+      setCancellingJobId(null);
+    }
+  }, [fetchHistory]);
+
   useEffect(() => { void fetchHistory(); }, [fetchHistory]);
   useVisibleRefresh(fetchHistory, { intervalMs: 10_000, minGapMs: 2_500 });
 
@@ -535,7 +573,7 @@ export default function JobHistoryPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Search, scan and expand every assigned booking from one operational diary." headerActions={<ActionButton tone="primary" onClick={() => void fetchHistory()} disabled={loading}>Refresh</ActionButton>}>
+      <DriverWorkspaceShell subtitle="Search, scan and expand every assigned booking from one operational diary." headerActions={<ActionButton tone="primary" onClick={() => void fetchHistory()} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</ActionButton>}>
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
         <div className="driver-diary-board diary-pagebody">
@@ -568,7 +606,10 @@ export default function JobHistoryPage() {
                   const hasPod = hasCompletePodEvidence(job); const feedbackReceived = hasRecentFeedback(job, reviews); const expired = isDerivedExpired(job);
                   const canManageFeedback = Boolean(feedbackReviewerCompanyId && canLeaveCompanyFeedback(job, feedbackReviewerCompanyId));
                   const currentStatus = effectiveStatus(job);
+                  const stage = jobStage(job);
                   const isOwnAssignedJob = job.assigned_driver_id === driverId;
+                  const canRequestCancellation = ['allocated', 'accepted', 'awarded'].includes(currentStatus) || stage === 'awarded' || stage === 'in_progress';
+                  const cancellationLabel = isOwnAssignedJob && ['allocated', 'accepted'].includes(currentStatus) ? 'Decline' : 'Request cancellation';
                   const historyRows = [
                     ...(Array.isArray(job.status_history) ? job.status_history.map((entry, index) => ({ key: `status-${index}`, label: STATUS_LABELS[entry.status ?? ''] ?? entry.status ?? 'Status update', at: entry.timestamp ?? entry.at ?? null, detail: 'Job status history' })) : []),
                     ...trackingEvents.map((event) => ({ key: event.id, label: event.event_type ? (STATUS_LABELS[event.event_type] ?? event.event_type.replace(/_/g, ' ')) : 'Tracking event', at: event.event_time, detail: event.message ?? event.notes ?? event.user_name ?? 'Operational event' })),
@@ -629,6 +670,11 @@ export default function JobHistoryPage() {
                             Complete POD
                           </button>
                         ) : null}
+                        {canRequestCancellation ? (
+                          <button type="button" data-operation="cancel" disabled={cancellingJobId === job.id} onClick={() => void requestDiaryCancellation(job)}>
+                            {cancellingJobId === job.id ? 'Sending…' : cancellationLabel}
+                          </button>
+                        ) : null}
                         {isOwnAssignedJob && DETAIL_TABS
                           .filter((detailItem) => detailItem.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices))
                           .map((detailItem) => (
@@ -674,6 +720,7 @@ export default function JobHistoryPage() {
                                 <div style={{ display: 'grid', gridTemplateColumns: '1.25fr 1fr 1fr', gap: 0, border: '1px solid #d8e0ea', background: '#fff' }}>
                                   <div style={{ padding: 10, borderRight: '1px solid #d8e0ea' }}>
                                     <div style={{ marginBottom: 8 }}><span style={{ color: '#64748b' }}>Booked by: </span><strong><MemberIdentityLink companyId={sheet?.postingCompanyId ?? job.company_id}>{sheet?.bookedBy ?? job.companies?.name ?? 'Member'}</MemberIdentityLink></strong></div>
+                                    {sheet?.memberCode && <div style={{ marginBottom: 6 }}><span style={{ color: '#64748b' }}>Member ID </span><strong>{sheet.memberCode}</strong></div>}
                                     {sheet?.memberPhone && <div style={{ marginBottom: 6 }}><span style={{ color: '#64748b' }}>Phone: </span>{sheet.memberPhone}</div>}
                                     {sheet?.agreedRate != null && <div><span style={{ color: '#64748b' }}>Agreed rate: </span><strong>{money(sheet.agreedRate, sheet.currency)}</strong></div>}
                                   </div>

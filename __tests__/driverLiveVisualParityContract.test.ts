@@ -9,7 +9,7 @@ describe('live Driver approved prototype parity contract', () => {
     const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
     const roles = read('lib/workspaceRole.ts');
     const adapter = read('app/driver/_components/DriverTopWorkspaceShell.tsx');
-    for (const label of ['My Jobs','Diary','Availability','Vehicle','Directory','Return Journeys','Loads','Quotes','Won Work','Auto-match & Alerts','Freight Vision','Invoices']) {
+    for (const label of ['My Jobs','Diary','Availability','My Vehicle','Directory','Return Journeys','Loads','Quotes','Load Alerts','Finance / Invoices','Membership & Billing']) {
       expect(roles).toContain(`label: '${label}'`);
     }
     expect(shell).toContain('top-workspace-nav top-workspace-nav--primary');

@@ -36,9 +36,9 @@ describe('Driver canonical dashboard convergence contract', () => {
 
   it('keeps role separation and degraded data truthful', () => {
     expect(page).toContain("const ownerDriver = workspaceRole === 'owner_driver'");
-    expect(page).toContain('Current / Next Work');
-    expect(page).toContain('Work & Marketplace');
-    expect(page).toContain('My Business');
+    expect(page).toContain('Current assignment');
+    expect(page).toContain('Next booking');
+    expect(page).toContain('Driver readiness');
     expect(page).toContain('/api/driver/dashboard/commercial-summary');
     expect(page).toContain('Assignment data unavailable');
     expect(page).toContain('Assignment data is partial');

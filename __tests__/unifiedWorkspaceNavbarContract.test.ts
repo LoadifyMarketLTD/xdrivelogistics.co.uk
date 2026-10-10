@@ -6,14 +6,16 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 describe('Unified workspace navbar contract', () => {
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
   const shellCss = read('app/components/workspace/top-workspace-shell.css');
+  const measuredCss = read('app/components/workspace/workspace-measured-cx-baseline.css');
   const workspaceRole = read('lib/workspaceRole.ts');
 
   it('uses one two-row primary navigation shell for operational workspaces', () => {
     expect(shell).toContain('top-workspace-nav--primary');
     expect(shellCss).toContain('.top-workspace-nav--primary');
-    expect(shellCss).toContain('top: 50px !important');
-    expect(shellCss).toContain('height: 40px !important');
-    expect(shellCss).toContain('justify-content: flex-end !important');
+    expect(measuredCss).toContain('--ws-header-h: 54px;');
+    expect(measuredCss).toContain('--ws-nav-h: 42px;');
+    expect(measuredCss).toContain('font-size:13px!important');
+    expect(measuredCss).toContain('font-weight:600!important');
     expect(shellCss).toContain('.xdrive-operational-top-workspace .top-workspace-action--primary');
     expect(shellCss).toContain('.xdrive-operational-top-workspace .top-workspace-action--direct');
   });
@@ -41,7 +43,6 @@ describe('Unified workspace navbar contract', () => {
     for (const marker of [
       "carrier-settings', 'Settings', '/admin/settings'",
       "broker-settings-primary', 'Settings', '/broker/settings'",
-      "owner-driver-settings-primary', 'Settings', '/driver/settings'",
       "driver-settings-primary', 'Settings', '/driver/settings'",
       "dispatcher-settings-primary', 'Settings', '/admin/settings'",
       "finance-settings-primary', 'Settings', '/admin/settings'",
@@ -67,14 +68,14 @@ describe('Unified workspace navbar contract', () => {
     ]) expect(shell).toContain(marker);
   });
 
-  it('keeps one Owner Driver Settings primary entry and avoids duplicating settings sections inside More', () => {
-    expect(workspaceRole).toContain("label: 'Driver Settings', href: '/driver/settings'");
-    expect(workspaceRole).toContain("label: 'Company Settings', href: '/driver/settings?section=overview'");
-    expect(shell).toContain("['owner-driver-settings-primary', 'Settings', '/driver/settings']");
+  it('keeps Owner Driver account and billing settings under the curated More menu', () => {
+    expect(workspaceRole).toContain("label: 'Membership & Billing', href: '/driver/settings/billing'");
+    expect(workspaceRole).toContain("label: 'Account / Settings', href: '/driver/settings'");
     const owner = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
+    expect(owner).toContain("['/driver/settings/billing', 'Membership & Billing']");
+    expect(owner).toContain("['/driver/settings', 'Account / Settings']");
     expect(owner).not.toContain("'/driver/settings?section=company'");
     expect(owner).not.toContain("'/driver/settings?section=overview'");
-    expect(owner).not.toContain("'/settings/billing'");
   });
 
   it('preserves the driver prototype scope needed by CX-converged page CSS', () => {

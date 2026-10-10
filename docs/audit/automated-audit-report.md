@@ -1,6 +1,6 @@
 # XDrive Automated Audit Report
 
-> Generated: 2026-08-01T18:11:46.530Z
+> Generated: 2026-10-10T18:06:25.038Z
 > Script: `scripts/run-automated-audit.mjs`
 > Coverage: Static code analysis + lint + typecheck + unit tests
 > Note: Checks requiring a live Supabase database or browser are marked ⚠️ MANUAL
@@ -15,7 +15,7 @@
 | `DB-01-02` | ✅ PASS | No duplicate migration version numbers |
 | `DB-01-03` | ✅ PASS | Sequence 001–129 is complete |
 | `DB-01-04` | ✅ PASS | Migration 129 serialize_overpayment_guard found |
-| `DB-01-05` | ✅ PASS | Total migration files: 191 |
+| `DB-01-05` | ✅ PASS | Total migration files: 478 |
 
 **Section: 5 PASS · 0 FAIL · 0 MANUAL**
 
@@ -135,12 +135,12 @@
 
 | ID | Status | Note |
 |---|---|---|
-| `PR-03-05-jobs` | ⚠️ MANUAL | Realtime for "jobs" must be verified in Supabase dashboard (no migration evidence) |
-| `PR-03-05-job_bids` | ⚠️ MANUAL | Realtime for "job_bids" must be verified in Supabase dashboard (no migration evidence) |
-| `PR-03-05-driver_locations` | ⚠️ MANUAL | Realtime for "driver_locations" must be verified in Supabase dashboard (no migration evidence) |
-| `PR-03-05-notifications` | ⚠️ MANUAL | Realtime for "notifications" must be verified in Supabase dashboard (no migration evidence) |
+| `PR-03-05-jobs` | ✅ PASS | Realtime/publication reference found for "jobs" (verify in Supabase dashboard) |
+| `PR-03-05-job_bids` | ✅ PASS | Realtime/publication reference found for "job_bids" (verify in Supabase dashboard) |
+| `PR-03-05-driver_locations` | ✅ PASS | Realtime/publication reference found for "driver_locations" (verify in Supabase dashboard) |
+| `PR-03-05-notifications` | ✅ PASS | Realtime/publication reference found for "notifications" (verify in Supabase dashboard) |
 
-**Section: 0 PASS · 0 FAIL · 4 MANUAL**
+**Section: 4 PASS · 0 FAIL · 0 MANUAL**
 
 ---
 
@@ -199,7 +199,7 @@
 
 | ID | Status | Note |
 |---|---|---|
-| `UNIT-TESTS` | ✅ PASS | All unit tests passed ilter decoding[2m > [22mpreserves URLSearchParams decoding for "customer=ACME%2BLogistics"[32m  |
+| `UNIT-TESTS` | ✅ PASS | All unit tests passed  no profile update [22m[39m[Shared UI Context] authoritative query failed {   profile: [1mnull |
 
 **Section: 1 PASS · 0 FAIL · 0 MANUAL**
 
@@ -209,9 +209,9 @@
 
 | Status | Count |
 |---|---|
-| ✅ PASS | **77** |
+| ✅ PASS | **81** |
 | ❌ FAIL | **0** |
-| ⚠️ MANUAL | **4** |
+| ⚠️ MANUAL | **0** |
 | **TOTAL** | **81** |
 
 > 🟢 **All automatable checks PASS.** Proceed to manual audit phase for live DB and browser checks.

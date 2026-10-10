@@ -302,6 +302,7 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
     ['/driver/vehicles', 'My Vehicle'],
     ['/driver/finance', 'Finance'],
     ['/driver/documents', 'Documents'],
+    ['/driver/settings/billing', 'Membership & Billing'],
     ['/driver/settings', 'Account / Settings'],
   ];
 
@@ -385,6 +386,7 @@ const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
   '/driver/vehicles': 'Business',
   '/driver/finance': 'Business',
   '/driver/documents': 'Compliance',
+  '/driver/settings/billing': 'Account',
   '/driver/settings': 'Account',
 };
 
