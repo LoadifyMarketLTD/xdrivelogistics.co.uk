@@ -1313,3 +1313,60 @@
 .driver-diary-route .driver-diary-detail-panel b{
   font-weight:600!important;
 }
+/* PR675 Diary collapsed-card geometry: exact Loads family parity */
+.driver-diary-route .diary-booking.driver-diary-entry:not(:has(.driver-row-details)){
+  min-height:0!important;
+}
+.driver-diary-route .driver-diary-entry__top{
+  min-height:82px!important;
+}
+.driver-diary-route .driver-diary-entry__top>*{
+  min-height:82px!important;
+  padding:8px 11px!important;
+  justify-content:center!important;
+  gap:3px!important;
+}
+.driver-diary-route .driver-diary-entry__top>.driver-diary-status-cell{
+  min-height:82px!important;
+  padding:32px 11px 7px!important;
+  justify-content:flex-start!important;
+}
+.driver-diary-route .driver-diary-status-band{
+  top:6px!important;
+  left:11px!important;
+  right:11px!important;
+  height:21px!important;
+  min-height:21px!important;
+  line-height:21px!important;
+  padding:0 6px!important;
+}
+.driver-diary-route .driver-diary-entry__top .driver-load-cell>div{
+  margin-top:0!important;
+}
+.driver-diary-route .driver-diary-entry__top .driver-load-cell>div+div{
+  margin-top:3px!important;
+}
+.driver-diary-route .driver-diary-entry__top .driver-cell-label{
+  display:inline!important;
+  margin:0 7px 0 0!important;
+}
+.driver-diary-route .driver-diary-entry__top .driver-cell-primary{
+  display:inline!important;
+}
+.driver-diary-route .driver-diary-entry__top .driver-cell-secondary{
+  margin-top:2px!important;
+}
+.driver-diary-route .driver-diary-action-rail{
+  min-height:28px!important;
+  height:28px!important;
+}
+.driver-diary-route .driver-diary-action-rail button{
+  min-height:27px!important;
+  height:27px!important;
+  min-width:64px!important;
+  padding:0 9px!important;
+}
+.driver-diary-route .driver-diary-action-rail button[data-operation='primary'],
+.driver-diary-route .driver-diary-action-rail button[data-operation='cancel']{
+  min-width:92px!important;
+}
