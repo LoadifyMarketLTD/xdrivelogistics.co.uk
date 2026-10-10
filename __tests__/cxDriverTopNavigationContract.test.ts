@@ -14,15 +14,17 @@ describe('Driver top navigation role split', () => {
       "['driver-jobs-primary', 'My Jobs', '/driver/jobs']",
       "['driver-diary-primary', 'Diary', '/driver/history']",
       "['driver-availability-primary', 'Availability', '/driver/availability']",
-      "['driver-vehicle-primary', 'Vehicle', '/driver/vehicles']",
-      "['driver-documents-primary', 'Documents', '/driver/documents']",
+      "['driver-vehicle-primary', 'My Vehicle', '/driver/vehicles']",
+      "['driver-documents-primary', 'POD & Documents', '/driver/documents']",
     ]) expect(shell).toContain(primary);
+    expect(shell).not.toContain("['driver-action-centre-primary'");
   });
 
-  it('keeps commercial tools on Owner Driver while preserving role-aware Book Direct', () => {
-    for (const href of ['/driver/directory','/driver/nearby','/driver/returns','/driver/loads','/driver/quotes']) {
+  it('keeps Exchange work capability-controlled for employed Drivers while preserving Owner Driver autonomy', () => {
+    for (const href of ['/driver/directory','/driver/nearby','/driver/returns','/driver/loads','/driver/quotes','/driver/load-alerts']) {
       expect(roles).toContain("href: '" + href + "'");
     }
+    expect(shell).toContain("composeDriverPrimaryNav(filterWorkspaceNavByAccess(base, role, user), false)");
     expect(shell).toContain("role === 'owner_driver'");
     expect(shell).toContain('BOOK DIRECT');
     expect(shell).toContain('showOwnerDriverPostLoadAction');

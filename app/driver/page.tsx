@@ -847,7 +847,7 @@ export default function DriverDashboard() {
               <div className="driver-action-grid">
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/loads')}>Find Loads</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/quotes')}>My Quotes</ActionButton>
-                <ActionButton tone="secondary" onClick={() => router.push('/driver/won-work')}>Won Work</ActionButton>
+                <ActionButton tone="secondary" onClick={() => router.push('/driver/jobs')}>My Jobs</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/nearby')}>Who's Nearby</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/driver/returns')}>Return Journeys</ActionButton>
               </div>

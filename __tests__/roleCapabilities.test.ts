@@ -287,7 +287,7 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
       companyStatus: 'active',
     };
 
-    for (const path of ['/driver/loads', '/driver/quotes', '/driver/won-work', '/driver/returns', '/driver/directory', '/driver/nearby']) {
+    for (const path of ['/driver/loads', '/driver/quotes', '/driver/load-alerts', '/driver/returns', '/driver/directory', '/driver/nearby']) {
       expect(isRoleAllowedForPath(path, DRIVER_ROLE, context)).toBe(false);
     }
 
@@ -295,6 +295,7 @@ describe('isRoleAllowedForPath — fail-closed for unknown protected routes', ()
       expect(isRoleAllowedForPath(path, DRIVER_ROLE, context)).toBe(true);
     }
 
+    expect(isRoleAllowedForPath('/driver/won-work', DRIVER_ROLE, context)).toBe(true);
     expect(isRoleAllowedForPath('/driver/finance', DRIVER_ROLE, context)).toBe(false);
     expect(isRoleAllowedForPath('/driver/drivers-vehicles', DRIVER_ROLE, context)).toBe(false);
     expect(isRoleAllowedForPath('/driver/settings', DRIVER_ROLE, context)).toBe(true);

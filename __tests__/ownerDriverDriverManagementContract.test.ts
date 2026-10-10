@@ -26,7 +26,6 @@ describe('owner driver sole-trader boundary', () => {
       '/driver/drivers',
       '/driver/drivers-vehicles',
       '/driver/freight-vision',
-      '/driver/won-work',
       '/driver/event-log',
       '/driver/action-centre',
     ]) {
@@ -35,6 +34,7 @@ describe('owner driver sole-trader boundary', () => {
 
     for (const path of [
       '/driver/vehicles',
+      '/driver/won-work',
       '/driver/jobs',
       '/driver/history',
       '/driver/availability',

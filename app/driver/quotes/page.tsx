@@ -407,7 +407,7 @@ export default function MyQuotesPage() {
             <button type="button" className="btn primary" onClick={() => setAppliedFilters(filters)}>Search</button>
           </div>
         </div>
-        <DriverIntegratedNav label="Quote tools" items={[{ href: '/driver/quotes', label: 'Quotes' }, { href: '/driver/won-work', label: 'Won Work' }]} />
+        <DriverIntegratedNav label="Quote tools" items={[{ href: '/driver/quotes', label: 'Quotes' }, { href: '/driver/jobs', label: 'My Jobs' }]} />
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Quotes</div>

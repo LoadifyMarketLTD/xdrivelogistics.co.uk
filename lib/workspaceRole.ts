@@ -164,24 +164,27 @@ export const DRIVER_WORKSPACE_CAPABILITIES: readonly WorkspaceCapability[] = [
 ];
 
 const DRIVER_EXECUTION_NAV: WorkspaceNavGroup[] = [
-  { id: 'home', label: 'Driver', items: [
-    { id: 'today', label: 'Today', href: '/driver', icon: 'HOME' },
-    { id: 'action-centre', label: 'Action Centre', href: '/driver/action-centre', icon: '!' },
+  { id: 'driver-home', label: 'Driver', items: [
+    { id: 'dashboard', label: 'Dashboard', href: '/driver', icon: 'HOME' },
   ] },
-  { id: 'operations', label: 'My Work', items: [
+  { id: 'driver-work', label: 'My Work', items: [
     { id: 'jobs', label: 'My Jobs', href: '/driver/jobs', icon: '▣' },
     { id: 'diary', label: 'Diary', href: '/driver/history', icon: '□' },
     { id: 'availability', label: 'Availability', href: '/driver/availability', icon: '◷' },
   ] },
-  { id: 'readiness', label: 'Driver', items: [
-    { id: 'vehicle', label: 'Vehicle', href: '/driver/vehicles', icon: '▰' },
-    { id: 'documents', label: 'Documents', href: '/driver/documents', icon: '▤' },
-    { id: 'notifications', label: 'Notifications', href: '/driver/notifications', icon: '●' },
+  { id: 'driver-readiness', label: 'My Driver Profile', items: [
+    { id: 'vehicle', label: 'My Vehicle', href: '/driver/vehicles', icon: '▰' },
+    { id: 'documents', label: 'POD & Documents', href: '/driver/documents', icon: '▤' },
     { id: 'messages', label: 'Messages', href: '/driver/messages', icon: '◫' },
-    { id: 'security', label: 'Security', href: '/driver/change-password', icon: '⚙' },
-    { id: 'event-log', label: 'Event Log', href: '/driver/event-log', icon: '≡', capability: 'jobs.view' },
-    { id: 'profile', label: 'Account', href: '/driver/profile', icon: '◉' },
-    { id: 'settings', label: 'Driver Settings', href: '/driver/settings', icon: '⚙', capability: 'settings.manage' },
+    { id: 'settings', label: 'Settings', href: '/driver/settings', icon: '⚙', capability: 'settings.manage' },
+  ] },
+  { id: 'driver-commercial', label: 'Exchange Work', items: [
+    { id: 'loads', label: 'Loads', href: '/driver/loads', icon: '▦', capability: 'loads.view.marketplace' },
+    { id: 'quotes', label: 'Quotes', href: '/driver/quotes', icon: '◫', capability: 'quotes.submit' },
+    { id: 'load-alerts', label: 'Load Alerts', href: '/driver/load-alerts', icon: '◷', capability: 'loads.view.marketplace' },
+    { id: 'nearby', label: "Who's Nearby", href: '/driver/nearby', icon: '⌖', capability: 'loads.view.marketplace' },
+    { id: 'directory', label: 'Directory', href: '/driver/directory', icon: '⊕', capability: 'loads.view.marketplace' },
+    { id: 'returns', label: 'Return Journeys', href: '/driver/returns', icon: '↩', capability: 'loads.view.marketplace' },
   ] },
 ];
 

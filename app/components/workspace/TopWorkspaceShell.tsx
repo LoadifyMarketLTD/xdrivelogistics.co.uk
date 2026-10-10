@@ -272,16 +272,38 @@ export function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
 
 export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boolean) {
   if (!ownerDriver) {
-    return composeRolePrimaryNav(groups, [
+    const items = uniqueNavItems(groups);
+    const primarySpec: Array<[string, string, string]> = [
       ['driver-dashboard-primary', 'Dashboard', '/driver'],
-      ['driver-action-centre-primary', 'Action Centre', '/driver/action-centre'],
+      ['driver-loads-primary', 'Loads', '/driver/loads'],
+      ['driver-quotes-primary', 'Quotes', '/driver/quotes'],
       ['driver-jobs-primary', 'My Jobs', '/driver/jobs'],
       ['driver-diary-primary', 'Diary', '/driver/history'],
       ['driver-availability-primary', 'Availability', '/driver/availability'],
-      ['driver-vehicle-primary', 'Vehicle', '/driver/vehicles'],
-      ['driver-documents-primary', 'Documents', '/driver/documents'],
-      ['driver-settings-primary', 'Settings', '/driver/settings'],
-    ], 'driver-more');
+      ['driver-vehicle-primary', 'My Vehicle', '/driver/vehicles'],
+      ['driver-documents-primary', 'POD & Documents', '/driver/documents'],
+    ];
+    const moreSpec: Array<[string, string]> = [
+      ['/driver/load-alerts', 'Load Alerts'],
+      ['/driver/nearby', "Who's Nearby"],
+      ['/driver/directory', 'Directory'],
+      ['/driver/returns', 'Return Journeys'],
+      ['/driver/messages', 'Messages'],
+      ['/driver/settings', 'Settings'],
+    ];
+
+    const primary = primarySpec.flatMap(([id, label, href]) => {
+      const item = items.get(href);
+      return item ? [singleGroup(id, label, { ...item, label })] : [];
+    });
+    const moreItems = moreSpec.flatMap(([href, label]) => {
+      const item = items.get(href);
+      return item ? [{ ...item, label }] : [];
+    });
+
+    return moreItems.length
+      ? [...primary, { id: 'driver-more', label: 'More', items: moreItems }]
+      : primary;
   }
 
   const items = uniqueNavItems(groups);
@@ -697,7 +719,7 @@ export default function TopWorkspaceShell({
     if (CARRIER_NAV_ROLES.has(role)) return composeCarrierPrimaryNav(base);
     if (role === 'fleet_manager') return composeFleetPrimaryNav(base);
     if (role === 'owner_driver') return composeDriverPrimaryNav(base, true);
-    if (role === 'driver') return composeDriverPrimaryNav(base, false);
+    if (role === 'driver') return composeDriverPrimaryNav(filterWorkspaceNavByAccess(base, role, user), false);
     if (role === 'dispatcher') return composeDispatcherPrimaryNav(base);
     if (role === 'finance') return composeFinancePrimaryNav(base);
     if (role === 'compliance') return composeCompliancePrimaryNav(base);
