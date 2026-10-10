@@ -4139,3 +4139,112 @@
 .driver-prototype-port .driver-loads-prototype .load-next-stable{width:48px!important;min-width:48px!important}
 .driver-prototype-port .driver-loads-prototype .load-refresh-stable{width:58px!important;min-width:58px!important;max-width:58px!important}
 .driver-prototype-port .driver-loads-prototype .load-refresh-stable[aria-busy='true']{opacity:1!important}
+/* PR675 Loads: compact two-row result header matching approved mockup */
+.driver-prototype-port .driver-loads-prototype .load-nav-unified{
+  min-height:34px!important;
+  height:34px!important;
+  padding:0!important;
+  border:1px solid #cfd9e4!important;
+  background:#fff!important;
+  display:flex!important;
+  align-items:stretch!important;
+  justify-content:flex-start!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-unified .load-tabs{
+  height:33px!important;
+  min-height:33px!important;
+  border:0!important;
+  display:flex!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-unified .load-tabs>button{
+  height:33px!important;
+  padding:0 12px!important;
+  border:0!important;
+  border-right:1px solid #dbe3eb!important;
+  background:#fff!important;
+  color:#26364a!important;
+  font-size:10.5px!important;
+  font-weight:700!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-unified .load-tabs>button.active{
+  color:#0b57d0!important;
+  background:#eef5ff!important;
+  border-bottom:3px solid #0b6ff4!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-unified .load-posted{
+  margin-left:0!important;
+  height:33px!important;
+  padding:0 10px 0 14px!important;
+  border-left:1px solid #dbe3eb!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  color:#56677a!important;
+  font-size:10.5px!important;
+  font-weight:650!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-nav-unified .load-posted select{
+  height:26px!important;
+  min-height:26px!important;
+  width:72px!important;
+  padding:0 24px 0 9px!important;
+  border:1px solid #c8d3df!important;
+  border-radius:5px!important;
+  background:#fff!important;
+  font-size:10.5px!important;
+  font-weight:700!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-head{
+  min-height:34px!important;
+  height:34px!important;
+  padding:0 6px!important;
+  border:1px solid #cfd9e4!important;
+  border-top:0!important;
+  background:#fff!important;
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-left{
+  display:flex!important;
+  align-items:center!important;
+  gap:8px!important;
+  min-width:240px!important;
+  flex:0 0 auto!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-result-count{
+  margin:0!important;
+  color:#44566b!important;
+  font-size:10.5px!important;
+  font-weight:650!important;
+  line-height:1!important;
+  white-space:nowrap!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-view-switch{
+  display:flex!important;
+  margin-left:0!important;
+  gap:4px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-view-switch button{
+  height:26px!important;
+  padding:0 9px!important;
+  border:1px solid #cbd6e1!important;
+  border-radius:5px!important;
+  background:#fff!important;
+  color:#33465b!important;
+  font-size:10.5px!important;
+  font-weight:700!important;
+  display:inline-flex!important;
+  align-items:center!important;
+  gap:5px!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-view-switch button+button{border-left:1px solid #cbd6e1!important}
+.driver-prototype-port .driver-loads-prototype .load-view-switch button.active{
+  background:#eef5ff!important;
+  color:#0b57d0!important;
+  border-color:#c5d8f4!important;
+}
+.driver-prototype-port .driver-loads-prototype .load-view-icon{
+  font-size:14px!important;
+  line-height:1!important;
+}
