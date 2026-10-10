@@ -16,22 +16,23 @@ const ownerAdapter = fs.readFileSync(path.join(root, 'app/components/workspace/n
 describe('Owner Driver canonical visual reference', () => {
   it('preserves the approved sole-trader dashboard composition', () => {
     for (const marker of [
-      'Current / Next Work',
-      'Work & Marketplace',
-      'Recent Bookings',
-      'Availability & Positioning',
-      'My Business',
-      'Quick Actions',
-      'Invoiced Revenue',
-      'POD Requiring Action',
+      'Reports & Statistics',
+      'Gross Margin',
+      'Sub-contract Spend',
+      'Accounts Payable',
+      'Latest Invoices Received',
+      'Invoices due for Payment',
+      'Invoices Awaiting Payment',
+      'Monthly Totals',
+      'Reports',
+      'Feedback in Last 90 Days',
+      'Activity at a glance',
+      'Latest Bookings',
+      'Compliance & Positioning',
+      'POD Required',
     ]) expect(dashboard).toContain(marker);
 
     expect(dashboard).toContain('/api/driver/dashboard/commercial-summary');
-    expect(dashboard).toContain('Invoices Received');
-    expect(dashboard).toContain('Due for Payment');
-    expect(dashboard).toContain('Awaiting Payment');
-    expect(dashboard).not.toContain('Gross Margin');
-    expect(dashboard).not.toContain('Sub-contract Spend');
     expect(dashboard).not.toContain('Freight Messenger');
     expect(dashboard).not.toContain('fleet allocation');
     expect(dashboard).not.toContain('multi-driver controls');
