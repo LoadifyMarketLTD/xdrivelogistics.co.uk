@@ -203,7 +203,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const directCarrierId = searchParams.get('directCarrier');
   const sourceJobId = searchParams.get('sourceJob');
   const sourceActionParam = searchParams.get('sourceAction');
-  const sourceAction = sourceActionParam === 'rebook' || sourceActionParam === 'repost' ? sourceActionParam : null;
+  const sourceAction = sourceActionParam === 'rebook' || sourceActionParam === 'repost' || sourceActionParam === 'duplicate' ? sourceActionParam : null;
   const idempotencyKeyRef = useRef<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
