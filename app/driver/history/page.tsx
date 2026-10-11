@@ -22,6 +22,8 @@ type CompanyRelation = { name: string } | Array<{ name: string }> | null;
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
 type DateRange = 'any' | 'today' | '7d' | '30d';
 type ArchiveFilter = 'all' | 'active' | 'closed';
+type DiaryOwnershipFilter = 'all' | 'subcontracted' | 'ours';
+type DiaryViewMode = 'list' | 'split';
 type HistoryFilter = CanonicalDiaryBucket;
 type DetailTab = 'pod' | 'order' | 'notes' | 'history' | 'documents' | 'invoice';
 type StatusHistoryEntry = { status?: string | null; timestamp?: string | null; at?: string | null };
@@ -304,7 +306,9 @@ export default function JobHistoryPage() {
   const [statusFilter, setStatusFilter] = useState<HistoryFilter>('all');
   const [search, setSearch] = useState<SearchFilters>(EMPTY_SEARCH);
   const [appliedSearch, setAppliedSearch] = useState<SearchFilters>(EMPTY_SEARCH);
-  const [itemsPerPage, setItemsPerPage] = useState(25);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [ownershipFilter, setOwnershipFilter] = useState<DiaryOwnershipFilter>('all');
+  const [viewMode, setViewMode] = useState<DiaryViewMode>('list');
   const [page, setPage] = useState(1);
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [detailTabs, setDetailTabs] = useState<Record<string, DetailTab>>({});
@@ -392,7 +396,7 @@ export default function JobHistoryPage() {
     } else {
       const { data, error: fetchError } = await supabase
         .from('jobs')
-        .select('id, company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, job_distance_miles, agreed_rate_gbp, agreed_rate, currency, payment_terms, companies:companies!jobs_company_id_fkey(name)')
+        .select('id, company_id, assigned_company_id, awarded_carrier_company_id, status, current_status, assigned_driver_id, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, collection_window_start, delivery_window_start, deadline_at, vehicle_type, requested_vehicle_label, cargo_type, requested_cargo_label, weight_kg, pallets, length_cm, width_cm, height_cm, cargo_value_gbp, load_details, load_notes, collection_notes, delivery_notes, driver_notes, collection_contact_name, collection_contact_phone, delivery_contact_name, delivery_contact_phone, purchase_order_number, special_requirements, access_restrictions, document_checklist, hard_copy_pod, pod_required, pod_generated, pod_generated_at, pod_photos, delivery_photos, delivery_signature_data, client_signature_name, status_history, feedback_status, broker_pod_review_status, broker_pod_review_note, updated_at, created_at, customer_reference, booking_reference, job_distance_miles, agreed_rate_gbp, agreed_rate, currency, payment_terms, companies:companies!jobs_company_id_fkey(name)')
         .eq('assigned_driver_id', driverId)
         .order('updated_at', { ascending: false })
         .limit(250);
@@ -538,11 +542,18 @@ export default function JobHistoryPage() {
     if (memberNeedle && !(job.companies?.name ?? '').toLowerCase().includes(memberNeedle)) return false;
     return true;
   }), [appliedSearch, jobs]);
-  const visibleFiltered = useMemo(() => searchedJobs.filter((job) => filterMatches(job, statusFilter, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)), [feedbackReviewerCompanyId, reviewsByJob, searchedJobs, statusFilter]);
+  const ownershipFilteredJobs = useMemo(() => searchedJobs.filter((job) => {
+    if (!canViewCompanyDiary || !companyId || ownershipFilter === 'all') return true;
+    const ownsPosting = String(job.company_id ?? '') === companyId;
+    const executesForCompany = String(job.assigned_company_id ?? '') === companyId || String(job.awarded_carrier_company_id ?? '') === companyId;
+    if (ownershipFilter === 'ours') return ownsPosting;
+    return !ownsPosting && executesForCompany;
+  }), [canViewCompanyDiary, companyId, ownershipFilter, searchedJobs]);
+  const visibleFiltered = useMemo(() => ownershipFilteredJobs.filter((job) => filterMatches(job, statusFilter, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)), [feedbackReviewerCompanyId, ownershipFilteredJobs, reviewsByJob, statusFilter]);
   const totalPages = Math.max(1, Math.ceil(visibleFiltered.length / itemsPerPage));
   const safePage = Math.min(page, totalPages);
   const visibleJobs = visibleFiltered.slice((safePage - 1) * itemsPerPage, safePage * itemsPerPage);
-  useEffect(() => { setPage(1); }, [statusFilter, appliedSearch, itemsPerPage]);
+  useEffect(() => { setPage(1); }, [statusFilter, appliedSearch, itemsPerPage, ownershipFilter]);
   useEffect(() => { if (!historyFilters.some((item) => item.id === statusFilter)) setStatusFilter('all'); }, [historyFilters, statusFilter]);
 
   const allExpanded = visibleJobs.length > 0 && visibleJobs.every((job) => expandedIds.has(job.id));
@@ -563,7 +574,12 @@ export default function JobHistoryPage() {
     <aside className="left driver-filter-rail diary-filter-rail" aria-label="Diary search filters">
       <div className="left-title">Search Panel</div>
       <div className="diary-filter-body">
-        <div className="filter"><span className="label">View</span><select value={diaryScope} disabled={!canViewCompanyDiary} aria-label="Diary source" onChange={(e) => setSelectedDiaryScope(e.target.value as 'company' | 'mine')}><option value="company">All bookings</option><option value="mine">My bookings</option></select></div>
+        <div className="filter diary-scope-filter">
+          <span className="label">View</span>
+          <label className="diary-check"><input type="radio" name="diaryOwnership" checked={ownershipFilter === 'all'} onChange={() => setOwnershipFilter('all')} /> All</label>
+          <label className="diary-check"><input type="radio" name="diaryOwnership" checked={ownershipFilter === 'subcontracted'} onChange={() => { setSelectedDiaryScope('company'); setOwnershipFilter('subcontracted'); }} disabled={!canViewCompanyDiary} /> Jobs Sub-contracted</label>
+          <label className="diary-check"><input type="radio" name="diaryOwnership" checked={ownershipFilter === 'ours'} onChange={() => { setSelectedDiaryScope('company'); setOwnershipFilter('ours'); }} disabled={!canViewCompanyDiary} /> Our Bookings</label>
+        </div>
         <div className="filter"><span className="label">Date</span><select value={search.dateRange} onChange={(e) => setSearch((current) => ({ ...current, dateRange: e.target.value as DateRange }))}><option value="any">Anytime</option><option value="today">Today</option><option value="7d">Last 7 days</option><option value="30d">Last 30 days</option></select></div>
         <div className="filter"><span className="label">Pickup Time Within</span><select value={search.pickupWithin} onChange={(e) => setSearch((current) => ({ ...current, pickupWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
         <div className="filter"><span className="label">Delivery Time Within</span><select value={search.deliveryWithin} onChange={(e) => setSearch((current) => ({ ...current, deliveryWithin: e.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
@@ -591,17 +607,24 @@ export default function JobHistoryPage() {
             <div className="diary-head diary-head-cx">
               <span>{visibleFiltered.length} booking{visibleFiltered.length === 1 ? '' : 's'} · showing {visibleJobs.length}</span>
               <span className="driver-diary-summary-actions">
-                <button type="button" onClick={toggleExpandAll} disabled={!visibleJobs.length}>{allExpanded ? 'Collapse all' : 'Expand all'}</button>
-                <label>Per page:<select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-                <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>
+                <span className="diary-view-toggle" role="group" aria-label="Diary view">
+                  <button type="button" data-active={viewMode === 'list' ? 'true' : 'false'} onClick={() => setViewMode('list')}>List View</button>
+                  <button type="button" data-active={viewMode === 'split' ? 'true' : 'false'} onClick={() => setViewMode('split')}>Split View</button>
+                </span>
+                <button type="button" onClick={toggleExpandAll} disabled={!visibleJobs.length}>{allExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
+                <button type="button" onClick={() => void fetchHistory()} disabled={refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
+                <label>Items per Page:<select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))}><option value={5}>5</option><option value={10}>10</option><option value={25}>25</option></select></label>
+                <button type="button" disabled={safePage <= 1} onClick={() => setPage(1)} aria-label="First page">«</button>
+                <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous page">‹</button>
                 <span>{visibleFiltered.length === 0 ? '0' : `${(safePage - 1) * itemsPerPage + 1}-${Math.min(safePage * itemsPerPage, visibleFiltered.length)} of ${visibleFiltered.length}`}</span>
-                <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>›</button>
+                <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} aria-label="Next page">›</button>
+                <button type="button" disabled={safePage >= totalPages} onClick={() => setPage(totalPages)} aria-label="Last page">»</button>
               </span>
             </div>
             </div>
 
             {loading && jobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : (
-              <div className="diary-bookings">
+              <div className={`diary-bookings diary-bookings--${viewMode}`}>
                 {visibleJobs.map((job) => {
                   const expanded = expandedIds.has(job.id); const reviews = reviewsByJob[job.id] ?? [];
                   const documents = documentsByJob[job.id] ?? []; const trackingEvents = eventsByJob[job.id] ?? []; const detailTab = detailTabs[job.id] ?? 'order';
@@ -615,6 +638,11 @@ export default function JobHistoryPage() {
                   const isOwnAssignedJob = job.assigned_driver_id === driverId;
                   const canRequestCancellation = ['allocated', 'accepted', 'awarded'].includes(currentStatus) || stage === 'awarded' || stage === 'in_progress';
                   const cancellationLabel = isOwnAssignedJob && ['allocated', 'accepted'].includes(currentStatus) ? 'Decline' : 'Request cancellation';
+                  const isOwnedPosting = Boolean(canViewCompanyDiary && companyId && job.company_id === companyId);
+                  const canRebook = isOwnedPosting && ['completed', 'cancelled', 'expired'].includes(stage);
+                  const canRepost = isOwnedPosting && ['cancelled', 'expired'].includes(stage);
+                  const canDuplicate = isOwnedPosting;
+                  const canReplay = Boolean(trackingEvents.length || (Array.isArray(job.status_history) && job.status_history.length));
                   const historyRows = [
                     ...(Array.isArray(job.status_history) ? job.status_history.map((entry, index) => ({ key: `status-${index}`, label: STATUS_LABELS[entry.status ?? ''] ?? entry.status ?? 'Status update', at: entry.timestamp ?? entry.at ?? null, detail: 'Job status history' })) : []),
                     ...trackingEvents.map((event) => ({ key: event.id, label: event.event_type ? (STATUS_LABELS[event.event_type] ?? event.event_type.replace(/_/g, ' ')) : 'Tracking event', at: event.event_time, detail: event.message ?? event.notes ?? event.user_name ?? 'Operational event' })),
@@ -691,6 +719,11 @@ export default function JobHistoryPage() {
                             {cancellingJobId === job.id ? 'Sending…' : cancellationLabel}
                           </button>
                         ) : null}
+                        {isOwnedPosting && <button type="button" onClick={() => router.push(`/driver/jobs/${encodeURIComponent(job.id)}/edit`)}>Edit</button>}
+                        {canRebook && <button type="button" onClick={() => router.push(`/driver/post-load?sourceJob=${encodeURIComponent(job.id)}&sourceAction=rebook`)}>Re-book</button>}
+                        {canRepost && <button type="button" onClick={() => router.push(`/driver/post-load?sourceJob=${encodeURIComponent(job.id)}&sourceAction=repost`)}>Re-post</button>}
+                        {canDuplicate && <button type="button" onClick={() => router.push(`/driver/post-load?sourceJob=${encodeURIComponent(job.id)}&sourceAction=duplicate`)}>Duplicate</button>}
+                        {canReplay && <button type="button" onClick={() => router.push(`/job-replay/${encodeURIComponent(job.id)}`)}>Replay</button>}
                         {isOwnAssignedJob && DETAIL_TABS
                           .filter((detailItem) => detailItem.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices))
                           .map((detailItem) => (
