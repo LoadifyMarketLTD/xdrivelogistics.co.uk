@@ -452,6 +452,11 @@ export function MemberDirectoryPage({
     setDirectoryPage(1);
   }, [member, location, memberType, vehicle, availability, country, specialistService, tailLiftOnly, deliveryMin, paymentMin, savedOnly, nearestQuery]);
 
+  useEffect(() => {
+    const count = tab === 'companies' ? visibleCompanies.length : visibleDrivers.length;
+    setDirectoryPage((current) => Math.max(1, Math.min(current, Math.max(1, Math.ceil(count / directoryPageSize)))));
+  }, [tab, visibleCompanies.length, visibleDrivers.length, directoryPageSize]);
+
   const sortDirectoryRecords = useCallback(<T extends DirectoryCompany | DirectoryDriver>(records: T[]): T[] => {
     return [...records].sort((a, b) => {
       if (directorySort === 'Member Name') {
