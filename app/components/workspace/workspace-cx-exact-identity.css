@@ -1,0 +1,105 @@
+/* Exact Courier Exchange visual identity shared by every operational workspace.
+ * Scope: Customer, Broker, Carrier/Company, Fleet Manager, Dispatcher, Finance,
+ * Compliance, Driver and Owner Driver. Super Admin / platform_owner is excluded.
+ */
+
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']){
+  font-family:"HK Nova",Arial,sans-serif!important;
+  font-size:12px!important;
+}
+
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) input,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) select,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) textarea,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) button{
+  font-family:"HK Nova",Arial,sans-serif!important;
+}
+
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav--primary,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__track{
+  height:42px!important;
+  min-height:42px!important;
+  align-items:flex-end!important;
+}
+
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__item{
+  height:29px!important;
+  min-height:29px!important;
+  padding:2px 8px 9px!important;
+  font-size:13px!important;
+  line-height:18px!important;
+  font-weight:600!important;
+  letter-spacing:0!important;
+  align-self:flex-end!important;
+}
+
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__item[data-active='true'],
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__item.is-active{
+  font-weight:600!important;
+  box-shadow:inset 0 -2px 0 var(--ws-blue,#1d57d8)!important;
+}
+
+/* Every left-side operational Search/Filter panel uses the CX 165px rail. */
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-board-layout,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .workspace-board-layout,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .pagebody,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .xdrive-diary-layout{
+  --ws-filter-rail-w:165px;
+}
+
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-board-layout,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .workspace-board-layout{
+  grid-template-columns:165px minmax(0,1fr)!important;
+}
+
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-prototype-port .pagebody,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-loads-prototype .pagebody,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-quotes-prototype .pagebody,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .xdrive-diary-layout{
+  grid-template-columns:165px minmax(0,1fr)!important;
+}
+
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-filter-rail,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .workspace-filter-rail,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-prototype-port .left,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-diary-filter-rail,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .xdrive-diary-layout>.driver-filter-rail{
+  width:165px!important;
+  min-width:165px!important;
+  max-width:165px!important;
+  font-size:12px!important;
+}
+
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-filter-rail__header,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .workspace-filter-rail__header,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-filter-rail__title,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .left-title,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .filter,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-filter-field,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-filter-rail input,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-filter-rail select,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .workspace-filter-rail input,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .workspace-filter-rail select,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-prototype-port .left input,
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-prototype-port .left select{
+  font-size:12px!important;
+}
+
+/* Keep responsive collapse behavior intact below tablet width. */
+@media(max-width:1024px){
+  .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-board-layout,
+  .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .workspace-board-layout,
+  .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-prototype-port .pagebody,
+  .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .xdrive-diary-layout{
+    grid-template-columns:1fr!important;
+  }
+  .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-filter-rail,
+  .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .workspace-filter-rail,
+  .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-prototype-port .left,
+  .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .driver-diary-filter-rail,
+  .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .xdrive-diary-layout>.driver-filter-rail{
+    width:100%!important;
+    min-width:0!important;
+    max-width:none!important;
+  }
+}
