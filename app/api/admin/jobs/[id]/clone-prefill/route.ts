@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-type CloneAction = 'rebook' | 'repost';
+type CloneAction = 'rebook' | 'repost' | 'duplicate';
 const REBOOK_STATUSES = new Set(['delivered', 'completed', 'cancelled', 'expired']);
 const REPOST_STATUSES = new Set(['cancelled', 'expired']);
 const respond = (status: number, body: Record<string, unknown>) =>
@@ -61,7 +61,7 @@ export async function GET(
   const url = new URL(request.url);
   const companyId = url.searchParams.get('companyId')?.trim() ?? '';
   const action = url.searchParams.get('action')?.trim().toLowerCase() as CloneAction;
-  if (!['rebook', 'repost'].includes(action)) return respond(400, { error: 'A valid clone action is required.' });
+  if (!['rebook', 'repost', 'duplicate'].includes(action)) return respond(400, { error: 'A valid clone action is required.' });
 
   const admin = await requireCompanyCapability(request, companyId, 'loads.create');
   if (!isCompanyCapabilityContext(admin)) return admin;
@@ -79,7 +79,11 @@ export async function GET(
   }
 
   const status = String(job.current_status ?? job.status ?? '').trim().toLowerCase();
-  const allowed = action === 'rebook' ? REBOOK_STATUSES.has(status) : REPOST_STATUSES.has(status);
+  const allowed = action === 'duplicate'
+    ? true
+    : action === 'rebook'
+      ? REBOOK_STATUSES.has(status)
+      : REPOST_STATUSES.has(status);
   if (!allowed) {
     return respond(409, {
       error: action === 'rebook'
@@ -119,7 +123,9 @@ export async function GET(
     source: { id: String(job.id), action, status },
     notice: action === 'rebook'
       ? 'Operational details were copied from the historical booking. Schedule, references, prices, award, driver, POD and invoice state were reset.'
-      : 'Operational details were copied into a new posting. Schedule, references, prices, award, driver, POD and invoice state were reset.',
+      : action === 'repost'
+        ? 'Operational details were copied into a new posting. Schedule, references, prices, award, driver, POD and invoice state were reset.'
+        : 'Booking details were duplicated into a new load. Schedule, references, prices, award, driver, POD and invoice state were reset.',
     prefill: {
       clientName: text(job.client_name) ?? '',
       clientEmail: text(job.client_email) ?? '',
