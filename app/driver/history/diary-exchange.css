@@ -860,3 +860,82 @@
   opacity:.58!important;
   cursor:not-allowed!important;
 }
+
+
+/* CX workspace visual parity: keep Diary geometry aligned with Loads.
+ * Prevent toolbar/pagination overlap at laptop widths without changing behavior.
+ */
+.driver-diary-route .xdrive-diary-layout {
+  grid-template-columns: var(--ws-filter-rail-w, 200px) minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+.driver-diary-route .xdrive-diary-layout > .driver-filter-rail {
+  width: var(--ws-filter-rail-w, 200px) !important;
+  max-width: var(--ws-filter-rail-w, 200px) !important;
+}
+.driver-diary-route .driver-diary-board {
+  grid-template-columns: var(--ws-filter-rail-w, 200px) minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+.driver-diary-route .driver-diary-toolbar,
+.driver-diary-route .driver-board-summary {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  min-height: 32px !important;
+}
+.driver-diary-route .driver-diary-summary-actions {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  gap: 4px 8px !important;
+  min-width: 0 !important;
+  max-width: 100% !important;
+}
+.driver-diary-route .driver-diary-summary-actions > *,
+.driver-diary-route .driver-diary-summary-actions label {
+  position: static !important;
+  flex-shrink: 0 !important;
+  white-space: nowrap !important;
+}
+.driver-diary-route .driver-diary-summary-actions select {
+  max-width: 120px !important;
+  min-height: 26px !important;
+  height: 26px !important;
+}
+@media (max-width: 1024px) {
+  .driver-diary-route .xdrive-diary-layout,
+  .driver-diary-route .driver-diary-board {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .driver-diary-route .xdrive-diary-layout > .driver-filter-rail,
+  .driver-diary-route .driver-diary-register,
+  .driver-diary-route .driver-board-main {
+    grid-column: 1 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+}
+
+/* CX measured: unify Diary rail with Loads and Quotes at desktop widths.
+ * Override older fixed 188/200px diary rails without altering mobile stacking.
+ */
+@media (min-width: 1025px) {
+  .xdrive-workspace-measured .driver-diary-route {
+    --driver-diary-rail: 165px;
+    --ws-filter-rail-w: 165px;
+  }
+  .xdrive-workspace-measured .driver-diary-route .xdrive-diary-layout,
+  .xdrive-workspace-measured .driver-diary-route .driver-diary-board {
+    grid-template-columns: 165px minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+  .xdrive-workspace-measured .driver-diary-route .xdrive-diary-layout > .driver-filter-rail,
+  .xdrive-workspace-measured .driver-diary-route .driver-filter-rail {
+    width: 165px !important;
+    max-width: 165px !important;
+    min-width: 0 !important;
+  }
+}

@@ -15,7 +15,7 @@
   --ws-gap-grid: 12px;
   --ws-gap-section: 16px;
   --ws-shell-sidebar-w: 230px;
-  --ws-filter-rail-w: 220px;
+  --ws-filter-rail-w: 165px;
   --ws-control-h: 32px;
   --ws-tab-h: 28px;
   --ws-micro-action-h: 24px;
@@ -613,4 +613,75 @@
 }
 .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-notification{
   width:36px!important;min-width:36px!important
+}
+
+/* 2026-10-11 CX Chromium measured operational density.
+ * Measured: nav item text 13px/600, item box 29px, sidebar 165px,
+ * base text 12px. Do not confuse nav item height with full shell height.
+ * Dashboard and Super Admin deliberately excluded.
+ */
+.xdrive-workspace-measured :is(
+  .driver-loads-route,
+  .driver-diary-route,
+  .driver-quotes-route,
+  .xdrive-operational-page
+) {
+  --ws-font-body: 12px;
+  --ws-filter-rail-w: 165px;
+  --ws-gap-micro: 4px;
+  --ws-gap-internal: 8px;
+  --ws-gap-grid: 8px;
+}
+.xdrive-workspace-measured :is(.driver-loads-route,.driver-diary-route,.driver-quotes-route) :is(
+  .driver-filter-rail,.workspace-filter-rail
+) {
+  width: 165px;
+  max-width: 165px;
+  min-width: 0;
+  font-size: 12px;
+}
+.xdrive-workspace-measured :is(.driver-loads-route,.driver-diary-route,.driver-quotes-route) :is(
+  .driver-filter-rail,.workspace-filter-rail
+) :is(input,select,button) {
+  font-size: 12px !important;
+}
+@media (max-width: 1024px) {
+  .xdrive-workspace-measured :is(.driver-loads-route,.driver-diary-route,.driver-quotes-route) :is(
+    .driver-filter-rail,.workspace-filter-rail
+  ) {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* Canonical operational search/filter rail — ALL measured workspaces.
+ * Apply to filter panels only, not navigation sidebars or detail drawers.
+ * Dashboard route contents are excluded; mobile panels remain fluid.
+ */
+@media (min-width: 1025px) {
+  .xdrive-workspace-measured :is(
+    .driver-filter-rail,
+    .workspace-filter-rail,
+    .workspace-search-rail
+  ) {
+    width: var(--ws-filter-rail-w) !important;
+    min-width: 0 !important;
+    max-width: var(--ws-filter-rail-w) !important;
+    flex-basis: var(--ws-filter-rail-w) !important;
+    font-size: 12px;
+  }
+}
+
+/* Unified CX-measured navigation typography across operational role shells.
+ * Keep the 42px XDrive bar, with 29px tab hit boxes centered inside it.
+ * Role-specific tab sets remain composed by workspaceRole/TopWorkspaceShell.
+ */
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__item {
+  height: 29px !important;
+  min-height: 29px !important;
+  padding: 2px 8px 9px !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 600 !important;
+  align-self: center !important;
 }
