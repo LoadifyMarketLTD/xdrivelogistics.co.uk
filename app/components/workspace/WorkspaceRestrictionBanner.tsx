@@ -93,7 +93,9 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
   const blockers = (current?.blockers ?? []).filter((blocker) => !operation || blocker.operation === operation || blocker.operation === 'commercial');
   const error = current?.error ?? '';
   if (loading && !current) return null;
-  if (!error && blockers.length === 0 && current) return null;
+  // Transport/time-out failures are not account restrictions. Keep real blockers visible
+  // but do not flash a red account warning after an ordinary refresh.
+  if (blockers.length === 0 && current && !current.unauthorized) return null;
   const root = role === 'driver' || role === 'owner_driver' ? '/driver' : role === 'customer' ? '/customer' : role === 'broker' ? '/broker' : '/admin';
   const buttonStyle = { border: 0, borderRadius: 6, padding: '8px 12px', background: '#0b2f6b', color: '#fff', fontWeight: 700, cursor: 'pointer', whiteSpace: 'normal' as const };
   if (inline) {
@@ -113,11 +115,9 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
   return (
     <section aria-label="Workspace restrictions" aria-busy={loading} style={{ margin: inline ? '10px 0' : '10px 12px 0', border: '1px solid #f5b8b1', borderRadius: 8, background: '#fff6f5', color: '#7a271a', overflow: 'hidden', minWidth: 0 }}>
       <div style={{ padding: '10px 12px', fontWeight: 800 }}>{loading && !current ? 'Checking account requirements...' : 'Account requirements and restrictions'}</div>
-      {error && <div role="alert" style={{ padding: '0 12px 10px' }}>
-        <p style={{ margin: '0 0 8px' }}>{error} A failed check does not remove existing restrictions.</p>
-        <button type="button" style={buttonStyle} onClick={() => router.push(current?.unauthorized ? '/login' : root + '/support?reason=readiness-check')}>
-          {current?.unauthorized ? 'Sign in again' : 'Contact support'}
-        </button>
+      {current?.unauthorized && <div role="alert" style={{ padding: '0 12px 10px' }}>
+        <p style={{ margin: '0 0 8px' }}>Your session has expired. Sign in again to check account requirements.</p>
+        <button type="button" style={buttonStyle} onClick={() => router.push('/login')}>Sign in again</button>
       </div>}
       <div style={{ display: 'grid', gap: 8, padding: 10 }}>
         {blockers.map((blocker) => <div key={blocker.code} data-restriction-code={blocker.code} style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', padding: '9px 10px', borderRadius: 6, background: '#fff', border: '1px solid #f4d4d0', minWidth: 0 }}>
@@ -132,7 +132,7 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
             : isSafeRecoveryHref(blocker.actionHref) ? <a href={blocker.actionHref} target="_blank" rel="noopener noreferrer" style={{ ...buttonStyle, textDecoration: 'none' }}>{blocker.actionLabel}</a>
               : <button type="button" style={buttonStyle} onClick={() => router.push(root + '/support?reason=' + encodeURIComponent(blocker.code))}>Contact support</button>}
         </div>)}
-        {(current || error) && <><div style={{ fontSize: 12 }}>Recovery opens separately so your current form stays intact. Return here to re-check; nothing is posted or quoted automatically.</div>
+        {blockers.length > 0 && <><div style={{ fontSize: 12 }}>Recovery opens separately so your current form stays intact. Return here to re-check; nothing is posted or quoted automatically.</div>
           <button type="button" disabled={loading} onClick={() => void refresh()} style={{ ...buttonStyle, justifySelf: 'start' }}>{loading ? 'Checking...' : 'Re-check requirements'}</button></>}
       </div>
     </section>
