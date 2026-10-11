@@ -92,7 +92,6 @@ type SavedLoadFilters = {
   vehicleFilter: string;
   bodyTypeFilter: BodyTypeFilter;
   pickupFilter: string;
-  radiusMilesFilter: string;
   deliveryFilter: string;
   cargoFilter: string;
   weightMinFilter: string;
@@ -223,7 +222,6 @@ export default function AvailableLoadsPage() {
   const [vehicleFilter, setVehicleFilter] = useState('any');
   const [bodyTypeFilter, setBodyTypeFilter] = useState<BodyTypeFilter>('any');
   const [pickupFilter, setPickupFilter] = useState('');
-  const [radiusMilesFilter, setRadiusMilesFilter] = useState('');
   const [deliveryFilter, setDeliveryFilter] = useState('');
   const [cargoFilter, setCargoFilter] = useState('');
   const [weightMinFilter, setWeightMinFilter] = useState('');
@@ -279,7 +277,7 @@ export default function AvailableLoadsPage() {
     try {
       const raw = window.localStorage.getItem(LOAD_FILTER_STORAGE_KEY); if (!raw) return;
       const saved = JSON.parse(raw) as Partial<SavedLoadFilters>;
-      setVehicleFilter(saved.vehicleFilter ?? 'any'); setBodyTypeFilter(saved.bodyTypeFilter ?? 'any'); setPickupFilter(saved.pickupFilter ?? ''); setRadiusMilesFilter(saved.radiusMilesFilter ?? ''); setDeliveryFilter(saved.deliveryFilter ?? '');
+      setVehicleFilter(saved.vehicleFilter ?? 'any'); setBodyTypeFilter(saved.bodyTypeFilter ?? 'any'); setPickupFilter(saved.pickupFilter ?? ''); setDeliveryFilter(saved.deliveryFilter ?? '');
       setCargoFilter(saved.cargoFilter ?? ''); setWeightMinFilter(saved.weightMinFilter ?? ''); setDateFromFilter(saved.dateFromFilter ?? '');
       setDateToFilter(saved.dateToFilter ?? ''); setMemberFilter(saved.memberFilter ?? ''); setRegionFilter(saved.regionFilter ?? 'any');
       setPostedWithinFilter(saved.postedWithinFilter ?? 'any'); setJobTimingFilter(saved.jobTimingFilter ?? 'any'); setLoadTypeFilter(saved.loadTypeFilter ?? 'all'); setSortBy(saved.sortBy ?? 'date_desc'); setSaveAsDefault(true);
@@ -288,7 +286,7 @@ export default function AvailableLoadsPage() {
 
   const filteredLoads = useMemo(() => {
     const pickupNeedle = pickupFilter.trim().toLowerCase(); const deliveryNeedle = deliveryFilter.trim().toLowerCase();
-    const cargoNeedle = cargoFilter.trim().toLowerCase(); const memberNeedle = memberFilter.trim().toLowerCase(); const minWeight = Number(weightMinFilter); const radiusMiles = Number(radiusMilesFilter);
+    const cargoNeedle = cargoFilter.trim().toLowerCase(); const memberNeedle = memberFilter.trim().toLowerCase(); const minWeight = Number(weightMinFilter);
     const fromDate = dateFromFilter ? new Date(`${dateFromFilter}T00:00:00`).getTime() : null;
     const toDate = dateToFilter ? new Date(`${dateToFilter}T23:59:59`).getTime() : null; const postedWindow = postedWithinMs(postedWithinFilter);
     const filtered = loads.filter((load) => {
@@ -299,10 +297,6 @@ export default function AvailableLoadsPage() {
       const cargoSearch = `${load.cargo_type ?? ''} ${load.requested_cargo_label ?? ''} ${load.handling_requirements.join(' ')}`.toLowerCase();
       const memberSearch = `${load.member.name} ${load.member.memberId ?? ''} ${load.member.postedBy ?? ''} ${load.company_id} ${load.id}`.toLowerCase();
       if (pickupNeedle && !pickupSearch.includes(pickupNeedle)) return false;
-      if (radiusMilesFilter.trim()) {
-        if (Number.isNaN(radiusMiles) || radiusMiles <= 0) return false;
-        if (load.distance_to_pickup_miles == null || load.distance_to_pickup_miles > radiusMiles) return false;
-      }
       if (deliveryNeedle && !deliverySearch.includes(deliveryNeedle)) return false;
       if (cargoNeedle && !cargoSearch.includes(cargoNeedle)) return false;
       if (memberNeedle && !memberSearch.includes(memberNeedle)) return false;
@@ -329,13 +323,13 @@ export default function AvailableLoadsPage() {
       const priceA = a.budget_amount ?? 0; const priceB = b.budget_amount ?? 0;
       switch (sortBy) { case 'date_asc': return dateA - dateB; case 'price_desc': return priceB - priceA; case 'price_asc': return priceA - priceB; default: return dateB - dateA; }
     });
-  }, [bodyTypeFilter, cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loadTypeFilter, loads, memberFilter, pickupFilter, postedWithinFilter, radiusMilesFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
+  }, [bodyTypeFilter, cargoFilter, dateFromFilter, dateToFilter, deliveryFilter, jobTimingFilter, loadTypeFilter, loads, memberFilter, pickupFilter, postedWithinFilter, regionFilter, sortBy, vehicleFilter, weightMinFilter]);
 
-  useEffect(() => { setCurrentPage(1); setExpandAll(false); }, [vehicleFilter, bodyTypeFilter, pickupFilter, radiusMilesFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
-  const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, bodyTypeFilter, pickupFilter, radiusMilesFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy });
+  useEffect(() => { setCurrentPage(1); setExpandAll(false); }, [vehicleFilter, bodyTypeFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy, pageSize]);
+  const captureFilters = (): SavedLoadFilters => ({ vehicleFilter, bodyTypeFilter, pickupFilter, deliveryFilter, cargoFilter, weightMinFilter, dateFromFilter, dateToFilter, memberFilter, regionFilter, postedWithinFilter, jobTimingFilter, loadTypeFilter, sortBy });
   const applySearch = () => { setCurrentPage(1); if (saveAsDefault) window.localStorage.setItem(LOAD_FILTER_STORAGE_KEY, JSON.stringify(captureFilters())); else window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY); };
   const clearFilters = () => {
-    setVehicleFilter('any'); setBodyTypeFilter('any'); setPickupFilter(''); setRadiusMilesFilter(''); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
+    setVehicleFilter('any'); setBodyTypeFilter('any'); setPickupFilter(''); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
     setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
   const handleBidSubmit = async (loadId: string) => {
@@ -394,7 +388,7 @@ export default function AvailableLoadsPage() {
           <aside className="left">
             <div className="left-title">Search Loads</div>
             <div className="filter"><span className="label">Scope</span><div className="load-scope"><button type="button" className={regionFilter !== 'euro' ? 'active' : ''} onClick={() => setRegionFilter('uk_roi')}>UK & ROI</button><button type="button" className={regionFilter === 'euro' ? 'active' : ''} onClick={() => setRegionFilter('euro')}>Euro</button></div></div>
-            <div className="filter"><span className="label">From / Radius</span><div className="row2"><div style={{ position: 'relative' }}><input className="input" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Blackburn BB1 / postcode" style={{ paddingRight: pickupFilter ? 26 : undefined }} />{pickupFilter && <button type="button" aria-label="Clear origin" onClick={() => setPickupFilter('')} style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 800 }}>×</button>}</div><select className="select" value={radiusMilesFilter} onChange={(event) => setRadiusMilesFilter(event.target.value)} aria-label="Pickup radius"><option value="">Any radius</option><option value="10">10 miles</option><option value="20">20 miles</option><option value="30">30 miles</option><option value="50">50 miles</option><option value="75">75 miles</option><option value="100">100 miles</option></select></div></div>
+            <div className="filter"><span className="label">From</span><div className="row2"><div style={{ position: 'relative' }}><input className="input" value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Blackburn BB1 / postcode" style={{ paddingRight: pickupFilter ? 26 : undefined }} />{pickupFilter && <button type="button" aria-label="Clear origin" onClick={() => setPickupFilter('')} style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 800 }}>×</button>}</div></div></div>
             <div className="filter"><span className="label">To</span><div style={{ position: 'relative' }}><input className="input" value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Enter destination" style={{ paddingRight: deliveryFilter ? 26 : undefined }} />{deliveryFilter && <button type="button" aria-label="Clear destination" onClick={() => setDeliveryFilter('')} style={{ position: 'absolute', right: 5, top: '50%', transform: 'translateY(-50%)', border: 0, background: 'transparent', cursor: 'pointer', fontWeight: 800 }}>×</button>}</div></div>
             <div className="filter"><span className="label">Vehicle Size</span><select className="select" value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="any">Any exact / specialist</option>{Object.entries(VEHICLE_LABELS).map(([value,label]) => <option key={value} value={value}>{label}</option>)}</select></div>
             <div className="filter"><span className="label">Body Type</span><select className="select" value={bodyTypeFilter} onChange={(event) => setBodyTypeFilter(event.target.value as BodyTypeFilter)}><option value="any">Any body type</option><option value="van">Van / Car</option><option value="luton">Luton</option><option value="curtainside">Curtainside</option><option value="box">Box</option><option value="flatbed">Flatbed</option><option value="refrigerated">Refrigerated / Temperature Controlled</option><option value="tail_lift">Tail Lift</option><option value="artic">Artic / 44T</option><option value="specialist">Specialist</option></select></div>

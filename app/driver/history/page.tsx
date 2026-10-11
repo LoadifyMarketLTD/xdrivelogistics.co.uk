@@ -667,7 +667,7 @@ export default function JobHistoryPage() {
 
                       <div className="driver-diary-collapsed-facts" aria-label="Booking quick facts">
                         <div><span>Booked by</span><strong>{job.companies?.name ?? 'Member'}</strong></div>
-                        <div><span>Agreed rate</span><strong>{job.agreed_rate_gbp != null || job.agreed_rate != null ? money(job.agreed_rate_gbp ?? job.agreed_rate, job.currency ?? 'GBP') : 'Not supplied'}</strong></div>
+                        <div><span>Agreed rate</span><strong>{job.agreed_rate_gbp != null || job.agreed_rate != null ? money((job.agreed_rate_gbp ?? job.agreed_rate)!, job.currency ?? 'GBP') : 'Not supplied'}</strong></div>
                         <div><span>Distance</span><strong>{job.job_distance_miles != null ? `${job.job_distance_miles} miles` : 'Not supplied'}</strong></div>
                         <div><span>Weight</span><strong>{job.weight_kg != null ? `${job.weight_kg} kg` : 'Not supplied'}</strong></div>
                         <div><span>Packaging</span><strong>{job.pallets != null ? `${job.pallets} pallet${job.pallets === 1 ? '' : 's'}` : 'Not supplied'}</strong></div>

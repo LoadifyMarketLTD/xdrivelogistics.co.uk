@@ -1409,7 +1409,13 @@
 .driver-diary-route .diary-booking.driver-diary-entry>.driver-diary-collapsed-facts{order:2!important}
 .driver-diary-route .diary-booking.driver-diary-entry>.driver-row-details{order:3!important}
 .driver-diary-route .diary-booking.driver-diary-entry>.driver-diary-action-rail{order:4!important}
-@media(max-width:1350px){
-  .driver-diary-route .driver-diary-collapsed-facts{grid-template-columns:repeat(4,minmax(0,1fr))!important}
-  .driver-diary-route .driver-diary-collapsed-facts>div{border-bottom:1px solid #e8edf2!important}
-}
+/* Match the three-column Loads card while retaining every operational fact. */
+.driver-diary-route .driver-diary-collapsed-facts{grid-template-columns:repeat(3,minmax(0,1fr))!important;grid-template-rows:repeat(3,minmax(22px,auto))!important;min-height:78px!important;column-gap:0!important}
+.driver-diary-route .driver-diary-collapsed-facts>div{display:grid!important;grid-template-columns:minmax(0,100px) minmax(0,1fr)!important;align-items:center!important;gap:5px!important;padding:3px 10px!important;border-right:0!important}
+.driver-diary-route .driver-diary-collapsed-facts>div:nth-child(-n+2){grid-column:1!important}
+.driver-diary-route .driver-diary-collapsed-facts>div:nth-child(n+3):nth-child(-n+5){grid-column:2!important}
+.driver-diary-route .driver-diary-collapsed-facts>div:nth-child(n+6){grid-column:3!important}
+.driver-diary-route .driver-diary-collapsed-facts>div:nth-child(1),.driver-diary-route .driver-diary-collapsed-facts>div:nth-child(3),.driver-diary-route .driver-diary-collapsed-facts>div:nth-child(6){grid-row:1!important}
+.driver-diary-route .driver-diary-collapsed-facts>div:nth-child(2),.driver-diary-route .driver-diary-collapsed-facts>div:nth-child(4),.driver-diary-route .driver-diary-collapsed-facts>div:nth-child(7){grid-row:2!important}
+.driver-diary-route .driver-diary-collapsed-facts>div:nth-child(5),.driver-diary-route .driver-diary-collapsed-facts>div:nth-child(8){grid-row:3!important}
+@media(max-width:850px){.driver-diary-route .driver-diary-collapsed-facts{grid-template-columns:1fr!important;grid-template-rows:auto!important}.driver-diary-route .driver-diary-collapsed-facts>div{grid-column:1!important;grid-row:auto!important;border-bottom:1px solid #e8edf2!important}}

@@ -10,11 +10,10 @@ describe('Driver Loads CX refinement contract', () => {
     expect(source).toContain('{commercialTimingLabel(load)}');
   });
 
-  it('supports a real pickup radius filter based on distance to collection', () => {
-    expect(source).toContain('radiusMilesFilter');
-    expect(source).toContain('load.distance_to_pickup_miles > radiusMiles');
-    expect(source).toContain('aria-label="Pickup radius"');
-    expect(source).toContain('100 miles');
+  it('preserves the approved pickup location search without an unapproved radius control', () => {
+    expect(source).toContain('pickupFilter');
+    expect(source).not.toContain('radiusMilesFilter');
+    expect(source).not.toContain('aria-label="Pickup radius"');
   });
 
   it('exposes sorting and true previous/next pagination', () => {
