@@ -15,7 +15,7 @@
   --ws-gap-grid: 12px;
   --ws-gap-section: 16px;
   --ws-shell-sidebar-w: 230px;
-  --ws-filter-rail-w: 220px;
+  --ws-filter-rail-w: 165px;
   --ws-control-h: 32px;
   --ws-tab-h: 28px;
   --ws-micro-action-h: 24px;
@@ -651,5 +651,23 @@
   ) {
     width: 100%;
     max-width: 100%;
+  }
+}
+
+/* Canonical operational search/filter rail — ALL measured workspaces.
+ * Apply to filter panels only, not navigation sidebars or detail drawers.
+ * Dashboard route contents are excluded; mobile panels remain fluid.
+ */
+@media (min-width: 1025px) {
+  .xdrive-workspace-measured :is(
+    .driver-filter-rail,
+    .workspace-filter-rail,
+    .workspace-search-rail
+  ) {
+    width: var(--ws-filter-rail-w) !important;
+    min-width: 0 !important;
+    max-width: var(--ws-filter-rail-w) !important;
+    flex-basis: var(--ws-filter-rail-w) !important;
+    font-size: 12px;
   }
 }
