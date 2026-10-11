@@ -113,6 +113,7 @@ export function MemberDirectoryPage({
   const [directorySort, setDirectorySort] = useState('Distance');
   const [directoryPageSize, setDirectoryPageSize] = useState(25);
   const [directoryVisibleCount, setDirectoryVisibleCount] = useState(25);
+  const [directoryPage, setDirectoryPage] = useState(1);
   const [savedCompanyIds, setSavedCompanyIds] = useState<Set<string>>(new Set());
   const [savedOnly, setSavedOnly] = useState(false);
   const [savedNetworkLoading, setSavedNetworkLoading] = useState(false);
@@ -480,6 +481,7 @@ export function MemberDirectoryPage({
     setSavedOnly(false);
     setDirectorySort('Distance');
     setDirectoryVisibleCount(directoryPageSize);
+    setDirectoryPage(1);
   };
 
   const selectedPrivateGroup = privateGroups.groups.find((group) => group.id === selectedPrivateGroupId) ?? null;
@@ -508,10 +510,10 @@ export function MemberDirectoryPage({
 
   if (pathname.startsWith('/driver')) {
     const records = tab === 'companies' ? sortDirectoryRecords(visibleCompanies) : sortDirectoryRecords(visibleDrivers);
-    const displayedCompanies = sortDirectoryRecords(visibleCompanies).slice(0, directoryVisibleCount);
-    const displayedDrivers = sortDirectoryRecords(visibleDrivers).slice(0, directoryVisibleCount);
-    const shownCount = Math.min(directoryVisibleCount, records.length);
-    const canShowMore = directoryVisibleCount < records.length;
+    const displayedCompanies = sortDirectoryRecords(visibleCompanies).slice((directoryPage - 1) * directoryPageSize, directoryPage * directoryPageSize);
+    const displayedDrivers = sortDirectoryRecords(visibleDrivers).slice((directoryPage - 1) * directoryPageSize, directoryPage * directoryPageSize);
+    const shownCount = Math.min(directoryPage * directoryPageSize, records.length);
+    const canShowMore = directoryPage * directoryPageSize < records.length;
     return (
       <section className="page driver-directory-prototype-page">
         <div className="subbar">
@@ -557,15 +559,15 @@ export function MemberDirectoryPage({
             <div className="dir-tabs">
               <button type="button" className={tab === 'companies' ? 'active' : ''} onClick={() => setTab('companies')}>COMPANIES <span>{visibleCompanies.length}</span></button>
               <button type="button" className={tab === 'drivers' ? 'active' : ''} onClick={() => setTab('drivers')}>DRIVERS <span>{visibleDrivers.length}</span></button>
-              <div className="dir-sort">Sort By: <select className="select" value={directorySort} onChange={(event) => { setDirectorySort(event.target.value); setDirectoryVisibleCount(directoryPageSize); }}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
+              <div className="dir-sort">Sort By: <select className="select" value={directorySort} onChange={(event) => { setDirectorySort(event.target.value); setDirectoryVisibleCount(directoryPageSize); setDirectoryPage(1); }}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
             </div>
             <div className="dir-summary">
               <span>{records.length} matching loaded record(s)</span>
               <span className="spacer">Click a company identity for Member Profile</span>
               <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select className="fleet-page-size" value={directoryPageSize} onChange={(event) => { const next = Number(event.target.value); setDirectoryPageSize(next); setDirectoryVisibleCount(next); }}><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
-                <span>{records.length ? `1-${shownCount} of ${records.length}` : '0 results'}</span>
-                {canShowMore && <button type="button" className="rowbtn blue" onClick={() => setDirectoryVisibleCount((current) => current + directoryPageSize)}>Next</button>}
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select className="fleet-page-size" value={directoryPageSize} onChange={(event) => { const next = Number(event.target.value); setDirectoryPageSize(next); setDirectoryVisibleCount(next); setDirectoryPage(1); }}><option value={5}>5</option><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
+                <span>{records.length ? `${(directoryPage - 1) * directoryPageSize + 1}-${shownCount} of ${records.length}` : '0 results'}</span>
+                {directoryPage > 1 && <button type="button" className="rowbtn" onClick={() => setDirectoryPage((current) => Math.max(1, current - 1))}>Previous</button>}{canShowMore && <button type="button" className="rowbtn blue" onClick={() => setDirectoryPage((current) => current + 1)}>Next</button>}
               </span>
             </div>
             {loading ? <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div> : (
