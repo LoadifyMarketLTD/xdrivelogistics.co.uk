@@ -4645,3 +4645,29 @@
 @media(max-width:1450px){
   .driver-prototype-port .driver-quotes-prototype .quote-tabs button{padding:0 9px!important;font-size:10px!important}
 }
+
+
+/* PR675 exact CX Search Panel metrics — Loads + Quotes */
+.driver-prototype-port .driver-loads-prototype .pagebody,
+.driver-prototype-port .driver-quotes-prototype .pagebody{
+  grid-template-columns:165px minmax(0,1fr)!important;
+}
+.driver-prototype-port .driver-loads-prototype .left,
+.driver-prototype-port .driver-quotes-prototype .left{
+  width:165px!important;
+  min-width:165px!important;
+  max-width:165px!important;
+  font-family:"HK Nova",Arial,sans-serif!important;
+  font-size:12px!important;
+}
+.driver-prototype-port .driver-loads-prototype .left-title,
+.driver-prototype-port .driver-quotes-prototype .left-title,
+.driver-prototype-port .driver-loads-prototype .filter,
+.driver-prototype-port .driver-quotes-prototype .filter,
+.driver-prototype-port .driver-loads-prototype .input,
+.driver-prototype-port .driver-loads-prototype .select,
+.driver-prototype-port .driver-quotes-prototype .input,
+.driver-prototype-port .driver-quotes-prototype .select{
+  font-family:"HK Nova",Arial,sans-serif!important;
+  font-size:12px!important;
+}
