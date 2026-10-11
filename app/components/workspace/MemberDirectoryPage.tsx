@@ -112,7 +112,6 @@ export function MemberDirectoryPage({
   const [reputationNote, setReputationNote] = useState('');
   const [directorySort, setDirectorySort] = useState('Distance');
   const [directoryPageSize, setDirectoryPageSize] = useState(25);
-  const [directoryVisibleCount, setDirectoryVisibleCount] = useState(25);
   const [directoryPage, setDirectoryPage] = useState(1);
   const [savedCompanyIds, setSavedCompanyIds] = useState<Set<string>>(new Set());
   const [savedOnly, setSavedOnly] = useState(false);
@@ -449,6 +448,10 @@ export function MemberDirectoryPage({
     });
   }, [availability, country, deliveryMin, drivers, location, member, paymentMin, savedCompanyIds, savedOnly, specialistService, tailLiftOnly, vehicle]);
 
+  useEffect(() => {
+    setDirectoryPage(1);
+  }, [member, location, memberType, vehicle, availability, country, specialistService, tailLiftOnly, deliveryMin, paymentMin, savedOnly, nearestQuery]);
+
   const sortDirectoryRecords = useCallback(<T extends DirectoryCompany | DirectoryDriver>(records: T[]): T[] => {
     return [...records].sort((a, b) => {
       if (directorySort === 'Member Name') {
@@ -480,7 +483,6 @@ export function MemberDirectoryPage({
     setNearestQuery({ near: '', radius: '50' });
     setSavedOnly(false);
     setDirectorySort('Distance');
-    setDirectoryVisibleCount(directoryPageSize);
     setDirectoryPage(1);
   };
 
@@ -557,15 +559,15 @@ export function MemberDirectoryPage({
               <div className="dir-hero-actions"><button type="button" className="btn" onClick={() => void load()}>Refresh</button><button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Search</button></div>
             </div>
             <div className="dir-tabs">
-              <button type="button" className={tab === 'companies' ? 'active' : ''} onClick={() => setTab('companies')}>COMPANIES <span>{visibleCompanies.length}</span></button>
-              <button type="button" className={tab === 'drivers' ? 'active' : ''} onClick={() => setTab('drivers')}>DRIVERS <span>{visibleDrivers.length}</span></button>
-              <div className="dir-sort">Sort By: <select className="select" value={directorySort} onChange={(event) => { setDirectorySort(event.target.value); setDirectoryVisibleCount(directoryPageSize); setDirectoryPage(1); }}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
+              <button type="button" className={tab === 'companies' ? 'active' : ''} onClick={() => { setTab('companies'); setDirectoryPage(1); }}>COMPANIES <span>{visibleCompanies.length}</span></button>
+              <button type="button" className={tab === 'drivers' ? 'active' : ''} onClick={() => { setTab('drivers'); setDirectoryPage(1); }}>DRIVERS <span>{visibleDrivers.length}</span></button>
+              <div className="dir-sort">Sort By: <select className="select" value={directorySort} onChange={(event) => { setDirectorySort(event.target.value); setDirectoryPage(1); }}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
             </div>
             <div className="dir-summary">
               <span>{records.length} matching loaded record(s)</span>
               <span className="spacer">Click a company identity for Member Profile</span>
               <span style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select className="fleet-page-size" value={directoryPageSize} onChange={(event) => { const next = Number(event.target.value); setDirectoryPageSize(next); setDirectoryVisibleCount(next); setDirectoryPage(1); }}><option value={5}>5</option><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
+                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select className="fleet-page-size" value={directoryPageSize} onChange={(event) => { const next = Number(event.target.value); setDirectoryPageSize(next); setDirectoryPage(1); }}><option value={5}>5</option><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option><option value={100}>100</option></select></label>
                 <span>{records.length ? `${(directoryPage - 1) * directoryPageSize + 1}-${shownCount} of ${records.length}` : '0 results'}</span>
                 {directoryPage > 1 && <button type="button" className="rowbtn" onClick={() => setDirectoryPage((current) => Math.max(1, current - 1))}>Previous</button>}{canShowMore && <button type="button" className="rowbtn blue" onClick={() => setDirectoryPage((current) => current + 1)}>Next</button>}
               </span>
@@ -646,8 +648,8 @@ export function MemberDirectoryPage({
 
         <main style={{ minWidth: 0 }}>
           <div className="workspace-tab-strip" role="tablist" aria-label="Directory member types" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            <button type="button" data-active={tab === 'companies' ? 'true' : 'false'} onClick={() => setTab('companies')}>Companies {visibleCompanies.length}</button>
-            <button type="button" data-active={tab === 'drivers' ? 'true' : 'false'} onClick={() => setTab('drivers')}>Drivers {visibleDrivers.length}</button>
+            <button type="button" data-active={tab === 'companies' ? 'true' : 'false'} onClick={() => { setTab('companies'); setDirectoryPage(1); }}>Companies {visibleCompanies.length}</button>
+            <button type="button" data-active={tab === 'drivers' ? 'true' : 'false'} onClick={() => { setTab('drivers'); setDirectoryPage(1); }}>Drivers {visibleDrivers.length}</button>
           </div>
           <div className="workspace-record-meta" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}><span><strong>{tab === 'companies' ? visibleCompanies.length : visibleDrivers.length}</strong> matching loaded record(s)</span><label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Sort By <select className="select" aria-label="Sort directory results" value={directorySort} onChange={(event) => setDirectorySort(event.target.value)}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></label><span>Click a company identity for Member Profile</span></div>
 
