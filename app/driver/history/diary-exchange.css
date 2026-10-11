@@ -918,3 +918,24 @@
     max-width: 100% !important;
   }
 }
+
+/* CX measured: unify Diary rail with Loads and Quotes at desktop widths.
+ * Override older fixed 188/200px diary rails without altering mobile stacking.
+ */
+@media (min-width: 1025px) {
+  .xdrive-workspace-measured .driver-diary-route {
+    --driver-diary-rail: 165px;
+    --ws-filter-rail-w: 165px;
+  }
+  .xdrive-workspace-measured .driver-diary-route .xdrive-diary-layout,
+  .xdrive-workspace-measured .driver-diary-route .driver-diary-board {
+    grid-template-columns: 165px minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+  .xdrive-workspace-measured .driver-diary-route .xdrive-diary-layout > .driver-filter-rail,
+  .xdrive-workspace-measured .driver-diary-route .driver-filter-rail {
+    width: 165px !important;
+    max-width: 165px !important;
+    min-width: 0 !important;
+  }
+}
