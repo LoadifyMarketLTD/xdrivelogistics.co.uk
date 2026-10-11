@@ -139,13 +139,15 @@ function StopFields({
   </div>;
 }
 
-export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: string; mode?: 'customer' | 'broker' | 'admin' }) {
+export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: string; mode?: 'customer' | 'broker' | 'admin' | 'owner' }) {
   const router = useRouter();
   const jobDetailsHref = (updated = false) => mode === 'broker'
     ? `/broker/jobs?job=${encodeURIComponent(jobId)}${updated ? '&updated=1' : ''}`
     : mode === 'admin'
       ? `/admin/jobs/${encodeURIComponent(jobId)}${updated ? '?updated=1' : ''}`
-      : `/customer/jobs/${encodeURIComponent(jobId)}${updated ? '?updated=1' : ''}`;
+      : mode === 'owner'
+        ? `/driver/history?job=${encodeURIComponent(jobId)}${updated ? '&updated=1' : ''}`
+        : `/customer/jobs/${encodeURIComponent(jobId)}${updated ? '?updated=1' : ''}`;
   const [snapshot, setSnapshot] = useState<Snapshot | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [additionalStops, setAdditionalStops] = useState<AdditionalStop[]>([]);
