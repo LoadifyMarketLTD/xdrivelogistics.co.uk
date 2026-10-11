@@ -1533,3 +1533,28 @@
 @media(max-width:1180px){
   .driver-diary-route .diary-bookings--split{grid-template-columns:1fr!important}
 }
+
+
+/* PR675 exact CX Search Panel metrics — Diary */
+.driver-diary-route .xdrive-diary-layout{
+  grid-template-columns:165px minmax(0,1fr)!important;
+}
+.driver-diary-route .xdrive-diary-layout>.driver-filter-rail,
+.driver-diary-route .driver-diary-filter-rail{
+  width:165px!important;
+  min-width:165px!important;
+  max-width:165px!important;
+  font-family:"HK Nova",Arial,sans-serif!important;
+  font-size:12px!important;
+}
+.driver-diary-route .driver-filter-rail__title,
+.driver-diary-route .left-title,
+.driver-diary-route .driver-filter-rail label,
+.driver-diary-route .driver-diary-filter-rail .label,
+.driver-diary-route .driver-filter-rail input,
+.driver-diary-route .driver-filter-rail select,
+.driver-diary-route .driver-diary-filter-rail input,
+.driver-diary-route .driver-diary-filter-rail select{
+  font-family:"HK Nova",Arial,sans-serif!important;
+  font-size:12px!important;
+}
