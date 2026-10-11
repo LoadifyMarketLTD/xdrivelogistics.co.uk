@@ -20,6 +20,7 @@ import './driver-dashboard-prototype-exact.css';
 import './driver-full-prototype.css';
 import './driver-page-width-fix.css';
 import './driver-integrated-nav.css';
+import '../components/workspace/workspace-cx-exact-identity.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Force dynamic rendering so hard reloads and deep links receive matching nonces.
