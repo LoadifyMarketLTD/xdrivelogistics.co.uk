@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: xdrive-continuous-audit-${{ github.ref }}
@@ -56,6 +57,23 @@ jobs:
             docs/audit/automated-audit-report.md
           if-no-files-found: warn
           retention-days: 30
+      - name: Open or update failure tracking issue
+        if: steps.audit.outcome != 'success' && github.event_name == 'schedule'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const title = 'XDrive continuous audit failure';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const runUrl = `https://github.com/${owner}/${repo}/actions/runs/${context.runId}`;
+            const body = `The scheduled XDrive audit failed on ${new Date().toISOString()}.\\n\\nRun: ${runUrl}\\n\\nInspect the uploaded audit artifacts and fix in a reviewed PR. No automatic production changes are permitted.`;
+            const issues = await github.paginate(github.rest.issues.listForRepo, {owner, repo, state: 'open', per_page: 100});
+            const existing = issues.find(issue => !issue.pull_request && issue.title === title);
+            if (existing) {
+              await github.rest.issues.createComment({owner, repo, issue_number: existing.number, body});
+            } else {
+              await github.rest.issues.create({owner, repo, title, body});
+            }
       - name: Enforce audit result
         if: steps.audit.outcome != 'success'
         run: |
