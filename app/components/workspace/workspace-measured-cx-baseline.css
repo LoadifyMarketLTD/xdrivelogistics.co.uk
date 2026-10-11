@@ -47,7 +47,7 @@
   min-height: 100vh;
   background: var(--ws-bg);
   color: var(--ws-text);
-  font-family: "Segoe UI", Arial, sans-serif;
+  font-family: "HK Nova", Arial, sans-serif;
   font-size: var(--ws-font-body);
   line-height: 1.35;
 }
@@ -613,4 +613,42 @@
 }
 .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-notification{
   width:36px!important;min-width:36px!important
+}
+
+/* PR675 exact CX navbar/search metrics */
+.xdrive-workspace-measured{
+  --ws-font-body:12px;
+  --ws-filter-rail-w:165px;
+}
+.xdrive-workspace-measured,
+.xdrive-workspace-measured input,
+.xdrive-workspace-measured select,
+.xdrive-workspace-measured textarea,
+.xdrive-workspace-measured button{
+  font-family:"HK Nova",Arial,sans-serif!important;
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav--primary{
+  height:42px!important;
+  min-height:42px!important;
+  display:flex!important;
+  align-items:flex-end!important;
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__track{
+  height:42px!important;
+  min-height:42px!important;
+  align-items:flex-end!important;
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__item{
+  height:29px!important;
+  min-height:29px!important;
+  padding:2px 8px 9px!important;
+  font-size:13px!important;
+  line-height:18px!important;
+  font-weight:600!important;
+  align-self:flex-end!important;
+}
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__item[data-active='true'],
+.xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-nav__item.is-active{
+  font-weight:600!important;
+  box-shadow:inset 0 -2px 0 var(--ws-blue)!important;
 }
