@@ -5,6 +5,7 @@ import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
 import '../components/workspace/non-driver-owner-reference.css';
 import './carrier-workspace-canonical.css';
+import '../components/workspace/workspace-cx-exact-identity.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Next.js can only apply that nonce to framework/page scripts when the route is
