@@ -614,3 +614,42 @@
 .xdrive-workspace-measured .top-workspace-shell:not([data-workspace-role='platform_owner']) .top-workspace-notification{
   width:36px!important;min-width:36px!important
 }
+
+/* 2026-10-11 CX Chromium measured operational density.
+ * Measured: nav item text 13px/600, item box 29px, sidebar 165px,
+ * base text 12px. Do not confuse nav item height with full shell height.
+ * Dashboard and Super Admin deliberately excluded.
+ */
+.xdrive-workspace-measured :is(
+  .driver-loads-route,
+  .driver-diary-route,
+  .driver-quotes-route,
+  .xdrive-operational-page
+) {
+  --ws-font-body: 12px;
+  --ws-filter-rail-w: 165px;
+  --ws-gap-micro: 4px;
+  --ws-gap-internal: 8px;
+  --ws-gap-grid: 8px;
+}
+.xdrive-workspace-measured :is(.driver-loads-route,.driver-diary-route,.driver-quotes-route) :is(
+  .driver-filter-rail,.workspace-filter-rail
+) {
+  width: 165px;
+  max-width: 165px;
+  min-width: 0;
+  font-size: 12px;
+}
+.xdrive-workspace-measured :is(.driver-loads-route,.driver-diary-route,.driver-quotes-route) :is(
+  .driver-filter-rail,.workspace-filter-rail
+) :is(input,select,button) {
+  font-size: 12px !important;
+}
+@media (max-width: 1024px) {
+  .xdrive-workspace-measured :is(.driver-loads-route,.driver-diary-route,.driver-quotes-route) :is(
+    .driver-filter-rail,.workspace-filter-rail
+  ) {
+    width: 100%;
+    max-width: 100%;
+  }
+}
