@@ -111,7 +111,7 @@ export function MemberDirectoryPage({
   const [privacy, setPrivacy] = useState('');
   const [reputationNote, setReputationNote] = useState('');
   const [directorySort, setDirectorySort] = useState('Distance');
-  const [directoryPageSize, setDirectoryPageSize] = useState(25);
+  const [directoryPageSize, setDirectoryPageSize] = useState(5);
   const [directoryPage, setDirectoryPage] = useState(1);
   const [savedCompanyIds, setSavedCompanyIds] = useState<Set<string>>(new Set());
   const [savedOnly, setSavedOnly] = useState(false);
@@ -472,6 +472,11 @@ export function MemberDirectoryPage({
     });
   }, [directorySort]);
 
+  const paginatedCompanies = sortDirectoryRecords(visibleCompanies).slice((directoryPage - 1) * directoryPageSize, directoryPage * directoryPageSize);
+  const paginatedDrivers = sortDirectoryRecords(visibleDrivers).slice((directoryPage - 1) * directoryPageSize, directoryPage * directoryPageSize);
+  const directoryTotal = tab === 'companies' ? visibleCompanies.length : visibleDrivers.length;
+  const directoryLastPage = Math.max(1, Math.ceil(directoryTotal / directoryPageSize));
+
   const clear = () => {
     setMember('');
     setLocation('');
@@ -656,13 +661,13 @@ export function MemberDirectoryPage({
             <button type="button" data-active={tab === 'companies' ? 'true' : 'false'} onClick={() => { setTab('companies'); setDirectoryPage(1); }}>Companies {visibleCompanies.length}</button>
             <button type="button" data-active={tab === 'drivers' ? 'true' : 'false'} onClick={() => { setTab('drivers'); setDirectoryPage(1); }}>Drivers {visibleDrivers.length}</button>
           </div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}><span><strong>{tab === 'companies' ? visibleCompanies.length : visibleDrivers.length}</strong> matching loaded record(s)</span><label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Sort By <select className="select" aria-label="Sort directory results" value={directorySort} onChange={(event) => setDirectorySort(event.target.value)}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></label><span>Click a company identity for Member Profile</span></div>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}><span><strong>{tab === 'companies' ? visibleCompanies.length : visibleDrivers.length}</strong> matching loaded record(s)</span><label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Sort By <select className="select" aria-label="Sort directory results" value={directorySort} onChange={(event) => setDirectorySort(event.target.value)}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></label><span>Click a company identity for Member Profile</span><label>Per page <select aria-label="Directory page size" value={directoryPageSize} onChange={(event) => { setDirectoryPageSize(Number(event.target.value)); setDirectoryPage(1); }}><option value={5}>5</option><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label><span>{directoryTotal ? `${(directoryPage - 1) * directoryPageSize + 1}-${Math.min(directoryPage * directoryPageSize, directoryTotal)} of ${directoryTotal}` : "0 results"}</span><button type="button" className="rowbtn" disabled={directoryPage <= 1} onClick={() => setDirectoryPage((page) => Math.max(1, page - 1))}>Previous</button><button type="button" className="rowbtn" disabled={directoryPage >= directoryLastPage} onClick={() => setDirectoryPage((page) => Math.min(directoryLastPage, page + 1))}>Next</button></div>
 
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div>
           ) : tab === 'companies' ? (
             <div className="workspace-record-list">
-              {sortDirectoryRecords(visibleCompanies).map((company) => (
+              {paginatedCompanies.map((company) => (
                 <article key={company.companyId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">MEMBER</div><strong><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></strong><div className="driver-cell-secondary">{company.memberId ? `Member ID ${company.memberId}` : 'Member ID not supplied'}</div></div>
@@ -677,7 +682,7 @@ export function MemberDirectoryPage({
             </div>
           ) : (
             <div className="workspace-record-list">
-              {sortDirectoryRecords(visibleDrivers).map((driver) => (
+              {paginatedDrivers.map((driver) => (
                 <article key={driver.driverId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DRIVER / MEMBER</div><strong>{driver.displayName}</strong><div className="driver-cell-secondary">{driver.companyId ? <MemberIdentityLink companyId={driver.companyId}>{driver.companyName}</MemberIdentityLink> : driver.companyName}{driver.memberId ? ` · Member ID ${driver.memberId}` : ''}</div></div>
