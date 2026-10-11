@@ -110,6 +110,7 @@ export function MemberDirectoryPage({
   const [truncation, setTruncation] = useState<DirectoryTruncation>({});
   const [privacy, setPrivacy] = useState('');
   const [reputationNote, setReputationNote] = useState('');
+  const [directorySort, setDirectorySort] = useState('Distance');
   const [directoryPageSize, setDirectoryPageSize] = useState(25);
   const [directoryVisibleCount, setDirectoryVisibleCount] = useState(25);
   const [savedCompanyIds, setSavedCompanyIds] = useState<Set<string>>(new Set());
@@ -447,6 +448,21 @@ export function MemberDirectoryPage({
     });
   }, [availability, country, deliveryMin, drivers, location, member, paymentMin, savedCompanyIds, savedOnly, specialistService, tailLiftOnly, vehicle]);
 
+  const sortDirectoryRecords = useCallback(<T extends DirectoryCompany | DirectoryDriver>(records: T[]): T[] => {
+    return [...records].sort((a, b) => {
+      if (directorySort === 'Member Name') {
+        const nameA = 'name' in a ? a.name : a.displayName;
+        const nameB = 'name' in b ? b.name : b.displayName;
+        return nameA.localeCompare(nameB);
+      }
+      if (directorySort === 'Delivery Reliability' || directorySort === 'Payment Reliability') {
+        const field = directorySort === 'Delivery Reliability' ? 'deliveryReliability' : 'paymentReliability';
+        return (b[field].score ?? -1) - (a[field].score ?? -1);
+      }
+      return (a.distanceMiles ?? Number.POSITIVE_INFINITY) - (b.distanceMiles ?? Number.POSITIVE_INFINITY);
+    });
+  }, [directorySort]);
+
   const clear = () => {
     setMember('');
     setLocation('');
@@ -489,9 +505,9 @@ export function MemberDirectoryPage({
     : 'Part of the Directory enrichment is temporarily unavailable. Verified member records are still shown.';
 
   if (pathname.startsWith('/driver')) {
-    const records = tab === 'companies' ? visibleCompanies : visibleDrivers;
-    const displayedCompanies = visibleCompanies.slice(0, directoryVisibleCount);
-    const displayedDrivers = visibleDrivers.slice(0, directoryVisibleCount);
+    const records = tab === 'companies' ? sortDirectoryRecords(visibleCompanies) : sortDirectoryRecords(visibleDrivers);
+    const displayedCompanies = sortDirectoryRecords(visibleCompanies).slice(0, directoryVisibleCount);
+    const displayedDrivers = sortDirectoryRecords(visibleDrivers).slice(0, directoryVisibleCount);
     const shownCount = Math.min(directoryVisibleCount, records.length);
     const canShowMore = directoryVisibleCount < records.length;
     return (
@@ -539,7 +555,7 @@ export function MemberDirectoryPage({
             <div className="dir-tabs">
               <button type="button" className={tab === 'companies' ? 'active' : ''} onClick={() => setTab('companies')}>COMPANIES <span>{visibleCompanies.length}</span></button>
               <button type="button" className={tab === 'drivers' ? 'active' : ''} onClick={() => setTab('drivers')}>DRIVERS <span>{visibleDrivers.length}</span></button>
-              <div className="dir-sort">Sort By: <select className="select" defaultValue="Distance"><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
+              <div className="dir-sort">Sort By: <select className="select" value={directorySort} onChange={(event) => { setDirectorySort(event.target.value); setDirectoryVisibleCount(directoryPageSize); }}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
             </div>
             <div className="dir-summary">
               <span>{records.length} matching loaded record(s)</span>
