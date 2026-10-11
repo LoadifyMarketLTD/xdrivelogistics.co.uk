@@ -7,6 +7,7 @@ import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
 import '../components/workspace/non-driver-owner-reference.css';
 import './customer-dashboard.css';
+import '../components/workspace/workspace-cx-exact-identity.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Force dynamic rendering so hard reloads and deep links receive matching nonces.
