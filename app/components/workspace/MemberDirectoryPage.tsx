@@ -478,6 +478,8 @@ export function MemberDirectoryPage({
     setNearestRadius('50');
     setNearestQuery({ near: '', radius: '50' });
     setSavedOnly(false);
+    setDirectorySort('Distance');
+    setDirectoryVisibleCount(directoryPageSize);
   };
 
   const selectedPrivateGroup = privateGroups.groups.find((group) => group.id === selectedPrivateGroupId) ?? null;
