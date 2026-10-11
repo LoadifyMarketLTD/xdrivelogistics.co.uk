@@ -645,13 +645,13 @@ export function MemberDirectoryPage({
             <button type="button" data-active={tab === 'companies' ? 'true' : 'false'} onClick={() => setTab('companies')}>Companies {visibleCompanies.length}</button>
             <button type="button" data-active={tab === 'drivers' ? 'true' : 'false'} onClick={() => setTab('drivers')}>Drivers {visibleDrivers.length}</button>
           </div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{tab === 'companies' ? visibleCompanies.length : visibleDrivers.length}</strong> matching loaded record(s)</span><span>Click a company identity for Member Profile</span></div>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}><span><strong>{tab === 'companies' ? visibleCompanies.length : visibleDrivers.length}</strong> matching loaded record(s)</span><label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Sort By <select className="select" aria-label="Sort directory results" value={directorySort} onChange={(event) => setDirectorySort(event.target.value)}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></label><span>Click a company identity for Member Profile</span></div>
 
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div>
           ) : tab === 'companies' ? (
             <div className="workspace-record-list">
-              {visibleCompanies.map((company) => (
+              {sortDirectoryRecords(visibleCompanies).map((company) => (
                 <article key={company.companyId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">MEMBER</div><strong><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></strong><div className="driver-cell-secondary">{company.memberId ? `Member ID ${company.memberId}` : 'Member ID not supplied'}</div></div>
@@ -666,7 +666,7 @@ export function MemberDirectoryPage({
             </div>
           ) : (
             <div className="workspace-record-list">
-              {visibleDrivers.map((driver) => (
+              {sortDirectoryRecords(visibleDrivers).map((driver) => (
                 <article key={driver.driverId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DRIVER / MEMBER</div><strong>{driver.displayName}</strong><div className="driver-cell-secondary">{driver.companyId ? <MemberIdentityLink companyId={driver.companyId}>{driver.companyName}</MemberIdentityLink> : driver.companyName}{driver.memberId ? ` · Member ID ${driver.memberId}` : ''}</div></div>
