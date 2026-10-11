@@ -295,8 +295,12 @@ export default function OperationsDiaryPage() {
       setError('Diary jobs could not be loaded.');
       setJobs([]);
     } else {
-      const scoped = ((jobsResult.data ?? []) as JobRow[]).filter((job) => isOperatingCompanyJob(job, companyId));
+      const loadedJobs = (jobsResult.data ?? []) as JobRow[];
+      const scoped = loadedJobs.filter((job) => isOperatingCompanyJob(job, companyId));
       setJobs(scoped);
+      if (loadedJobs.length >= 300) {
+        setNotice((current) => current || 'Diary has reached the 300-record query limit. Older bookings may be missing; do not treat these results or counts as the full company history.');
+      }
     }
     if (driversResult.error) {
       setError((current) => current || 'Driver roster could not be loaded.');
@@ -691,7 +695,13 @@ export default function OperationsDiaryPage() {
     setAppliedSearch(search);
     if (saveAsDefault) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
   };
-  const clearSearch = () => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); };
+  const clearSearch = () => {
+    setSearch(EMPTY_SEARCH);
+    setAppliedSearch(EMPTY_SEARCH);
+    setSelectedGroupFilter('');
+    setSelectedSavedViewId('');
+    setPage(1);
+  };
   const toggleDefaultSearch = (checked: boolean) => {
     setSaveAsDefault(checked);
     if (checked) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
