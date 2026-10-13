@@ -57,11 +57,13 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(settings).toContain("{ label: 'Security'");
   });
 
-  it('gives Customer the same two-column control-desk geometry as Owner Driver', () => {
-    expect(ownerDashboard).toContain("gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1.2fr)'");
+  it('gives Customer the frozen PR675 two-column control-desk geometry without requiring Owner Driver to adopt shared classes', () => {
+    expect(ownerDashboard).toContain('gridTemplateColumns: "minmax(360px, .84fr) minmax(0, 1.16fr)"');
+    expect(customerDashboard).toContain('customer-owner-parity-grid xdrive-owner-dashboard-grid');
+    expect(customerDashboard).toContain('customer-owner-parity-column xdrive-owner-dashboard-column');
+    expect(customerDashboard).toContain('customer-owner-parity-subgrid xdrive-owner-dashboard-subgrid');
     expect(ownerDashboard).toContain('Reports & Statistics');
     expect(ownerDashboard).toContain('Activity at a glance');
-    expect(customerDashboard).toContain('customer-owner-parity-grid');
     expect(customerDashboard).toContain('Reports & Statistics');
     expect(customerDashboard).toContain('Activity at a glance');
     expect(customerDashboard).toContain('Carrier / Member');
@@ -90,10 +92,24 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(customerDashboard).toContain("router.push('/customer/quotes?status=pending_acceptance')");
   });
 
+  it('renders the Customer job detail register through the shared responsive detail grid without losing definition-list semantics', () => {
+    const customerJobs = read('app/customer/CustomerWorkspaceModules.tsx');
+    const baseline = read('app/components/workspace/workspace-measured-cx-baseline.css');
+    expect(customerJobs).toContain('<dl className="workspace-detail-grid">');
+    expect(customerJobs).toContain('<div className="workspace-detail-item"><dt>Collection</dt><dd>');
+    expect(customerJobs).toContain('<div className="workspace-detail-item"><dt>Status</dt><dd>');
+    expect(customerJobs).not.toContain("gridTemplateColumns:'150px 1fr'");
+    expect(baseline).toContain('.xdrive-workspace-measured dl.workspace-detail-grid');
+    expect(baseline).toContain('.xdrive-workspace-measured .workspace-detail-item > dt');
+    expect(baseline).toContain('.xdrive-workspace-measured .workspace-detail-item > dd');
+  });
+
   it('does not disturb the canonical Owner Driver More workflow', () => {
-    expect(shell).toContain("'/driver/jobs': 'Work'");
+    expect(shell).toContain("'/driver/won-work': 'Work'");
     expect(shell).toContain("'/driver/availability': 'Matching & Availability'");
     expect(shell).toContain("'/driver/finance': 'Business'");
+    expect(shell).toContain("'/driver/event-log': 'Operations'");
+    expect(shell).toContain("'/driver/settings': 'Administration'");
     expect(shell).toContain('<OwnerDriverMoreIcon item={item} />');
   });
 });

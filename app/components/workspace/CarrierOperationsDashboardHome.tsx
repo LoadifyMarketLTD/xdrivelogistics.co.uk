@@ -21,7 +21,7 @@ import {
   StatusBadge,
   workspaceTheme,
 } from './WorkspaceUI';
-import styles from './WorkspaceUI.module.css';
+import { OperationalSignalStrip, type OperationalSignalItem } from './OperationalConvergence';
 import {
   daysUntil,
   exceptionStatuses,
@@ -40,14 +40,7 @@ import { toCanonicalInvoiceDisplayStatus } from '../../../lib/invoiceStatus';
 
 type ControlView = 'attention' | 'unallocated' | 'live' | 'pod' | 'exceptions' | 'all';
 
-type ControlSignal = {
-  key: ControlView | 'drivers';
-  label: string;
-  value: ReactNode;
-  tone: string;
-  active?: boolean;
-  onClick: () => void;
-};
+type ControlSignal = OperationalSignalItem & { key: ControlView | 'drivers' };
 
 const CONTROL_VIEWS: Array<{ value: ControlView; label: string }> = [
   { value: 'attention', label: 'Needs attention' },
@@ -111,27 +104,8 @@ const moneyOrDash = (value: number) => (value > 0 ? money(value) : '—');
 
 function CarrierControlSignals({ signals }: { signals: ControlSignal[] }) {
   return (
-    <div
-      className={styles.carrierControlSignals}
-      data-testid="carrier-control-signals"
-      aria-label="Carrier control signals"
-      style={{ border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', background: workspaceTheme.surface, marginBottom: '8px' }}
-    >
-      <div className={styles.carrierControlSignalsGrid} style={{ gridTemplateColumns: 'repeat(2, minmax(0, 1fr))' }}>
-        {signals.map((signal) => (
-          <button
-            className={styles.carrierControlSignal}
-            key={signal.key}
-            type="button"
-            onClick={signal.onClick}
-            aria-pressed={signal.active}
-            style={{ minHeight: '54px', padding: '6px 9px', border: 0, borderTop: `3px solid ${signal.tone}`, background: signal.active ? '#F1F6FF' : workspaceTheme.surface, color: workspaceTheme.text, cursor: 'pointer', textAlign: 'left' }}
-          >
-            <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.03em' }}>{signal.label}</span>
-            <strong style={{ display: 'block', marginTop: '2px', color: signal.active ? workspaceTheme.blue : workspaceTheme.navy, fontSize: '20px', lineHeight: '24px', fontWeight: 800 }}>{signal.value}</strong>
-          </button>
-        ))}
-      </div>
+    <div data-testid="carrier-control-signals">
+      <OperationalSignalStrip ariaLabel="Carrier control signals" items={signals} />
     </div>
   );
 }
@@ -146,7 +120,7 @@ function RailMetric({ label, value, onClick }: { label: string; value: ReactNode
 
 function WorkflowLink({ label, detail, onClick }: { label: string; detail: string; onClick: () => void }) {
   return (
-    <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '8px', minHeight: '38px', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, textAlign: 'left', cursor: 'pointer' }}>
+    <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '8px', minHeight: 'var(--ws-table-row-h, 42px)', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, textAlign: 'left', cursor: 'pointer' }}>
       <span style={{ minWidth: 0 }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{detail}</span></span>
       <span aria-hidden="true" style={{ color: workspaceTheme.blue, fontSize: '14px', fontWeight: 800 }}>→</span>
     </button>
@@ -266,12 +240,12 @@ export default function CarrierOperationsDashboardHome() {
   };
 
   const signals: ControlSignal[] = [
-    { key: 'attention', label: 'Needs attention', value: viewCounts.attention, tone: workspaceTheme.orange, active: view === 'attention', onClick: () => setView('attention') },
-    { key: 'unallocated', label: 'Awaiting allocation', value: viewCounts.unallocated, tone: workspaceTheme.orange, active: view === 'unallocated', onClick: () => setView('unallocated') },
-    { key: 'live', label: 'Live jobs', value: viewCounts.live, tone: workspaceTheme.blue, active: view === 'live', onClick: () => setView('live') },
-    { key: 'pod', label: 'Photo evidence', value: viewCounts.pod, tone: workspaceTheme.navy, active: view === 'pod', onClick: () => setView('pod') },
-    { key: 'drivers', label: 'Available drivers', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveAvailableDriver).length), tone: workspaceTheme.green, onClick: () => router.push('/admin/live-availability') },
-    { key: 'exceptions', label: 'Exceptions', value: viewCounts.exceptions, tone: workspaceTheme.red, active: view === 'exceptions', onClick: () => setView('exceptions') },
+    { key: 'attention', label: 'Needs attention', value: viewCounts.attention, tone: 'orange', active: view === 'attention', onClick: () => setView('attention') },
+    { key: 'unallocated', label: 'Awaiting allocation', value: viewCounts.unallocated, tone: 'orange', active: view === 'unallocated', onClick: () => setView('unallocated') },
+    { key: 'live', label: 'Live jobs', value: viewCounts.live, tone: 'blue', active: view === 'live', onClick: () => setView('live') },
+    { key: 'pod', label: 'Photo evidence', value: viewCounts.pod, tone: 'navy', active: view === 'pod', onClick: () => setView('pod') },
+    { key: 'drivers', label: 'Available drivers', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveAvailableDriver).length), tone: 'green', onClick: () => router.push('/admin/live-availability') },
+    { key: 'exceptions', label: 'Exceptions', value: viewCounts.exceptions, tone: 'red', active: view === 'exceptions', onClick: () => setView('exceptions') },
   ];
 
   const activeViewLabel = CONTROL_VIEWS.find((item) => item.value === view)?.label ?? 'Work';
@@ -292,16 +266,16 @@ export default function CarrierOperationsDashboardHome() {
       : 'Change the control view or clear the filters.';
 
   return (
-    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '8px 10px 12px' }}>
+    <div className="xdrive-admin-dashboard-home">
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
-      <div className="carrier-owner-parity-grid">
-        <div className="carrier-owner-parity-column">
+      <div className="carrier-owner-parity-grid xdrive-owner-dashboard-grid">
+        <div className="carrier-owner-parity-column xdrive-owner-dashboard-column">
           <OperationalCard title="Reports & Statistics" subtitle="Live carrier operations and commercial position.">
             <CarrierControlSignals signals={signals} />
           </OperationalCard>
 
-          <div className="carrier-owner-parity-subgrid">
+          <div className="carrier-owner-parity-subgrid xdrive-owner-dashboard-subgrid">
             <OperationalCard title="Commercial & Finance" subtitle="Verified commercial signals from awarded work and invoices.">
               <CommercialRow label="Won work value" detail="Accepted carrier quotes backed by an award" value={metricValue(data, ['bids', 'jobs'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/won-work')} />
               <CommercialRow label="Overdue invoices" detail="Past-due carrier invoices" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
@@ -318,7 +292,7 @@ export default function CarrierOperationsDashboardHome() {
           </div>
         </div>
 
-        <div className="carrier-owner-parity-column">
+        <div className="carrier-owner-parity-column xdrive-owner-dashboard-column">
           <OperationalCard title="Activity at a glance" subtitle="Latest awarded bookings ordered for practical day-to-day transport control." flush>
             <DataTable
               columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Evidence', 'Action']}

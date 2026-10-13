@@ -22,6 +22,14 @@ describe('company-level invoice email defaults', () => {
     expect(panel).toContain('templateReady &&');
   });
 
+  it('keeps Owner Driver invoice delivery actions responsive inside the shared measured workspace', () => {
+    const baseline = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/workspace-measured-cx-baseline.css'), 'utf8');
+    expect(panel).toContain('className="workspace-filter-fields"');
+    expect(panel).not.toContain("gridTemplateColumns: 'minmax(190px, 0.38fr)");
+    expect(baseline).toContain('.workspace-filter-fields > :first-child');
+    expect(baseline).toContain('grid-template-columns: minmax(0, 1fr) !important;');
+  });
+
   it('retains the XDrive statutory late-payment wording and no weekly penalty', () => {
     expect(template).toContain('statutory interest and recovery-cost compensation where applicable');
     expect(template).not.toContain('£25.00 per week');

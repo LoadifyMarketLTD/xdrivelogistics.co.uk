@@ -54,7 +54,7 @@ describe('workspace More audit contract', () => {
       ['broker', ['/broker/customers', '/broker/margins', '/broker/disputes', '/broker/messages', '/broker/event-log', '/broker/carrier-network', '/broker/customer-invoices', '/broker/carrier-costs', '/broker/team']],
       ['customer', ['/customer/deliveries', '/customer/documents', '/customer/updates', '/customer/network', '/customer/messages', '/customer/disputes', '/customer/event-log', '/customer/team']],
       ['driver', ['/driver/notifications', '/driver/messages', '/driver/change-password', '/driver/event-log', '/driver/account']],
-      ['owner_driver', ['/driver/jobs', '/driver/won-work', '/driver/availability', '/driver/load-alerts', '/driver/nearby', '/driver/finance', '/driver/documents', '/driver/messages']],
+      ['owner_driver', ['/driver/won-work', '/driver/availability', '/driver/load-alerts', '/driver/nearby', '/driver/documents', '/driver/finance', '/driver/messages', '/driver/event-log', '/driver/freight-vision', '/driver/drivers-vehicles', '/driver/settings']],
       ['fleet_manager', ['/admin/fleet/assignments', '/admin/fleet/availability', '/admin/fleet/future-availability', '/admin/fleet/positions', '/admin/fleet/maintenance', '/admin/incidents', '/admin/messages', '/admin/event-log', '/admin/invoices', '/admin/fleet/compliance']],
       ['dispatcher', ['/admin/incidents', '/admin/pod', '/admin/freight-vision', '/admin/live-availability', '/admin/fleet/resources', '/admin/messages', '/admin/event-log']],
     ];
@@ -73,20 +73,20 @@ describe('workspace More audit contract', () => {
     expect(isCapabilityAllowedForPath('/driver/action-centre', null, activeContext('driver'))).toBe(true);
     expect(isCapabilityAllowedForPath('/driver/action-centre', null, activeContext('owner_driver'))).toBe(true);
   });
-  it('keeps Owner Driver More focused on secondary work and business actions', () => {
+  it('keeps Owner Driver More focused on secondary work, business, operations and administration', () => {
     const owner = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
-    for (const href of ['/driver/jobs', '/driver/won-work', '/driver/availability', '/driver/load-alerts', '/driver/nearby', '/driver/finance', '/driver/documents', '/driver/messages']) {
+    for (const href of ['/driver/won-work', '/driver/availability', '/driver/load-alerts', '/driver/nearby', '/driver/documents', '/driver/finance', '/driver/messages', '/driver/event-log', '/driver/freight-vision', '/driver/drivers-vehicles', '/driver/settings']) {
       expect(owner).toContain(`'${href}'`);
     }
     for (const duplicate of ['/driver/notifications', '/driver/change-password', '/driver/profile', '/driver/settings?section=company', '/driver/settings?section=overview', '/settings/billing']) {
       expect(owner).not.toContain(`'${duplicate}'`);
     }
-    expect(owner).toContain("['owner-driver-availability-primary', 'Availability & Schedule', '/driver/availability']");
-    expect(owner).toContain("['owner-driver-alerts-primary', 'Load Matching & Alerts', '/driver/load-alerts']");
-    expect(owner).toContain("['owner-driver-finance-primary', 'Finance & Invoices', '/driver/finance']");
-    expect(shell).toContain("'/driver/jobs': 'Work'");
+    expect(owner).toContain("], 'owner-driver-more', 'More', [");
+    expect(shell).toContain("'/driver/won-work': 'Work'");
     expect(shell).toContain("'/driver/availability': 'Matching & Availability'");
     expect(shell).toContain("'/driver/finance': 'Business'");
+    expect(shell).toContain("'/driver/event-log': 'Operations'");
+    expect(shell).toContain("'/driver/settings': 'Administration'");
   });
 
   it('allows employed Driver Settings because the primary navbar exposes it', () => {

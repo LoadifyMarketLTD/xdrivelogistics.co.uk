@@ -44,7 +44,8 @@ describe('CX Drivers & Vehicles consolidated access contract', () => {
   });
 
   it('keeps Resources selected as the consolidated operating view', () => {
-    expect(source).toContain('aria-current="page"');
+    expect(source).toContain('aria-selected="true"');
+    expect(source).toContain('data-active="true"');
     expect(source).toContain('Resources</button>');
   });
 });

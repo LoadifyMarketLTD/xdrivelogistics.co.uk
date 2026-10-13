@@ -32,7 +32,7 @@
 .driver-account-status strong{display:block;margin-top:2px;color:var(--ws-text,#172033);font-size:12px;line-height:16px}
 
 /* Directory uses the same measured exchange contract as Loads. */
-.driver-directory-layout{display:grid;grid-template-columns:var(--ws-filter-rail-w,220px) minmax(0,1fr);gap:var(--ws-gap-grid,12px);align-items:start}
+.driver-directory-layout{display:grid;grid-template-columns:var(--ws-filter-rail-w,165px) minmax(0,1fr);gap:var(--ws-gap-grid,12px);align-items:start}
 .driver-directory-search,.driver-directory-results{border:1px solid var(--ws-border,#cfd7e3);border-radius:var(--ws-radius,4px);background:#fff;overflow:hidden;box-shadow:none}
 .driver-directory-search__head,.driver-directory-toolbar{min-height:var(--ws-panel-head-h,36px);display:flex;align-items:center;justify-content:space-between;gap:8px;padding:7px 10px;border-bottom:1px solid var(--ws-border,#cfd7e3);background:var(--ws-panel-head,#f2f4f7);color:var(--ws-text,#172033);font-size:var(--ws-font-panel-title,13px);line-height:18px;font-weight:700}
 .driver-directory-search__body{display:grid;gap:6px;padding:10px}

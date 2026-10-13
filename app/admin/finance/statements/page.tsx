@@ -122,7 +122,7 @@ export default function FinanceStatementsPage() {
       />
 
       <Panel title="Statement filters" description="Choose a counterparty and optional invoice-date window.">
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, 1fr) repeat(2, minmax(160px, 0.6fr)) auto', gap: 8, alignItems: 'end' }}>
+        <div className="workspace-filter-fields workspace-filter-fields--even">
           <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
             COUNTERPARTY
             <select value={counterparty} onChange={(event) => setCounterparty(event.target.value)} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }}>

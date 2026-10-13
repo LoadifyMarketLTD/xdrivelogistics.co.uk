@@ -2,50 +2,8 @@
   width: 100% !important;
   max-width: 100% !important;
   min-width: 0 !important;
-  padding: 8px 10px !important;
+  padding: 6px 8px !important;
   overflow: visible !important;
-}
-
-.driver-diary-route .xdrive-diary-layout {
-  display: grid !important;
-  grid-template-columns: 200px minmax(0, 1fr) !important;
-  gap: 8px !important;
-  align-items: start !important;
-  width: 100% !important;
-  max-width: 100% !important;
-  min-width: 0 !important;
-  overflow: visible !important;
-}
-
-.driver-diary-route .xdrive-diary-layout > .driver-filter-rail {
-  grid-column: 1 !important;
-  width: 200px !important;
-  min-width: 0 !important;
-  max-width: 200px !important;
-}
-
-.driver-diary-route .xdrive-diary-register {
-  grid-column: 2 !important;
-  width: 100% !important;
-  min-width: 0 !important;
-  max-width: none !important;
-  display: flex !important;
-  flex-direction: column !important;
-  gap: 8px !important;
-  align-self: start !important;
-  overflow: visible !important;
-}
-
-@media (max-width: 1024px) {
-  .driver-diary-route .xdrive-diary-layout {
-    grid-template-columns: 1fr !important;
-  }
-  .driver-diary-route .xdrive-diary-layout > .driver-filter-rail,
-  .driver-diary-route .xdrive-diary-register {
-    grid-column: 1 !important;
-    width: 100% !important;
-    max-width: none !important;
-  }
 }
 
 /* Driver Diary — Master Plan v3 / Courier Exchange operational register.
@@ -54,7 +12,7 @@
  */
 
 .driver-diary-route {
-  --driver-diary-rail: var(--ws-filter-rail-w, 220px);
+  --driver-diary-rail: var(--ws-filter-rail-w, 165px);
 }
 
 .driver-diary-route .driver-diary-board {
@@ -100,9 +58,9 @@
 .driver-diary-route .driver-diary-status-strip button {
   min-height: var(--ws-tab-h, 28px);
   padding: 0 10px;
-  font-size: 11.5px;
+  font-size: var(--ws-font-body, 12px);
   line-height: 16px;
-  font-weight: 650;
+  font-weight: 600;
 }
 
 .driver-diary-route .driver-diary-status-strip button span {
@@ -269,9 +227,9 @@
   border-right: 1px solid var(--ws-border, #cfd7e3);
   background: transparent;
   color: var(--ws-text, #172033);
-  font-size: 11.5px;
+  font-size: var(--ws-font-body, 12px);
   line-height: 16px;
-  font-weight: 650;
+  font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -506,66 +464,62 @@
     width: 100%;
   }
 }
-/* 2026-10-01 Diary CX visual polish */
-.driver-diary-route .driver-diary-shell-content{
-  padding:6px 8px!important;
-}
-.driver-diary-route .xdrive-diary-layout{
-  grid-template-columns:188px minmax(0,1fr)!important;
-  gap:6px!important;
-}
-.driver-diary-route .xdrive-diary-layout>.driver-filter-rail{
-  width:188px!important;
-  max-width:188px!important;
-}
+/* 2026-10-01 Diary CX visual polish. Shell padding has a single owner above. */
 .driver-diary-route .driver-filter-rail__title,
 .driver-diary-route .left-title{
-  min-height:32px!important;
-  height:32px!important;
+  min-height:var(--ws-panel-head-h,36px)!important;
+  height:var(--ws-panel-head-h,36px)!important;
   padding:0 9px!important;
-  font-size:12px!important;
+  font-size:11px!important;
+  font-weight:800!important;
 }
 .driver-diary-route .driver-filter-rail__body .filter,
 .driver-diary-route .driver-diary-filter-rail .filter{
-  padding:7px 9px!important;
+  padding:6px 8px!important;
 }
 .driver-diary-route .driver-filter-rail label,
 .driver-diary-route .driver-diary-filter-rail .label{
   margin-bottom:4px!important;
-  font-size:9.5px!important;
+  font-size:10.5px!important;
   line-height:13px!important;
+  font-weight:700!important;
+  letter-spacing:.02em!important;
 }
 .driver-diary-route .driver-filter-rail input,
 .driver-diary-route .driver-filter-rail select,
 .driver-diary-route .driver-diary-filter-rail input,
 .driver-diary-route .driver-diary-filter-rail select{
-  height:28px!important;
-  min-height:28px!important;
+  height:var(--ws-control-h,32px)!important;
+  min-height:var(--ws-control-h,32px)!important;
   padding:0 7px!important;
-  font-size:11px!important;
+  font-size:var(--ws-font-body,12px)!important;
+  line-height:14px!important;
+  font-weight:600!important;
 }
 .driver-diary-route .driver-diary-status-strip{
-  min-height:26px!important;
+  min-height:var(--ws-tab-h,28px)!important;
 }
 .driver-diary-route .driver-diary-status-strip button{
-  min-height:26px!important;
+  min-height:var(--ws-tab-h,28px)!important;
   padding:0 9px!important;
-  font-size:10.5px!important;
+  font-size:10.8px!important;
+  font-weight:650!important;
 }
 .driver-diary-route .driver-diary-toolbar,
 .driver-diary-route .driver-board-summary{
-  min-height:30px!important;
-  padding:3px 7px!important;
-  font-size:10.5px!important;
+  min-height:40px!important;
+  padding:4px 8px!important;
+  font-size:var(--ws-font-body,12px)!important;
 }
 .driver-diary-route .driver-diary-summary-actions{
   gap:5px!important;
 }
 .driver-diary-route .driver-diary-summary-actions select{
-  height:26px!important;
-  min-height:26px!important;
+  height:var(--ws-control-h,32px)!important;
+  min-height:var(--ws-control-h,32px)!important;
   padding:0 20px 0 6px!important;
-  font-size:10.5px!important;
+  font-size:var(--ws-font-body,12px)!important;
+  font-weight:650!important;
 }
 .driver-diary-route .driver-diary-list{
   gap:5px!important;
@@ -588,17 +542,59 @@
   border-right:0!important;
 }
 .driver-diary-route .driver-diary-entry .driver-cell-label{
-  font-size:9.5px!important;
-  line-height:13px!important;
+  font-size:var(--ws-font-meta,11px)!important;
+  line-height:15px!important;
+  font-weight:600!important;
 }
 .driver-diary-route .driver-diary-entry .driver-cell-primary{
-  font-size:12px!important;
+  font-size:13px!important;
   line-height:16px!important;
+  font-weight:800!important;
+}
+.driver-diary-route .driver-diary-entry .driver-diary-route-cell{
+  display:flex!important;
+  align-items:center!important;
+}
+.driver-diary-route .driver-diary-entry .driver-diary-route-line{
+  display:flex!important;
+  align-items:baseline!important;
+  justify-content:flex-start!important;
+  gap:7px!important;
+  width:100%!important;
+  min-width:0!important;
+  min-height:19px!important;
+}
+.driver-diary-route .driver-diary-entry .driver-diary-route-line span{
+  flex:0 0 auto!important;
+  width:auto!important;
+  margin:0!important;
+  text-align:left!important;
+  text-transform:uppercase!important;
+  font-size:10.8px!important;
+  line-height:16px!important;
+  font-weight:700!important;
+  color:#5f7185!important;
+}
+.driver-diary-route .driver-diary-entry .driver-diary-route-line b{
+  flex:0 1 auto!important;
+  width:auto!important;
+  min-width:0!important;
+  margin:0!important;
+  text-align:left!important;
+  white-space:nowrap!important;
+  overflow:hidden!important;
+  text-overflow:ellipsis!important;
+  text-transform:uppercase!important;
+  font-size:13px!important;
+  line-height:16px!important;
+  font-weight:800!important;
+  color:#1f344b!important;
 }
 .driver-diary-route .driver-diary-entry .driver-cell-secondary,
 .driver-diary-route .driver-diary-entry .driver-load-row__meta{
-  font-size:10px!important;
-  line-height:13px!important;
+  font-size:10.5px!important;
+  line-height:14px!important;
+  font-weight:600!important;
 }
 .driver-diary-route .driver-diary-entry .driver-load-row__meta{
   min-height:26px!important;
@@ -606,14 +602,14 @@
   gap:6px!important;
 }
 .driver-diary-route .driver-diary-action-rail{
-  min-height:22px!important;
+  min-height:var(--ws-micro-action-h,24px)!important;
 }
 .driver-diary-route .driver-diary-action-rail button{
-  min-height:22px!important;
-  padding:0 8px!important;
-  font-size:10.5px!important;
-  line-height:13px!important;
-  font-weight:600!important;
+  min-height:var(--ws-micro-action-h,24px)!important;
+  padding:0 9px!important;
+  font-size:var(--ws-font-meta,11px)!important;
+  line-height:14px!important;
+  font-weight:650!important;
 }
 .driver-diary-route .driver-diary-pagination{
   gap:5px!important;
@@ -626,15 +622,15 @@
   gap:2px!important;
 }
 .driver-diary-route .driver-diary-status-band{
-  min-height:22px!important;
+  min-height:var(--ws-micro-action-h,24px)!important;
   display:flex!important;
   align-items:center!important;
   justify-content:center!important;
   padding:0 8px!important;
   border:1px solid var(--ws-border,#cfd7e3)!important;
-  font-size:11px!important;
+  font-size:var(--ws-font-label,11px)!important;
   line-height:14px!important;
-  font-weight:700!important;
+  font-weight:800!important;
   text-align:center!important;
   background:#eef2f6!important;
   color:var(--ws-text,#172033)!important;
@@ -665,8 +661,8 @@
 }
 .driver-diary-route .driver-diary-member-line{
   margin-top:2px!important;
-  font-size:10.5px!important;
-  line-height:13px!important;
+  font-size:var(--ws-font-meta,11px)!important;
+  line-height:14px!important;
   font-weight:600!important;
 }
 .driver-diary-route .driver-diary-load-link{
@@ -676,8 +672,8 @@
   border:0!important;
   background:transparent!important;
   color:var(--ws-text,#172033)!important;
-  font-size:10.5px!important;
-  line-height:13px!important;
+  font-size:var(--ws-font-meta,11px)!important;
+  line-height:14px!important;
   font-weight:600!important;
   text-decoration:none!important;
   cursor:pointer!important;
@@ -765,72 +761,92 @@
     flex-wrap:wrap!important;
   }
 }
-/* Diary controlbar: balanced status tabs + right-side list controls */
-.driver-diary-route .driver-diary-controlbar{
+/* Diary: status tabs and paging actions share the single compact PR675
+ * controlbar, rather than a second standalone header below the tabs.
+ * Route-owned composition only: shared baseline still owns tab typography. */
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .driver-diary-controlbar{
   display:grid!important;
   grid-template-columns:minmax(0,1fr) auto!important;
   align-items:center!important;
-  gap:10px!important;
+  gap:0!important;
   width:100%!important;
   min-width:0!important;
-}
-.driver-diary-route .driver-diary-controlbar .diary-tabs{
-  display:grid!important;
-  grid-template-columns:repeat(8,minmax(72px,1fr))!important;
-  gap:4px!important;
-  width:100%!important;
-  min-width:0!important;
-  overflow:visible!important;
-  white-space:normal!important;
-}
-.driver-diary-route .driver-diary-controlbar .diary-tabs button{
-  width:100%!important;
-  min-width:0!important;
-  min-height:28px!important;
-  padding:0 7px!important;
-  justify-content:center!important;
-  text-align:center!important;
   border:1px solid var(--ws-border,#cfd7e3)!important;
-  border-radius:2px!important;
   background:#fff!important;
-  font-size:10.5px!important;
 }
-.driver-diary-route .driver-diary-controlbar .diary-tabs button[data-active="true"]{
-  background:#eef4ff!important;
-  border-color:var(--ws-blue,#1d57d8)!important;
-  color:var(--ws-navy,#0b2f6b)!important;
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .driver-diary-controlbar > .diary-tabs{
+  margin:0!important;
 }
-.driver-diary-route .driver-diary-controlbar .driver-diary-summary-actions{
-  display:inline-flex!important;
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .driver-diary-controlbar .diary-head-cx{
+  display:flex!important;
   align-items:center!important;
   justify-content:flex-end!important;
   flex-wrap:nowrap!important;
+  width:auto!important;
+  min-width:0!important;
+  min-height:var(--ws-tab-h,28px)!important;
+  height:auto!important;
+  margin:0!important;
+  padding:0 5px!important;
   gap:5px!important;
-  margin-left:auto!important;
+  border:0!important;
+  background:transparent!important;
+}
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .driver-diary-controlbar .diary-head-cx > span:first-child{
+  flex:0 0 auto!important;
   white-space:nowrap!important;
 }
-.driver-diary-route .driver-diary-controlbar+.diary-head-cx{
-  min-height:24px!important;
-  padding:2px 4px!important;
-  border-top:0!important;
-}
 @media (max-width:1280px){
-  .driver-diary-route .driver-diary-controlbar{
-    grid-template-columns:1fr!important;
+  .xdrive-workspace-measured .driver-prototype-port .driver-diary-route .driver-diary-controlbar{
+    grid-template-columns:minmax(0,1fr)!important;
   }
-  .driver-diary-route .driver-diary-controlbar .driver-diary-summary-actions{
-    justify-self:end!important;
-  }
-}
-@media (max-width:900px){
-  .driver-diary-route .driver-diary-controlbar .diary-tabs{
-    grid-template-columns:repeat(4,minmax(0,1fr))!important;
-  }
-  .driver-diary-route .driver-diary-controlbar .driver-diary-summary-actions{
+  .xdrive-workspace-measured .driver-prototype-port .driver-diary-route .driver-diary-controlbar .diary-head-cx{
     width:100%!important;
     justify-content:space-between!important;
-    flex-wrap:wrap!important;
+    border-top:1px solid var(--ws-border,#cfd7e3)!important;
+    padding:2px 5px!important;
   }
+}
+@media (max-width:760px){
+  .xdrive-workspace-measured .driver-prototype-port .driver-diary-route .driver-diary-controlbar .diary-head-cx{
+    align-items:stretch!important;
+    flex-direction:column!important;
+  }
+  .xdrive-workspace-measured .driver-prototype-port .driver-diary-route .driver-diary-controlbar .driver-diary-summary-actions{
+    width:100%!important;
+    flex-wrap:wrap!important;
+    justify-content:space-between!important;
+  }
+}
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .diary-main .driver-diary-controlbar > .diary-tabs{
+  display:flex!important;
+  align-items:stretch!important;
+  gap:0!important;
+  width:100%!important;
+  max-width:100%!important;
+  min-width:0!important;
+  height:var(--ws-tab-h,28px)!important;
+  min-height:var(--ws-tab-h,28px)!important;
+  overflow-x:auto!important;
+  overflow-y:hidden!important;
+  white-space:nowrap!important;
+}
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .diary-main .driver-diary-controlbar > .diary-tabs button{
+  flex:0 0 auto!important;
+  height:var(--ws-tab-h,28px)!important;
+  min-height:var(--ws-tab-h,28px)!important;
+  padding:0 8px!important;
+  border:0!important;
+  border-bottom:2px solid transparent!important;
+  border-radius:0!important;
+  font-size:var(--ws-font-label,11px)!important;
+  font-weight:600!important;
+  white-space:nowrap!important;
+}
+.xdrive-workspace-measured .driver-prototype-port .driver-diary-route .diary-main .driver-diary-controlbar > .diary-tabs button[data-active="true"]{
+  border-bottom-color:var(--ws-blue,#1d57d8)!important;
+  color:var(--ws-navy,#0b2f6b)!important;
+  font-weight:700!important;
 }
 /* Diary operational action rail */
 .driver-diary-route .driver-diary-action-rail button[data-operation="primary"]{

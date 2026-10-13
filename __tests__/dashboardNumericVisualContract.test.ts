@@ -14,21 +14,21 @@ describe('dashboard numeric visual contract', () => {
     expect(source).toContain('fontWeight: 600');
   });
 
-  it('reflows Carrier signals without a forced horizontal scroll surface', () => {
+  it('reflows Carrier signals in the same two-column dashboard family as Owner Driver', () => {
     const component = readFileSync(
       join(process.cwd(), 'app/components/workspace/CarrierOperationsDashboardHome.tsx'),
       'utf8',
     );
-    const css = readFileSync(
-      join(process.cwd(), 'app/components/workspace/WorkspaceUI.module.css'),
+    const baseline = readFileSync(
+      join(process.cwd(), 'app/components/workspace/workspace-measured-cx-baseline.css'),
       'utf8',
     );
 
-    expect(component).toContain('className={styles.carrierControlSignalsGrid}');
+    expect(component).toContain('<OperationalSignalStrip ariaLabel="Carrier control signals" items={signals} />');
     expect(component).not.toContain("minWidth: '780px'");
-    expect(css).toContain('.carrierControlSignalsGrid');
-    expect(css).toContain('grid-template-columns: repeat(6, minmax(0, 1fr))');
-    expect(css).toContain('grid-template-columns: repeat(3, minmax(0, 1fr))');
-    expect(css).toContain('grid-template-columns: repeat(2, minmax(0, 1fr))');
+    expect(baseline).toContain('.xdrive-owner-dashboard-grid .xdrive-operational-dashboard-signals');
+    expect(baseline).toContain('grid-template-columns: repeat(2, minmax(0, 1fr)) !important');
+    expect(baseline).toContain('--ws-dashboard-stat-h: 106px;');
+    expect(baseline).toContain('[aria-pressed="true"]');
   });
 });

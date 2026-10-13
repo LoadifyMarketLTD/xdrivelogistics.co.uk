@@ -15,7 +15,6 @@ import {
   workspaceTheme,
 } from './WorkspaceUI';
 import { OperationalSignalStrip, OperationalWorkspaceGrid } from './OperationalConvergence';
-import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import {
   daysUntil,
   exceptionStatuses,
@@ -94,37 +93,60 @@ export default function ComplianceControlDashboardHome() {
   const incidentsUnavailable = unavailable(data, ['jobs']);
 
   return (
-    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '8px 10px 12px' }}>
-      <DashboardHomeHeader
-        eyebrow="Compliance control"
-        title="Compliance Dashboard"
-        badge="Verification & expiry"
-        description="Document verification, expiry, driver and vehicle record checks, and operational incidents."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>Verification Queue</ActionButton>}
-      />
-
+    <div className="xdrive-admin-dashboard-home">
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
-      <OperationalSignalStrip
-        ariaLabel="Compliance operational signals"
-        items={[
-          { key: 'expired', label: 'Expired', value: metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => expired.length), detail: rejected.length ? `${rejected.length} rejected also require review` : 'Immediate renewal', tone: documentsUnavailable ? 'blue' : expired.length || rejected.length ? 'red' : 'green', onClick: () => router.push('/admin/documents/expiry') },
-          { key: 'due7', label: 'Due 7d', value: metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => due7.length), detail: 'Urgent expiry window', tone: documentsUnavailable ? 'blue' : due7.length ? 'orange' : 'green', onClick: () => router.push('/admin/documents/expiry') },
-          { key: 'due30', label: 'Due 30d', value: metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => due30.length), detail: 'Upcoming expiry', tone: documentsUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/documents/expiry') },
-          { key: 'pending', label: 'Pending', value: metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => pending.length), detail: 'Verification required', tone: documentsUnavailable ? 'blue' : pending.length ? 'purple' : 'navy', onClick: () => router.push('/admin/documents') },
-          { key: 'inactive', label: 'Inactive Accounts', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.status) !== 'active').length), detail: 'Inactive or blocked drivers', tone: unavailable(data, ['drivers']) ? 'blue' : 'red', onClick: () => router.push('/admin/drivers') },
-          { key: 'incidents', label: 'Incidents', value: metricValue(data, ['jobs'], () => incidents.length), detail: 'Compliance follow-up', tone: incidentsUnavailable ? 'blue' : incidents.length ? 'red' : 'green', onClick: () => router.push('/admin/incidents') },
-        ]}
-      />
-
       <OperationalWorkspaceGrid
-        asideLabel="Compliance coverage and actions"
+        asideLabel="Compliance activity"
         main={
           <>
+            <OperationalCard title="Reports & Statistics" subtitle="Verification, expiry and compliance position.">
+              <OperationalSignalStrip
+                ariaLabel="Compliance operational signals"
+                items={[
+                  { key: 'expired', label: 'Expired', value: metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => expired.length), detail: rejected.length ? `${rejected.length} rejected also require review` : 'Immediate renewal', tone: documentsUnavailable ? 'blue' : expired.length || rejected.length ? 'red' : 'green', onClick: () => router.push('/admin/documents/expiry') },
+                  { key: 'due7', label: 'Due 7d', value: metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => due7.length), detail: 'Urgent expiry window', tone: documentsUnavailable ? 'blue' : due7.length ? 'orange' : 'green', onClick: () => router.push('/admin/documents/expiry') },
+                  { key: 'due30', label: 'Due 30d', value: metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => due30.length), detail: 'Upcoming expiry', tone: documentsUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/documents/expiry') },
+                  { key: 'pending', label: 'Pending', value: metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => pending.length), detail: 'Verification required', tone: documentsUnavailable ? 'blue' : pending.length ? 'purple' : 'navy', onClick: () => router.push('/admin/documents') },
+                  { key: 'inactive', label: 'Inactive Accounts', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.status) !== 'active').length), detail: 'Inactive or blocked drivers', tone: unavailable(data, ['drivers']) ? 'blue' : 'red', onClick: () => router.push('/admin/drivers') },
+                  { key: 'incidents', label: 'Incidents', value: metricValue(data, ['jobs'], () => incidents.length), detail: 'Compliance follow-up', tone: incidentsUnavailable ? 'blue' : incidents.length ? 'red' : 'green', onClick: () => router.push('/admin/incidents') },
+                ]}
+              />
+            </OperationalCard>
+
+            <div className="xdrive-owner-dashboard-subgrid">
+              <OperationalCard title="Compliance coverage" subtitle="Recorded document signals across driver and vehicle records.">
+                <ComplianceSummaryPanel
+                  total={documents.length}
+                  rows={[
+                    { label: 'No local alert', count: current.length, color: workspaceTheme.blue, background: '#EFF6FF', border: '#BFDBFE' },
+                    { label: 'Due within 30 days', count: expiringCurrent.length, color: workspaceTheme.orange, background: '#FFF8E8', border: '#FDE68A' },
+                    { label: 'Expired / rejected', count: expired.length + rejected.length, color: workspaceTheme.red, background: '#FEF2F2', border: '#FECACA' },
+                    { label: 'Pending review', count: pending.length, color: workspaceTheme.purple, background: '#FAF5FF', border: '#E9D5FF' },
+                  ]}
+                />
+              </OperationalCard>
+
+              <OperationalCard title="Reports" subtitle="Verification and compliance registers.">
+                <QuickActionGrid
+                  actions={[
+                    { key: 'documents', label: 'Document verification', onClick: () => router.push('/admin/documents') },
+                    { key: 'expiry', label: 'Expiry register', onClick: () => router.push('/admin/documents/expiry') },
+                    { key: 'drivers', label: 'Driver records', onClick: () => router.push('/admin/drivers') },
+                    { key: 'vehicles', label: 'Vehicle records', onClick: () => router.push('/admin/vehicles') },
+                    { key: 'incidents', label: 'Incidents', onClick: () => router.push('/admin/incidents') },
+                  ]}
+                />
+              </OperationalCard>
+            </div>
+          </>
+        }
+        aside={
+          <>
             <OperationalCard
-              title="Priority verification & expiry queue"
-              subtitle="Rejected, expired, near-expiry and pending records are shown before routine documents."
-              actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>All documents</ActionButton>}
+              title="Activity at a glance"
+              subtitle="Priority verification and expiry work."
+              actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>View all</ActionButton>}
               flush
             >
               <DataTable
@@ -155,33 +177,6 @@ export default function ComplianceControlDashboardHome() {
               />
             </OperationalCard>
           </>
-        }
-        aside={
-          <div style={{ display: 'grid', gap: '8px' }}>
-            <OperationalCard title="Compliance coverage" subtitle="Recorded document signals across the current driver and vehicle document set.">
-              <ComplianceSummaryPanel
-                total={documents.length}
-                rows={[
-                  { label: 'No local alert', count: current.length, color: workspaceTheme.blue, background: '#EFF6FF', border: '#BFDBFE' },
-                  { label: 'Due within 30 days', count: expiringCurrent.length, color: workspaceTheme.orange, background: '#FFF8E8', border: '#FDE68A' },
-                  { label: 'Expired / rejected', count: expired.length + rejected.length, color: workspaceTheme.red, background: '#FEF2F2', border: '#FECACA' },
-                  { label: 'Pending review', count: pending.length, color: workspaceTheme.purple, background: '#FAF5FF', border: '#E9D5FF' },
-                ]}
-              />
-            </OperationalCard>
-
-            <OperationalCard title="Compliance actions" subtitle="Verification and document-record workflows only.">
-              <QuickActionGrid
-                actions={[
-                  { key: 'documents', label: 'Document verification', onClick: () => router.push('/admin/documents') },
-                  { key: 'expiry', label: 'Expiry register', onClick: () => router.push('/admin/documents/expiry') },
-                  { key: 'drivers', label: 'Driver records', onClick: () => router.push('/admin/drivers') },
-                  { key: 'vehicles', label: 'Vehicle records', onClick: () => router.push('/admin/vehicles') },
-                  { key: 'incidents', label: 'Incidents', onClick: () => router.push('/admin/incidents') },
-                ]}
-              />
-            </OperationalCard>
-          </div>
         }
       />
     </div>

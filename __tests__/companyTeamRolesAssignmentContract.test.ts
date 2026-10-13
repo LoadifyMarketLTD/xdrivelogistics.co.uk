@@ -9,6 +9,7 @@ const read = (relative: string) =>
 describe('company Team & Roles assignment contract', () => {
   const teamPage = read('app/admin/team/page.tsx');
   const managerPage = read('app/admin/fleet/managers/page.tsx');
+  const carrierCss = read('app/admin/carrier-workspace-canonical.css');
   const dispatcherPage = read('app/admin/dispatchers/page.tsx');
   const managerApi = read('app/api/admin/fleet/managers/route.ts');
   const dispatcherApi = read('app/api/admin/dispatchers/route.ts');
@@ -28,6 +29,24 @@ describe('company Team & Roles assignment contract', () => {
     expect(managerApi).toContain("role_in_company: 'fleet_manager'");
     expect(managerApi).toContain("requested_role: 'fleet_manager'");
     expect(getProtectedRouteRequirement('/admin/fleet/managers')?.anyOf).toEqual(['company.members.manage']);
+  });
+
+  it('keeps Fleet Manager onboarding on the shared Carrier register visual system', () => {
+    for (const hook of [
+      'carrier-register-page--fleet-managers',
+      'carrier-register-toolbar',
+      'carrier-register-title',
+      'carrier-register-manager-form',
+      'carrier-register-results',
+      'carrier-register-table-wrap',
+      'OperationalTable<ManagerRow>',
+      'carrier-register-action',
+    ]) expect(managerPage).toContain(hook);
+    expect(managerPage).not.toContain('rounded-2xl');
+    expect(managerPage).not.toContain('h-11');
+    expect(carrierCss).toContain('.carrier-register-manager-form');
+    expect(carrierCss).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
+    expect(managerPage).toContain('StatusBadge value={manager.status}');
   });
 
   it('offers Dispatcher as an assignable company function', () => {

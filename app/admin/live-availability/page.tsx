@@ -349,16 +349,16 @@ export default function LiveAvailabilityPage() {
       {nearbyError && <AlertBanner tone="warning">{nearbyError}</AlertBanner>}
       {filterNotice && <AlertBanner tone="info">{filterNotice}</AlertBanner>}
 
-      <div style={{ display: 'flex', border: '1px solid #dbe2ea', background: '#fff', marginBottom: 8, overflowX: 'auto' }} role="tablist" aria-label="Availability views">
-        <button type="button" role="tab" aria-selected={tab === 'live'} style={tabStyle(tab === 'live')} onClick={() => setTab('live')}>Live Fleet</button>
-        <button type="button" role="tab" aria-selected={tab === 'future'} style={tabStyle(tab === 'future')} onClick={() => setTab('future')}>Future</button>
-        <button type="button" role="tab" aria-selected={tab === 'nearby'} style={tabStyle(tab === 'nearby')} onClick={() => setTab('nearby')}>Nearby Exchange <span style={{ marginLeft: 4 }}>{nearbyLoading ? '…' : filteredNearby.length}</span></button>
+      <div className="workspace-tab-strip" style={{ display: 'flex', marginBottom: 8, overflowX: 'auto' }} role="tablist" aria-label="Availability views">
+        <button type="button" role="tab" aria-selected={tab === 'live'} data-active={tab === 'live' ? 'true' : 'false'} onClick={() => setTab('live')}>Live Fleet</button>
+        <button type="button" role="tab" aria-selected={tab === 'future'} data-active={tab === 'future' ? 'true' : 'false'} onClick={() => setTab('future')}>Future</button>
+        <button type="button" role="tab" aria-selected={tab === 'nearby'} data-active={tab === 'nearby' ? 'true' : 'false'} onClick={() => setTab('nearby')}>Nearby Exchange <span style={{ marginLeft: 4 }}>{nearbyLoading ? '…' : filteredNearby.length}</span></button>
       </div>
 
       <OperationalSignalStrip items={signals} ariaLabel="Live availability operational signals" />
 
       <Panel title="Availability filters" description={tab === 'nearby' ? 'Search privacy-scoped Exchange availability by member or vehicle type.' : 'Filter the operational register without changing saved driver data.'} style={{ marginBottom: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: tab === 'live' ? 'minmax(220px,2fr) repeat(2,minmax(150px,1fr))' : tab === 'nearby' ? 'minmax(190px,1.4fr) minmax(150px,1fr) 100px minmax(150px,1fr)' : 'minmax(220px,2fr) minmax(150px,1fr)', gap: 8 }}>
+        <div className="workspace-filter-fields">
           <label style={labelStyle}>Search<input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === 'nearby' ? 'Member, ID or vehicle type' : 'Driver, registration, route or future position'} /></label>
           {tab !== 'nearby' && <label style={labelStyle}>Availability<select style={inputStyle} value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="all">All states</option>{availabilityValues.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
           {tab === 'live' && <label style={labelStyle}>Tracking freshness<select style={inputStyle} value={freshness} onChange={(event) => setFreshness(event.target.value as FreshnessFilter)}><option value="all">All freshness</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>}
@@ -461,4 +461,3 @@ export default function LiveAvailabilityPage() {
 
 const inputStyle = { width: '100%', minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px', background: '#fff', color: '#0f172a', fontSize: 12, boxSizing: 'border-box' as const };
 const labelStyle = { display: 'grid', gap: 4, color: '#475569', fontSize: 11, fontWeight: 800 } as const;
-const tabStyle = (active: boolean) => ({ minHeight: 28, padding: '0 10px', border: 0, borderRight: '1px solid #dbe2ea', background: active ? '#eef4ff' : '#fff', color: active ? '#0b2f6b' : '#475569', fontSize: 11, fontWeight: 800, cursor: 'pointer' }) as const;

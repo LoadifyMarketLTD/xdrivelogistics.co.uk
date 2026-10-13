@@ -19,7 +19,9 @@ import {
   PageFrame,
   PageHeader,
   Panel,
+  OperationalTable,
   StatusBadge,
+  WorkspaceDialog,
 } from './WorkspaceUI';
 
 type LoadRow = {
@@ -246,7 +248,7 @@ export default function CompanyMarketplaceExchange({
   const mapLoads = useMemo(() => loads.map((load) => ({ id: load.id, pickupLabel: routeLabel(load.pickup_location, load.pickup_postcode), pickupPostcode: load.pickup_postcode, deliveryLabel: routeLabel(load.delivery_location, load.delivery_postcode), deliveryPostcode: load.delivery_postcode, vehicleLabel: vehicleLabel(load), posterName: load.posterName, pickupAt: load.pickup_datetime, postedAt: load.exchange_posted_at })), [loads]);
   const allVisibleExpanded = loads.length > 0 && loads.every((load) => expanded.has(load.id));
   const toggleExpandAll = () => setExpanded(allVisibleExpanded ? new Set() : new Set(loads.map((load) => load.id)));
-  const tabButton = (id: typeof tab, label: string) => <button type="button" onClick={() => setTab(id)} style={{ border: 0, borderBottom: tab === id ? '2px solid #1d57d8' : '2px solid transparent', background: 'transparent', color: tab === id ? '#1d57d8' : '#64748b', height: 38, padding: '0 10px', fontSize: '11.5px', lineHeight: '14px', fontWeight: tab === id ? 800 : 650, cursor: 'pointer' }}>{label}</button>;
+  const tabButton = (id: typeof tab, label: string) => <button type="button" onClick={() => setTab(id)} className={`carrier-exchange-tab${tab === id ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>;
 
   const dedicatedQuotes = initialTab === 'bids';
 
@@ -260,11 +262,11 @@ export default function CompanyMarketplaceExchange({
         meta={<span>{generatedAt ? 'Updated ' + when(generatedAt) : 'Live exchange data'}</span>}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}{notice && <AlertBanner tone="info">{notice}</AlertBanner>}{!companyId && hasSupabaseSession && <AlertBanner tone="info">Resolving your active company workspace…</AlertBanner>}
-      {!dedicatedQuotes && <div className="carrier-exchange-primary-tabs" style={{ display: 'flex', gap: 4, minHeight: 38, borderBottom: '1px solid #dbe2ea', marginBottom: 8 }}>{tabButton('loads', 'Available Loads')}{tabButton('won', 'Won Work')}</div>}
+      {!dedicatedQuotes && <div className="carrier-exchange-primary-tabs">{tabButton('loads', 'Available Loads')}{tabButton('won', 'Won Work')}</div>}
 
       {tab === 'loads' && <>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
-          <aside className="carrier-exchange-rail" style={{ flex: '0 0 185px', minWidth: 185, maxWidth: 185 }}>
+          <aside className="carrier-exchange-rail">
             <Panel title="Search Loads" description="UK postcode/outcode radius search.">
               <div style={{ display: 'grid', gap: 8 }}>
                 <label><span style={labelStyle}>FROM / Radius</span><div style={{ display: 'grid', gridTemplateColumns: '1fr 76px', gap: 4 }}><input value={filters.from} onChange={(e) => setFilter('from', e.target.value)} placeholder="Postcode / area" style={{ ...fieldStyle, width: '100%' }} /><select value={filters.fromRadius} onChange={(e) => setFilter('fromRadius', e.target.value)} style={{ ...fieldStyle, width: '100%' }}>{radiusOptions.map((value) => <option key={value} value={value}>{value} mi</option>)}</select></div></label>
@@ -292,8 +294,8 @@ export default function CompanyMarketplaceExchange({
           </aside>
 
           <main style={{ flex: '1 1 760px', minWidth: 0 }}>
-            <div className="carrier-exchange-secondary-tabs" style={{ minHeight: 38, display: 'flex', alignItems: 'center', gap: 4, marginBottom: 6, borderBottom: '1px solid #dbe2ea', overflowX: 'auto' }}>
-              {LOAD_TYPES.map(([value, label]) => <button key={value} type="button" onClick={() => setFilter('loadType', value)} style={{ height: 38, border: 0, borderBottom: filters.loadType === value ? '2px solid #1d57d8' : '2px solid transparent', background: 'transparent', color: filters.loadType === value ? '#1d57d8' : '#64748b', fontSize: 11.5, lineHeight: '14px', fontWeight: filters.loadType === value ? 800 : 650, padding: '0 10px', cursor: 'pointer', whiteSpace: 'nowrap' }}>{label}</button>)}
+            <div className="carrier-exchange-secondary-tabs">
+              {LOAD_TYPES.map(([value, label]) => <button key={value} type="button" onClick={() => setFilter('loadType', value)} className={`carrier-exchange-tab${filters.loadType === value ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>)}
               <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{total} result{total === 1 ? '' : 's'}</span>
               {viewMode === 'list' && <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!loads.length} onToggle={toggleExpandAll} noun="loads" />}
               <ActionButton tone="secondary" onClick={() => setViewMode('list')}>List View</ActionButton><ActionButton tone="secondary" onClick={() => setViewMode('map')}>Map View</ActionButton>
@@ -345,7 +347,7 @@ export default function CompanyMarketplaceExchange({
       </>}
 
       {tab === 'bids' && <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
-        <aside className="carrier-exchange-rail" style={{ flex: '0 0 185px', minWidth: 185, maxWidth: 185 }}>
+        <aside className="carrier-exchange-rail">
           <Panel title="Search Panel">
             <div style={{ display: 'grid', gap: 8 }}>
               <label><span style={labelStyle}>Pickup Time Within</span><select value={quoteFilters.pickupWithin} onChange={(event) => setQuoteFilters((current) => ({ ...current, pickupWithin: event.target.value as QuoteTimeWindow }))} style={{ ...fieldStyle, width: '100%' }}>{QUOTE_TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
@@ -357,7 +359,7 @@ export default function CompanyMarketplaceExchange({
           </Panel>
         </aside>
         <main style={{ flex: '1 1 760px', minWidth: 0 }}>
-          <div className="carrier-exchange-secondary-tabs" style={{ display: 'flex', gap: 4, minHeight: 38, alignItems: 'center', borderBottom: '1px solid #dbe2ea', marginBottom: 6, overflowX: 'auto' }}>{([
+          <div className="carrier-exchange-secondary-tabs">{([
             ['all', 'All', bids.length],
             ['submitted', 'Submitted', statusCounts.submitted],
             ['accepted', 'Accepted / Won', statusCounts.accepted],
@@ -365,7 +367,7 @@ export default function CompanyMarketplaceExchange({
             ['withdrawn', 'Withdrawn', statusCounts.withdrawn],
             ['expired', 'Expired', statusCounts.expired],
             ['archived', 'Archived', statusCounts.archived],
-          ] as const).map(([id, label, count]) => <button key={id} type="button" onClick={() => setQuoteStateView(id)} style={{ height: 38, border: 0, borderBottom: quoteStateView === id ? '2px solid #1d57d8' : '2px solid transparent', background: 'transparent', color: quoteStateView === id ? '#1d57d8' : '#64748b', fontSize: 11.5, lineHeight: '14px', fontWeight: quoteStateView === id ? 800 : 650, padding: '0 10px', whiteSpace: 'nowrap', cursor: 'pointer' }}>{label} {count}</button>)}<span style={{ marginLeft: 'auto' }}><OperationalExpandAllControl expanded={allVisibleQuotesExpanded} disabled={!visibleBids.length} onToggle={toggleAllVisibleQuotes} noun="quotes" /></span></div>
+          ] as const).map(([id, label, count]) => <button key={id} type="button" onClick={() => setQuoteStateView(id)} className={`carrier-exchange-tab${quoteStateView === id ? ' carrier-exchange-tab--active' : ''}`}>{label} {count}</button>)}<span style={{ marginLeft: 'auto' }}><OperationalExpandAllControl expanded={allVisibleQuotesExpanded} disabled={!visibleBids.length} onToggle={toggleAllVisibleQuotes} noun="quotes" /></span></div>
           <div style={{ display: 'grid', gap: 6 }}>
             {visibleBids.map((bid) => {
               const expandedQuote = expandedQuotes.has(bid.id);
@@ -385,9 +387,38 @@ export default function CompanyMarketplaceExchange({
         </main>
       </div>}
 
-      {tab === 'won' && <Panel title="Won Work" description="Marketplace loads awarded to your company." flush><div style={{ overflowX: 'auto' }}><table className="carrier-exchange-table" style={{ width: '100%', borderCollapse: 'collapse', minWidth: 900, fontSize: '12.5px' }}><thead><tr style={{ background: '#f8fafc', color: '#475569', textAlign: 'left' }}>{['Load', 'Route', 'Member', 'Pickup', 'Vehicle', 'Status', 'Budget', 'Action'].map((heading) => <th key={heading} style={{ height: 36, padding: '0 8px', borderBottom: '1px solid #dbe2ea', fontSize: 11, lineHeight: '14px' }}>{heading}</th>)}</tr></thead><tbody>{won.map((job) => <tr key={job.id} style={{ borderBottom: '1px solid #edf2f7' }}><td style={{ padding: '8px', fontWeight: 800 }}>{job.id.slice(0, 8).toUpperCase()}</td><td style={{ padding: '8px' }}><strong>{routeLabel(job.pickup_location, job.pickup_postcode)} → {routeLabel(job.delivery_location, job.delivery_postcode)}</strong></td><td style={{ padding: '8px' }}>{job.posterName || 'Marketplace member'}{job.posterMemberCode && <div style={{ color: '#64748b' }}>ID {job.posterMemberCode}</div>}</td><td style={{ padding: '8px' }}>{when(job.pickup_datetime)}</td><td style={{ padding: '8px', textTransform: 'capitalize' }}>{job.requested_vehicle_label || job.vehicle_type?.replace(/_/g, ' ') || '—'}</td><td style={{ padding: '8px' }}><StatusBadge value={workspaceJobOperationalLabel(job)} /></td><td style={{ padding: '8px' }}>{money(job.budget_amount, job.currency || 'GBP')}</td><td style={{ padding: '8px' }}><ActionButton tone="secondary" onClick={() => window.location.assign(`/admin/jobs/${job.id}`)}>Open Job</ActionButton></td></tr>)}{!loading && won.length === 0 && <tr><td colSpan={8} style={{ minHeight: 52, padding: '10px 8px', textAlign: 'center', color: '#64748b' }}>No marketplace work has been awarded to this company yet.</td></tr>}</tbody></table></div></Panel>}
+      {tab === 'won' && <Panel title="Won Work" description="Marketplace loads awarded to your company." flush>
+        <OperationalTable<WonRow>
+          columns={[
+            { id: 'load', header: 'Load', cell: (job) => <strong>{job.id.slice(0, 8).toUpperCase()}</strong> },
+            { id: 'route', header: 'Route', cell: (job) => <strong>{routeLabel(job.pickup_location, job.pickup_postcode)} → {routeLabel(job.delivery_location, job.delivery_postcode)}</strong> },
+            { id: 'member', header: 'Member', cell: (job) => <>{job.posterName || 'Marketplace member'}{job.posterMemberCode ? <div className="workspace-record-meta">ID {job.posterMemberCode}</div> : null}</> },
+            { id: 'pickup', header: 'Pickup', cell: (job) => when(job.pickup_datetime) },
+            { id: 'vehicle', header: 'Vehicle', cell: (job) => job.requested_vehicle_label || job.vehicle_type?.replace(/_/g, ' ') || '—' },
+            { id: 'status', header: 'Status', semanticStatus: true, cell: (job) => workspaceJobOperationalLabel(job) },
+            { id: 'budget', header: 'Budget', align: 'right', cell: (job) => money(job.budget_amount, job.currency || 'GBP') },
+            { id: 'action', header: 'Action', isAction: true, align: 'right', cell: (job) => <ActionButton tone="secondary" onClick={() => window.location.assign(`/admin/jobs/${job.id}`)}>Open Job</ActionButton> },
+          ]}
+          rows={won}
+          getRowKey={(job) => job.id}
+          loading={loading}
+          empty={<div className="carrier-exchange-empty">No marketplace work has been awarded to this company yet.</div>}
+        />
+      </Panel>}
 
-      {bidTarget && <div style={{ position: 'fixed', inset: 0, zIndex: 1000, background: 'rgba(15,23,42,.45)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }} onMouseDown={(event) => { if (event.currentTarget === event.target && !working) setBidTarget(null); }}><div role="dialog" aria-modal="true" aria-label="Submit marketplace quote" style={{ maxHeight: '90dvh', overflowY: 'auto', width: 'min(520px,100%)', background: '#fff', border: '1px solid #cbd5e1', borderRadius: 4, boxShadow: 'none', padding: '16px' }}><div style={{ fontWeight: 800, color: '#0f172a', fontSize: '14px' }}>Submit Quote</div>{error && <><AlertBanner tone="danger">{error}</AlertBanner><WorkspaceRestrictionBanner companyId={companyId} operation="quote" inline /></>}<div style={{ color: '#64748b', fontSize: '11px', marginTop: 4 }}>{routeLabel(bidTarget.pickup_location, bidTarget.pickup_postcode)} → {routeLabel(bidTarget.delivery_location, bidTarget.delivery_postcode)} · {bidTarget.posterName}</div><label style={{ display: 'block', marginTop: 12 }}><span style={labelStyle}>Quote amount (GBP)</span><input autoFocus type="number" min="0.01" step="0.01" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} style={{ ...fieldStyle, width: '100%' }} /></label><label style={{ display: 'block', marginTop: 8 }}><span style={labelStyle}>Message / terms</span><textarea value={quoteMessage} onChange={(e) => setQuoteMessage(e.target.value)} rows={4} placeholder="Availability, vehicle, timing or commercial notes" style={{ ...fieldStyle, width: '100%', height: 'auto', padding: '8px', resize: 'vertical' }} /></label><div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 12 }}><ActionButton tone="secondary" disabled={working} onClick={() => setBidTarget(null)}>Cancel</ActionButton><ActionButton tone="success" disabled={working} onClick={() => void submitQuote()}>{working ? 'Submitting…' : 'Submit Quote'}</ActionButton></div></div></div>}
+      {bidTarget && <WorkspaceDialog
+        ariaLabel="Submit marketplace quote"
+        title="Submit Quote"
+        description={`${routeLabel(bidTarget.pickup_location, bidTarget.pickup_postcode)} → ${routeLabel(bidTarget.delivery_location, bidTarget.delivery_postcode)} · ${bidTarget.posterName}`}
+        width={520}
+        onDismiss={() => setBidTarget(null)}
+        dismissDisabled={working}
+        actions={<><ActionButton tone="secondary" disabled={working} onClick={() => setBidTarget(null)}>Cancel</ActionButton><ActionButton tone="success" disabled={working} onClick={() => void submitQuote()}>{working ? 'Submitting…' : 'Submit Quote'}</ActionButton></>}
+      >
+        {error && <><AlertBanner tone="danger">{error}</AlertBanner><WorkspaceRestrictionBanner companyId={companyId} operation="quote" inline /></>}
+        <label><span style={labelStyle}>Quote amount (GBP)</span><input autoFocus type="number" min="0.01" step="0.01" value={quoteAmount} onChange={(e) => setQuoteAmount(e.target.value)} style={{ ...fieldStyle, width: '100%' }} /></label>
+        <label><span style={labelStyle}>Message / terms</span><textarea value={quoteMessage} onChange={(e) => setQuoteMessage(e.target.value)} rows={4} placeholder="Availability, vehicle, timing or commercial notes" style={{ ...fieldStyle, width: '100%', height: 'auto', padding: '8px', resize: 'vertical' }} /></label>
+      </WorkspaceDialog>}
     </PageFrame>
   );
 }

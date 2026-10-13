@@ -847,7 +847,7 @@ export function FinanceReportsPage() {
         style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))',
-          gap: '0.9rem',
+          gap: 'var(--ws-gap-grid, 12px)',
         }}
       >
         <Panel
@@ -859,7 +859,7 @@ export function FinanceReportsPage() {
             </ActionButton>
           }
         >
-          <p style={{ margin: 0, color: '#64748b', fontSize: '0.78rem' }}>
+          <p style={{ margin: 0, color: '#64748b', fontSize: 'var(--ws-font-body, 12px)' }}>
             {data.invoices.length} invoice record(s) in the current company scope.
           </p>
         </Panel>
@@ -872,7 +872,7 @@ export function FinanceReportsPage() {
             </ActionButton>
           }
         >
-          <p style={{ margin: 0, color: '#64748b', fontSize: '0.78rem' }}>
+          <p style={{ margin: 0, color: '#64748b', fontSize: 'var(--ws-font-body, 12px)' }}>
             {outstanding.length} outstanding record(s), total {money(outstandingValue)}.
           </p>
         </Panel>
@@ -885,7 +885,7 @@ export function FinanceReportsPage() {
             </ActionButton>
           }
         >
-          <p style={{ margin: 0, color: '#64748b', fontSize: '0.78rem' }}>
+          <p style={{ margin: 0, color: '#64748b', fontSize: 'var(--ws-font-body, 12px)' }}>
             {data.jobs.length} job record(s) in the current company scope.
           </p>
         </Panel>

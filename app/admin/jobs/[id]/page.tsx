@@ -355,7 +355,7 @@ export default function JobDetailPage() {
     padding: '6px 8px',
     border: '1px solid #cbd5e1',
     borderRadius: '3px',
-    fontSize: '12.5px',
+    fontSize: '12px',
     lineHeight: '16px',
     outline: 'none',
     transition: 'border-color 0.2s',
@@ -363,7 +363,7 @@ export default function JobDetailPage() {
 
   const labelStyle: React.CSSProperties = {
     display: 'block',
-    fontSize: '11.5px',
+    fontSize: '11px',
     lineHeight: '14px',
     fontWeight: '700',
     color: '#475569',

@@ -22,6 +22,10 @@ const DRIVER_PRIMARY_PAGE_TITLES: Readonly<Record<string, string>> = {
   '/driver/event-log': 'Event Log',
   '/driver/load-alerts': 'Load Alerts',
   '/driver/post-load': 'Post Load',
+  '/driver/action-centre': 'Action Centre',
+  '/driver/finance': 'Finance',
+  '/driver/loads/search': 'Search Loads',
+  '/driver/won-work': 'Won Work',
 };
 
 const DRIVER_ACCOUNT_PREFIXES = [
@@ -44,6 +48,10 @@ function resolveDriverPageTitle(pathname: string | null, explicitTitle?: string)
   if (pathname) {
     const primaryTitle = DRIVER_PRIMARY_PAGE_TITLES[pathname];
     if (primaryTitle) return primaryTitle;
+    if (pathname.startsWith('/driver/finance/invoices/')) {
+      return pathname.endsWith('/edit') ? 'Edit Invoice' : 'Invoice Details';
+    }
+    if (pathname.startsWith('/driver/loads/')) return 'Load Details';
   }
   if (explicitTitle) return explicitTitle;
   if (isDriverAccountPath(pathname)) return 'Account';

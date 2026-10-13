@@ -24,6 +24,10 @@ import {
   ActionButton,
   AlertBanner,
   EmptyState,
+  KpiCard,
+  KpiGrid,
+  OperationalCard,
+  OperationalTable,
   PageFrame,
   StatusBadge,
 } from '../components/workspace/WorkspaceUI';
@@ -161,161 +165,96 @@ export default function BrokerDashboardHome() {
 
   return (
     <PageFrame>
-      <div className="broker-clean-dashboard">
-        {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
-        {quoteDecisionUnavailable ? (
-          <AlertBanner tone="warning">
-            Quote decision data unavailable. Award counts are hidden until both jobs and carrier quotes are available.
-          </AlertBanner>
-        ) : quoteDecisionPartial ? (
-          <AlertBanner tone="warning">
-            Some quote decision data is unavailable. Exact award counts are hidden until all job and quote information is available.
-          </AlertBanner>
-        ) : null}
+      {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
+      {quoteDecisionUnavailable ? (
+        <AlertBanner tone="warning">
+          Quote decision data unavailable. Award counts are hidden until both jobs and carrier quotes are available.
+        </AlertBanner>
+      ) : quoteDecisionPartial ? (
+        <AlertBanner tone="warning">
+          Some quote decision data is unavailable. Exact award counts are hidden until all job and quote information is available.
+        </AlertBanner>
+      ) : null}
 
-        <section className="broker-clean-box broker-owner-reports-card">
-          <div className="broker-clean-box__head">
-            <div>
-              <strong>Reports & Statistics</strong>
-              <span>Live broker transport and commercial position.</span>
-            </div>
-          </div>
-          <div className="broker-clean-kpis" aria-label="Broker summary">
-          <button type="button" onClick={() => router.push('/broker/loads')}>
-            <span>Open loads</span>
-            <strong>{metricState(jobsDataset, metrics.openLoads.length)}</strong>
-            <small>Customer work in sourcing</small>
-          </button>
-          <button type="button" onClick={() => router.push('/broker/bids')}>
-            <span>Awaiting award</span>
-            <strong>{quoteDecisionMetric}</strong>
-            <small>Carrier quotes need a decision</small>
-          </button>
-          <button type="button" onClick={() => router.push('/broker/jobs')}>
-            <span>Active jobs</span>
-            <strong>{metricState(jobsDataset, metrics.activeJobs.length)}</strong>
-            <small>Driver execution in progress</small>
-          </button>
-          <button type="button" onClick={() => router.push('/broker/margins')}>
-            <span>Gross margin</span>
-            <strong>{metricState(invoicesDataset, money(metrics.grossMargin))}</strong>
-            <small>Revenue less carrier cost</small>
-          </button>
-          </div>
-        </section>
+      <div className="broker-clean-dashboard xdrive-owner-dashboard-grid">
+        <OperationalCard
+          title="Reports & Statistics"
+          subtitle="Live broker transport and commercial position."
+          className="broker-owner-reports-card"
+        >
+          <KpiGrid>
+            <KpiCard label="Open loads" value={metricState(jobsDataset, metrics.openLoads.length)} detail="Customer work in sourcing" tone="blue" onClick={() => router.push('/broker/loads')} />
+            <KpiCard label="Awaiting award" value={quoteDecisionMetric} detail="Carrier quotes need a decision" tone="orange" onClick={() => router.push('/broker/bids')} />
+            <KpiCard label="Active jobs" value={metricState(jobsDataset, metrics.activeJobs.length)} detail="Driver execution in progress" tone="green" onClick={() => router.push('/broker/jobs')} />
+            <KpiCard label="Gross margin" value={metricState(invoicesDataset, money(metrics.grossMargin))} detail="Revenue less carrier cost" tone="navy" onClick={() => router.push('/broker/margins')} />
+          </KpiGrid>
+        </OperationalCard>
 
-        <div className="broker-clean-grid broker-owner-attention">
-          <section className="broker-clean-box">
-            <div className="broker-clean-box__head">
-              <div>
-                <strong>Needs your attention</strong>
-                <span>Only items requiring a broker decision or intervention</span>
-              </div>
-              <ActionButton tone="secondary" onClick={() => router.push('/broker/action-centre')}>
-                Action Centre
-              </ActionButton>
+        <OperationalCard
+          title="Needs your attention"
+          subtitle="Only items requiring a broker decision or intervention"
+          actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/action-centre')}>Action Centre</ActionButton>}
+          className="broker-owner-attention"
+        >
+          {attentionItems.length ? (
+            <div className="broker-clean-attention">
+              {attentionItems.map((item) => (
+                <button key={item.label} type="button" onClick={() => router.push(item.route)}>
+                  <span>
+                    <strong>{item.label}</strong>
+                    <small>{item.detail}</small>
+                  </span>
+                  <b>{item.value}</b>
+                </button>
+              ))}
             </div>
-            <div className="broker-clean-box__body">
-              {attentionItems.length ? (
-                <div className="broker-clean-attention">
-                  {attentionItems.map((item) => (
-                    <button key={item.label} type="button" onClick={() => router.push(item.route)}>
-                      <span>
-                        <strong>{item.label}</strong>
-                        <small>{item.detail}</small>
-                      </span>
-                      <b>{item.value}</b>
-                    </button>
-                  ))}
-                </div>
-              ) : attentionUnavailable ? (
-                <EmptyState
-                  compact
-                  title={quoteDecisionUnavailable ? 'Quote decision data unavailable' : 'Attention data unavailable'}
-                  description="The broker dashboard cannot confirm that there are no decisions or interventions until jobs, quotes and invoices are available."
-                />
-              ) : attentionPartial ? (
-                <EmptyState
-                  compact
-                  title={quoteDecisionPartial ? 'Quote decision data is partial' : 'Attention data is partial'}
-                  description="The visible records are incomplete, so this dashboard does not claim that the attention queue is empty."
-                />
-              ) : (
-                <EmptyState
-                  compact
-                  title="Nothing needs attention"
-                  description="There are no urgent broker decisions right now."
-                />
-              )}
-            </div>
-          </section>
-        </div>
+          ) : attentionUnavailable ? (
+            <EmptyState
+              compact
+              title={quoteDecisionUnavailable ? 'Quote decision data unavailable' : 'Attention data unavailable'}
+              description="The broker dashboard cannot confirm that there are no decisions or interventions until jobs, quotes and invoices are available."
+            />
+          ) : attentionPartial ? (
+            <EmptyState
+              compact
+              title={quoteDecisionPartial ? 'Quote decision data is partial' : 'Attention data is partial'}
+              description="The visible records are incomplete, so this dashboard does not claim that the attention queue is empty."
+            />
+          ) : (
+            <EmptyState
+              compact
+              title="Nothing needs attention"
+              description="There are no urgent broker decisions right now."
+            />
+          )}
+        </OperationalCard>
 
-        <section className="broker-clean-box broker-owner-activity">
-          <div className="broker-clean-box__head">
-            <div>
-              <strong>Activity at a glance</strong>
-              <span>Same job lifecycle seen by Customer, Driver, Fleet and Broker</span>
-            </div>
-            <ActionButton tone="secondary" onClick={() => router.push('/broker/jobs')}>View all jobs</ActionButton>
-          </div>
-          <div className="broker-clean-box__body">
+        <OperationalCard
+          title="Activity at a glance"
+          subtitle="Same job lifecycle seen by Customer, Driver, Fleet and Broker"
+          actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/jobs')}>View all jobs</ActionButton>}
+          className="broker-owner-activity"
+          flush
+        >
             {metrics.currentJobs.length ? (
               <div className="broker-clean-table-wrap">
-                <table className="broker-clean-table">
-                  <thead>
-                    <tr>
-                      <th>Reference</th>
-                      <th>Customer</th>
-                      <th>Route</th>
-                      <th>Pickup</th>
-                      <th>Status</th>
-                      <th>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {metrics.currentJobs.map((job) => {
+                <OperationalTable
+                  columns={[
+                    { id: 'reference', header: 'Reference', cell: (job) => <><strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong><small>{job.customer_reference || 'No customer ref'}</small></> },
+                    { id: 'customer', header: 'Customer', cell: (job) => job.client_name || 'Customer' },
+                    { id: 'route', header: 'Route', cell: (job) => <strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong> },
+                    { id: 'pickup', header: 'Pickup', cell: (job) => when(job.pickup_datetime) },
+                    { id: 'status', header: 'Status', cell: (job) => <StatusBadge value={brokerLifecycleLabel(job)} /> },
+                    { id: 'action', header: 'Action', isAction: true, align: 'right', cell: (job) => {
                       const stage = classifyWorkspaceJobStage(job);
-                      const action =
-                        stage === 'in_progress'
-                          ? 'Track'
-                          : stage === 'completed'
-                            ? 'POD'
-                            : stage === 'open'
-                              ? 'Quotes'
-                              : 'View booking';
-                      const route =
-                        action === 'Quotes'
-                          ? `/broker/bids?job=${job.id}`
-                          : action === 'POD'
-                            ? `/broker/pod-review?job=${job.id}`
-                            : `/broker/jobs?job=${job.id}`;
-
-                      return (
-                        <tr key={job.id}>
-                          <td>
-                            <strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong>
-                            <small>{job.customer_reference || 'No customer ref'}</small>
-                          </td>
-                          <td>{job.client_name || 'Customer'}</td>
-                          <td>
-                            <strong>
-                              {job.pickup_postcode ?? job.pickup_location ?? 'Collection'} →{' '}
-                              {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}
-                            </strong>
-                          </td>
-                          <td>{when(job.pickup_datetime)}</td>
-                          <td><StatusBadge value={brokerLifecycleLabel(job)} /></td>
-                          <td>
-                            <ActionButton tone="secondary" onClick={() => router.push(route)}>
-                              {action}
-                            </ActionButton>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      const action = stage === 'in_progress' ? 'Track' : stage === 'completed' ? 'POD' : stage === 'open' ? 'Quotes' : 'View booking';
+                      const route = action === 'Quotes' ? `/broker/bids?job=${job.id}` : action === 'POD' ? `/broker/pod-review?job=${job.id}` : `/broker/jobs?job=${job.id}`;
+                      return <ActionButton tone="secondary" onClick={() => router.push(route)}>{action}</ActionButton>;
+                    } },
+                  ]}
+                  rows={metrics.currentJobs}
+                  getRowKey={(job) => job.id}
+                />
               </div>
             ) : jobsDataset.availability !== 'available' ? (
               <EmptyState
@@ -336,53 +275,53 @@ export default function BrokerDashboardHome() {
                 description="Customer loads and awarded carrier work will appear here."
               />
             )}
-          </div>
-        </section>
+        </OperationalCard>
 
-        <section className="broker-clean-box broker-owner-commercial">
-          <div className="broker-clean-box__head">
-            <div>
-              <strong>Commercial & Finance</strong>
-              <span>Broker-only financial visibility, kept separate from operational execution</span>
+        <div className="broker-owner-subgrid xdrive-owner-dashboard-subgrid">
+          <OperationalCard
+            title="Commercial & Finance"
+            subtitle="Broker-only financial visibility, kept separate from operational execution"
+            actions={<ActionButton tone="secondary" onClick={() => router.push('/broker/finance')}>Open Finance</ActionButton>}
+            className="broker-owner-commercial"
+          >
+            <div className="broker-clean-commercial">
+              <button type="button" onClick={() => router.push('/broker/customer-invoices')}>
+                <span>Awaiting customer payment</span>
+                <strong>{metricState(invoicesDataset, metrics.outstandingRevenue.length)}</strong>
+                <small>{invoicesDataset.availability !== 'available'
+                  ? 'Unavailable'
+                  : invoicesDataset.partialData || invoicesDataset.limitedData
+                    ? 'Partial total'
+                    : money(metrics.outstandingRevenueValue)}</small>
+              </button>
+              <button type="button" onClick={() => router.push('/broker/carrier-costs')}>
+                <span>Carrier costs</span>
+                <strong>Open</strong>
+                <small>Review payable carrier invoices</small>
+              </button>
+              <button type="button" onClick={() => router.push('/broker/margins')}>
+                <span>Margin</span>
+                <strong>{metricState(invoicesDataset, money(metrics.grossMargin))}</strong>
+                <small>Customer revenue minus carrier cost</small>
+              </button>
             </div>
-            <ActionButton tone="secondary" onClick={() => router.push('/broker/finance')}>Open Finance</ActionButton>
-          </div>
-          <div className="broker-clean-commercial">
-            <button type="button" onClick={() => router.push('/broker/customer-invoices')}>
-              <span>Awaiting customer payment</span>
-              <strong>{metricState(invoicesDataset, metrics.outstandingRevenue.length)}</strong>
-              <small>{invoicesDataset.availability !== 'available'
-                ? 'Unavailable'
-                : invoicesDataset.partialData || invoicesDataset.limitedData
-                  ? 'Partial total'
-                  : money(metrics.outstandingRevenueValue)}</small>
-            </button>
-            <button type="button" onClick={() => router.push('/broker/carrier-costs')}>
-              <span>Carrier costs</span>
-              <strong>Open</strong>
-              <small>Review payable carrier invoices</small>
-            </button>
-            <button type="button" onClick={() => router.push('/broker/margins')}>
-              <span>Margin</span>
-              <strong>{metricState(invoicesDataset, money(metrics.grossMargin))}</strong>
-              <small>Customer revenue minus carrier cost</small>
-            </button>
-          </div>
-        </section>
+          </OperationalCard>
 
-        <section className="broker-clean-box broker-owner-reports-links">
-          <div className="broker-clean-box__head">
-            <div><strong>Reports</strong><span>Direct routes to broker operational registers.</span></div>
-          </div>
-          <div className="broker-clean-footer-links">
-          <button type="button" onClick={() => router.push('/broker/customers')}>Customers</button>
-          <button type="button" onClick={() => router.push('/broker/carrier-network')}>Carrier Network</button>
-          <button type="button" onClick={() => router.push('/broker/diary')}>Diary</button>
-          <button type="button" onClick={() => router.push('/broker/messages')}>Messages</button>
-          <button type="button" onClick={() => router.push('/broker/event-log')}>Event Log</button>
-          <button type="button" onClick={() => router.push('/broker/disputes')}>Disputes</button>
-          </div>
-        </section>
+          <OperationalCard
+            title="Reports"
+            subtitle="Direct routes to broker operational registers."
+            className="broker-owner-reports-links"
+          >
+            <div className="broker-clean-footer-links">
+            <button type="button" onClick={() => router.push('/broker/customers')}>Customers</button>
+            <button type="button" onClick={() => router.push('/broker/carrier-network')}>Carrier Network</button>
+            <button type="button" onClick={() => router.push('/broker/diary')}>Diary</button>
+            <button type="button" onClick={() => router.push('/broker/messages')}>Messages</button>
+            <button type="button" onClick={() => router.push('/broker/event-log')}>Event Log</button>
+            <button type="button" onClick={() => router.push('/broker/disputes')}>Disputes</button>
+            </div>
+          </OperationalCard>
+        </div>
       </div>
     </PageFrame>
   );

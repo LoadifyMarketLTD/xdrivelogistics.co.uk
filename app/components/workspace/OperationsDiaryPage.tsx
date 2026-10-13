@@ -17,6 +17,7 @@ import {
   PageFrame,
   PageHeader,
   StatusBadge,
+  WorkspaceDialog,
 } from './WorkspaceUI';
 
 type DiaryViewMode = 'list' | 'split';
@@ -885,27 +886,30 @@ export default function OperationsDiaryPage() {
         </main>
       </div>
 
-      {groupManagerOpen && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !groupWorking) setGroupManagerOpen(false); }} style={{ position: 'fixed', inset: 0, zIndex: 1290, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(15, 23, 42, 0.48)' }}>
-        <section role="dialog" aria-modal="true" aria-labelledby="diary-groups-title" style={{ width: 'min(620px, calc(100vw - 32px))', maxHeight: 'min(720px, calc(100vh - 32px))', overflow: 'auto', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', boxShadow: 'none' }}>
-          <header style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f4f6f8' }}><strong id="diary-groups-title">Add / Edit Groups</strong><div style={{ marginTop: 2, color: '#64748b', fontSize: 11 }}>Groups organise bookings inside this company workspace only.</div></header>
-          <div style={{ padding: 12, display: 'grid', gap: 10 }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 6 }}><input value={newGroupName} onChange={(event) => setNewGroupName(event.target.value.slice(0, 80))} placeholder="New group name" aria-label="New Diary group name" style={{ minHeight: 34, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }} /><ActionButton tone="success" disabled={groupWorking || !newGroupName.trim()} onClick={() => void createDiaryGroup()}>Add Group</ActionButton></div>
-            {groups.length === 0 ? <EmptyState compact title="No Diary groups yet" description="Create a group to organise bookings for your company team." /> : <div style={{ display: 'grid', gap: 6 }}>{groups.map((group) => <div key={group.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', gap: 6, alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 4, padding: 6 }}><input value={groupNameDrafts[group.id] ?? group.name} onChange={(event) => setGroupNameDrafts((current) => ({ ...current, [group.id]: event.target.value.slice(0, 80) }))} aria-label={`Rename ${group.name}`} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }} /><ActionButton tone="secondary" disabled={groupWorking || !(groupNameDrafts[group.id] ?? '').trim() || (groupNameDrafts[group.id] ?? '').trim() === group.name} onClick={() => void renameDiaryGroup(group.id)}>Save</ActionButton><ActionButton tone="danger" disabled={groupWorking} onClick={() => void deleteDiaryGroup(group.id)}>Delete</ActionButton></div>)}</div>}
-          </div>
-          <footer style={{ padding: '8px 12px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #e2e8f0', background: '#f4f6f8' }}><ActionButton tone="secondary" disabled={groupWorking} onClick={() => setGroupManagerOpen(false)}>Close</ActionButton></footer>
-        </section>
-      </div>}
+      {groupManagerOpen && <WorkspaceDialog
+        ariaLabel="Add or edit Diary groups"
+        title="Add / Edit Groups"
+        description="Groups organise bookings inside this company workspace only."
+        onDismiss={() => setGroupManagerOpen(false)}
+        dismissDisabled={groupWorking}
+        actions={<ActionButton tone="secondary" disabled={groupWorking} onClick={() => setGroupManagerOpen(false)}>Close</ActionButton>}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', gap: 6 }}><input value={newGroupName} onChange={(event) => setNewGroupName(event.target.value.slice(0, 80))} placeholder="New group name" aria-label="New Diary group name" /><ActionButton tone="success" disabled={groupWorking || !newGroupName.trim()} onClick={() => void createDiaryGroup()}>Add Group</ActionButton></div>
+        {groups.length === 0 ? <EmptyState compact title="No Diary groups yet" description="Create a group to organise bookings for your company team." /> : <div style={{ display: 'grid', gap: 6 }}>{groups.map((group) => <div key={group.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', gap: 6, alignItems: 'center', border: '1px solid #e2e8f0', borderRadius: 4, padding: 6 }}><input value={groupNameDrafts[group.id] ?? group.name} onChange={(event) => setGroupNameDrafts((current) => ({ ...current, [group.id]: event.target.value.slice(0, 80) }))} aria-label={`Rename ${group.name}`} /><ActionButton tone="secondary" disabled={groupWorking || !(groupNameDrafts[group.id] ?? '').trim() || (groupNameDrafts[group.id] ?? '').trim() === group.name} onClick={() => void renameDiaryGroup(group.id)}>Save</ActionButton><ActionButton tone="danger" disabled={groupWorking} onClick={() => void deleteDiaryGroup(group.id)}>Delete</ActionButton></div>)}</div>}
+      </WorkspaceDialog>}
 
-      {feedbackJobId && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !feedbackSaving) setFeedbackJobId(null); }} style={{ position: 'fixed', inset: 0, zIndex: 1300, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(15, 23, 42, 0.48)' }}>
-        <section role="dialog" aria-modal="true" aria-labelledby="company-feedback-title" style={{ width: 'min(520px, calc(100vw - 32px))', overflow: 'hidden', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', boxShadow: 'none' }}>
-          <header style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f4f6f8' }}><strong id="company-feedback-title">Company feedback</strong><div style={{ marginTop: 2, color: '#64748b', fontSize: 11 }}>Rate the external carrier for this completed booking. One company review is kept per booking.</div></header>
-          <div style={{ padding: 12, display: 'grid', gap: 10 }}>
-            <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 800, color: '#334155' }}>RATING<select value={feedbackRating} onChange={(event) => setFeedbackRating(Number(event.target.value))} style={{ minHeight: 34, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px', background: '#fff' }}>{[5,4,3,2,1].map((rating) => <option key={rating} value={rating}>{rating} / 5</option>)}</select></label>
-            <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 800, color: '#334155' }}>COMMENT<textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value.slice(0, 2000))} rows={5} placeholder="Operational feedback about this booking" style={{ border: '1px solid #cbd5e1', borderRadius: 4, padding: 8, resize: 'vertical' }} /></label>
-          </div>
-          <footer style={{ padding: '8px 12px', display: 'flex', justifyContent: 'flex-end', gap: 6, borderTop: '1px solid #e2e8f0', background: '#f4f6f8' }}><ActionButton tone="secondary" disabled={feedbackSaving} onClick={() => setFeedbackJobId(null)}>Cancel</ActionButton><ActionButton tone="success" disabled={feedbackSaving} onClick={() => void saveFeedback()}>{feedbackSaving ? 'Saving…' : 'Save Feedback'}</ActionButton></footer>
-        </section>
-      </div>}
+      {feedbackJobId && <WorkspaceDialog
+        ariaLabel="Company feedback"
+        title="Company feedback"
+        description="Rate the external carrier for this completed booking. One company review is kept per booking."
+        width={520}
+        onDismiss={() => setFeedbackJobId(null)}
+        dismissDisabled={feedbackSaving}
+        actions={<><ActionButton tone="secondary" disabled={feedbackSaving} onClick={() => setFeedbackJobId(null)}>Cancel</ActionButton><ActionButton tone="success" disabled={feedbackSaving} onClick={() => void saveFeedback()}>{feedbackSaving ? 'Saving…' : 'Save Feedback'}</ActionButton></>}
+      >
+        <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: '#334155' }}>RATING<select value={feedbackRating} onChange={(event) => setFeedbackRating(Number(event.target.value))}>{[5,4,3,2,1].map((rating) => <option key={rating} value={rating}>{rating} / 5</option>)}</select></label>
+        <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: '#334155' }}>COMMENT<textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value.slice(0, 2000))} rows={5} placeholder="Operational feedback about this booking" /></label>
+      </WorkspaceDialog>}
     </PageFrame>
   );
 }

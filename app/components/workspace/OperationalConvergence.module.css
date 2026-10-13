@@ -88,13 +88,6 @@
   white-space: nowrap;
 }
 
-.workspaceGrid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.9fr) minmax(300px, .75fr);
-  gap: var(--ws-gap-grid, 12px);
-  align-items: start;
-}
-
 .workspaceMain {
   min-width: 0;
   display: grid;
@@ -104,12 +97,15 @@
 
 .workspaceAside {
   min-width: 0;
+  display: grid;
+  gap: var(--ws-gap-grid, 12px);
   align-self: start;
+  align-content: start;
 }
 
 .controlGrid {
   display: grid;
-  grid-template-columns: 315px minmax(0, 1fr);
+  grid-template-columns: var(--ws-filter-rail-w, 165px) minmax(0, 1fr);
   gap: var(--ws-gap-grid, 12px);
   align-items: start;
 }
@@ -314,13 +310,6 @@
 .tonePurple { --signal-tone: #7c3aed; }
 .toneNavy { --signal-tone: var(--ws-navy, #0b2f6b); }
 
-@media (min-width: 1440px) {
-  .workspaceAside {
-    position: sticky;
-    top: calc(var(--ws-header-h, 50px) + var(--ws-page-y, 12px));
-  }
-}
-
 @media (max-width: 1279px) {
   .signalStrip {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -334,17 +323,9 @@
     border-right: 0;
   }
 
-  .workspaceGrid {
-    grid-template-columns: minmax(0, 1fr) minmax(280px, .62fr);
-  }
-
-  .controlGrid {
-    grid-template-columns: 300px minmax(0, 1fr);
-  }
 }
 
 @media (max-width: 1024px) {
-  .workspaceGrid,
   .controlGrid {
     grid-template-columns: 1fr;
   }

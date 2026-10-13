@@ -24,12 +24,12 @@ describe('Customer clean workspace contract', () => {
 
   it('keeps only the four primary customer signals at the top', () => {
     for (const label of ['Open Loads','Quotes to Review','Active Deliveries','Outstanding Invoices']) {
-      expect(dashboard).toContain(`<span>${label}</span>`);
+      expect(dashboard).toContain(`label="${label}"`);
     }
     for (const removedLabel of ['Awaiting award','Delayed','POD ready']) {
-      expect(dashboard).not.toContain(`<span>${removedLabel}</span>`);
+      expect(dashboard).not.toContain(`label="${removedLabel}"`);
     }
-    expect(dashboard).toContain('customer-owner-stat-grid');
+    expect(dashboard).toContain('<KpiGrid>');
     expect(dashboard).not.toContain('CUS-201');
   });
 

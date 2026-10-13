@@ -169,12 +169,16 @@ describe('carrier dashboard convergence contract', () => {
 
   it('keeps the carrier dashboard readable while preserving the approved operational geometry', () => {
     const shellCss = source('app/components/workspace/top-workspace-shell.css');
+    const baseline = source('app/components/workspace/workspace-measured-cx-baseline.css');
 
-    expect(shellCss).toContain('height: 50px !important;');
-    expect(shellCss).toContain('.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button');
-    expect(shellCss).toContain('min-height: 72px !important;');
+    expect(baseline).toContain('--ws-nav-h: 42px');
+    expect(baseline).toContain('--ws-filter-rail-w: 165px');
+    expect(shellCss).toContain('.xdrive-operational-top-workspace .top-workspace-nav__item');
+    expect(shellCss).not.toContain('.xdrive-workspace-measured.xdrive-operational-top-workspace [aria-label="Carrier control signals"] button');
+    expect(baseline).toContain('--ws-dashboard-stat-h: 106px;');
+    expect(baseline).toContain('.xdrive-owner-dashboard-grid .xdrive-operational-dashboard-signals');
     expect(shellCss).toContain('.top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"]');
-    expect(shellCss).toContain('top: 74px !important;');
+    expect(shellCss).toContain('top: calc(var(--ws-header-h, 50px) + var(--ws-nav-h, 42px)) !important;');
     expect(shellCss).toContain('font-size: 12px !important;');
   });
 });

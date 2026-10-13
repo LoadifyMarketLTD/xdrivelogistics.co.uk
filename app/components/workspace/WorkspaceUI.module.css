@@ -1,3 +1,172 @@
+/* Shared page framing for Customer, Broker, Carrier, Fleet, Finance, Viewer
+ * and both Driver surfaces. The measured baseline may refine these tokens,
+ * but the component never introduces role-specific inline dimensions. */
+.pageFrame {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: var(--ws-page-y, 12px) var(--ws-page-x, 12px) 16px;
+}
+
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  min-height: 44px;
+  margin-bottom: var(--ws-gap-internal, 8px);
+}
+
+.pageHeaderCopy {
+  min-width: 0;
+  flex: 1 1 520px;
+}
+
+.pageHeaderEyebrow {
+  margin-bottom: 2px;
+  color: var(--ws-blue, #1d57d8);
+  font-size: var(--ws-font-label, 11px);
+  line-height: 14px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.pageHeaderTitle {
+  margin: 0;
+  color: var(--ws-text, #172033);
+  font-size: var(--ws-font-page-title, 20px);
+  line-height: 26px;
+  font-weight: 650;
+}
+
+.pageHeaderDescription {
+  max-width: 860px;
+  margin: 2px 0 0;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-body, 12px);
+  line-height: 16px;
+}
+
+.pageHeaderMeta,
+.pageHeaderActions {
+  display: flex;
+  align-items: center;
+  gap: var(--ws-gap-internal, 8px);
+  flex-wrap: wrap;
+}
+
+.pageHeaderMeta {
+  margin-top: var(--ws-gap-micro, 4px);
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 14px;
+}
+
+.workspaceDialogOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1300;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.48);
+}
+
+.workspaceDialog {
+  width: min(var(--workspace-dialog-max-width, 620px), calc(100vw - 32px));
+  max-height: min(var(--workspace-dialog-max-height, 720px), calc(100vh - 32px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ws-border, #d8dee8);
+  border-radius: var(--ws-radius, 4px);
+  background: #fff;
+  color: var(--ws-text, #172033);
+  box-shadow: none;
+}
+
+.workspaceDialogHeader {
+  min-height: var(--ws-panel-head-h, 36px);
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-gap-internal, 8px);
+  border-bottom: 1px solid var(--ws-border, #d8dee8);
+  background: var(--ws-panel-head-bg, #eef5fb);
+}
+
+.workspaceDialogHeaderCopy {
+  min-width: 0;
+}
+
+.workspaceDialogHeaderActions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--ws-gap-internal, 8px);
+}
+
+.workspaceDialogTitle {
+  display: block;
+  font-size: var(--ws-font-panel-title, 13px);
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.workspaceDialogDescription {
+  display: block;
+  margin-top: 2px;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-label, 11px);
+  line-height: 14px;
+}
+
+.workspaceDialogSubheader {
+  flex: 0 0 auto;
+  border-bottom: 1px solid var(--ws-border, #d8dee8);
+  background: #fff;
+}
+
+.workspaceDialogBody {
+  min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+  padding: 10px;
+  display: grid;
+  align-content: start;
+  gap: var(--ws-gap-internal, 8px);
+}
+
+.workspaceDialogFooter {
+  min-height: 40px;
+  padding: 4px 10px;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-gap-internal, 8px);
+  border-top: 1px solid var(--ws-border, #d8dee8);
+  background: var(--ws-panel-head-bg, #eef5fb);
+}
+
+.workspaceDialogFooterLeading {
+  min-width: 0;
+  color: var(--ws-muted, #64748b);
+  font-size: var(--ws-font-meta, 11px);
+  line-height: 14px;
+}
+
+.workspaceDialogFooterActions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--ws-gap-internal, 8px);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 /* ─── OperationalToolbar ────────────────────────────────────────────────────
  * Section 5: height 40px single-row; h-padding 8px; v-padding 4px;
  * border 1px; radius 4px; control-gap 8px; bottom-margin 8px.
@@ -36,35 +205,6 @@
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 8px;
   margin-bottom: 12px;
-}
-
-/* Carrier control signals must reflow inside the viewport; the operational
- * dashboard contract explicitly forbids page-level horizontal overflow. */
-.carrierControlSignals {
-  overflow: hidden;
-}
-
-.carrierControlSignalsGrid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 1px;
-  background: #D8DEE8;
-}
-
-.carrierControlSignal {
-  min-width: 0;
-}
-
-@media (max-width: 1200px) {
-  .carrierControlSignalsGrid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 640px) {
-  .carrierControlSignalsGrid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 .financialSummaryPanel {
@@ -283,125 +423,6 @@
   font-size: 11px;
 }
 
-.roleDashboardColumn {
-  display: grid;
-  gap: 12px;
-}
-
-.roleDashboardSummaryList {
-  display: grid;
-  gap: 8px;
-}
-
-.roleDashboardSummaryButton {
-  width: 100%;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid #D8DEE8;
-  border-radius: 4px;
-  background: #ffffff;
-  color: #1A1F2B;
-  padding: 8px 10px;
-  text-align: left;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.roleDashboardListRow,
-.roleDashboardDriverButton {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 0;
-  border-bottom: 1px solid #E5E7EB;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 400;
-}
-
-.roleDashboardListRow:last-child,
-.roleDashboardDriverButton:last-child {
-  border-bottom: none;
-}
-
-.roleDashboardDriverButton {
-  border-top: 0;
-  border-left: 0;
-  border-right: 0;
-  border-radius: 0;
-  background: none;
-  color: #1A1F2B;
-  cursor: pointer;
-  text-align: left;
-}
-
-.roleDashboardSummaryButton:hover,
-.roleDashboardDriverButton:hover {
-  border-color: #1D57D8;
-  background: #F1F6FF;
-}
-
-.roleDashboardSummaryButton:focus-visible,
-.roleDashboardDriverButton:focus-visible {
-  outline: 2px solid #1D57D8;
-  outline-offset: -2px;
-  border-color: #1D57D8;
-  background: #F1F6FF;
-}
-
-.roleDashboardDriverCopy {
-  min-width: 0;
-}
-
-.roleDashboardDriverName {
-  display: block;
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: 600;
-}
-
-.roleDashboardDriverMeta {
-  display: block;
-  color: #64748B;
-  font-size: 11px;
-  line-height: 14px;
-}
-
-.driverDashboardCurrentJob {
-  display: grid;
-  gap: 8px;
-}
-
-.driverDashboardRoute {
-  display: block;
-  color: #1A1F2B;
-  font-size: 13px;
-  line-height: 18px;
-  font-weight: 600;
-}
-
-.driverDashboardMeta {
-  display: block;
-  margin-top: 4px;
-  color: #64748B;
-  font-size: 11px;
-  line-height: 14px;
-}
-
-.driverDashboardAlertList {
-  display: grid;
-}
-
-.driverDashboardAlertAction {
-  margin-top: 8px;
-}
-
 .quickActionButton:hover {
   border-color: #1d57d8;
 }
@@ -410,224 +431,26 @@
  * Stack of summary-row buttons inside the commercial summary OperationalCard.
  * Section 5 rhythm: marginTop 8px, column gap 4px.
  */
-.brokerSummaryButtonStack {
-  margin-top: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
 
 /* Full-width summary row button: justify label/value across available width */
-.brokerSummaryButton {
-  width: 100%;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid #D8DEE8;
-  border-radius: 4px;
-  padding: 8px 10px;
-  background: #ffffff;
-  color: #1A1F2B;
-  font-size: 12px;
-  cursor: pointer;
-  text-align: left;
-}
-
-.brokerSummaryButton:hover {
-  border-color: #1D57D8;
-  background: #F1F6FF;
-}
 
 /* Grid variant: label + status badge/value, used in recent-loads button */
-.brokerSummaryButtonGrid {
-  grid-template-columns: 1fr auto;
-  text-align: left;
-}
 
 /* Overdue count: default colour inherits; when the load is overdue, show red */
-.brokerSummaryOverdueValue {
-  font-weight: 700;
-}
-
-.brokerSummaryOverdueValue[data-overdue="true"] {
-  color: #C62828;
-}
 
 /* Monthly chart — dense operational mini bar-chart inside OperationalCard */
-.brokerMonthlyChartContainer {
-  display: grid;
-  gap: 4px;
-}
-
-.brokerMonthlyChartRow {
-  display: grid;
-  grid-template-columns: 60px 1fr auto;
-  gap: 8px;
-  align-items: center;
-  font-size: 12px;
-}
-
-.brokerMonthlyChartMonth {
-  color: #64748B;
-  font-weight: 700;
-  font-size: 11px;
-}
-
-.brokerMonthlyChartBars {
-  display: grid;
-  gap: 2px;
-}
-
-.brokerMonthlyChartBar {
-  border-radius: 3px;
-  height: 7px;
-}
-
-.brokerMonthlyChartBarRevenue {
-  background: #dcfce7;
-}
-
-.brokerMonthlyChartBarCost {
-  background: #fed7aa;
-}
-
-.brokerMonthlyChartMargin {
-  font-weight: 800;
-  min-width: 70px;
-  text-align: right;
-  font-size: 12px;
-}
-
-.brokerMonthlyChartLegend {
-  display: flex;
-  gap: 16px;
-  margin-top: 4px;
-  font-size: 11px;
-  color: #64748B;
-}
-
-.brokerMonthlyChartLegendSwatch {
-  display: inline-block;
-  width: 10px;
-  height: 8px;
-  border-radius: 2px;
-  margin-right: 4px;
-}
-
-.brokerMonthlyChartEmpty {
-  color: #64748B;
-  font-size: 12px;
-  padding: 8px 0;
-}
 
 /* Sub-contract spend section */
-.brokerSpendAmount {
-  font-size: 22px;
-  font-weight: 900;
-  color: #C2410C;
-}
-
-.brokerSpendMeta {
-  font-size: 12px;
-  color: #64748B;
-}
-
-.brokerSpendLinks {
-  display: flex;
-  gap: 8px;
-  margin-top: 4px;
-  flex-wrap: wrap;
-}
-
-.brokerSpendLinkBtn {
-  border: 1px solid #D8DEE8;
-  border-radius: 4px;
-  background: #F8FAFC;
-  color: #1A1F2B;
-  padding: 4px 8px;
-  font-size: 11px;
-  font-weight: 700;
-  cursor: pointer;
-}
 
 /* Recent loads button body */
-.brokerRecentLoadCopy {
-  min-width: 0;
-}
-
-.brokerRecentLoadName {
-  display: block;
-  font-weight: 600;
-  font-size: 12px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.brokerRecentLoadMeta {
-  display: block;
-  font-size: 11px;
-  color: #64748B;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* Actions column stack */
-.brokerActionsColumn {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 200px;
-}
 
 /* Broker sub-page status tabs — dense operational tab strip (contract Section 9) */
-.brokerTabStrip {
-  display: flex;
-  gap: 4px;
-  margin-bottom: 8px;
-  border-bottom: 1px solid #D8DEE8;
-}
-
-.brokerTabButton {
-  border: 0;
-  border-bottom: 2px solid transparent;
-  background: transparent;
-  color: #64748B;
-  padding: 4px 10px 6px;
-  font-size: 12px;
-  font-weight: 600;
-  cursor: pointer;
-  margin-bottom: -1px;
-}
-
-.brokerTabButton[data-active="true"] {
-  border-bottom-color: #1D57D8;
-  color: #1D57D8;
-  font-weight: 800;
-}
 
 /* Broker dispute / action note textarea — 32px-rhythm control */
-.brokerNoteInput {
-  border: 1px solid #D8DEE8;
-  border-radius: 4px;
-  padding: 6px 8px;
-  font-size: 12px;
-  width: 100%;
-  min-width: 180px;
-  resize: vertical;
-}
-
-.brokerActionsRow {
-  display: flex;
-  gap: 4px;
-}
 
 /* Panel spacing override — 8px bottom-margin (Section 5 rhythm) */
-.brokerPanelGap {
-  margin-bottom: 8px;
-}
 
 .selectorControl {
   border: 1px solid #D8DEE8;
@@ -690,8 +513,7 @@
 }
 
 /* ─── OperationalTable ──────────────────────────────────────────────────────
- * Section 9: header 36px, padding 0 8px, font 11px/700;
- * rows 42px standard, 6px v-pad, 8px h-pad, 12.5px/17px primary text.
+ * Shared CX/XDrive contract: tokenised header/row geometry and 12px base text.
  */
 .operationalTableContainer {
   width: 100%;
@@ -755,11 +577,9 @@
   background: #F4F6F8;
 }
 
-/* Section 9: header 36px height; padding 0 8px; font 11px/700 */
 .operationalTableHeadCell {
   text-align: left;
-  /* height 36px = 0 vertical pad + line-height controlled by height */
-  height: 36px;
+  height: var(--ws-table-head-h, 40px);
   padding: 0 8px;
   color: #1A1F2B;
   font-size: 11px;
@@ -804,15 +624,14 @@
   outline-offset: -2px;
 }
 
-/* Section 9: rows 42px; v-pad 6px; h-pad 8px; 12.5px/17px */
 .operationalTableCell {
   padding: 6px 8px;
   color: #1A1F2B;
-  font-size: 12.5px;
+  font-size: var(--ws-font-body, 12px);
   line-height: 17px;
   border-bottom: 1px solid #E5E7EB;
   vertical-align: middle;
-  height: 42px;
+  height: var(--ws-table-row-h, 42px);
 }
 
 .operationalTableActionHeadCell,
@@ -937,17 +756,16 @@
 
 .operationalPageLayoutTwoPanel {
   display: grid;
-  /* 220px filter rail (spec) + flexible main content */
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: 12px;
+  grid-template-columns: var(--ws-filter-rail-w, 165px) minmax(0, 1fr);
+  gap: var(--ws-gap-grid, 8px);
   align-items: start;
 }
 
 .operationalPageLayoutSearchAside {
-  width: 220px;
-  /* Sticky so the search panel tracks scroll on tall result lists */
+  width: var(--ws-filter-rail-w, 165px);
+  /* Sticky below the shared 50px header + 42px operational navigation row. */
   position: sticky;
-  top: 12px;
+  top: calc(var(--ws-header-h, 50px) + var(--ws-nav-h, 42px));
 }
 
 .operationalPageLayoutMain {
@@ -965,13 +783,14 @@
 }
 
 .operationalCardHeader {
+  min-height: var(--ws-panel-head-h, 36px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
-  /* Reference: compact CX-style control cards with 10px horizontal padding */
-  padding: 8px 10px;
+  padding: 6px 10px;
   border-bottom: 1px solid #D8DEE8;
+  background: var(--ws-panel-head, #F2F4F7);
   flex-wrap: wrap;
 }
 
@@ -1026,8 +845,7 @@
 /* ─── OperationalFilters ────────────────────────────────────────────────── */
 
 .operationalFilters {
-  /* Fixed 220px — spec: "left filter rail: 220px" */
-  width: 220px;
+  width: var(--ws-filter-rail-w, 165px);
   background: #ffffff;
   border: 1px solid #D8DEE8;
   border-radius: 4px;
@@ -1092,7 +910,7 @@
   border-radius: 4px;
   background: #198754;
   color: #ffffff;
-  font-size: 13px;
+  font-size: var(--ws-font-body, 12px);
   font-weight: 600;
   cursor: pointer;
   display: flex;
@@ -1117,7 +935,7 @@
   border-radius: 4px;
   background: #ffffff;
   color: #1A1F2B;
-  font-size: 13px;
+  font-size: var(--ws-font-body, 12px);
   font-weight: 400;
   cursor: pointer;
   display: flex;
@@ -1152,7 +970,7 @@
   border: 1px solid #D8DEE8;
   border-radius: 4px;
   padding: 0 8px;
-  font-size: 13px;
+  font-size: var(--ws-font-body, 12px);
   color: #1A1F2B;
   background: #ffffff;
   width: 100%;
@@ -1193,65 +1011,10 @@
 }
 
 /* ─── Status Tabs ────────────────────────────────────────────────────────────
- * Section 12: tab bar 36px; h-padding 12px; font 12px/600; active underline 2px.
+ * Shared CX/XDrive tab geometry: 28px bar, 12px/600 text, 2px active underline.
  */
-.statusTabs {
-  display: flex;
-  align-items: stretch;
-  height: 36px;
-  border-bottom: 1px solid #D8DEE8;
-  margin-bottom: 8px;
-  overflow-x: auto;
-  /* Hide scrollbar but keep functionality */
-  scrollbar-width: none;
-}
-.statusTabs::-webkit-scrollbar { display: none; }
-
-.statusTab {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 12px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #64748B;
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: color 0.12s, border-color 0.12s;
-}
-
-.statusTab:hover {
-  color: #1D57D8;
-}
-
-.statusTabActive {
-  color: #1D57D8;
-  border-bottom-color: #1D57D8;
-}
 
 /* Section 12: badge within tab 18px height */
-.statusTabBadge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 18px;
-  min-width: 18px;
-  padding: 0 4px;
-  border-radius: 9px;
-  font-size: 11px;
-  font-weight: 700;
-  background: #E5E7EB;
-  color: #1A1F2B;
-}
-.statusTabActive .statusTabBadge {
-  background: #1D57D8;
-  color: #ffffff;
-}
 
 /* ─── OperationalPagination ─────────────────────────────────────────────────
  * Section 9: bar 36px; button 28×28px; gap 4px.
@@ -1324,9 +1087,8 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  /* Section 10: location line height 16px */
   line-height: 16px;
-  font-size: 12.5px;
+  font-size: var(--ws-font-body, 12px);
 }
 
 .jobsRouteDest {
@@ -1360,7 +1122,7 @@
   justify-content: center;
   height: 22px;
   padding: 0 6px;
-  border-radius: 3px;
+  border-radius: var(--ws-radius, 4px);
   font-size: 11px;
   font-weight: 700;
   white-space: nowrap;
@@ -1403,7 +1165,7 @@
   width: 24px;
   padding: 0;
   border: 1px solid #D8DEE8;
-  border-radius: 3px;
+  border-radius: var(--ws-radius, 4px);
   background: #F4F6F8;
   color: #64748B;
   font-size: 10px;
@@ -1460,48 +1222,8 @@
  * Section 8: height 72px target (max 80px); padding 8px 10px;
  * label 11px/14px/600; value 22px/26px/700; accent bar 3px.
  */
-.kpiTile {
-  /* Height 72px target; allow shrink to fit content up to 80px max */
-  min-height: 72px;
-  max-height: 80px;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  padding: 8px 10px;
-  background: #ffffff;
-  border: 1px solid #D8DEE8;
-  border-radius: 4px;
-  border-left: 3px solid var(--xdrive-kpi-accent, #1D57D8);
-  overflow: hidden;
-}
-
-.kpiTileLabel {
-  font-size: 11px;
-  font-weight: 600;
-  line-height: 14px;
-  color: #64748B;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* Section 8: value 22px/26px/700 */
-.kpiTileValue {
-  font-size: 22px;
-  font-weight: 700;
-  line-height: 26px;
-  color: #1A1F2B;
-  white-space: nowrap;
-}
-
-.kpiTileMeta {
-  font-size: 11px;
-  line-height: 14px;
-  color: #64748B;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 
 /* ─── Jobs Page Shell ────────────────────────────────────────────────────────
  * Section 1/4: no max-width centering; page background #F4F6F8; padding 12px.
@@ -1609,7 +1331,7 @@
   height: 24px;
   padding: 0 8px;
   border: 1px solid currentColor;
-  border-radius: 3px;
+  border-radius: var(--ws-radius, 4px);
   background: transparent;
   color: inherit;
   font-size: 11px;
@@ -1648,28 +1370,29 @@
   display: grid;
   grid-template-columns: repeat(8, minmax(84px, 1fr));
   align-items: stretch;
-  gap: 8px;
-  min-height: 44px;
+  gap: 0;
+  min-height: var(--ws-tab-h, 28px);
   margin-bottom: 8px;
-  padding: 4px 8px 0;
-  border: 1px solid #D8DEE8;
-  border-radius: 4px;
+  padding: 0;
+  border: 0;
+  border-bottom: 1px solid var(--ws-border, #D8DEE8);
+  border-radius: 0;
   background: #ffffff;
 }
 
 .jobsStatusTab {
-  min-height: 39px;
-  padding: 0 10px 7px;
+  min-height: var(--ws-tab-h, 28px);
+  padding: 0 10px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   border: none;
-  border-bottom: 3px solid transparent;
-  border-radius: 3px 3px 0 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
   background: transparent;
   color: #334155;
-  font-size: 14px;
-  font-weight: 650;
+  font-size: var(--ws-font-body, 12px);
+  font-weight: 600;
   line-height: 1.15;
   letter-spacing: 0.005em;
   white-space: nowrap;
@@ -1691,11 +1414,11 @@
 
 /* Section 5: inputs/selects within toolbar 32px height */
 .jobsToolbarInput {
-  height: 32px;
+  height: var(--ws-control-h, 32px);
   border: 1px solid #D8DEE8;
   border-radius: 4px;
   padding: 0 8px;
-  font-size: 13px;
+  font-size: var(--ws-font-body, 12px);
   color: #1A1F2B;
   background: #ffffff;
   box-sizing: border-box;
@@ -1768,7 +1491,7 @@
 }
 
 .jobsRefValue {
-  font-size: 12.5px;
+  font-size: var(--ws-font-body, 12px);
   font-weight: 600;
   color: #1D57D8;
 }
@@ -1780,7 +1503,7 @@
 }
 
 .jobsPrimaryDate {
-  font-size: 12.5px;
+  font-size: var(--ws-font-body, 12px);
   line-height: 17px;
 }
 
@@ -1818,7 +1541,7 @@
 }
 
 .jobsCustomerCell {
-  font-size: 12.5px;
+  font-size: var(--ws-font-body, 12px);
   overflow: hidden;
   max-width: 150px;
 }
@@ -1891,8 +1614,8 @@
   display: none;
 }
 
-/* ── Tablet ──────────────────────────────────────────────────────────────── */
-@media (max-width: 768px) {
+/* Shared operational rail collapses with the rest of the workspace at tablet width. */
+@media (max-width: 1024px) {
   .operationalPageLayoutTwoPanel {
     grid-template-columns: 1fr;
   }
@@ -1906,7 +1629,10 @@
     position: static;
     top: auto;
   }
+}
 
+/* ── Tablet / mobile jobs controls ─────────────────────────────────────── */
+@media (max-width: 768px) {
   /* Toolbar: allow wrapping; auto height */
   .jobsToolbar {
     height: auto;
@@ -2068,251 +1794,4 @@
   }
 }
 
-/* ── Settings page — contract-compliant patterns ─────────────────────── */
-
-/* Settings outer layout: sidebar rail + main content */
-.settingsLayout {
-  display: flex;
-  gap: 12px;
-  align-items: flex-start;
-}
-
-/* Left section nav rail — mirrors sidebar nav item dimensions */
-.settingsSideNav {
-  width: 220px;
-  flex-shrink: 0;
-  background: #fff;
-  border: 1px solid #E5E7EB;
-  border-radius: 4px;
-  overflow: hidden;
-}
-
-.settingsSideNavBtn {
-  width: 100%;
-  height: 34px;
-  padding: 0 10px;
-  background: transparent;
-  border: none;
-  border-left: 3px solid transparent;
-  text-align: left;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 12px;
-  font-weight: 500;
-  color: #374151;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.settingsSideNavBtn:hover {
-  background: #f4f6f8;
-}
-
-.settingsSideNavBtnActive {
-  background: #f0f4ff;
-  border-left-color: #1D57D8;
-  color: #1D57D8;
-  font-weight: 600;
-  border-radius: 0 2px 2px 0;
-}
-
-/* Settings main content panel */
-.settingsPanel {
-  flex: 1;
-  background: #fff;
-  border: 1px solid #E5E7EB;
-  border-radius: 4px;
-  padding: 12px;
-}
-
-/* Section title inside settings panel */
-.settingsSectionTitle {
-  font-size: 13px;
-  font-weight: 600;
-  color: #1a1f2b;
-  margin: 0 0 8px;
-  padding-bottom: 6px;
-  border-bottom: 1px solid #E5E7EB;
-}
-
-/* Section title with top spacing (following sections) */
-.settingsSectionTitleSpaced {
-  margin-top: 16px;
-}
-
-/* 2-column field grid */
-.settingsFieldGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-  margin-bottom: 8px;
-}
-
-/* Single field row */
-.settingsFieldRow {
-  margin-bottom: 8px;
-}
-
-/* Form label */
-.settingsLabel {
-  display: block;
-  font-size: 11px;
-  font-weight: 600;
-  color: #374151;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-/* Form input / select */
-.settingsInput {
-  width: 100%;
-  height: 32px;
-  padding: 0 8px;
-  border: 1px solid #D1D5DB;
-  border-radius: 4px;
-  font-size: 12px;
-  color: #1a1f2b;
-  background: #fff;
-  box-sizing: border-box;
-  outline: none;
-}
-
-.settingsInput:focus {
-  border-color: #1D57D8;
-  box-shadow: 0 0 0 2px rgba(29, 87, 216, 0.12);
-}
-
-.settingsInputReadonly {
-  background: #f9fafb;
-  color: #6b7280;
-  cursor: default;
-}
-
-/* Info display card (contact / help articles) */
-.settingsInfoCard {
-  border: 1px solid #E5E7EB;
-  border-radius: 4px;
-  padding: 8px 10px;
-  background: #f9fafb;
-  margin-bottom: 8px;
-}
-
-.settingsInfoCardLabel {
-  font-size: 11px;
-  color: #6b7280;
-  margin-bottom: 2px;
-}
-
-.settingsInfoCardValue {
-  font-size: 12px;
-  font-weight: 600;
-  color: #1a1f2b;
-}
-
-/* Notification toggle row */
-.settingsNotifRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid #f3f4f6;
-}
-
-.settingsNotifLabel {
-  font-size: 12px;
-  font-weight: 600;
-  color: #1a1f2b;
-  margin-bottom: 2px;
-}
-
-.settingsNotifDescription {
-  font-size: 11px;
-  color: #6b7280;
-}
-
-/* Account user info box */
-.settingsAccountInfo {
-  background: #f9fafb;
-  border: 1px solid #E5E7EB;
-  border-radius: 4px;
-  padding: 8px 10px;
-  margin-bottom: 8px;
-}
-
-/* Helper / hint text below inputs */
-.settingsHint {
-  font-size: 11px;
-  color: #9ca3af;
-  margin-top: 3px;
-}
-
-/* Save / action row */
-.settingsActionRow {
-  margin-top: 16px;
-  display: flex;
-  justify-content: flex-end;
-}
-
 /* ── Bids page — job-group panels ───────────────────────────────────── */
-
-.bidsJobGroup {
-  background: #fff;
-  border: 1px solid #E5E7EB;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-bottom: 8px;
-}
-
-.bidsJobGroupAwarded {
-  border-color: #86efac;
-}
-
-.bidsJobGroupHeader {
-  padding: 8px 10px;
-  border-bottom: 1px solid #F3F4F6;
-  background: #f9fafb;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 4px;
-  min-height: 36px;
-}
-
-.bidsJobGroupHeaderAwarded {
-  background: #f0fdf4;
-}
-
-.bidsJobGroupTitle {
-  font-size: 12px;
-  font-weight: 700;
-  color: #111827;
-  margin: 0;
-}
-
-.bidsJobGroupMeta {
-  font-size: 11px;
-  color: #6b7280;
-  margin-top: 2px;
-}
-
-.bidsJobGroupBadge {
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 999px;
-  padding: 2px 8px;
-}
-
-.bidsJobGroupBadgeAwarded {
-  background: #d1fae5;
-  color: #065f46;
-}
-
-.bidsJobGroupBadgePending {
-  background: #fef3c7;
-  color: #92400e;
-}

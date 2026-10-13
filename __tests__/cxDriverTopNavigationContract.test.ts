@@ -31,8 +31,9 @@ describe('Driver top navigation role split', () => {
     for (const label of ['Invoices','Company Profile','Drivers & Staff','Settings','Membership & Billing']) {
       expect(roles).toContain(`label: '${label}'`);
     }
-    expect(shell).toContain("['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles']");
-    expect(shell).toContain("['owner-driver-settings-primary', 'Settings', '/driver/settings']");
+    expect(shell).toContain("], 'owner-driver-more', 'More', [");
+    expect(shell).toContain("'/driver/drivers-vehicles'");
+    expect(shell).toContain("'/driver/settings'");
     expect(shell).toContain("'/driver/finance'");
     const owner = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
     expect(owner).not.toContain("'/driver/settings?section=company'");

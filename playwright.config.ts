@@ -31,6 +31,7 @@ export default defineConfig({
           NEXT_PUBLIC_SUPABASE_ANON_KEY: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? 'placeholder-anon-key',
           EXPECTED_NEXT_PUBLIC_SUPABASE_URL: process.env.EXPECTED_NEXT_PUBLIC_SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co',
           E2E_VISUAL_FIXTURE: process.env.E2E_VISUAL_FIXTURE ?? '',
+          NEXT_DIST_DIR: process.env.NEXT_DIST_DIR ?? `.next-playwright-${localServerPort}`,
         },
       }
     : undefined,

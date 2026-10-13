@@ -1,6 +1,9 @@
 'use client';
 
+import { isValidElement } from 'react';
 import type { CSSProperties, ReactNode, FormEvent } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 import styles from './WorkspaceUI.module.css';
 
 export const workspaceTheme = {
@@ -24,15 +27,47 @@ export const workspaceTheme = {
 
 const compactShadow = 'none';
 
+export function WorkspaceRouteTabs({
+  ariaLabel,
+  items,
+  note,
+}: {
+  ariaLabel: string;
+  items: Array<{ href: string; label: string }>;
+  note?: ReactNode;
+}) {
+  const pathname = usePathname() ?? '';
+  const activeHref = items
+    .filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href;
+
+  return (
+    <nav className="workspace-tab-strip workspace-route-tabs" role="tablist" aria-label={ariaLabel}>
+      {items.map((item) => {
+        const active = item.href === activeHref;
+        return (
+          <Link
+            key={item.href}
+            href={item.href}
+            role="tab"
+            aria-selected={active}
+            aria-current={active ? 'page' : undefined}
+            data-active={active ? 'true' : 'false'}
+          >
+            {item.label}
+          </Link>
+        );
+      })}
+      {note ? <span className="workspace-route-tabs__note">{note}</span> : null}
+    </nav>
+  );
+}
+
 export function PageFrame({ children, maxWidth }: { children: ReactNode; maxWidth?: number }) {
   return (
     <div
-      className="xdrive-page-frame"
-      style={{
-        width: '100%',
-        ...(typeof maxWidth === 'number' ? { maxWidth } : {}),
-        padding: '12px 12px 16px',
-      }}
+      className={`xdrive-page-frame ${styles.pageFrame}`}
+      style={typeof maxWidth === 'number' ? { maxWidth } : undefined}
     >
       {children}
     </div>
@@ -41,15 +76,80 @@ export function PageFrame({ children, maxWidth }: { children: ReactNode; maxWidt
 
 export function PageHeader({ eyebrow, title, description, actions, meta }: { eyebrow?: string; title: string; description?: string; actions?: ReactNode; meta?: ReactNode }) {
   return (
-    <header className="xdrive-page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexWrap: 'wrap', marginBottom: '12px' }}>
-      <div className="xdrive-page-header__copy" style={{ minWidth: 0, flex: '1 1 520px' }}>
-        {eyebrow && <div className="xdrive-page-header__eyebrow" style={{ color: workspaceTheme.blue, fontSize: '11px', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: '4px', lineHeight: '16px' }}>{eyebrow}</div>}
-        <h1 className="xdrive-page-header__title" style={{ margin: 0, color: workspaceTheme.text, fontSize: '20px', fontWeight: 600, lineHeight: '26px' }}>{title}</h1>
-        {description && <p className="xdrive-page-header__description" style={{ margin: '4px 0 0', color: workspaceTheme.muted, maxWidth: '860px', fontSize: '12px', lineHeight: '16px' }}>{description}</p>}
-        {meta && <div className="xdrive-page-header__meta" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap', marginTop: '8px' }}>{meta}</div>}
+    <header className={`xdrive-page-header ${styles.pageHeader}`}>
+      <div className={`xdrive-page-header__copy ${styles.pageHeaderCopy}`}>
+        {eyebrow && <div className={`xdrive-page-header__eyebrow ${styles.pageHeaderEyebrow}`}>{eyebrow}</div>}
+        <h1 className={`xdrive-page-header__title ${styles.pageHeaderTitle}`}>{title}</h1>
+        {description && <p className={`xdrive-page-header__description ${styles.pageHeaderDescription}`}>{description}</p>}
+        {meta && <div className={`xdrive-page-header__meta ${styles.pageHeaderMeta}`}>{meta}</div>}
       </div>
-      {actions && <div className="xdrive-page-header__actions" style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>{actions}</div>}
+      {actions && <div className={`xdrive-page-header__actions ${styles.pageHeaderActions}`}>{actions}</div>}
     </header>
+  );
+}
+
+export function WorkspaceDialog({
+  ariaLabel,
+  title,
+  description,
+  children,
+  actions,
+  headerActions,
+  subheader,
+  footerLeading,
+  onDismiss,
+  dismissDisabled = false,
+  width = 620,
+  maxHeight = 720,
+}: {
+  ariaLabel: string;
+  title: string;
+  description?: ReactNode;
+  children: ReactNode;
+  actions?: ReactNode;
+  headerActions?: ReactNode;
+  subheader?: ReactNode;
+  footerLeading?: ReactNode;
+  onDismiss?: () => void;
+  dismissDisabled?: boolean;
+  width?: number;
+  maxHeight?: number;
+}) {
+  return (
+    <div
+      className={styles.workspaceDialogOverlay}
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget && onDismiss && !dismissDisabled) onDismiss();
+      }}
+    >
+      <section
+        role="dialog"
+        aria-modal="true"
+        aria-label={ariaLabel}
+        className={styles.workspaceDialog}
+        style={{
+          '--workspace-dialog-max-width': `${width}px`,
+          '--workspace-dialog-max-height': `${maxHeight}px`,
+        } as CSSProperties}
+      >
+        <header className={styles.workspaceDialogHeader}>
+          <div className={styles.workspaceDialogHeaderCopy}>
+            <strong className={styles.workspaceDialogTitle}>{title}</strong>
+            {description ? <span className={styles.workspaceDialogDescription}>{description}</span> : null}
+          </div>
+          {headerActions ? <div className={styles.workspaceDialogHeaderActions}>{headerActions}</div> : null}
+        </header>
+        {subheader ? <div className={styles.workspaceDialogSubheader}>{subheader}</div> : null}
+        <div className={styles.workspaceDialogBody}>{children}</div>
+        {actions || footerLeading ? (
+          <footer className={styles.workspaceDialogFooter}>
+            {footerLeading ? <div className={styles.workspaceDialogFooterLeading}>{footerLeading}</div> : <span />}
+            {actions ? <div className={styles.workspaceDialogFooterActions}>{actions}</div> : null}
+          </footer>
+        ) : null}
+      </section>
+    </div>
   );
 }
 
@@ -205,8 +305,8 @@ export function KpiCard({
       )}
     </>
   );
-  if (!onClick) return <div role="group" aria-label={computedAriaLabel} style={cardStyle}>{content}</div>;
-  return <button aria-label={computedAriaLabel} onClick={onClick} type="button" style={cardStyle}>{content}</button>;
+  if (!onClick) return <div data-workspace-kpi-card="true" role="group" aria-label={computedAriaLabel} style={cardStyle}>{content}</div>;
+  return <button data-workspace-kpi-card="true" aria-label={computedAriaLabel} onClick={onClick} type="button" style={cardStyle}>{content}</button>;
 }
 
 export function ActionCard({
@@ -256,7 +356,7 @@ export function Panel({ title, description, actions, children, style, flush = fa
   return (
     <section className="xdrive-panel" style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
       {(title || description || actions) && <div className="xdrive-panel__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap', background: workspaceTheme.surfaceMuted }}><div>{title && <h2 className="xdrive-panel__title" style={{ margin: 0, color: workspaceTheme.text, fontSize: '13px', fontWeight: 600, lineHeight: '18px' }}>{title}</h2>}{description && <p className="xdrive-panel__description" style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{description}</p>}</div>{actions && <div className="xdrive-panel__actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
-      <div className="xdrive-panel__body" style={{ padding: flush ? 0 : '10px' }}>{children}</div>
+      <div className={`xdrive-panel__body${flush ? ' xdrive-panel__body--flush' : ''}`} style={{ padding: flush ? 0 : '10px' }}>{children}</div>
     </section>
   );
 }
@@ -268,7 +368,7 @@ export function Panel({ title, description, actions, children, style, flush = fa
  * - Viewport: 1920×1080
  * - App frame padding: 12px
  * - Max content width: 1480px
- * - Two-panel variant: 230px search aside + 1fr main content, 12px gap
+ * - Two-panel variant: shared 165px search aside + 1fr main content
  *
  * Use `searchPanel` to render the left OperationalFilters sidebar.
  * Omit `searchPanel` for full-width single-panel pages (e.g. Dashboard).
@@ -281,7 +381,7 @@ export function OperationalPageLayout({
 }: {
   children: ReactNode;
   /** Optional left search/filter panel. When provided, the layout switches to
-   *  a 230px aside + flexible main two-column grid. */
+   *  the shared 165px aside + flexible main two-column grid. */
   searchPanel?: ReactNode;
   maxWidth?: number;
   style?: CSSProperties;
@@ -329,6 +429,7 @@ export function OperationalCard({
   footer,
   flush = false,
   style,
+  className,
   as: Tag = 'section',
 }: {
   title?: string;
@@ -338,10 +439,11 @@ export function OperationalCard({
   footer?: ReactNode;
   flush?: boolean;
   style?: CSSProperties;
+  className?: string;
   as?: 'section' | 'article' | 'div';
 }) {
   return (
-    <Tag className={`xdrive-operational-card ${styles.operationalCard}`} style={style}>
+    <Tag className={`xdrive-operational-card ${styles.operationalCard}${className ? ` ${className}` : ''}`} style={style}>
       {(title || subtitle || actions) && (
         <div className={`xdrive-operational-card__header ${styles.operationalCardHeader}`}>
           <div className={styles.operationalCardHeaderText}>
@@ -353,7 +455,7 @@ export function OperationalCard({
           )}
         </div>
       )}
-      <div className={`xdrive-operational-card__body ${flush ? styles.operationalCardBodyFlush : styles.operationalCardBody}`}>
+      <div className={`xdrive-operational-card__body${flush ? ' xdrive-operational-card__body--flush' : ''} ${flush ? styles.operationalCardBodyFlush : styles.operationalCardBody}`}>
         {children}
       </div>
       {footer && <div className={styles.operationalCardFooter}>{footer}</div>}
@@ -833,7 +935,7 @@ export function StatusBadge({ value, tone, ariaLabel }: { value: string; tone?: 
   const resolvedTone: StatusBadgeTone = tone ?? (normalised.includes('delivered') || normalised.includes('completed') || normalised.includes('active') || normalised.includes('approved') || normalised === 'paid' || normalised === 'ready' ? 'green' : normalised.includes('late') || normalised.includes('overdue') || normalised.includes('failed') || normalised.includes('cancel') || normalised.includes('error') || normalised.includes('dispute') ? 'red' : normalised.includes('pending') || normalised.includes('waiting') || normalised.includes('quoted') ? 'orange' : normalised.includes('draft') ? 'grey' : 'blue');
   const colors = STATUS_BADGE_COLORS[resolvedTone];
   const label = normalised.replace(/[_-]+/g, ' ').replace(/\b\w/g, (character) => character.toUpperCase());
-  return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
+  return <span className="xdrive-status-badge" aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
 }
 
 /** Semantic tone values for SemanticStatusBadge — keyed by intent, never inferred from display text. */
@@ -857,7 +959,7 @@ export const SEMANTIC_STATUS_BADGE_COLORS: Record<SemanticStatusBadgeTone, Seman
  */
 export function SemanticStatusBadge({ label, tone = 'neutral', ariaLabel }: { label: string; tone?: SemanticStatusBadgeTone; ariaLabel?: string }) {
   const colors = SEMANTIC_STATUS_BADGE_COLORS[tone];
-  return <span aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
+  return <span className="xdrive-status-badge" aria-label={ariaLabel} style={{ display: 'inline-flex', alignItems: 'center', border: `1px solid ${colors.border}`, background: colors.bg, color: colors.color, borderRadius: '999px', padding: '0.18rem 0.45rem', fontSize: '0.7rem', fontWeight: 800, whiteSpace: 'nowrap' }}>{label}</span>;
 }
 
 export function EmptyState({ title, description, action, icon, compact = false }: { title: string; description?: string; action?: ReactNode; icon?: ReactNode; compact?: boolean }) {
@@ -1084,6 +1186,19 @@ export function WorkspaceState(props: WorkspaceStateProps) {
   }
 }
 
+// DataTable is the compatibility adapter for caller-rendered cells. A JSX cell
+// stringifies to "[object Object]", which is not a valid unique row identity.
+// Extract the same visible reference a user sees, including nested elements.
+function dataTableCellIdentity(cell: ReactNode): string {
+  if (typeof cell === 'string' || typeof cell === 'number' || typeof cell === 'bigint') return String(cell);
+  if (Array.isArray(cell)) return cell.map(dataTableCellIdentity).filter(Boolean).join(' ');
+  if (isValidElement<{ children?: ReactNode; id?: string; value?: string | number; 'aria-label'?: string }>(cell)) {
+    return dataTableCellIdentity(cell.props.children)
+      || String(cell.props.id ?? cell.props.value ?? cell.props['aria-label'] ?? '');
+  }
+  return '';
+}
+
 export function DataTable({ columns, rows, empty }: { columns: string[]; rows: ReactNode[][]; empty?: ReactNode }) {
   return (
     <OperationalTable
@@ -1094,7 +1209,7 @@ export function DataTable({ columns, rows, empty }: { columns: string[]; rows: R
         isAction: /action/i.test(column),
       }))}
       rows={rows}
-      getRowKey={(row) => String(row[0] ?? row.map((cell) => String(cell)).join('|'))}
+      getRowKey={(row) => row.map(dataTableCellIdentity).filter(Boolean).join('|')}
       empty={empty}
     />
   );

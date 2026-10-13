@@ -37,6 +37,16 @@ describe('CX-informed carrier Return Journey management contract', () => {
     expect(canonicalRpc).toContain('d.company_id = p_company_id');
   });
 
+  it('uses shared responsive return-editor fields and drops two-column spans on narrow screens', () => {
+    const baseline = read('app/components/workspace/workspace-measured-cx-baseline.css');
+    expect(page).toContain('className="workspace-filter-fields workspace-filter-fields--even"');
+    expect(page).toContain('className="workspace-filter-fields__wide">VIA LOCATIONS');
+    expect(page).toContain('className="workspace-filter-fields__wide">NOTES');
+    expect(page).not.toContain("gridTemplateColumns: 'repeat(4,minmax(150px,1fr))'");
+    expect(baseline).toContain('.workspace-filter-fields > .workspace-filter-fields__wide');
+    expect(baseline).toContain('grid-column: auto;');
+  });
+
   it('adds CX-style List View and Map View without fabricating return routes or ETA', () => {
     expect(page).toContain("useState<'list' | 'map'>('list')");
     expect(page).toContain('List View');

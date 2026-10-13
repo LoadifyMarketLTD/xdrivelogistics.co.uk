@@ -284,7 +284,7 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
     ], 'driver-more');
   }
 
-  const ownerNav = composeRolePrimaryNav(groups, [
+  return composeRolePrimaryNav(groups, [
     ['owner-driver-dashboard-primary', 'Dashboard', '/driver'],
     ['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre'],
     ['owner-driver-directory-primary', 'Directory', '/driver/directory'],
@@ -295,29 +295,19 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
     ['owner-driver-quotes-primary', 'Quotes', '/driver/quotes'],
     ['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs'],
     ['owner-driver-diary-primary', 'Diary', '/driver/history'],
-    ['owner-driver-availability-primary', 'Availability & Schedule', '/driver/availability'],
-    ['owner-driver-won-work-primary', 'Won Work', '/driver/won-work'],
-    ['owner-driver-alerts-primary', 'Load Matching & Alerts', '/driver/load-alerts'],
-    ['owner-driver-nearby-primary', "Who's Nearby", '/driver/nearby'],
-    ['owner-driver-documents-primary', 'Documents', '/driver/documents'],
-    ['owner-driver-finance-primary', 'Finance & Invoices', '/driver/finance'],
-    ['owner-driver-messages-primary', 'Messages', '/driver/messages'],
-    ['owner-driver-event-log-primary', 'Event Log', '/driver/event-log'],
-    ['owner-driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision'],
-    ['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles'],
-    ['owner-driver-settings-primary', 'Settings', '/driver/settings'],
   ], 'owner-driver-more', 'More', [
-    '/driver/jobs',
-    '/driver/availability',
     '/driver/won-work',
+    '/driver/availability',
     '/driver/load-alerts',
     '/driver/nearby',
     '/driver/documents',
     '/driver/finance',
     '/driver/messages',
+    '/driver/event-log',
+    '/driver/freight-vision',
+    '/driver/drivers-vehicles',
+    '/driver/settings',
   ]);
-
-  return ownerNav.filter((group) => group.id !== 'owner-driver-more');
 }
 
 export function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
@@ -346,6 +336,7 @@ export function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
 function composeFinancePrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
     ['finance-dashboard-primary', 'Dashboard', '/admin/invoices'],
+    ['finance-diary-primary', 'Diary', '/admin/diary'],
     ['finance-customer-primary', 'Customer Invoices', '/admin/finance/customer-invoices'],
     ['finance-carrier-primary', 'Carrier Invoices', '/admin/finance/carrier-invoices'],
     ['finance-payments-primary', 'Payments', '/admin/finance/payments'],
@@ -369,14 +360,17 @@ function composeCompliancePrimaryNav(groups: WorkspaceNavGroup[]) {
 }
 
 const OWNER_DRIVER_MORE_ICONS = {
-  '/driver/jobs': Briefcase,
   '/driver/won-work': Trophy,
   '/driver/availability': CalendarClock,
   '/driver/load-alerts': BellRing,
   '/driver/nearby': MapPin,
-  '/driver/finance': ReceiptText,
   '/driver/documents': FileText,
+  '/driver/finance': ReceiptText,
   '/driver/messages': MessageSquare,
+  '/driver/event-log': ListChecks,
+  '/driver/freight-vision': MapPin,
+  '/driver/drivers-vehicles': Briefcase,
+  '/driver/settings': ListChecks,
 } as const;
 
 function OwnerDriverMoreIcon({ item }: { item: WorkspaceNavItem }) {
@@ -384,14 +378,17 @@ function OwnerDriverMoreIcon({ item }: { item: WorkspaceNavItem }) {
   return Icon ? <Icon aria-hidden="true" size={14} strokeWidth={1.8} /> : null;
 }
 const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
-  '/driver/jobs': 'Work',
   '/driver/won-work': 'Work',
   '/driver/availability': 'Matching & Availability',
   '/driver/load-alerts': 'Matching & Availability',
   '/driver/nearby': 'Matching & Availability',
-  '/driver/finance': 'Business',
   '/driver/documents': 'Business',
+  '/driver/finance': 'Business',
   '/driver/messages': 'Business',
+  '/driver/event-log': 'Operations',
+  '/driver/freight-vision': 'Operations',
+  '/driver/drivers-vehicles': 'Administration',
+  '/driver/settings': 'Administration',
 };
 
 const CUSTOMER_MORE_ICONS = {
@@ -711,6 +708,7 @@ export default function TopWorkspaceShell({
     if (role === 'viewer') {
       return composeRolePrimaryNav(base, [
         ['viewer-dashboard-primary', 'Dashboard', '/admin'],
+        ['viewer-diary-primary', 'Diary', '/admin/diary'],
         ['viewer-jobs-primary', 'Jobs', '/admin/jobs'],
       ], 'viewer-more');
     }
@@ -948,15 +946,6 @@ export default function TopWorkspaceShell({
               POST LOAD
             </button>
           )}
-          {showBookDirectAction && (
-            <button
-              type="button"
-              className="top-workspace-action top-workspace-action--direct"
-              onClick={() => router.push(bookDirectHref)}
-            >
-              BOOK DIRECT
-            </button>
-          )}
           {primaryAction && (
             <button
               type="button"
@@ -964,6 +953,15 @@ export default function TopWorkspaceShell({
               onClick={() => router.push(primaryAction.href)}
             >
               {primaryAction.label}
+            </button>
+          )}
+          {showBookDirectAction && (
+            <button
+              type="button"
+              className="top-workspace-action top-workspace-action--direct"
+              onClick={() => router.push(bookDirectHref)}
+            >
+              BOOK DIRECT
             </button>
           )}
           <button

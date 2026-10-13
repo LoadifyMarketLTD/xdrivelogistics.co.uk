@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Isolate local/E2E Next build artifacts when several workspace verification servers run concurrently.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   // Signed legal PDFs read these two multilingual font files at request time.
   // Explicit tracing is required because the path is assembled dynamically.
   outputFileTracingIncludes: {

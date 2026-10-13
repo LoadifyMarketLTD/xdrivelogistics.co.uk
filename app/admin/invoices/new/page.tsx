@@ -378,7 +378,7 @@ export default function NewInvoicePage() {
             </div>
           )}
 
-          <div style={{ marginBottom: '1rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem' }}>
+          <div className="carrier-invoice-create-panel" style={{ marginBottom: '1rem', background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem' }}>
             <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '0.45rem' }}>Creation Context</div>
             <div style={{ color: '#334155', fontSize: '0.9rem', lineHeight: 1.5 }}>
               {loadingJob ? 'Loading job, POD and accepted commercial agreement...' : 'Query params and job context have been applied to this draft.'}
@@ -397,8 +397,8 @@ export default function NewInvoicePage() {
             </div>
           </div>
 
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem' }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '0.85rem' }}>
+          <div className="carrier-invoice-create-panel" style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '1rem' }}>
+            <div className="carrier-invoice-create-fields" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(230px, 1fr))', gap: '0.85rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 700, color: '#64748b', marginBottom: '0.3rem' }}>Invoice Number</label>
                 <input value={invoiceNumber} onChange={(e) => setInvoiceNumber(e.target.value)} style={inputStyle} />
@@ -487,7 +487,7 @@ export default function NewInvoicePage() {
               >
                 {saving ? 'Creating...' : 'Create Invoice'}
               </button>
-              <Link href="/admin/invoices" style={{ textDecoration: 'none', border: '1px solid #cbd5e1', color: '#0f172a', borderRadius: '8px', padding: '0.68rem 1.05rem', fontWeight: 600 }}>
+              <Link className="carrier-invoice-create-cancel" href="/admin/invoices" style={{ textDecoration: 'none', border: '1px solid #cbd5e1', color: '#0f172a', borderRadius: '8px', padding: '0.68rem 1.05rem', fontWeight: 600 }}>
                 Cancel
               </Link>
             </div>

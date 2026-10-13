@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { supabase } from '../../../lib/supabaseClient';
-import { ActionButton, EmptyState, workspaceTheme } from './WorkspaceUI';
+import { ActionButton, EmptyState, WorkspaceDialog, workspaceTheme } from './WorkspaceUI';
 
 type SectionState = {
   state: 'unavailable' | 'restricted' | 'available';
@@ -193,58 +193,33 @@ export function MemberProfileOverlay({
   ] : [];
 
   return (
-    <div
-      role="presentation"
-      onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}
-      style={{
-        position: 'fixed', inset: 0, zIndex: 1200, display: 'grid', placeItems: 'center', padding: 16,
-        background: 'rgba(15, 23, 42, 0.48)',
-      }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-label="Member profile"
-        style={{
-          width: 'min(960px, calc(100vw - 32px))', maxHeight: 'min(690px, calc(100vh - 32px))', display: 'grid',
-          gridTemplateRows: 'auto auto minmax(0, 1fr) auto', overflow: 'hidden', border: `1px solid ${workspaceTheme.borderStrong}`,
-          borderRadius: 4, background: workspaceTheme.surface, boxShadow: '0 16px 48px rgba(15, 23, 42, 0.22)',
-        }}
-      >
-        <header style={{ minHeight: 42, padding: '7px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, borderBottom: `1px solid ${workspaceTheme.border}`, background: '#f4f6f8' }}>
-          <div style={{ minWidth: 0 }}>
-            <strong style={{ display: 'block', color: workspaceTheme.text, fontSize: 13, lineHeight: '18px' }}>
-              {profile?.member.name ?? (loading ? 'Loading member…' : 'Member profile')}
-              {profile?.member.memberId && profile.member.companyId ? ` — Member ID ${profile.member.memberId}` : ''}
-            </strong>
-            <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 11, lineHeight: '14px' }}>
-              {profile ? `${profile.member.memberType} · Member since ${memberSince(profile.member.memberSince)}` : 'XDrive member information'}
-            </span>
-          </div>
-          <button type="button" onClick={onClose} aria-label="Close member profile" style={{ width: 28, height: 28, border: 0, borderRadius: 4, background: 'transparent', color: workspaceTheme.muted, cursor: 'pointer', fontSize: 18, lineHeight: '28px' }}>×</button>
-        </header>
-
-        <div role="tablist" aria-label="Member profile sections" style={{ display: 'flex', overflowX: 'auto', borderBottom: `1px solid ${workspaceTheme.border}`, background: '#fff' }}>
+    <WorkspaceDialog
+      ariaLabel="Member profile"
+      title={`${profile?.member.name ?? (loading ? 'Loading member…' : 'Member profile')}${profile?.member.memberId && profile.member.companyId ? ` — Member ID ${profile.member.memberId}` : ''}`}
+      description={profile ? `${profile.member.memberType} · Member since ${memberSince(profile.member.memberSince)}` : 'XDrive member information'}
+      width={960}
+      maxHeight={690}
+      onDismiss={onClose}
+      headerActions={<button type="button" onClick={onClose} aria-label="Close member profile" style={{ width: 28, height: 28, border: 0, borderRadius: 4, background: 'transparent', color: workspaceTheme.muted, cursor: 'pointer', fontSize: 18, lineHeight: '28px' }}>×</button>}
+      subheader={
+        <div role="tablist" aria-label="Member profile sections" className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', margin: 0 }}>
           {TABS.map((item) => (
             <button
               key={item.id}
               type="button"
               role="tab"
               aria-selected={tab === item.id}
+              data-active={tab === item.id ? 'true' : 'false'}
               onClick={() => setTab(item.id)}
-              style={{
-                minHeight: 30, padding: '0 10px', flex: '0 0 auto', border: 0, borderRight: `1px solid ${workspaceTheme.border}`,
-                borderBottom: tab === item.id ? `2px solid ${workspaceTheme.blue}` : '2px solid transparent',
-                background: tab === item.id ? '#eff6ff' : '#fff', color: tab === item.id ? workspaceTheme.navy : workspaceTheme.text,
-                fontSize: 11, fontWeight: tab === item.id ? 700 : 600, cursor: 'pointer',
-              }}
             >
               {item.label}
             </button>
           ))}
         </div>
-
-        <div style={{ minHeight: 0, overflowY: 'auto', padding: 10 }}>
+      }
+      footerLeading="Business-facing member information only."
+      actions={<>{profile?.member.businessPhone && <ActionButton tone="secondary" onClick={() => { window.location.href = `tel:${profile.member.businessPhone}`; }}>Call member</ActionButton>}<ActionButton tone="secondary" onClick={onClose}>Close</ActionButton></>}
+    >
           {loading ? (
             <EmptyState compact title="Loading member profile…" />
           ) : error ? (
@@ -266,16 +241,6 @@ export function MemberProfileOverlay({
           ) : profile && activeSection ? (
             <SectionMessage section={activeSection} />
           ) : null}
-        </div>
-
-        <footer style={{ minHeight: 42, padding: '5px 10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, borderTop: `1px solid ${workspaceTheme.border}`, background: '#f4f6f8' }}>
-          <span style={{ color: workspaceTheme.muted, fontSize: 10 }}>Business-facing member information only.</span>
-          <span style={{ display: 'flex', gap: 6 }}>
-            {profile?.member.businessPhone && <ActionButton tone="secondary" onClick={() => { window.location.href = `tel:${profile.member.businessPhone}`; }}>Call member</ActionButton>}
-            <ActionButton tone="secondary" onClick={onClose}>Close</ActionButton>
-          </span>
-        </footer>
-      </section>
-    </div>
+    </WorkspaceDialog>
   );
 }

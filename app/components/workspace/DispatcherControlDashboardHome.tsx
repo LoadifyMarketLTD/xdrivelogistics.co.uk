@@ -29,7 +29,6 @@ import {
   OperationalSignalStrip,
   OperationalWorkspaceGrid,
 } from './OperationalConvergence';
-import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import {
   exceptionStatuses,
   metricValue,
@@ -100,42 +99,59 @@ export default function DispatcherControlDashboardHome() {
   const trackingUnavailable = unavailable(data, ['drivers', 'locations']);
 
   return (
-    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '8px 10px 12px' }}>
-      <DashboardHomeHeader
-        eyebrow="Operations control"
-        title="Dispatcher Dashboard"
-        badge="Dispatch desk"
-        description="Allocation, departures, live execution and exceptions. Marketplace pricing and finance are intentionally outside this workspace."
-        actions={
-          <>
-            <ActionButton tone="success" onClick={() => router.push('/admin/fleet/active-jobs')}>Active Jobs</ActionButton>
-            <ActionButton tone="secondary" onClick={() => router.push('/admin/diary')}>Diary</ActionButton>
-          </>
-        }
-      />
-
+    <div className="xdrive-admin-dashboard-home">
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
-
-      <OperationalSignalStrip
-        ariaLabel="Dispatcher operational signals"
-        items={[
-          { key: 'unallocated', label: 'Unallocated', value: metricValue(data, ['jobs'], () => unallocated.length), detail: 'Dispatch decision required', tone: unavailable(data, ['jobs']) ? 'blue' : unallocated.length ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/assignments') },
-          { key: 'due-soon', label: 'Due next 2h', value: metricValue(data, ['jobs'], () => dueSoon.length), detail: 'Pickup window approaching', tone: unavailable(data, ['jobs']) ? 'blue' : dueSoon.length ? 'orange' : 'navy', onClick: () => router.push('/admin/diary') },
-          { key: 'active', label: 'Active', value: metricValue(data, ['jobs'], () => active.length), detail: 'Execution in progress', tone: unavailable(data, ['jobs']) ? 'blue' : active.length ? 'green' : 'navy', onClick: () => router.push('/admin/fleet/active-jobs') },
-          { key: 'exceptions', label: 'Exceptions', value: metricValue(data, ['jobs'], () => exceptions.length), detail: 'Immediate intervention', tone: unavailable(data, ['jobs']) ? 'blue' : exceptions.length ? 'red' : 'green', onClick: () => router.push('/admin/incidents') },
-          { key: 'available-drivers', label: 'Available Drivers', value: availableDrivers, detail: 'Active + available flag', tone: unavailable(data, ['drivers']) ? 'blue' : 'green', onClick: () => router.push('/admin/drivers') },
-          { key: 'stale-gps', label: 'Stale GPS', value: trackingUnavailable ? '—' : stalePositions.length, detail: trackingUnavailable ? 'Tracking data unavailable' : 'Missing or stale positions', tone: trackingUnavailable ? 'blue' : stalePositions.length ? 'red' : 'green', onClick: () => router.push('/admin/fleet/positions') },
-        ]}
-      />
 
       <OperationalWorkspaceGrid
         asideLabel="Live dispatch exceptions"
         main={
           <>
+            <OperationalCard title="Reports & Statistics" subtitle="Live dispatch position and resource readiness.">
+              <OperationalSignalStrip
+                ariaLabel="Dispatcher operational signals"
+                items={[
+                  { key: 'unallocated', label: 'Unallocated', value: metricValue(data, ['jobs'], () => unallocated.length), detail: 'Dispatch decision required', tone: unavailable(data, ['jobs']) ? 'blue' : unallocated.length ? 'orange' : 'green', onClick: () => router.push('/admin/fleet/assignments') },
+                  { key: 'due-soon', label: 'Due next 2h', value: metricValue(data, ['jobs'], () => dueSoon.length), detail: 'Pickup window approaching', tone: unavailable(data, ['jobs']) ? 'blue' : dueSoon.length ? 'orange' : 'navy', onClick: () => router.push('/admin/diary') },
+                  { key: 'active', label: 'Active', value: metricValue(data, ['jobs'], () => active.length), detail: 'Execution in progress', tone: unavailable(data, ['jobs']) ? 'blue' : active.length ? 'green' : 'navy', onClick: () => router.push('/admin/fleet/active-jobs') },
+                  { key: 'exceptions', label: 'Exceptions', value: metricValue(data, ['jobs'], () => exceptions.length), detail: 'Immediate intervention', tone: unavailable(data, ['jobs']) ? 'blue' : exceptions.length ? 'red' : 'green', onClick: () => router.push('/admin/incidents') },
+                  { key: 'available-drivers', label: 'Available Drivers', value: availableDrivers, detail: 'Active + available flag', tone: unavailable(data, ['drivers']) ? 'blue' : 'green', onClick: () => router.push('/admin/drivers') },
+                  { key: 'stale-gps', label: 'Stale GPS', value: trackingUnavailable ? '—' : stalePositions.length, detail: trackingUnavailable ? 'Tracking data unavailable' : 'Missing or stale positions', tone: trackingUnavailable ? 'blue' : stalePositions.length ? 'red' : 'green', onClick: () => router.push('/admin/fleet/positions') },
+                ]}
+              />
+            </OperationalCard>
+
+            <div className="xdrive-owner-dashboard-subgrid">
+              <OperationalCard title="Resource availability" subtitle="Driver availability and tracking freshness.">
+                <OperationalLinkList
+                  showTrailingArrow={false}
+                  items={[
+                    { key: 'available', label: 'Drivers marked available', value: availableDrivers, onClick: () => router.push('/admin/drivers') },
+                    { key: 'busy', label: 'Drivers marked busy', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'busy').length), onClick: () => router.push('/admin/drivers') },
+                    { key: 'vehicles', label: 'Vehicles visible', value: getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.length), onClick: () => router.push('/admin/vehicles') },
+                    { key: 'stale', label: 'Stale GPS positions', value: trackingUnavailable ? '—' : stalePositions.length, onClick: () => router.push('/admin/fleet/positions') },
+                  ]}
+                />
+              </OperationalCard>
+              <OperationalCard title="Reports" subtitle="Dispatcher execution and exception routes.">
+                <QuickActionGrid
+                  actions={[
+                    { key: 'diary', label: 'Diary', onClick: () => router.push('/admin/diary') },
+                    { key: 'assign', label: 'Assignments', onClick: () => router.push('/admin/fleet/assignments') },
+                    { key: 'positions', label: 'Live positions', onClick: () => router.push('/admin/fleet/positions') },
+                    { key: 'drivers', label: 'Drivers', onClick: () => router.push('/admin/drivers') },
+                    { key: 'incidents', label: 'Incidents', onClick: () => router.push('/admin/incidents') },
+                  ]}
+                />
+              </OperationalCard>
+            </div>
+          </>
+        }
+        aside={
+          <>
             <OperationalCard
-              title="Dispatch priority queue"
-              subtitle="Unallocated jobs, exceptions and imminent pickups are grouped into one operating-company queue."
-              actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Full jobs register</ActionButton>}
+              title="Activity at a glance"
+              subtitle="Priority jobs requiring dispatch control."
+              actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>View all</ActionButton>}
               flush
             >
               <DataTable
@@ -166,24 +182,6 @@ export default function DispatcherControlDashboardHome() {
               />
             </OperationalCard>
 
-            <OperationalCard
-              title="Resource availability"
-              subtitle="Driver availability and tracking freshness for allocation and live dispatch decisions."
-            >
-              <OperationalLinkList
-                showTrailingArrow={false}
-                items={[
-                  { key: 'available', label: 'Drivers marked available', value: availableDrivers, onClick: () => router.push('/admin/drivers') },
-                  { key: 'busy', label: 'Drivers marked busy', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter((driver) => normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'busy').length), onClick: () => router.push('/admin/drivers') },
-                  { key: 'vehicles', label: 'Vehicles visible', value: getWorkspaceDatasetMetricValue(data.datasets.vehicles, (rows) => rows.length), onClick: () => router.push('/admin/vehicles') },
-                  { key: 'stale', label: 'Stale GPS positions', value: trackingUnavailable ? '—' : stalePositions.length, onClick: () => router.push('/admin/fleet/positions') },
-                ]}
-              />
-            </OperationalCard>
-          </>
-        }
-        aside={
-          <div style={{ display: 'grid', gap: '8px' }}>
             <OperationalAttentionRail
               title="Live exceptions"
               subtitle="Operational exceptions and stale driver positions."
@@ -215,19 +213,7 @@ export default function DispatcherControlDashboardHome() {
                 <EmptyState compact title={unavailable(data, ['jobs']) && trackingUnavailable ? 'Dispatch exception data unavailable' : 'No live exceptions'} />
               ) : null}
             </OperationalAttentionRail>
-
-            <OperationalCard title="Dispatcher actions" subtitle="Execution and exception workflows only.">
-              <QuickActionGrid
-                actions={[
-                  { key: 'diary', label: 'Diary', onClick: () => router.push('/admin/diary') },
-                  { key: 'assign', label: 'Assignments', onClick: () => router.push('/admin/fleet/assignments') },
-                  { key: 'positions', label: 'Live positions', onClick: () => router.push('/admin/fleet/positions') },
-                  { key: 'drivers', label: 'Drivers', onClick: () => router.push('/admin/drivers') },
-                  { key: 'incidents', label: 'Incidents', onClick: () => router.push('/admin/incidents') },
-                ]}
-              />
-            </OperationalCard>
-          </div>
+          </>
         }
       />
     </div>

@@ -20,7 +20,7 @@ describe('Broker cleaned workspace contract', () => {
 
   it('keeps only four primary Broker signals on the dashboard', () => {
     for (const label of ['Open loads','Awaiting award','Active jobs','Gross margin']) {
-      expect(dashboard).toContain(`<span>${label}</span>`);
+      expect(dashboard).toContain(`label="${label}"`);
     }
     expect(dashboard).not.toContain('Search & filters');
     expect(dashboard).not.toContain('Operational action queue');

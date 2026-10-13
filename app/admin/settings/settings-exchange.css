@@ -1,6 +1,6 @@
 .settings-exchange-layout {
   display: grid;
-  grid-template-columns: 190px minmax(0, 1fr);
+  grid-template-columns: var(--ws-filter-rail-w, 165px) minmax(0, 1fr);
   gap: var(--ws-gap-grid, 12px);
   align-items: start;
 }
@@ -326,7 +326,7 @@
 }
 
 .settings-identity-list > div {
-  min-height: 38px;
+  min-height: var(--ws-table-row-h, 42px);
   display: flex;
   justify-content: space-between;
   gap: 12px;

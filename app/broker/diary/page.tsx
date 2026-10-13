@@ -6,7 +6,7 @@ import { useAuth } from '../../components/AuthContext';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
-import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, StatusBadge, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
 import { brokerDiaryStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../lib/feedback/canonicalFeedback';
@@ -265,16 +265,18 @@ export default function BrokerDiaryPage() {
         </main>
       </div>
 
-      {feedbackJobId && <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget && !feedbackSaving) setFeedbackJobId(null); }} style={{ position: 'fixed', inset: 0, zIndex: 1300, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(15, 23, 42, 0.48)' }}>
-        <section role="dialog" aria-modal="true" aria-labelledby="broker-feedback-title" style={{ width: 'min(520px, calc(100vw - 32px))', overflow: 'hidden', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff' }}>
-          <header style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f4f6f8' }}><strong id="broker-feedback-title">Carrier feedback</strong><div style={{ marginTop: 2, color: '#64748b', fontSize: 11 }}>Rate the external carrier for this completed broker booking. One company review is kept per booking.</div></header>
-          <div style={{ padding: 12, display: 'grid', gap: 10 }}>
-            <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 800, color: '#334155' }}>RATING<select value={feedbackRating} onChange={(event) => setFeedbackRating(Number(event.target.value))} style={{ minHeight: 34, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px', background: '#fff' }}>{[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} / 5</option>)}</select></label>
-            <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 800, color: '#334155' }}>COMMENT<textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value.slice(0, 2000))} rows={5} placeholder="Operational feedback about this booking" style={{ border: '1px solid #cbd5e1', borderRadius: 4, padding: 8, resize: 'vertical' }} /></label>
-          </div>
-          <footer style={{ padding: '8px 12px', display: 'flex', justifyContent: 'flex-end', gap: 6, borderTop: '1px solid #e2e8f0', background: '#f4f6f8' }}><ActionButton tone="secondary" disabled={feedbackSaving} onClick={() => setFeedbackJobId(null)}>Cancel</ActionButton><ActionButton tone="success" disabled={feedbackSaving} onClick={() => void saveFeedback()}>{feedbackSaving ? 'Saving...' : 'Save Feedback'}</ActionButton></footer>
-        </section>
-      </div>}
+      {feedbackJobId && <WorkspaceDialog
+        ariaLabel="Carrier feedback"
+        title="Carrier feedback"
+        description="Rate the external carrier for this completed broker booking. One company review is kept per booking."
+        width={520}
+        onDismiss={() => setFeedbackJobId(null)}
+        dismissDisabled={feedbackSaving}
+        actions={<><ActionButton tone="secondary" disabled={feedbackSaving} onClick={() => setFeedbackJobId(null)}>Cancel</ActionButton><ActionButton tone="success" disabled={feedbackSaving} onClick={() => void saveFeedback()}>{feedbackSaving ? 'Saving...' : 'Save Feedback'}</ActionButton></>}
+      >
+        <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: '#334155' }}>RATING<select value={feedbackRating} onChange={(event) => setFeedbackRating(Number(event.target.value))}>{[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} / 5</option>)}</select></label>
+        <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: '#334155' }}>COMMENT<textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value.slice(0, 2000))} rows={5} placeholder="Operational feedback about this booking" /></label>
+      </WorkspaceDialog>}
     </PageFrame>
   );
 }

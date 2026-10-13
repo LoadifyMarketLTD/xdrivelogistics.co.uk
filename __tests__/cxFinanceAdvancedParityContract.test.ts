@@ -39,6 +39,14 @@ describe('CX-close finance and accounting parity', () => {
     expect(financeHome).toContain("router.push('/admin/finance/statements')");
   });
 
+  it('uses the same compact responsive in-panel filters as Fleet without fixed desktop-only finance columns', () => {
+    const css = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/workspace-measured-cx-baseline.css'), 'utf8');
+    expect(statements).toContain('className="workspace-filter-fields workspace-filter-fields--even"');
+    expect(statements).not.toContain("gridTemplateColumns: 'minmax(220px, 1fr)");
+    expect(css).toContain('.workspace-filter-fields--even > :first-child');
+    expect(css).toContain('grid-template-columns: minmax(0, 1fr) !important;');
+  });
+
   it('does not pretend external invoice upload or batch mutation exists', () => {
     expect(statements).not.toContain('Upload invoice');
     expect(statements).not.toContain('Batch mark paid');

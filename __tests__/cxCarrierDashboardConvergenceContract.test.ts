@@ -7,9 +7,16 @@ describe('Carrier CX convergence contract', () => {
     'utf8',
   );
 
-  it('keeps compact control signals rather than a large KPI wall', () => {
+  it('reuses the shared measured KPI tiles while preserving selectable carrier views', () => {
+    const primitive = fs.readFileSync(
+      path.join(process.cwd(), 'app/components/workspace/OperationalConvergence.tsx'),
+      'utf8',
+    );
     expect(source).toContain('<CarrierControlSignals signals={signals} />');
-    expect(source).toContain("minHeight: '54px'");
+    expect(source).toContain('<OperationalSignalStrip ariaLabel="Carrier control signals" items={signals} />');
+    expect(source).not.toContain('carrierControlSignalsGrid');
+    expect(source).not.toContain("minHeight: '54px'");
+    expect(primitive).toContain('aria-pressed={item.active}');
     expect(source).not.toContain('<KpiGrid>');
     expect(source).not.toContain('<KpiCard');
   });

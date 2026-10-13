@@ -1,13 +1,13 @@
-/**
+﻿/**
  * Jobs responsive layout contract tests.
  *
  * Validates that the responsive layout contract for the Jobs operational table
  * and mobile card list is correctly structured in the component and CSS module.
  *
  * Breakpoints:
- *   Desktop  ≥769px : full dense table (default)
- *   Tablet   481–768px : compact table; Customer/Distance columns hidden via CSS
- *   Mobile   ≤480px : table hidden; stacked job cards shown
+ *   Desktop  â‰¥769px : full dense table (default)
+ *   Tablet   481â€“768px : compact table; Customer/Distance columns hidden via CSS
+ *   Mobile   â‰¤480px : table hidden; stacked job cards shown
  *
  * These tests verify the code-level contract (CSS class presence, media queries,
  * component structure) rather than pixel-level rendering, which is verified by
@@ -30,10 +30,10 @@ const CSS_SRC = readFileSync(
 );
 
 // ---------------------------------------------------------------------------
-// 1. Mobile card container — CSS class existence and media query
+// 1. Mobile card container â€” CSS class existence and media query
 // ---------------------------------------------------------------------------
 
-describe('Jobs responsive — mobile card CSS', () => {
+describe('Jobs responsive â€” mobile card CSS', () => {
   it('defines .jobsMobileCardList in the CSS module', () => {
     expect(CSS_SRC).toContain('.jobsMobileCardList');
   });
@@ -50,7 +50,7 @@ describe('Jobs responsive — mobile card CSS', () => {
     expect(CSS_SRC).toContain('.jobsMobileCardBody {');
   });
 
-  it('defines .jobsMobileCardRoute for the pickup→delivery route block', () => {
+  it('defines .jobsMobileCardRoute for the pickupâ†’delivery route block', () => {
     expect(CSS_SRC).toContain('.jobsMobileCardRoute {');
   });
 
@@ -91,7 +91,7 @@ describe('Jobs responsive — mobile card CSS', () => {
 // 2. Desktop/tablet table section wrapper
 // ---------------------------------------------------------------------------
 
-describe('Jobs responsive — table section wrapper', () => {
+describe('Jobs responsive â€” table section wrapper', () => {
   it('defines .jobsTableSection in the CSS module', () => {
     expect(CSS_SRC).toContain('.jobsTableSection');
   });
@@ -110,10 +110,10 @@ describe('Jobs responsive — table section wrapper', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 3. Tablet column hiding — Customer and Distance columns
+// 3. Tablet column hiding â€” Customer and Distance columns
 // ---------------------------------------------------------------------------
 
-describe('Jobs responsive — tablet column hiding', () => {
+describe('Jobs responsive â€” tablet column hiding', () => {
   it('defines .jobsColCustomer in the CSS module', () => {
     expect(CSS_SRC).toContain('.jobsColCustomer');
   });
@@ -132,7 +132,7 @@ describe('Jobs responsive — tablet column hiding', () => {
   });
 
   it('applies .jobsColCustomer to both the Customer <th> and <td>', () => {
-    // Count occurrences — must appear at least twice (th + td)
+    // Count occurrences â€” must appear at least twice (th + td)
     const matches = TABLE_SRC.match(/jobsColCustomer/g);
     expect(matches).not.toBeNull();
     expect(matches!.length).toBeGreaterThanOrEqual(2);
@@ -146,10 +146,10 @@ describe('Jobs responsive — tablet column hiding', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 4. Mobile card required fields — component source contract
+// 4. Mobile card required fields â€” component source contract
 // ---------------------------------------------------------------------------
 
-describe('Jobs responsive — mobile card required fields', () => {
+describe('Jobs responsive â€” mobile card required fields', () => {
   it('renders job reference in the card header (.jobsMobileCardRef)', () => {
     expect(TABLE_SRC).toContain('jobsMobileCardRef');
     expect(TABLE_SRC).toContain('job.jobRef');
@@ -168,7 +168,7 @@ describe('Jobs responsive — mobile card required fields', () => {
     expect(expandCount).toBeGreaterThanOrEqual(2);
   });
 
-  it('renders route block (pickup → delivery) in mobile card', () => {
+  it('renders route block (pickup â†’ delivery) in mobile card', () => {
     expect(TABLE_SRC).toContain('jobsMobileCardRoute');
     expect(TABLE_SRC).toContain('jobsMobileCardRouteOrigin');
     expect(TABLE_SRC).toContain('jobsMobileCardRouteDest');
@@ -230,7 +230,7 @@ describe('Jobs responsive — mobile card required fields', () => {
 // 5. Mobile card expandable detail fields
 // ---------------------------------------------------------------------------
 
-describe('Jobs responsive — mobile card expandable detail', () => {
+describe('Jobs responsive â€” mobile card expandable detail', () => {
   it('conditionally renders .jobsMobileCardDetail when row is expanded', () => {
     expect(TABLE_SRC).toContain('jobsMobileCardDetail');
     expect(TABLE_SRC).toContain('isExpanded');
@@ -273,7 +273,7 @@ describe('Jobs responsive — mobile card expandable detail', () => {
 // 6. Toolbar responsive adaptation
 // ---------------------------------------------------------------------------
 
-describe('Jobs responsive — toolbar adaptation', () => {
+describe('Jobs responsive â€” toolbar adaptation', () => {
   it('overrides toolbar height to auto at max-width 768px', () => {
     const tabletBlock = CSS_SRC.match(/@media \(max-width: 768px\)\s*\{([\s\S]*?)(?=\n@media)/)?.[1] ?? '';
     expect(tabletBlock).toContain('height: auto');
@@ -291,10 +291,10 @@ describe('Jobs responsive — toolbar adaptation', () => {
 });
 
 // ---------------------------------------------------------------------------
-// 7. Fragment key — no anonymous fragment root in lists
+// 7. Fragment key â€” no anonymous fragment root in lists
 // ---------------------------------------------------------------------------
 
-describe('Jobs responsive — fragment key correctness', () => {
+describe('Jobs responsive â€” fragment key correctness', () => {
   it('uses Fragment (not <>) for the keyed table row list', () => {
     // Anonymous fragment (<>) cannot carry a React key; must use Fragment explicitly
     expect(TABLE_SRC).toContain('<Fragment key={job.id}>');
@@ -306,7 +306,7 @@ describe('Jobs responsive — fragment key correctness', () => {
 // 8. Breakpoint values match the documented contracts
 // ---------------------------------------------------------------------------
 
-describe('Jobs responsive — breakpoint values', () => {
+describe('Jobs responsive â€” breakpoint values', () => {
   it('uses 480px as the mobile/card breakpoint', () => {
     expect(CSS_SRC).toContain('max-width: 480px');
   });
@@ -318,8 +318,8 @@ describe('Jobs responsive — breakpoint values', () => {
   it('renders status tabs as readable distributed underline tabs rather than compact pills', () => {
     const tabRule = CSS_SRC.match(/\.jobsStatusTab\s*\{([^}]+)\}/)?.[1] ?? '';
     const activeRule = CSS_SRC.match(/\.jobsStatusTabActive\s*\{([^}]+)\}/)?.[1] ?? '';
-    expect(tabRule).toContain('border-bottom: 3px solid transparent');
-    expect(tabRule).toContain('border-radius: 3px 3px 0 0');
+    expect(tabRule).toContain('border-bottom: 2px solid transparent');
+    expect(tabRule).toContain('border-radius: 0');
     expect(activeRule).toContain('border-bottom-color: #1D57D8');
   });
 });

@@ -331,38 +331,38 @@ This permanently removes only an inactive Driver with no protected operational d
 
   return (
     <ProtectedRoute>
-      <div className="carrier-register-page carrier-register-page--drivers" style={{ background: '#eef2f7', minHeight: '100vh', padding: '1rem' }}>
-        <div style={{ background: '#111827', color: '#e5e7eb', borderRadius: '14px', border: '1px solid #1f2937', padding: '0.8rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', fontWeight: '600' }}>
-            <span style={{ width: '0.6rem', height: '0.6rem', borderRadius: '999px', background: '#4ade80' }} />
+      <div className="carrier-register-page carrier-register-page--drivers">
+        <div className="carrier-register-summary">
+          <div className="carrier-register-summary__title">
+            <span className="carrier-register-summary__signal" aria-hidden="true" />
             Driver Operations Board
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+          <div className="carrier-register-summary__counts">
             {[
               `All ${drivers.length}`,
               `Active ${activeDriverCount}`,
               `Attention ${inactiveDriverCount}`,
             ].map((item) => (
-              <span key={item} style={{ border: '1px solid #374151', borderRadius: '999px', padding: '0.25rem 0.65rem', fontSize: '0.75rem', color: '#cbd5e1' }}>{item}</span>
+              <span key={item} className="carrier-register-summary__count">{item}</span>
             ))}
           </div>
         </div>
 
-        <div style={{ display: 'grid', gap: '1rem', gridTemplateColumns: 'minmax(220px, 260px) minmax(0, 1fr)' }}>
-          <aside style={{ background: '#f8fafc', border: '1px solid #dbe3ef', borderRadius: '14px', padding: '1rem', display: 'grid', gap: '1rem', alignContent: 'start' }}>
+        <div className="carrier-register-board">
+          <aside className="carrier-register-filters" aria-label="Driver filters">
             <div>
-              <h2 style={{ margin: 0, fontSize: '0.88rem', letterSpacing: '0.08em', textTransform: 'uppercase', color: '#6b7280' }}>Driver filters</h2>
-              <p style={{ margin: '0.45rem 0 0 0', fontSize: '0.88rem', color: '#64748b' }}>Company: {companies[0]?.name ?? 'Current account company'}</p>
+              <h2 className="carrier-register-filters__title">Driver filters</h2>
+              <p className="carrier-register-filters__subtitle">Company: {companies[0]?.name ?? 'Current account company'}</p>
             </div>
-            <div style={{ display: 'grid', gap: '0.6rem' }}>
+            <div className="carrier-register-metrics">
               {[
                 { label: 'Total drivers', value: drivers.length.toString() },
                 { label: 'App access disabled', value: appDisabledCount.toString() },
                 { label: 'Suspended / inactive', value: inactiveDriverCount.toString() },
               ].map((item) => (
-                <div key={item.label} style={{ background: '#fff', border: '1px solid #e5e7eb', borderRadius: '10px', padding: '0.72rem 0.78rem' }}>
-                  <div style={{ fontSize: '0.76rem', color: '#6b7280' }}>{item.label}</div>
-                  <div style={{ marginTop: '0.3rem', fontSize: '1.15rem', fontWeight: '700', color: '#0f172a' }}>{item.value}</div>
+                <div key={item.label} className="carrier-register-metric">
+                  <div className="carrier-register-metric__label">{item.label}</div>
+                  <strong className="carrier-register-metric__value">{item.value}</strong>
                 </div>
               ))}
             </div>
@@ -375,33 +375,33 @@ This permanently removes only an inactive Driver with no protected operational d
                 setShowModal(true);
               }}
               disabled={!companyResolved || !companyId}
-              style={{ padding: '0.72rem 0.9rem', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '10px', fontSize: '0.9rem', fontWeight: '600', cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}
+              className="carrier-register-action"
             >
               + Add Driver
             </button>
           </aside>
 
-          <section style={{ background: '#fff', border: '1px solid #dbe3ef', borderRadius: '14px', overflow: 'hidden' }}>
-            <div style={{ borderBottom: '1px solid #e5e7eb', padding: '1rem', display: 'grid', gap: '0.9rem' }}>
+          <section className="carrier-register-results" aria-label="Driver directory">
+            <div className="carrier-register-results__header">
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap' }}>
                 <div>
-                  <h1 style={{ margin: 0, fontSize: '1.6rem', color: '#111827' }}>Drivers</h1>
-                  <p style={{ margin: '0.35rem 0 0 0', color: '#64748b', fontSize: '0.9rem' }}>Manage driver accounts with board-style visibility.</p>
+                  <h1 className="carrier-register-title">Drivers</h1>
+                  <p className="carrier-register-subtitle">Manage driver accounts with board-style visibility.</p>
                 </div>
               </div>
 
               {companyError && (
-                <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '10px', padding: '0.85rem', color: '#92400e', fontSize: '0.9rem' }}>
+                <div className="xdrive-alert-banner" style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', color: '#92400e' }}>
                   {companyError}
                 </div>
               )}
               {!isSupabaseConfigured && (
-                <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '10px', padding: '0.85rem', color: '#92400e', fontSize: '0.9rem' }}>
+                <div className="xdrive-alert-banner" style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', color: '#92400e' }}>
                   ⚠️ Supabase is not configured. Database features are disabled.
                 </div>
               )}
 
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+              <div className="carrier-register-tabs workspace-tab-strip" role="group" aria-label="Driver status filters">
                 {[
                   { key: 'all' as const, label: `All Drivers (${drivers.length})` },
                   { key: 'active' as const, label: `Active (${activeDriverCount})` },
@@ -410,16 +410,8 @@ This permanently removes only an inactive Driver with no protected operational d
                   <button
                     key={tab.key}
                     onClick={() => setActiveTab(tab.key)}
-                    style={{
-                      border: activeTab === tab.key ? '1px solid #1d4ed8' : '1px solid #d1d5db',
-                      background: activeTab === tab.key ? '#eff6ff' : '#f8fafc',
-                      color: activeTab === tab.key ? '#1d4ed8' : '#475569',
-                      borderRadius: '999px',
-                      padding: '0.42rem 0.85rem',
-                      fontSize: '0.82rem',
-                      fontWeight: '600',
-                      cursor: 'pointer',
-                    }}
+                    className="carrier-register-tab"
+                    data-active={activeTab === tab.key}
                   >
                     {tab.label}
                   </button>
@@ -446,23 +438,23 @@ This permanently removes only an inactive Driver with no protected operational d
                 </div>
               </div>
             ) : (
-              <div style={{ padding: '1rem', display: 'grid', gap: '0.75rem' }}>
+              <div className="carrier-register-list">
                 {paginatedDrivers.map((d) => (
-                  <article key={d.id} style={{ border: '1px solid #e5e7eb', borderRadius: '12px', background: '#ffffff', padding: '0.9rem', display: 'grid', gap: '0.75rem' }}>
+                  <article key={d.id} className="carrier-driver-card">
                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
                       <div>
                         <div style={{ fontWeight: '700', color: '#0f172a' }}>{d.display_name}</div>
                         <div style={{ color: '#64748b', fontSize: '0.86rem', marginTop: '0.25rem' }}>{d.email || '—'} • {d.phone || 'No phone'}</div>
                       </div>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                        <span style={{ backgroundColor: statusBg(d.status), color: statusColor(d.status), padding: '0.25rem 0.7rem', borderRadius: '999px', fontSize: '0.76rem', fontWeight: '600' }}>{d.status}</span>
-                        <span style={{ border: '1px solid #d1d5db', borderRadius: '999px', padding: '0.25rem 0.7rem', color: d.app_access ? '#166534' : '#64748b', fontSize: '0.76rem', fontWeight: '600' }}>
+                        <span className="carrier-driver-card__status" style={{ backgroundColor: statusBg(d.status), color: statusColor(d.status) }}>{d.status}</span>
+                        <span className="carrier-driver-card__status carrier-driver-card__status--outline" style={{ color: d.app_access ? '#166534' : '#64748b' }}>
                           {d.app_access ? 'App access enabled' : 'App access disabled'}
                         </span>
                         <span style={{ color: '#64748b', fontSize: '0.78rem' }}>Created {formatDate(d.created_at)}</span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                    <div className="carrier-driver-card__actions">
                       <button
                         onClick={() => openEditModal(d)}
                         style={{ padding: '0.4rem 0.8rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '8px', fontSize: '0.8rem', fontWeight: '600', cursor: 'pointer' }}
@@ -523,15 +515,15 @@ This permanently removes only an inactive Driver with no protected operational d
 
         {/* Create Driver Modal */}
         {showModal && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="carrier-register-modal-overlay">
+            <div className="carrier-register-modal" style={{ maxWidth: '500px' }}>
+              <div className="carrier-register-modal__header">
                 <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Add Driver</h2>
                 <button onClick={closeModal} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
               </div>
               {createdCredentials ? (
                 <>
-                  <div style={{ padding: '1.5rem', display: 'grid', gap: '0.8rem' }}>
+                  <div className="carrier-register-modal__body">
                   <div style={{ backgroundColor: createdCredentials.onboardingOutcome === 'invite_sent' ? '#ecfdf3' : '#eff6ff', border: `1px solid ${createdCredentials.onboardingOutcome === 'invite_sent' ? '#86efac' : '#93c5fd'}`, borderRadius: '8px', padding: '0.9rem', color: createdCredentials.onboardingOutcome === 'invite_sent' ? '#166534' : '#1d4ed8', fontSize: '0.9rem' }}>
                     {createdCredentials.onboardingOutcome === 'invite_sent'
                         ? 'Driver invited successfully. A password setup email was sent.'
@@ -575,7 +567,7 @@ This permanently removes only an inactive Driver with no protected operational d
                       </div>
                     ) : null}
                   </div>
-                  <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '0.75rem', flexWrap: 'wrap' }}>
+                  <div className="carrier-register-modal__footer">
                     {createdCredentials.temporaryPassword ? (
                       <button onClick={handleCopyTemporaryPassword} style={{ padding: '0.75rem 1rem', backgroundColor: '#e0f2fe', color: '#075985', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: 'pointer' }}>
                         Copy temporary password
@@ -597,8 +589,8 @@ This permanently removes only an inactive Driver with no protected operational d
                 </>
               ) : (
                 <>
-                  <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                    {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
+                  <div className="carrier-register-modal__body">
+                    {error && <div className="xdrive-alert-banner" style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626' }}>{error}</div>}
                     <div><label style={labelStyle}>Full Name *</label><input style={inputStyle} value={formData.display_name} onChange={e => setFormData({...formData, display_name: e.target.value})} placeholder="John Smith" /></div>
                     <div>
                       <label style={labelStyle}>Company</label>
@@ -612,7 +604,7 @@ This permanently removes only an inactive Driver with no protected operational d
                     <div><label style={labelStyle}>Email *</label><input style={inputStyle} type="email" value={formData.email} onChange={e => setFormData({...formData, email: e.target.value})} placeholder="driver@email.com" /></div>
                     <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} placeholder="07123456789" /></div>
                   </div>
-                  <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+                  <div className="carrier-register-modal__footer">
                     <button onClick={closeModal} disabled={creating} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: creating ? 'not-allowed' : 'pointer' }}>Cancel</button>
                     <button onClick={handleCreate} disabled={creating} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: creating ? 'not-allowed' : 'pointer' }}>{creating ? 'Creating...' : 'Add Driver'}</button>
                   </div>
@@ -624,14 +616,14 @@ This permanently removes only an inactive Driver with no protected operational d
 
         {/* Edit Driver Modal */}
         {editingDriver && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: '1rem' }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '480px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="carrier-register-modal-overlay">
+            <div className="carrier-register-modal" style={{ maxWidth: '480px' }}>
+              <div className="carrier-register-modal__header">
                 <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Edit Driver</h2>
                 <button onClick={() => setEditingDriver(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
               </div>
-              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                {editError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{editError}</div>}
+              <div className="carrier-register-modal__body">
+                {editError && <div className="xdrive-alert-banner" style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626' }}>{editError}</div>}
                 <div><label style={labelStyle}>Full Name *</label><input style={inputStyle} value={editData.display_name} onChange={e => setEditData({...editData, display_name: e.target.value})} /></div>
                 <div><label style={labelStyle}>Phone</label><input style={inputStyle} value={editData.phone} onChange={e => setEditData({...editData, phone: e.target.value})} /></div>
                 <div>
@@ -652,7 +644,7 @@ This permanently removes only an inactive Driver with no protected operational d
                   <label htmlFor="app_access" style={{ fontSize: '0.9rem', fontWeight: '500', color: '#374151', cursor: 'pointer' }}>App Access (driver can log in to driver portal)</label>
                 </div>
               </div>
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <div className="carrier-register-modal__footer">
                 <button onClick={() => setEditingDriver(null)} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: saving ? 'not-allowed' : 'pointer' }}>Cancel</button>
                 <button onClick={handleUpdate} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
               </div>

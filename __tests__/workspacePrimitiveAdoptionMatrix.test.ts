@@ -8,12 +8,12 @@ function read(filePath: string): string {
 
 function hasOperationalTablePrimitive(filePath: string): boolean {
   const source = read(filePath);
-  return /\bOperationalTable\b|\bDataTable\b|<table\b|customer-dash-table|customer-activity-list|customer-activity-card|driver-load-list|driver-load-row|broker-clean-table/.test(source);
+  return /\bOperationalTable\b|\bDataTable\b|<table\b|customer-activity-list|customer-activity-card|driver-load-list|driver-load-row/.test(source);
 }
 
 function hasCompactKpiStrip(filePath: string): boolean {
   const source = read(filePath);
-  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|customer-dash-metrics|customer-owner-stat-grid|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source);
+  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source);
 }
 
 function hasActionCentreRoute(filePath: string): boolean {
@@ -27,10 +27,10 @@ function rowFor(filePath: string) {
   return {
     pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b/.test(source),
     operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b|driver-tab-strip/.test(source),
-    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|customer-dash-metrics|customer-owner-stat-grid|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source),
-    operationalTable: /\bOperationalTable\b|\bDataTable\b|<table\b|customer-dash-table|customer-activity-list|customer-activity-card|driver-load-list|driver-load-row|broker-clean-table/.test(source),
-    quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b|customer-action-grid/.test(source),
-    financialSummaryPanel: /\bFinancialSummaryPanel\b|customer-dash-summary/.test(source),
+    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source),
+    operationalTable: /\bOperationalTable\b|\bDataTable\b|<table\b|customer-activity-list|customer-activity-card|driver-load-list|driver-load-row/.test(source),
+    quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b/.test(source),
+    financialSummaryPanel: /\bFinancialSummaryPanel\b/.test(source),
     complianceSummaryPanel: /\bComplianceSummaryPanel\b/.test(source),
     dateRangeSelector: /\bDateRangeSelector\b|\bActionCentrePage\b|\bdateRange\b/.test(source),
     savedViewSelector: /\bSavedViewSelector\b|\bActionCentrePage\b|\bsavedView\b|\bsavedViews\b/.test(source),

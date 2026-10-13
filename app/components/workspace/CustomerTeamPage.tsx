@@ -228,7 +228,7 @@ export default function CustomerTeamPage() {
                 minHeight: '32px',
                 padding: '0 8px',
                 minWidth: '220px',
-                fontSize: '12.5px',
+                fontSize: '12px',
               }}
             />
             <select
@@ -239,7 +239,7 @@ export default function CustomerTeamPage() {
                 borderRadius: '4px',
                 height: '32px',
                 padding: '0 8px',
-                fontSize: '12.5px',
+                fontSize: '12px',
                 background: '#fff',
               }}
             >
@@ -251,7 +251,7 @@ export default function CustomerTeamPage() {
               value={inviteDepartmentId}
               onChange={(event) => setInviteDepartmentId(event.target.value)}
               aria-label="Invite department"
-              style={{ height: '32px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 8px', fontSize: '12.5px', background: '#fff' }}
+              style={{ height: '32px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 8px', fontSize: '12px', background: '#fff' }}
             >
               <option value="">No department</option>
               {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
@@ -282,7 +282,7 @@ export default function CustomerTeamPage() {
             member.phone ?? 'Not recorded',
             member.role.replace(/_/g, ' '),
             canManageTeam ? (
-              <select key="department" value={member.departmentId ?? ''} disabled={pendingActionId === member.id} onChange={(event) => { const departmentId = event.target.value || null; setPendingActionId(member.id); void runTeamAction({ membershipId: member.id, action: 'department', departmentId }, 'Department updated.').finally(() => setPendingActionId(null)); }} style={{ fontSize: '11.5px' }}>
+              <select key="department" value={member.departmentId ?? ''} disabled={pendingActionId === member.id} onChange={(event) => { const departmentId = event.target.value || null; setPendingActionId(member.id); void runTeamAction({ membershipId: member.id, action: 'department', departmentId }, 'Department updated.').finally(() => setPendingActionId(null)); }} style={{ fontSize: '11px' }}>
                 <option value="">No department</option>
                 {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
               </select>
@@ -309,7 +309,7 @@ export default function CustomerTeamPage() {
                       ).finally(() => setPendingActionId(null));
                     }}
                     disabled={pendingActionId === member.id}
-                    style={{ fontSize: '11.5px' }}
+                    style={{ fontSize: '11px' }}
                   >
                     {ROLE_OPTIONS.map((roleOption) => (
                       <option key={roleOption} value={roleOption}>

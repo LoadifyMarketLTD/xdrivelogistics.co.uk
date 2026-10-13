@@ -15,6 +15,7 @@ import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
 import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import workspaceStyles from '../../components/workspace/WorkspaceUI.module.css';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 
@@ -217,10 +218,6 @@ function formatExecutionAddress(address: string | null, postcode: string | null)
   if (!cleanAddress) return cleanPostcode || 'Not supplied';
   if (!cleanPostcode) return cleanAddress;
   return normalizeComparable(cleanAddress).includes(normalizeComparable(cleanPostcode)) ? cleanAddress : `${cleanAddress}, ${cleanPostcode}`;
-}
-function postcodeSecondary(address: string | null, postcode: string | null) {
-  if (!postcode) return '—';
-  return normalizeComparable(address).includes(normalizeComparable(postcode)) ? 'Route address' : postcode;
 }
 function money(value: number, currency = 'GBP') { return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value); }
 function human(value: string | null | undefined) { return value ? value.replace(/_/g, ' ') : 'Not supplied'; }
@@ -602,8 +599,9 @@ export default function JobHistoryPage() {
         <div className="driver-diary-board diary-pagebody">
           {filterRail}
           <main className="driver-board-main main diary-main">
-            <div className="diary-tabs" role="tablist" aria-label="Diary states">
-              {historyFilters.map((item) => <button key={item.id} type="button" role="tab" aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)).length}</span></button>)}
+            <div className="driver-diary-controlbar">
+              <div className={`diary-tabs workspace-tab-strip ${workspaceStyles.jobsStatusTabs}`} role="tablist" aria-label="Diary states">
+              {historyFilters.map((item) => <button key={item.id} type="button" role="tab" className={`${workspaceStyles.jobsStatusTab} ${statusFilter === item.id ? workspaceStyles.jobsStatusTabActive : ''}`} aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)).length}</span></button>)}
             </div>
             <div className="diary-head diary-head-cx">
               <span>{visibleFiltered.length} booking{visibleFiltered.length === 1 ? '' : 's'} · showing {visibleJobs.length}</span>
@@ -614,6 +612,7 @@ export default function JobHistoryPage() {
                 <span>{visibleFiltered.length === 0 ? '0' : `${(safePage - 1) * itemsPerPage + 1}-${Math.min(safePage * itemsPerPage, visibleFiltered.length)} of ${visibleFiltered.length}`}</span>
                 <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>›</button>
               </span>
+            </div>
             </div>
 
             {loading && jobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : (
@@ -653,8 +652,8 @@ export default function JobHistoryPage() {
                   return (
                     <article key={job.id} className="diary-booking driver-diary-entry" data-state={expired ? 'expired' : currentStatus}>
                       <div className="driver-load-row__top driver-diary-entry__top">
-                        <div className="driver-load-cell"><span className="driver-cell-label">From</span><strong className="driver-cell-primary">{formatExecutionAddress(job.pickup_location, job.pickup_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.pickup_location, job.pickup_postcode)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">To</span><strong className="driver-cell-primary">{formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</strong><span className="driver-cell-secondary">{postcodeSecondary(job.delivery_location, job.delivery_postcode)}</span></div>
+                        <div className="driver-load-cell driver-diary-route-cell"><div className="driver-diary-route-line"><span>From:</span><b>{formatExecutionAddress(job.pickup_location, job.pickup_postcode)}</b></div></div>
+                        <div className="driver-load-cell driver-diary-route-cell"><div className="driver-diary-route-line"><span>To:</span><b>{formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</b></div></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Timing / load</span><strong className="driver-cell-primary">Pickup {fmtDate(job.pickup_datetime ?? job.collection_window_start)}</strong><span className="driver-cell-secondary">Deliver {fmtDate(job.delivery_datetime ?? job.delivery_window_start)} · {human(job.vehicle_type)}</span></div>
                         <div className="driver-load-cell"><span className="driver-cell-label">Status / member</span><strong className="driver-cell-primary">{expired ? 'Expired' : workspaceJobOperationalLabel(job)}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={job.company_id}>{job.companies?.name ?? 'Member not supplied'}</MemberIdentityLink> · Commercial terms in Order</span></div>
                       </div>

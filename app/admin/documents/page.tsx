@@ -7,6 +7,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
 import { getAccessToken } from '../_lib/getAccessToken';
+import { ActionButton, AlertBanner, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type DocumentKind = 'driver' | 'vehicle';
 type DocumentStatus = 'pending' | 'approved' | 'rejected' | 'expired';
@@ -53,13 +54,6 @@ const VEHICLE_DOC_TYPES = [
   { value: 'goods_vehicle_test', label: 'Goods Vehicle Test', required: false },
   { value: 'other', label: 'Other', required: false },
 ] as const;
-
-const STATUS_COLORS: Record<DocumentStatus, { bg: string; text: string }> = {
-  pending: { bg: '#fef3c7', text: '#92400e' },
-  approved: { bg: '#d1fae5', text: '#065f46' },
-  rejected: { bg: '#fee2e2', text: '#991b1b' },
-  expired: { bg: '#f3f4f6', text: '#6b7280' },
-};
 
 const DEFAULT_UPLOAD: UploadForm = {
   kind: 'driver',
@@ -253,47 +247,26 @@ export default function DocumentsPage() {
   const docTypes = form.kind === 'driver' ? DRIVER_DOC_TYPES : VEHICLE_DOC_TYPES;
   const selectedVehicleReadinessDoc = form.kind === 'vehicle' && ['mot', 'insurance'].includes(form.docType);
 
-  const tabStyle = (active: boolean) => ({
-    padding: '0.75rem 1.5rem',
-    border: active ? '1px solid #1F7A3D' : '1px solid #d1d5db',
-    borderRadius: '8px',
-    fontSize: '0.95rem',
-    fontWeight: '600' as const,
-    cursor: 'pointer',
-    backgroundColor: active ? '#1F7A3D' : 'white',
-    color: active ? 'white' : '#4b5563',
-  });
-
   return (
     <ProtectedRoute>
-      <div className="carrier-register-page" style={{ background: '#f5f7fa', minHeight: '100vh', padding: '0.85rem' }}>
+      <div className="carrier-register-page carrier-register-page--documents">
         <div style={{ width: '100%' }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>Fleet Compliance Documents</h1>
-            <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>
+          <div className="carrier-register-toolbar">
+            <h1 className="carrier-register-title">Fleet Compliance Documents</h1>
+            <p className="carrier-register-subtitle">
               Submit Driver identity and Vehicle compliance evidence. Platform Owner review controls approval; operational readiness updates from the canonical compliance state.
             </p>
           </div>
 
-          <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '0.9rem 1rem', color: '#1e40af', marginBottom: '1rem', fontSize: '0.9rem', lineHeight: 1.5 }}>
-            <strong>Activation rule:</strong> creating a Driver is not enough. Required Driver evidence must be verified, exactly one active Vehicle must be assigned, and current MOT + Vehicle Insurance must be approved before the Driver becomes operationally ready.
-          </div>
+          <AlertBanner tone="info"><strong>Activation rule:</strong> creating a Driver is not enough. Required Driver evidence must be verified, exactly one active Vehicle must be assigned, and current MOT + Vehicle Insurance must be approved before the Driver becomes operationally ready.</AlertBanner>
 
-          {!isSupabaseConfigured && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', color: '#92400e' }}>
-              Supabase is not configured. Database features are disabled.
-            </div>
-          )}
-          {error && (
-            <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '1rem', marginBottom: '1rem', color: '#991b1b' }}>
-              {error}
-            </div>
-          )}
+          {!isSupabaseConfigured ? <AlertBanner tone="warning">Supabase is not configured. Database features are disabled.</AlertBanner> : null}
+          {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
 
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <button style={tabStyle(tab === 'driver')} onClick={() => setTab('driver')}>Driver Identity</button>
-              <button style={tabStyle(tab === 'vehicle')} onClick={() => setTab('vehicle')}>Vehicle Compliance</button>
+            <div className="workspace-tab-strip" role="tablist" aria-label="Compliance document type" style={{ display: 'flex', gap: 0, overflowX: 'auto' }}>
+              <button type="button" role="tab" aria-selected={tab === 'driver'} data-active={tab === 'driver' ? 'true' : 'false'} onClick={() => setTab('driver')}>Driver Identity</button>
+              <button type="button" role="tab" aria-selected={tab === 'vehicle'} data-active={tab === 'vehicle' ? 'true' : 'false'} onClick={() => setTab('vehicle')}>Vehicle Compliance</button>
             </div>
             <button
               onClick={() => {
@@ -302,18 +275,18 @@ export default function DocumentsPage() {
                 setShowUpload(true);
               }}
               disabled={!companyId}
-              style={{ padding: '0.75rem 1.5rem', backgroundColor: companyId ? '#1F7A3D' : '#9ca3af', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: companyId ? 'pointer' : 'not-allowed' }}
+              className="carrier-register-action"
             >
               + Upload Document
             </button>
           </div>
 
           {showUpload && (
-            <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 50, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-              <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', width: '100%', maxWidth: '540px', boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflow: 'auto' }}>
+            <div className="carrier-register-modal-overlay">
+              <div className="carrier-register-modal carrier-register-modal--documents" style={{ maxWidth: '540px' }}>
                 <h2 style={{ margin: '0 0 0.4rem', fontSize: '1.4rem', fontWeight: '700', color: '#1f2937' }}>Upload Compliance Document</h2>
                 <p style={{ margin: '0 0 1.25rem', color: '#64748b', fontSize: '0.86rem' }}>The file is stored privately and submitted for Platform Owner compliance review.</p>
-                {uploadError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '8px', padding: '0.75rem', marginBottom: '1rem', color: '#991b1b', fontSize: '0.9rem' }}>{uploadError}</div>}
+                {uploadError ? <AlertBanner tone="danger">{uploadError}</AlertBanner> : null}
 
                 <div style={{ display: 'grid', gap: '1rem' }}>
                   <div>
@@ -377,15 +350,15 @@ export default function DocumentsPage() {
                   </div>
                 </div>
 
-                <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end', marginTop: '1.5rem' }}>
-                  <button onClick={() => { setShowUpload(false); setForm(DEFAULT_UPLOAD); setUploadError(''); }} disabled={uploading} style={{ padding: '0.75rem 1.4rem', border: '1px solid #d1d5db', borderRadius: '8px', backgroundColor: 'white', color: '#374151', fontWeight: '600', cursor: 'pointer' }}>Cancel</button>
-                  <button onClick={() => void handleUpload()} disabled={uploading} style={{ padding: '0.75rem 1.4rem', backgroundColor: uploading ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: uploading ? 'not-allowed' : 'pointer' }}>{uploading ? 'Uploading...' : 'Submit for Review'}</button>
+                <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 10 }}>
+                  <ActionButton tone="secondary" onClick={() => { setShowUpload(false); setForm(DEFAULT_UPLOAD); setUploadError(''); }} disabled={uploading}>Cancel</ActionButton>
+                  <ActionButton tone="success" onClick={() => void handleUpload()} disabled={uploading}>{uploading ? 'Uploading…' : 'Submit for Review'}</ActionButton>
                 </div>
               </div>
             </div>
           )}
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <section className="carrier-register-results" aria-label="Compliance documents">
             {loading ? (
               <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
             ) : visibleDocs.length === 0 ? (
@@ -395,8 +368,8 @@ export default function DocumentsPage() {
               </div>
             ) : (
               <>
-                <div style={{ overflowX: 'auto' }}>
-                  <table style={{ width: '100%', minWidth: '900px', borderCollapse: 'collapse' }}>
+                <div className="carrier-register-table-wrap">
+                  <table className="carrier-register-table">
                     <thead>
                       <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                         {[tab === 'driver' ? 'Driver' : 'Vehicle', 'Document', 'Issued', 'Expires', 'Status', 'Review', 'Actions'].map((heading) => (
@@ -406,14 +379,14 @@ export default function DocumentsPage() {
                     </thead>
                     <tbody>
                       {paginatedDocs.map((item, index) => {
-                        const colors = STATUS_COLORS[item.status] ?? STATUS_COLORS.pending;
+                        const documentStatusTone = item.status === 'approved' ? 'green' : item.status === 'pending' ? 'orange' : 'red';
                         return (
                           <tr key={item.id} style={{ borderBottom: index < paginatedDocs.length - 1 ? '1px solid #e5e7eb' : 'none' }}>
                             <td style={{ padding: '0.9rem', fontWeight: '700', color: '#1f2937' }}>{item.subject_name}</td>
                             <td style={{ padding: '0.9rem', color: '#475569' }}>{labelForDocType(item.kind, item.doc_type)}</td>
                             <td style={{ padding: '0.9rem', color: '#64748b' }}>{item.issued_date || '-'}</td>
                             <td style={{ padding: '0.9rem', color: '#64748b' }}>{item.expiry_date || '-'}</td>
-                            <td style={{ padding: '0.9rem' }}><span style={{ backgroundColor: colors.bg, color: colors.text, padding: '0.25rem 0.7rem', borderRadius: '999px', fontSize: '0.78rem', fontWeight: '700' }}>{item.status}</span></td>
+                            <td style={{ padding: '0.9rem' }}><StatusBadge value={item.status} tone={documentStatusTone} /></td>
                             <td style={{ padding: '0.9rem', color: '#64748b', fontSize: '0.82rem' }}>{item.review_status.replace(/_/g, ' ')}</td>
                             <td style={{ padding: '0.9rem' }}>
                               {item.file_available ? (
@@ -441,7 +414,7 @@ export default function DocumentsPage() {
                 )}
               </>
             )}
-          </div>
+          </section>
         </div>
       </div>
     </ProtectedRoute>

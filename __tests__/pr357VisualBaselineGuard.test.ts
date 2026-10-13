@@ -66,7 +66,7 @@ describe('PR #357 approved visual baseline', () => {
 
   it('keeps the Customer transport-control dashboard structure', () => {
     expect(customerDashboard).toContain('title="Reports & Statistics"');
-    expect(customerDashboard).toContain('customer-owner-stat-grid');
+    expect(customerDashboard).toContain('<KpiGrid>');
     expect(customerDashboard).toContain('Needs your attention');
     expect(customerDashboard).toContain('Activity at a glance');
     expect(customerDashboard).toContain('Outstanding Invoices');
@@ -78,7 +78,8 @@ describe('PR #357 approved visual baseline', () => {
     expect(carrierDashboard).toContain('CarrierControlSignals');
 
     expect(brokerDashboard).toContain('Reports & Statistics');
-    expect(brokerDashboard).toContain('broker-clean-kpis');
+    expect(brokerDashboard).toContain('<KpiGrid>');
+    expect(brokerDashboard).toContain('<KpiCard label="Open loads"');
     expect(brokerDashboard).toContain('Needs your attention');
     expect(brokerDashboard).toContain('Current transport');
     expect(brokerDashboard).toContain('Commercial & Finance');

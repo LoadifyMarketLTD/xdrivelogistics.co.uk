@@ -10,6 +10,7 @@ import { logRuntimeProof } from '../../../lib/runtimeProof';
 
 import { useAdminCompanyContext } from '../_hooks/useAdminCompanyContext';
 import { getAccessToken } from '../_lib/getAccessToken';
+import { AlertBanner } from '../../components/workspace/WorkspaceUI';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
@@ -329,31 +330,23 @@ export default function VehiclesPage() {
 
   return (
     <ProtectedRoute>
-      <div className="carrier-register-page" style={{ background: '#f5f7fa', padding: '0.85rem' }}>
+      <div className="carrier-register-page carrier-register-page--vehicles">
         <div style={{ width: '100%' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', flexWrap: 'wrap', gap: '0.75rem' }}>
+          <div className="carrier-register-toolbar">
             <div>
-              <h1 style={{ fontSize: '2rem', fontWeight: '700', color: '#1f2937', margin: 0 }}>{isDriverWorkspace ? 'My Vehicle' : 'Vehicles'}</h1>
-              <p style={{ color: '#6b7280', margin: '0.5rem 0 0 0' }}>{isDriverWorkspace ? 'Manage your own vehicle details.' : 'Manage fleet vehicles'}</p>
+              <h1 className="carrier-register-title">{isDriverWorkspace ? 'My Vehicle' : 'Vehicles'}</h1>
+              <p className="carrier-register-subtitle">{isDriverWorkspace ? 'Manage your own vehicle details.' : 'Manage fleet vehicles'}</p>
             </div>
-            <button onClick={() => { setError(''); setShowModal(true); }} disabled={!companyResolved || !companyId} style={{ padding: '0.75rem 1.5rem', backgroundColor: !companyResolved || !companyId ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontSize: '0.95rem', fontWeight: '600', cursor: !companyResolved || !companyId ? 'not-allowed' : 'pointer' }}>
+            <button onClick={() => { setError(''); setShowModal(true); }} disabled={!companyResolved || !companyId} className="carrier-register-action">
               + Add Vehicle
             </button>
           </div>
 
-          {companyError && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              {companyError}
-            </div>
-          )}
+          {companyError ? <AlertBanner tone="warning">{companyError}</AlertBanner> : null}
 
-          {!isSupabaseConfigured && (
-            <div style={{ backgroundColor: '#fef3c7', border: '1px solid #f59e0b', borderRadius: '8px', padding: '1rem', marginBottom: '1.5rem', color: '#92400e' }}>
-              ⚠️ Supabase is not configured. Database features are disabled.
-            </div>
-          )}
+          {!isSupabaseConfigured ? <AlertBanner tone="warning">Supabase is not configured. Database features are disabled.</AlertBanner> : null}
 
-          <div style={{ backgroundColor: 'white', borderRadius: '12px', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <section className="carrier-register-results" aria-label="Vehicle directory">
             {!companyResolved || loading ? (
               <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
             ) : !companyId ? (
@@ -367,8 +360,8 @@ export default function VehiclesPage() {
               </div>
             ) : (
               <>
-              <div style={{ overflowX: 'auto', width: '100%' }}>
-                <table style={{ width: '100%', minWidth: '1120px', borderCollapse: 'collapse' }}>
+              <div className="carrier-register-table-wrap">
+                <table className="carrier-register-table">
                   <thead>
                     <tr style={{ backgroundColor: '#f9fafb', borderBottom: '1px solid #e5e7eb' }}>
                       {['Reg Plate', 'Type', 'Make / Model', 'Year', 'Payload (kg)', 'Tail Lift', ...(isDriverWorkspace ? [] : ['Assigned Driver']), 'Advertise', 'Created', 'Actions'].map(h => (
@@ -457,19 +450,19 @@ export default function VehiclesPage() {
               )}
               </>
             )}
-          </div>
+          </section>
         </div>
 
         {/* Create Modal */}
         {showModal && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="carrier-register-modal-overlay">
+            <div className="carrier-register-modal" style={{ maxWidth: '500px' }}>
+              <div className="carrier-register-modal__header">
                 <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Add Vehicle</h2>
                 <button onClick={() => { setShowModal(false); setError(''); }} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
               </div>
-              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                {error && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{error}</div>}
+              <div className="carrier-register-modal__body">
+                {error && <div className="xdrive-alert-banner" style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626' }}>{error}</div>}
                 <div>
                   <label style={labelStyle}>Company *</label>
                   <input
@@ -486,7 +479,7 @@ export default function VehiclesPage() {
                   </select>
                 </div>
                 <div><label style={labelStyle}>Reg Plate</label><input style={inputStyle} value={formData.reg_plate} onChange={e => setFormData({...formData, reg_plate: e.target.value})} placeholder="AB12 CDE" /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                <div className="carrier-register-modal__field-grid">
                   <div><label style={labelStyle}>Make</label><input style={inputStyle} value={formData.make} onChange={e => setFormData({...formData, make: e.target.value})} placeholder="Ford" /></div>
                   <div><label style={labelStyle}>Model</label><input style={inputStyle} value={formData.model} onChange={e => setFormData({...formData, model: e.target.value})} placeholder="Transit" /></div>
                   <div><label style={labelStyle}>Year</label><input style={inputStyle} type="number" min="1900" max="2100" value={formData.manufacture_year} onChange={e => setFormData({...formData, manufacture_year: e.target.value})} placeholder="2020" /></div>
@@ -506,7 +499,7 @@ export default function VehiclesPage() {
                   Has Tail Lift
                 </label>
               </div>
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <div className="carrier-register-modal__footer">
                 <button onClick={() => { setShowModal(false); setError(''); }} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: 'pointer' }}>Cancel</button>
                 <button onClick={handleCreate} disabled={creating} style={{ padding: '0.75rem 1.5rem', backgroundColor: creating ? '#9ca3af' : '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: creating ? 'not-allowed' : 'pointer' }}>{creating ? 'Adding...' : 'Add Vehicle'}</button>
               </div>
@@ -516,14 +509,14 @@ export default function VehiclesPage() {
 
         {/* Edit Modal */}
         {editingVehicle && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', width: '90%', maxWidth: '500px', maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ padding: '1.5rem', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="carrier-register-modal-overlay">
+            <div className="carrier-register-modal" style={{ maxWidth: '500px' }}>
+              <div className="carrier-register-modal__header">
                 <h2 style={{ margin: 0, fontSize: '1.25rem', fontWeight: '700', color: '#1f2937' }}>Edit Vehicle</h2>
                 <button onClick={() => setEditingVehicle(null)} style={{ background: 'none', border: 'none', fontSize: '1.5rem', cursor: 'pointer', color: '#6b7280' }}>×</button>
               </div>
-              <div style={{ padding: '1.5rem', display: 'grid', gap: '1rem' }}>
-                {editError && <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', padding: '0.75rem', color: '#dc2626', fontSize: '0.9rem' }}>{editError}</div>}
+              <div className="carrier-register-modal__body">
+                {editError && <div className="xdrive-alert-banner" style={{ backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#dc2626' }}>{editError}</div>}
                 <div>
                   <label style={labelStyle}>Vehicle Type *</label>
                   <select style={inputStyle} value={editData.type} onChange={e => setEditData({...editData, type: e.target.value as VehicleType})}>
@@ -531,7 +524,7 @@ export default function VehiclesPage() {
                   </select>
                 </div>
                 <div><label style={labelStyle}>Reg Plate</label><input style={inputStyle} value={editData.reg_plate} onChange={e => setEditData({...editData, reg_plate: e.target.value})} /></div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                <div className="carrier-register-modal__field-grid">
                   <div><label style={labelStyle}>Make</label><input style={inputStyle} value={editData.make} onChange={e => setEditData({...editData, make: e.target.value})} /></div>
                   <div><label style={labelStyle}>Model</label><input style={inputStyle} value={editData.model} onChange={e => setEditData({...editData, model: e.target.value})} /></div>
                   <div><label style={labelStyle}>Year</label><input style={inputStyle} type="number" min="1900" max="2100" value={editData.manufacture_year} onChange={e => setEditData({...editData, manufacture_year: e.target.value})} placeholder="2020" /></div>
@@ -551,7 +544,7 @@ export default function VehiclesPage() {
                   Has Tail Lift
                 </label>
               </div>
-              <div style={{ padding: '1.5rem', borderTop: '1px solid #e5e7eb', display: 'flex', justifyContent: 'flex-end', gap: '1rem' }}>
+              <div className="carrier-register-modal__footer">
                 <button onClick={() => setEditingVehicle(null)} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: 'white', color: '#374151', border: '1px solid #d1d5db', borderRadius: '8px', cursor: saving ? 'not-allowed' : 'pointer' }}>Cancel</button>
                 <button onClick={handleUpdate} disabled={saving} style={{ padding: '0.75rem 1.5rem', backgroundColor: '#1F7A3D', color: 'white', border: 'none', borderRadius: '8px', fontWeight: '600', cursor: saving ? 'not-allowed' : 'pointer' }}>{saving ? 'Saving...' : 'Save Changes'}</button>
               </div>
@@ -561,8 +554,8 @@ export default function VehiclesPage() {
 
         {/* Delete Confirm */}
         {showDeleteConfirm && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', borderRadius: '12px', padding: '2rem', maxWidth: '400px', width: '90%', textAlign: 'center' }}>
+          <div className="carrier-register-modal-overlay">
+            <div className="carrier-register-modal carrier-register-modal--confirm" style={{ maxWidth: '400px' }}>
               <div style={{ fontSize: '2.5rem', marginBottom: '1rem' }}>⚠️</div>
               <h3 style={{ color: '#1f2937', marginBottom: '0.75rem' }}>Delete Vehicle?</h3>
               <p style={{ color: '#6b7280', marginBottom: '1.5rem', fontSize: '0.9rem' }}>This action cannot be undone.</p>

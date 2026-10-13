@@ -13,11 +13,16 @@ describe('Finance CX convergence contract', () => {
     expect(source).not.toContain('<KpiCard');
   });
 
-  it('puts Ready to Invoice before receivables, exposure and settled history', () => {
+  it('uses the canonical Owner Driver dashboard hierarchy and preserves finance activity ordering', () => {
     expect(source).toContain('<OperationalWorkspaceGrid');
-    expect(source.indexOf('Ready to Invoice')).toBeLessThan(source.indexOf('Receivables requiring attention'));
+    expect(source).toContain('title="Reports & Statistics"');
+    expect(source).toContain('title="Activity at a glance"');
+    expect(source).toContain('title="Financial exposure"');
+    expect(source).toContain('title="Reports"');
+    expect(source.indexOf('title="Reports & Statistics"')).toBeLessThan(source.indexOf('title="Activity at a glance"'));
+    expect(source.indexOf('title="Activity at a glance"')).toBeLessThan(source.indexOf('Receivables requiring attention'));
     expect(source.indexOf('Receivables requiring attention')).toBeLessThan(source.indexOf('Recently settled'));
-    expect(source.indexOf('Receivables requiring attention')).toBeLessThan(source.indexOf('Financial exposure'));
+    expect(source).not.toContain('<DashboardHomeHeader');
   });
 
   it('derives invoice readiness from completed work operated by the current company', () => {

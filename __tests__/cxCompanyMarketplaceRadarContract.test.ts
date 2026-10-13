@@ -54,6 +54,10 @@ describe('CX-close Company Marketplace Freight Radar', () => {
     expect(css).toContain('var(--ws-panel-head-h, 36px)');
     expect(css).toContain('var(--ws-table-row-h, 42px)');
     expect(css).toContain('var(--ws-radius, 4px)');
+    expect(marketplace).toContain('carrier-exchange-tab');
+    expect(marketplace).not.toContain("flex: '0 0 185px'");
+    expect(marketplace).not.toContain('height: 38');
+    expect(marketplace).not.toContain('fontSize: 11.5');
   });
 
   it('does not couple Radar to Super Admin', () => {

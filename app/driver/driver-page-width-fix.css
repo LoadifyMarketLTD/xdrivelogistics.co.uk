@@ -23,14 +23,12 @@
   max-width: none !important;
   min-width: 0 !important;
 }
-.xdrive-driver-workspace .driver-action-centre-board,
-.xdrive-driver-workspace .driver-live-availability-canonical {
+.xdrive-driver-workspace .driver-action-centre-board {
   width: 100% !important;
   max-width: none !important;
   min-width: 0 !important;
 }
-.xdrive-driver-workspace .driver-action-centre-board > .driver-board-main,
-.xdrive-driver-workspace .driver-live-availability-canonical > .driver-live-availability-main {
+.xdrive-driver-workspace .driver-action-centre-board > .driver-board-main {
   width: 100% !important;
   max-width: none !important;
   min-width: 0 !important;

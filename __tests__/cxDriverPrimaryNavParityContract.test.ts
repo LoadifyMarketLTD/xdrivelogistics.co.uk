@@ -21,8 +21,10 @@ describe('approved prototype Driver primary navigation', () => {
       "['owner-driver-loads-primary', 'Loads', '/driver/loads']",
       "['owner-driver-quotes-primary', 'Quotes', '/driver/quotes']",
       "['owner-driver-diary-primary', 'Diary', '/driver/history']",
-      "['owner-driver-event-log-primary', 'Event Log', '/driver/event-log']",
     ]) expect(shell).toContain(primary);
+    expect(shell).toContain("], 'owner-driver-more', 'More', [");
+    expect(shell).toContain("'/driver/event-log'");
+    expect(shell).toContain("'/driver/freight-vision'");
   });
 
   it('keeps Directory on the real shared member data source', () => {

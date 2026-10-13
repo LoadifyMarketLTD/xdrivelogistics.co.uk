@@ -11,6 +11,7 @@
 
 # next.js
 /.next/
+/.next-*/
 /out/
 
 # production
@@ -49,3 +50,4 @@ apk_output.txt
 # local security tooling and reports
 .local-tools/
 .sast/
+.xdrive-safety/

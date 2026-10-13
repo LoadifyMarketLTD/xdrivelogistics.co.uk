@@ -7,15 +7,17 @@ describe('Viewer CX convergence contract', () => {
     'utf8',
   );
 
-  it('keeps the viewer intentionally simple and read only', () => {
-    expect(source).toContain('badge="Read only"');
-    expect(source).toContain('Recent operational work');
-    expect(source).toContain('no state-changing carrier, finance, fleet or compliance controls');
+  it('keeps the viewer intentionally simple and read only inside the canonical dashboard model', () => {
+    expect(source).toContain('title="Reports & Statistics"');
+    expect(source).toContain('title="Activity at a glance"');
+    expect(source).toContain('Read-only operational position.');
+    expect(source).toContain('Read-only routes available to this workspace.');
+    expect(source).not.toContain('<DashboardHomeHeader');
   });
 
-  it('keeps the recent operational table immediately after the compact four-metric summary', () => {
+  it('keeps the activity table after the compact four-metric summary', () => {
     expect((source.match(/<KpiCard/g) ?? []).length).toBe(4);
-    expect(source.indexOf('<KpiGrid>')).toBeLessThan(source.indexOf('Recent operational work'));
+    expect(source.indexOf('<KpiGrid>')).toBeLessThan(source.indexOf('title="Activity at a glance"'));
     expect(source).toContain("columns={['Route', 'Pickup', 'Delivery', 'Status', 'Open']}");
   });
 

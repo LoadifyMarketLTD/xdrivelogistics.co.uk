@@ -20,16 +20,19 @@ describe('Dispatcher CX convergence contract', () => {
     }
   });
 
-  it('keeps dispatch priorities in the main canvas and live exceptions beside them', () => {
+  it('uses the canonical Owner Driver dashboard hierarchy for dispatch work', () => {
     expect(source).toContain('<OperationalWorkspaceGrid');
-    expect(source).toContain('Dispatch priority queue');
+    expect(source).toContain('title="Reports & Statistics"');
+    expect(source).toContain('title="Activity at a glance"');
     expect(source).toContain('<OperationalAttentionRail');
     expect(source).toContain('Live exceptions');
-    expect(source.indexOf('Dispatch priority queue')).toBeLessThan(source.indexOf('Resource availability'));
+    expect(source).toContain('title="Resource availability"');
+    expect(source).toContain('title="Reports"');
+    expect(source.indexOf('title="Reports & Statistics"')).toBeLessThan(source.indexOf('title="Activity at a glance"'));
+    expect(source).not.toContain('<DashboardHomeHeader');
   });
 
   it('preserves dispatcher-only operational boundaries and verified routes', () => {
-    expect(source).toContain('Marketplace pricing and finance are intentionally outside this workspace.');
     expect(source).not.toContain('/admin/finance');
     expect(source).not.toContain('/admin/marketplace');
     for (const route of ['/admin/fleet/assignments', '/admin/fleet/positions', '/admin/diary', '/admin/incidents']) {

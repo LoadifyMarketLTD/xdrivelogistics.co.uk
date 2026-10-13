@@ -381,7 +381,7 @@ export default function CompanyReturnJourneysPage() {
             <strong>Publish Return Journey</strong>
             <ActionButton tone="secondary" onClick={() => { setEditorOpen(false); resetEditor(); }}>Close</ActionButton>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,minmax(150px,1fr))', gap: 8, paddingTop: 8 }}>
+          <div className="workspace-filter-fields workspace-filter-fields--even" style={{ paddingTop: 8 }}>
             <label>DRIVER<select value={editDriverId} onChange={(event) => {
               const driverId = event.target.value;
               setEditDriverId(driverId);
@@ -397,9 +397,9 @@ export default function CompanyReturnJourneysPage() {
             <label>BODY TYPE<input value={editBodyType} onChange={(event) => setEditBodyType(event.target.value)} placeholder="e.g. box / curtain side" /></label>
             <label>WEIGHT KG<input type="number" min="0" value={editWeightKg} onChange={(event) => setEditWeightKg(event.target.value)} placeholder="Available payload" /></label>
             <label>SPACE / PALLETS<input type="number" min="0" value={editSpaceUnits} onChange={(event) => setEditSpaceUnits(event.target.value)} placeholder="Available units" /></label>
-            <label style={{ gridColumn: 'span 2' }}>VIA LOCATIONS<input value={editVia} onChange={(event) => setEditVia(event.target.value)} placeholder="Comma-separated via locations" /></label>
+            <label className="workspace-filter-fields__wide">VIA LOCATIONS<input value={editVia} onChange={(event) => setEditVia(event.target.value)} placeholder="Comma-separated via locations" /></label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" checked={editGoAnywhere} onChange={(event) => { setEditGoAnywhere(event.target.checked); if (event.target.checked) setEditTo(''); }} />GO ANYWHERE</label>
-            <label style={{ gridColumn: 'span 2' }}>NOTES<input value={editNotes} onChange={(event) => setEditNotes(event.target.value)} placeholder="Return capacity notes" /></label>
+            <label className="workspace-filter-fields__wide">NOTES<input value={editNotes} onChange={(event) => setEditNotes(event.target.value)} placeholder="Return capacity notes" /></label>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, paddingTop: 8 }}>
             <ActionButton tone="success" disabled={saving || !editDriverId || !editFrom.trim()} onClick={() => void saveJourney(false)}>{saving ? 'Publishing…' : 'Publish / Update'}</ActionButton>

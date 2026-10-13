@@ -11,17 +11,18 @@ describe('carrier navbar and Fleet header space cleanup', () => {
     expect(shell).toContain("role !== 'customer' && !CARRIER_NAV_ROLES.has(role) ? <strong>{companyName}</strong> : null");
   });
 
-  it('keeps only operational Fleet page actions that are not duplicated in the main navigation', () => {
-    const headerStart = fleet.indexOf('title="My Fleet"');
-    const headerEnd = fleet.indexOf('/>', headerStart);
-    const header = fleet.slice(headerStart, headerEnd);
-    expect(headerStart).toBeGreaterThanOrEqual(0);
-    expect(header).toContain('Allocate Jobs');
-    expect(header).toContain('Refresh');
-    expect(header).not.toContain('>Post Load<');
-    expect(header).not.toContain('>Drivers<');
-    expect(header).not.toContain('>Vehicles<');
-    expect(header).not.toContain('>Live Positions<');
+  it('keeps Fleet actions inside the canonical Reports & Statistics card instead of a separate page header', () => {
+    const cardStart = fleet.indexOf('title="Reports & Statistics"');
+    const cardEnd = fleet.indexOf('<OperationalSignalStrip', cardStart);
+    const card = fleet.slice(cardStart, cardEnd);
+    expect(cardStart).toBeGreaterThanOrEqual(0);
+    expect(card).toContain('Allocate Jobs');
+    expect(card).toContain('Refresh');
+    expect(fleet).not.toContain('<DashboardHomeHeader');
+    expect(card).not.toContain('>Post Load<');
+    expect(card).not.toContain('>Drivers<');
+    expect(card).not.toContain('>Vehicles<');
+    expect(card).not.toContain('>Live Positions<');
   });
 
   it('retains the real Fleet routes elsewhere in the operational page', () => {

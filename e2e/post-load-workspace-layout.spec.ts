@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { mockWorkspace } from './helpers/workspaceRecoveryFixtures';
+import { COMPANY, mockWorkspace } from './helpers/workspaceRecoveryFixtures';
 
 test.use({ serviceWorkers: 'block' });
 test.skip(process.env.E2E_VISUAL_FIXTURE !== 'true', 'Local-only mocked visual fixture.');
@@ -13,6 +13,11 @@ const viewports = [
 
 for (const role of roles) {
   test(`${role}: Post Load fills the authorised workspace shell`, async ({ page }, testInfo) => {
+    // A cold local Next.js compile can outlast the generic 30-second test timeout.
+    // Keep every visual, role and error assertion; only allow fixture startup time.
+    test.setTimeout(90_000);
+    const pageErrors: string[] = [];
+    page.on('pageerror', (error) => pageErrors.push(error.message));
     await mockWorkspace(page, role);
 
     for (const viewport of viewports) {
@@ -20,7 +25,8 @@ for (const role of roles) {
       await page.goto(`/visual-fixture/workspace-recovery/${role}?screen=post-load`, { waitUntil: 'domcontentloaded' });
 
       const form = page.locator('.xdrive-post-load-form');
-      await expect(form).toBeVisible();
+      await expect(form).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByTestId('fixture-user')).toHaveText(COMPANY, { timeout: 15_000 });
 
       const geometry = await form.evaluate((element) => {
         const rect = element.getBoundingClientRect();
@@ -67,6 +73,7 @@ for (const role of roles) {
       });
     }
 
+    expect(pageErrors, `${role}: no hydration or uncaught runtime errors at any viewport`).toEqual([]);
     if (role === 'dispatcher') {
       await expect(page.getByRole('button', { name: 'POST LOAD', exact: true })).toBeVisible();
     }

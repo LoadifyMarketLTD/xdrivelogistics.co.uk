@@ -817,14 +817,6 @@ function JobsPageInner() {
  flexDirection: 'column',
  }}
  >
- <style>{`
- .admin-job-mobile-stepper { display: none; }
- @media (max-width: 767px) {
- .admin-job-section { display: none; }
- .admin-job-section.active { display: block; }
- .admin-job-mobile-stepper { display: flex; }
- }
- `}</style>
  {/* Workspace Header */}
  <div className="carrier-job-create-header" style={{
  padding: '1rem 1.5rem',
@@ -851,27 +843,20 @@ function JobsPageInner() {
  </button>
  </div>
 
- <div className="admin-job-mobile-stepper" style={{ alignItems: 'center', gap: '0.5rem', overflowX: 'auto', padding: '0.75rem 1rem', borderBottom: '1px solid #e5e7eb', backgroundColor: '#ffffff' }}>
+ <nav className="admin-job-mobile-stepper" aria-label="Create job steps">
  {JOB_FORM_STEPS.map((step, index) => (
  <button
  key={step}
  type="button"
+ className="admin-job-mobile-stepper__tab"
+ data-active={index === jobFormStep}
+ aria-current={index === jobFormStep ? 'step' : undefined}
  onClick={() => setJobFormStep(index)}
- style={{
- whiteSpace: 'nowrap',
- padding: '0.55rem 0.75rem',
- borderRadius: '999px',
- border: index === jobFormStep ? '1px solid #f59e0b' : '1px solid #e5e7eb',
- backgroundColor: index === jobFormStep ? '#fffbeb' : 'white',
- color: index === jobFormStep ? '#92400e' : '#475569',
- fontSize: '0.78rem',
- fontWeight: 700,
- }}
  >
  {index + 1}. {step}
  </button>
  ))}
- </div>
+ </nav>
 
  {/* Workspace Body */}
  <div className="carrier-job-create-body" style={{ flex: 1, overflow: 'auto', padding: '1.25rem 1.5rem 7rem', backgroundColor: '#f8fafc' }}>
@@ -881,18 +866,18 @@ function JobsPageInner() {
  <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '1rem' }}>
  <div>
  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>Client Name *</label>
- <input type="text" value={formData.clientName} onChange={(e) => setFormData({ ...formData, clientName: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.clientName ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} placeholder="Enter client name" />
+ <input type="text" aria-invalid={Boolean(formErrors.clientName)} value={formData.clientName} onChange={(e) => setFormData({ ...formData, clientName: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.clientName ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} placeholder="Enter client name" />
  {formErrors.clientName && <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>{formErrors.clientName}</div>}
  </div>
  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
  <div>
  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>Email *</label>
- <input type="email" value={formData.clientEmail} onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.clientEmail ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} placeholder="client@email.com" />
+ <input type="email" aria-invalid={Boolean(formErrors.clientEmail)} value={formData.clientEmail} onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.clientEmail ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} placeholder="client@email.com" />
  {formErrors.clientEmail && <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>{formErrors.clientEmail}</div>}
  </div>
  <div>
  <label style={{ display: 'block', fontSize: '0.9rem', fontWeight: '500', color: '#374151', marginBottom: '0.5rem' }}>Phone *</label>
- <input type="tel" value={formData.clientPhone} onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.clientPhone ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} placeholder="07123456789" />
+ <input type="tel" aria-invalid={Boolean(formErrors.clientPhone)} value={formData.clientPhone} onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.clientPhone ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', fontSize: '0.95rem', boxSizing: 'border-box' }} placeholder="07123456789" />
  {formErrors.clientPhone && <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>{formErrors.clientPhone}</div>}
  </div>
  </div>
@@ -908,23 +893,23 @@ function JobsPageInner() {
  <div style={{ display: 'grid', gap: '0.8rem' }}>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Pickup Postcode *</label>
- <input value={formData.pickupPostcode} onChange={(e) => setFormData({ ...formData, pickupPostcode: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupPostcode ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="BB1 1AA" />
+ <input aria-invalid={Boolean(formErrors.pickupPostcode)} value={formData.pickupPostcode} onChange={(e) => setFormData({ ...formData, pickupPostcode: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupPostcode ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="BB1 1AA" />
  {formErrors.pickupPostcode && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.pickupPostcode}</div>}
  </div>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Pickup Address *</label>
- <input value={formData.pickupAddress} onChange={(e) => setFormData({ ...formData, pickupAddress: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupAddress ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="Site name, street, town" />
+ <input aria-invalid={Boolean(formErrors.pickupAddress)} value={formData.pickupAddress} onChange={(e) => setFormData({ ...formData, pickupAddress: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupAddress ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="Site name, street, town" />
  {formErrors.pickupAddress && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.pickupAddress}</div>}
  </div>
  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Pickup Date *</label>
- <input type="date" value={formData.pickupDate} onChange={(e) => setFormData({ ...formData, pickupDate: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupDate ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ <input type="date" aria-invalid={Boolean(formErrors.pickupDate)} value={formData.pickupDate} onChange={(e) => setFormData({ ...formData, pickupDate: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupDate ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
  {formErrors.pickupDate && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.pickupDate}</div>}
  </div>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Pickup Time *</label>
- <select value={formData.pickupTime} onChange={(e) => { setFormData({ ...formData, pickupTime: e.target.value }); setFormErrors(({ pickupTime: _pickupTime, pickupDate: _pickupDate, ...rest }) => rest); }} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupTime ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box', backgroundColor: 'white' }}>
+ <select aria-invalid={Boolean(formErrors.pickupTime)} value={formData.pickupTime} onChange={(e) => { setFormData({ ...formData, pickupTime: e.target.value }); setFormErrors(({ pickupTime: _pickupTime, pickupDate: _pickupDate, ...rest }) => rest); }} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.pickupTime ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box', backgroundColor: 'white' }}>
  <option value="">Select time</option>
  <option value="ASAP">ASAP</option>
  {generateTimeOptions().map((time) => <option key={time} value={time}>{time}</option>)}
@@ -935,12 +920,12 @@ function JobsPageInner() {
  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Contact Name *</label>
- <input value={formData.collectionContactName} onChange={(e) => setFormData({ ...formData, collectionContactName: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.collectionContactName ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ <input aria-invalid={Boolean(formErrors.collectionContactName)} value={formData.collectionContactName} onChange={(e) => setFormData({ ...formData, collectionContactName: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.collectionContactName ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
  {formErrors.collectionContactName && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.collectionContactName}</div>}
  </div>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Contact Phone *</label>
- <input value={formData.collectionContactPhone} onChange={(e) => setFormData({ ...formData, collectionContactPhone: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.collectionContactPhone ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ <input aria-invalid={Boolean(formErrors.collectionContactPhone)} value={formData.collectionContactPhone} onChange={(e) => setFormData({ ...formData, collectionContactPhone: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.collectionContactPhone ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
  {formErrors.collectionContactPhone && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.collectionContactPhone}</div>}
  </div>
  </div>
@@ -952,23 +937,23 @@ function JobsPageInner() {
  <div style={{ display: 'grid', gap: '0.8rem' }}>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Delivery Postcode *</label>
- <input value={formData.deliveryPostcode} onChange={(e) => setFormData({ ...formData, deliveryPostcode: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryPostcode ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="BS5 7EW" />
+ <input aria-invalid={Boolean(formErrors.deliveryPostcode)} value={formData.deliveryPostcode} onChange={(e) => setFormData({ ...formData, deliveryPostcode: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryPostcode ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="BS5 7EW" />
  {formErrors.deliveryPostcode && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.deliveryPostcode}</div>}
  </div>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Delivery Address *</label>
- <input value={formData.deliveryAddress} onChange={(e) => setFormData({ ...formData, deliveryAddress: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryAddress ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="Site name, street, town" />
+ <input aria-invalid={Boolean(formErrors.deliveryAddress)} value={formData.deliveryAddress} onChange={(e) => setFormData({ ...formData, deliveryAddress: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryAddress ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} placeholder="Site name, street, town" />
  {formErrors.deliveryAddress && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.deliveryAddress}</div>}
  </div>
  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Delivery Date *</label>
- <input type="date" value={formData.deliveryDate} onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryDate ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ <input type="date" aria-invalid={Boolean(formErrors.deliveryDate)} value={formData.deliveryDate} onChange={(e) => setFormData({ ...formData, deliveryDate: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryDate ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
  {formErrors.deliveryDate && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.deliveryDate}</div>}
  </div>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Delivery Time *</label>
- <select value={formData.deliveryTime} onChange={(e) => { setFormData({ ...formData, deliveryTime: e.target.value }); setFormErrors(({ deliveryTime: _deliveryTime, deliveryDate: _deliveryDate, ...rest }) => rest); }} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryTime ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box', backgroundColor: 'white' }}>
+ <select aria-invalid={Boolean(formErrors.deliveryTime)} value={formData.deliveryTime} onChange={(e) => { setFormData({ ...formData, deliveryTime: e.target.value }); setFormErrors(({ deliveryTime: _deliveryTime, deliveryDate: _deliveryDate, ...rest }) => rest); }} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryTime ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box', backgroundColor: 'white' }}>
  <option value="">Select time</option>
  <option value="ASAP">ASAP</option>
  {generateTimeOptions().map((time) => <option key={time} value={time}>{time}</option>)}
@@ -979,12 +964,12 @@ function JobsPageInner() {
  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Contact Name *</label>
- <input value={formData.deliveryContactName} onChange={(e) => setFormData({ ...formData, deliveryContactName: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryContactName ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ <input aria-invalid={Boolean(formErrors.deliveryContactName)} value={formData.deliveryContactName} onChange={(e) => setFormData({ ...formData, deliveryContactName: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryContactName ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
  {formErrors.deliveryContactName && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.deliveryContactName}</div>}
  </div>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Contact Phone *</label>
- <input value={formData.deliveryContactPhone} onChange={(e) => setFormData({ ...formData, deliveryContactPhone: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryContactPhone ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ <input aria-invalid={Boolean(formErrors.deliveryContactPhone)} value={formData.deliveryContactPhone} onChange={(e) => setFormData({ ...formData, deliveryContactPhone: e.target.value })} style={{ width: '100%', padding: '0.7rem', border: `1px solid ${formErrors.deliveryContactPhone ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
  {formErrors.deliveryContactPhone && <div style={{ color: '#ef4444', fontSize: '0.78rem', marginTop: '0.2rem' }}>{formErrors.deliveryContactPhone}</div>}
  </div>
  </div>
@@ -1021,7 +1006,7 @@ function JobsPageInner() {
  </div>
  <div>
  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, color: '#374151', marginBottom: '0.35rem' }}>Quantity *</label>
- <input type="number" min="1" value={formData.cargoQuantity} onChange={(e) => setFormData({ ...formData, cargoQuantity: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.cargoQuantity ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
+ <input type="number" min="1" aria-invalid={Boolean(formErrors.cargoQuantity)} value={formData.cargoQuantity} onChange={(e) => setFormData({ ...formData, cargoQuantity: e.target.value })} style={{ width: '100%', padding: '0.75rem', border: `1px solid ${formErrors.cargoQuantity ? '#ef4444' : '#d1d5db'}`, borderRadius: '6px', boxSizing: 'border-box' }} />
  {formErrors.cargoQuantity && <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '0.25rem' }}>{formErrors.cargoQuantity}</div>}
  </div>
  <input type="number" min="0" value={formData.totalWeightKg} onChange={(e) => setFormData({ ...formData, totalWeightKg: e.target.value })} style={{ padding: '0.75rem', border: '1px solid #d1d5db', borderRadius: '6px' }} placeholder="Total weight kg" />

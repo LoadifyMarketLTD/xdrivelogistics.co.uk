@@ -32,7 +32,18 @@ describe('CX-close Live Availability composition', () => {
   it('uses the measured control geometry', () => {
     expect(source).toContain('minHeight: 32');
     expect(source).toContain('borderRadius: 4');
-    expect(source).toContain('minHeight: 28');
+    expect(source).toContain('className="workspace-tab-strip"');
+    expect(source).toContain("data-active={tab === 'live' ? 'true' : 'false'}");
+  });
+
+  it('stacks Fleet and Nearby Exchange filter fields using shared workspace geometry at tablet and mobile widths', () => {
+    const css = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/workspace-measured-cx-baseline.css'), 'utf8');
+    expect(source).toContain('className="workspace-filter-fields"');
+    expect(source).not.toContain("gridTemplateColumns: tab === 'live'");
+    expect(css).toContain('.xdrive-workspace-measured .workspace-filter-fields');
+    expect(css).toMatch(/@media \(max-width: 1024px\)[\s\S]*?\.workspace-filter-fields\s*\{\s*grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important;/);
+    expect(css).toMatch(/@media \(max-width: 768px\)[\s\S]*?\.workspace-filter-fields\s*\{\s*grid-template-columns: minmax\(0, 1fr\) !important;/);
+    expect(css).toContain('.workspace-filter-fields > :first-child');
   });
 
   it('supports CX-style saved availability defaults without inventing server preferences', () => {

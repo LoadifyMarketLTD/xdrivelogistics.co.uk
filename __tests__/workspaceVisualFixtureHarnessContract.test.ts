@@ -12,6 +12,11 @@ const fixtureComponent = readFileSync(
   'utf8',
 );
 
+const topFixture = readFileSync(
+  resolve(process.cwd(), 'app/components/workspace/TopWorkspaceVisualFixture.tsx'),
+  'utf8',
+);
+
 const shell = readFileSync(
   resolve(process.cwd(), 'app/components/workspace/WorkspaceShell.tsx'),
   'utf8',
@@ -42,7 +47,7 @@ describe('workspace visual fixture harness contract', () => {
   });
 
   it('allowlists only the required deterministic role fixtures', () => {
-    const expectedRoles = ['carrier', 'broker', 'customer', 'driver', 'owner-driver', 'fleet', 'operations', 'finance', 'compliance', 'super-admin'];
+    const expectedRoles = ['carrier', 'broker', 'customer', 'driver', 'owner-driver', 'fleet', 'operations', 'finance', 'compliance', 'viewer', 'super-admin'];
     expect(allowedRolesFromRoute).toEqual(expectedRoles);
     for (const role of expectedRoles) {
       expect(fixtureRoute).toContain(`'${role}'`);
@@ -50,6 +55,18 @@ describe('workspace visual fixture harness contract', () => {
     }
     expect(fixtureComponent).toContain('finance:');
     expect(fixtureComponent).toContain('compliance:');
+  });
+
+  it('uses the Owner Driver 675 dashboard geometry for operational visual fixtures', () => {
+    expect(topFixture).toContain('xdrive-admin-dashboard-home');
+    expect(topFixture).toContain('xdrive-owner-dashboard-grid');
+    expect(topFixture).toContain('xdrive-owner-dashboard-column');
+    expect(topFixture).toContain('xdrive-owner-dashboard-subgrid');
+    expect(topFixture).toContain('title="Reports & Statistics"');
+    expect(topFixture).toContain('title="Activity at a glance"');
+    expect(topFixture).not.toContain('<PageHeader');
+    expect(topFixture).not.toContain('<OperationalToolbar');
+    expect(topFixture).not.toContain('<ExchangeKpiStrip');
   });
 
   it('keeps action centre and notifications distinct in shell controls', () => {

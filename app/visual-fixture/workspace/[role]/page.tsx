@@ -5,12 +5,11 @@ import WorkspaceVisualFixture, { type FixtureRole } from '../../../components/wo
 import '../../../components/workspace/workspace-light-guard.css';
 import '../../../components/workspace/top-workspace-shell.css';
 import '../../../components/workspace/workspace-measured-cx-baseline.css';
-import '../../../driver/driver-top-shell.css';
 
 const VISUAL_FIXTURE_ENABLED =
   process.env.NODE_ENV !== 'production' && process.env.E2E_VISUAL_FIXTURE === 'true';
 
-const ALLOWED_ROLES = new Set(['carrier', 'broker', 'customer', 'driver', 'owner-driver', 'fleet', 'operations', 'finance', 'compliance', 'super-admin'] as const);
+const ALLOWED_ROLES = new Set(['carrier', 'broker', 'customer', 'driver', 'owner-driver', 'fleet', 'operations', 'finance', 'compliance', 'viewer', 'super-admin'] as const);
 
 type OperationalFixtureRole = Exclude<FixtureRole, 'super-admin'>;
 

@@ -16,15 +16,18 @@ const ownerContext = {
   ownerDriverWorkspace: true,
 };
 
-const INTEGRATED_ROUTES = [
-  '/driver/jobs',
+const SECONDARY_ROUTES = [
   '/driver/won-work',
   '/driver/availability',
   '/driver/load-alerts',
   '/driver/nearby',
-  '/driver/finance',
   '/driver/documents',
+  '/driver/finance',
   '/driver/messages',
+  '/driver/event-log',
+  '/driver/freight-vision',
+  '/driver/drivers-vehicles',
+  '/driver/settings',
 ] as const;
 
 describe('Owner Driver integrated secondary navigation contract', () => {
@@ -34,23 +37,23 @@ describe('Owner Driver integrated secondary navigation contract', () => {
     shell.indexOf('export function composeDispatcherPrimaryNav'),
   );
 
-  it('integrates former More destinations into the primary Owner Driver navigation', () => {
-    for (const href of INTEGRATED_ROUTES) expect(owner).toContain(`'${href}'`);
+  it('keeps core work primary and secondary destinations in Owner Driver More', () => {
+    for (const href of SECONDARY_ROUTES) expect(owner).toContain(`'${href}'`);
     expect(owner).toContain("['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs']");
-    expect(owner).toContain("['owner-driver-availability-primary', 'Availability & Schedule', '/driver/availability']");
-    expect(owner).toContain("['owner-driver-alerts-primary', 'Load Matching & Alerts', '/driver/load-alerts']");
-    expect(owner).toContain("['owner-driver-finance-primary', 'Finance & Invoices', '/driver/finance']");
-    expect(owner).toContain("return ownerNav.filter((group) => group.id !== 'owner-driver-more')");
+    expect(owner).toContain("['owner-driver-diary-primary', 'Diary', '/driver/history']");
+    expect(owner).toContain("], 'owner-driver-more', 'More', [");
+    expect(owner).not.toContain("return ownerNav.filter((group) => group.id !== 'owner-driver-more')");
   });
 
-  it('keeps Live Availability distinct from schedule and matching tools', () => {
+  it('keeps Live Availability primary while schedule and matching tools remain distinct in More', () => {
     expect(owner).toContain("['owner-driver-live-availability-primary', 'Live Availability', '/driver/availability/live']");
-    expect(owner).toContain("['owner-driver-availability-primary', 'Availability & Schedule', '/driver/availability']");
-    expect(owner).toContain("['owner-driver-nearby-primary', \"Who's Nearby\", '/driver/nearby']");
+    expect(owner).toContain("'/driver/availability'");
+    expect(owner).toContain("'/driver/load-alerts'");
+    expect(owner).toContain("'/driver/nearby'");
   });
 
   it('keeps every integrated route real and permitted', () => {
-    for (const href of INTEGRATED_ROUTES) {
+    for (const href of SECONDARY_ROUTES) {
       const routePath = path.join(process.cwd(), 'app', ...href.split('/').filter(Boolean), 'page.tsx');
       expect(fs.existsSync(routePath), href).toBe(true);
       expect(isCapabilityAllowedForPath(href, null, ownerContext), href).toBe(true);

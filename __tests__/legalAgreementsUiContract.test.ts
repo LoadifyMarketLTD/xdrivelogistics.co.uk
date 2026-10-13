@@ -67,6 +67,7 @@ describe('Legal & Agreements account UI contract', () => {
     expect(brokerAccount).toContain('/broker/account/legal-agreements');
     expect(driverAccountNav).toContain('/driver/account/legal-agreements');
     expect(fleetSettingsLayout).toContain('/admin/settings/legal-agreements');
+    expect(fleetSettingsLayout).toContain('<WorkspaceRouteTabs');
   });
 
   it('uses company-scoped legal evidence for company-bound contractual accounts', () => {

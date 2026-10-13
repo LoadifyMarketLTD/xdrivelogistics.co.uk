@@ -2,7 +2,7 @@
 .driver-integrated-nav {
   width: 100%;
   min-width: 0;
-  min-height: 38px;
+  min-height: var(--ws-tab-h, 28px);
   display: flex;
   align-items: stretch;
   gap: 0;
@@ -16,13 +16,13 @@
 }
 .driver-integrated-nav a {
   flex: 0 0 auto;
-  min-height: 37px;
+  min-height: var(--ws-tab-h, 28px);
   display: inline-flex;
   align-items: center;
-  padding: 0 13px;
+  padding: 0 10px;
   border-right: 1px solid var(--line, #c7d1dc);
   color: #46566a;
-  font-size: 11.5px;
+  font-size: var(--ws-font-body, 12px);
   line-height: 16px;
   font-weight: 700;
   text-decoration: none;

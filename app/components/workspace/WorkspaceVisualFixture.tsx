@@ -32,6 +32,7 @@ export type FixtureRole =
   | 'operations'
   | 'finance'
   | 'compliance'
+  | 'viewer'
   | 'super-admin';
 
 type FixtureRow = {
@@ -222,6 +223,24 @@ export const FIXTURE_ROLE_CONFIG: Record<FixtureRole, FixtureRoleConfig> = {
     ],
     actions: ['Review pending evidence', 'Check expiries', 'Open incidents'],
     metaLabel: 'Compliance control surface',
+  },
+  viewer: {
+    title: 'Read-only Dashboard',
+    subtitle: 'Approved operational visibility',
+    forcedRole: 'viewer',
+    kpis: [
+      { label: 'Jobs visible', value: '52', tone: 'navy' },
+      { label: 'Active jobs', value: '18', tone: 'green' },
+      { label: 'Completed', value: '31', tone: 'blue' },
+      { label: 'Exceptions', value: '3', tone: 'orange' },
+    ],
+    rows: [
+      { id: 'v1', ref: 'VIEW-930', lane: 'LON → BHX', status: 'In Progress', eta: '11:15' },
+      { id: 'v2', ref: 'VIEW-922', lane: 'MAN → NCL', status: 'Pending', eta: '12:50' },
+      { id: 'v3', ref: 'VIEW-917', lane: 'LDS → SHF', status: 'Delivered', eta: '09:10' },
+    ],
+    actions: ['Jobs', 'Diary', 'Event Log'],
+    metaLabel: 'Read-only operational workspace',
   },
   'super-admin': {
     title: 'Command Centre',

@@ -103,12 +103,12 @@ export function CustomerJobPage({jobId}:{jobId:string}){
     <TwoColumn>
       <div style={{display:'grid',gap:'0.9rem'}}>
         <Panel title="Transport details">
-          <dl style={{display:'grid',gridTemplateColumns:'150px 1fr',gap:'0.55rem',fontSize:'0.8rem'}}>
-            <dt>Collection</dt><dd>{job.pickup_location}</dd>
-            <dt>Delivery</dt><dd>{job.delivery_location}</dd>
-            <dt>Vehicle</dt><dd>{job.vehicle_type?.replace(/_/g,' ')??'Not specified'}</dd>
-            <dt>Customer price</dt><dd>{money(Number(job.budget_amount??0))}</dd>
-            <dt>Status</dt><dd><StatusBadge value={job.current_status??job.status}/></dd>
+          <dl className="workspace-detail-grid">
+            <div className="workspace-detail-item"><dt>Collection</dt><dd>{job.pickup_location}</dd></div>
+            <div className="workspace-detail-item"><dt>Delivery</dt><dd>{job.delivery_location}</dd></div>
+            <div className="workspace-detail-item"><dt>Vehicle</dt><dd>{job.vehicle_type?.replace(/_/g,' ')??'Not specified'}</dd></div>
+            <div className="workspace-detail-item"><dt>Customer price</dt><dd>{money(Number(job.budget_amount??0))}</dd></div>
+            <div className="workspace-detail-item"><dt>Status</dt><dd><StatusBadge value={job.current_status??job.status}/></dd></div>
           </dl>
         </Panel>
         {podPaths.length>0&&(

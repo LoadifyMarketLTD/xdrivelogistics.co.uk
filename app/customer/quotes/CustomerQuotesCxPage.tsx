@@ -16,6 +16,7 @@ import {
   PageFrame,
   PageHeader,
   StatusBadge,
+  WorkspaceDialog,
 } from '../../components/workspace/WorkspaceUI';
 
 type BidderIdentity = {
@@ -83,59 +84,48 @@ function AwardConfirmation({
   onConfirm: () => void;
 }) {
   return (
-    <div
-      role="presentation"
-      onMouseDown={(event) => { if (event.target === event.currentTarget && !working) onCancel(); }}
-      style={{ position: 'fixed', inset: 0, zIndex: 1300, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(15, 23, 42, 0.48)' }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="customer-award-confirmation-title"
-        style={{ width: 'min(620px, calc(100vw - 32px))', overflow: 'hidden', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', boxShadow: 'none' }}
-      >
-        <header style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f4f6f8' }}>
-          <strong id="customer-award-confirmation-title" style={{ display: 'block', fontSize: 14, lineHeight: '20px', color: '#0f172a' }}>Confirm booking offer</strong>
-          <span style={{ display: 'block', marginTop: 2, fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Review the selected carrier, price and load before sending the booking offer for carrier acceptance.</span>
-        </header>
-
-        <div style={{ padding: 12, display: 'grid', gap: 10 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: '1px solid #e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
-            {[
-              ['Carrier', candidate.displayName],
-              ['Member ID', candidate.identity?.memberId ?? 'Not supplied'],
-              ['Business contact', candidate.identity?.businessPhone ?? 'Not supplied'],
-              ['Quote scope', candidate.identity?.quoteLevel === 'driver' ? 'Named driver / owner driver' : 'Company / fleet'],
-              ['Availability', candidate.identity?.driverAvailability?.replaceAll('_', ' ') ?? (candidate.identity?.quoteLevel === 'driver' ? 'Not supplied' : 'Company quote')],
-              ['Driver vehicle', candidate.identity?.driverVehicleType ? `${candidate.identity.driverVehicleType.replaceAll('_', ' ')}${candidate.identity.driverVehicleTailLift ? ' · Tail lift' : ''}${candidate.identity.driverVehiclePallets != null ? ` · ${candidate.identity.driverVehiclePallets} pallets` : ''}` : 'Not linked'],
-              ['Fleet capability', candidate.identity?.fleetVehicleTypes.length ? candidate.identity.fleetVehicleTypes.map((type) => type.replaceAll('_', ' ')).join(', ') : 'Not listed'],
-              ['Specialist services', candidate.identity?.specialistServices.length ? candidate.identity.specialistServices.join(', ') : 'Not listed'],
-              ['Agreed quote', money(Number(candidate.bid.bid_price_gbp ?? candidate.bid.amount ?? 0), candidate.bid.currency ?? 'GBP')],
-              ['Route', routeLabel(candidate.job)],
-              ['Pickup', when(candidate.job.pickup_datetime)],
-              ['Vehicle', (candidate.job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')],
-              ['Load ref', `XDL-${candidate.job.id.slice(0, 8).toUpperCase()}`],
-            ].map(([label, value]) => (
-              <div key={label} style={{ minHeight: 54, padding: '8px 9px', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-                <span style={{ display: 'block', color: '#64748b', fontSize: 11, lineHeight: '14px', textTransform: 'uppercase', fontWeight: 700 }}>{label}</span>
-                <strong style={{ display: 'block', marginTop: 3, color: '#0f172a', fontSize: 12, lineHeight: '16px' }}>{value}</strong>
-              </div>
-            ))}
-          </div>
-          {candidate.bid.message ? <div style={{ padding: 9, border: '1px solid #e2e8f0', borderRadius: 4, background: '#f8fafc', color: '#334155', fontSize: 11, lineHeight: '16px' }}><strong>Carrier message:</strong> {candidate.bid.message}</div> : null}
-          <div style={{ padding: 9, border: '1px solid #fed7aa', borderRadius: 4, background: '#fff7ed', color: '#9a3412', fontSize: 11, lineHeight: '16px' }}>
-            <strong style={{ display: 'block', marginBottom: 4 }}>Payment obligation acknowledgement</strong>
-            <span>{BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT}</span>
-            <span style={{ display: 'block', marginTop: 5 }}>Selecting Send Booking Offer records this acknowledgement and creates a pending carrier acceptance request. No transport agreement is formed until the carrier accepts. On acceptance, the selected bid becomes accepted, competing submitted bids are rejected, and the booking advances under the authoritative backend lifecycle.</span>
-          </div>
-        </div>
-
-        <footer style={{ padding: '8px 12px', display: 'flex', justifyContent: 'flex-end', gap: 6, borderTop: '1px solid #e2e8f0', background: '#f4f6f8' }}>
+    <WorkspaceDialog
+      ariaLabel="Confirm booking offer"
+      title="Confirm booking offer"
+      description="Review the selected carrier, price and load before sending the booking offer for carrier acceptance."
+      onDismiss={onCancel}
+      dismissDisabled={working}
+      actions={
+        <>
           <ActionButton tone="secondary" disabled={working} onClick={onCancel}>Cancel</ActionButton>
           <ActionButton tone="success" disabled={working} onClick={onConfirm}>{working ? 'Sending…' : 'Send Booking Offer'}</ActionButton>
-        </footer>
-      </section>
-    </div>
+        </>
+      }
+    >
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: '1px solid #e2e8f0', borderRadius: 4, overflow: 'hidden' }}>
+        {[
+          ['Carrier', candidate.displayName],
+          ['Member ID', candidate.identity?.memberId ?? 'Not supplied'],
+          ['Business contact', candidate.identity?.businessPhone ?? 'Not supplied'],
+          ['Quote scope', candidate.identity?.quoteLevel === 'driver' ? 'Named driver / owner driver' : 'Company / fleet'],
+          ['Availability', candidate.identity?.driverAvailability?.replaceAll('_', ' ') ?? (candidate.identity?.quoteLevel === 'driver' ? 'Not supplied' : 'Company quote')],
+          ['Driver vehicle', candidate.identity?.driverVehicleType ? `${candidate.identity.driverVehicleType.replaceAll('_', ' ')}${candidate.identity.driverVehicleTailLift ? ' · Tail lift' : ''}${candidate.identity.driverVehiclePallets != null ? ` · ${candidate.identity.driverVehiclePallets} pallets` : ''}` : 'Not linked'],
+          ['Fleet capability', candidate.identity?.fleetVehicleTypes.length ? candidate.identity.fleetVehicleTypes.map((type) => type.replaceAll('_', ' ')).join(', ') : 'Not listed'],
+          ['Specialist services', candidate.identity?.specialistServices.length ? candidate.identity.specialistServices.join(', ') : 'Not listed'],
+          ['Agreed quote', money(Number(candidate.bid.bid_price_gbp ?? candidate.bid.amount ?? 0), candidate.bid.currency ?? 'GBP')],
+          ['Route', routeLabel(candidate.job)],
+          ['Pickup', when(candidate.job.pickup_datetime)],
+          ['Vehicle', (candidate.job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')],
+          ['Load ref', `XDL-${candidate.job.id.slice(0, 8).toUpperCase()}`],
+        ].map(([label, value]) => (
+          <div key={label} style={{ minHeight: 54, padding: '8px 9px', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
+            <span style={{ display: 'block', color: '#64748b', fontSize: 11, lineHeight: '14px', textTransform: 'uppercase', fontWeight: 700 }}>{label}</span>
+            <strong style={{ display: 'block', marginTop: 3, color: '#0f172a', fontSize: 12, lineHeight: '16px' }}>{value}</strong>
+          </div>
+        ))}
+      </div>
+      {candidate.bid.message ? <div style={{ padding: 9, border: '1px solid #e2e8f0', borderRadius: 4, background: '#f8fafc', color: '#334155', fontSize: 11, lineHeight: '16px' }}><strong>Carrier message:</strong> {candidate.bid.message}</div> : null}
+      <div style={{ padding: 9, border: '1px solid #fed7aa', borderRadius: 4, background: '#fff7ed', color: '#9a3412', fontSize: 11, lineHeight: '16px' }}>
+        <strong style={{ display: 'block', marginBottom: 4 }}>Payment obligation acknowledgement</strong>
+        <span>{BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT}</span>
+        <span style={{ display: 'block', marginTop: 5 }}>Selecting Send Booking Offer records this acknowledgement and creates a pending carrier acceptance request. No transport agreement is formed until the carrier accepts. On acceptance, the selected bid becomes accepted, competing submitted bids are rejected, and the booking advances under the authoritative backend lifecycle.</span>
+      </div>
+    </WorkspaceDialog>
   );
 }
 
@@ -157,46 +147,37 @@ function MessageParticipantDialog({
   onSend: () => void;
 }) {
   return (
-    <div
-      role="presentation"
-      onMouseDown={(event) => { if (event.target === event.currentTarget && !working) onCancel(); }}
-      style={{ position: 'fixed', inset: 0, zIndex: 1300, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(15, 23, 42, 0.48)' }}
-    >
-      <section
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="customer-bid-message-title"
-        style={{ width: 'min(620px, calc(100vw - 32px))', overflow: 'hidden', border: '1px solid #cbd5e1', borderRadius: 4, background: '#fff', boxShadow: 'none' }}
-      >
-        <header style={{ padding: '10px 12px', borderBottom: '1px solid #e2e8f0', background: '#f4f6f8' }}>
-          <strong id="customer-bid-message-title" style={{ display: 'block', fontSize: 14, lineHeight: '20px', color: '#0f172a' }}>Message {candidate.displayName}</strong>
-          <span style={{ display: 'block', marginTop: 2, fontSize: 11, lineHeight: '15px', color: '#64748b' }}>{routeLabel(candidate.job)} · XDL-{candidate.job.id.slice(0, 8).toUpperCase()}</span>
-        </header>
-        <div style={{ padding: 12, display: 'grid', gap: 8 }}>
-          <div style={{ padding: 9, border: '1px solid #dbeafe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '16px' }}>
-            The recipient is resolved by XDrive from this real quote. You cannot replace the recipient with another user ID from this screen.
-          </div>
-          {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
-          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
-            MESSAGE
-            <textarea
-              autoFocus
-              value={body}
-              maxLength={4000}
-              rows={5}
-              onChange={(event) => onBodyChange(event.target.value)}
-              placeholder="Write a transport-related message to this bidder"
-              style={{ width: '100%', padding: 8, border: '1px solid #cbd5e1', borderRadius: 4, font: 'inherit', resize: 'vertical' }}
-            />
-          </label>
-          <span style={{ fontSize: 11, lineHeight: '14px', color: '#64748b' }}>{body.length}/4000 · messages are immutable once sent</span>
-        </div>
-        <footer style={{ padding: '8px 12px', display: 'flex', justifyContent: 'flex-end', gap: 6, borderTop: '1px solid #e2e8f0', background: '#f4f6f8' }}>
+    <WorkspaceDialog
+      ariaLabel={`Message ${candidate.displayName}`}
+      title={`Message ${candidate.displayName}`}
+      description={<>{routeLabel(candidate.job)} · XDL-{candidate.job.id.slice(0, 8).toUpperCase()}</>}
+      onDismiss={onCancel}
+      dismissDisabled={working}
+      actions={
+        <>
           <ActionButton tone="secondary" disabled={working} onClick={onCancel}>Cancel</ActionButton>
           <ActionButton tone="primary" disabled={working || !body.trim()} onClick={onSend}>{working ? 'Sending…' : 'Send Message'}</ActionButton>
-        </footer>
-      </section>
-    </div>
+        </>
+      }
+    >
+      <div style={{ padding: 9, border: '1px solid #dbeafe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '16px' }}>
+        The recipient is resolved by XDrive from this real quote. You cannot replace the recipient with another user ID from this screen.
+      </div>
+      {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
+      <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+        MESSAGE
+        <textarea
+          autoFocus
+          value={body}
+          maxLength={4000}
+          rows={5}
+          onChange={(event) => onBodyChange(event.target.value)}
+          placeholder="Write a transport-related message to this bidder"
+          style={{ width: '100%', padding: 8, border: '1px solid #cbd5e1', borderRadius: 4, font: 'inherit', resize: 'vertical' }}
+        />
+      </label>
+      <span style={{ fontSize: 11, lineHeight: '14px', color: '#64748b' }}>{body.length}/4000 · messages are immutable once sent</span>
+    </WorkspaceDialog>
   );
 }
 

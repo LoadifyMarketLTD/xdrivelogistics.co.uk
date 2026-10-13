@@ -19,7 +19,6 @@ import {
   workspaceTheme,
 } from './WorkspaceUI';
 import { OperationalSignalStrip, OperationalWorkspaceGrid } from './OperationalConvergence';
-import { DashboardHomeHeader } from './DashboardHomePrimitives';
 import {
   metricValue,
   money,
@@ -127,39 +126,84 @@ export default function FinanceControlDashboardHome() {
   };
 
   return (
-    <div className="xdrive-admin-dashboard-home" style={{ width: '100%', padding: '8px 10px 12px' }}>
-      <DashboardHomeHeader
-        eyebrow="Finance control"
-        title="Finance Dashboard"
-        badge="Receivables"
-        description="Invoice readiness, issuance, due dates, overdue exposure and settlement. Operational state changes remain outside the finance dashboard."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/invoices')}>Open Invoices</ActionButton>}
-      />
-
+    <div className="xdrive-admin-dashboard-home">
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
-      <OperationalSignalStrip
-        ariaLabel="Finance operational signals"
-        items={[
-          { key: 'ready-to-invoice', label: 'Ready to Invoice', value: metricValue(data, ['jobs', 'invoices'], () => readyToInvoice.length), detail: 'Completed work without invoice', tone: readyToInvoiceUnavailable ? 'blue' : readyToInvoice.length ? 'orange' : 'green' },
-          { key: 'draft', label: 'AR Draft', value: metricValue(data, ['invoices'], () => totals.receivables.filter((invoice) => ['draft', 'Draft'].includes(invoice.status)).length), detail: 'Receivables requiring issue', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/finance/customer-invoices') },
-          { key: 'unpaid', label: 'Unpaid', value: metricValue(data, ['invoices'], () => totals.unpaid.length), detail: 'Awaiting payment', tone: invoicesUnavailable ? 'blue' : totals.unpaid.length ? 'orange' : 'green', onClick: () => router.push('/admin/invoices') },
-          { key: 'overdue', label: 'Overdue', value: metricValue(data, ['invoices'], () => totals.overdue.length), detail: 'Past due date', tone: invoicesUnavailable ? 'blue' : totals.overdue.length ? 'red' : 'green', onClick: () => router.push('/admin/invoices') },
-          { key: 'due-soon', label: 'Due 7d', value: metricValue(data, ['invoices'], () => totals.dueSoon.length), detail: 'Upcoming receivables', tone: invoicesUnavailable ? 'blue' : totals.dueSoon.length ? 'orange' : 'navy', onClick: () => router.push('/admin/invoices') },
-          { key: 'outstanding-value', label: 'AR Outstanding', value: metricValue(data, ['invoices'], () => money(totals.outstandingValue)), detail: 'Receivables balance', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/finance/customer-invoices') },
-          { key: 'payable-value', label: 'AP Outstanding', value: metricValue(data, ['invoices'], () => money(totals.payableOutstandingValue)), detail: 'Payables balance', tone: invoicesUnavailable ? 'blue' : 'orange', onClick: () => router.push('/admin/finance/carrier-invoices') },
-          { key: 'paid-value', label: 'AR Paid', value: metricValue(data, ['invoices'], () => money(totals.paidValue)), detail: 'Settled receivables', tone: invoicesUnavailable ? 'blue' : 'green', onClick: () => router.push('/admin/finance/customer-invoices') },
-        ]}
-      />
-
       <OperationalWorkspaceGrid
-        asideLabel="Finance exposure and actions"
+        asideLabel="Finance activity"
         main={
           <>
+            <OperationalCard title="Reports & Statistics" subtitle="Live finance position, receivables and payables.">
+              <OperationalSignalStrip
+                ariaLabel="Finance operational signals"
+                items={[
+                  { key: 'ready-to-invoice', label: 'Ready to Invoice', value: metricValue(data, ['jobs', 'invoices'], () => readyToInvoice.length), detail: 'Completed work without invoice', tone: readyToInvoiceUnavailable ? 'blue' : readyToInvoice.length ? 'orange' : 'green' },
+                  { key: 'draft', label: 'AR Draft', value: metricValue(data, ['invoices'], () => totals.receivables.filter((invoice) => ['draft', 'Draft'].includes(invoice.status)).length), detail: 'Receivables requiring issue', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/finance/customer-invoices') },
+                  { key: 'unpaid', label: 'Unpaid', value: metricValue(data, ['invoices'], () => totals.unpaid.length), detail: 'Awaiting payment', tone: invoicesUnavailable ? 'blue' : totals.unpaid.length ? 'orange' : 'green', onClick: () => router.push('/admin/invoices') },
+                  { key: 'overdue', label: 'Overdue', value: metricValue(data, ['invoices'], () => totals.overdue.length), detail: 'Past due date', tone: invoicesUnavailable ? 'blue' : totals.overdue.length ? 'red' : 'green', onClick: () => router.push('/admin/invoices') },
+                  { key: 'outstanding-value', label: 'AR Outstanding', value: metricValue(data, ['invoices'], () => money(totals.outstandingValue)), detail: 'Receivables balance', tone: invoicesUnavailable ? 'blue' : 'navy', onClick: () => router.push('/admin/finance/customer-invoices') },
+                  { key: 'payable-value', label: 'AP Outstanding', value: metricValue(data, ['invoices'], () => money(totals.payableOutstandingValue)), detail: 'Payables balance', tone: invoicesUnavailable ? 'blue' : 'orange', onClick: () => router.push('/admin/finance/carrier-invoices') },
+                ]}
+              />
+            </OperationalCard>
+
+            <div className="xdrive-owner-dashboard-subgrid">
+              <OperationalCard title="Financial exposure" subtitle="Amounts that need finance attention.">
+                <FinancialSummaryPanel
+                  items={[
+                    {
+                      label: 'Outstanding',
+                      detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.unpaid.length} invoice(s)`,
+                      value: metricValue(data, ['invoices'], () => money(totals.outstandingValue)),
+                      color: workspaceTheme.navy,
+                      background: workspaceTheme.surfaceMuted,
+                    },
+                    {
+                      label: 'Overdue exposure',
+                      detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.overdue.length} invoice(s)`,
+                      value: metricValue(data, ['invoices'], () => money(totals.overdueValue)),
+                      color: totals.overdue.length ? workspaceTheme.red : workspaceTheme.green,
+                      background: totals.overdue.length ? '#FEF2F2' : '#F0FDF4',
+                    },
+                    {
+                      label: 'Accounts Payable',
+                      detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.payableUnpaid.length} invoice(s)`,
+                      value: metricValue(data, ['invoices'], () => money(totals.payableOutstandingValue)),
+                      color: workspaceTheme.orange,
+                      background: '#FFF7ED',
+                    },
+                    {
+                      label: 'Settled AR value',
+                      detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.paid.length} paid invoice(s)`,
+                      value: metricValue(data, ['invoices'], () => money(totals.paidValue)),
+                      color: workspaceTheme.green,
+                      background: '#F0FDF4',
+                    },
+                  ]}
+                />
+              </OperationalCard>
+
+              <OperationalCard title="Reports" subtitle="Finance-only reporting and invoice routes.">
+                <QuickActionGrid
+                  actions={[
+                    { key: 'ar', label: 'Accounts Receivable', onClick: () => router.push('/admin/finance/customer-invoices') },
+                    { key: 'ap', label: 'Accounts Payable', onClick: () => router.push('/admin/finance/carrier-invoices') },
+                    { key: 'invoices', label: 'Invoice register', onClick: () => router.push('/admin/invoices') },
+                    { key: 'balances', label: 'Balances', onClick: () => router.push('/admin/finance/balances') },
+                    { key: 'payments', label: 'Payments', onClick: () => router.push('/admin/finance/payments') },
+                    { key: 'reports', label: 'Finance reports', onClick: () => router.push('/admin/finance/reports') },
+                  ]}
+                />
+              </OperationalCard>
+            </div>
+          </>
+        }
+        aside={
+          <>
             <OperationalCard
-              title="Ready to Invoice"
+              title="Activity at a glance"
               subtitle="Completed transport operated by this company that is ready for an invoice."
-              actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>Completed jobs</ActionButton>}
+              actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/jobs')}>View all</ActionButton>}
               flush
             >
               <DataTable
@@ -212,58 +256,6 @@ export default function FinanceControlDashboardHome() {
               />
             </OperationalCard>
           </>
-        }
-        aside={
-          <div style={{ display: 'grid', gap: '8px' }}>
-            <OperationalCard title="Financial exposure" subtitle="Amounts that need finance attention.">
-              <FinancialSummaryPanel
-                items={[
-                  {
-                    label: 'Outstanding',
-                    detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.unpaid.length} invoice(s)`,
-                    value: metricValue(data, ['invoices'], () => money(totals.outstandingValue)),
-                    color: workspaceTheme.navy,
-                    background: workspaceTheme.surfaceMuted,
-                  },
-                  {
-                    label: 'Overdue exposure',
-                    detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.overdue.length} invoice(s)`,
-                    value: metricValue(data, ['invoices'], () => money(totals.overdueValue)),
-                    color: totals.overdue.length ? workspaceTheme.red : workspaceTheme.green,
-                    background: totals.overdue.length ? '#FEF2F2' : '#F0FDF4',
-                  },
-                  {
-                    label: 'Accounts Payable',
-                    detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.payableUnpaid.length} invoice(s)`,
-                    value: metricValue(data, ['invoices'], () => money(totals.payableOutstandingValue)),
-                    color: workspaceTheme.orange,
-                    background: '#FFF7ED',
-                  },
-                  {
-                    label: 'Settled AR value',
-                    detail: invoicesUnavailable ? 'Invoice data unavailable' : `${totals.paid.length} paid invoice(s)`,
-                    value: metricValue(data, ['invoices'], () => money(totals.paidValue)),
-                    color: workspaceTheme.green,
-                    background: '#F0FDF4',
-                  },
-                ]}
-              />
-            </OperationalCard>
-
-            <OperationalCard title="Finance actions" subtitle="Finance-only reporting and invoice routes.">
-              <QuickActionGrid
-                actions={[
-                  { key: 'ar', label: 'Accounts Receivable', onClick: () => router.push('/admin/finance/customer-invoices') },
-                  { key: 'ap', label: 'Accounts Payable', onClick: () => router.push('/admin/finance/carrier-invoices') },
-                  { key: 'invoices', label: 'Invoice register', onClick: () => router.push('/admin/invoices') },
-                  { key: 'balances', label: 'Balances', onClick: () => router.push('/admin/finance/balances') },
-                  { key: 'payments', label: 'Payments', onClick: () => router.push('/admin/finance/payments') },
-                  { key: 'reports', label: 'Finance reports', onClick: () => router.push('/admin/finance/reports') },
-                  { key: 'jobs', label: 'Job reference view', onClick: () => router.push('/admin/jobs') },
-                ]}
-              />
-            </OperationalCard>
-          </div>
         }
       />
     </div>

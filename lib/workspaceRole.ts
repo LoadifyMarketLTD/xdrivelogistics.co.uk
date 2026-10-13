@@ -373,6 +373,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     nav: [
       { id: 'finance', label: 'Finance', items: [
         { id: 'dashboard', label: 'Finance Dashboard', href: '/admin/invoices', icon: '⌂' },
+        { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' },
         { id: 'customer-invoices', label: 'Customer Invoices', href: '/admin/finance/customer-invoices', icon: '£' },
         { id: 'carrier-invoices', label: 'Carrier Invoices', href: '/admin/finance/carrier-invoices', icon: '£' },
         { id: 'payments', label: 'Payments', href: '/admin/finance/payments', icon: '✓' },
@@ -400,7 +401,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
   },
   viewer: {
     role: 'viewer', label: 'Read-only Workspace', subtitle: 'Approved operational visibility', homeHref: '/admin',
-    nav: [{ id: 'view', label: 'Read Only', items: [{ id: 'dashboard', label: 'Dashboard', href: '/admin', icon: '⌂' }, { id: 'jobs', label: 'Jobs', href: '/admin/jobs', icon: '▣' }] }],
+    nav: [{ id: 'view', label: 'Read Only', items: [{ id: 'dashboard', label: 'Dashboard', href: '/admin', icon: '⌂' }, { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' }, { id: 'jobs', label: 'Jobs', href: '/admin/jobs', icon: '▣' }] }],
   },
 };
 

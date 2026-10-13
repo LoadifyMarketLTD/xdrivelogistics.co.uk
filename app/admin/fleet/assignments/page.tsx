@@ -14,6 +14,7 @@ import {
   PageHeader,
   Panel,
   StatusBadge,
+  TwoColumn,
 } from '../../../components/workspace/WorkspaceUI';
 
 const money = (value: number | null | undefined, currency = 'GBP') =>
@@ -291,7 +292,8 @@ export default function FleetAssignmentsPage() {
             <div className="workspace-detail-item"><strong>Current allocation</strong><div>{selectedJob.assigned_driver_id ? driverLabel(currentAssignedDriver) : 'Unallocated'}</div><small>{selectedCanonicalStage === 'in_progress' ? 'Execution is active: replacement is allowed, clearing is blocked.' : selectedCanonicalStage === 'allocated' ? 'Pre-execution allocation can be replaced or cleared.' : 'Awaiting allocation.'}</small></div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px, .8fr) minmax(0, 1.2fr)', gap: 12, marginTop: 12 }}>
+          <div style={{ marginTop: 12 }}>
+            <TwoColumn rightWidth="minmax(0, 1.2fr)">
             <div style={{ display: 'grid', gap: 8, alignContent: 'start' }}>
               <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700 }}>
                 DRIVER
@@ -365,6 +367,7 @@ export default function FleetAssignmentsPage() {
                 <small>MOT and insurance validity are checked again before allocation.</small>
               </div>
             </div>
+            </TwoColumn>
           </div>
         </Panel>
       )}

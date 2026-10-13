@@ -3,7 +3,7 @@
  * Canonical dimensions come from workspace-measured-cx-baseline.css.
  */
 
-body:has(.driver-inline-quote)::before {
+body:has(.driver-inline-quote--marketplace)::before {
   content: '';
   position: fixed;
   inset: 0;
@@ -11,7 +11,7 @@ body:has(.driver-inline-quote)::before {
   background: rgba(15, 23, 42, 0.48);
 }
 
-.driver-inline-quote {
+.driver-inline-quote--marketplace {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -30,7 +30,7 @@ body:has(.driver-inline-quote)::before {
   background: #fff;
 }
 
-.driver-inline-quote::before {
+.driver-inline-quote--marketplace::before {
   content: 'Quote Now';
   position: absolute;
   top: 0;
@@ -48,12 +48,12 @@ body:has(.driver-inline-quote)::before {
   font-weight: 750;
 }
 
-.driver-inline-quote .driver-filter-field {
+.driver-inline-quote--marketplace .driver-filter-field {
   grid-column: 1 / -1;
 }
 
-.driver-inline-quote input,
-.driver-inline-quote textarea {
+.driver-inline-quote--marketplace input,
+.driver-inline-quote--marketplace textarea {
   width: 100%;
   border: 1px solid var(--ws-border, #cfd7e3);
   border-radius: var(--ws-radius, 4px);
@@ -62,12 +62,12 @@ body:has(.driver-inline-quote)::before {
   font-size: 12px;
 }
 
-.driver-inline-quote input {
+.driver-inline-quote--marketplace input {
   min-height: var(--ws-control-h, 32px);
   padding: 0 9px;
 }
 
-.driver-inline-quote textarea {
+.driver-inline-quote--marketplace textarea {
   min-height: 76px;
   padding: 7px 9px;
   resize: vertical;
@@ -418,7 +418,7 @@ body:has(.driver-inline-quote)::before {
 }
 
 @media (max-width: 640px) {
-  .driver-inline-quote {
+  .driver-inline-quote--marketplace {
     top: 16px;
     left: 16px;
     right: 16px;

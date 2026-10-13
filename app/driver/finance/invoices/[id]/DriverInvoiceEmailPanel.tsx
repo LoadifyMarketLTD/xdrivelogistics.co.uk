@@ -248,7 +248,7 @@ export default function DriverInvoiceEmailPanel({
           {error && <div style={{ marginBottom: '0.55rem', padding: '0.42rem 0.55rem', border: '1px solid #fecaca', background: '#fff1f2', color: '#b91c1c', borderRadius: '4px', fontSize: '0.72rem' }}>{error}</div>}
           {notice && <div style={{ marginBottom: '0.55rem', padding: '0.42rem 0.55rem', border: '1px solid #bbf7d0', background: '#f0fdf4', color: '#166534', borderRadius: '4px', fontSize: '0.72rem' }}>{notice}</div>}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(190px, 0.38fr) minmax(250px, 1fr) auto', gap: '0.75rem', alignItems: 'end' }}>
+          <div className="workspace-filter-fields">
             <div>
               <div style={labelStyle}>To</div>
               <div style={{ fontSize: '0.76rem', color: canSend ? '#1e293b' : '#b91c1c', fontWeight: 600, overflowWrap: 'anywhere' }}>{recipient}</div>

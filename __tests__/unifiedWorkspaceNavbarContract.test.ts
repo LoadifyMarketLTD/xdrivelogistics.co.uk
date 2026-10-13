@@ -9,13 +9,23 @@ describe('Unified workspace navbar contract', () => {
   const workspaceRole = read('lib/workspaceRole.ts');
 
   it('uses one two-row primary navigation shell for operational workspaces', () => {
+    const baseline = read('app/components/workspace/workspace-measured-cx-baseline.css');
     expect(shell).toContain('top-workspace-nav--primary');
     expect(shellCss).toContain('.top-workspace-nav--primary');
     expect(shellCss).toContain('top: 50px !important');
-    expect(shellCss).toContain('height: 40px !important');
-    expect(shellCss).toContain('justify-content: flex-end !important');
+    expect(shellCss).toContain('height: 29px !important');
+    expect(shellCss).toContain('padding: 2px 8px 9px !important');
+    expect(shellCss).toContain('font-size: 13px !important');
+    expect(shellCss).toContain('box-shadow: inset 0 -2px 0 #1d57d8 !important');
+    expect(baseline).toContain('--ws-nav-h: 42px');
     expect(shellCss).toContain('.xdrive-operational-top-workspace .top-workspace-action--primary');
     expect(shellCss).toContain('.xdrive-operational-top-workspace .top-workspace-action--direct');
+  });
+
+  it('scopes the generic button reset to page content so the 29px / 13px navbar stays canonical', () => {
+    const baseline = read('app/components/workspace/workspace-measured-cx-baseline.css');
+    expect(baseline).toContain('.xdrive-workspace-measured :where(.top-workspace-shell__content) button:not(.driver-top-shell__logo-button)');
+    expect(baseline).not.toMatch(/^\.xdrive-workspace-measured button:not\(/m);
   });
 
   it('promotes the primary workflow for operational roles without changing Super Admin', () => {
@@ -41,7 +51,7 @@ describe('Unified workspace navbar contract', () => {
     for (const marker of [
       "carrier-settings', 'Settings', '/admin/settings'",
       "broker-settings-primary', 'Settings', '/broker/settings'",
-      "owner-driver-settings-primary', 'Settings', '/driver/settings'",
+      "'/driver/settings'",
       "driver-settings-primary', 'Settings', '/driver/settings'",
       "dispatcher-settings-primary', 'Settings', '/admin/settings'",
       "finance-settings-primary', 'Settings', '/admin/settings'",
@@ -67,11 +77,12 @@ describe('Unified workspace navbar contract', () => {
     ]) expect(shell).toContain(marker);
   });
 
-  it('keeps one Owner Driver Settings primary entry and avoids duplicating settings sections inside More', () => {
+  it('keeps one Owner Driver Settings destination in More and avoids duplicate settings sections', () => {
     expect(workspaceRole).toContain("label: 'Driver Settings', href: '/driver/settings'");
     expect(workspaceRole).toContain("label: 'Company Settings', href: '/driver/settings?section=overview'");
-    expect(shell).toContain("['owner-driver-settings-primary', 'Settings', '/driver/settings']");
     const owner = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
+    expect(owner).toContain("], 'owner-driver-more', 'More', [");
+    expect(owner).toContain("'/driver/settings'");
     expect(owner).not.toContain("'/driver/settings?section=company'");
     expect(owner).not.toContain("'/driver/settings?section=overview'");
     expect(owner).not.toContain("'/settings/billing'");

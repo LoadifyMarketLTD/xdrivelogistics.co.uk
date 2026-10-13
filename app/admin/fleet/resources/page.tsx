@@ -284,13 +284,13 @@ export default function FleetResourcesPage() {
         meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Fleet resource view'}</span>}
       />
 
-      <div style={{ display: 'flex', gap: 4, minHeight: 34, alignItems: 'center', marginBottom: 8, border: '1px solid var(--ws-border, #cfd7e3)', background: '#fff', padding: '0 6px', overflowX: 'auto' }} aria-label="Drivers and vehicles workspace navigation">
-        <button type="button" aria-current="page" style={resourceTabStyle(true)}>Resources</button>
-        <button type="button" onClick={() => router.push('/admin/fleet/drivers')} style={resourceTabStyle(false)}>Drivers</button>
-        <button type="button" onClick={() => router.push('/admin/fleet/vehicles')} style={resourceTabStyle(false)}>Vehicles</button>
-        <button type="button" onClick={() => router.push('/admin/fleet/positions')} style={resourceTabStyle(false)}>Vehicle Tracking</button>
-        <button type="button" onClick={() => router.push('/admin/live-availability')} style={resourceTabStyle(false)}>Live Availability</button>
-        <button type="button" onClick={() => router.push('/admin/fleet/returns')} style={resourceTabStyle(false)}>Return Journeys</button>
+      <div className="workspace-tab-strip" role="tablist" style={{ display: 'flex', alignItems: 'center', marginBottom: 8, overflowX: 'auto' }} aria-label="Drivers and vehicles workspace navigation">
+        <button type="button" role="tab" aria-selected="true" data-active="true">Resources</button>
+        <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/fleet/drivers')}>Drivers</button>
+        <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</button>
+        <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/fleet/positions')}>Vehicle Tracking</button>
+        <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/live-availability')}>Live Availability</button>
+        <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</button>
       </div>
 
       {data.error && <AlertBanner tone="warning">{data.error}</AlertBanner>}
@@ -307,7 +307,7 @@ export default function FleetResourcesPage() {
 
       {futureDriverId ? (
         <Panel title="Future Position" description="Publish or clear this driver's future position on behalf of the company Fleet operation." style={{ marginBottom: 12 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,2fr) repeat(2,minmax(190px,1fr))', gap: 8, alignItems: 'end' }}>
+          <div className="workspace-filter-fields">
             <label style={labelStyle}>Position / area<input style={inputStyle} maxLength={160} value={futurePositionDraft} onChange={(event) => setFuturePositionDraft(event.target.value)} placeholder="Postcode, town or planned destination" /></label>
             <label style={labelStyle}>Available from<input style={inputStyle} type="datetime-local" value={futureDateDraft} onChange={(event) => setFutureDateDraft(event.target.value)} /></label>
             <label style={labelStyle}>Available until<input style={inputStyle} type="datetime-local" value={futureUntilDraft} onChange={(event) => setFutureUntilDraft(event.target.value)} /></label>
@@ -319,7 +319,7 @@ export default function FleetResourcesPage() {
       ) : null}
 
       <Panel title="Resource filters" description="Search the resource register without changing operational records." style={{ marginBottom: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,2fr) repeat(2,minmax(150px,1fr)) auto', gap: 8, alignItems: 'end' }}>
+        <div className="workspace-filter-fields workspace-filter-fields--even">
           <label style={labelStyle}>Search<input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Driver, registration, vehicle, route or future position" /></label>
           <label style={labelStyle}>Availability<select style={inputStyle} value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="all">All states</option>{availabilityValues.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>
           <label style={labelStyle}>Tracking<select style={inputStyle} value={tracking} onChange={(event) => setTracking(event.target.value as 'all' | 'live' | 'stale' | 'missing')}><option value="all">All tracking</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>
@@ -400,19 +400,6 @@ export default function FleetResourcesPage() {
     </PageFrame>
   );
 }
-
-const resourceTabStyle = (active: boolean) => ({
-  minHeight: 28,
-  border: 0,
-  borderBottom: active ? '2px solid #1d57d8' : '2px solid transparent',
-  background: 'transparent',
-  color: active ? '#0b2f6b' : '#64748b',
-  fontSize: 11,
-  fontWeight: active ? 800 : 700,
-  padding: '0 10px',
-  whiteSpace: 'nowrap' as const,
-  cursor: active ? 'default' : 'pointer',
-});
 
 const inputStyle = { width: '100%', minHeight: 32, border: '1px solid var(--ws-border, #cfd7e3)', borderRadius: 4, padding: '5px 8px', background: '#fff', color: 'var(--ws-text, #172033)', fontSize: 12, boxSizing: 'border-box' as const };
 const labelStyle = { display: 'grid', gap: 4, color: 'var(--ws-muted, #64748b)', fontSize: 11, fontWeight: 700 } as const;

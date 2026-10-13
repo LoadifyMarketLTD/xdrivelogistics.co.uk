@@ -16,6 +16,8 @@ import {
   ActionButton,
   AlertBanner,
   EmptyState,
+  KpiCard,
+  KpiGrid,
   OperationalCard,
   PageFrame,
   StatusBadge,
@@ -339,34 +341,39 @@ export default function CustomerDashboardHome() {
           <AlertBanner tone="warning">Financial data is partial. Exact invoice totals are hidden until the complete dataset is available.</AlertBanner>
         ) : null}
 
-        <div className="customer-owner-parity-grid">
-          <div className="customer-owner-parity-column">
+        <div className="customer-owner-parity-grid xdrive-owner-dashboard-grid">
+          <div className="customer-owner-parity-column xdrive-owner-dashboard-column">
             <OperationalCard title="Reports & Statistics" subtitle="Live customer transport and commercial position.">
-              <div className="customer-owner-stat-grid">
-                <button type="button" onClick={() => router.push('/customer/loads')} className="customer-owner-stat-card">
-                  <span>Open Loads</span>
-                  <strong>{metricState(jobsDataset, metrics.openLoads.length)}</strong>
-                  <small>Published loads still open for carrier activity.</small>
-                </button>
-                <button type="button" onClick={() => router.push('/customer/quotes')} className="customer-owner-stat-card">
-                  <span>Quotes to Review</span>
-                  <strong>{metricState(bidsDataset, metrics.submittedQuotes.length)}</strong>
-                  <small>Carrier quotes still awaiting your decision.</small>
-                </button>
-                <button type="button" onClick={() => router.push('/customer/tracking')} className="customer-owner-stat-card" data-tone="green">
-                  <span>Active Deliveries</span>
-                  <strong>{metricState(jobsDataset, metrics.activeDeliveries.length)}</strong>
-                  <small>Transport currently in the live execution lifecycle.</small>
-                </button>
-                <button type="button" onClick={() => router.push('/customer/invoices')} className="customer-owner-stat-card">
-                  <span>Outstanding Invoices</span>
-                  <strong>{invoicesDataset.availability !== 'available' ? 'Unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Partial' : metrics.unpaidInvoices.length}</strong>
-                  <small>{invoicesDataset.availability !== 'available' ? 'Financial data unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Financial data partial' : money(metrics.unpaidValue)}</small>
-                </button>
-              </div>
+              <KpiGrid>
+                <KpiCard
+                  label="Open Loads"
+                  value={metricState(jobsDataset, metrics.openLoads.length)}
+                  detail="Published loads still open for carrier activity."
+                  onClick={() => router.push('/customer/loads')}
+                />
+                <KpiCard
+                  label="Quotes to Review"
+                  value={metricState(bidsDataset, metrics.submittedQuotes.length)}
+                  detail="Carrier quotes still awaiting your decision."
+                  onClick={() => router.push('/customer/quotes')}
+                />
+                <KpiCard
+                  label="Active Deliveries"
+                  value={metricState(jobsDataset, metrics.activeDeliveries.length)}
+                  detail="Transport currently in the live execution lifecycle."
+                  tone="green"
+                  onClick={() => router.push('/customer/tracking')}
+                />
+                <KpiCard
+                  label="Outstanding Invoices"
+                  value={invoicesDataset.availability !== 'available' ? 'Unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Partial' : metrics.unpaidInvoices.length}
+                  detail={invoicesDataset.availability !== 'available' ? 'Financial data unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Financial data partial' : money(metrics.unpaidValue)}
+                  onClick={() => router.push('/customer/invoices')}
+                />
+              </KpiGrid>
             </OperationalCard>
 
-            <div className="customer-owner-parity-subgrid">
+            <div className="customer-owner-parity-subgrid xdrive-owner-dashboard-subgrid">
               <OperationalCard title="Commercial & Documents" subtitle="Customer-side closeout and finance controls.">
                 {[
                   ['Ready to invoice', `${metrics.readyToInvoice.length} POD-complete booking(s)`, '/customer/invoices'],
@@ -417,7 +424,7 @@ export default function CustomerDashboardHome() {
             </OperationalCard>
           </div>
 
-          <div className="customer-owner-parity-column">
+          <div className="customer-owner-parity-column xdrive-owner-dashboard-column">
             <OperationalCard
               title="Activity at a glance"
               subtitle="Latest customer transport and the next operational action for each booking."

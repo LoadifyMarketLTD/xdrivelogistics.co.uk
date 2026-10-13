@@ -677,7 +677,7 @@ export default function InvoiceDetailPage() {
     padding: '6px 8px',
     border: '1px solid #cbd5e1',
     borderRadius: '3px',
-    fontSize: '12.5px',
+    fontSize: '12px',
     lineHeight: '16px',
     outline: 'none',
     transition: 'border-color 0.2s',
@@ -685,7 +685,7 @@ export default function InvoiceDetailPage() {
 
   const labelStyle: React.CSSProperties = {
     display: 'block',
-    fontSize: '11.5px',
+    fontSize: '11px',
     lineHeight: '14px',
     fontWeight: '700',
     color: '#475569',
@@ -749,11 +749,12 @@ export default function InvoiceDetailPage() {
 
         {/* Main Content */}
         <div className="carrier-detail-page__body" style={{ maxWidth: '1400px', margin: '0 auto', padding: '2rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr', gap: '2rem' }}>
+          <div className="carrier-invoice-editor-columns" style={{ display: 'grid', gridTemplateColumns: showPreview ? '1fr 1fr' : '1fr', gap: '2rem' }}>
             {/* Form Section */}
             <div>
               {/* Action Buttons */}
               <div
+                className="carrier-invoice-create-panel"
                 style={{
                   backgroundColor: 'white',
                   padding: '1.5rem',
@@ -762,7 +763,7 @@ export default function InvoiceDetailPage() {
                   boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
                 }}
               >
-                <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <div className="carrier-invoice-action-toolbar" style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                   <button
                     onClick={handleSave}
                     style={{
@@ -1057,6 +1058,7 @@ export default function InvoiceDetailPage() {
 
               {/* Invoice Details Form */}
               <div
+                className="carrier-invoice-create-panel"
                 style={{
                   backgroundColor: 'white',
                   padding: '1.5rem',
@@ -1318,6 +1320,7 @@ export default function InvoiceDetailPage() {
             {showPreview && (
               <div>
                 <div
+                  className="carrier-invoice-create-panel"
                   style={{
                     backgroundColor: 'white',
                     borderRadius: '12px',

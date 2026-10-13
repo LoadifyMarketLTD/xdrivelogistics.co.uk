@@ -4,7 +4,7 @@ import path from 'node:path';
 describe('Driver canonical dashboard convergence contract', () => {
   const page = fs.readFileSync(path.join(process.cwd(), 'app/driver/page.tsx'), 'utf8');
   const parityCss = fs.readFileSync(path.join(process.cwd(), 'app/driver/driver-prototype-parity.css'), 'utf8');
-  const exactCss = fs.readFileSync(path.join(process.cwd(), 'app/driver/driver-dashboard-prototype-exact.css'), 'utf8');
+  const measuredCss = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/workspace-measured-cx-baseline.css'), 'utf8');
   const layout = fs.readFileSync(path.join(process.cwd(), 'app/driver/layout.tsx'), 'utf8');
 
   it('keeps current execution and the canonical next action as the primary driver workflow', () => {
@@ -22,15 +22,22 @@ describe('Driver canonical dashboard convergence contract', () => {
     expect(page).toContain('driver-dashboard-statusbar');
   });
 
-  it('keeps the approved driver CSS layers loaded', () => {
+  it('keeps the frozen PR675 dashboard layers loaded after the shared Driver convergence layers', () => {
     expect(layout).toContain("import './driver-prototype-parity.css';");
+    expect(layout).toContain("import './driver-dashboard-reference.css';");
+    expect(layout).toContain("import './driver-dashboard-cx-close.css';");
     expect(layout).toContain("import './driver-dashboard-prototype-exact.css';");
-    expect(exactCss).toContain('Exact Dashboard V2 visual layer copied from the prototype served on 127.0.0.1:17883');
+    expect(page).toContain('driver-exact-prototype');
     expect(parityCss).not.toContain('driver-top-nav');
   });
   it('does not rewrite lifecycle authority or move desktop density into Expo mobile', () => {
     expect(page).toContain('p_next_status: nextStatus');
-    expect(parityCss).toContain('@media (max-width: 768px)');
+    // Shared measured CSS owns mobile operational records; a generic Driver
+    // parity media override would compete with the canonical 52px rows.
+    expect(measuredCss).toContain('@media (max-width: 768px)');
+    expect(measuredCss).toContain('.xdrive-workspace-measured .driver-load-row__top,');
+    expect(measuredCss).toContain('grid-template-columns: 1fr !important;');
+    expect(parityCss).not.toMatch(/@media \(max-width: 768px\)\s*\{\s*\.xdrive-driver-workspace \.driver-load-row__top/);
     expect(page).not.toContain('apps/driver-mobile');
   });
 

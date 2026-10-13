@@ -1,111 +1,51 @@
-.xdrive-workspace-measured.xdrive-broker-workspace {
-  --ws-page-x: 10px;
-  --ws-page-y: 8px;
-  --ws-gap-grid: 8px;
-  --ws-gap-section: 8px;
-  --ws-filter-rail-w: 185px;
-  --ws-control-h: 32px;
-  --ws-tab-h: 38px;
-  --ws-panel-head-h: 38px;
-  --ws-table-head-h: 36px;
-  --ws-table-row-h: 46px;
-  --ws-font-page-title: 21px;
-  --ws-font-body: 12.5px;
-  --ws-font-label: 11.5px;
-  --ws-font-meta: 11px;
-  --ws-font-micro: 11px;
-  --ws-radius: 3px;
-}
-
-/* Broker dashboard CX-convergence responsive adapter.
- * Desktop contract uses the canonical 185px action rail + fluid activity canvas.
- * This file exists only because the current Broker component owns its desktop
- * grid inline; the responsive phase must override that safely without changing
- * commercial or data behavior.
- */
-
-.xdrive-broker-control-grid {
-  min-width: 0;
-}
-
-.xdrive-broker-control-grid > aside,
-.xdrive-broker-control-grid > main {
-  min-width: 0;
-}
-
-@media (max-width: 1024px) {
-  .xdrive-broker-control-grid {
-    grid-template-columns: 1fr !important;
-  }
-}
-
-@media (max-width: 768px) {
-  .xdrive-broker-control-grid {
-    gap: 8px !important;
-  }
-}
-
-
 /* Broker workspace cleanup — action-first, lifecycle-aligned dashboard. */
 .broker-clean-dashboard {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-  gap: 12px;
-  align-items: start;
+  min-width: 0;
 }
 
-.broker-clean-dashboard > .workspace-alert,
-.broker-clean-dashboard > [role="alert"] {
-  grid-column: 1 / -1;
-}
-
-.broker-owner-reports-card,
-.broker-owner-commercial,
-.broker-owner-reports-links {
+.broker-owner-reports-card {
   grid-column: 1;
+  grid-row: 1;
 }
 
-.broker-owner-activity,
+.broker-owner-subgrid {
+  grid-column: 1;
+  grid-row: 2;
+}
+
 .broker-owner-attention {
-  grid-column: 2;
+  grid-column: 1;
+  grid-row: 3;
 }
 
 .broker-owner-activity {
+  grid-column: 2;
   grid-row: 1 / span 3;
 }
 
-.broker-clean-kpis {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-  padding: 8px 10px;
+.broker-owner-commercial,
+.broker-owner-reports-links {
+  min-width: 0;
 }
 
-.broker-clean-kpis button,
-.broker-clean-commercial button,
 .broker-clean-attention button {
   border: 1px solid #d8dee9;
   background: #fff;
+}
+
+.broker-clean-attention button {
   text-align: left;
   cursor: pointer;
 }
 
-.broker-clean-kpis button {
-  min-height: 78px;
-  padding: 9px 10px;
-  border-radius: 3px;
-}
-
-.broker-clean-kpis span,
 .broker-clean-commercial span {
   display: block;
   color: #64748b;
-  font-size: 11.5px;
+  font-size: var(--ws-font-label, 11px);
   line-height: 14px;
   font-weight: 700;
 }
 
-.broker-clean-kpis strong,
 .broker-clean-commercial strong {
   display: block;
   margin-top: 3px;
@@ -114,7 +54,6 @@
   line-height: 24px;
 }
 
-.broker-clean-kpis small,
 .broker-clean-commercial small {
   display: block;
   margin-top: 2px;
@@ -123,59 +62,19 @@
   line-height: 14px;
 }
 
-.broker-clean-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 8px;
-}
-
-.broker-clean-box {
-  border: 1px solid #d8dee9;
-  border-radius: 3px;
-  background: #fff;
-  overflow: hidden;
-}
-
-.broker-clean-box__head {
-  min-height: 38px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 10px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.broker-clean-box__head > div > strong {
-  display: block;
-  color: #1a1f2b;
-  font-size: 13px;
-}
-
-.broker-clean-box__head > div > span {
-  display: block;
-  margin-top: 2px;
-  color: #64748b;
-  font-size: 11px;
-}
-
-.broker-clean-box__body {
-  padding: 8px 10px;
-}
-
 .broker-clean-attention {
   display: grid;
   gap: 6px;
 }
 
 .broker-clean-attention button {
-  min-height: 46px;
+  min-height: var(--ws-operational-row-min-h, 52px);
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 10px;
   padding: 6px 8px;
-  border-radius: 3px;
+  border-radius: var(--ws-radius, 4px);
 }
 
 .broker-clean-attention button span {
@@ -198,150 +97,70 @@
   font-size: 14px;
 }
 
-.broker-clean-actions {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
-}
-
 .broker-clean-table-wrap {
   width: 100%;
   overflow-x: auto;
 }
 
-.broker-clean-table {
-  width: 100%;
-  min-width: 900px;
-  border-collapse: collapse;
-}
-
-.broker-clean-table th,
-.broker-clean-table td {
-  padding: 0 8px;
-  border-bottom: 1px solid #e5e7eb;
-  text-align: left;
-  vertical-align: middle;
-}
-
-.broker-clean-table th {
-  height: 36px;
-}
-
-.broker-clean-table td {
-  height: 46px;
-  padding-top: 6px;
-  padding-bottom: 6px;
-}
-
-.broker-clean-table th {
-  color: #64748b;
-  font-size: 11px;
-  line-height: 14px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.broker-clean-table td {
-  color: #1a1f2b;
-  font-size: 12.5px;
-  line-height: 16px;
-  font-weight: 500;
-}
-
-.broker-clean-table td:first-child strong,
-.broker-clean-table td:first-child small {
-  display: block;
-}
-
-.broker-clean-table td:first-child small {
-  margin-top: 2px;
-  color: #64748b;
-}
-
 .broker-clean-commercial {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  grid-template-columns: 1fr;
+  gap: 0;
   padding: 8px 10px;
 }
 
 .broker-clean-commercial button {
-  min-height: 78px;
-  padding: 9px 10px;
-  border-radius: 3px;
+  min-height: 36px;
+  padding: 6px 0;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 0;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.broker-clean-commercial button:last-child {
+  border-bottom: 0;
 }
 
 .broker-clean-footer-links {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+  display: grid;
+  gap: 0;
+  padding: 8px 10px;
 }
 
 .broker-clean-footer-links button {
-  min-height: 32px;
-  padding: 0 9px;
-  border: 1px solid #d8dee9;
-  border-radius: 3px;
-  background: #fff;
+  min-height: 36px;
+  padding: 6px 0;
+  border: 0;
+  border-bottom: 1px solid #e5e7eb;
+  border-radius: 0;
+  background: transparent;
   color: #334155;
   font: inherit;
   font-size: 12px;
   font-weight: 700;
+  text-align: left;
   cursor: pointer;
 }
 
+.broker-clean-footer-links button:last-child {
+  border-bottom: 0;
+}
+
 .broker-clean-footer-links button:hover,
-.broker-clean-kpis button:hover,
 .broker-clean-commercial button:hover,
 .broker-clean-attention button:hover {
   border-color: #1d57d8;
 }
 
 @media (max-width: 1024px) {
-  .broker-clean-dashboard {
-    grid-template-columns: 1fr;
-  }
-
   .broker-owner-reports-card,
-  .broker-owner-commercial,
-  .broker-owner-reports-links,
+  .broker-owner-subgrid,
   .broker-owner-activity,
   .broker-owner-attention {
     grid-column: 1;
     grid-row: auto;
   }
-
-  .broker-clean-kpis {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .broker-clean-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
-@media (max-width: 640px) {
-  .broker-clean-kpis,
-  .broker-clean-commercial,
-  .broker-clean-actions {
-    grid-template-columns: 1fr;
-  }
-}
-
-.xdrive-broker-workspace .xdrive-page-header,
-.xdrive-broker-workspace .xdrive-dashboard-home-header {
-  min-height: 42px !important;
-  margin-bottom: 8px !important;
-}
-
-.xdrive-broker-workspace .workspace-tab-strip,
-.xdrive-broker-workspace [role="tablist"] {
-  min-height: 38px !important;
-}
-
-.xdrive-broker-workspace .workspace-tab-strip button,
-.xdrive-broker-workspace [role="tablist"] > button {
-  min-height: 38px !important;
-  height: 38px !important;
 }

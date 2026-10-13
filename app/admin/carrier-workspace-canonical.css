@@ -1,24 +1,5 @@
 /* Carrier workspace canonical geometry.
  * Scoped to /admin only. Owner Driver and Super Admin are intentionally untouched. */
-.xdrive-workspace-measured.xdrive-carrier-workspace {
-  --ws-page-x: 10px;
-  --ws-page-y: 8px;
-  --ws-gap-grid: 8px;
-  --ws-gap-section: 8px;
-  --ws-filter-rail-w: 185px;
-  --ws-control-h: 32px;
-  --ws-tab-h: 38px;
-  --ws-panel-head-h: 38px;
-  --ws-table-head-h: 36px;
-  --ws-table-row-h: 46px;
-  --ws-font-page-title: 21px;
-  --ws-font-body: 12.5px;
-  --ws-font-label: 11.5px;
-  --ws-font-meta: 11px;
-  --ws-font-micro: 11px;
-  --ws-radius: 3px;
-}
-
 .xdrive-carrier-workspace .top-workspace-shell__content {
   background: #f4f6f8;
   color: #1a1f2b;
@@ -34,7 +15,7 @@
 }
 
 .xdrive-carrier-workspace .carrier-register-page {
-  min-height: calc(100vh - 100px) !important;
+  min-height: calc(100vh - var(--ws-header-h) - var(--ws-nav-h)) !important;
   padding: 8px 10px 12px !important;
 }
 
@@ -48,16 +29,16 @@
 .xdrive-carrier-workspace .carrier-register-page > div > div:first-child h2 {
   margin: 0 !important;
   color: #172033 !important;
-  font-size: 21px !important;
+  font-size: var(--ws-font-page-title, 20px) !important;
   line-height: 26px !important;
-  font-weight: 700 !important;
+  font-weight: 650 !important;
 }
 
 .xdrive-carrier-workspace .carrier-register-page h1 + p,
 .xdrive-carrier-workspace .carrier-register-page > div > div:first-child h2 + p {
   margin-top: 2px !important;
   color: #64748b !important;
-  font-size: 12.5px !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
   font-weight: 500 !important;
 }
@@ -66,7 +47,7 @@
 .xdrive-carrier-workspace .carrier-register-page > div > form,
 .xdrive-carrier-workspace .carrier-register-page > div > section {
   border: 1px solid #cfd7e3 !important;
-  border-radius: 3px !important;
+  border-radius: var(--ws-radius, 4px) !important;
   box-shadow: none !important;
 }
 
@@ -88,31 +69,21 @@
 }
 
 .xdrive-carrier-workspace .carrier-register-page button {
-  min-height: 30px;
-  border-radius: 3px !important;
-  font-size: 12px !important;
+  min-height: var(--ws-control-h, 32px) !important;
+  padding: 0 9px !important;
+  border-radius: var(--ws-radius, 4px) !important;
+  font-size: var(--ws-font-body, 12px) !important;
 }
 
 .xdrive-carrier-workspace .carrier-register-page textarea {
   border: 1px solid #cbd5e1 !important;
-  border-radius: 3px !important;
-  font-size: 12.5px !important;
+  border-radius: var(--ws-radius, 4px) !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
 }
 
-.xdrive-carrier-workspace .carrier-register-page--drivers > div:first-child {
-  min-height: 38px;
-  padding: 6px 10px !important;
-  margin-bottom: 8px !important;
-  border: 1px solid #cfd7e3 !important;
-  border-radius: 3px !important;
-  background: #fff !important;
-  color: #172033 !important;
-  box-shadow: none !important;
-}
-
 .xdrive-carrier-workspace .carrier-redirect-page {
-  min-height: calc(100vh - 100px) !important;
+  min-height: calc(100vh - var(--ws-header-h) - var(--ws-nav-h)) !important;
   padding: 10px !important;
   align-items: flex-start !important;
   justify-content: flex-start !important;
@@ -122,13 +93,13 @@
   margin: 0;
   padding: 8px 10px;
   border: 1px solid #cfd7e3;
-  border-radius: 3px;
+  border-radius: var(--ws-radius, 4px);
   background: #fff;
-  font-size: 12.5px !important;
+  font-size: var(--ws-font-body) !important;
 }
 
 .xdrive-carrier-workspace .carrier-detail-page {
-  min-height: calc(100vh - 100px) !important;
+  min-height: calc(100vh - var(--ws-header-h) - var(--ws-nav-h)) !important;
   padding: 8px 10px 12px !important;
 }
 
@@ -136,7 +107,7 @@
   padding: 8px 10px !important;
   margin-bottom: 8px !important;
   border: 1px solid #cfd7e3 !important;
-  border-radius: 3px !important;
+  border-radius: var(--ws-radius, 4px) !important;
   background: #fff !important;
   color: #172033 !important;
   box-shadow: none !important;
@@ -151,15 +122,15 @@
 .xdrive-carrier-workspace .carrier-detail-page__header h1 {
   margin: 0 !important;
   color: #172033 !important;
-  font-size: 21px !important;
+  font-size: var(--ws-font-page-title, 20px) !important;
   line-height: 26px !important;
-  font-weight: 700 !important;
+  font-weight: 650 !important;
 }
 
 .xdrive-carrier-workspace .carrier-detail-page__header p {
   margin-top: 2px !important;
   color: #64748b !important;
-  font-size: 12.5px !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
   opacity: 1 !important;
 }
@@ -171,7 +142,7 @@
   display: inline-flex;
   align-items: center;
   border: 1px solid #cfd7e3 !important;
-  border-radius: 3px !important;
+  border-radius: var(--ws-radius, 4px) !important;
   background: #fff !important;
   color: #1d57d8 !important;
   font-size: 12px !important;
@@ -192,37 +163,103 @@
   height: 32px !important;
   padding: 0 8px !important;
   border-width: 1px !important;
-  border-radius: 3px !important;
-  font-size: 12.5px !important;
+  border-radius: var(--ws-radius, 4px) !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
 }
 
 .xdrive-carrier-workspace .carrier-detail-page textarea {
   padding: 7px 8px !important;
   border-width: 1px !important;
-  border-radius: 3px !important;
-  font-size: 12.5px !important;
+  border-radius: var(--ws-radius, 4px) !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
 }
 
 .xdrive-carrier-workspace .carrier-detail-page button {
-  border-radius: 3px !important;
+  border-radius: var(--ws-radius, 4px) !important;
   font-size: 12px !important;
 }
 
 .xdrive-carrier-workspace .carrier-detail-page__body section,
 .xdrive-carrier-workspace .carrier-detail-page__body form {
-  border-radius: 3px !important;
+  border-radius: var(--ws-radius, 4px) !important;
+}
+
+/* Invoice creation and editing reuse the existing detail-page shell and
+ * one measured panel owner instead of divergent inline card geometry. */
+.xdrive-carrier-workspace .carrier-invoice-create-panel {
+  padding: 10px !important;
+  margin-bottom: var(--ws-gap-internal) !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
+  box-shadow: none !important;
+}
+
+/* Invoice edit/preview columns retain compact spacing and become a single
+ * readable column before the preview or form can overflow on tablets. */
+.xdrive-carrier-workspace .carrier-invoice-editor-columns {
+  min-width: 0;
+  gap: var(--ws-gap-grid, 8px) !important;
+}
+
+.xdrive-carrier-workspace .carrier-invoice-editor-columns > * {
+  min-width: 0;
+}
+
+/* Legacy invoice action buttons keep their semantic colours, but share the
+ * standard 32px controls and 8px action spacing with every other workspace. */
+.xdrive-carrier-workspace .carrier-invoice-action-toolbar {
+  gap: var(--ws-gap-internal, 8px) !important;
+}
+
+.xdrive-carrier-workspace .carrier-invoice-action-toolbar > button {
+  height: var(--ws-control-h, 32px) !important;
+  min-height: var(--ws-control-h, 32px) !important;
+  min-width: max-content;
+  padding: 0 10px !important;
+  font-size: var(--ws-font-body, 12px) !important;
+  line-height: 16px !important;
+  white-space: nowrap;
+}
+
+@media (max-width: 1100px) {
+  .xdrive-carrier-workspace .carrier-invoice-editor-columns {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+.xdrive-carrier-workspace .carrier-invoice-create-fields {
+  gap: var(--ws-gap-internal) !important;
+}
+
+.xdrive-carrier-workspace .carrier-invoice-create-cancel {
+  display: inline-flex !important;
+  align-items: center !important;
+  min-height: var(--ws-control-h) !important;
+  height: var(--ws-control-h) !important;
+  padding: 0 10px !important;
+  border-radius: var(--ws-radius) !important;
+  font-size: var(--ws-font-body) !important;
+  line-height: 16px !important;
+}
+
+/* Job and invoice detail views still contain legacy inline 8px information
+ * tiles. Converge their visible radius at the existing carrier detail boundary,
+ * without changing their conditional status/data styling or Super Admin. */
+.xdrive-carrier-workspace .carrier-detail-page__body [style*="border-radius: 8px"] {
+  border-radius: var(--ws-radius, 4px) !important;
 }
 
 .xdrive-carrier-workspace .carrier-register-page table {
   width: 100%;
-  font-size: 12.5px !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
 }
 
 .xdrive-carrier-workspace .carrier-register-page th {
-  height: 36px !important;
+  height: var(--ws-table-head-h) !important;
   padding: 0 8px !important;
   font-size: 11px !important;
   line-height: 14px !important;
@@ -231,9 +268,9 @@
 }
 
 .xdrive-carrier-workspace .carrier-register-page td {
-  height: 46px !important;
+  height: var(--ws-table-row-h) !important;
   padding: 6px 8px !important;
-  font-size: 12.5px !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
   font-weight: 500 !important;
   vertical-align: middle !important;
@@ -245,36 +282,20 @@
   height: 32px !important;
   padding: 0 8px !important;
   border-width: 1px !important;
-  border-radius: 3px !important;
-  font-size: 12.5px !important;
+  border-radius: var(--ws-radius, 4px) !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
   font-weight: 600 !important;
 }
 
 .xdrive-carrier-workspace .carrier-register-page > div:first-child > div {
-  border-radius: 3px !important;
+  border-radius: var(--ws-radius, 4px) !important;
 }
 
 .xdrive-carrier-workspace .carrier-register-page [role="dialog"] {
   border-radius: 4px !important;
 }
 
-.xdrive-carrier-workspace .xdrive-page-header,
-.xdrive-carrier-workspace .xdrive-dashboard-home-header {
-  min-height: 42px !important;
-  margin-bottom: 8px !important;
-}
-
-.xdrive-carrier-workspace .workspace-tab-strip,
-.xdrive-carrier-workspace [role="tablist"] {
-  min-height: 38px !important;
-}
-
-.xdrive-carrier-workspace .workspace-tab-strip button,
-.xdrive-carrier-workspace [role="tablist"] > button {
-  min-height: 38px !important;
-  height: 38px !important;
-}
 
 .xdrive-carrier-workspace .carrier-register-page h2 {
   font-size: 13px !important;
@@ -282,45 +303,382 @@
   font-weight: 700 !important;
 }
 
-.xdrive-carrier-workspace .carrier-register-page p,
-.xdrive-carrier-workspace .carrier-register-page label {
-  font-size: 12.5px !important;
+.xdrive-carrier-workspace .carrier-register-page p {
+  font-size: var(--ws-font-body, 12px) !important;
   line-height: 16px !important;
 }
 
-.xdrive-carrier-workspace .carrier-register-page button {
-  min-height: 32px !important;
-  padding: 0 9px !important;
+/* Register form labels match the shared 11px CX label scale; paragraph copy stays 12px. */
+.xdrive-carrier-workspace .carrier-register-page label {
+  font-size: var(--ws-font-label, 11px) !important;
+  line-height: 15px !important;
 }
 
 .xdrive-carrier-workspace .carrier-register-page > div > section,
 .xdrive-carrier-workspace .carrier-register-page > div > aside,
 .xdrive-carrier-workspace .carrier-register-page > section,
 .xdrive-carrier-workspace .carrier-register-page > aside {
-  border-radius: 3px !important;
+  border-radius: var(--ws-radius, 4px) !important;
   box-shadow: none !important;
 }
 
-.xdrive-carrier-workspace .carrier-register-page--drivers > div:nth-child(2) {
-  grid-template-columns: 185px minmax(0, 1fr) !important;
-  gap: 8px !important;
-}
-
-.xdrive-carrier-workspace .carrier-register-page--drivers > div:nth-child(2) > aside {
-  padding: 8px 10px !important;
-  gap: 8px !important;
-  border-radius: 3px !important;
+/* Driver and vehicle registers now share the same measured controls, panels,
+ * tabs and 165px filter rail as /driver/loads. Explicit hooks replace fragile
+ * nth-child selectors and the former dark/pill register presentation. */
+.xdrive-carrier-workspace .carrier-register-summary,
+.xdrive-carrier-workspace .carrier-register-toolbar {
+  min-height: var(--ws-panel-head-h) !important;
+  margin-bottom: var(--ws-gap-internal) !important;
+  padding: 6px 10px !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ws-gap-internal);
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
+  color: var(--ws-text) !important;
   box-shadow: none !important;
 }
 
-.xdrive-carrier-workspace .carrier-register-page--drivers > div:nth-child(2) > section {
-  border-radius: 3px !important;
+.xdrive-carrier-workspace .carrier-register-summary__title,
+.xdrive-carrier-workspace .carrier-register-summary__counts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  font-size: var(--ws-font-body);
+  font-weight: 600;
+}
+
+.xdrive-carrier-workspace .carrier-register-summary__signal {
+  width: 8px;
+  height: 8px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--ws-green);
+}
+
+.xdrive-carrier-workspace .carrier-register-summary__count {
+  border: 1px solid var(--ws-border);
+  border-radius: var(--ws-radius);
+  padding: 3px 7px;
+  color: var(--ws-muted);
+  font-size: var(--ws-font-meta);
+  line-height: 14px;
+}
+
+.xdrive-carrier-workspace .carrier-register-board {
+  display: grid;
+  grid-template-columns: var(--ws-filter-rail-w) minmax(0, 1fr);
+  gap: var(--ws-gap-grid);
+  align-items: start;
+}
+
+.xdrive-carrier-workspace .carrier-register-filters,
+.xdrive-carrier-workspace .carrier-register-results {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
   box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-filters {
+  position: sticky;
+  top: calc(var(--ws-header-h) + var(--ws-nav-h));
+  display: grid;
+  align-content: start;
+  gap: var(--ws-gap-internal);
+  padding: 8px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-filters__title {
+  margin: 0;
+  color: var(--ws-text);
+  font-size: var(--ws-font-panel-title) !important;
+  line-height: 18px !important;
+  font-weight: 650;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-filters__subtitle,
+.xdrive-carrier-workspace .carrier-register-subtitle {
+  margin: 2px 0 0 !important;
+  color: var(--ws-muted);
+  font-size: var(--ws-font-body) !important;
+  line-height: 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-metrics {
+  display: grid;
+  gap: var(--ws-gap-micro);
+}
+
+.xdrive-carrier-workspace .carrier-register-metric {
+  padding: 6px 8px;
+  display: grid;
+  gap: 2px;
+  border: 1px solid var(--ws-border-soft);
+  border-radius: var(--ws-radius);
+  background: #fbfcfe;
+}
+
+.xdrive-carrier-workspace .carrier-register-metric__label {
+  color: var(--ws-muted);
+  font-size: var(--ws-font-label);
+  line-height: 14px;
+}
+
+.xdrive-carrier-workspace .carrier-register-metric__value {
+  color: var(--ws-text);
+  font-size: var(--ws-font-section-title);
+  line-height: 18px;
+  font-weight: 700;
+}
+
+.xdrive-carrier-workspace .carrier-register-action {
+  min-height: var(--ws-control-h);
+  padding: 0 9px !important;
+  border: 1px solid var(--ws-green) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-green) !important;
+  color: #fff !important;
+  font-size: var(--ws-font-body) !important;
+  line-height: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.xdrive-carrier-workspace .carrier-register-action:disabled {
+  border-color: var(--ws-border) !important;
+  background: #e2e8f0 !important;
+  color: var(--ws-muted) !important;
+  cursor: not-allowed;
+}
+
+.xdrive-carrier-workspace .carrier-register-results__header {
+  display: grid;
+  gap: var(--ws-gap-internal);
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--ws-border);
+}
+
+.xdrive-carrier-workspace .carrier-register-eyebrow {
+  margin: 0 0 2px;
+  color: var(--ws-muted);
+  font-size: var(--ws-font-label);
+  line-height: 14px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+.xdrive-carrier-workspace .carrier-register-title {
+  margin: 0 !important;
+  color: var(--ws-text) !important;
+  font-size: var(--ws-font-page-title) !important;
+  line-height: 26px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 0;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--ws-border);
+}
+
+/* Base/hover/active tab geometry and colours are owned by the shared
+ * workspace-tab-strip primitive; preserve only register-specific behaviour. */
+.xdrive-carrier-workspace .carrier-register-tab {
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.xdrive-carrier-workspace .carrier-register-list {
+  display: grid;
+  gap: var(--ws-gap-internal);
+  padding: 10px;
+}
+
+.xdrive-carrier-workspace .carrier-driver-card {
+  min-width: 0;
+  display: grid;
+  gap: var(--ws-gap-internal);
+  padding: 8px 10px;
+  border: 1px solid var(--ws-border-soft);
+  border-radius: var(--ws-radius);
+  background: var(--ws-panel);
+}
+
+.xdrive-carrier-workspace .carrier-driver-card__status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 20px;
+  padding: 2px 7px;
+  border-radius: var(--ws-radius);
+  font-size: var(--ws-font-meta);
+  line-height: 16px;
+  font-weight: 650;
+}
+
+.xdrive-carrier-workspace .carrier-driver-card__status--outline {
+  border: 1px solid var(--ws-border);
+}
+
+.xdrive-carrier-workspace .carrier-driver-card__actions {
+  display: flex;
+  gap: var(--ws-gap-micro);
+  flex-wrap: wrap;
+}
+
+.xdrive-carrier-workspace .carrier-driver-card__actions button {
+  padding: 0 9px !important;
+  border-radius: var(--ws-radius) !important;
+  font-size: var(--ws-font-body) !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+}
+
+.xdrive-carrier-workspace .carrier-register-table {
+  width: 100%;
+  min-width: 1000px;
+  border-collapse: collapse;
+}
+
+/* Fleet Manager roster reuses the register table, not the old rounded-card design. */
+.xdrive-carrier-workspace .carrier-register-manager-form {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--ws-gap-internal);
+}
+
+.xdrive-carrier-workspace .carrier-register-manager-input {
+  width: 100%;
+  min-width: 0;
 }
 
 @media (max-width: 980px) {
-  .xdrive-carrier-workspace .carrier-register-page--drivers > div:nth-child(2) {
-    grid-template-columns: 1fr !important;
+  .xdrive-carrier-workspace .carrier-register-board {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .xdrive-carrier-workspace .carrier-register-filters {
+    position: static;
+  }
+
+  .xdrive-carrier-workspace .carrier-register-manager-form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 640px) {
+  .xdrive-carrier-workspace .carrier-register-manager-form {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Existing register pages all use the same measured full-width content rhythm. */
+.xdrive-carrier-workspace .carrier-register-content {
+  width: 100%;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+}
+
+.xdrive-carrier-workspace .carrier-register-toolbar__actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ws-gap-internal);
+}
+
+.xdrive-carrier-workspace .carrier-register-toolbar__actions select,
+.xdrive-carrier-workspace .carrier-register-toolbar__actions button {
+  height: var(--ws-control-h) !important;
+  min-height: var(--ws-control-h) !important;
+  padding: 0 9px !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
+  color: var(--ws-text) !important;
+  font-size: var(--ws-font-body) !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-page--documents .carrier-register-toolbar {
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.xdrive-carrier-workspace .carrier-register-page--documents .carrier-register-toolbar .carrier-register-subtitle {
+  margin: 0 !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-bid-list {
+  display: grid;
+  gap: var(--ws-gap-grid);
+  align-content: start;
+}
+
+.xdrive-carrier-workspace .carrier-register-bid-group {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--ws-border);
+  border-radius: var(--ws-radius);
+  background: var(--ws-panel);
+  box-shadow: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-bid-group[data-awarded="true"] {
+  border-color: #86c6a0;
+}
+
+.xdrive-carrier-workspace .carrier-register-bid-group__header {
+  min-height: var(--ws-panel-head-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--ws-gap-internal);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--ws-border);
+  background: var(--ws-panel-head);
+}
+
+.xdrive-carrier-workspace .carrier-register-bid-group__header[data-awarded="true"] {
+  background: #f0fdf4;
+}
+
+.xdrive-carrier-workspace .carrier-register-dispute-grid {
+  width: 100%;
+  min-width: 0;
+  align-items: start;
+}
+
+.xdrive-carrier-workspace .carrier-register-dispute-grid > .carrier-register-results {
+  min-width: 0;
+}
+
+.xdrive-carrier-workspace .carrier-register-dispute-detail {
+  display: grid;
+  gap: var(--ws-gap-internal);
+  padding: 10px;
+  align-content: start;
+}
+
+@media (max-width: 1100px) {
+  .xdrive-carrier-workspace .carrier-register-dispute-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
@@ -335,7 +693,7 @@
 }
 
 .xdrive-carrier-workspace .carrier-job-create-header {
-  min-height: 50px;
+  min-height: 44px;
   padding: 7px 10px !important;
   gap: 8px !important;
   border-bottom: 1px solid #cfd7e3 !important;
@@ -394,13 +752,13 @@
 .xdrive-carrier-workspace .carrier-job-create-body .admin-job-section h4 {
   margin-bottom: 6px !important;
   color: #1a1f2b !important;
-  font-size: 12.5px !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
 }
 .xdrive-carrier-workspace .carrier-job-create-body label {
   margin-bottom: 4px !important;
   color: #475569 !important;
-  font-size: 11.5px !important;
+  font-size: var(--ws-font-label, 11px) !important;
   line-height: 14px !important;
   font-weight: 700 !important;
 }
@@ -412,7 +770,7 @@
   padding: 0 8px !important;
   border-width: 1px !important;
   border-radius: 4px !important;
-  font-size: 12.5px !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
 }
 
@@ -420,8 +778,14 @@
   padding: 7px 8px !important;
   border-width: 1px !important;
   border-radius: 4px !important;
-  font-size: 12.5px !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
+}
+
+/* Keep failed Create Job fields visible: the shared text-control border
+ * shorthand must not erase their per-field validation feedback. */
+.xdrive-carrier-workspace .carrier-job-create-body :is(input:not([type="checkbox"]), select)[aria-invalid="true"] {
+  border-color: var(--ws-red, #c62828) !important;
 }
 
 .xdrive-carrier-workspace .carrier-job-create-body .admin-job-section > div {
@@ -429,7 +793,7 @@
 }
 
 .xdrive-carrier-workspace .carrier-job-create-actions {
-  min-height: 50px;
+  min-height: 40px;
   padding: 7px 10px !important;
   gap: 6px !important;
   border-top: 1px solid #cfd7e3 !important;
@@ -470,7 +834,7 @@
   height: 32px !important;
   padding: 0 8px !important;
   border-radius: 4px !important;
-  font-size: 12.5px !important;
+  font-size: var(--ws-font-body) !important;
 }
 
 .xdrive-carrier-workspace .carrier-job-invite-modal button {
@@ -479,6 +843,47 @@
   border-radius: 4px !important;
   font-size: 12px !important;
 }
+/* Job creation uses the same scrollable 28px / 2px-underline tab grammar
+ * as the shared workspace, without injecting global mobile style tags. */
+.xdrive-carrier-workspace .carrier-job-create-modal .admin-job-mobile-stepper {
+  display: none;
+  align-items: stretch;
+  min-height: var(--ws-tab-h, 28px);
+  padding: 0 8px;
+  gap: 0;
+  border-bottom: 1px solid var(--ws-border, #cfd7e3);
+  background: var(--ws-panel, #fff);
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-modal .admin-job-mobile-stepper__tab {
+  flex: 0 0 auto;
+  min-height: var(--ws-tab-h, 28px) !important;
+  padding: 0 9px !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--ws-muted, #64748b) !important;
+  font-size: var(--ws-font-body, 12px) !important;
+  line-height: 18px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-modal .admin-job-mobile-stepper__tab[data-active="true"] {
+  border-bottom-color: var(--ws-blue, #1d57d8) !important;
+  color: var(--ws-navy, #0b2f6b) !important;
+}
+
+.xdrive-carrier-workspace .carrier-job-create-modal .admin-job-mobile-stepper__tab:focus-visible {
+  outline: 2px solid var(--ws-blue, #1d57d8);
+  outline-offset: -3px;
+}
+
 @media (max-width: 767px) {
   .xdrive-carrier-workspace .carrier-job-create-header {
     align-items: flex-start !important;
@@ -488,17 +893,17 @@
     padding: 8px 8px 66px !important;
   }
 
-  .xdrive-carrier-workspace .admin-job-mobile-stepper {
-    min-height: 38px;
-    gap: 4px !important;
-    padding: 4px 8px !important;
+  .xdrive-carrier-workspace .carrier-job-create-modal .admin-job-mobile-stepper {
+    display: flex;
   }
 
-  .xdrive-carrier-workspace .admin-job-mobile-stepper button {
-    min-height: 30px !important;
-    padding: 0 8px !important;
-    border-radius: 4px !important;
-    font-size: 11px !important;
+  /* Only sections in the open Create Job workspace participate in the stepper. */
+  .xdrive-carrier-workspace .carrier-job-create-body .admin-job-section {
+    display: none;
+  }
+
+  .xdrive-carrier-workspace .carrier-job-create-body .admin-job-section.active {
+    display: block;
   }
 
   .xdrive-carrier-workspace .carrier-job-create-actions {
@@ -513,7 +918,7 @@
   box-shadow: none !important;
   background: #fff !important;
   color: #64748b !important;
-  font-size: 12.5px !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
 }
 
@@ -532,11 +937,155 @@
 
 .xdrive-carrier-workspace .carrier-register-empty p {
   margin: 0 !important;
-  font-size: 12.5px !important;
+  font-size: var(--ws-font-body) !important;
   line-height: 16px !important;
 }
 
-.xdrive-carrier-workspace .carrier-register-page [style*="position: fixed"] > div {
+/* Explicit measured-CX dialog hooks shared by the existing company/team registers.
+ * Keep role-specific state and semantic button colours in the respective pages.
+ * This intentionally does not affect Super Admin or the frozen Owner dashboard. */
+.xdrive-carrier-workspace .carrier-register-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000 !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  background: rgba(15, 23, 42, .44);
+}
+
+.xdrive-carrier-workspace .carrier-register-modal {
+  width: 100%;
+  min-width: 0;
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  border: 1px solid var(--ws-border);
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel);
+  box-shadow: none;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal__header {
+  min-height: var(--ws-panel-head-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ws-gap-internal);
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--ws-border);
+  background: var(--ws-panel-head);
+}
+
+.xdrive-carrier-workspace .carrier-register-modal__header h2 {
+  color: var(--ws-text) !important;
+  font-size: var(--ws-font-section-title) !important;
+  line-height: 20px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal__body {
+  display: grid;
+  gap: var(--ws-gap-internal);
+  padding: 10px;
+  font-size: var(--ws-font-body);
+  line-height: 16px;
+}
+
+/* Company and vehicle dialogs reuse one responsive, compact field-grid owner. */
+.xdrive-carrier-workspace .carrier-register-modal__field-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: var(--ws-gap-internal);
+  min-width: 0;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: var(--ws-gap-internal);
+  padding: 8px 10px;
+  border-top: 1px solid var(--ws-border);
+  background: #f8fafc;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal button {
+  min-height: var(--ws-control-h) !important;
+  padding: 0 9px !important;
+  border-radius: var(--ws-radius) !important;
+  font-size: var(--ws-font-body) !important;
+  line-height: 16px !important;
+  font-weight: 600;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal__header > button {
+  width: var(--ws-control-h);
+  padding: 0 !important;
+  background: transparent;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal :where(
+  [style*="border-radius: 8px"],
+  [style*="border-radius: 6px"],
+  [style*="border-radius: 12px"]
+) {
+  border-radius: var(--ws-radius) !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal__body [style*="padding: 0.9rem"] {
+  padding: 8px 10px !important;
+}
+
+/* The Compliance upload dialog predates the shared header/body markup.
+ * Keep its document fields intact while using the same measured dialog frame. */
+.xdrive-carrier-workspace .carrier-register-modal--documents {
+  padding: 10px !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal--documents > h2 {
+  margin: 0 0 2px !important;
+  font-size: var(--ws-font-section-title) !important;
+  line-height: 20px !important;
+  font-weight: 650 !important;
+  color: var(--ws-text) !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal--documents > p {
+  margin: 0 0 var(--ws-gap-internal) !important;
+  font-size: var(--ws-font-body) !important;
+  line-height: 16px !important;
+  color: var(--ws-muted) !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal--documents > div:last-child {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--ws-gap-internal);
+  margin-top: var(--ws-gap-internal) !important;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal--confirm {
+  padding: 12px;
+  text-align: center;
+}
+
+.xdrive-carrier-workspace .carrier-register-modal--confirm > div:first-child {
+  margin-bottom: 8px !important;
+  font-size: 22px !important;
+}
+
+@media (max-width: 520px) {
+  .xdrive-carrier-workspace .carrier-register-modal__body,
+  .xdrive-carrier-workspace .carrier-register-modal__footer {
+    padding: 8px;
+  }
+}
+
+.xdrive-carrier-workspace .carrier-register-page [style*="position: fixed"]:not(.carrier-register-modal-overlay) > div {
   max-height: calc(100vh - 24px);
   padding: 10px !important;
   border-radius: 4px !important;
@@ -556,28 +1105,48 @@
 }
 
 .xdrive-carrier-workspace .carrier-exchange-rail {
-  flex: 0 0 185px !important;
-  min-width: 185px !important;
-  max-width: 185px !important;
+  flex: 0 0 var(--ws-filter-rail-w) !important;
+  min-width: var(--ws-filter-rail-w) !important;
+  max-width: var(--ws-filter-rail-w) !important;
 }
 
 .xdrive-carrier-workspace .carrier-exchange-primary-tabs,
 .xdrive-carrier-workspace .carrier-exchange-secondary-tabs {
-  min-height: 38px !important;
+  min-height: var(--ws-tab-h) !important;
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  border-bottom: 1px solid #dbe2ea;
+  overflow-x: auto;
 }
 
-.xdrive-carrier-workspace .carrier-exchange-table th {
-  height: 36px !important;
-  padding: 0 8px !important;
-  font-size: 11px !important;
-  line-height: 14px !important;
+.xdrive-carrier-workspace .carrier-exchange-primary-tabs {
+  margin-bottom: 8px;
 }
 
-.xdrive-carrier-workspace .carrier-exchange-table td {
-  height: 46px !important;
-  padding: 6px 8px !important;
-  font-size: 12.5px !important;
-  line-height: 16px !important;
+.xdrive-carrier-workspace .carrier-exchange-secondary-tabs {
+  margin-bottom: 6px;
+}
+
+.xdrive-carrier-workspace .carrier-exchange-tab {
+  height: var(--ws-tab-h) !important;
+  min-height: var(--ws-tab-h) !important;
+  padding: 0 8px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: var(--ws-font-body);
+  line-height: 16px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.xdrive-carrier-workspace .carrier-exchange-tab--active {
+  border-bottom-color: var(--ws-blue);
+  color: var(--ws-blue);
 }
 
 @media (max-width: 1024px) {
@@ -589,40 +1158,16 @@
   }
 }
 
-/* Owner Driver dashboard geometry is the canonical cross-role dashboard frame. */
+/* Owner Driver dashboard geometry is inherited from the shared workspace baseline. */
 .xdrive-carrier-workspace .carrier-owner-parity-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr);
-  gap: 12px;
-  align-items: start;
   margin-bottom: 12px;
-}
-
-.xdrive-carrier-workspace .carrier-owner-parity-column {
-  min-width: 0;
-  display: grid;
-  gap: 12px;
-  align-content: start;
-}
-
-.xdrive-carrier-workspace .carrier-owner-parity-subgrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 12px;
 }
 
 .xdrive-carrier-workspace .carrier-owner-parity-grid .carrier-control-signals {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-@media (max-width: 1024px) {
-  .xdrive-carrier-workspace .carrier-owner-parity-grid {
-    grid-template-columns: 1fr;
-  }
-}
-
 @media (max-width: 768px) {
-  .xdrive-carrier-workspace .carrier-owner-parity-subgrid,
   .xdrive-carrier-workspace .carrier-owner-parity-grid .carrier-control-signals {
     grid-template-columns: 1fr;
   }

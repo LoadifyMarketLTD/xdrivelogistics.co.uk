@@ -1,5 +1,5 @@
 'use client';
-import {useContext,useMemo,useState} from 'react';
+import {useContext,useEffect,useMemo,useState} from 'react';
 import {AppRouterContext} from 'next/dist/shared/lib/app-router-context.shared-runtime';
 import {PathnameContext,SearchParamsContext} from 'next/dist/shared/lib/hooks-client-context.shared-runtime';
 import TopWorkspaceShell from './TopWorkspaceShell';
@@ -13,10 +13,15 @@ const roots={carrier:'/admin',customer:'/customer',broker:'/broker',owner:'/driv
 const roles={carrier:'company_owner',customer:'customer',broker:'broker',owner:'owner_driver',driver:'driver',dispatcher:'dispatcher'} as const;
 export default function WorkspaceActionRecoveryFixture({role,screen,documentType}:{role:keyof typeof roots;screen:string;documentType?:string}){
  const actual=useContext(AppRouterContext);const {user}=useAuth();
+ // Next's AppRouterContext can be absent during server rendering of this test-only
+ // fixture but present on the first client render. Delay the provider tree until
+ // after hydration so the server/client initial markup stays identical.
+ const [mounted,setMounted]=useState(false);
+ useEffect(()=>{setMounted(true);},[]);
  const [path,setPath]=useState(roots[role]+'/'+screen);const [target,setTarget]=useState('');
  const router=useMemo(()=>actual?{...actual,push:(href:string)=>{setTarget(href);setPath(href);},replace:(href:string)=>{setTarget(href);setPath(href);}}:null,[actual]);
  const params=useMemo(()=>new URLSearchParams(documentType?'document='+documentType:''),[documentType]);
- if(!router)return null;
+ if(!mounted||!router)return null;
  const postLoad = role==='owner'
   ? <DriverWorkspaceShell personaLabel="Owner driver workspace" subtitle="Create transport work"><LoadPostingForm mode="owner" /></DriverWorkspaceShell>
   : <PageFrame><PageHeader eyebrow="Transport work" title="Post Load" description="Create transport work"/><LoadPostingForm mode={role==='carrier'||role==='dispatcher'?'admin':role==='driver'?'owner':role as 'customer'|'broker'} /></PageFrame>;

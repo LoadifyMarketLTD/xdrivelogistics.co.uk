@@ -18,9 +18,12 @@ describe('live Driver approved prototype parity contract', () => {
     expect(adapter).not.toContain('main-nav');
   });
 
-  it('keeps the Driver page styles loaded for dense operational content', () => {
+  it('keeps dense Driver page styles plus the frozen PR675 dashboard visual layers', () => {
     const layout = read('app/driver/layout.tsx');
     expect(layout).toContain("driver-full-prototype.css");
+    expect(layout).toContain("driver-prototype-parity.css");
+    expect(layout).toContain("driver-dashboard-reference.css");
+    expect(layout).toContain("driver-dashboard-cx-close.css");
     expect(layout).toContain("driver-dashboard-prototype-exact.css");
   });
 

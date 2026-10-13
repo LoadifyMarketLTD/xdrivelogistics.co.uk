@@ -5,7 +5,7 @@
   display:grid;
   grid-template-columns:minmax(0,1fr);
   gap:10px;
-  font-size:13px;
+  font-size:var(--ws-font-body,12px);
   justify-self:stretch;
   align-self:stretch;
 }
@@ -24,38 +24,38 @@
   background:#fff !important;
 }
 .xdrive-post-load-form>section>div:first-child{
-  min-height:42px !important;
-  padding:9px 12px !important;
+  min-height:var(--ws-panel-head-h,36px) !important;
+  padding:6px 10px !important;
   background:#eaf4ff !important;
   border-bottom-color:#c7d7e8 !important;
 }
 .xdrive-post-load-form>section>div:first-child h2{
-  font-size:15px !important;
-  line-height:20px !important;
-  font-weight:800 !important;
+  font-size:var(--ws-font-panel-title,13px) !important;
+  line-height:18px !important;
+  font-weight:600 !important;
   color:#0b2f6b !important;
 }
 .xdrive-post-load-form>section>div:first-child p{
-  font-size:11.5px !important;
-  line-height:15px !important;
+  font-size:var(--ws-font-label,11px) !important;
+  line-height:14px !important;
   color:#52667b !important;
 }
 .xdrive-post-load-form input,
 .xdrive-post-load-form select,
 .xdrive-post-load-form textarea{
-  font-size:13px !important;
+  font-size:var(--ws-font-body,12px) !important;
   color:#172033 !important;
 }
 .xdrive-post-load-form input,
 .xdrive-post-load-form select{
-  min-height:36px !important;
+  min-height:var(--ws-control-h,32px) !important;
 }
 .xdrive-post-load-form textarea{
-  min-height:88px !important;
+  min-height:72px !important;
 }
 .xdrive-post-load-form label{
-  font-size:12px !important;
-  line-height:16px !important;
+  font-size:var(--ws-font-label,11px) !important;
+  line-height:14px !important;
 }
 .xdrive-post-load-form button{
   font-size:12px !important;

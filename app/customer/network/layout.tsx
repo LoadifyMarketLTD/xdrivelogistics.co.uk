@@ -1,14 +1,17 @@
-import Link from 'next/link';
 import type { ReactNode } from 'react';
+import { WorkspaceRouteTabs } from '@/app/components/workspace/WorkspaceUI';
 
 export default function CustomerNetworkLayout({ children }: { children: ReactNode }) {
   return (
     <>
-      <nav aria-label="Customer network views" style={{ minHeight: 38, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 10px', borderBottom: '1px solid #d8dee8', background: '#f8fafc' }}>
-        <Link href="/customer/network" style={{ minHeight: 30, display: 'inline-flex', alignItems: 'center', padding: '0 9px', border: '1px solid #d8dee8', borderRadius: 4, background: '#fff', color: '#0b2f6b', fontSize: 11, fontWeight: 750, textDecoration: 'none' }}>Companies</Link>
-        <Link href="/customer/network/directory" style={{ minHeight: 30, display: 'inline-flex', alignItems: 'center', padding: '0 9px', border: '1px solid #d8dee8', borderRadius: 4, background: '#fff', color: '#1d57d8', fontSize: 11, fontWeight: 750, textDecoration: 'none' }}>Directory</Link>
-        <span style={{ marginLeft: 4, color: '#64748b', fontSize: 11 }}>Companies = your relationships · Directory = XDrive member network</span>
-      </nav>
+      <WorkspaceRouteTabs
+        ariaLabel="Customer network views"
+        items={[
+          { href: '/customer/network', label: 'Companies' },
+          { href: '/customer/network/directory', label: 'Directory' },
+        ]}
+        note="Companies = your relationships · Directory = XDrive member network"
+      />
       {children}
     </>
   );

@@ -1,7 +1,7 @@
 /* Driver Availability — Master Plan v3 operational status workspace. */
 
 .driver-reference-availability {
-  --availability-rail: var(--ws-filter-rail-w, 220px);
+  --availability-rail: var(--ws-filter-rail-w, 165px);
 }
 
 .driver-reference-availability .driver-availability-board {
@@ -21,7 +21,7 @@
 
 .driver-reference-availability .driver-availability-rail {
   position: sticky;
-  top: calc(var(--ws-header-h, 50px) + var(--ws-gap-grid, 12px));
+  top: calc(var(--ws-header-h, 50px) + var(--ws-nav-h, 42px));
 }
 
 .driver-reference-availability .driver-availability-section,
@@ -97,7 +97,7 @@
 }
 
 .driver-reference-availability .driver-availability-status strong {
-  font-size: var(--ws-font-body, 13px);
+  font-size: var(--ws-font-body, 12px);
   line-height: 18px;
 }
 
@@ -134,7 +134,7 @@
   min-width: 0;
   overflow-wrap: anywhere;
   color: var(--ws-text, #172033);
-  font-size: 12px;
+  font-size: var(--ws-font-body, 12px);
   line-height: 16px;
   font-weight: 700;
 }
@@ -170,7 +170,7 @@
 .driver-reference-availability .driver-availability-toggle strong,
 .driver-reference-availability .driver-availability-field > span:first-child {
   color: var(--ws-text, #172033);
-  font-size: 12px;
+  font-size: var(--ws-font-body, 12px);
   line-height: 16px;
   font-weight: 700;
 }

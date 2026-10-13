@@ -314,3 +314,13 @@ describe('SemanticStatusBadge — ariaLabel accessibility', () => {
     expect(html).not.toContain('aria-label');
   });
 });
+
+describe('CX status geometry integration', () => {
+  it('exposes the shared measured status hook on inferred and semantic badges', () => {
+    const inferred = render(React.createElement(StatusBadge, { value: 'in_progress' }));
+    const semantic = render(React.createElement(SemanticStatusBadge, { label: 'In Transit', tone: 'info' }));
+    for (const html of [inferred, semantic]) {
+      expect(html).toContain('class="xdrive-status-badge"');
+    }
+  });
+});

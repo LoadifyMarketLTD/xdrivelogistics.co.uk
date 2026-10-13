@@ -17,6 +17,12 @@ type DiaryTab = CanonicalDiaryBucket;
 type ReviewRow = { id: string; job_id: string | null; reviewer_company_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
 const CUSTOMER_DIARY_TABS = getCanonicalDiaryTabs('customer');
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
+const routeLocationLabel = (location: string | null | undefined, postcode: string | null | undefined, fallback: string) => {
+  const place = location?.trim() ?? '';
+  const code = postcode?.trim() ?? '';
+  if (place && code) return place.toUpperCase().includes(code.toUpperCase()) ? place : place + ', ' + code;
+  return place || code || fallback;
+};
 
 function matchesTab(job: WorkspaceJob, tab: DiaryTab, hasSubmittedQuote: boolean, hasFeedback: boolean, companyId: string | null) {
   return matchesCanonicalDiaryBucket(job, tab, {
@@ -195,12 +201,12 @@ export default function CustomerDiaryPage() {
                 return (
                   <article key={job.id} className="workspace-operational-row" data-state={normalizedJobStatus(job)}>
                     <div className="workspace-operational-row__top">
-                      <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>AWARDED CARRIER / MEMBER</div><strong>{carrierCompanyId || awardedOwnerDriverId ? <MemberIdentityLink companyId={carrierCompanyId} driverId={awardedOwnerDriverId}>{carrierName}</MemberIdentityLink> : carrierName}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{quoteInfo?.submitted ?? 0} submitted quote{(quoteInfo?.submitted ?? 0) === 1 ? '' : 's'}{job.assigned_driver_id ? ' · executing driver assigned' : ''}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={workspaceJobOperationalLabel(job)} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}>{open ? 'Collapse' : 'Expand'}</ActionButton>{classifyWorkspaceJobStage(job) !== 'open' ? <ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open full booking</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</ActionButton>{canManageFeedback && feedbackAvailable ? <ActionButton tone="secondary" onClick={() => setFeedbackJobId(job.id)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</ActionButton> : null}</div></div>
                     </div>
-                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Delivery photo: {deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</span><span>Updated {when(job.updated_at)}</span></div>
+                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Vehicle {(job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')}</span><span>POD {job.pod_generated || job.has_delivery_evidence ? 'Available' : job.pod_required ? 'Required' : 'Not recorded'}</span><span>Delivery photo: {deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</span><span>Updated {when(job.updated_at)}</span></div>
                     {open && <CompanyJobSheetPanel jobId={job.id} mode="customer" />}
                   </article>
                 );

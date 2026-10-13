@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 
 import { supabase } from '../../../lib/supabaseClient';
-import { ActionButton, AlertBanner } from './WorkspaceUI';
+import { ActionButton, AlertBanner, WorkspaceDialog } from './WorkspaceUI';
 
 export type CompanyFeedbackDraft = {
   rating: number | null;
@@ -60,14 +60,23 @@ export function CompanyFeedbackDialog({
   };
 
   return (
-    <div role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }} style={{ position: 'fixed', inset: 0, zIndex: 1300, display: 'grid', placeItems: 'center', padding: 16, background: 'rgba(15,23,42,.45)' }}>
-      <section role="dialog" aria-modal="true" aria-label="Company feedback" className="workspace-panel" style={{ width: 'min(520px, calc(100vw - 32px))', padding: 12, display: 'grid', gap: 10 }}>
-        <div><strong style={{ display: 'block' }}>{existing ? 'Edit company feedback' : 'Leave company feedback'}</strong><span style={{ color: '#64748b', fontSize: 11 }}>{counterpartyLabel ? `For ${counterpartyLabel}. ` : ''}One company review is stored per booking and reviewer company.</span></div>
-        {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
-        <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#64748b' }}>RATING<select value={rating} onChange={(event) => setRating(Number(event.target.value))}>{[5,4,3,2,1].map((value) => <option key={value} value={value}>{value} / 5</option>)}</select></label>
-        <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#64748b' }}>COMMENT<textarea value={comment} maxLength={2000} rows={5} onChange={(event) => setComment(event.target.value)} placeholder="Optional operational feedback" /></label>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}><ActionButton tone="secondary" disabled={saving} onClick={onClose}>Cancel</ActionButton><ActionButton tone="success" disabled={saving} onClick={() => void save()}>{saving ? 'Saving…' : existing ? 'Update Feedback' : 'Submit Feedback'}</ActionButton></div>
-      </section>
-    </div>
+    <WorkspaceDialog
+      ariaLabel="Company feedback"
+      title={existing ? 'Edit company feedback' : 'Leave company feedback'}
+      description={`${counterpartyLabel ? `For ${counterpartyLabel}. ` : ''}One company review is stored per booking and reviewer company.`}
+      width={520}
+      onDismiss={onClose}
+      dismissDisabled={saving}
+      actions={
+        <>
+          <ActionButton tone="secondary" disabled={saving} onClick={onClose}>Cancel</ActionButton>
+          <ActionButton tone="success" disabled={saving} onClick={() => void save()}>{saving ? 'Saving…' : existing ? 'Update Feedback' : 'Submit Feedback'}</ActionButton>
+        </>
+      }
+    >
+      {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
+      <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#64748b' }}>RATING<select value={rating} onChange={(event) => setRating(Number(event.target.value))}>{[5,4,3,2,1].map((value) => <option key={value} value={value}>{value} / 5</option>)}</select></label>
+      <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#64748b' }}>COMMENT<textarea value={comment} maxLength={2000} rows={5} onChange={(event) => setComment(event.target.value)} placeholder="Optional operational feedback" /></label>
+    </WorkspaceDialog>
   );
 }

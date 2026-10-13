@@ -11,6 +11,8 @@ export type OperationalSignalItem = {
   detail?: ReactNode;
   tone?: WorkspaceCardTone;
   onClick?: () => void;
+  /** Pressed state for selectable operational views, not navigation links. */
+  active?: boolean;
   ariaLabel?: string;
 };
 
@@ -34,7 +36,7 @@ export function OperationalSignalStrip({
   const signalStyle = { '--signal-columns': desktopColumns } as CSSProperties;
 
   return (
-    <section className={styles.signalStrip} aria-label={ariaLabel} style={signalStyle} data-signal-count={items.length}>
+    <section className={`${styles.signalStrip} xdrive-operational-dashboard-signals`} aria-label={ariaLabel} style={signalStyle} data-signal-count={items.length}>
       {items.map((item) => {
         const content = (
           <>
@@ -51,6 +53,7 @@ export function OperationalSignalStrip({
             onClick={item.onClick}
             className={`${className} ${styles.signalButton}`}
             aria-label={item.ariaLabel ?? item.label}
+            aria-pressed={item.active}
           >
             {content}
           </button>
@@ -74,9 +77,9 @@ export function OperationalWorkspaceGrid({
   asideLabel?: string;
 }) {
   return (
-    <div className={styles.workspaceGrid}>
-      <div className={styles.workspaceMain}>{main}</div>
-      <aside className={styles.workspaceAside} aria-label={asideLabel}>{aside}</aside>
+    <div className="xdrive-owner-dashboard-grid">
+      <div className={`xdrive-owner-dashboard-column ${styles.workspaceMain}`}>{main}</div>
+      <aside className={`xdrive-owner-dashboard-column ${styles.workspaceAside}`} aria-label={asideLabel}>{aside}</aside>
     </div>
   );
 }

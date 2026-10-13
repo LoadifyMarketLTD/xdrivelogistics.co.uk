@@ -4,9 +4,9 @@ import path from 'node:path';
 const fleet = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/FleetControlDashboardHome.tsx'), 'utf8');
 
 describe('CX-density My Fleet resource register', () => {
-  it('keeps the compact operational signal strip and collapses the dashboard into a resource register', () => {
-    expect(fleet).toContain('title="My Fleet"');
-    expect(fleet).toContain('badge="Resource control"');
+  it('keeps the Owner Driver dashboard structure while retaining the dense fleet resource register', () => {
+    expect(fleet).toContain('title="Reports & Statistics"');
+    expect(fleet).toContain('title="Activity at a glance"');
     expect(fleet).toContain('<OperationalSignalStrip');
     expect(fleet).toContain('Fleet resource register');
     expect(fleet).toContain('Current location / tracked');
@@ -15,6 +15,7 @@ describe('CX-density My Fleet resource register', () => {
     expect(fleet).toContain('Advertise');
     expect(fleet).not.toContain('<OperationalWorkspaceGrid');
     expect(fleet).not.toContain('<OperationalAttentionRail');
+    expect(fleet).not.toContain('<DashboardHomeHeader');
   });
 
   it('reuses real operations intelligence instead of prototype data', () => {
@@ -24,6 +25,16 @@ describe('CX-density My Fleet resource register', () => {
     expect(fleet).toContain('intelligence.advertisingByVehicle');
     expect(fleet).not.toContain('Mercedes Sprinter');
     expect(fleet).not.toContain('BD57 XDL');
+  });
+
+  it('uses responsive shared filter geometry for the Fleet resource register and Future Position editor', () => {
+    const resourceRoute = fs.readFileSync(path.join(process.cwd(), 'app/admin/fleet/resources/page.tsx'), 'utf8');
+    const baseline = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/workspace-measured-cx-baseline.css'), 'utf8');
+    expect(resourceRoute).toContain('className="workspace-filter-fields"');
+    expect(resourceRoute).toContain('className="workspace-filter-fields workspace-filter-fields--even"');
+    expect(resourceRoute).not.toContain("gridTemplateColumns: 'minmax(220px,2fr)");
+    expect(baseline).toContain('.workspace-filter-fields--even > :first-child');
+    expect(baseline).toContain('grid-template-columns: repeat(2, minmax(0, 1fr)) !important;');
   });
 
   it('retains canonical fleet routes and server-side eligibility truth', () => {

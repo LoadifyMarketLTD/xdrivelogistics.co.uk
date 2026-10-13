@@ -251,7 +251,7 @@ export default function DriverInvoiceEditPage({ params }: { params: Promise<{ id
           {!editable && <div style={{ marginBottom: '0.65rem', border: '1px solid #fde68a', background: '#fffbeb', color: '#92400e', padding: '0.5rem 0.6rem', borderRadius: 4, fontSize: '0.74rem' }}>This invoice is no longer Draft. It can be previewed, but sent invoices are locked against editing.</div>}
           {marketplace && <div style={{ marginBottom: '0.65rem', border: '1px solid #bfdbfe', background: '#eff6ff', color: '#1e40af', padding: '0.5rem 0.6rem', borderRadius: 4, fontSize: '0.72rem' }}>Marketplace invoice: accepted price, VAT, currency and payment terms are locked to the commercial agreement. Editing cannot change the awarded quote.</div>}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(320px, .72fr)', gap: '0.65rem' }}>
+          <div className="xdrive-two-column" style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(320px, .72fr)', gap: '0.65rem' }}>
             <section style={{ border: '1px solid #d7e0ea', background: '#fff', borderRadius: 5, overflow: 'hidden' }}>
               <div style={{ padding: '0.48rem 0.62rem', background: '#f1f5f9', borderBottom: '1px solid #d7e0ea', fontWeight: 800, fontSize: '0.78rem', color: '#0f172a' }}>Invoice details</div>
               <div style={{ padding: '0.7rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>

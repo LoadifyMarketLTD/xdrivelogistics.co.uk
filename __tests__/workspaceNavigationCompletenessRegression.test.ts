@@ -53,22 +53,30 @@ describe('all operational workspace navigation remains visually reachable', () =
     assertCanonicalPreserved('dispatcher', composeDispatcherPrimaryNav(getVisibleWorkspaceNav('dispatcher')));
   });
 
-  it('keeps every Owner Driver capability visually reachable after integrating More into primary modules', () => {
+  it('keeps every Owner Driver capability visually reachable through compact primary navigation plus More', () => {
     const presented = composeDriverPrimaryNav(getVisibleWorkspaceNav('owner_driver'), true);
+    assertCanonicalPreserved('owner_driver', presented);
     const visible = new Set(hrefs(presented));
-    for (const href of ['/driver/jobs','/driver/won-work','/driver/availability','/driver/load-alerts','/driver/nearby','/driver/finance','/driver/documents','/driver/messages']) {
-      expect(visible.has(href), `owner_driver lost integrated route ${href}`).toBe(true);
+    for (const href of ['/driver/jobs','/driver/won-work','/driver/availability','/driver/load-alerts','/driver/nearby','/driver/finance','/driver/documents','/driver/messages','/driver/event-log','/driver/freight-vision','/driver/settings','/driver/drivers-vehicles']) {
+      expect(visible.has(href), `owner_driver lost route ${href}`).toBe(true);
     }
-    for (const parent of ['/driver/settings','/driver/drivers-vehicles']) {
-      expect(visible.has(parent), `owner_driver lost integrated parent ${parent}`).toBe(true);
-    }
+    expect(presented.some((group) => group.id === 'owner-driver-more')).toBe(true);
     const shell = readFileSync(join(process.cwd(), 'app/components/workspace/TopWorkspaceShell.tsx'), 'utf8');
     expect(shell).toContain('onClick={() => router.push(notificationsHref)}');
-    expect(shell).toContain("return ownerNav.filter((group) => group.id !== 'owner-driver-more')");
+    expect(shell).toContain("], 'owner-driver-more', 'More', [");
   });
 
   it('preserves every canonical Driver route', () => {
     assertCanonicalPreserved('driver', composeDriverPrimaryNav(getVisibleWorkspaceNav('driver'), false));
+  });
+
+  it('uses one shared tab/navigation geometry across Driver secondary pages', () => {
+    const integratedNav = readFileSync(join(process.cwd(), 'app/driver/_components/DriverIntegratedNav.tsx'), 'utf8');
+    const sharedTabs = readFileSync(join(process.cwd(), 'app/components/workspace/WorkspaceUI.tsx'), 'utf8');
+    const driverLayout = readFileSync(join(process.cwd(), 'app/driver/layout.tsx'), 'utf8');
+    expect(integratedNav).toContain('<WorkspaceRouteTabs ariaLabel={label} items={items} />');
+    expect(sharedTabs).toContain('.sort((a, b) => b.href.length - a.href.length)');
+    expect(driverLayout).not.toContain("import './driver-integrated-nav.css'");
   });
 
   it('does not hide operational header actions at tablet/mobile breakpoints', () => {

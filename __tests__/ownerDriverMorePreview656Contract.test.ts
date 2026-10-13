@@ -16,18 +16,22 @@ const context = {
 describe('Owner Driver integrated navigation after Preview 656', () => {
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
 
-  it('keeps secondary work, availability and business destinations directly reachable', () => {
-    const block = shell.slice(shell.indexOf('const ownerNav = composeRolePrimaryNav(groups, ['), shell.indexOf('export function composeDispatcherPrimaryNav'));
+  it('keeps secondary work, availability and business destinations reachable through More', () => {
+    const block = shell.slice(shell.indexOf("return composeRolePrimaryNav(groups, [", shell.indexOf("if (!ownerDriver)")), shell.indexOf('export function composeDispatcherPrimaryNav'));
     for (const marker of [
-      'Availability & Schedule',
       '/driver/won-work',
-      'Load Matching & Alerts',
+      '/driver/availability',
+      '/driver/load-alerts',
       '/driver/nearby',
       '/driver/documents',
-      'Finance & Invoices',
+      '/driver/finance',
       '/driver/messages',
+      '/driver/event-log',
+      '/driver/freight-vision',
+      '/driver/drivers-vehicles',
+      '/driver/settings',
     ]) expect(block).toContain(marker);
-    expect(block).toContain("return ownerNav.filter((group) => group.id !== 'owner-driver-more')");
+    expect(block).toContain("], 'owner-driver-more', 'More', [");
   });
 
   it('keeps every integrated Owner Driver route authorised', () => {

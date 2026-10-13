@@ -383,7 +383,7 @@ export default function SearchLoadsPage() {
             )}
 
             {!appliedFilters ? (
-              <div className="driver-load-row"><EmptyState compact title="Search not submitted yet" description="Use the 220px search rail to keep advanced filters beside the operational results." /></div>
+              <div className="driver-load-row"><EmptyState compact title="Search not submitted yet" description="Use the compact filter rail to refine operational results without losing the load list." /></div>
             ) : loading ? (
               <div className="driver-load-row"><EmptyState compact title="Searching marketplace…" /></div>
             ) : loads.length === 0 ? (

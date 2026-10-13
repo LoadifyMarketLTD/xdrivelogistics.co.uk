@@ -5,7 +5,9 @@ import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['.next', 'node_modules', 'dist']),
+  // Next.js preview/E2E builds generate typed route artifacts in .next-* directories.
+  // They are build output, not application sources, and must not be linted.
+  globalIgnores(['.next', '.next-*', 'node_modules', 'dist']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

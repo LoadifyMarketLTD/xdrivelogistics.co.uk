@@ -21,7 +21,9 @@ const workspacePages = [
   ...pageFiles('app/broker'),
   ...pageFiles('app/customer'),
 ].sort();
-describe('all non-driver workspace pages follow the Owner Driver reference contract', () => {
+const driverPages = pageFiles('app/driver').sort();
+
+describe('all operational workspace pages follow the Owner Driver reference contract', () => {
   it('audits every current Admin, Broker and Customer route page', () => {
     expect(workspacePages).toHaveLength(127);
     for (const file of workspacePages) {
@@ -36,39 +38,88 @@ describe('all non-driver workspace pages follow the Owner Driver reference contr
     }
   });
 
-  it('scopes the reference adapter to non-driver workspace layouts only', () => {
-    for (const layout of ['app/admin/layout.tsx', 'app/broker/layout.tsx', 'app/customer/layout.tsx']) {
-      expect(read(layout)).toContain('xdrive-owner-reference-workspace');
-      expect(read(layout)).toContain('non-driver-owner-reference.css');
+  it('audits every current Driver route page against the approved shared/prototype families', () => {
+    expect(driverPages).toHaveLength(40);
+    for (const file of driverPages) {
+      const source = read(file);
+      const lines = source.split(/\r?\n/).length;
+      const shared =
+        /components\/workspace|DriverWorkspaceShell|DriverNotificationRegister|RoleSettingsWorkspace|BillingSettingsPage/.test(source);
+      const approvedPrototype =
+        /driver-(?:loads|quotes|returns|live-availability|fleet|freight-vision|drivers-vehicles)-prototype/.test(source);
+      const compatibility =
+        /redirect\(/.test(source) || /export\s*\{\s*default\s*\}\s*from/.test(source) || (lines <= 12 && /return\s+<\w+/.test(source));
+      expect(shared || approvedPrototype || compatibility, `Unclassified Driver page: ${file}`).toBe(true);
     }
-    expect(read('app/driver/layout.tsx')).not.toContain('non-driver-owner-reference.css');
-    expect(read('app/driver/layout.tsx')).not.toContain('xdrive-owner-reference-workspace');
-  });
-  it('locks the agreed dense operational geometry', () => {
-    const css = read('app/components/workspace/non-driver-owner-reference.css');
-    for (const marker of [
-      '--owner-ref-page-x: 10px',
-      '--owner-ref-page-y: 8px',
-      '--owner-ref-gap: 8px',
-      '--owner-ref-rail: 185px',
-      '--owner-ref-control: 32px',
-      '--owner-ref-tab: 38px',
-      '--owner-ref-table-head: 36px',
-      '--owner-ref-table-row: 46px',
-      '--owner-ref-title: 21px',
-      '--owner-ref-body: 12.5px',
-      '--owner-ref-label: 11.5px',
-      '--owner-ref-radius: 4px',
-      'grid-template-columns: 185px minmax(0, 1fr) !important',
-      'min-height: 52px !important',
-    ]) expect(css).toContain(marker);
   });
 
-  it('keeps the forbidden workspace scopes out of the adapter', () => {
-    const css = read('app/components/workspace/non-driver-owner-reference.css');
-    expect(css).not.toContain('.driver-prototype-app');
-    expect(css).not.toContain('.xdrive-driver-workspace');
-    expect(css).not.toContain('.super-admin');
+  it('locks the principal Driver operational pages to their approved dense surface families', () => {
+    const markers: Record<string, string> = {
+      'app/driver/loads/page.tsx': 'driver-loads-prototype',
+      'app/driver/quotes/page.tsx': 'driver-quotes-prototype',
+      'app/driver/history/page.tsx': 'diary-filter-rail',
+      'app/driver/availability/page.tsx': 'driver-availability-rail',
+      'app/driver/returns/page.tsx': 'driver-returns-prototype',
+      'app/driver/jobs/page.tsx': 'driver-jobs-board',
+      'app/driver/messages/page.tsx': 'driver-messages-board',
+      'app/driver/finance/page.tsx': 'driver-finance-register',
+      'app/driver/documents/page.tsx': 'driver-compliance-register',
+      'app/driver/vehicles/page.tsx': 'driver-fleet-prototype',
+      'app/driver/freight-vision/page.tsx': 'driver-freight-vision-prototype',
+    };
+    for (const [file, marker] of Object.entries(markers)) {
+      expect(read(file), `${file} should retain ${marker}`).toContain(marker);
+    }
+  });
+
+  it('uses the shared measured baseline directly in every operational workspace layout', () => {
+    for (const layout of ['app/admin/layout.tsx', 'app/broker/layout.tsx', 'app/customer/layout.tsx', 'app/driver/layout.tsx']) {
+      const source = read(layout);
+      expect(source).toContain('xdrive-workspace-measured');
+      expect(source).toContain('workspace-measured-cx-baseline.css');
+      expect(source).not.toContain('non-driver-owner-reference.css');
+      expect(source).not.toContain('xdrive-owner-reference-workspace');
+    }
+  });
+  it('locks the agreed dense operational geometry to the shared CX baseline', () => {
+    const baseline = read('app/components/workspace/workspace-measured-cx-baseline.css');
+    const workspaceCss = read('app/components/workspace/WorkspaceUI.module.css');
+
+    for (const marker of [
+      '--ws-filter-rail-w: 165px',
+      '--ws-control-h: 24px',
+      '--ws-tab-h: 28px',
+      '--ws-panel-head-h: 36px',
+      '--ws-table-head-h: 40px',
+      '--ws-table-row-h: 42px',
+      '--ws-font-body: 12px',
+      '--ws-radius: 4px',
+      'font-family: "HK Nova", Arial, sans-serif',
+    ]) expect(baseline).toContain(marker);
+
+    expect(workspaceCss).toContain('grid-template-columns: var(--ws-filter-rail-w, 165px) minmax(0, 1fr);');
+    expect(baseline).toContain('min-height: var(--ws-table-row-h) !important');
+    expect(baseline).toContain('height: var(--ws-table-row-h);');
+    expect(baseline).toContain('.xdrive-workspace-measured .workspace-tab-strip');
+    expect(baseline).toContain('min-height: var(--ws-tab-h) !important');
+    expect(baseline).not.toContain('--owner-ref-rail:');
+  });
+
+  it('converges the carrier invoice creation panels through existing detail-page CSS, without relying on inline radius', () => {
+    const invoicePage = read('app/admin/invoices/new/page.tsx');
+    const carrierCss = read('app/admin/carrier-workspace-canonical.css');
+    expect(invoicePage.match(/className="carrier-invoice-create-panel"/g)).toHaveLength(2);
+    expect(invoicePage).toContain('className="carrier-invoice-create-fields"');
+    expect(carrierCss).toContain('.xdrive-carrier-workspace .carrier-invoice-create-panel {');
+    expect(carrierCss).toContain('.xdrive-carrier-workspace .carrier-invoice-create-fields {');
+    expect(carrierCss).toContain('border-radius: var(--ws-radius) !important;');
+  });
+
+  it('keeps Super Admin on its separate shell and outside the operational measured wrapper', () => {
+    const superLayout = read('app/super-admin/layout.tsx');
+    expect(superLayout).toContain('super-admin-enterprise-root');
+    expect(superLayout).not.toContain('xdrive-workspace-measured');
+    expect(superLayout).not.toContain('xdrive-operational-top-workspace');
   });
 
   it('uses isolated shared-component hooks so existing Driver selectors are not activated', () => {

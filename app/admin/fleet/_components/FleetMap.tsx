@@ -128,7 +128,7 @@ export default function FleetMap({ pins, style }: FleetMapProps) {
           borderRadius: '3px',
           border: '1px solid #e2e8f0',
           color: '#94a3b8',
-          fontSize: '12.5px',
+          fontSize: '12px',
           fontWeight: 600,
         }}
       >

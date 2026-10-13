@@ -6,20 +6,16 @@ import '../components/workspace/top-workspace-shell.css';
 import '../components/workspace/workspace-light-guard.css';
 import './driver-operational.css';
 import './driver-cx-loads-convergence.css';
-import './driver-master.css';
-import './driver-top-shell.css';
-import './driver-more.css';
 import './driver-live-availability.css';
 import './driver-account.css';
-import '../components/workspace/workspace-measured-cx-baseline.css';
-import './driver-live-parity.css';
-import './driver-dashboard-reference.css';
-import './driver-dashboard-cx-close.css';
 import './driver-prototype-parity.css';
-import './driver-dashboard-prototype-exact.css';
 import './driver-full-prototype.css';
 import './driver-page-width-fix.css';
-import './driver-integrated-nav.css';
+import '../components/workspace/workspace-measured-cx-baseline.css';
+// Frozen PR675 dashboard visual layers. Keep LAST so shared workspace convergence cannot restyle the golden dashboard.
+import './driver-dashboard-reference.css';
+import './driver-dashboard-cx-close.css';
+import './driver-dashboard-prototype-exact.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Force dynamic rendering so hard reloads and deep links receive matching nonces.

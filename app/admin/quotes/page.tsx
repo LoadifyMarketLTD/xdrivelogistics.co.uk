@@ -362,29 +362,29 @@ export default function QuotesPage() {
         </div>
 
         {showModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,.38)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-            <div style={{ background: '#fff', border: '1px solid #cfd7e3', borderRadius: 4, width: '100%', maxWidth: 560, maxHeight: '90vh', overflow: 'auto' }}>
-              <div style={{ minHeight: 36, padding: '0 12px', borderBottom: '1px solid #e2e7ed', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <strong style={{ fontSize: 14 }}>New Quote</strong>
-                <ActionButton tone="secondary" onClick={() => { setShowModal(false); setError(''); }}>Close</ActionButton>
+          <div className="carrier-register-modal-overlay">
+            <div className="carrier-register-modal" role="dialog" aria-modal="true" aria-labelledby="carrier-new-quote-title" style={{ maxWidth: 560 }}>
+              <div className="carrier-register-modal__header">
+                <h2 id="carrier-new-quote-title" style={{ margin: 0 }}>New Quote</h2>
+                <button type="button" aria-label="Close quote editor" onClick={() => { setShowModal(false); setError(''); }}>×</button>
               </div>
-              <div style={{ padding: 12, display: 'grid', gap: 8 }}>
+              <div className="carrier-register-modal__body">
                 {error && <AlertBanner tone="danger">{error}</AlertBanner>}
                 <QuoteField label="Company *"><select style={modalControl} value={formData.company_id} onChange={(event) => setFormData({ ...formData, company_id: event.target.value })}><option value="">Select a company…</option>{companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}</select></QuoteField>
                 <QuoteField label="Customer Name *"><input style={modalControl} value={formData.customer_name} onChange={(event) => setFormData({ ...formData, customer_name: event.target.value })} /></QuoteField>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
+                <div style={modalFieldPairStyle}>
                   <QuoteField label="Email"><input style={modalControl} type="email" value={formData.customer_email} onChange={(event) => setFormData({ ...formData, customer_email: event.target.value })} /></QuoteField>
                   <QuoteField label="Phone"><input style={modalControl} value={formData.customer_phone} onChange={(event) => setFormData({ ...formData, customer_phone: event.target.value })} /></QuoteField>
                 </div>
                 <QuoteField label="Pickup Location"><input style={modalControl} value={formData.pickup_location} onChange={(event) => setFormData({ ...formData, pickup_location: event.target.value })} /></QuoteField>
                 <QuoteField label="Delivery Location"><input style={modalControl} value={formData.delivery_location} onChange={(event) => setFormData({ ...formData, delivery_location: event.target.value })} /></QuoteField>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
+                <div style={modalFieldPairStyle}>
                   <QuoteField label="Vehicle Type"><select style={modalControl} value={formData.vehicle_type} onChange={(event) => setFormData({ ...formData, vehicle_type: event.target.value as VehicleType })}>{VEHICLE_GROUPS.map(([group, options]) => <optgroup key={group} label={group}>{options.map(([label, value]) => <option key={value} value={value}>{label}</option>)}</optgroup>)}</select></QuoteField>
                   <QuoteField label="Cargo Type"><select style={modalControl} value={formData.cargo_type} onChange={(event) => setFormData({ ...formData, cargo_type: event.target.value as CargoType })}>{CARGO_TYPES.map((type) => <option key={type} value={type}>{type.replace(/_/g, ' ')}</option>)}</select></QuoteField>
                 </div>
                 <QuoteField label="Amount (£)"><input style={modalControl} type="number" step="0.01" value={formData.amount} onChange={(event) => setFormData({ ...formData, amount: event.target.value })} /></QuoteField>
               </div>
-              <div style={{ minHeight: 44, padding: '6px 12px', borderTop: '1px solid #e2e7ed', display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 6 }}>
+              <div className="carrier-register-modal__footer">
                 <ActionButton tone="secondary" onClick={() => { setShowModal(false); setError(''); }}>Cancel</ActionButton>
                 <ActionButton tone="success" disabled={savingQuote} onClick={() => void handleCreate()}>{savingQuote ? 'Creating?' : 'Create Quote'}</ActionButton>
               </div>
@@ -400,6 +400,12 @@ function QuoteField({ label, children }: { label: string; children: React.ReactN
   return <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#334155' }}><span>{label}</span>{children}</label>;
 }
 
+const modalFieldPairStyle: React.CSSProperties = {
+  display: 'grid',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))',
+  gap: 'var(--ws-gap-internal, 8px)',
+};
+
 const modalControl: React.CSSProperties = {
   width: '100%',
   minHeight: 32,
@@ -409,5 +415,5 @@ const modalControl: React.CSSProperties = {
   padding: '5px 8px',
   background: '#fff',
   color: '#172033',
-  fontSize: 13,
+  fontSize: 'var(--ws-font-body, 12px)',
 };

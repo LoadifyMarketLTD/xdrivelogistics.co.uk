@@ -24,6 +24,17 @@ const when = (value: string | null | undefined) =>
 const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
 const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
 
+const routeLocationLabel = (location: string | null | undefined, postcode: string | null | undefined, fallback: string) => {
+  const place = location?.trim() ?? '';
+  const code = postcode?.trim() ?? '';
+  if (place && code) {
+    const placeUpper = place.toUpperCase();
+    const codeUpper = code.toUpperCase();
+    return placeUpper.includes(codeUpper) ? place : place + ', ' + code;
+  }
+  return place || code || fallback;
+};
+
 function quoteCounts(data: ReturnType<typeof useCompanyWorkspaceData>) {
   const map = new Map<string, { submitted: number; accepted: number; rejected: number; total: number }>();
   for (const bid of data.bids) {
@@ -76,8 +87,8 @@ function CustomerOperationalRow({
   return (
     <article className="workspace-operational-row" data-state={presentationState}>
       <div className="workspace-operational-row__top">
-        <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
-        <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
+        <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
+        <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
         <div className="workspace-operational-cell"><div style={labelStyle}>{middleLabel}</div><strong>{middleValue}</strong>{middleMeta ? <div style={{ ...metaStyle, marginTop: 2 }}>{middleMeta}</div> : null}</div>
         <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={presentationStatus} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={openDetails}>{sheet && open ? 'Collapse' : sheet ? 'Expand' : 'Details'}</ActionButton>{actionLabel && actionHref ? <ActionButton tone="secondary" onClick={() => router.push(actionHref)}>{actionLabel}</ActionButton> : null}</div></div>
       </div>

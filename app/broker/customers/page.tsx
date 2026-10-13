@@ -162,7 +162,7 @@ export default function BrokerCustomersPage() {
       {showAddCustomer && (
         <section className="workspace-panel" style={{ marginBottom: 8 }}>
           <div className="workspace-panel__header"><strong>Add Customer</strong></div>
-          <div className="workspace-panel__body" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
+          <div className="workspace-panel__body xdrive-two-column" style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
             <label>Customer name<input value={customerForm.name} onChange={(event) => setCustomerForm((current) => ({ ...current, name: event.target.value }))} /></label>
             <label>Email<input type="email" value={customerForm.email} onChange={(event) => setCustomerForm((current) => ({ ...current, email: event.target.value }))} /></label>
             <label>Phone<input value={customerForm.phone} onChange={(event) => setCustomerForm((current) => ({ ...current, phone: event.target.value }))} /></label>

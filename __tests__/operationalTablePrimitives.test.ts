@@ -1,8 +1,9 @@
+import fs from 'node:fs';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type { OperationalTableAlign, OperationalTableColumn } from '../app/components/workspace/WorkspaceUI';
-import { OperationalTable } from '../app/components/workspace/WorkspaceUI';
+import { DataTable, OperationalCard, OperationalTable, Panel } from '../app/components/workspace/WorkspaceUI';
 
 /**
  * OperationalTable primitives — rendered-output assertions.
@@ -339,5 +340,49 @@ describe('OperationalTableAlign compile-time contract', () => {
   it('accepts all three alignment values without type error', () => {
     const values: OperationalTableAlign[] = ['left', 'center', 'right'];
     expect(new Set(values).size).toBe(3);
+  });
+});
+
+describe('DataTable compatibility row identity', () => {
+  it('renders JSX reference cells across distinct rows without duplicate React keys', () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    try {
+      const rows = ['CUS-220', 'CUS-214', 'CUS-201'].map((reference) => [
+        React.createElement('strong', { key: 'ref' }, reference),
+        React.createElement('strong', { key: 'route' }, 'LON to NCL'),
+        'Pending',
+      ]);
+      const html = render(React.createElement(DataTable, {
+        columns: ['Reference', 'Route', 'Status'],
+        rows,
+      }));
+      for (const reference of ['CUS-220', 'CUS-214', 'CUS-201']) {
+        expect(html).toContain(reference);
+      }
+      expect(consoleError.mock.calls.flat().join(' ')).not.toContain('same key');
+    } finally {
+      consoleError.mockRestore();
+    }
+  });
+});
+
+describe('Shared operational flush density', () => {
+  it('marks flush table cards for the global zero-padding CSS rule', () => {
+    const child = React.createElement('div', null, 'Queue');
+    const flush = render(React.createElement(OperationalCard, { title: 'Activity at a glance', flush: true, children: child }));
+    const normal = render(React.createElement(OperationalCard, { title: 'Reports & Statistics', children: child }));
+    expect(flush).toContain('xdrive-operational-card__body--flush');
+    expect(normal).not.toContain('xdrive-operational-card__body--flush');
+  });
+
+  it('keeps finance, marketplace and bulk-import Panel tables flush under the measured baseline', () => {
+    const child = React.createElement('table', null, React.createElement('tbody', null));
+    const flush = render(React.createElement(Panel, { title: 'Statement register', flush: true, children: child }));
+    const normal = render(React.createElement(Panel, { title: 'Summary', children: child }));
+    const baseline = fs.readFileSync('app/components/workspace/workspace-measured-cx-baseline.css', 'utf8');
+    expect(flush).toContain('xdrive-panel__body--flush');
+    expect(normal).not.toContain('xdrive-panel__body--flush');
+    expect(baseline).toContain('.xdrive-workspace-measured .xdrive-panel__body--flush,');
+    expect(baseline).toMatch(/\.xdrive-panel__body--flush,[\s\S]*?padding: 0 !important;/);
   });
 });
