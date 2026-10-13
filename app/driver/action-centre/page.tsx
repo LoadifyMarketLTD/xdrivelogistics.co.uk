@@ -5,7 +5,8 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { useAuth } from '../../components/AuthContext';
-import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
+import { isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type ActionCentreEvent = {
@@ -61,8 +62,7 @@ export default function DriverActionCentrePage() {
     setLoading(true);
     setError('');
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) {
         setRows([]);
         setError('Authentication required.');

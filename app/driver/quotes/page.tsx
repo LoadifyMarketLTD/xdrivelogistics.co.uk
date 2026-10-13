@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
@@ -240,8 +241,7 @@ export default function MyQuotesPage() {
 
     const marketplaceMap: Record<string, MarketplaceQuoteLoad> = {};
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (token && outgoingJobIds.length) {
         const response = await fetch('/api/driver/marketplace/loads', { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
         if (response.ok) {
@@ -275,7 +275,7 @@ export default function MyQuotesPage() {
   useEffect(() => { void fetchBids(); }, [fetchBids]);
   useVisibleRefresh(
     () => fetchBids({ background: true }),
-    { intervalMs: 10_000, minGapMs: 2_500 },
+    { intervalMs: 30_000, minGapMs: 2_500 },
   );
 
   const viewForBid = useCallback((bid: BidRow): QuoteView => {
@@ -321,9 +321,8 @@ export default function MyQuotesPage() {
   const handleWithdrawBid = async (bidId: string) => {
     if (!isSupabaseConfigured || !userId) return;
     setError('');
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    if (sessionError || !token) {
+    const token = readRouteAuthAccessToken();
+    if (!token) {
       setError('Your session has expired. Please sign in again.');
       return;
     }
@@ -345,9 +344,8 @@ export default function MyQuotesPage() {
   ) => {
     if (!isSupabaseConfigured || !userId) return;
     setError('');
-    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    if (sessionError || !token) {
+    const token = readRouteAuthAccessToken();
+    if (!token) {
       setError('Your session has expired. Please sign in again.');
       return;
     }

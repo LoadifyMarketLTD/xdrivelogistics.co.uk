@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
@@ -85,8 +86,7 @@ export default function DriverDocumentsPage() {
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadDocs = async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token?.trim();
+    const accessToken = readRouteAuthAccessToken();
     if (!accessToken) {
       setLoadError('Your session has expired. Please sign in again.');
       setDocs([]);
@@ -180,8 +180,7 @@ export default function DriverDocumentsPage() {
     if (issuedDate && expiryDate && expiryDate < issuedDate) return setUploadError('Expiry date cannot be before the issue date.');
 
     setUploading(true);
-    const { data: sessionData } = await supabase.auth.getSession();
-    const accessToken = sessionData.session?.access_token?.trim();
+    const accessToken = readRouteAuthAccessToken();
     if (!accessToken) {
       setUploading(false);
       setUploadError('Your session has expired. Please sign in again.');

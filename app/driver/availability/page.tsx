@@ -6,6 +6,7 @@ import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { ActionButton, AlertBanner, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
@@ -87,11 +88,7 @@ export default function AvailabilityPage() {
     window.setTimeout(() => setSuccessMsg(''), 3000);
   };
 
-  const getAuthHeader = useCallback(async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    return token ? `Bearer ${token}` : null;
-  }, []);
+  const getAuthHeader = useCallback(async () => readRouteAuthHeader(), []);
 
   const loadCanonicalVehicle = useCallback(async (): Promise<{ vehicle: VehicleRow | null; error: string | null }> => {
     const auth = await getAuthHeader();

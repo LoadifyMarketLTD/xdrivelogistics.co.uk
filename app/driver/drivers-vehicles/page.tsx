@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
-import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { StatusBadge } from '../../components/workspace/WorkspaceUI';
 
@@ -37,8 +37,7 @@ export default function DriverDriversVehiclesPage() {
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    const token = readRouteAuthAccessToken();
     if (!token) {
       setError('Your session has expired.');
       setLoading(false);

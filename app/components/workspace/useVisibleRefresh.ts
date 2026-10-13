@@ -14,8 +14,8 @@ export function useVisibleRefresh(
   refresh: () => void | Promise<void>,
   {
     enabled = true,
-    intervalMs = 10_000,
-    minGapMs = 2_500,
+    intervalMs = 30_000,
+    minGapMs = 5_000,
     refreshOnFocus = true,
     refreshOnOnline = true,
   }: VisibleRefreshOptions = {},

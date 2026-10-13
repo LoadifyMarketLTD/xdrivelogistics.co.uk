@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { useAuth } from '../AuthContext';
 import { MemberIdentityLink, MemberProfileOverlay } from './MemberProfile';
@@ -128,8 +128,7 @@ export function MemberDirectoryPage({
     setLoading(true);
     setError('');
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const params = new URLSearchParams();
       if (nearestQuery.near.trim()) params.set('near', nearestQuery.near.trim());
@@ -165,8 +164,7 @@ export function MemberDirectoryPage({
     setSavedNetworkLoading(true);
     setSavedNetworkError('');
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const response = await fetch('/api/driver/watchlist', {
         headers: { Authorization: `Bearer ${token}` },
@@ -188,8 +186,7 @@ export function MemberDirectoryPage({
     const currentlySaved = savedCompanyIds.has(companyId);
     setSavedNetworkError('');
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const response = await fetch(
         currentlySaved ? `/api/driver/watchlist?companyId=${encodeURIComponent(companyId)}` : '/api/driver/watchlist',
@@ -222,8 +219,7 @@ export function MemberDirectoryPage({
     setPrivateGroupWorking(true);
     setPrivateGroupActionError('');
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const response = await fetch('/api/network/groups', {
         method: 'POST',
@@ -249,8 +245,7 @@ export function MemberDirectoryPage({
     setPrivateGroupWorking(true);
     setPrivateGroupActionError('');
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const response = await fetch('/api/network/groups', {
         method: 'PATCH',
@@ -278,8 +273,7 @@ export function MemberDirectoryPage({
     setPrivateGroupWorking(true);
     setPrivateGroupActionError('');
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const response = await fetch('/api/network/groups', {
         method: 'PATCH',
@@ -303,8 +297,7 @@ export function MemberDirectoryPage({
     setPrivateGroupWorking(true);
     setPrivateGroupActionError('');
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const params = new URLSearchParams({ companyId, groupId: group.id });
       const response = await fetch(`/api/network/groups?${params.toString()}`, {
@@ -329,8 +322,7 @@ export function MemberDirectoryPage({
     setPrivateGroupWorking(true);
     setPrivateGroupActionError('');
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const url = remove
         ? `/api/network/groups/${encodeURIComponent(groupId)}/members?companyId=${encodeURIComponent(companyId)}&targetCompanyId=${encodeURIComponent(targetCompanyId)}`

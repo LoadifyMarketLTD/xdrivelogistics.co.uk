@@ -6,10 +6,11 @@ import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { BellRing, Briefcase, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, ReceiptText, RefreshCw, Trophy } from 'lucide-react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '../AuthContext';
 import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import {
   getVisibleWorkspaceNav,
   getWorkspaceDefinition,
@@ -733,6 +734,18 @@ export default function TopWorkspaceShell({
     [nav],
   );
 
+  const prefetchedRoutesRef = useRef(new Set<string>());
+  const prefetchRoute = useCallback((href: string) => {
+    if (!href || prefetchedRoutesRef.current.has(href)) return;
+    prefetchedRoutesRef.current.add(href);
+    router.prefetch(href);
+  }, [router]);
+
+  // Do not bulk-prefetch every visible workspace route on mount. These are
+  // protected dynamic routes, so prefetching the whole navbar competes with
+  // the current page's API work and makes navigation feel sluggish. Warm only
+  // the route the user is actually approaching via pointer/focus handlers.
+
   const activeNavigationHref = useMemo(() => {
     const current = pathname ?? '/';
     if (current === definition.homeHref) return definition.homeHref;
@@ -827,8 +840,7 @@ export default function TopWorkspaceShell({
 
     let cancelled = false;
     const fetchUnread = async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) { if (!cancelled) setUnreadCount(0); return; }
       const response = await fetch('/api/workspace/notifications?mode=count', {
         headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
@@ -1010,6 +1022,8 @@ export default function TopWorkspaceShell({
                     type="button"
                     className="top-workspace-nav__item"
                     data-active={active ? 'true' : 'false'}
+                    onPointerEnter={() => prefetchRoute(item.href)}
+                    onFocus={() => prefetchRoute(item.href)}
                     onClick={() => openRoute(item.href)}
                     aria-current={active ? 'page' : undefined}
                   >
@@ -1073,6 +1087,8 @@ export default function TopWorkspaceShell({
                             className="top-workspace-nav__menu-item"
                             data-active={active ? 'true' : 'false'}
                             data-section-start={group.id === 'owner-driver-more' && item.href === '/driver/documents' ? 'true' : undefined}
+                            onPointerEnter={() => prefetchRoute(item.href)}
+                            onFocus={() => prefetchRoute(item.href)}
                             onClick={() => openRoute(item.href)}
                           >
                             <span className="top-workspace-nav__menu-icon" aria-hidden="true">

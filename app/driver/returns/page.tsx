@@ -5,6 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import ReturnJourneyMap from '../_components/ReturnJourneyMap';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
@@ -132,10 +133,7 @@ export default function ReturnJourneysPage() {
   const [futureUntil, setFutureUntil] = useState('');
   const [futureNotes, setFutureNotes] = useState('');
 
-  const getAuthHeader = useCallback(async () => {
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token ? `Bearer ${data.session.access_token}` : null;
-  }, []);
+  const getAuthHeader = useCallback(async () => readRouteAuthHeader(), []);
 
   const loadDriver = useCallback(async () => {
     if (!driverId || !isSupabaseConfigured) return;

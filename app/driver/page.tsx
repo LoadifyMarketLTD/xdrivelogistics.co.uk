@@ -21,6 +21,7 @@ import {
 import { workspaceJobPresentationStatus } from '../../lib/jobs/workspaceJobStage';
 import { resolveWorkspaceRole } from '../../lib/workspaceRole';
 import { isSupabaseConfigured, supabase } from '../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../lib/routeAuthCookie';
 import { VEHICLE_TYPE_LABELS } from '../../lib/vehicleTypes';
 import DriverWorkspaceShell from './_components/DriverWorkspaceShell';
 
@@ -192,8 +193,7 @@ export default function DriverDashboard() {
     if (!ownerDriver || !isSupabaseConfigured) return;
     setCommercialSummaryLoading(true);
     setCommercialSummaryError('');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    const token = readRouteAuthAccessToken();
     if (!token) {
       setCommercialSummaryError('Commercial summary session could not be verified.');
       setCommercialSummaryLoading(false);
@@ -222,8 +222,7 @@ export default function DriverDashboard() {
 
   const loadDashboardMemberNames = useCallback(async () => {
     if (!ownerDriver || !isSupabaseConfigured) return;
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    const token = readRouteAuthAccessToken();
     if (!token) {
       setMemberNameByJob({});
       return;
@@ -279,8 +278,7 @@ export default function DriverDashboard() {
       .maybeSingle();
 
     const vehiclePromise = (async () => {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) return { vehicle: null as DriverVehicle | null, error: 'Vehicle session could not be verified.' };
 
       try {
@@ -362,11 +360,10 @@ export default function DriverDashboard() {
     setTransitionMessage('');
 
     try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      let token = sessionData.session?.access_token;
+      let token = readRouteAuthAccessToken();
       if (!token) {
         const refreshed = await supabase.auth.refreshSession();
-        token = refreshed.data.session?.access_token;
+        token = refreshed.data.session?.access_token ?? null;
       }
       if (!token) throw new Error('Your session has expired. Sign in again.');
 

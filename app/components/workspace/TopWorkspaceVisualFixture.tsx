@@ -5,12 +5,10 @@ import type { ReactNode } from 'react';
 import TopWorkspaceShell from './TopWorkspaceShell';
 import { FIXTURE_ROLE_CONFIG, type FixtureRole } from './WorkspaceVisualFixture';
 import {
-  ActionButton,
   DataTable,
   KpiCard,
   KpiGrid,
   OperationalCard,
-  QuickActionGrid,
   StatusBadge,
 } from './WorkspaceUI';
 
@@ -62,32 +60,20 @@ export default function TopWorkspaceVisualFixture({ role }: { role: OperationalF
                 title="Reports"
                 subtitle="Role-specific operational registers."
               >
-                <QuickActionGrid
-                  actions={config.actions.slice(0, 3).map((label, index) => ({
-                    key: `${role}-report-${index}`,
-                    label,
-                    onClick: () => undefined,
-                  }))}
-                />
+                <DataTable columns={["Available workflow"]} rows={config.actions.slice(0, 3).map((label) => [label])} />
               </OperationalCard>
 
               <OperationalCard
-                title="Workspace"
+                title="Operational summary"
                 subtitle={config.metaLabel ?? 'Role-safe operational surface'}
+                flush
               >
-                <QuickActionGrid
-                  actions={[
-                    {
-                      key: `${role}-primary`,
-                      label: config.actions[0] ?? 'Open workspace',
-                      onClick: () => undefined,
-                    },
-                    {
-                      key: `${role}-activity`,
-                      label: 'Open activity',
-                      onClick: () => undefined,
-                    },
-                  ]}
+                <DataTable
+                  columns={['Signal', 'Current']}
+                  rows={config.kpis.slice(0, 4).map((kpi) => [
+                    <strong key="signal">{kpi.label}</strong>,
+                    kpi.value,
+                  ])}
                 />
               </OperationalCard>
             </div>
@@ -97,7 +83,7 @@ export default function TopWorkspaceVisualFixture({ role }: { role: OperationalF
             <OperationalCard
               title="Activity at a glance"
               subtitle="Current operational records and next actions."
-              actions={<ActionButton tone="secondary">View All</ActionButton>}
+
               flush
             >
               <DataTable
@@ -111,9 +97,16 @@ export default function TopWorkspaceVisualFixture({ role }: { role: OperationalF
                     tone={row.status === 'Delivered' ? 'green' : row.status === 'In Progress' ? 'blue' : 'orange'}
                   />,
                   row.eta,
-                  <ActionButton key="action" tone="secondary">Open</ActionButton>,
+                  <span key="action">Preview only</span>,
                 ])}
               />
+            </OperationalCard>
+
+            <OperationalCard
+              title="Next actions"
+              subtitle="Role-specific controls available from this dashboard."
+            >
+              <DataTable columns={["Available workflow"]} rows={config.actions.map((label) => [label])} />
             </OperationalCard>
           </div>
         </div>

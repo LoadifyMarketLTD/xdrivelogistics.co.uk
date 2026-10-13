@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
-import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import { VEHICLE_GROUPS, VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { StatusBadge } from '../../components/workspace/WorkspaceUI';
 
@@ -59,11 +59,7 @@ export default function DriverVehiclesPage() {
   const [saving, setSaving] = useState(false);
   const [deactivatingId, setDeactivatingId] = useState<string | null>(null);
 
-  const getAuthHeader = useCallback(async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    return token ? `Bearer ${token}` : null;
-  }, []);
+  const getAuthHeader = useCallback(async () => readRouteAuthHeader(), []);
 
   const load = useCallback(async () => {
     setLoading(true);

@@ -1030,8 +1030,9 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
 
   useVisibleRefresh(refresh, {
     enabled: !plan.blocker,
-    intervalMs: 10_000,
-    minGapMs: 2_500,
+    intervalMs: 30_000,
+    minGapMs: 10_000,
+    refreshOnFocus: false,
   });
 
   return {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { StatusBadge } from '../../components/workspace/WorkspaceUI';
 import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import DriverFreightVisionMap, { type DriverFreightVisionPoint } from '../_components/DriverFreightVisionMap';
@@ -94,8 +95,7 @@ export default function DriverFreightVisionPage() {
     setJobs(nextJobs);
 
     const live = nextJobs.filter(activeJob);
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token ?? null;
+    const token = readRouteAuthAccessToken();
     if (!token || live.length === 0) {
       if (!background || live.length === 0) setTrackingByJob({});
       refreshInFlightRef.current = false;

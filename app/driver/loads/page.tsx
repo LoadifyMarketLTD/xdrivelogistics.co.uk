@@ -6,7 +6,8 @@ import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import { ActionButton } from '../../components/workspace/WorkspaceUI';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
@@ -194,11 +195,7 @@ export default function AvailableLoadsPage() {
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const refreshInFlightRef = useRef(false);
 
-  const getAuthHeader = useCallback(async () => {
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
-    return token ? `Bearer ${token}` : null;
-  }, []);
+  const getAuthHeader = useCallback(async () => readRouteAuthHeader(), []);
 
   const fetchLoads = useCallback(async ({ background = false }: { background?: boolean } = {}) => {
     if (!isSupabaseConfigured) { setLoads([]); setLoading(false); setRefreshing(false); return; }
@@ -226,7 +223,7 @@ export default function AvailableLoadsPage() {
   useEffect(() => { void fetchLoads(); }, [fetchLoads]);
   useVisibleRefresh(
     () => fetchLoads({ background: true }),
-    { intervalMs: 10_000, minGapMs: 2_500 },
+    { intervalMs: 30_000, minGapMs: 2_500 },
   );
   useEffect(() => {
     try {

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import DriverNearbyMap from '../../_components/DriverNearbyMap';
-import { supabase } from '../../../../lib/supabaseClient';
+import { readRouteAuthHeader } from '../../../../lib/routeAuthCookie';
 import { StatusBadge } from '../../../components/workspace/WorkspaceUI';
 import { useAuth } from '../../../components/AuthContext';
 import { usePrivateNetworkGroups } from '../../../components/workspace/usePrivateNetworkGroups';
@@ -83,10 +83,7 @@ export default function LiveAvailabilityPage() {
   const [radius, setRadius] = useState('100');
   const [query, setQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' });
 
-  const authHeader = useCallback(async () => {
-    const { data } = await supabase.auth.getSession();
-    return data.session?.access_token ? `Bearer ${data.session.access_token}` : null;
-  }, []);
+  const authHeader = useCallback(async () => readRouteAuthHeader(), []);
 
   const loadPresence = useCallback(async () => {
     const auth = await authHeader();

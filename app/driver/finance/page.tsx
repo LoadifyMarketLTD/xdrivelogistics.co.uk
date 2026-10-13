@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import {
   toCanonicalInvoiceStatusWithDueDate,
   toCanonicalPaymentStatus,
@@ -88,10 +89,7 @@ const date = (value: string | null | undefined) =>
     ? new Date(value).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : 'Not set';
 
-const getToken = async () => {
-  const { data } = await supabase.auth.getSession();
-  return data.session?.access_token ?? null;
-};
+const getToken = async () => readRouteAuthAccessToken();
 
 function statusTone(status: InvoiceStatus): 'green' | 'blue' | 'orange' | 'red' | 'grey' | 'purple' {
   if (status === 'Paid') return 'green';

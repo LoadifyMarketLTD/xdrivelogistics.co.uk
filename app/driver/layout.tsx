@@ -12,7 +12,7 @@ import './driver-prototype-parity.css';
 import './driver-full-prototype.css';
 import './driver-page-width-fix.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
-// Frozen PR675 dashboard visual layers. Keep LAST so shared workspace convergence cannot restyle the golden dashboard.
+// PR675-derived Owner Driver dashboard layers remain editable for CX convergence. Keep LAST so their route-specific ownership stays explicit.
 import './driver-dashboard-reference.css';
 import './driver-dashboard-cx-close.css';
 import './driver-dashboard-prototype-exact.css';

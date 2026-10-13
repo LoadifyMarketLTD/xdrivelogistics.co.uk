@@ -5,7 +5,8 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
-import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type MessageDirection = 'inbound' | 'outbound';
@@ -76,9 +77,8 @@ export default function DriverMessagesPage() {
     setLoading(true);
     setError('');
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (sessionError || !token) throw new Error('Your session has expired. Please sign in again.');
+      const token = readRouteAuthAccessToken();
+      if (!token) throw new Error('Your session has expired. Please sign in again.');
 
       const response = await fetch('/api/driver/messages', {
         headers: { Authorization: `Bearer ${token}` },
@@ -128,9 +128,8 @@ export default function DriverMessagesPage() {
     setSending(true);
     setSendError('');
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (sessionError || !token) throw new Error('Your session has expired. Please sign in again.');
+      const token = readRouteAuthAccessToken();
+      if (!token) throw new Error('Your session has expired. Please sign in again.');
 
       const response = await fetch('/api/driver/messages', {
         method: 'POST',

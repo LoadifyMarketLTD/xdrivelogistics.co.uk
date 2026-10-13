@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
-import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { StatusBadge } from '../../components/workspace/WorkspaceUI';
 import DriverNearbyMap from '../_components/DriverNearbyMap';
 import { useAuth } from '../../components/AuthContext';
@@ -68,8 +68,7 @@ export default function DriverNearbyPage() {
   const loadNearby = useCallback(async () => {
     setLoading(true);
     setError('');
-    const { data: sessionData } = await supabase.auth.getSession();
-    const token = sessionData.session?.access_token;
+    const token = readRouteAuthAccessToken();
     if (!token) {
       setPositions([]);
       setError('Nearby Exchange availability could not be verified because your session is unavailable.');

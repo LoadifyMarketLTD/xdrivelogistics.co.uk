@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
-import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import PendingBookingOffers from '../../components/workspace/PendingBookingOffers';
 import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 
@@ -113,9 +114,8 @@ export default function WonWorkPage() {
     setLoading(true);
     setError('');
     try {
-      const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-      if (sessionError || !token) throw new Error('Your session has expired. Please sign in again.');
+      const token = readRouteAuthAccessToken();
+      if (!token) throw new Error('Your session has expired. Please sign in again.');
 
       const response = await fetch('/api/driver/jobs?scope=all&limit=100', {
         headers: { Authorization: `Bearer ${token}` },

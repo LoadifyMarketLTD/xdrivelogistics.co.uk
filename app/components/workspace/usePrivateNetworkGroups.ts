@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 
 export type PrivateNetworkGroupMember = {
   companyId: string;
@@ -40,8 +40,7 @@ export function usePrivateNetworkGroups(companyId: string | null | undefined) {
     setLoading(true);
     setError('');
     try {
-      const { data: session } = await supabase.auth.getSession();
-      const token = session.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Your session has expired. Sign in again.');
       const response = await fetch(`/api/network/groups?companyId=${encodeURIComponent(companyId)}`, {
         headers: { Authorization: `Bearer ${token}` },

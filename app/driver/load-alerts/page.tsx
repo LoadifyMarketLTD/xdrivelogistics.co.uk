@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import ProtectedRoute from '../../components/ProtectedRoute';
-import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { ActionButton, AlertBanner, StatusBadge } from '../../components/workspace/WorkspaceUI';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
@@ -76,8 +76,7 @@ export default function DriverLoadAlertsPage() {
   const [schemaUnavailable, setSchemaUnavailable] = useState(false);
 
   const authHeader = useCallback(async () => {
-    const { data } = await supabase.auth.getSession();
-    const token = data.session?.access_token;
+    const token = readRouteAuthAccessToken();
     return token ? { Authorization: `Bearer ${token}` } : null;
   }, []);
 

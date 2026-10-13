@@ -8,6 +8,7 @@ import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import DriverInvoicePreviewModal from '../_components/DriverInvoicePreviewModal';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { classifyWorkspaceJobStage, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket } from '../../../lib/diary/canonicalDiary';
 import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
@@ -331,8 +332,7 @@ export default function JobHistoryPage() {
     setOrderLoadingByJob((current) => ({ ...current, [jobId]: true }));
     setOrderErrorsByJob((current) => ({ ...current, [jobId]: '' }));
     try {
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
+      const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Session expired.');
       const response = await fetch(`/api/driver/jobs/${encodeURIComponent(jobId)}/sheet`, { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' });
       const payload = await response.json().catch(() => ({})) as { sheet?: OrderSheet; error?: string };
@@ -365,11 +365,10 @@ export default function JobHistoryPage() {
     if (hasLoadedRef.current) setRefreshing(true); else setLoading(true);
     setError(''); setDetailWarning('');
 
-    const { data: sessionData } = await supabase.auth.getSession();
-    let token = sessionData.session?.access_token;
+    let token = readRouteAuthAccessToken();
     if (!token) {
       const refreshed = await supabase.auth.refreshSession();
-      token = refreshed.data.session?.access_token;
+      token = refreshed.data.session?.access_token ?? null;
     }
 
     let resolvedJobs: HistoryJob[] = [];
@@ -475,11 +474,10 @@ export default function JobHistoryPage() {
     setInvoiceCreatingJobId(job.id);
     setDetailWarning('');
     try {
-      const { data } = await supabase.auth.getSession();
-      let token = data.session?.access_token;
+      let token = readRouteAuthAccessToken();
       if (!token) {
         const refreshed = await supabase.auth.refreshSession();
-        token = refreshed.data.session?.access_token;
+        token = refreshed.data.session?.access_token ?? null;
       }
       if (!token) throw new Error('Your session has expired. Sign in again.');
 
@@ -513,11 +511,10 @@ export default function JobHistoryPage() {
     setCancellingJobId(job.id);
     setDetailWarning('');
     try {
-      const { data } = await supabase.auth.getSession();
-      let token = data.session?.access_token;
+      let token = readRouteAuthAccessToken();
       if (!token) {
         const refreshed = await supabase.auth.refreshSession();
-        token = refreshed.data.session?.access_token;
+        token = refreshed.data.session?.access_token ?? null;
       }
       if (!token) throw new Error('Your session has expired. Sign in again.');
 
@@ -538,7 +535,7 @@ export default function JobHistoryPage() {
   }, [fetchHistory]);
 
   useEffect(() => { void fetchHistory(); }, [fetchHistory]);
-  useVisibleRefresh(fetchHistory, { intervalMs: 10_000, minGapMs: 2_500 });
+  useVisibleRefresh(fetchHistory, { intervalMs: 30_000, minGapMs: 2_500 });
 
   const searchedJobs = useMemo(() => jobs.filter((job) => {
     const refDate = job.pickup_datetime ?? job.collection_window_start ?? job.updated_at ?? job.created_at;
