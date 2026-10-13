@@ -10,10 +10,10 @@ describe('canonical Stripe commercial readiness contract', () => {
   const companyMarketplace = read('app/api/marketplace/company/route.ts');
   const award = read('app/api/customer/bids/[id]/award/route.ts');
 
-  it('keeps Stripe commercial readiness behind the future-phase feature flag', () => {
-    expect(readiness).toContain("getFeatureFlag(supabaseAdmin, 'stripe_billing_future_phase')");
-    expect(readiness).toContain("onboardingStatus: 'not_required'");
-    expect(readiness).toContain('required: false');
+  it('requires Stripe commercial readiness regardless of feature flags', () => {
+    expect(readiness).not.toContain("getFeatureFlag(supabaseAdmin, 'stripe_billing_future_phase')");
+    expect(readiness).not.toContain("onboardingStatus: 'not_required'");
+    expect(readiness).not.toContain('required: false');
     expect(readiness).toContain("from('stripe_connected_accounts')");
     expect(readiness).toContain("details_submitted");
     expect(readiness).toContain("charges_enabled");

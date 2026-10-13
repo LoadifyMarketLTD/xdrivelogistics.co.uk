@@ -1,7 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { XDRIVE_LOGISTICS_COMPANY_ID } from '../../../lib/activeWorkspace';
 import { isStripeServerConfigured, stripeRequest } from './stripeServer';
-import { getFeatureFlag } from './platformFlags';
 
 type AdminClient = SupabaseClient;
 
@@ -23,20 +22,6 @@ export async function getStripeCommercialReadiness(
   supabaseAdmin: AdminClient,
   companyId: string | null | undefined,
 ): Promise<StripeCommercialReadiness> {
-  const required = await getFeatureFlag(supabaseAdmin, 'stripe_billing_future_phase');
-  if (!required) {
-    return {
-      ready: true,
-      required: false,
-      accountId: null,
-      detailsSubmitted: false,
-      chargesEnabled: false,
-      payoutsEnabled: false,
-      onboardingStatus: 'not_required',
-      infrastructureAvailable: true,
-    };
-  }
-
   if (!companyId) {
     return {
       ready: false,
