@@ -1172,3 +1172,252 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* CX-parity Carrier/Fleet dashboard: one tab at a time, starting with Dashboard. */
+.xdrive-carrier-workspace .carrier-cx-dashboard-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.06fr) minmax(430px, .94fr);
+  gap: 8px;
+  align-items: start;
+  margin-bottom: 10px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-column {
+  min-width: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-subgrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-stat-grid,
+.xdrive-carrier-workspace .carrier-cx-feedback-grid,
+.xdrive-carrier-workspace .carrier-cx-compliance-grid {
+  display: grid;
+  gap: 0;
+}
+
+.xdrive-carrier-workspace .carrier-cx-stat-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.xdrive-carrier-workspace :is(.carrier-cx-stat-card, .carrier-cx-feedback-grid > button, .carrier-cx-compliance-grid > button) {
+  min-width: 0;
+  min-height: 92px;
+  padding: 10px 12px;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  border: 0;
+  border-right: 1px solid var(--ws-border-soft);
+  background: var(--ws-panel);
+  color: var(--ws-text);
+  text-align: left;
+  cursor: pointer;
+}
+
+.xdrive-carrier-workspace :is(.carrier-cx-stat-card, .carrier-cx-feedback-grid > button, .carrier-cx-compliance-grid > button):last-child {
+  border-right: 0;
+}
+
+.xdrive-carrier-workspace :is(.carrier-cx-stat-card, .carrier-cx-feedback-grid > button, .carrier-cx-compliance-grid > button):hover {
+  background: var(--ws-panel-head);
+}
+
+.xdrive-carrier-workspace :is(.carrier-cx-stat-card, .carrier-cx-feedback-grid > button, .carrier-cx-compliance-grid > button) > span {
+  color: var(--ws-muted);
+  font-size: var(--ws-font-label);
+  line-height: 14px;
+  font-weight: 650;
+}
+
+.xdrive-carrier-workspace :is(.carrier-cx-stat-card, .carrier-cx-feedback-grid > button, .carrier-cx-compliance-grid > button) > strong {
+  color: var(--ws-navy);
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 750;
+}
+
+.xdrive-carrier-workspace :is(.carrier-cx-stat-card, .carrier-cx-feedback-grid > button, .carrier-cx-compliance-grid > button) > small {
+  color: var(--ws-muted);
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 500;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-header {
+  min-height: 34px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border-bottom: 1px solid var(--ws-border);
+  background: var(--ws-panel-head);
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-header strong {
+  color: var(--ws-navy);
+  font-size: 12px;
+  line-height: 16px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-header button {
+  border: 0;
+  background: transparent;
+  color: var(--ws-blue);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-list {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-card {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(160px, .8fr) minmax(150px, .72fr);
+  grid-template-areas:
+    "route schedule meta"
+    "actions actions actions";
+  border: 1px solid var(--ws-border);
+  border-radius: var(--ws-radius);
+  background: var(--ws-panel);
+  overflow: hidden;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-route {
+  grid-area: route;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-schedule {
+  grid-area: schedule;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-meta {
+  grid-area: meta;
+}
+
+.xdrive-carrier-workspace :is(.carrier-cx-booking-route, .carrier-cx-booking-schedule, .carrier-cx-booking-meta) {
+  min-width: 0;
+  padding: 8px 10px;
+  display: grid;
+  gap: 5px;
+  border-right: 1px solid var(--ws-border-soft);
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-meta {
+  border-right: 0;
+}
+
+.xdrive-carrier-workspace :is(.carrier-cx-booking-route, .carrier-cx-booking-schedule, .carrier-cx-booking-meta) > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 5px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-route span,
+.xdrive-carrier-workspace .carrier-cx-booking-schedule span,
+.xdrive-carrier-workspace .carrier-cx-booking-meta span {
+  color: var(--ws-muted);
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 650;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-route strong,
+.xdrive-carrier-workspace .carrier-cx-booking-schedule strong,
+.xdrive-carrier-workspace .carrier-cx-booking-meta strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--ws-text);
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 650;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-actions {
+  grid-area: actions;
+  min-height: 34px;
+  padding: 4px 8px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  border-top: 1px solid var(--ws-border-soft);
+  background: #fbfdff;
+}
+
+@media (max-width: 1180px) {
+  .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 820px) {
+  .xdrive-carrier-workspace .carrier-cx-dashboard-subgrid,
+  .xdrive-carrier-workspace .carrier-cx-feedback-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-booking-card {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-areas:
+      "route schedule"
+      "meta meta"
+      "actions actions";
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-booking-route {
+    border-right: 1px solid var(--ws-border-soft);
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-booking-schedule {
+    border-right: 0;
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-booking-meta {
+    border-top: 1px solid var(--ws-border-soft);
+  }
+}
+
+@media (max-width: 560px) {
+  .xdrive-carrier-workspace .carrier-cx-stat-grid,
+  .xdrive-carrier-workspace .carrier-cx-compliance-grid,
+  .xdrive-carrier-workspace .carrier-cx-booking-card {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-booking-card {
+    grid-template-areas:
+      "route"
+      "schedule"
+      "meta"
+      "actions";
+  }
+
+  .xdrive-carrier-workspace :is(.carrier-cx-stat-card, .carrier-cx-feedback-grid > button, .carrier-cx-compliance-grid > button),
+  .xdrive-carrier-workspace :is(.carrier-cx-booking-route, .carrier-cx-booking-schedule, .carrier-cx-booking-meta) {
+    border-right: 0;
+    border-bottom: 1px solid var(--ws-border-soft);
+  }
+}

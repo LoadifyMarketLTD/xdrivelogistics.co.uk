@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   getWorkspaceDatasetMetricValue,
@@ -21,7 +21,6 @@ import {
   StatusBadge,
   workspaceTheme,
 } from './WorkspaceUI';
-import { OperationalSignalStrip, type OperationalSignalItem } from './OperationalConvergence';
 import {
   daysUntil,
   exceptionStatuses,
@@ -37,10 +36,9 @@ import {
   workspaceJobPresentationStatus,
 } from '../../../lib/jobs/workspaceJobStage';
 import { toCanonicalInvoiceDisplayStatus } from '../../../lib/invoiceStatus';
+import { supabase } from '../../../lib/supabaseClient';
 
 type ControlView = 'attention' | 'unallocated' | 'live' | 'pod' | 'exceptions' | 'all';
-
-type ControlSignal = OperationalSignalItem & { key: ControlView | 'drivers' };
 
 const CONTROL_VIEWS: Array<{ value: ControlView; label: string }> = [
   { value: 'attention', label: 'Needs attention' },
@@ -100,15 +98,6 @@ const priorityStyle = (job: WorkspaceJob) => {
   return { color: workspaceTheme.muted, background: workspaceTheme.surfaceMuted, border: workspaceTheme.border };
 };
 
-const moneyOrDash = (value: number) => (value > 0 ? money(value) : '—');
-
-function CarrierControlSignals({ signals }: { signals: ControlSignal[] }) {
-  return (
-    <div data-testid="carrier-control-signals">
-      <OperationalSignalStrip ariaLabel="Carrier control signals" items={signals} />
-    </div>
-  );
-}
 
 function RailMetric({ label, value, onClick }: { label: string; value: ReactNode; onClick: () => void }) {
   return (
@@ -122,7 +111,7 @@ function WorkflowLink({ label, detail, onClick }: { label: string; detail: strin
   return (
     <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '8px', minHeight: 'var(--ws-table-row-h, 42px)', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, textAlign: 'left', cursor: 'pointer' }}>
       <span style={{ minWidth: 0 }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{detail}</span></span>
-      <span aria-hidden="true" style={{ color: workspaceTheme.blue, fontSize: '14px', fontWeight: 800 }}>→</span>
+      <span aria-hidden="true" style={{ color: workspaceTheme.blue, fontSize: '14px', fontWeight: 800 }}>â†’</span>
     </button>
   );
 }
@@ -144,6 +133,28 @@ export default function CarrierOperationsDashboardHome() {
   const [searchTerm, setSearchTerm] = useState('');
   const [driverFilter, setDriverFilter] = useState('');
   const [vehicleFilter, setVehicleFilter] = useState('');
+  const [feedbackSummary, setFeedbackSummary] = useState<{ count: number; average: number | null }>({ count: 0, average: null });
+
+  useEffect(() => {
+    if (!data.companyId) {
+      setFeedbackSummary({ count: 0, average: null });
+      return;
+    }
+    let cancelled = false;
+    const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+    void supabase
+      .from('reviews')
+      .select('rating')
+      .eq('company_id', data.companyId)
+      .gte('created_at', since)
+      .then(({ data: rows, error }) => {
+        if (cancelled || error) return;
+        const ratings = (rows ?? []).map((row) => Number(row.rating)).filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+        const average = ratings.length ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) * 10) / 10 : null;
+        setFeedbackSummary({ count: ratings.length, average });
+      });
+    return () => { cancelled = true; };
+  }, [data.companyId]);
 
   // `useCompanyWorkspaceData` intentionally also carries jobs owned by this
   // company. Carrier execution surfaces must never treat those customer-role
@@ -198,6 +209,42 @@ export default function CarrierOperationsDashboardHome() {
     [carrierExecutionJobs],
   );
 
+  const cxDashboard = useMemo(() => {
+    const payables = data.invoices.filter((invoice) => invoice.buyer_company_id === data.companyId && invoice.supplier_company_id && invoice.supplier_company_id !== data.companyId);
+    const receivables = data.invoices.filter((invoice) => invoice.supplier_company_id === data.companyId || (!invoice.supplier_company_id && invoice.company_id === data.companyId));
+    const payableTotal = payables.reduce((sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0), 0);
+    const currentMonth = new Date();
+    const monthlyPayables = payables.filter((invoice) => {
+      const source = invoice.invoice_date ?? invoice.created_at;
+      const date = source ? new Date(source) : null;
+      return Boolean(date) && date!.getFullYear() === currentMonth.getFullYear() && date!.getMonth() === currentMonth.getMonth();
+    });
+    const monthlyPayableTotal = monthlyPayables.reduce((sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0), 0);
+    const payableStates = payables.map((invoice) => toCanonicalInvoiceDisplayStatus(invoice.status, invoice.due_date, invoice.payment_status));
+    const paidPayables = payableStates.filter((state) => state === 'Paid').length;
+    const overduePayables = payableStates.filter((state) => state === 'Overdue').length;
+    const awaitingPayables = payableStates.filter((state) => state !== 'Paid' && state !== 'Overdue').length;
+    const completedJobs = carrierExecutionJobs.filter((job) => classifyWorkspaceJobStage(job) === 'completed');
+    const completedWithoutException = completedJobs.filter((job) => !isExceptionJob(job)).length;
+    const subcontracted = carrierExecutionJobs.filter((job) => Boolean(job.assigned_company_id) && job.assigned_company_id !== data.companyId).length;
+    const allocated = carrierExecutionJobs.filter((job) => Boolean(job.assigned_driver_id)).length;
+    const grossMargin = metrics.wonValue - payableTotal;
+    return {
+      payables,
+      receivables,
+      payableTotal,
+      monthlyPayableTotal,
+      paidPayables,
+      overduePayables,
+      awaitingPayables,
+      completedJobs,
+      completedWithoutException,
+      subcontracted,
+      allocated,
+      grossMargin,
+    };
+  }, [carrierExecutionJobs, data.companyId, data.invoices, metrics.wonValue]);
+
   const filteredJobs = useMemo(() => {
     const base = view === 'attention'
       ? metrics.attentionJobs
@@ -239,15 +286,6 @@ export default function CarrierOperationsDashboardHome() {
     all: metricValue(data, ['jobs'], () => carrierExecutionJobs.length),
   };
 
-  const signals: ControlSignal[] = [
-    { key: 'attention', label: 'Needs attention', value: viewCounts.attention, tone: 'orange', active: view === 'attention', onClick: () => setView('attention') },
-    { key: 'unallocated', label: 'Awaiting allocation', value: viewCounts.unallocated, tone: 'orange', active: view === 'unallocated', onClick: () => setView('unallocated') },
-    { key: 'live', label: 'Live jobs', value: viewCounts.live, tone: 'blue', active: view === 'live', onClick: () => setView('live') },
-    { key: 'pod', label: 'Photo evidence', value: viewCounts.pod, tone: 'navy', active: view === 'pod', onClick: () => setView('pod') },
-    { key: 'drivers', label: 'Available drivers', value: getWorkspaceDatasetMetricValue(data.datasets.drivers, (rows) => rows.filter(isActiveAvailableDriver).length), tone: 'green', onClick: () => router.push('/admin/live-availability') },
-    { key: 'exceptions', label: 'Exceptions', value: viewCounts.exceptions, tone: 'red', active: view === 'exceptions', onClick: () => setView('exceptions') },
-  ];
-
   const activeViewLabel = CONTROL_VIEWS.find((item) => item.value === view)?.label ?? 'Work';
   const jobFeedLabel = data.datasets.jobs.availability === 'unavailable'
     ? 'Job data unavailable'
@@ -269,56 +307,88 @@ export default function CarrierOperationsDashboardHome() {
     <div className="xdrive-admin-dashboard-home">
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
-      <div className="carrier-owner-parity-grid xdrive-owner-dashboard-grid">
-        <div className="carrier-owner-parity-column xdrive-owner-dashboard-column">
-          <OperationalCard title="Reports & Statistics" subtitle="Live carrier operations and commercial position.">
-            <CarrierControlSignals signals={signals} />
+      <div className="carrier-cx-dashboard-grid">
+        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--left">
+          <OperationalCard title="Reports & Statistics" subtitle="Commercial position and operational performance." flush>
+            <div className="carrier-cx-stat-grid">
+              <button type="button" className="carrier-cx-stat-card" onClick={() => router.push('/admin/won-work')}>
+                <span>Gross Margin</span>
+                <strong>{metricValue(data, ['bids', 'jobs', 'invoices'], () => money(cxDashboard.grossMargin))}</strong>
+                <small>Won work less recorded sub-contract spend</small>
+              </button>
+              <button type="button" className="carrier-cx-stat-card" onClick={() => router.push('/admin/invoices')}>
+                <span>Sub-contract Spend</span>
+                <strong>{metricValue(data, ['invoices'], () => money(cxDashboard.payableTotal))}</strong>
+                <small>{cxDashboard.payables.length} supplier invoice{cxDashboard.payables.length === 1 ? '' : 's'}</small>
+              </button>
+            </div>
           </OperationalCard>
 
-          <div className="carrier-owner-parity-subgrid xdrive-owner-dashboard-subgrid">
-            <OperationalCard title="Commercial & Finance" subtitle="Verified commercial signals from awarded work and invoices.">
-              <CommercialRow label="Won work value" detail="Accepted carrier quotes backed by an award" value={metricValue(data, ['bids', 'jobs'], () => moneyOrDash(metrics.wonValue))} onClick={() => router.push('/admin/won-work')} />
-              <CommercialRow label="Overdue invoices" detail="Past-due carrier invoices" value={metricValue(data, ['invoices'], () => metrics.overdueInvoices.length ? `${metrics.overdueInvoices.length} · ${moneyOrDash(metrics.overdueExposure)}` : '0')} onClick={() => router.push('/admin/invoices')} />
-              <CommercialRow label="Submitted quotes" detail="Marketplace pricing awaiting an outcome" value={getWorkspaceDatasetMetricValue(data.datasets.bids, (rows) => rows.filter((bid) => bid.company_id === data.companyId && normalise(bid.status) === 'submitted').length)} onClick={() => router.push('/admin/exchange-quotes')} />
-              <CommercialRow label="Compliance due" detail="Driver and vehicle evidence expiring within 30 days" value={metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => metrics.expiringDocuments)} onClick={() => router.push('/admin/fleet/compliance')} />
+          <div className="carrier-cx-dashboard-subgrid">
+            <OperationalCard title="Accounts Payable" flush>
+              <CommercialRow label="Latest Invoices Received" detail="Supplier invoices visible to this company" value={metricValue(data, ['invoices'], () => cxDashboard.payables.length)} onClick={() => router.push('/admin/invoices')} />
+              <CommercialRow label="Invoices due for Payment" detail="Recorded supplier invoices currently overdue" value={metricValue(data, ['invoices'], () => cxDashboard.overduePayables)} onClick={() => router.push('/admin/invoices')} />
+              <CommercialRow label="Invoices Awaiting Payment" detail="Open supplier invoices not yet overdue" value={metricValue(data, ['invoices'], () => cxDashboard.awaitingPayables)} onClick={() => router.push('/admin/invoices')} />
+              <CommercialRow label="Monthly Totals" detail="Supplier invoice total for the current month" value={metricValue(data, ['invoices'], () => money(cxDashboard.monthlyPayableTotal))} onClick={() => router.push('/admin/invoices')} />
             </OperationalCard>
 
-            <OperationalCard title="Reports" subtitle="Direct routes to the operational registers behind each report.">
-              <WorkflowLink label="Invoices / accounts" detail="Draft, awaiting payment, overdue, disputed and paid invoices" onClick={() => router.push('/admin/invoices')} />
-              <WorkflowLink label="Bookings / Diary" detail="Operational booking history, evidence and feedback" onClick={() => router.push('/admin/diary')} />
-              <WorkflowLink label="Return Journeys" detail="Published and available return capacity" onClick={() => router.push('/admin/fleet/returns')} />
-              <WorkflowLink label="Fleet resources" detail="Drivers, vehicles and live availability" onClick={() => router.push('/admin/fleet/resources')} />
+            <OperationalCard title="Reports" flush>
+              <CommercialRow label="Bookings Received" detail="Carrier-awarded bookings in this workspace" value={metricValue(data, ['jobs'], () => carrierExecutionJobs.length)} onClick={() => router.push('/admin/diary')} />
+              <CommercialRow label="Bookings Sub-contracted" detail="Awarded work delegated to another company" value={metricValue(data, ['jobs'], () => cxDashboard.subcontracted)} onClick={() => router.push('/admin/diary')} />
+              <CommercialRow label="Loads Allocated" detail="Carrier work with an allocated driver" value={metricValue(data, ['jobs'], () => cxDashboard.allocated)} onClick={() => router.push('/admin/fleet/assignments')} />
+              <WorkflowLink label="Return Journeys" detail="Open the published and available return capacity register" onClick={() => router.push('/admin/fleet/returns')} />
             </OperationalCard>
           </div>
+
+          <OperationalCard title="Feedback in Last 90 Days" flush>
+            <div className="carrier-cx-feedback-grid">
+              <button type="button" onClick={() => router.push('/admin/diary')}><span>Received</span><strong>{feedbackSummary.count}</strong><small>{feedbackSummary.average == null ? 'No verified feedback yet' : `${feedbackSummary.average.toFixed(1)} / 5 average`}</small></button>
+              <button type="button" onClick={() => router.push('/admin/invoices')}><span>Payment Performance</span><strong>{cxDashboard.paidPayables + cxDashboard.overduePayables > 0 ? `${Math.round((cxDashboard.paidPayables / (cxDashboard.paidPayables + cxDashboard.overduePayables)) * 100)}%` : '-'}</strong><small>Paid versus paid + overdue supplier invoices</small></button>
+              <button type="button" onClick={() => router.push('/admin/diary')}><span>Delivery Performance</span><strong>{cxDashboard.completedJobs.length > 0 ? `${Math.round((cxDashboard.completedWithoutException / cxDashboard.completedJobs.length) * 100)}%` : '-'}</strong><small>Completed bookings without recorded exception</small></button>
+            </div>
+          </OperationalCard>
+
+          <OperationalCard title="Compliance - Manage Your Suppliers" subtitle="Use verified XDrive member and fleet evidence rather than unverified badges." flush>
+            <div className="carrier-cx-compliance-grid">
+              <button type="button" onClick={() => router.push('/admin/fleet/compliance')}><span>Compliance due</span><strong>{metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => metrics.expiringDocuments)}</strong><small>Driver and vehicle evidence expiring within 30 days</small></button>
+              <button type="button" onClick={() => router.push('/admin/marketplace/directory')}><span>Supplier network</span><strong>Directory</strong><small>Open verified member profiles, services and reputation</small></button>
+            </div>
+          </OperationalCard>
         </div>
 
-        <div className="carrier-owner-parity-column xdrive-owner-dashboard-column">
+        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--right">
           <OperationalCard title="Activity at a glance" subtitle="Latest awarded bookings ordered for practical day-to-day transport control." flush>
-            <DataTable
-              columns={['Route', 'Pickup', 'Vehicle', 'Status', 'Evidence', 'Action']}
-              rows={latestBookings.map((job) => {
+            <div className="carrier-cx-booking-header"><strong>Latest Bookings</strong><button type="button" onClick={() => router.push('/admin/diary')}>View All...</button></div>
+            <div className="carrier-cx-booking-list">
+              {latestBookings.map((job) => {
                 const completed = classifyWorkspaceJobStage(job) === 'completed';
                 const evidenceReady = (job.delivery_photos?.length ?? 0) > 0;
                 const needsAllocation = isUnallocatedJob(job);
-                return [
-                  <span key="route"><strong style={{ display: 'block' }}>{job.pickup_postcode ?? job.pickup_location ?? 'Collection'} → {job.delivery_postcode ?? job.delivery_location ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>#{job.id.slice(0, 8).toUpperCase()}</span></span>,
-                  when(job.pickup_datetime),
-                  (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
-                  <StatusBadge key="status" value={workspaceJobOperationalLabel(job)} />,
-                  completed ? <StatusBadge key="evidence" value={evidenceReady ? 'POD / photos recorded' : 'Evidence attention'} tone={evidenceReady ? 'green' : 'orange'} /> : '—',
-                  <ActionButton key="action" tone={needsAllocation ? 'success' : 'secondary'} onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}>{needsAllocation ? 'Allocate' : completed ? 'POD / booking' : 'Open booking'}</ActionButton>,
-                ];
+                return (
+                  <article key={job.id} className="carrier-cx-booking-card">
+                    <div className="carrier-cx-booking-route">
+                      <div><span>From:</span><strong>{job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}</strong></div>
+                      <div><span>To:</span><strong>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}</strong></div>
+                    </div>
+                    <div className="carrier-cx-booking-schedule">
+                      <div><span>Pickup:</span><strong>{when(job.pickup_datetime)}</strong></div>
+                      <div><span>Deliver:</span><strong>{when(job.delivery_datetime)}</strong></div>
+                    </div>
+                    <div className="carrier-cx-booking-meta">
+                      <div><span>Veh:</span><strong>{(job.vehicle_type ?? 'Not specified').replace(/_/g, ' ')}</strong></div>
+                      <div><span>Load ID:</span><strong>{job.id.slice(0, 8).toUpperCase()}</strong></div>
+                      <StatusBadge value={workspaceJobOperationalLabel(job)} />
+                    </div>
+                    <div className="carrier-cx-booking-actions">
+                      {completed ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>{evidenceReady ? 'POD' : 'Enter POD'}</ActionButton> : null}
+                      {!completed ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Track</ActionButton> : null}
+                      <ActionButton tone={needsAllocation ? 'success' : 'secondary'} onClick={() => router.push(needsAllocation ? `/admin/fleet/assignments?job=${job.id}` : `/admin/jobs/${job.id}`)}>{needsAllocation ? 'Allocate' : 'Open booking'}</ActionButton>
+                    </div>
+                  </article>
+                );
               })}
-              empty={<EmptyState compact title="No recent carrier bookings" description="Awarded carrier work will appear here when available." />}
-            />
-          </OperationalCard>
-
-          <OperationalCard title="Carrier workflow" subtitle="Shortcuts follow the exchange operating sequence without changing lifecycle authority.">
-            <WorkflowLink label="1. Find marketplace work" detail="Search suitable loads and lanes" onClick={() => router.push('/admin/marketplace')} />
-            <WorkflowLink label="2. Price and review marketplace quotes" detail="Manage submitted commercial offers" onClick={() => router.push('/admin/exchange-quotes')} />
-            <WorkflowLink label="3. Allocate awarded work" detail="Select an eligible driver and vehicle" onClick={() => router.push('/admin/fleet/assignments')} />
-            <WorkflowLink label="4. Control live execution" detail="Monitor active jobs and positions" onClick={() => router.push('/admin/fleet/active-jobs')} />
-            <WorkflowLink label="5. Review POD and exceptions" detail="Review delivery evidence and operational exceptions" onClick={() => router.push('/admin/pod')} />
+              {!latestBookings.length ? <EmptyState compact title="No recent carrier bookings" description="Awarded carrier work will appear here when available." /> : null}
+            </div>
           </OperationalCard>
         </div>
       </div>
@@ -349,7 +419,7 @@ export default function CarrierOperationsDashboardHome() {
       >
         <section aria-label="Carrier operational workboard" style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', overflow: 'hidden' }}>
           <div style={{ minHeight: '40px', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, flexWrap: 'wrap' }}>
-            <div><h2 style={{ margin: 0, color: workspaceTheme.navy, fontSize: '13px', lineHeight: '18px', fontWeight: 800 }}>Operational workboard</h2><p style={{ margin: '1px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{activeViewLabel} · carrier-awarded work only</p></div>
+            <div><h2 style={{ margin: 0, color: workspaceTheme.navy, fontSize: '13px', lineHeight: '18px', fontWeight: 800 }}>Operational workboard</h2><p style={{ margin: '1px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{activeViewLabel} Â· carrier-awarded work only</p></div>
             <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 650 }}>{jobFeedLabel}</div>
           </div>
 
@@ -370,7 +440,7 @@ export default function CarrierOperationsDashboardHome() {
                 return [
                   job.id.slice(0, 8).toUpperCase(),
                   <span key="priority" style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 6px', border: `1px solid ${priority.border}`, borderRadius: '4px', background: priority.background, color: priority.color, fontSize: '10px', fontWeight: 800 }}>{priorityLabel(job)}</span>,
-                  <span key="route" style={{ display: 'block', minWidth: '220px' }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{job.client_name ?? 'Customer not specified'}</span></span>,
+                  <span key="route" style={{ display: 'block', minWidth: '220px' }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'} â†’ {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{job.client_name ?? 'Customer not specified'}</span></span>,
                   when(job.pickup_datetime),
                   (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
                   assignedDriver,
@@ -382,7 +452,7 @@ export default function CarrierOperationsDashboardHome() {
             />
           </div>
 
-          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of currently available job data` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register →</button></div>
+          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of currently available job data` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register â†’</button></div>
         </section>
 
       </OperationalPageLayout>
