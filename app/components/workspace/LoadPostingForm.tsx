@@ -12,9 +12,11 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 import { usePrivateNetworkGroups } from './usePrivateNetworkGroups';
 import { WORKSPACE_READINESS_CHANGED, isSafeRecoveryHref } from '../../../lib/workspaceReadiness';
 import { resolveLegalRemediationUrl } from '../../../lib/workspaceRemediation';
+import { COMPANY_CONFIG } from '../../config/company';
 import './load-posting-exchange.css';
 
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
+const PAYMENT_TERMS = COMPANY_CONFIG.payment.terms;
 const CARGO = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
 type CanonicalLoadType = 'on_demand' | 'regular_load' | 'daily_hire';
 const LOAD_TYPES: Array<{ value: CanonicalLoadType; label: string; detail: string }> = [
@@ -217,7 +219,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
   const [directCarrierError, setDirectCarrierError] = useState('');
   const [directTargetMode, setDirectTargetMode] = useState<DirectTargetMode>('marketplace');
   const [visibilityGroupId, setVisibilityGroupId] = useState('');
-  const [externalTarget, setExternalTarget] = useState({ contactName: '', companyName: '', email: '', phone: '', agreedRate: '', paymentTerms: '' });
+  const [externalTarget, setExternalTarget] = useState({ contactName: '', companyName: '', email: '', phone: '', agreedRate: '', paymentTerms: COMPANY_CONFIG.payment.defaultTerm as (typeof PAYMENT_TERMS)[number] });
   const [internalDrivers, setInternalDrivers] = useState<InternalDirectDriver[]>([]);
   const [internalVehicles, setInternalVehicles] = useState<InternalDirectVehicle[]>([]);
   const [internalDriverId, setInternalDriverId] = useState('');
@@ -241,7 +243,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     pickupDate: '', pickupTime: '', pickupAddress: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
     deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
     vehicle: 'LWB Van', cargo: 'Pallets', weight: '', pallets: '', itemCount: '', palletType: '', palletStackable: '', length: '', width: '', height: '', cargoValue: '',
-    customerReference: '', purchaseOrder: '', bookingReference: '', customerPrice: '', targetCarrierCost: '',
+    customerReference: '', purchaseOrder: '', bookingReference: '', customerPrice: '', targetCarrierCost: '', paymentTerms: COMPANY_CONFIG.payment.defaultTerm as (typeof PAYMENT_TERMS)[number],
     tailLift: false, forklift: false, handball: false, deliveryTailLift: false, deliveryForklift: false, deliveryHandball: false,
     adr: false, temperatureControlled: false, fragile: false, pumpTruck: false, twoPersonCrew: false, dedicatedVehicle: false, isFixedPrice: false,
     collectionAccessRestrictions: '', deliveryAccessRestrictions: '', documentChecklist: '',
@@ -593,6 +595,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           bookingReference: form.bookingReference || null,
           customerPrice: numberOrNull(form.customerPrice),
           targetCarrierCost: numberOrNull(form.targetCarrierCost),
+          paymentTerms: form.paymentTerms,
           tailLift: form.tailLift,
           forklift: form.forklift,
           handball: form.handball,
@@ -839,7 +842,9 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                 <input style={fieldStyle} type="number" min="0" value={externalTarget.agreedRate} onChange={(event) => setExternalTarget((current) => ({ ...current, agreedRate: event.target.value }))} />
               </label>
               <label style={labelStyle}>Payment terms
-                <input style={fieldStyle} value={externalTarget.paymentTerms} onChange={(event) => setExternalTarget((current) => ({ ...current, paymentTerms: event.target.value }))} placeholder="e.g. 30 days" />
+                <select style={fieldStyle} value={externalTarget.paymentTerms} onChange={(event) => setExternalTarget((current) => ({ ...current, paymentTerms: event.target.value as (typeof PAYMENT_TERMS)[number] }))}>
+                  {PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}
+                </select>
               </label>
             </div>
           )}
@@ -1125,10 +1130,11 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           <label style={labelStyle}>PO number<input style={fieldStyle} value={form.purchaseOrder} onChange={(event) => set('purchaseOrder', event.target.value)} /></label>
           <label style={labelStyle}>Customer booking reference (optional)<input style={fieldStyle} value={form.bookingReference} onChange={(event) => set('bookingReference', event.target.value)} /></label>
           <label style={labelStyle}>{mode === 'broker' ? 'Customer price (£)' : 'Budget (£)'}<input style={fieldStyle} type="number" min="0" value={form.customerPrice} onChange={(event) => set('customerPrice', event.target.value)} /></label>
+          <label style={labelStyle}>Payment terms<select style={fieldStyle} value={form.paymentTerms} onChange={(event) => set('paymentTerms', event.target.value as (typeof PAYMENT_TERMS)[number])}>{PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}</select></label>
           {mode === 'broker' && <label style={labelStyle}>Target carrier cost (£)<input style={fieldStyle} type="number" min="0" value={form.targetCarrierCost} onChange={(event) => set('targetCarrierCost', event.target.value)} /></label>}
         </div>
         <div style={{ marginTop: '6px', color: '#64748b', fontSize: '10px', lineHeight: '14px', fontWeight: 500 }}>
-          Customer booking reference is optional and remains an external/customer reference. XDrive generates its own load reference automatically.
+          Customer booking reference is optional and remains an external/customer reference. XDrive generates its own load reference automatically. Payment terms are shown on every posted job and are limited to Pay now, 14 days or 30 days; 45, 60 and 90 day terms are not supported.
         </div>
       </Panel>
 
