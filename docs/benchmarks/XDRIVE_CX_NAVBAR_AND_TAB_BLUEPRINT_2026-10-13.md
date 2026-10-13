@@ -551,3 +551,315 @@ For every operational tab:
 **XDrive must not copy the dated visual styling of Courier Exchange. It must copy the operational clarity.**
 
 The target is: **CX information architecture + XDrive visual identity + one shared cross-role system.**
+
+## 14. Burger / Utility Menu — full live radiography
+
+The right-edge Burger is not a simple overflow button. In live CX it is a compact operational/account hub with three first-level information zones and a deeper account/company configuration menu.
+
+### 14.1 Root overlay anatomy
+
+**A. Member Info**
+- Company Details
+- verification state
+- SmartPay/payment-readiness state
+- company legal/display name
+- member ID
+- main contact
+- postal address
+- primary email
+- **Check Renewal Details**
+
+**B. Help**
+- Help Centre
+- Terms & Conditions
+- Latest News
+- Contact Us telephone
+- Submit a support ticket
+
+**C. Signed-in user**
+- signed-in member identity
+- My Profile
+- Feedback
+- Settings
+- Get Started
+- Company Profile
+- Documents
+- Users / Drivers
+- Other
+
+This first-level overlay is intentionally information-rich but non-operational: it gives account health, support access, company identity and administrative navigation without displacing the current transport page.
+
+### 14.2 Deep pages traversed live
+
+The deeper Burger/settings menu was traversed live in Opera. The following pages/functions were observed.
+
+#### Get Started
+Purpose: onboarding/readiness wizard.
+
+Observed information/functions:
+- welcome/onboarding copy
+- subscription readiness guidance
+- staged setup wizard
+- completion state
+- Start
+- Go to this section
+- User Guides
+- rules, regulations and general policies
+- account-management guidance
+
+**XDrive contract:** onboarding belongs in Burger > Help / Get Started. It must show completion/readiness state and deep-link to incomplete setup steps; it must never duplicate core transport navigation.
+
+#### Company Profile
+Observed sections:
+- Trustd-verified data notice
+- Contact Details
+- Main Contact
+- Country / County / Time Zone
+- Address 1 / Address 2
+- Town / City / Post Code
+- Phone / Phone 2
+- Trading Details
+- VAT Number
+- Business Name
+- Trading As
+- Company Registration Number
+- Operator's Licence
+- **Payment Terms**
+- Billing Address
+- same-as-contact-address control
+- Specialist Services
+- capability flags such as 2 Man, 24 Hour, ADR, DGSA, FORS levels, Frozen, GOH, High Security, Installation & Swapout, Aviation, Refrigerated/Chilled, Removals, Waste Carrier, WEEE, AEO
+
+**XDrive contract:** Company Profile is authoritative company identity/compliance metadata. XDrive payment terms remain canonical and limited to Pay now / 14 days / 30 days.
+
+#### Business Documents
+Observed:
+- business-document register
+- Trustd-managed verified credentials
+- document name
+- uploaded date
+- expiry / renewal date
+- verification state
+- download/manage action
+- examples include Goods In Transit Insurance and Vehicle Insurance
+
+**XDrive contract:** documents page must surface verification, expiry and renewal state at a glance. Expired/expiring credentials feed Action Centre.
+
+#### My Profile
+Observed sections:
+- Trustd-managed profile note
+- First Name / Last Name
+- Email
+- Phone 1 / Phone 2
+- Job Title
+- Time Zone
+- email visibility to members
+- username
+- new password / confirmation
+- mandatory 2FA
+- registered 2FA method
+- Change authentication method
+- notification-bar preference
+- auto-matching-map preference
+- en-route alert interval
+- live-driver proximity notification radius for UK/Euro
+- roles
+- user logo/photo
+- upload picture
+- interface language
+- messenger settings
+- despatch group
+
+**XDrive contract:** My Profile remains personal-account scope. Company settings and user-profile settings must not be mixed.
+
+#### Users / Drivers
+Observed:
+- All Users / Drivers
+- Users
+- Company Drivers
+- search
+- Add User / Company Driver
+- pagination
+- Name
+- Role
+- Is Driver?
+- Email
+- Email Verified
+- Job Title
+- Despatch Group
+- Alerts
+- Edit
+- Stream Messenger
+- Driver app
+- Event Log
+- Send Reminder
+- Delete
+
+**XDrive contract:** Team / Users / Drivers page must preserve role-based permissions, driver assignment distinction, verification state, activity/event-log access and invite/reminder state.
+
+#### Company Vehicles
+Observed:
+- vehicle tracking integration prompt
+- search
+- Add Vehicle
+- pagination
+- Name
+- Size / Type
+- Year
+- Max Weight
+- Notify When Tracked
+- Event Log
+- Documents
+- Edit
+- Delete
+
+**XDrive contract:** use a resource table/card hybrid. Vehicle documents and tracking state remain first-class; delete must be protected from removing assets tied to active work.
+
+#### Vehicle Tracking
+Observed providers/options:
+- Teletrac Navman
+- TomTom WEBFLEET
+- Quartix
+- Causeway
+- Masternaut
+- Microlise
+- Fleetboard
+- AMS
+- GPS Buddy
+- Fleetmatics
+- Business Track
+- Europetrack
+- ABAX
+- Mandata
+- C-Track
+- RitAssist
+- Samsara
+- Velocity / Kinesis / Wex
+- RAM
+- TELL EasyTrack
+- Other
+- None
+- Save
+
+**XDrive contract:** integrations live under Burger > Company/Integrations, not primary navigation unless tracking is a daily operational surface.
+
+#### Mobile Accounts
+Observed:
+- Company Drivers
+- driver/user identity
+- Role
+- Email
+- Job Title
+- Department
+- Alerts
+- Mobile Option
+- Active?
+- Save
+
+**XDrive contract:** mobile/driver-app enablement is user administration; the operational Driver workspace remains separate.
+
+#### Departments
+Observed:
+- Departments
+- Add Department
+- empty-state handling
+
+**XDrive contract:** departments are company-structure metadata, primarily useful for permissions, dispatch grouping, notifications and reporting.
+
+#### Notifications
+Observed:
+- Notification Settings
+- Home Location
+- home/office postcode
+- Notification Area
+- Radius / Selected Region
+- Reset Region
+- Notification Radius
+- map-based custom notification area
+- minimum vehicle size for notifications
+
+**XDrive contract:** notification preferences support postcode/radius/region and capability filters. This is distinct from the operational Notification inbox.
+
+#### Blocked Members
+Observed:
+- list of members the company does not wish to work with
+- Block Member
+- reciprocal block visibility: members who do not wish to work with you
+- empty states
+
+**XDrive contract:** blocked-member relationships are company-level commercial controls and must be enforced consistently in Directory, Loads, Quotes and Book Direct eligibility.
+
+#### Groups
+Observed:
+- Groups
+- Add Group
+- empty-state handling
+
+**XDrive contract:** groups support dispatch/organisation/filtering and must not become an alternative permission model unless explicitly defined.
+
+### 14.3 XDrive Burger information architecture
+
+Recommended Burger hierarchy for non-Super-Admin workspaces:
+
+**Account**
+- My Profile
+- Security / 2FA
+- Personal notification preferences
+- Language
+- Sign out
+
+**Company**
+- Company Profile
+- Business Documents
+- Team / Users / Drivers
+- Vehicles
+- Vehicle Tracking / Integrations
+- Departments
+- Groups
+- Blocked Members
+- Billing / finance settings where authorised
+
+**Help & readiness**
+- Get Started
+- Help Centre / Support
+- Terms & Conditions / Legal
+- Feedback
+- Release / latest-news information where useful
+- renewal/subscription readiness when applicable
+
+**Status summary**
+- company/member identity
+- verification/compliance state
+- payment readiness
+- renewal/expiry warnings
+- actionable notification badge
+
+### 14.4 Burger visual contract
+
+- trigger: 29 × 29 px at the absolute right edge of the navbar
+- menu opening must not navigate away from the current operational page
+- desktop root overlay may use 3 columns: Member/Company, Help, Account
+- deep administrative pages may use a persistent compact left utility subnav
+- background page is dimmed only for the root overlay, not for ordinary settings pages
+- section labels: 13–14 px / 600–700
+- item labels: 12–13 px / 500–600
+- row height: 34–40 px
+- divider: 1 px neutral
+- chevron only where a row opens a deeper page
+- notification dots only for real actionable state
+- no transport workflow action (Quote, Award, Allocate, POD) belongs in Burger
+- keyboard and touch behavior must meet the same interaction contract as the main navbar
+
+### 14.5 Cross-role rule
+
+The Burger must be **capability-driven**:
+- Customer sees only customer/account/company/support pages relevant to customer operation.
+- Broker sees broker company/team/finance/support configuration.
+- Carrier/Company Admin sees the broadest company configuration set.
+- Fleet Manager/Dispatcher receive only authorised fleet/operational configuration.
+- Owner Driver receives sole-trader/company profile, documents, vehicle/tracking, notifications, support and account settings.
+- Driver receives personal profile, security, personal notifications, vehicle/document access where permitted, and support.
+- Finance/Compliance receive only the account/company settings required by their duties.
+- Super Admin remains outside this shared Burger contract.
+
+No page is exposed merely because a route exists.
