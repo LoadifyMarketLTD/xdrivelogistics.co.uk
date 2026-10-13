@@ -85,7 +85,32 @@ Top action controls in XDrive Customer measured **33 px high**: Post Load 97×33
 - Notification and account/sign-out remain visually secondary.
 - Header actions must never force the nav strip to wrap.
 
-### 3.3 Responsive behavior
+### 3.3 Right-edge utility / Burger menu
+
+The live CX navbar has one additional control at the extreme right edge: a compact **Burger / utility menu**. It is part of the navbar system and must not be omitted from the XDrive blueprint.
+
+Observed live behavior:
+- compact square control at the far-right of the primary navbar;
+- notification/state indicator can appear on the control;
+- opens a right-side account/utility menu without replacing the current operational page;
+- observed menu entries include: **My Profile, Feedback, Settings, Get Started, Company Profile, Documents, Users / Drivers, Other**;
+- the signed-in member identity is shown at the top of the menu;
+- menu is visually distinct from the operational primary tabs.
+
+XDrive contract:
+- place a Burger / utility control as the final right-edge navbar item where the role has secondary account/company utilities;
+- target visible control box: **29 × 29 px**, aligned to the same 29 px nav-control height;
+- icon: three-line/menu glyph, 16–18 px visual size;
+- use a small notification dot/badge only when there is real unread/actionable state;
+- opening the control displays a right-aligned dropdown/drawer anchored to the navbar edge;
+- utility menu must contain account/company/support/admin surfaces, not core transport workflow tabs;
+- role capability filtering remains mandatory;
+- suggested grouping: Account (Profile, Settings), Company (Company Profile, Team/Users, Documents), Help (Get Started, Support/Feedback), Other role-authorised utilities;
+- keyboard: Enter/Space opens; Escape closes; focus is trapped within the open menu until closed or a destination is chosen;
+- clicking outside closes;
+- mobile/tablet may merge this utility menu with the general navigation drawer, but Account/Company/Help grouping remains intact.
+
+### 3.4 Responsive behavior
 
 - Desktop ≥ 1280: primary nav remains one horizontal row.
 - Tablet 768–1279: preserve role-critical tabs; move low-frequency items into More.
