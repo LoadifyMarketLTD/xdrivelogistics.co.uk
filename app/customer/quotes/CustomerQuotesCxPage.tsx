@@ -13,6 +13,7 @@ import {
   AlertBanner,
   DataTable,
   EmptyState,
+  OperationalCard,
   PageFrame,
   PageHeader,
   StatusBadge,
@@ -367,43 +368,95 @@ export default function CustomerQuotesCxPage() {
       {message && <AlertBanner tone={message.includes('successfully') || message.includes('rejected') || message.includes('sent') ? 'success' : 'danger'}>{message}</AlertBanner>}
       {identityError && <AlertBanner tone="warning">{identityError}</AlertBanner>}
       {bookingOfferError && <AlertBanner tone="warning">{bookingOfferError}</AlertBanner>}
-      <div className="workspace-board-layout">
-        <aside className="workspace-filter-rail" aria-label="Customer quote filters"><div className="workspace-filter-rail__header">Search Quotes</div><div className="workspace-filter-rail__body"><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive or customer reference" /></label><label>CARRIER / MEMBER<input value={carrierSearch} onChange={(event) => setCarrierSearch(event.target.value)} placeholder="Company, owner driver or member ID" /></label><label>STATUS<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}><option value="all">All quote activity</option><option value="submitted">Awaiting decision</option><option value="shortlisted">Shortlisted</option><option value="pending_acceptance">Awaiting carrier acceptance</option><option value="accepted">Accepted</option><option value="unsuccessful">Unsuccessful</option><option value="archived">Archived</option></select></label><ActionButton tone="secondary" onClick={() => { setReference(''); setCarrierSearch(''); setStatusFilter('all'); }}>Clear</ActionButton></div></aside>
-        <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>{(['all', 'submitted', 'shortlisted', 'pending_acceptance', 'accepted', 'unsuccessful', 'archived'] as const).map((status) => <button key={status} type="button" data-active={statusFilter === status ? 'true' : 'false'} onClick={() => setStatusFilter(status)}>{status === 'all' ? 'All' : status === 'submitted' ? 'Awaiting Decision' : status === 'pending_acceptance' ? 'Awaiting Carrier' : status === 'shortlisted' ? 'Shortlisted' : status === 'unsuccessful' ? 'Unsuccessful' : status[0].toUpperCase() + status.slice(1)} {counts[status]}</button>)}</div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{grouped.length}</strong> load{grouped.length === 1 ? '' : 's'} with matching quotes</span><span>Lowest visible price shown first per load · one booking offer may await carrier acceptance at a time</span></div>
-          {grouped.length === 0 ? <div className="workspace-panel"><EmptyState title={data.loading ? 'Loading quotes…' : 'No quotes in this view'} description="Carrier responses appear here after a load is published." /></div> : grouped.map(({ job, quotes }) => <section key={job.id} className="workspace-panel" style={{ marginBottom: 8 }}><div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{routeLabel(job)}</strong> · Pickup {when(job.pickup_datetime)} · XDrive XDL-{job.id.slice(0, 8).toUpperCase()}</span><ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open load</ActionButton></div><DataTable columns={['Carrier', 'Price', 'Position', 'Message', 'Submitted', 'Status', 'Decision']} rows={quotes.map((bid, index) => {
-            const identity = identities.get(bid.id);
-            const isOwnerDriverBid = !bid.company_id && Boolean(identity?.driverId);
-            const displayName = isOwnerDriverBid ? (identity?.personName || identity?.displayName || 'Owner Driver') : (identity?.companyName || bid.companies?.name || identity?.displayName || 'Carrier');
-            const participant: QuoteParticipant = { bid, job, identity, displayName, isOwnerDriverBid };
-            const quoteStage = canonicalQuoteStage(bid, 'poster');
-            const pendingOffer = pendingOfferByJob.get(job.id);
-            const isPendingSelectedBid = pendingOffer?.bid_id === bid.id;
-            const awardLocked = Boolean(pendingOffer);
-            const messagingAvailable = bid.status === 'submitted' || bid.status === 'accepted' || isPendingSelectedBid;
-            return [
-              <span key="carrier" style={{ display: 'grid', gap: 2 }}><strong><MemberIdentityLink companyId={isOwnerDriverBid ? null : (bid.company_id ?? identity?.companyId ?? null)} driverId={isOwnerDriverBid ? identity?.driverId ?? null : null}>{displayName}</MemberIdentityLink></strong><small style={{ color: '#64748b' }}>{identity?.memberId ? `ID ${identity.memberId} · ` : ''}{identity?.quoteLevel === 'driver' ? `Driver ${identity.driverAvailability?.replaceAll('_', ' ') || 'availability not supplied'}` : `${identity?.fleetVehicleTypes.length ?? 0} fleet type${identity?.fleetVehicleTypes.length === 1 ? '' : 's'}`}</small></span>,
-              <strong key="price">{money(Number(bid.bid_price_gbp ?? bid.amount ?? 0), bid.currency ?? 'GBP')}</strong>,
-              index === 0 ? <StatusBadge key="position" value="Best price" tone="green" /> : `#${index + 1}`,
-              bid.message ?? 'No message',
-              when(bid.created_at),
-              isPendingSelectedBid ? <StatusBadge key="status" value="Awaiting Carrier Acceptance" tone="orange" /> : <StatusBadge key="status" value={quoteStageLabel(quoteStage)} />,
-              <span key="actions" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                {bid.status === 'submitted' && !awardLocked ? <ActionButton tone="success" disabled={working === bid.id} onClick={() => setCandidate(participant)}>Review & Send Offer</ActionButton> : null}
-                {isPendingSelectedBid ? <StatusBadge value="Offer sent · awaiting carrier" tone="orange" /> : null}
-                {messagingAvailable ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => { setMessageCandidate(participant); setMessageBody(''); setMessageError(''); }}>Message</ActionButton> : null}
-                {quoteStage === 'shortlisted' && !awardLocked ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unshortlist')}>Remove shortlist</ActionButton> : null}
-                {['submitted', 'viewed'].includes(quoteStage) && !awardLocked ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'shortlist')}>Shortlist</ActionButton> : null}
-                {bid.status === 'submitted' && !awardLocked ? <ActionButton tone="danger" disabled={working === bid.id} onClick={() => void reject(bid.id)}>Reject</ActionButton> : null}
-                {quoteStage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(quoteStage) ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'archive_poster')}>Archive</ActionButton> : null}
-                {quoteStage === 'archived' ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unarchive_poster')}>Restore</ActionButton> : null}
-              </span>,
-            ];
-          })} /></section>)}
-        </main>
+      <OperationalCard
+        title="Quote filters"
+        subtitle="Search and filter carrier responses without shrinking the quote board into a narrow side column."
+        actions={<ActionButton tone="secondary" onClick={() => { setReference(''); setCarrierSearch(''); setStatusFilter('all'); }}>Clear filters</ActionButton>}
+      >
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, alignItems: 'end' }}>
+          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+            LOAD ID / REF
+            <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive or customer reference" style={{ height: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 9px', fontSize: 12 }} />
+          </label>
+          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+            CARRIER / MEMBER
+            <input value={carrierSearch} onChange={(event) => setCarrierSearch(event.target.value)} placeholder="Company, owner driver or member ID" style={{ height: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 9px', fontSize: 12 }} />
+          </label>
+          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+            STATUS
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} style={{ height: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 9px', fontSize: 12, background: '#fff' }}>
+              <option value="all">All quote activity</option>
+              <option value="submitted">Awaiting decision</option>
+              <option value="shortlisted">Shortlisted</option>
+              <option value="pending_acceptance">Awaiting carrier acceptance</option>
+              <option value="accepted">Accepted</option>
+              <option value="unsuccessful">Unsuccessful</option>
+              <option value="archived">Archived</option>
+            </select>
+          </label>
+        </div>
+      </OperationalCard>
+
+      <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginTop: 8, marginBottom: 6 }}>
+        {(['all', 'submitted', 'shortlisted', 'pending_acceptance', 'accepted', 'unsuccessful', 'archived'] as const).map((status) => (
+          <button key={status} type="button" data-active={statusFilter === status ? 'true' : 'false'} onClick={() => setStatusFilter(status)}>
+            {status === 'all' ? 'All' : status === 'submitted' ? 'Awaiting Decision' : status === 'pending_acceptance' ? 'Awaiting Carrier' : status === 'shortlisted' ? 'Shortlisted' : status === 'unsuccessful' ? 'Unsuccessful' : status[0].toUpperCase() + status.slice(1)} {counts[status]}
+          </button>
+        ))}
       </div>
 
+      <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
+        <span><strong>{grouped.length}</strong> load{grouped.length === 1 ? '' : 's'} with matching quotes</span>
+        <span>Lowest visible price shown first per load - one booking offer may await carrier acceptance at a time</span>
+      </div>
+
+      {grouped.length === 0 ? (
+        <OperationalCard>
+          <EmptyState title={data.loading ? 'Loading quotes...' : 'No quotes in this view'} description="Carrier responses appear here after a load is published." />
+        </OperationalCard>
+      ) : (
+        <div style={{ display: 'grid', gap: 8 }}>
+          {grouped.map(({ job, quotes }) => (
+            <OperationalCard
+              key={job.id}
+              title={routeLabel(job)}
+              subtitle={`Pickup ${when(job.pickup_datetime)} - XDrive XDL-${job.id.slice(0, 8).toUpperCase()}`}
+              actions={<ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open load</ActionButton>}
+              flush
+            >
+              <DataTable columns={['Carrier', 'Price', 'Position', 'Message', 'Submitted', 'Status', 'Decision']} rows={quotes.map((bid, index) => {
+                const identity = identities.get(bid.id);
+                const isOwnerDriverBid = !bid.company_id && Boolean(identity?.driverId);
+                const displayName = isOwnerDriverBid ? (identity?.personName || identity?.displayName || 'Owner Driver') : (identity?.companyName || bid.companies?.name || identity?.displayName || 'Carrier');
+                const participant: QuoteParticipant = { bid, job, identity, displayName, isOwnerDriverBid };
+                const quoteStage = canonicalQuoteStage(bid, 'poster');
+                const pendingOffer = pendingOfferByJob.get(job.id);
+                const isPendingSelectedBid = pendingOffer?.bid_id === bid.id;
+                const awardLocked = Boolean(pendingOffer);
+                const messagingAvailable = bid.status === 'submitted' || bid.status === 'accepted' || isPendingSelectedBid;
+                return [
+                  <span key="carrier" style={{ display: 'grid', gap: 2 }}><strong><MemberIdentityLink companyId={isOwnerDriverBid ? null : (bid.company_id ?? identity?.companyId ?? null)} driverId={isOwnerDriverBid ? identity?.driverId ?? null : null}>{displayName}</MemberIdentityLink></strong><small style={{ color: '#64748b' }}>{identity?.memberId ? `ID ${identity.memberId} - ` : ''}{identity?.quoteLevel === 'driver' ? `Driver ${identity.driverAvailability?.replaceAll('_', ' ') || 'availability not supplied'}` : `${identity?.fleetVehicleTypes.length ?? 0} fleet type${identity?.fleetVehicleTypes.length === 1 ? '' : 's'}`}</small></span>,
+                  <strong key="price">{money(Number(bid.bid_price_gbp ?? bid.amount ?? 0), bid.currency ?? 'GBP')}</strong>,
+                  index === 0 ? <StatusBadge key="position" value="Best price" tone="green" /> : `#${index + 1}`,
+                  bid.message ?? 'No message',
+                  when(bid.created_at),
+                  isPendingSelectedBid ? <StatusBadge key="status" value="Awaiting Carrier Acceptance" tone="orange" /> : <StatusBadge key="status" value={quoteStageLabel(quoteStage)} />,
+                  <span key="actions" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                    {bid.status === 'submitted' && !awardLocked ? <ActionButton tone="success" disabled={working === bid.id} onClick={() => setCandidate(participant)}>Review & Send Offer</ActionButton> : null}
+                    {isPendingSelectedBid ? <StatusBadge value="Offer sent - awaiting carrier" tone="orange" /> : null}
+                    {messagingAvailable ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => { setMessageCandidate(participant); setMessageBody(''); setMessageError(''); }}>Message</ActionButton> : null}
+                    {quoteStage === 'shortlisted' && !awardLocked ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unshortlist')}>Remove shortlist</ActionButton> : null}
+                    {['submitted', 'viewed'].includes(quoteStage) && !awardLocked ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'shortlist')}>Shortlist</ActionButton> : null}
+                    {bid.status === 'submitted' && !awardLocked ? <ActionButton tone="danger" disabled={working === bid.id} onClick={() => void reject(bid.id)}>Reject</ActionButton> : null}
+                    {quoteStage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(quoteStage) ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'archive_poster')}>Archive</ActionButton> : null}
+                    {quoteStage === 'archived' ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unarchive_poster')}>Restore</ActionButton> : null}
+                  </span>,
+                ];
+              })} />
+            </OperationalCard>
+          ))}
+        </div>
+      )}
       {candidate ? <AwardConfirmation candidate={candidate} working={working === candidate.bid.id} onCancel={() => setCandidate(null)} onConfirm={() => void award(candidate.bid.id)} /> : null}
       {messageCandidate ? <MessageParticipantDialog candidate={messageCandidate} body={messageBody} working={messageWorking} error={messageError} onBodyChange={setMessageBody} onCancel={() => { setMessageCandidate(null); setMessageBody(''); setMessageError(''); }} onSend={() => void sendBidMessage()} /> : null}
     </PageFrame>
