@@ -863,3 +863,138 @@ The Burger must be **capability-driven**:
 - Super Admin remains outside this shared Burger contract.
 
 No page is exposed merely because a route exists.
+
+## 15. Second-pass verification status — 13 Oct 2026, 20:09 BST
+
+This section corrects any earlier impression that the CX benchmark had already been exhaustively traversed.
+
+**The benchmark is not yet eligible to be called fully exhaustive.** The top-level navbar, its geometry, major page structures and the Burger/settings area have been verified live. However, every nested option/page/action inside every primary tab has not yet been individually traversed and dimensioned.
+
+### Verified live in the second pass
+
+- Primary navbar: all 10 CX top-level tabs present; visible nav controls are 29 px high.
+- Top CTAs: Post Load / Book Direct measured.
+- Burger root overlay and its Member Info / Help / signed-in-user sections.
+- Burger deep settings pages: Get Started, Company Profile, Business Docs, My Profile, Users / Drivers, Company Vehicles, Vehicle Tracking, Mobile Accounts, Departments, Notifications, Blocked Members, Groups.
+- Primary page control inventories were re-read for:
+  - Directory
+  - Live Availability
+  - Return Journeys
+  - Loads
+  - Quotes
+  - Diary
+  - Freight Vision
+  - Drivers & Vehicles
+
+### Nested surfaces still requiring individual live traversal before FINAL PASS
+
+**Dashboard**
+- each report/statistics tile interaction
+- Accounts Payable detail destinations
+- View All / POD / Track booking actions
+- feedback/payment/delivery performance drill-downs
+
+**Directory**
+- Search results for Companies vs Drivers
+- Find My Nearest
+- specialist-service combinations
+- sort modes
+- exact vs minimum vehicle-size behavior
+- member-profile drill-down
+
+**Live Availability**
+- Live vs Future
+- All / Drivers & Sub-contractors / Other Drivers
+- map modes / clustering
+- Add Future Position
+- vehicle registration path
+- availability-state interactions
+
+**My Fleet**
+- Groups
+- Add/Edit Groups
+- vehicle/driver detail
+- availability and future-position actions
+- map/list behavior where exposed
+
+**Return Journeys**
+- Add Journey form
+- Our Journeys
+- All / Ad Hoc / Regular
+- Map View / List View
+- advanced search
+- Track
+- View Feedback
+- Book Direct
+- pagination and collapse/expand states
+
+**Loads**
+- All Live
+- On Demand
+- Regular Load
+- Daily Hire
+- List View
+- Interactive Freight Radar Map
+- beta radar map
+- advanced filters
+- Quote Now / Backload Rate Offered
+- View Details
+- pagination
+- expand/collapse
+
+**Quotes**
+- Received
+- Archived
+- Submitted
+- Unsuccessful
+- Search and filter combinations
+- each quote card anatomy
+- Cancel Quote
+- View Details
+- SOLD / withdrawn / unsuccessful states
+- expanded/collapsed states
+
+**Diary**
+- Contacts
+- Payment Report
+- Jobs Sub-contracted
+- Our Bookings
+- List View / Split View
+- All / Unallocated / Allocated / In Progress / Completed / Cancelled / Expired / Awaiting Feedback / Recent Feedback
+- View Archived Bookings
+- each booking card expand/collapse and action set
+
+**Freight Vision**
+- List View / Split View
+- All In Progress / Live Tracked
+- status KPIs and drill-down behavior
+- open in new window
+- stale/not-started/live-tracked cases
+
+**Drivers & Vehicles**
+- Users / Drivers
+- Company Vehicles
+- Vehicle Tracking
+- Add Vehicle
+- Event Log
+- Documents
+- Edit
+- Delete safeguards
+- pagination/search
+
+### Rule
+
+No tab, sub-tab, card, action, filter, modal, drawer, form, empty state or responsive state can be marked FINAL until it has a live evidence row containing:
+- tab/page
+- control or function
+- measured dimensions where relevant
+- expected behavior
+- observed behavior
+- card anatomy
+- spacing/density notes
+- UI/UX assessment
+- keyboard/touch behavior
+- responsive behavior
+- status: PASS / FAIL / BLOCKED / NOT TESTED
+
+This second-pass section remains in the blueprint until all nested surfaces above are converted from NOT TESTED to PASS/FAIL/BLOCKED with live evidence.
