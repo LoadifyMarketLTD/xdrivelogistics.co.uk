@@ -275,7 +275,7 @@ export default function CompanyMarketplaceExchange({
 
       {tab === 'loads' && <>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
-          <aside className="carrier-exchange-rail">
+          <aside className="carrier-exchange-rail" style={{ flex: '0 0 var(--ws-filter-rail-w, 164px)', width: 'var(--ws-filter-rail-w, 164px)', minWidth: 0, alignSelf: 'flex-start' }}>
             <Panel title="Search Loads" description="UK postcode/outcode radius search.">
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0 8px', fontSize: 11, color: '#475569' }}><strong>LOAD FILTERS</strong><span>Live exchange</span></div>
               <div style={{ display: 'grid', gap: 8 }}>
