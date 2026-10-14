@@ -1151,13 +1151,6 @@ export default function TopWorkspaceShell({
               </div>
             );
           })}
-          {carrierPageContext ? (
-            <div className="top-workspace-nav__context" aria-label="Current workspace page">
-              <span className="top-workspace-nav__context-eyebrow">{carrierPageContext.eyebrow}</span>
-              <strong>{carrierPageContext.title}</strong>
-              <span className="top-workspace-nav__context-description">{carrierPageContext.description}</span>
-            </div>
-          ) : null}
         </div>
       </nav>
 
