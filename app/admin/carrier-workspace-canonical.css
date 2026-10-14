@@ -1502,7 +1502,7 @@
 /* Carrier/Fleet Dashboard — live CX 1:1 structural pass. */
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
   width: min(100%, 1290px);
-  margin: 0 auto 8px !important;
+  margin: 0 0 8px !important;
   grid-template-columns: minmax(0, .72fr) minmax(0, 1fr) !important;
   gap: 8px !important;
 }
@@ -1917,7 +1917,7 @@
    Vertical blocks: header 49px; stats 253px; AP/Reports 253px;
    feedback 279px; activity 554px; compliance 278px. */
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
-  width: min(100%, 1501px) !important;
+  width: 100% !important;
   grid-template-columns: minmax(0, 620fr) minmax(0, 864fr) !important;
   gap: 17px !important;
   align-items: start !important;
