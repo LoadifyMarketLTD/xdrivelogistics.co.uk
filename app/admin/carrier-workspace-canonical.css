@@ -1870,22 +1870,6 @@
 .xdrive-carrier-workspace .carrier-cx-compliance-dot--amber { background: #f0a12a; }
 .xdrive-carrier-workspace .carrier-cx-compliance-dot--red { background: #d94c4c; }
 
-.xdrive-carrier-workspace .carrier-cx-dashboard-links {
-  min-height: 30px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.xdrive-carrier-workspace .carrier-cx-dashboard-links button {
-  border: 0;
-  background: transparent;
-  color: var(--ws-blue);
-  font-size: 9px;
-  font-weight: 650;
-  cursor: pointer;
-}
 
 @media (max-width: 1180px) {
   .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
