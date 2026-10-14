@@ -1936,13 +1936,13 @@
    feedback 279px; activity 554px; compliance 278px. */
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
   width: 100% !important;
-  grid-template-columns: minmax(0, 620fr) minmax(0, 864fr) !important;
-  gap: 17px !important;
+  grid-template-columns: minmax(360px, var(--ws-dashboard-left-col)) minmax(0, var(--ws-dashboard-right-col)) !important;
+  gap: var(--ws-gap-grid) !important;
   align-items: start !important;
 }
 
 .xdrive-carrier-workspace .carrier-cx-dashboard-column {
-  gap: 0 !important;
+  gap: var(--ws-gap-grid) !important;
 }
 
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid .xdrive-operational-card__header {

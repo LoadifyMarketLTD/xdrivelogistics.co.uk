@@ -471,8 +471,8 @@ export default function CarrierOperationsDashboardHome() {
     <div className="xdrive-admin-dashboard-home">
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
 
-      <div className="carrier-cx-dashboard-grid">
-        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--left">
+      <div className="carrier-cx-dashboard-grid xdrive-owner-dashboard-grid">
+        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column">
           <OperationalCard
             title="Reports & Statistics"
             className="carrier-cx-reporting-card"
@@ -661,7 +661,7 @@ export default function CarrierOperationsDashboardHome() {
           </OperationalCard>
         </div>
 
-        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--right">
+        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--right xdrive-owner-dashboard-column">
           <OperationalCard
             title="Activity 'at a glance'"
             className="carrier-cx-activity-card"
