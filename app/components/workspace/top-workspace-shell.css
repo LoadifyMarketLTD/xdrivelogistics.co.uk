@@ -231,11 +231,11 @@
 /* Unified CX-inspired primary navigation row used across operational workspaces. */
 .xdrive-operational-top-workspace .top-workspace-nav--primary {
   position: sticky !important;
-  top: 50px !important;
+  top: var(--ws-header-h, 50px) !important;
   z-index: 79 !important;
   min-width: 0 !important;
-  height: 42px !important;
-  min-height: 42px !important;
+  height: var(--ws-nav-h, 42px) !important;
+  min-height: var(--ws-nav-h, 42px) !important;
   border: 0 !important;
   border-bottom: 1px solid #d8dee8 !important;
   background: #fff !important;
@@ -246,8 +246,8 @@
 .xdrive-operational-top-workspace .top-workspace-nav--primary .top-workspace-nav__track {
   width: 100%;
   min-width: 0;
-  height: 42px !important;
-  min-height: 42px !important;
+  height: var(--ws-nav-h, 42px) !important;
+  min-height: var(--ws-nav-h, 42px) !important;
   display: flex !important;
   align-items: stretch !important;
   justify-content: center !important;
