@@ -46,7 +46,9 @@ function complianceForDocuments(
 
 export async function GET(request: NextRequest) {
   const companyId = new URL(request.url).searchParams.get('companyId')?.trim() ?? '';
-  const auth = await requireCompanyCapability(request, companyId, 'company.manage');
+  const auth = await requireCompanyCapability(request, companyId, {
+    anyOf: ['company.manage', 'documents.company.manage', 'fleet.positions.view'],
+  });
   if (!isCompanyCapabilityContext(auth)) return auth;
 
   const { data: rows, error } = await supabaseAdmin!
