@@ -82,7 +82,7 @@ export default function LiveAvailabilityPage() {
   const intelligence = useOperationsIntelligence(data.companyId);
   const privateGroups = usePrivateNetworkGroups(data.companyId);
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>('live');
+  const [tab, setTab] = useState<Tab>('nearby');
   const [search, setSearch] = useState('');
   const [availability, setAvailability] = useState('all');
   const [freshness, setFreshness] = useState<FreshnessFilter>('all');
@@ -350,9 +350,9 @@ export default function LiveAvailabilityPage() {
       {filterNotice && <AlertBanner tone="info">{filterNotice}</AlertBanner>}
 
       <div className="workspace-tab-strip" style={{ display: 'flex', marginBottom: 8, overflowX: 'auto' }} role="tablist" aria-label="Availability views">
-        <button type="button" role="tab" aria-selected={tab === 'live'} data-active={tab === 'live' ? 'true' : 'false'} onClick={() => setTab('live')}>Live Fleet</button>
+        <button type="button" role="tab" aria-selected={tab === 'live'} data-active={tab === 'live' ? 'true' : 'false'} onClick={() => setTab('live')}>My Fleet</button>
         <button type="button" role="tab" aria-selected={tab === 'future'} data-active={tab === 'future' ? 'true' : 'false'} onClick={() => setTab('future')}>Future</button>
-        <button type="button" role="tab" aria-selected={tab === 'nearby'} data-active={tab === 'nearby' ? 'true' : 'false'} onClick={() => setTab('nearby')}>Nearby Exchange <span style={{ marginLeft: 4 }}>{nearbyLoading ? '…' : filteredNearby.length}</span></button>
+        <button type="button" role="tab" aria-selected={tab === 'nearby'} data-active={tab === 'nearby' ? 'true' : 'false'} onClick={() => setTab('nearby')}>Live Exchange <span style={{ marginLeft: 4 }}>{nearbyLoading ? '…' : filteredNearby.length}</span></button>
       </div>
 
       <OperationalSignalStrip items={signals} ariaLabel="Live availability operational signals" />
