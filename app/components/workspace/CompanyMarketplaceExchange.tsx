@@ -329,21 +329,12 @@ export default function CompanyMarketplaceExchange({
                       <div style={{ color: '#64748b', fontSize: 11, lineHeight: '14px', marginTop: 3 }}>{load.payment_terms ? `Payment terms: ${load.payment_terms}` : 'Payment terms not supplied'}{load.hard_copy_pod ? ` · Hard-copy POD: ${load.hard_copy_pod}` : ''}</div>
                     </section>
                   </div>
-                  {(load.special_requirements || load.access_restrictions) && <div style={{ borderTop: '1px solid #dbe2ea', padding: '4px 9px', fontSize: 11, lineHeight: '15px', color: '#475569' }}><span style={{ color: '#1d57d8' }}>Load Notes: </span>{load.special_requirements || load.access_restrictions}</div>}
-                  {isExpanded && <div style={{ borderTop: '1px solid #dbe2ea', background: '#f8fafc', padding: '8px 10px' }}>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, fontSize: 11 }}>
-                      <div><strong>Pickup</strong><div>{load.pickup_location || load.pickup_postcode || '—'}</div><div style={{ color: '#64748b' }}>{load.distanceFromSearchOriginMiles != null ? load.distanceFromSearchOriginMiles.toFixed(1) + ' mi from FROM search' : 'Radius distance unavailable'}</div></div>
-                      <div><strong>Delivery</strong><div>{load.delivery_location || load.delivery_postcode || '—'}</div><div style={{ color: '#64748b' }}>{load.distanceToSearchDestinationMiles != null ? load.distanceToSearchDestinationMiles.toFixed(1) + ' mi from TO search' : 'Radius distance unavailable'}</div></div>
-                      <div><strong>References</strong><div>Customer: {load.customer_reference || '—'}</div><div>Booking: {load.booking_reference || '—'}</div></div>
-                      <div><strong>Requirements</strong><div>{load.special_requirements || 'None stated'}</div><div style={{ color: '#64748b' }}>{load.access_restrictions || 'No access restrictions stated'}</div></div>
-                    </div>
-                    <div style={{ marginTop: 7, paddingTop: 7, borderTop: '1px solid #e2e8f0', fontSize: 11 }}><strong>Load Notes: </strong>{load.special_requirements || load.access_restrictions || 'No operational notes supplied.'}</div>
-                  </div>}
+                  {isExpanded && <div style={{ borderTop: '1px solid #dbe2ea', padding: '4px 9px', fontSize: 11, lineHeight: '15px', color: '#475569' }}><span style={{ color: '#1d57d8' }}>Load Notes: </span>{load.special_requirements || load.access_restrictions || 'Not supplied'}</div>}
                   <div style={{ minHeight: 26, display: 'flex', gap: 4, alignItems: 'center', padding: '2px 8px', borderTop: '1px solid #edf2f7', background: '#fbfdff' }}>
                     <button type="button" onClick={() => setExpanded((current) => { const next = new Set(current); if (next.has(load.id)) next.delete(load.id); else next.add(load.id); return next; })} aria-label={isExpanded ? 'Collapse load' : 'Expand load'} style={{ width: 28, height: 26, border: '1px solid #cbd5e1', borderRadius: 3, background: '#fff', cursor: 'pointer', fontWeight: 900 }}>{isExpanded ? '▴' : '▾'}</button>
-                    <ActionButton tone="secondary" onClick={() => window.open('https://www.google.com/maps/dir/?api=1&origin=' + encodeURIComponent(load.pickup_postcode || load.pickup_location || '') + '&destination=' + encodeURIComponent(load.delivery_postcode || load.delivery_location || ''), '_blank', 'noopener,noreferrer')}>Open Route</ActionButton>
-                    <span style={{ marginLeft: 'auto' }} />
                     {!load.myBid || ['withdrawn', 'rejected', 'unsuccessful'].includes(load.myBid.status) ? <ActionButton tone="success" onClick={() => openQuote(load)}>Quote Now</ActionButton> : null}
+                    <span style={{ marginLeft: 'auto' }} />
+                    <button type="button" onClick={() => setExpanded((current) => { const next = new Set(current); next.add(load.id); return next; })} style={{ border: 0, background: 'transparent', color: '#1d57d8', fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}>View Details</button>
                   </div>
                 </article>;
               })}
