@@ -476,7 +476,9 @@ export default function CarrierOperationsDashboardHome() {
           <OperationalCard
             title="Reports & Statistics"
             className="carrier-cx-reporting-card"
-            actions={(
+            flush
+          >
+            <div className="carrier-cx-reporting-body">
               <div className="carrier-cx-report-controls">
                 <input
                   aria-label="Report from date"
@@ -505,10 +507,7 @@ export default function CarrierOperationsDashboardHome() {
                   <option value="90">Last 90 days</option>
                 </select>
               </div>
-            )}
-            flush
-          >
-            <div className="carrier-cx-stat-grid">
+              <div className="carrier-cx-stat-grid">
               <button
                 type="button"
                 className="carrier-cx-stat-card"
@@ -539,6 +538,7 @@ export default function CarrierOperationsDashboardHome() {
                 </small>
                 <em>How is this calculated?</em>
               </button>
+              </div>
             </div>
           </OperationalCard>
 

@@ -1927,3 +1927,185 @@
       "actions" !important;
   }
 }
+
+/* Live measured CX Dashboard geometry — 1920px viewport, 14 Oct 2026.
+   Content: 1501px; left 620px; inter-column 17px; right 864px.
+   Vertical blocks: header 49px; stats 253px; AP/Reports 253px;
+   feedback 279px; activity 554px; compliance 278px. */
+.xdrive-carrier-workspace .carrier-cx-dashboard-grid {
+  width: min(100%, 1501px) !important;
+  grid-template-columns: minmax(0, 620fr) minmax(0, 864fr) !important;
+  gap: 17px !important;
+  align-items: start !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-column {
+  gap: 0 !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-grid .xdrive-operational-card__header {
+  min-height: 49px !important;
+  height: 49px !important;
+  padding: 0 10px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-card {
+  min-height: 302px !important;
+  height: 302px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-card .xdrive-operational-card__body--flush {
+  height: 253px;
+  min-height: 253px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-body {
+  position: relative;
+  height: 253px;
+  min-height: 253px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-report-controls {
+  position: absolute;
+  z-index: 2;
+  top: 8px;
+  right: 10px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-stat-grid {
+  height: 253px !important;
+  min-height: 253px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-stat-card {
+  height: 253px !important;
+  min-height: 253px !important;
+  padding-top: 52px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-subgrid {
+  gap: 12px !important;
+  height: 253px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-subgrid > .xdrive-operational-card {
+  height: 253px;
+  min-height: 253px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-subgrid > .xdrive-operational-card .xdrive-operational-card__body--flush {
+  height: 204px;
+  min-height: 204px;
+  padding: 9px 10px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-subgrid .carrier-cx-list-button {
+  height: 36px;
+  min-height: 36px;
+  margin-bottom: 14px;
+  padding: 0 8px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-subgrid .carrier-cx-list-button:last-child {
+  margin-bottom: 0;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-card {
+  height: 279px;
+  min-height: 279px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-card .xdrive-operational-card__body--flush {
+  height: 230px;
+  min-height: 230px;
+  padding: 8px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-card .carrier-cx-feedback-grid {
+  height: 214px;
+  min-height: 214px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-card .carrier-cx-feedback-panel {
+  min-height: 214px;
+  height: 214px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-activity-card {
+  height: 554px;
+  min-height: 554px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-activity-card .xdrive-operational-card__body--flush {
+  height: 505px;
+  min-height: 505px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-activity-card .carrier-cx-booking-list {
+  min-height: 402px !important;
+  max-height: 402px;
+  overflow: auto;
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-card {
+  height: 278px;
+  min-height: 278px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-card .xdrive-operational-card__body--flush {
+  height: 229px;
+  min-height: 229px;
+  padding: 12px 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-card .carrier-cx-compliance-body {
+  height: 205px;
+  min-height: 205px;
+}
+
+@media (max-width: 1180px) {
+  .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 8px !important;
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-dashboard-column {
+    gap: 8px !important;
+  }
+
+  .xdrive-carrier-workspace :is(
+    .carrier-cx-reporting-card,
+    .carrier-cx-feedback-card,
+    .carrier-cx-activity-card,
+    .carrier-cx-compliance-card
+  ) {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-dashboard-subgrid {
+    height: auto;
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-dashboard-subgrid > .xdrive-operational-card,
+  .xdrive-carrier-workspace .carrier-cx-dashboard-subgrid > .xdrive-operational-card .xdrive-operational-card__body--flush,
+  .xdrive-carrier-workspace .carrier-cx-reporting-card .xdrive-operational-card__body--flush,
+  .xdrive-carrier-workspace .carrier-cx-reporting-body,
+  .xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-stat-grid,
+  .xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-stat-card,
+  .xdrive-carrier-workspace .carrier-cx-feedback-card .xdrive-operational-card__body--flush,
+  .xdrive-carrier-workspace .carrier-cx-feedback-card .carrier-cx-feedback-grid,
+  .xdrive-carrier-workspace .carrier-cx-feedback-card .carrier-cx-feedback-panel,
+  .xdrive-carrier-workspace .carrier-cx-activity-card .xdrive-operational-card__body--flush,
+  .xdrive-carrier-workspace .carrier-cx-compliance-card .xdrive-operational-card__body--flush,
+  .xdrive-carrier-workspace .carrier-cx-compliance-card .carrier-cx-compliance-body {
+    height: auto !important;
+    min-height: 0 !important;
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-activity-card .carrier-cx-booking-list {
+    max-height: none;
+  }
+}
