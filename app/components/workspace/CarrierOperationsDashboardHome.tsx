@@ -846,21 +846,6 @@ export default function CarrierOperationsDashboardHome() {
               </div>
             </div>
           </OperationalCard>
-
-          <div className="carrier-cx-dashboard-links" aria-label="Carrier dashboard shortcuts">
-            <button type="button" onClick={() => router.push('/admin/marketplace')}>
-              Loads marketplace
-            </button>
-            <button type="button" onClick={() => router.push('/admin/live-availability')}>
-              Live availability
-            </button>
-            <button type="button" onClick={() => router.push('/admin/fleet/compliance')}>
-              Fleet compliance
-            </button>
-            <button type="button" onClick={() => router.push('/admin/invoices')}>
-              Invoices
-            </button>
-          </div>
         </div>
       </div>
     </div>
