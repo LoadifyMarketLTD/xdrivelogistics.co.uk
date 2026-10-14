@@ -2093,3 +2093,26 @@
     max-height: none;
   }
 }
+
+/* Keep the three report date controls in the single CX toolbar row. */
+.xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-report-controls {
+  display: flex !important;
+  flex-flow: row nowrap !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  width: calc(100% - 20px) !important;
+  max-width: calc(100% - 20px) !important;
+}
+.xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-report-controls input[type=date] {
+  flex: 0 1 118px !important;
+  width: 118px !important;
+  min-width: 0 !important;
+}
+.xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-report-controls button {
+  flex: 0 0 62px !important;
+}
+.xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-report-controls select {
+  flex: 0 1 142px !important;
+  width: 142px !important;
+  min-width: 0 !important;
+}
