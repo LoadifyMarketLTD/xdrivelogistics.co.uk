@@ -1517,12 +1517,12 @@
   }
 }
 
-/* Carrier/Fleet Dashboard — live CX 1:1 structural pass. */
+/* Carrier dashboard uses the same canonical tracks and spacing as other operational roles. */
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
   width: 100%;
-  margin: 0 0 8px !important;
-  grid-template-columns: minmax(0, .72fr) minmax(0, 1fr) !important;
-  gap: 8px !important;
+  margin: 0 0 var(--ws-gap-internal) !important;
+  grid-template-columns: minmax(360px, var(--ws-dashboard-left-col)) minmax(0, var(--ws-dashboard-right-col)) !important;
+  gap: var(--ws-gap-grid) !important;
 }
 
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid .xdrive-operational-card {
