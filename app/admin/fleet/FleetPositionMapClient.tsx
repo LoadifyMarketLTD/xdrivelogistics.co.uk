@@ -83,30 +83,6 @@ export default function FleetPositionMapClient({
     ? [selected.lat, selected.lng]
     : [validPoints[0]?.lat ?? 54.5, validPoints[0]?.lng ?? -3.0];
 
-  if (validPoints.length === 0) {
-    return (
-      <div
-        style={{
-          height: '440px',
-          width: '100%',
-          overflow: 'hidden',
-          borderRadius: '9px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          background: '#f1f5f9',
-          color: '#64748b',
-          fontSize: '0.9rem',
-        }}
-        data-testid="fleet-map-no-coords"
-        role="status"
-        aria-live="polite"
-      >
-        {mode === 'future' ? 'No geocoded future fleet positions available.' : 'No live fleet positions available.'}
-      </div>
-    );
-  }
-
   return (
     <div
       data-testid="fleet-map-ready"

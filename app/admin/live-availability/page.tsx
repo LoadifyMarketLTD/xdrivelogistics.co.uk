@@ -382,7 +382,7 @@ export default function LiveAvailabilityPage() {
       {tab === 'live' ? (
         <TwoColumn rightWidth="minmax(440px,1fr)">
           <Panel title="Live fleet map" description="Green positions are fresh; red positions are older than 20 minutes.">
-            {livePoints.length > 0 ? <FleetPositionMap points={livePoints} selectedDriverId={selectedDriverId} /> : <EmptyState title="No live positions match the current filters" />}
+            <FleetPositionMap points={livePoints} selectedDriverId={selectedDriverId} />
           </Panel>
           <Panel title="Live availability register" description={`${filtered.length} driver(s) in the current view.`}>
             <DataTable
@@ -403,7 +403,7 @@ export default function LiveAvailabilityPage() {
       ) : tab === 'future' ? (
         <TwoColumn rightWidth="minmax(440px,1fr)">
           <Panel title="Future position map" description="Blue markers are declared future positions or geocoded return-journey origins. Only postcode-based declarations can be mapped reliably.">
-            {futurePoints.length > 0 ? <FleetPositionMap points={futurePoints} selectedDriverId={selectedDriverId} mode="future" /> : <EmptyState title="No geocoded future positions match the current filters" description="Future declarations remain visible in the register even when they cannot be converted to map coordinates." />}
+            <FleetPositionMap points={futurePoints} selectedDriverId={selectedDriverId} mode="future" />
           </Panel>
           <Panel title="Future availability" description="Declared future positions and return journeys are shown alongside the next assigned collection.">
             <DataTable
@@ -425,7 +425,7 @@ export default function LiveAvailabilityPage() {
       ) : (
         <TwoColumn rightWidth="minmax(480px,1.08fr)">
           <Panel title="Nearby Exchange map" description="Other companies are shown only at the rounded Exchange area supplied by the privacy boundary; exact driver identity and exact coordinates are never exposed.">
-            {nearbyLoading ? <EmptyState title="Loading nearby Exchange availability…" /> : nearbyPoints.length > 0 ? <FleetPositionMap points={nearbyPoints} selectedDriverId={selectedDriverId} /> : <EmptyState title="No nearby Exchange vehicles match the current filters" description="Only opt-in, currently available resources without an active job appear here." />}
+            <FleetPositionMap points={nearbyPoints} selectedDriverId={selectedDriverId} />
           </Panel>
           <Panel title="Who's nearby" description={`${filteredNearby.length} privacy-scoped Exchange vehicle(s) visible to this company.`}>
             <DataTable
