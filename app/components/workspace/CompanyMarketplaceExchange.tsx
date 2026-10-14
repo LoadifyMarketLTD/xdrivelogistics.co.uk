@@ -95,6 +95,7 @@ export default function CompanyMarketplaceExchange({
   const [loads, setLoads] = useState<LoadRow[]>([]);
   const [bids, setBids] = useState<BidRow[]>([]);
   const [won, setWon] = useState<WonRow[]>([]);
+  const [wonSearch, setWonSearch] = useState('');
   const [total, setTotal] = useState(0);
   const [totalPages, setTotalPages] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -389,7 +390,17 @@ export default function CompanyMarketplaceExchange({
         </main>
       </div>}
 
-      {tab === 'won' && <Panel title="Won Work" description="Marketplace loads awarded to your company." flush>
+      {tab === 'won' && <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+        <aside className="carrier-exchange-rail" style={{ flex: '0 0 var(--ws-filter-rail-w, 164px)', width: 'var(--ws-filter-rail-w, 164px)', minWidth: 0, alignSelf: 'flex-start' }}>
+          <Panel title="Search Loads">
+            <div style={{ display: 'grid', gap: 8 }}>
+              <label><span style={labelStyle}>Load ID / Route / Member</span><input value={wonSearch} onChange={(event) => setWonSearch(event.target.value)} placeholder="Search won work" style={{ ...fieldStyle, width: '100%' }} /></label>
+              <ActionButton tone="secondary" onClick={() => setWonSearch('')}>Clear</ActionButton>
+            </div>
+          </Panel>
+        </aside>
+        <main style={{ flex: '1 1 760px', minWidth: 0 }}>
+        <Panel title="Won Work" description="Marketplace loads awarded to your company." flush>
         <OperationalTable<WonRow>
           columns={[
             { id: 'load', header: 'Load', cell: (job) => <strong>{job.id.slice(0, 8).toUpperCase()}</strong> },
@@ -401,12 +412,14 @@ export default function CompanyMarketplaceExchange({
             { id: 'budget', header: 'Budget', align: 'right', cell: (job) => money(job.budget_amount, job.currency || 'GBP') },
             { id: 'action', header: 'Action', isAction: true, align: 'right', cell: (job) => <ActionButton tone="secondary" onClick={() => window.location.assign(`/admin/jobs/${job.id}`)}>Open Job</ActionButton> },
           ]}
-          rows={won}
+          rows={won.filter((job) => !wonSearch.trim() || [job.id, job.pickup_location, job.pickup_postcode, job.delivery_location, job.delivery_postcode, job.posterName, job.posterMemberCode].some((value) => String(value ?? '').toLowerCase().includes(wonSearch.trim().toLowerCase())))}
           getRowKey={(job) => job.id}
           loading={loading}
           empty={<div className="carrier-exchange-empty">No marketplace work has been awarded to this company yet.</div>}
         />
-      </Panel>}
+        </Panel>
+        </main>
+      </div>}
 
       {memberTarget?.company_id && <MemberProfileOverlay companyId={memberTarget.company_id} onClose={() => setMemberTarget(null)} />}
 
