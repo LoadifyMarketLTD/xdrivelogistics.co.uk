@@ -267,7 +267,7 @@ export default function CompanyMarketplaceExchange({
         eyebrow="Carrier exchange"
         title={dedicatedQuotes ? 'Quotes' : 'Loads'}
         description={dedicatedQuotes ? 'Search and manage submitted marketplace quotes without leaving the quote register.' : 'Search live exchange work, inspect operational detail and quote without leaving the load board.'}
-        actions={<><ActionButton tone="secondary" onClick={() => tab === 'loads' ? void loadLoads(page, false) : void loadListTab(tab)} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>{!dedicatedQuotes && tab === 'loads' ? <ActionButton tone="secondary" onClick={saveDefault}>Save Default</ActionButton> : null}</>}
+        actions={<ActionButton tone="secondary" onClick={() => tab === 'loads' ? void loadLoads(page, false) : void loadListTab(tab)} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
         meta={<span>{generatedAt ? 'Updated ' + when(generatedAt) : 'Live exchange data'}</span>}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}{notice && <AlertBanner tone="info">{notice}</AlertBanner>}{!companyId && hasSupabaseSession && <AlertBanner tone="info">Resolving your active company workspace…</AlertBanner>}
