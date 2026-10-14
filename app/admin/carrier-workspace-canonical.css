@@ -1421,3 +1421,80 @@
     border-bottom: 1px solid var(--ws-border-soft);
   }
 }
+
+/* Dashboard live-CX parity pass: keep the Dashboard focused on CX-equivalent summary surfaces. */
+.xdrive-carrier-workspace .carrier-dashboard-duplicate-workboard {
+  display: none !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-report-controls {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.xdrive-carrier-workspace .carrier-cx-report-controls :is(input, select, button) {
+  height: 26px;
+  min-height: 26px;
+  padding: 0 7px;
+  border: 1px solid var(--ws-border);
+  border-radius: 3px;
+  background: var(--ws-panel);
+  color: var(--ws-text);
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 600;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-card {
+  min-height: 246px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-card .carrier-cx-stat-grid {
+  min-height: 188px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-card .carrier-cx-stat-card {
+  min-height: 188px;
+  align-content: center;
+  justify-items: start;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-card,
+.xdrive-carrier-workspace .carrier-cx-compliance-card {
+  min-height: 210px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-card .carrier-cx-feedback-grid,
+.xdrive-carrier-workspace .carrier-cx-compliance-card .carrier-cx-compliance-grid {
+  min-height: 168px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-card .carrier-cx-feedback-grid > button,
+.xdrive-carrier-workspace .carrier-cx-compliance-card .carrier-cx-compliance-grid > button {
+  min-height: 168px;
+  align-content: center;
+}
+
+.xdrive-carrier-workspace .carrier-cx-activity-card {
+  min-height: 432px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-activity-card .carrier-cx-booking-list {
+  min-height: 350px;
+  align-content: start;
+}
+
+@media (max-width: 1180px) {
+  .xdrive-carrier-workspace :is(.carrier-cx-reporting-card, .carrier-cx-feedback-card, .carrier-cx-activity-card, .carrier-cx-compliance-card) {
+    min-height: 0;
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-reporting-card .carrier-cx-stat-grid,
+  .xdrive-carrier-workspace .carrier-cx-feedback-card .carrier-cx-feedback-grid,
+  .xdrive-carrier-workspace .carrier-cx-activity-card .carrier-cx-booking-list,
+  .xdrive-carrier-workspace .carrier-cx-compliance-card .carrier-cx-compliance-grid {
+    min-height: 0;
+  }
+}
