@@ -165,7 +165,7 @@ export default function CompanyMarketplaceExchange({
   useEffect(() => { if (!companyId) return; if (tab === 'loads') void loadLoads(1, false); else void loadListTab(tab); }, [companyId, tab, loadLoads, loadListTab]);
   const applyDefault = () => { if (!defaultKey) return; try { const saved = JSON.parse(localStorage.getItem(defaultKey) ?? 'null') as Partial<Filters> | null; if (saved) { setFilters({ ...DEFAULT_FILTERS, ...saved }); setPage(1); setNotice('Saved default search loaded. Press Search to refresh results.'); } else setNotice('No default marketplace search has been saved yet.'); } catch { setNotice('The saved default search could not be read.'); } };
   const saveDefault = () => { if (!defaultKey) return; localStorage.setItem(defaultKey, JSON.stringify(filters)); setNotice('Default marketplace search saved for this company workspace.'); };
-  const clearFilters = () => { setFilters(DEFAULT_FILTERS); setPage(1); setNotice('Filters cleared. Press Search to refresh results.'); };
+  const clearFilters = () => { setFilters(DEFAULT_FILTERS); setLoadQuickSearch(''); setPage(1); setNotice('Filters and quick search cleared. Results will refresh automatically.'); };
   const setFilter = (key: keyof Filters, value: string) => { setFilters((current) => ({ ...current, [key]: value })); setPage(1); };
   const openQuote = (load: LoadRow) => { setBidTarget(load); const amount = Number(load.budget_amount); setQuoteAmount(Number.isFinite(amount) && amount > 0 ? String(amount) : ''); setQuoteMessage(''); setError(''); };
 
@@ -249,12 +249,12 @@ export default function CompanyMarketplaceExchange({
     }
     return next;
   });
-  const mapLoads = useMemo(() => loads.map((load) => ({ id: load.id, pickupLabel: routeLabel(load.pickup_location, load.pickup_postcode), pickupPostcode: load.pickup_postcode, deliveryLabel: routeLabel(load.delivery_location, load.delivery_postcode), deliveryPostcode: load.delivery_postcode, vehicleLabel: vehicleLabel(load), posterName: load.posterName, pickupAt: load.pickup_datetime, postedAt: load.exchange_posted_at })), [loads]);
   const visibleLoads = useMemo(() => {
     const needle = loadQuickSearch.trim().toLowerCase();
     if (!needle) return loads;
     return loads.filter((load) => [load.pickup_location, load.pickup_postcode, load.delivery_location, load.delivery_postcode, load.posterName, load.posterMemberCode, load.id, load.jobDescription, load.special_requirements, load.requested_vehicle_label].some((value) => String(value ?? '').toLowerCase().includes(needle)));
   }, [loads, loadQuickSearch]);
+  const mapLoads = useMemo(() => visibleLoads.map((load) => ({ id: load.id, pickupLabel: routeLabel(load.pickup_location, load.pickup_postcode), pickupPostcode: load.pickup_postcode, deliveryLabel: routeLabel(load.delivery_location, load.delivery_postcode), deliveryPostcode: load.delivery_postcode, vehicleLabel: vehicleLabel(load), posterName: load.posterName, pickupAt: load.pickup_datetime, postedAt: load.exchange_posted_at })), [visibleLoads]);
   const allVisibleExpanded = visibleLoads.length > 0 && visibleLoads.every((load) => expanded.has(load.id));
   const toggleExpandAll = () => setExpanded((current) => { const next = new Set(current); for (const load of visibleLoads) { if (allVisibleExpanded) next.delete(load.id); else next.add(load.id); } return next; });
   const tabButton = (id: typeof tab, label: string) => <button type="button" onClick={() => setTab(id)} className={`carrier-exchange-tab${tab === id ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>;
