@@ -674,38 +674,6 @@ export default function CarrierOperationsDashboardHome() {
               </button>
             </div>
 
-            <div className="carrier-cx-booking-filters">
-              <input
-                aria-label="Member, driver or ID"
-                value={activityIdentity}
-                onChange={(event) => setActivityIdentity(event.target.value)}
-                placeholder="Member / Driver / ID"
-              />
-              <input
-                aria-label="Location"
-                value={activityLocation}
-                onChange={(event) => setActivityLocation(event.target.value)}
-                placeholder="Location"
-              />
-              <input
-                aria-label="Load ID or reference"
-                value={activityReference}
-                onChange={(event) => setActivityReference(event.target.value)}
-                placeholder="Load ID / Ref"
-              />
-              <button
-                type="button"
-                aria-label="Clear booking filters"
-                onClick={() => {
-                  setActivityIdentity('');
-                  setActivityLocation('');
-                  setActivityReference('');
-                }}
-              >
-                ×
-              </button>
-            </div>
-
             <div className="carrier-cx-booking-list">
               {latestBookings.map((job) => {
                 const completed = classifyWorkspaceJobStage(job) === 'completed';
