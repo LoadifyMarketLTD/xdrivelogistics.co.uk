@@ -1946,9 +1946,9 @@
 }
 
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid .xdrive-operational-card__header {
-  min-height: 49px !important;
-  height: 49px !important;
-  padding: 0 10px !important;
+  min-height: var(--ws-panel-head-h) !important;
+  height: auto !important;
+  padding: 6px 10px !important;
   display: flex !important;
   align-items: center !important;
 }
