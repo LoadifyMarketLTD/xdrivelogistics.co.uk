@@ -11,8 +11,8 @@ describe('Carrier dashboard supplier watchlist contract', () => {
     'utf8',
   );
 
-  it('loads company-admin watchlist data through a capability-guarded server route', () => {
-    expect(route).toContain("requireCompanyCapability(request, companyId, 'company.manage')");
+  it('loads company and fleet watchlist data through a capability-guarded server route', () => {
+    expect(route).toContain("anyOf: ['company.manage', 'documents.company.manage', 'fleet.positions.view']");
     expect(route).toContain("from('company_watchlist')");
     expect(route).toContain("from('company_documents')");
     expect(route).toContain('fullyCompliant');
