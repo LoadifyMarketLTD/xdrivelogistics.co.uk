@@ -663,7 +663,7 @@ export default function CarrierOperationsDashboardHome() {
 
         <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--right">
           <OperationalCard
-            title="Activity at a glance"
+            title="Activity 'at a glance'"
             className="carrier-cx-activity-card"
             flush
           >
