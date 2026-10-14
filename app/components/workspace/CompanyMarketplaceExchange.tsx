@@ -364,12 +364,12 @@ export default function CompanyMarketplaceExchange({
         <main style={{ flex: '1 1 760px', minWidth: 0 }}>
           <div className="carrier-exchange-secondary-tabs">{([
             ['all', 'All', bids.length],
+            ['archived', 'Archived', statusCounts.archived],
             ['submitted', 'Submitted', statusCounts.submitted],
-            ['accepted', 'Accepted / Won', statusCounts.accepted],
             ['unsuccessful', 'Unsuccessful', statusCounts.unsuccessful],
+            ['accepted', 'Accepted / Won', statusCounts.accepted],
             ['withdrawn', 'Withdrawn', statusCounts.withdrawn],
             ['expired', 'Expired', statusCounts.expired],
-            ['archived', 'Archived', statusCounts.archived],
           ] as const).map(([id, label, count]) => <button key={id} type="button" onClick={() => setQuoteStateView(id)} className={`carrier-exchange-tab${quoteStateView === id ? ' carrier-exchange-tab--active' : ''}`}>{label} {count}</button>)}<span style={{ marginLeft: 'auto' }}><OperationalExpandAllControl expanded={allVisibleQuotesExpanded} disabled={!visibleBids.length} onToggle={toggleAllVisibleQuotes} noun="quotes" /></span></div>
           <div style={{ display: 'grid', gap: 5 }}>
             {visibleBids.map((bid) => {
