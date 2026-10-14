@@ -799,7 +799,7 @@ export default function OperationsDiaryPage() {
               </section>
             </div>
           ) : (
-            <div className="workspace-record-list" style={{ gap: 6 }}>
+            <div className="workspace-record-list" style={{ gap: 5 }}>
               {visible.map((job) => {
                 const open = expandedIds.has(job.id);
                 const stage = classifyWorkspaceJobStage(job);
@@ -824,7 +824,7 @@ export default function OperationsDiaryPage() {
                 return (
                   <article key={job.id} className="workspace-operational-row" data-state={status} style={{ overflow: 'hidden' }}>
                     <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch' }}>
-                      <section style={{ flex: '1.15 1 260px', minWidth: 0, padding: '9px 10px', borderRight: '1px solid var(--ws-border)' }}>
+                      <section style={{ flex: '1.15 1 260px', minWidth: 0, padding: '7px 9px', borderRight: '1px solid var(--ws-border)' }}>
                         <span className="driver-cell-label">ROUTE</span>
                         <strong style={{ display: 'block', fontSize: 13, marginTop: 2 }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}</strong>
                         <div style={{ color: '#64748b', fontSize: 11 }}>{job.pickup_postcode ?? 'Postcode not supplied'}</div>
@@ -832,12 +832,12 @@ export default function OperationsDiaryPage() {
                         <strong style={{ display: 'block', fontSize: 13 }}>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}</strong>
                         <div style={{ color: '#64748b', fontSize: 11 }}>{job.delivery_postcode ?? 'Postcode not supplied'}</div>
                       </section>
-                      <section style={{ flex: '1 1 230px', minWidth: 0, padding: '9px 10px', borderRight: '1px solid var(--ws-border)' }}>
+                      <section style={{ flex: '1 1 230px', minWidth: 0, padding: '7px 9px', borderRight: '1px solid var(--ws-border)' }}>
                         <div style={{ display: 'grid', gridTemplateColumns: '58px 1fr', gap: '3px 6px', fontSize: 11 }}><span style={{ color: '#64748b' }}>Pickup</span><strong>{when(job.pickup_datetime)}{job.pickup_time_slot ? ' · ' + job.pickup_time_slot : ''}</strong><span style={{ color: '#64748b' }}>Deliver</span><strong>{when(job.delivery_datetime)}{job.delivery_time_slot ? ' · ' + job.delivery_time_slot : ''}</strong></div>
                         <div style={{ marginTop: 6, fontSize: 11 }}><strong>{cargo}</strong>{weight ? <span style={{ color: '#64748b' }}> · {weight}</span> : null}{job.pallets != null ? <span style={{ color: '#64748b' }}> · {job.pallets} pallet{job.pallets === 1 ? '' : 's'}</span> : null}</div>
                         <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>{[distance, dimensions].filter(Boolean).join(' · ') || 'Distance / dimensions not supplied'}</div>
                       </section>
-                      <section style={{ flex: '.9 1 220px', minWidth: 0, padding: '9px 10px' }}>
+                      <section style={{ flex: '.9 1 220px', minWidth: 0, padding: '7px 9px' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 6, alignItems: 'flex-start' }}><StatusBadge value={workspaceJobOperationalLabel(job)} tone={stageTone(job)} /><strong style={{ fontSize: 11 }}>{requestedVehicle}</strong></div>
                         <div style={{ marginTop: 5, fontSize: 11 }}><strong>{driver?.display_name ?? driver?.email ?? (job.assigned_driver_id ? 'Assigned driver' : 'Unallocated')}</strong>{detail?.vehicleRegistration ? <span style={{ color: '#64748b' }}> · {detail.vehicleRegistration}</span> : null}</div>
                         <div style={{ color: '#64748b', fontSize: 11, marginTop: 2 }}>Load #{job.id.slice(0, 8).toUpperCase()} · {job.client_name ?? 'Customer not supplied'}</div>
