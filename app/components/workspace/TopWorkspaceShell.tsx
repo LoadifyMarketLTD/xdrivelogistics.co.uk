@@ -957,6 +957,7 @@ export default function TopWorkspaceShell({
       className={`top-workspace-shell${driverPrototypeScope ? ' driver-prototype-port' : ''}`}
       data-workspace-role={role}
       data-carrier-nav={CARRIER_NAV_ROLES.has(role) ? 'true' : undefined}
+      data-page-context={carrierPageContext ? 'true' : undefined}
     >
       <header className="top-workspace-shell__header">
         <div className="top-workspace-shell__brand">

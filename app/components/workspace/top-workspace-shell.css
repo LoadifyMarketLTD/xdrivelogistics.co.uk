@@ -759,18 +759,18 @@
 /* The title/description now live in the navbar row for Carrier/Admin.
  * Keep only page-specific actions below the nav; remove the duplicated heading block.
  */
-.top-workspace-shell[data-carrier-nav="true"] .top-workspace-shell__content .xdrive-page-header__copy {
+.top-workspace-shell[data-page-context="true"] .top-workspace-shell__content .xdrive-page-header__copy {
   display: none !important;
 }
 
-.top-workspace-shell[data-carrier-nav="true"] .top-workspace-shell__content .xdrive-page-header {
+.top-workspace-shell[data-page-context="true"] .top-workspace-shell__content .xdrive-page-header {
   min-height: 0 !important;
   margin: 0 0 6px !important;
   justify-content: flex-end !important;
   gap: 0 !important;
 }
 
-.top-workspace-shell[data-carrier-nav="true"] .top-workspace-shell__content .xdrive-page-header:not(:has(.xdrive-page-header__actions)) {
+.top-workspace-shell[data-page-context="true"] .top-workspace-shell__content .xdrive-page-header:not(:has(.xdrive-page-header__actions)) {
   display: none !important;
 }
 
