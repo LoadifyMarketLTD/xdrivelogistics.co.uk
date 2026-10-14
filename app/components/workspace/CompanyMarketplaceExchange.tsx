@@ -105,6 +105,8 @@ export default function CompanyMarketplaceExchange({
   const [loadQuickSearch, setLoadQuickSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
+  const [memberTarget, setMemberTarget] = useState<LoadRow | null>(null);
+  const [memberTab, setMemberTab] = useState('Member Details');
   const [bidTarget, setBidTarget] = useState<LoadRow | null>(null);
   const [quoteAmount, setQuoteAmount] = useState('');
   const [quoteMessage, setQuoteMessage] = useState('');
@@ -335,6 +337,7 @@ export default function CompanyMarketplaceExchange({
                     {!load.myBid || ['withdrawn', 'rejected', 'unsuccessful'].includes(load.myBid.status) ? <ActionButton tone="success" onClick={() => openQuote(load)}>Quote Now</ActionButton> : null}
                     <span style={{ marginLeft: 'auto' }} />
                     <button type="button" onClick={() => setExpanded((current) => { const next = new Set(current); next.add(load.id); return next; })} style={{ border: 0, background: 'transparent', color: '#1d57d8', fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}>View Details</button>
+                    <button type="button" onClick={() => { setMemberTarget(load); setMemberTab('Member Details'); }} style={{ border: 0, background: 'transparent', color: '#1d57d8', fontSize: 11, textDecoration: 'underline', cursor: 'pointer' }}>Member Profile{load.posterMemberCode ? ` (${load.posterMemberCode})` : ''}</button>
                   </div>
                 </article>;
               })}
@@ -404,6 +407,29 @@ export default function CompanyMarketplaceExchange({
           empty={<div className="carrier-exchange-empty">No marketplace work has been awarded to this company yet.</div>}
         />
       </Panel>}
+
+      {memberTarget && <WorkspaceDialog
+        ariaLabel="Marketplace member profile"
+        title={`${memberTarget.posterName}${memberTarget.posterMemberCode ? ` - ${memberTarget.posterMemberCode}` : ''}`}
+        description="Marketplace member profile"
+        width={940}
+        onDismiss={() => setMemberTarget(null)}
+        actions={<ActionButton tone="secondary" onClick={() => setMemberTarget(null)}>Close</ActionButton>}
+      >
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginBottom: 14, borderBottom: '1px solid #cbd5e1', paddingBottom: 7 }}>
+          {['Member Details', 'Feedback', 'Users', 'Specialist Services', 'Charges', 'Booking Footer', 'Business Documents'].map((name) => <button key={name} type="button" onClick={() => setMemberTab(name)} aria-pressed={memberTab === name} style={{ border: '1px solid #cbd5e1', borderRadius: 3, background: memberTab === name ? '#e8f0ff' : '#fff', color: memberTab === name ? '#1748a0' : '#334155', padding: '7px 10px', cursor: 'pointer', fontSize: 12, fontWeight: memberTab === name ? 700 : 400 }}>{name}</button>)}
+        </div>
+        {memberTab === 'Member Details' ? <div style={{ display: 'grid', gap: 10, fontSize: 13 }}>
+          <div><strong>Member:</strong> {memberTarget.posterName}</div>
+          <div><strong>Member ID:</strong> {memberTarget.posterMemberCode || 'Not supplied'}</div>
+          <div><strong>Telephone:</strong> {memberTarget.posterPhone ? <a href={`tel:${memberTarget.posterPhone.replace(/\s+/g, '')}`}>{memberTarget.posterPhone}</a> : 'Not supplied'}</div>
+          <div><strong>Load reference:</strong> {memberTarget.id}</div>
+          <div><strong>Published payment terms:</strong> {memberTarget.payment_terms || 'Not supplied'}</div>
+          <div><strong>Hard-copy POD:</strong> {memberTarget.hard_copy_pod || 'Not supplied'}</div>
+        </div> : <div role="status" style={{ padding: '22px 12px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#475569', fontSize: 13 }}>
+          {memberTab} records are not available from the current marketplace data source. No unverified member records or ratings are displayed.
+        </div>}
+      </WorkspaceDialog>}
 
       {bidTarget && <WorkspaceDialog
         ariaLabel="Submit marketplace quote"
