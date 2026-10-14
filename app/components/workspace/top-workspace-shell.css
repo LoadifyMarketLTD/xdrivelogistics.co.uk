@@ -699,3 +699,89 @@
     max-height: calc(100vh - 104px);
   }
 }
+
+/* Carrier/Admin navbar consolidation: active page context shares the navbar row. */
+.top-workspace-shell[data-carrier-nav="true"] .top-workspace-nav--primary .top-workspace-nav__track {
+  justify-content: flex-start !important;
+  gap: 0 !important;
+}
+
+.top-workspace-shell[data-carrier-nav="true"] .top-workspace-nav__group[data-group-id="carrier-more"] .top-workspace-nav__trigger {
+  width: 34px !important;
+  min-width: 34px !important;
+  justify-content: center;
+  padding-left: 6px !important;
+  padding-right: 6px !important;
+}
+
+.top-workspace-nav__context {
+  min-width: 0;
+  margin-left: auto;
+  padding: 0 4px 0 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  align-self: stretch;
+  overflow: hidden;
+  border-left: 1px solid #e2e8f0;
+  white-space: nowrap;
+}
+
+.top-workspace-nav__context-eyebrow {
+  flex: 0 0 auto;
+  color: #1d57d8;
+  font-size: 9px;
+  line-height: 12px;
+  font-weight: 750;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+}
+
+.top-workspace-nav__context strong {
+  flex: 0 0 auto;
+  color: #172033;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 750;
+}
+
+.top-workspace-nav__context-description {
+  min-width: 0;
+  max-width: 430px;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 14px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+}
+
+/* The title/description now live in the navbar row for Carrier/Admin.
+ * Keep only page-specific actions below the nav; remove the duplicated heading block.
+ */
+.top-workspace-shell[data-carrier-nav="true"] .top-workspace-shell__content .xdrive-page-header__copy {
+  display: none !important;
+}
+
+.top-workspace-shell[data-carrier-nav="true"] .top-workspace-shell__content .xdrive-page-header {
+  min-height: 0 !important;
+  margin: 0 0 6px !important;
+  justify-content: flex-end !important;
+  gap: 0 !important;
+}
+
+.top-workspace-shell[data-carrier-nav="true"] .top-workspace-shell__content .xdrive-page-header:not(:has(.xdrive-page-header__actions)) {
+  display: none !important;
+}
+
+@media (max-width: 1450px) {
+  .top-workspace-nav__context-description {
+    display: none;
+  }
+}
+
+@media (max-width: 1180px) {
+  .top-workspace-nav__context {
+    display: none;
+  }
+}
