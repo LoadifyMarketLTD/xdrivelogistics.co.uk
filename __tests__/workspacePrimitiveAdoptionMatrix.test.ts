@@ -8,12 +8,12 @@ function read(filePath: string): string {
 
 function hasOperationalTablePrimitive(filePath: string): boolean {
   const source = read(filePath);
-  return /\bOperationalTable\b|\bDataTable\b|<table\b|customer-activity-list|customer-activity-card|driver-load-list|driver-load-row/.test(source);
+  return /\bOperationalTable\b|\bDataTable\b|<table\b|customer-activity-list|customer-activity-card|driver-load-list|driver-load-row|carrier-cx-booking-list|carrier-cx-booking-card/.test(source);
 }
 
 function hasCompactKpiStrip(filePath: string): boolean {
   const source = read(filePath);
-  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source);
+  return /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|carrier-cx-stat-grid|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source);
 }
 
 function hasActionCentreRoute(filePath: string): boolean {
@@ -27,8 +27,8 @@ function rowFor(filePath: string) {
   return {
     pageHeader: /\bPageHeader\b|\bDashboardHomeHeader\b|\bDriverWorkspaceShell\b/.test(source),
     operationalToolbar: /\bOperationalToolbar\b|\bActionCentrePage\b|driver-tab-strip/.test(source),
-    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source),
-    operationalTable: /\bOperationalTable\b|\bDataTable\b|<table\b|customer-activity-list|customer-activity-card|driver-load-list|driver-load-row/.test(source),
+    exchangeKpiStrip: /\bExchangeKpiStrip\b|\bKpiGrid\b|\bCarrierControlSignals\b|\bOperationalSignalStrip\b|carrier-cx-stat-grid|driver-dashboard-status|driver-proto-kpis|xd2-kpis/.test(source),
+    operationalTable: /\bOperationalTable\b|\bDataTable\b|<table\b|customer-activity-list|customer-activity-card|driver-load-list|driver-load-row|carrier-cx-booking-list|carrier-cx-booking-card/.test(source),
     quickActionGrid: /\bQuickActionGrid\b|\bActionCentrePage\b/.test(source),
     financialSummaryPanel: /\bFinancialSummaryPanel\b/.test(source),
     complianceSummaryPanel: /\bComplianceSummaryPanel\b/.test(source),
@@ -100,15 +100,16 @@ describe('workspace primitive adoption matrix', () => {
   it('keeps the active carrier dashboard on the converged Owner/Fleet control family', () => {
     const source = read('app/components/workspace/CarrierOperationsDashboardHome.tsx');
 
-    expect(source).toContain('CarrierControlSignals');
-    expect(source).toContain('OperationalPageLayout');
-    expect(source).toContain('OperationalFilters');
-    expect(source).toContain('<DataTable');
     expect(source).toContain('Reports & Statistics');
-    expect(source).toContain('Operational workboard');
-    expect(source).toContain('Resource readiness');
-    expect(source).toContain('Commercial & Finance');
-    expect(source).toContain('Carrier workflow');
+    expect(source).toContain('Activity at a glance');
+    expect(source).toContain('Latest Bookings');
+    expect(source).toContain('Feedback in Last 90 Days');
+    expect(source).toContain('Compliance - Manage Your Suppliers');
+    expect(source).toContain('carrier-cx-booking-list');
+    expect(source).toContain('carrier-cx-stat-grid');
+    expect(source).not.toContain('Operational workboard');
+    expect(source).not.toContain('OperationalFilters');
+    expect(source).not.toContain('<DataTable');
     expect(source).not.toContain('<KpiGrid>');
     expect(source).not.toContain('QuickActionGrid');
     expect(source).not.toContain('FinancialSummaryPanel');

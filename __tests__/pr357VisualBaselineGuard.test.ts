@@ -74,8 +74,10 @@ describe('PR #357 approved visual baseline', () => {
 
   it('keeps Carrier/Admin and Broker operational control surfaces', () => {
     expect(carrierDashboard).toContain('Reports & Statistics');
-    expect(carrierDashboard).toContain('Operational workboard');
-    expect(carrierDashboard).toContain('CarrierControlSignals');
+    expect(carrierDashboard).toContain('Activity at a glance');
+    expect(carrierDashboard).toContain('Latest Bookings');
+    expect(carrierDashboard).toContain('Compliance - Manage Your Suppliers');
+    expect(carrierDashboard).not.toContain('Operational workboard');
 
     expect(brokerDashboard).toContain('Reports & Statistics');
     expect(brokerDashboard).toContain('<KpiGrid>');

@@ -1498,3 +1498,432 @@
     min-height: 0;
   }
 }
+
+/* Carrier/Fleet Dashboard — live CX 1:1 structural pass. */
+.xdrive-carrier-workspace .carrier-cx-dashboard-grid {
+  width: min(100%, 1290px);
+  margin: 0 auto 8px !important;
+  grid-template-columns: minmax(0, .72fr) minmax(0, 1fr) !important;
+  gap: 8px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-grid .xdrive-operational-card {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-grid .xdrive-operational-card__header {
+  min-height: 32px;
+  padding: 5px 8px;
+  border-bottom: 1px solid var(--ws-border);
+  background: #f6f7f8;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-grid .xdrive-operational-card__header h3 {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 750;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-card {
+  min-height: 248px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-card .carrier-cx-stat-grid {
+  min-height: 205px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-stat-card {
+  position: relative;
+  min-height: 205px !important;
+  padding: 42px 12px 28px !important;
+  align-content: center !important;
+  justify-items: center !important;
+  border-right: 1px solid #9fb7d6 !important;
+  background: #dbe9fb !important;
+  text-align: center !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-stat-card > span {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  color: #2f3b4b !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-stat-card > strong {
+  font-size: 20px !important;
+  line-height: 26px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-stat-card > small {
+  max-width: 190px;
+  text-align: center;
+}
+
+.xdrive-carrier-workspace .carrier-cx-stat-card > em {
+  position: absolute;
+  right: 8px;
+  bottom: 6px;
+  color: #667085;
+  font-size: 9px;
+  font-style: normal;
+  text-decoration: underline;
+}
+
+.xdrive-carrier-workspace .carrier-cx-report-controls {
+  gap: 6px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-report-controls :is(input, select, button) {
+  height: 23px !important;
+  min-height: 23px !important;
+  border-radius: 2px !important;
+  font-size: 9px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-subgrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-subgrid .xdrive-operational-card__body--flush {
+  padding: 8px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-list-button {
+  width: 100%;
+  min-height: 36px;
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #c6cbd1;
+  background: #dedfe1;
+  color: #46515e;
+  text-align: center;
+  cursor: pointer;
+}
+
+.xdrive-carrier-workspace .carrier-cx-list-button:last-child {
+  margin-bottom: 0;
+}
+
+.xdrive-carrier-workspace .carrier-cx-list-button:hover {
+  background: #d3d5d8;
+}
+
+.xdrive-carrier-workspace .carrier-cx-list-button__copy {
+  min-width: 0;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-list-button__copy strong {
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 650;
+}
+
+.xdrive-carrier-workspace .carrier-cx-list-button__copy small {
+  display: none;
+}
+
+.xdrive-carrier-workspace .carrier-cx-list-button__value {
+  font-size: 10px;
+  color: var(--ws-navy);
+}
+
+.xdrive-carrier-workspace .carrier-cx-list-button__arrow {
+  font-size: 14px;
+  color: var(--ws-blue);
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-card {
+  min-height: 220px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-card .xdrive-operational-card__body--flush {
+  padding: 8px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  min-height: 175px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-panel {
+  min-width: 0;
+  min-height: 175px;
+  padding: 8px;
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  gap: 8px;
+  border: 1px solid #d5d8dc;
+  background: #fff;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-panel__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-panel__toolbar strong {
+  font-size: 10px;
+  font-weight: 650;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-panel__toolbar select {
+  height: 22px;
+  border: 1px solid #cbd1d8;
+  background: #fff;
+  font-size: 9px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-performance-chart {
+  position: relative;
+  min-height: 105px;
+  display: grid;
+  align-items: end;
+  padding: 10px 8px 18px;
+  border-bottom: 1px solid #7c8490;
+  background:
+    linear-gradient(to top, rgba(226,232,240,.45) 1px, transparent 1px) 0 0 / 100% 33%;
+}
+
+.xdrive-carrier-workspace .carrier-cx-performance-chart__bar {
+  min-width: 2px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--ws-blue);
+}
+
+.xdrive-carrier-workspace .carrier-cx-performance-chart > strong {
+  position: absolute;
+  right: 8px;
+  top: 8px;
+  color: var(--ws-navy);
+  font-size: 13px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-panel > small {
+  color: var(--ws-muted);
+  font-size: 9px;
+  line-height: 12px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-activity-card {
+  min-height: 463px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-header {
+  min-height: 32px !important;
+  padding: 0 8px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-filters {
+  min-height: 34px;
+  padding: 4px 8px;
+  display: grid;
+  grid-template-columns: minmax(120px, 1fr) minmax(100px, .8fr) minmax(110px, .8fr) 28px;
+  gap: 6px;
+  align-items: center;
+  border-bottom: 1px solid var(--ws-border);
+  background: #fff;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-filters input {
+  min-width: 0;
+  height: 24px;
+  padding: 0 7px;
+  border: 1px solid #c9ced5;
+  border-radius: 2px;
+  background: #fff;
+  font-size: 9px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-filters button {
+  width: 28px;
+  height: 24px;
+  border: 1px solid #c9ced5;
+  border-radius: 2px;
+  background: #f8f9fa;
+  color: #4b5563;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-list {
+  min-height: 360px !important;
+  gap: 6px !important;
+  padding: 8px !important;
+  align-content: start !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-card {
+  min-height: 78px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(155px, .7fr) minmax(160px, .72fr) !important;
+  border-radius: 0 !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-booking-actions {
+  min-height: 28px !important;
+  padding: 2px 6px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-card-link {
+  border: 0;
+  background: transparent;
+  color: #64748b;
+  font-size: 9px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-card {
+  min-height: 228px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-card .xdrive-operational-card__body--flush {
+  padding: 12px 16px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-body {
+  min-height: 175px;
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  align-items: center;
+  gap: 24px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-watchlist-orb {
+  width: 132px;
+  height: 132px;
+  margin: 0 auto;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 5px;
+  border: 0;
+  border-radius: 50%;
+  background: #e4e5e7;
+  color: #5b6470;
+  cursor: pointer;
+}
+
+.xdrive-carrier-workspace .carrier-cx-watchlist-orb strong {
+  font-size: 18px;
+  color: var(--ws-navy);
+}
+
+.xdrive-carrier-workspace .carrier-cx-watchlist-orb span {
+  max-width: 90px;
+  font-size: 9px;
+  line-height: 12px;
+  text-align: center;
+  text-decoration: underline;
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-legend {
+  display: grid;
+  gap: 12px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-legend button {
+  min-height: 28px;
+  padding: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 12px;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  color: #4d5764;
+  font-size: 10px;
+  text-align: right;
+  cursor: pointer;
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-legend small {
+  color: var(--ws-muted);
+  font-size: 9px;
+  text-align: right;
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  border: 1px solid rgba(15,23,42,.18);
+}
+
+.xdrive-carrier-workspace .carrier-cx-compliance-dot--green { background: #75c043; }
+.xdrive-carrier-workspace .carrier-cx-compliance-dot--amber { background: #f0a12a; }
+.xdrive-carrier-workspace .carrier-cx-compliance-dot--red { background: #d94c4c; }
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-links {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-links button {
+  border: 0;
+  background: transparent;
+  color: var(--ws-blue);
+  font-size: 9px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+@media (max-width: 1180px) {
+  .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
+    width: 100%;
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .xdrive-carrier-workspace :is(
+    .carrier-cx-reporting-card,
+    .carrier-cx-feedback-card,
+    .carrier-cx-activity-card,
+    .carrier-cx-compliance-card
+  ) {
+    min-height: 0 !important;
+  }
+}
+
+@media (max-width: 720px) {
+  .xdrive-carrier-workspace .carrier-cx-dashboard-subgrid,
+  .xdrive-carrier-workspace .carrier-cx-feedback-grid,
+  .xdrive-carrier-workspace .carrier-cx-compliance-body {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-booking-filters {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-booking-filters button {
+    width: 100%;
+  }
+
+  .xdrive-carrier-workspace .carrier-cx-booking-card {
+    grid-template-columns: minmax(0, 1fr) !important;
+    grid-template-areas:
+      "route"
+      "schedule"
+      "meta"
+      "actions" !important;
+  }
+}

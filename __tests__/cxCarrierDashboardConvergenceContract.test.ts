@@ -27,12 +27,15 @@ describe('Carrier CX dashboard convergence contract', () => {
     }
   });
 
-  it('keeps verified XDrive carrier lifecycle controls below the CX dashboard summary', () => {
-    expect(source).toContain('Operational workboard');
-    expect(source).toContain('carrier-awarded work only');
-    expect(source).toContain('<OperationalFilters');
+  it('removes the duplicated operational workboard from the Dashboard surface', () => {
+    expect(source).not.toContain('Operational workboard');
+    expect(source).not.toContain('<OperationalPageLayout');
+    expect(source).not.toContain('<OperationalFilters');
+    expect(source).not.toContain('<DataTable');
+    expect(source).toContain('carrier-cx-booking-filters');
+    expect(source).toContain('Member / Driver / ID');
+    expect(source).toContain('Load ID / Ref');
     expect(source).toContain('isCompanyExecutionJob(job, data.companyId)');
-    expect(source).toContain("columns={['Ref', 'Priority', 'Route', 'Pickup', 'Required vehicle', 'Driver', 'Status', 'Action']}");
   });
 
   it('renders latest bookings as operational cards instead of the old dashboard table', () => {
@@ -53,7 +56,9 @@ describe('Carrier CX dashboard convergence contract', () => {
       '/admin/fleet/returns',
       '/admin/fleet/compliance',
       '/admin/marketplace/directory',
-      '/admin/jobs',
+      '/admin/marketplace',
+      '/admin/live-availability',
+      '/admin/jobs/',
     ]) {
       expect(source).toContain(route);
     }
