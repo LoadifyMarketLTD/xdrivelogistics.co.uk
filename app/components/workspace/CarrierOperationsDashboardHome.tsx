@@ -111,7 +111,7 @@ function WorkflowLink({ label, detail, onClick }: { label: string; detail: strin
   return (
     <button type="button" onClick={onClick} style={{ width: '100%', display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', alignItems: 'center', gap: '8px', minHeight: 'var(--ws-table-row-h, 42px)', padding: '6px 0', border: 0, borderBottom: `1px solid ${workspaceTheme.divider}`, background: 'transparent', color: workspaceTheme.text, textAlign: 'left', cursor: 'pointer' }}>
       <span style={{ minWidth: 0 }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px', fontWeight: 650 }}>{label}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{detail}</span></span>
-      <span aria-hidden="true" style={{ color: workspaceTheme.blue, fontSize: '14px', fontWeight: 800 }}>â†’</span>
+      <span aria-hidden="true" style={{ color: workspaceTheme.blue, fontSize: '14px', fontWeight: 800 }}>→</span>
     </button>
   );
 }
@@ -133,6 +133,9 @@ export default function CarrierOperationsDashboardHome() {
   const [searchTerm, setSearchTerm] = useState('');
   const [driverFilter, setDriverFilter] = useState('');
   const [vehicleFilter, setVehicleFilter] = useState('');
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const [reportFrom, setReportFrom] = useState(() => `${todayKey.slice(0, 8)}01`);
+  const [reportTo, setReportTo] = useState(todayKey);
   const [feedbackSummary, setFeedbackSummary] = useState<{ count: number; average: number | null }>({ count: 0, average: null });
 
   useEffect(() => {
@@ -212,7 +215,15 @@ export default function CarrierOperationsDashboardHome() {
   const cxDashboard = useMemo(() => {
     const payables = data.invoices.filter((invoice) => invoice.buyer_company_id === data.companyId && invoice.supplier_company_id && invoice.supplier_company_id !== data.companyId);
     const receivables = data.invoices.filter((invoice) => invoice.supplier_company_id === data.companyId || (!invoice.supplier_company_id && invoice.company_id === data.companyId));
-    const payableTotal = payables.reduce((sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0), 0);
+    const fromMs = new Date(`${reportFrom}T00:00:00`).getTime();
+    const toMs = new Date(`${reportTo}T23:59:59.999`).getTime();
+    const inReportRange = (value: string | null | undefined) => {
+      if (!value) return false;
+      const timestamp = new Date(value).getTime();
+      return Number.isFinite(timestamp) && timestamp >= fromMs && timestamp <= toMs;
+    };
+    const reportPayables = payables.filter((invoice) => inReportRange(invoice.invoice_date ?? invoice.created_at));
+    const payableTotal = reportPayables.reduce((sum, invoice) => sum + Number(invoice.amount ?? invoice.net_amount ?? 0), 0);
     const currentMonth = new Date();
     const monthlyPayables = payables.filter((invoice) => {
       const source = invoice.invoice_date ?? invoice.created_at;
@@ -228,7 +239,11 @@ export default function CarrierOperationsDashboardHome() {
     const completedWithoutException = completedJobs.filter((job) => !isExceptionJob(job)).length;
     const subcontracted = carrierExecutionJobs.filter((job) => Boolean(job.assigned_company_id) && job.assigned_company_id !== data.companyId).length;
     const allocated = carrierExecutionJobs.filter((job) => Boolean(job.assigned_driver_id)).length;
-    const grossMargin = metrics.wonValue - payableTotal;
+    const carrierJobIds = new Set(carrierExecutionJobs.map((job) => job.id));
+    const reportWonValue = metrics.companyBids
+      .filter((bid) => normalise(bid.status) === 'accepted' && carrierJobIds.has(bid.job_id) && inReportRange(bid.created_at))
+      .reduce((sum, bid) => sum + Number(bid.bid_price_gbp ?? bid.amount ?? 0), 0);
+    const grossMargin = reportWonValue - payableTotal;
     return {
       payables,
       receivables,
@@ -243,7 +258,7 @@ export default function CarrierOperationsDashboardHome() {
       allocated,
       grossMargin,
     };
-  }, [carrierExecutionJobs, data.companyId, data.invoices, metrics.wonValue]);
+  }, [carrierExecutionJobs, data.companyId, data.invoices, metrics.companyBids, reportFrom, reportTo]);
 
   const filteredJobs = useMemo(() => {
     const base = view === 'attention'
@@ -309,7 +324,31 @@ export default function CarrierOperationsDashboardHome() {
 
       <div className="carrier-cx-dashboard-grid">
         <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--left">
-          <OperationalCard title="Reports & Statistics" subtitle="Commercial position and operational performance." flush>
+          <OperationalCard
+            title="Reports & Statistics"
+            subtitle="Commercial position and operational performance."
+            className="carrier-cx-reporting-card"
+            actions={<div className="carrier-cx-report-controls">
+              <input aria-label="Report from date" type="date" value={reportFrom} max={reportTo} onChange={(event) => setReportFrom(event.target.value)} />
+              <button type="button" onClick={() => { setReportFrom(todayKey); setReportTo(todayKey); }}>Today</button>
+              <select aria-label="Select report date range" defaultValue="custom" onChange={(event) => {
+                const value = event.target.value;
+                const end = new Date();
+                const start = new Date(end);
+                if (value === 'month') start.setDate(1);
+                if (value === '30') start.setDate(start.getDate() - 29);
+                if (value === '90') start.setDate(start.getDate() - 89);
+                setReportFrom(start.toISOString().slice(0, 10));
+                setReportTo(end.toISOString().slice(0, 10));
+              }}>
+                <option value="custom">Select Dates</option>
+                <option value="month">This month</option>
+                <option value="30">Last 30 days</option>
+                <option value="90">Last 90 days</option>
+              </select>
+            </div>}
+            flush
+          >
             <div className="carrier-cx-stat-grid">
               <button type="button" className="carrier-cx-stat-card" onClick={() => router.push('/admin/won-work')}>
                 <span>Gross Margin</span>
@@ -340,7 +379,7 @@ export default function CarrierOperationsDashboardHome() {
             </OperationalCard>
           </div>
 
-          <OperationalCard title="Feedback in Last 90 Days" flush>
+          <OperationalCard title="Feedback in Last 90 Days" className="carrier-cx-feedback-card" flush>
             <div className="carrier-cx-feedback-grid">
               <button type="button" onClick={() => router.push('/admin/diary')}><span>Received</span><strong>{feedbackSummary.count}</strong><small>{feedbackSummary.average == null ? 'No verified feedback yet' : `${feedbackSummary.average.toFixed(1)} / 5 average`}</small></button>
               <button type="button" onClick={() => router.push('/admin/invoices')}><span>Payment Performance</span><strong>{cxDashboard.paidPayables + cxDashboard.overduePayables > 0 ? `${Math.round((cxDashboard.paidPayables / (cxDashboard.paidPayables + cxDashboard.overduePayables)) * 100)}%` : '-'}</strong><small>Paid versus paid + overdue supplier invoices</small></button>
@@ -348,7 +387,7 @@ export default function CarrierOperationsDashboardHome() {
             </div>
           </OperationalCard>
 
-          <OperationalCard title="Compliance - Manage Your Suppliers" subtitle="Use verified XDrive member and fleet evidence rather than unverified badges." flush>
+          <OperationalCard title="Compliance - Manage Your Suppliers" subtitle="Use verified XDrive member and fleet evidence rather than unverified badges." className="carrier-cx-compliance-card" flush>
             <div className="carrier-cx-compliance-grid">
               <button type="button" onClick={() => router.push('/admin/fleet/compliance')}><span>Compliance due</span><strong>{metricValue(data, ['driverDocuments', 'vehicleDocuments'], () => metrics.expiringDocuments)}</strong><small>Driver and vehicle evidence expiring within 30 days</small></button>
               <button type="button" onClick={() => router.push('/admin/marketplace/directory')}><span>Supplier network</span><strong>Directory</strong><small>Open verified member profiles, services and reputation</small></button>
@@ -357,7 +396,7 @@ export default function CarrierOperationsDashboardHome() {
         </div>
 
         <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--right">
-          <OperationalCard title="Activity at a glance" subtitle="Latest awarded bookings ordered for practical day-to-day transport control." flush>
+          <OperationalCard title="Activity at a glance" subtitle="Latest awarded bookings ordered for practical day-to-day transport control." className="carrier-cx-activity-card" flush>
             <div className="carrier-cx-booking-header"><strong>Latest Bookings</strong><button type="button" onClick={() => router.push('/admin/diary')}>View All...</button></div>
             <div className="carrier-cx-booking-list">
               {latestBookings.map((job) => {
@@ -394,6 +433,7 @@ export default function CarrierOperationsDashboardHome() {
       </div>
 
       <OperationalPageLayout
+        className="carrier-dashboard-duplicate-workboard"
         style={{ padding: 0 }}
         searchPanel={
           <OperationalFilters
@@ -419,7 +459,7 @@ export default function CarrierOperationsDashboardHome() {
       >
         <section aria-label="Carrier operational workboard" style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', overflow: 'hidden' }}>
           <div style={{ minHeight: '40px', padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderBottom: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, flexWrap: 'wrap' }}>
-            <div><h2 style={{ margin: 0, color: workspaceTheme.navy, fontSize: '13px', lineHeight: '18px', fontWeight: 800 }}>Operational workboard</h2><p style={{ margin: '1px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{activeViewLabel} Â· carrier-awarded work only</p></div>
+            <div><h2 style={{ margin: 0, color: workspaceTheme.navy, fontSize: '13px', lineHeight: '18px', fontWeight: 800 }}>Operational workboard</h2><p style={{ margin: '1px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{activeViewLabel} · carrier-awarded work only</p></div>
             <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 650 }}>{jobFeedLabel}</div>
           </div>
 
@@ -440,7 +480,7 @@ export default function CarrierOperationsDashboardHome() {
                 return [
                   job.id.slice(0, 8).toUpperCase(),
                   <span key="priority" style={{ display: 'inline-flex', alignItems: 'center', height: '22px', padding: '0 6px', border: `1px solid ${priority.border}`, borderRadius: '4px', background: priority.background, color: priority.color, fontSize: '10px', fontWeight: 800 }}>{priorityLabel(job)}</span>,
-                  <span key="route" style={{ display: 'block', minWidth: '220px' }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'} â†’ {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{job.client_name ?? 'Customer not specified'}</span></span>,
+                  <span key="route" style={{ display: 'block', minWidth: '220px' }}><strong style={{ display: 'block', fontSize: '12px', lineHeight: '16px' }}>{job.pickup_location ?? job.pickup_postcode ?? 'Collection'} → {job.delivery_location ?? job.delivery_postcode ?? 'Delivery'}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{job.client_name ?? 'Customer not specified'}</span></span>,
                   when(job.pickup_datetime),
                   (job.vehicle_type ?? 'Not specified').replace(/_/g, ' '),
                   assignedDriver,
@@ -452,7 +492,7 @@ export default function CarrierOperationsDashboardHome() {
             />
           </div>
 
-          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of currently available job data` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register â†’</button></div>
+          <div style={{ minHeight: '34px', padding: '0 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', borderTop: `1px solid ${workspaceTheme.border}`, background: workspaceTheme.surfaceMuted, color: workspaceTheme.muted, fontSize: '11px', flexWrap: 'wrap' }}><span>{data.datasets.jobs.partialData ? `Showing ${Math.min(filteredJobs.length, 10)} of currently available job data` : `Showing ${Math.min(filteredJobs.length, 10)} of ${filteredJobs.length} matching jobs`}</span><button type="button" onClick={() => router.push('/admin/jobs')} style={{ border: 0, background: 'transparent', color: workspaceTheme.blue, fontSize: '11px', fontWeight: 800, cursor: 'pointer' }}>Open full jobs register →</button></div>
         </section>
 
       </OperationalPageLayout>
