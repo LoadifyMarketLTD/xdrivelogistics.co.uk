@@ -1954,7 +1954,7 @@
 .xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-report-controls {
   position: absolute;
   z-index: 2;
-  top: 8px;
+  top: -36px;
   right: 10px;
 }
 
