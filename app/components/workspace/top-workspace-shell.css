@@ -21,8 +21,8 @@
   position: sticky;
   top: 0;
   z-index: 80;
-  height: 50px !important;
-  min-height: 50px !important;
+  height: var(--ws-header-h, 50px) !important;
+  min-height: var(--ws-header-h, 50px) !important;
   display: grid !important;
   grid-template-columns: minmax(160px, 1fr) auto !important;
   align-items: stretch !important;
