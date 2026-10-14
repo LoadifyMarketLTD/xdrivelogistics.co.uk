@@ -56,7 +56,7 @@ const QUOTE_TIME_WINDOWS: Array<{ value: QuoteTimeWindow; label: string }> = [
   { value: '24', label: '24 hours' },
 ];
 
-const DEFAULT_FILTERS: Filters = { from: '', fromRadius: '30', to: '', toRadius: '100', vehicle: '', minVehicle: '', maxVehicle: '', body: '', freight: '', member: '', description: 'any', loadType: 'all', postedWithinHours: '', dateFrom: '', dateTo: '', minBudget: '', maxBudget: '', pageSize: '25' };
+const DEFAULT_FILTERS: Filters = { from: '', fromRadius: '30', to: '', toRadius: '100', vehicle: '', minVehicle: '', maxVehicle: '', body: '', freight: '', member: '', description: 'any', loadType: 'all', postedWithinHours: '', dateFrom: '', dateTo: '', minBudget: '', maxBudget: '', pageSize: '10' };
 const VEHICLE_OPTIONS = [['', 'Any vehicle'], ['swb_van', 'SWB Van'], ['mwb_van', 'MWB Van'], ['lwb_van', 'LWB Van'], ['xlwb_van', 'XLWB Van'], ['luton', 'Luton'], ['luton_tail_lift', 'Luton Tail Lift'], ['curtainside_van', 'Curtainside Van'], ['truck_7_5t', '7.5T'], ['truck_18t', '18T'], ['truck_26t', '26T'], ['artic', 'Artic']] as const;
 const VEHICLE_SIZE_OPTIONS = marketplaceVehicleSizeOptions();
 const DESCRIPTION_OPTIONS = [['any', 'Any timing'], ['same_day_non_timed', 'Same Day — non timed'], ['same_day_timed', 'Same Day — timed'], ['next_day_non_timed', 'Next Day — non timed'], ['next_day_timed', 'Next Day — timed'], ['3_5_days', '3–5 Days'], ['multi_drop', 'Multi-Drop'], ['deliver_direct', 'Deliver Direct']] as const;
@@ -102,6 +102,7 @@ export default function CompanyMarketplaceExchange({
   const [generatedAt, setGeneratedAt] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
   const [advancedSearchOpen, setAdvancedSearchOpen] = useState(false);
+  const [loadQuickSearch, setLoadQuickSearch] = useState('');
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
   const [bidTarget, setBidTarget] = useState<LoadRow | null>(null);
@@ -246,8 +247,13 @@ export default function CompanyMarketplaceExchange({
     return next;
   });
   const mapLoads = useMemo(() => loads.map((load) => ({ id: load.id, pickupLabel: routeLabel(load.pickup_location, load.pickup_postcode), pickupPostcode: load.pickup_postcode, deliveryLabel: routeLabel(load.delivery_location, load.delivery_postcode), deliveryPostcode: load.delivery_postcode, vehicleLabel: vehicleLabel(load), posterName: load.posterName, pickupAt: load.pickup_datetime, postedAt: load.exchange_posted_at })), [loads]);
-  const allVisibleExpanded = loads.length > 0 && loads.every((load) => expanded.has(load.id));
-  const toggleExpandAll = () => setExpanded(allVisibleExpanded ? new Set() : new Set(loads.map((load) => load.id)));
+  const visibleLoads = useMemo(() => {
+    const needle = loadQuickSearch.trim().toLowerCase();
+    if (!needle) return loads;
+    return loads.filter((load) => [load.pickup_location, load.pickup_postcode, load.delivery_location, load.delivery_postcode, load.posterName, load.posterMemberCode, load.id, load.jobDescription, load.special_requirements, load.requested_vehicle_label].some((value) => String(value ?? '').toLowerCase().includes(needle)));
+  }, [loads, loadQuickSearch]);
+  const allVisibleExpanded = visibleLoads.length > 0 && visibleLoads.every((load) => expanded.has(load.id));
+  const toggleExpandAll = () => setExpanded((current) => { const next = new Set(current); for (const load of visibleLoads) { if (allVisibleExpanded) next.delete(load.id); else next.add(load.id); } return next; });
   const tabButton = (id: typeof tab, label: string) => <button type="button" onClick={() => setTab(id)} className={`carrier-exchange-tab${tab === id ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>;
 
   const dedicatedQuotes = initialTab === 'bids';
@@ -268,6 +274,7 @@ export default function CompanyMarketplaceExchange({
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
           <aside className="carrier-exchange-rail">
             <Panel title="Search Loads" description="UK postcode/outcode radius search.">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 0 8px', fontSize: 11, color: '#475569' }}><strong>LOAD FILTERS</strong><span>Live exchange</span></div>
               <div style={{ display: 'grid', gap: 8 }}>
                 <label><span style={labelStyle}>FROM / Radius</span><div style={{ display: 'grid', gridTemplateColumns: '1fr 76px', gap: 4 }}><input value={filters.from} onChange={(e) => setFilter('from', e.target.value)} placeholder="Postcode / area" style={{ ...fieldStyle, width: '100%' }} /><select value={filters.fromRadius} onChange={(e) => setFilter('fromRadius', e.target.value)} style={{ ...fieldStyle, width: '100%' }}>{radiusOptions.map((value) => <option key={value} value={value}>{value} mi</option>)}</select></div></label>
                 <label><span style={labelStyle}>TO / Radius</span><div style={{ display: 'grid', gridTemplateColumns: '1fr 76px', gap: 4 }}><input value={filters.to} onChange={(e) => setFilter('to', e.target.value)} placeholder="Destination" style={{ ...fieldStyle, width: '100%' }} /><select value={filters.toRadius} onChange={(e) => setFilter('toRadius', e.target.value)} style={{ ...fieldStyle, width: '100%' }}>{radiusOptions.map((value) => <option key={value} value={value}>{value} mi</option>)}</select></div></label>
@@ -294,28 +301,29 @@ export default function CompanyMarketplaceExchange({
           </aside>
 
           <main style={{ flex: '1 1 760px', minWidth: 0 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', border: '1px solid #dbe2ea', background: '#f8fafc', marginBottom: 5, fontSize: 11 }}><strong>Search Loads Results</strong><input aria-label="Quick search visible loads" placeholder="Quick search loads, locations, member or ID" value={loadQuickSearch} onChange={(event) => setLoadQuickSearch(event.target.value)} style={{ ...fieldStyle, height: 26, marginLeft: 'auto', width: 255, maxWidth: '50%' }} /><span>{visibleLoads.length} on this page</span></div>
             <div className="carrier-exchange-secondary-tabs">
               {LOAD_TYPES.map(([value, label]) => <button key={value} type="button" onClick={() => setFilter('loadType', value)} className={`carrier-exchange-tab${filters.loadType === value ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>)}
               <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{total} result{total === 1 ? '' : 's'}</span>
-              {viewMode === 'list' && <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!loads.length} onToggle={toggleExpandAll} noun="loads" />}
+              {viewMode === 'list' && <OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!visibleLoads.length} onToggle={toggleExpandAll} noun="loads" />}
               <ActionButton tone="secondary" onClick={() => setViewMode('list')}>List View</ActionButton><ActionButton tone="secondary" onClick={() => setViewMode('map')}>Map View</ActionButton>
             </div>
 
-            {viewMode === 'map' ? <MarketplaceLoadMap loads={mapLoads} onQuote={(loadId) => { const target = loads.find((load) => load.id === loadId); if (target) openQuote(target); }} onDetails={(loadId) => { setViewMode('list'); setExpanded((current) => new Set(current).add(loadId)); }} /> : <div style={{ display: 'grid', gap: 6 }}>
-              {loads.map((load) => {
+            {viewMode === 'map' ? <MarketplaceLoadMap loads={mapLoads} onQuote={(loadId) => { const target = loads.find((load) => load.id === loadId); if (target) openQuote(target); }} onDetails={(loadId) => { setViewMode('list'); setExpanded((current) => new Set(current).add(loadId)); }} /> : <div style={{ display: 'grid', gap: 5 }}>
+              {visibleLoads.map((load) => {
                 const isExpanded = expanded.has(load.id); const amount = Number(load.budget_amount); const hasBudget = Number.isFinite(amount) && amount > 0;
                 return <article key={load.id} style={{ border: '1px solid #cbd5e1', borderLeft: load.exchange_visibility === 'direct' ? '3px solid #f5a300' : '3px solid #1d57d8', borderRadius: 4, background: '#fff', overflow: 'hidden' }}>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'stretch' }}>
-                    <section style={{ flex: '1.15 1 240px', minWidth: 0, padding: '9px 10px', borderRight: '1px solid #edf2f7' }}>
-                      <div style={{ color: '#64748b', fontSize: 11, lineHeight: '14px', fontWeight: 800, textTransform: 'uppercase' }}>Route</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.1fr) minmax(180px, 1.1fr) minmax(220px, .85fr)', alignItems: 'stretch', minHeight: 150 }}>
+                    <section style={{ flex: '1.15 1 240px', minWidth: 0, padding: '7px 9px', borderRight: '1px solid #edf2f7' }}>
+                      <div style={{ color: '#64748b', fontSize: 11, lineHeight: '14px', fontWeight: 800, textTransform: 'uppercase' }}>From / To</div>
                       <div style={{ fontSize: 14, fontWeight: 850, color: '#0f172a', marginTop: 2 }}>{routeLabel(load.pickup_location, load.pickup_postcode)} <span style={{ color: '#64748b' }}>→</span> {routeLabel(load.delivery_location, load.delivery_postcode)}</div>
-                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', color: '#64748b', fontSize: 11, marginTop: 4 }}>{load.journeyDistanceMiles != null && <span>{load.journeyDistanceMiles.toFixed(1)} mi</span>}<span>{load.id.slice(0, 8).toUpperCase()}</span>{load.exchange_visibility === 'direct' && <StatusBadge value="Direct invite" tone="orange" />}</div>
+                      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', color: '#64748b', fontSize: 11, marginTop: 4 }}><span>Load ID: {load.id.slice(0, 8).toUpperCase()}</span>{load.exchange_visibility === 'direct' && <StatusBadge value="Direct invite" tone="orange" />}</div>
                     </section>
-                    <section style={{ flex: '1 1 220px', minWidth: 0, padding: '9px 10px', borderRight: '1px solid #edf2f7' }}>
+                    <section style={{ flex: '1 1 220px', minWidth: 0, padding: '7px 9px', borderRight: '1px solid #edf2f7' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: '58px 1fr', gap: '3px 6px', fontSize: 11 }}><span style={{ color: '#64748b' }}>Pickup</span><strong>{when(load.pickup_datetime)}{load.pickup_time_slot ? ' · ' + load.pickup_time_slot : ''}</strong><span style={{ color: '#64748b' }}>Deliver</span><strong>{when(load.delivery_datetime)}{load.delivery_time_slot ? ' · ' + load.delivery_time_slot : ''}</strong></div>
-                      <div style={{ marginTop: 5, fontSize: 11 }}><strong>{load.requested_cargo_label || load.cargo_type?.replace(/_/g, ' ') || 'Cargo not specified'}</strong>{load.weight_kg != null ? <span style={{ color: '#64748b' }}> · {Number(load.weight_kg).toLocaleString()} kg</span> : null}{load.pallets != null ? <span style={{ color: '#64748b' }}> · {load.pallets} pallet{load.pallets === 1 ? '' : 's'}</span> : null}</div>
+                      <div style={{ marginTop: 22, fontSize: 11, borderTop: '1px solid #e5e7eb', paddingTop: 6 }}><span style={{ color: '#1d57d8' }}>Dist: </span>{load.journeyDistanceMiles != null ? `${load.journeyDistanceMiles.toFixed(1)} miles` : 'Not supplied'}<div><span style={{ color: '#1d57d8' }}>Packaging: </span>{load.requested_cargo_label || load.cargo_type?.replace(/_/g, ' ') || 'Not supplied'}</div><div><span style={{ color: '#1d57d8' }}>Weight: </span>{load.weight_kg != null ? `${Number(load.weight_kg).toLocaleString()} kg` : 'Not supplied'}</div>{load.weight_kg != null ? <span style={{ color: '#64748b' }}> · {Number(load.weight_kg).toLocaleString()} kg</span> : null}{load.pallets != null ? <span style={{ color: '#64748b' }}> · {load.pallets} pallet{load.pallets === 1 ? '' : 's'}</span> : null}</div>
                     </section>
-                    <section style={{ flex: '.9 1 210px', minWidth: 0, padding: '9px 10px' }}>
+                    <section style={{ flex: '.9 1 210px', minWidth: 0, padding: '7px 9px' }}>
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 6 }}><strong style={{ fontSize: 12 }}>{descriptionLabel(load.jobDescription)}</strong><span style={{ fontSize: 11, fontWeight: 800 }}>{vehicleLabel(load)}</span></div>
                       <div style={{ fontSize: 11, marginTop: 4 }}>{load.posterName}{load.posterMemberCode ? <span style={{ color: '#64748b' }}> · ID {load.posterMemberCode}</span> : null}{load.posterPhone ? <a href={`tel:${load.posterPhone.replace(/\s+/g, '')}`} style={{ marginLeft: 6, color: '#1d57d8', fontWeight: 800, textDecoration: 'none' }}>{load.posterPhone}</a> : null}</div>
                       <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 5, fontSize: 11 }}>{hasBudget ? <strong>{money(amount, load.currency || 'GBP')} {load.is_fixed_price ? 'fixed' : 'budget'}</strong> : <span style={{ color: '#64748b' }}>No published budget</span>}{load.myBid ? <StatusBadge value={load.myBid.status} /> : <span style={{ color: '#64748b' }}>Not quoted</span>}</div>
@@ -339,7 +347,7 @@ export default function CompanyMarketplaceExchange({
                   </div>
                 </article>;
               })}
-              {!loading && loads.length === 0 && <div className="carrier-exchange-empty" style={{ minHeight: 52, padding: 10, display: 'grid', placeItems: 'center', textAlign: 'center', color: '#64748b', border: '1px solid #dbe2ea', background: '#fff' }}>No live loads match this search.</div>}
+              {!loading && visibleLoads.length === 0 && <div className="carrier-exchange-empty" style={{ minHeight: 52, padding: 10, display: 'grid', placeItems: 'center', textAlign: 'center', color: '#64748b', border: '1px solid #dbe2ea', background: '#fff' }}>No live loads match this search.</div>}
             </div>}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 8, color: '#64748b', fontSize: 11 }}><span>Page {page} of {totalPages} · {total} results</span><div style={{ display: 'flex', gap: 4 }}><ActionButton tone="secondary" disabled={page <= 1 || loading} onClick={() => void loadLoads(page - 1, false)}>Previous</ActionButton><ActionButton tone="secondary" disabled={page >= totalPages || loading} onClick={() => void loadLoads(page + 1, false)}>Next</ActionButton></div></div>
           </main>
@@ -368,15 +376,15 @@ export default function CompanyMarketplaceExchange({
             ['expired', 'Expired', statusCounts.expired],
             ['archived', 'Archived', statusCounts.archived],
           ] as const).map(([id, label, count]) => <button key={id} type="button" onClick={() => setQuoteStateView(id)} className={`carrier-exchange-tab${quoteStateView === id ? ' carrier-exchange-tab--active' : ''}`}>{label} {count}</button>)}<span style={{ marginLeft: 'auto' }}><OperationalExpandAllControl expanded={allVisibleQuotesExpanded} disabled={!visibleBids.length} onToggle={toggleAllVisibleQuotes} noun="quotes" /></span></div>
-          <div style={{ display: 'grid', gap: 6 }}>
+          <div style={{ display: 'grid', gap: 5 }}>
             {visibleBids.map((bid) => {
               const expandedQuote = expandedQuotes.has(bid.id);
               const stage = bidStage(bid);
               return <article key={bid.id} style={{ border: '1px solid #cbd5e1', borderLeft: '3px solid #1d57d8', borderRadius: 4, background: '#fff', overflow: 'hidden' }}>
                 <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center' }}>
-                  <section style={{ flex: '1.2 1 260px', padding: '9px 10px', borderRight: '1px solid #edf2f7' }}><strong style={{ fontSize: 13 }}>{routeLabel(bid.job?.pickup_location, bid.job?.pickup_postcode)} <span style={{ color: '#64748b' }}>→</span> {routeLabel(bid.job?.delivery_location, bid.job?.delivery_postcode)}</strong><div style={{ color: '#64748b', fontSize: 11, marginTop: 3 }}>Load {bid.job_id.slice(0, 8).toUpperCase()} · Quote {bid.id.slice(0, 8).toUpperCase()}</div></section>
-                  <section style={{ flex: '1 1 220px', padding: '9px 10px', borderRight: '1px solid #edf2f7', fontSize: 11 }}><div><strong>{bid.job?.posterName || 'Marketplace member'}</strong>{bid.job?.posterMemberCode ? <span style={{ color: '#64748b' }}> · ID {bid.job.posterMemberCode}</span> : null}</div><div style={{ marginTop: 3, color: '#64748b' }}>Pickup {when(bid.job?.pickup_datetime)} · Delivery {when(bid.job?.delivery_datetime)}</div></section>
-                  <section style={{ flex: '.65 1 170px', padding: '9px 10px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}><strong style={{ fontSize: 14 }}>{money(bidAmount(bid), bid.currency || 'GBP')}</strong><StatusBadge value={quoteStageLabel(stage)} /></section>
+                  <section style={{ flex: '1.2 1 260px', padding: '7px 9px', borderRight: '1px solid #edf2f7' }}><strong style={{ fontSize: 13 }}>{routeLabel(bid.job?.pickup_location, bid.job?.pickup_postcode)} <span style={{ color: '#64748b' }}>→</span> {routeLabel(bid.job?.delivery_location, bid.job?.delivery_postcode)}</strong><div style={{ color: '#64748b', fontSize: 11, marginTop: 3 }}>Load {bid.job_id.slice(0, 8).toUpperCase()} · Quote {bid.id.slice(0, 8).toUpperCase()}</div></section>
+                  <section style={{ flex: '1 1 220px', padding: '7px 9px', borderRight: '1px solid #edf2f7', fontSize: 11 }}><div><strong>{bid.job?.posterName || 'Marketplace member'}</strong>{bid.job?.posterMemberCode ? <span style={{ color: '#64748b' }}> · ID {bid.job.posterMemberCode}</span> : null}</div><div style={{ marginTop: 3, color: '#64748b' }}>Pickup {when(bid.job?.pickup_datetime)} · Delivery {when(bid.job?.delivery_datetime)}</div></section>
+                  <section style={{ flex: '.65 1 170px', padding: '7px 9px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}><strong style={{ fontSize: 14 }}>{money(bidAmount(bid), bid.currency || 'GBP')}</strong><StatusBadge value={quoteStageLabel(stage)} /></section>
                 </div>
                 {expandedQuote && <div style={{ background: '#f8fafc', borderTop: '1px solid #dbe2ea', padding: '8px 10px', display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8, fontSize: 11 }}><div><strong>Submitted</strong><div>{when(bid.created_at)}</div></div><div><strong>Vehicle</strong><div>{bid.job?.requested_vehicle_label || bid.job?.vehicle_type?.replace(/_/g, ' ') || 'Not supplied'}</div></div><div><strong>Marketplace budget</strong><div>{money(bid.job?.budget_amount, bid.job?.currency || 'GBP')}</div></div><div><strong>Commercial note</strong><div>{bid.message || 'No quote message'}</div></div></div>}
                 <div style={{ minHeight: 34, display: 'flex', alignItems: 'center', gap: 4, padding: '4px 8px', borderTop: '1px solid #edf2f7', background: '#fbfdff' }}><button type="button" onClick={() => setExpandedQuotes((current) => { const next = new Set(current); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })} aria-label={expandedQuote ? 'Collapse quote' : 'Expand quote'} style={{ width: 28, height: 26, border: '1px solid #cbd5e1', borderRadius: 3, background: '#fff', cursor: 'pointer', fontWeight: 900 }}>{expandedQuote ? '▴' : '▾'}</button><span style={{ color: '#64748b', fontSize: 11 }}>Updated {when(bid.created_at)}</span><span style={{ marginLeft: 'auto' }} />{bid.status === 'submitted' && stage !== 'archived' ? <ActionButton tone="secondary" disabled={working} onClick={() => void withdrawQuote(bid.id)}>Withdraw</ActionButton> : null}{stage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(stage) ? <ActionButton tone="secondary" disabled={working} onClick={() => void updateQuoteLifecycle(bid.id, 'archive_bidder')}>Archive</ActionButton> : null}{stage === 'archived' ? <ActionButton tone="secondary" disabled={working} onClick={() => void updateQuoteLifecycle(bid.id, 'unarchive_bidder')}>Restore</ActionButton> : null}</div>
