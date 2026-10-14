@@ -4,7 +4,7 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { BellRing, Briefcase, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, ReceiptText, RefreshCw, Trophy } from 'lucide-react';
+import { BellRing, Briefcase, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, Menu, MessageSquare, ReceiptText, RefreshCw, Trophy } from 'lucide-react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -121,14 +121,21 @@ export function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
     '/admin/pod',
     '/admin/quotes',
     '/admin/invoices',
-    '/admin/documents',
     '/admin/messages',
+  ];
+  const settingsOwnedHrefs = new Set([
+    '/admin/documents',
     '/admin/event-log',
     '/admin/team',
     '/admin/fleet/managers',
     '/admin/dispatchers',
     '/admin/settings/billing',
-  ];
+    '/admin/drivers',
+    '/admin/vehicles',
+    '/admin/fleet/drivers',
+    '/admin/fleet/vehicles',
+    '/admin/fleet/positions',
+  ]);
   const more: WorkspaceNavItem[] = [
     { id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre', icon: '!' },
     ...morePreferred.flatMap((href) => {
@@ -138,7 +145,7 @@ export function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
   ];
   const represented = new Set([...directHrefs, ...more.map((item) => item.href)]);
   for (const [href, item] of items) {
-    if (!represented.has(href)) {
+    if (!represented.has(href) && !settingsOwnedHrefs.has(href)) {
       more.push(item);
       represented.add(href);
     }
@@ -554,6 +561,30 @@ export function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
   ];
 }
 
+type WorkspacePageContext = { eyebrow: string; title: string; description: string };
+
+const CARRIER_PAGE_CONTEXTS: Array<{ href: string; exact?: boolean; context: WorkspacePageContext }> = [
+  { href: '/admin/marketplace/directory', context: { eyebrow: 'Network', title: 'Directory', description: 'Search verified members, capability, location and reputation.' } },
+  { href: '/admin/live-availability', context: { eyebrow: 'Fleet resources', title: 'Live Availability', description: 'Live and future driver capacity, positions and availability.' } },
+  { href: '/admin/fleet/returns', context: { eyebrow: 'Carrier capacity', title: 'Return Journeys', description: 'Publish and search return capacity and future journeys.' } },
+  { href: '/admin/fleet/resources', context: { eyebrow: 'Fleet resources', title: 'Drivers & Vehicles', description: 'Drivers, vehicles, tracking, future capacity and documents.' } },
+  { href: '/admin/freight-vision', context: { eyebrow: 'Operations tracking', title: 'Freight Vision', description: 'Active jobs, live positions, ETA risk and tracking exceptions.' } },
+  { href: '/admin/exchange-quotes', context: { eyebrow: 'Commercial', title: 'Quotes', description: 'Submitted, accepted, unsuccessful, withdrawn and archived quotes.' } },
+  { href: '/admin/diary', context: { eyebrow: 'Operations', title: 'Diary', description: 'Post-award bookings, allocation, evidence and authorised job records in one operating register.' } },
+  { href: '/admin/settings', context: { eyebrow: 'Company admin', title: 'Settings', description: 'Profile, security, company controls and authorised administration.' } },
+  { href: '/admin/team', context: { eyebrow: 'Company administration', title: 'Team & Roles', description: 'Users, permissions, Fleet Managers and Dispatchers.' } },
+  { href: '/admin/marketplace', context: { eyebrow: 'Marketplace', title: 'Loads', description: 'Available loads, matching, route, vehicle and quote actions.' } },
+  { href: '/admin/fleet', exact: true, context: { eyebrow: 'Fleet resources', title: 'My Fleet', description: 'Fleet operations, allocation, readiness and resource control.' } },
+  { href: '/admin', exact: true, context: { eyebrow: 'Carrier workspace', title: 'Dashboard', description: 'Commercial, operational and compliance summary.' } },
+];
+
+function resolveCarrierPageContext(pathname: string): WorkspacePageContext | null {
+  for (const item of CARRIER_PAGE_CONTEXTS) {
+    if (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`)) return item.context;
+  }
+  return null;
+}
+
 export default function TopWorkspaceShell({
   children,
   forcedRole,
@@ -919,11 +950,14 @@ export default function TopWorkspaceShell({
   };
 
   const driverPrototypeScope = role === 'driver' || role === 'owner_driver';
+  const carrierPageContext = CARRIER_NAV_ROLES.has(role) ? resolveCarrierPageContext(pathname ?? '') : null;
 
   return (
     <div
       className={`top-workspace-shell${driverPrototypeScope ? ' driver-prototype-port' : ''}`}
       data-workspace-role={role}
+      data-carrier-nav={CARRIER_NAV_ROLES.has(role) ? 'true' : undefined}
+      data-page-context={carrierPageContext ? 'true' : undefined}
     >
       <header className="top-workspace-shell__header">
         <div className="top-workspace-shell__brand">
@@ -1060,8 +1094,17 @@ export default function TopWorkspaceShell({
                     }
                   }}
                 >
-                  <span>{group.label}</span>
-                  <ChevronDown aria-hidden="true" className="top-workspace-nav__caret" size={14} strokeWidth={2} />
+                  {group.id === 'carrier-more' ? (
+                    <>
+                      <Menu aria-hidden="true" size={18} strokeWidth={2} />
+                      <span className="sr-only">{group.label}</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>{group.label}</span>
+                      <ChevronDown aria-hidden="true" className="top-workspace-nav__caret" size={14} strokeWidth={2} />
+                    </>
+                  )}
                 </button>
                 {open && (
                   <div
@@ -1108,6 +1151,13 @@ export default function TopWorkspaceShell({
               </div>
             );
           })}
+          {carrierPageContext ? (
+            <div className="top-workspace-nav__context" aria-label="Current workspace page">
+              <span className="top-workspace-nav__context-eyebrow">{carrierPageContext.eyebrow}</span>
+              <strong>{carrierPageContext.title}</strong>
+              <span className="top-workspace-nav__context-description">{carrierPageContext.description}</span>
+            </div>
+          ) : null}
         </div>
       </nav>
 
