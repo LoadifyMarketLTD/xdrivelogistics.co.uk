@@ -424,7 +424,6 @@ async function searchLoads(request: NextRequest, companyId: string) {
     .not('exchange_posted_at', 'is', null)
     .is('awarded_carrier_company_id', null)
     .or(marketplaceVisibility)
-    .neq('company_id', companyId)
     .order('exchange_posted_at', { ascending: false })
     .limit(250);
 
