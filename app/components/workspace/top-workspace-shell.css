@@ -314,12 +314,12 @@
 
 .xdrive-operational-top-workspace .top-workspace-nav__menu {
   position: fixed;
-  top: 92px !important;
+  top: calc(var(--ws-header-h, 50px) + var(--ws-nav-h, 42px)) !important;
   right: 16px;
   left: auto;
   z-index: 95;
   width: 230px !important;
-  max-height: calc(100vh - 104px);
+  max-height: calc(100vh - var(--ws-header-h, 50px) - var(--ws-nav-h, 42px) - 12px);
   overflow-y: auto;
   overscroll-behavior: contain;
   padding: 4px !important;
