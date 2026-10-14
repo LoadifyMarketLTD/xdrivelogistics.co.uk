@@ -107,7 +107,6 @@ export default function CompanyMarketplaceExchange({
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [recentSearches, setRecentSearches] = useState<RecentSearch[]>([]);
   const [memberTarget, setMemberTarget] = useState<LoadRow | null>(null);
-  const [memberTab, setMemberTab] = useState('Member Details');
   const [bidTarget, setBidTarget] = useState<LoadRow | null>(null);
   const [quoteAmount, setQuoteAmount] = useState('');
   const [quoteMessage, setQuoteMessage] = useState('');
