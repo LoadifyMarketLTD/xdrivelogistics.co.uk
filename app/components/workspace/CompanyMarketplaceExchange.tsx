@@ -350,7 +350,7 @@ export default function CompanyMarketplaceExchange({
       </>}
 
       {tab === 'bids' && <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
-        <aside className="carrier-exchange-rail">
+        <aside className="carrier-exchange-rail" style={{ flex: '0 0 var(--ws-filter-rail-w, 164px)', width: 'var(--ws-filter-rail-w, 164px)', minWidth: 0, alignSelf: 'flex-start' }}>
           <Panel title="Search Panel">
             <div style={{ display: 'grid', gap: 8 }}>
               <label><span style={labelStyle}>Pickup Time Within</span><select value={quoteFilters.pickupWithin} onChange={(event) => setQuoteFilters((current) => ({ ...current, pickupWithin: event.target.value as QuoteTimeWindow }))} style={{ ...fieldStyle, width: '100%' }}>{QUOTE_TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
