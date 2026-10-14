@@ -313,10 +313,9 @@ export default function CompanyMarketplaceExchange({
               {visibleLoads.map((load) => {
                 const isExpanded = expanded.has(load.id); const amount = Number(load.budget_amount); const hasBudget = Number.isFinite(amount) && amount > 0;
                 return <article key={load.id} style={{ border: '1px solid #cbd5e1', borderLeft: load.exchange_visibility === 'direct' ? '3px solid #f5a300' : '3px solid #1d57d8', borderRadius: 4, background: '#fff', overflow: 'hidden' }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.1fr) minmax(180px, 1.1fr) minmax(220px, .85fr)', alignItems: 'stretch', minHeight: 150 }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px, 1.1fr) minmax(180px, 1.1fr) minmax(220px, .85fr)', alignItems: 'stretch', minHeight: 142 }}>
                     <section style={{ flex: '1.15 1 240px', minWidth: 0, padding: '7px 9px', borderRight: '1px solid #edf2f7' }}>
-                      <div style={{ color: '#64748b', fontSize: 11, lineHeight: '14px', fontWeight: 800, textTransform: 'uppercase' }}>From / To</div>
-                      <div style={{ fontSize: 14, fontWeight: 850, color: '#0f172a', marginTop: 2 }}>{routeLabel(load.pickup_location, load.pickup_postcode)} <span style={{ color: '#64748b' }}>→</span> {routeLabel(load.delivery_location, load.delivery_postcode)}</div>
+                      <div style={{ display: 'grid', gridTemplateColumns: '38px 1fr', gap: '4px 6px', fontSize: 12, lineHeight: '17px' }}><span style={{ color: '#64748b' }}>From:</span><strong>{routeLabel(load.pickup_location, load.pickup_postcode)}</strong><span style={{ color: '#64748b' }}>To:</span><strong>{routeLabel(load.delivery_location, load.delivery_postcode)}</strong></div>
                       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', color: '#64748b', fontSize: 11, marginTop: 4 }}><span>Load ID: {load.id.slice(0, 8).toUpperCase()}</span>{load.exchange_visibility === 'direct' && <StatusBadge value="Direct invite" tone="orange" />}</div>
                     </section>
                     <section style={{ flex: '1 1 220px', minWidth: 0, padding: '7px 9px', borderRight: '1px solid #edf2f7' }}>
@@ -330,6 +329,7 @@ export default function CompanyMarketplaceExchange({
                       <div style={{ color: '#64748b', fontSize: 11, lineHeight: '14px', marginTop: 3 }}>{load.payment_terms ? `Payment terms: ${load.payment_terms}` : 'Payment terms not supplied'}{load.hard_copy_pod ? ` · Hard-copy POD: ${load.hard_copy_pod}` : ''}</div>
                     </section>
                   </div>
+                  {(load.special_requirements || load.access_restrictions) && <div style={{ borderTop: '1px solid #dbe2ea', padding: '4px 9px', fontSize: 11, lineHeight: '15px', color: '#475569' }}><span style={{ color: '#1d57d8' }}>Load Notes: </span>{load.special_requirements || load.access_restrictions}</div>}
                   {isExpanded && <div style={{ borderTop: '1px solid #dbe2ea', background: '#f8fafc', padding: '8px 10px' }}>
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8, fontSize: 11 }}>
                       <div><strong>Pickup</strong><div>{load.pickup_location || load.pickup_postcode || '—'}</div><div style={{ color: '#64748b' }}>{load.distanceFromSearchOriginMiles != null ? load.distanceFromSearchOriginMiles.toFixed(1) + ' mi from FROM search' : 'Radius distance unavailable'}</div></div>
