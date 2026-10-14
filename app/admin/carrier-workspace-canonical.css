@@ -1191,25 +1191,25 @@
   }
 }
 
-/* Shared operational dashboard geometry; role-specific cards remain unchanged. */
+/* CX-parity Carrier/Fleet dashboard: one tab at a time, starting with Dashboard. */
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(360px, var(--ws-dashboard-left-col)) minmax(0, var(--ws-dashboard-right-col));
-  gap: var(--ws-gap-grid);
+  grid-template-columns: minmax(0, 1.06fr) minmax(430px, .94fr);
+  gap: 8px;
   align-items: start;
-  margin-bottom: var(--ws-gap-internal);
+  margin-bottom: 10px;
 }
 
 .xdrive-carrier-workspace .carrier-cx-dashboard-column {
   min-width: 0;
   display: grid;
-  gap: var(--ws-gap-grid);
+  gap: 8px;
 }
 
 .xdrive-carrier-workspace .carrier-cx-dashboard-subgrid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: var(--ws-gap-grid);
+  gap: 8px;
 }
 
 .xdrive-carrier-workspace .carrier-cx-stat-grid,
@@ -1385,7 +1385,7 @@
   background: #fbfdff;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
     grid-template-columns: minmax(0, 1fr);
   }
@@ -1517,12 +1517,12 @@
   }
 }
 
-/* Carrier dashboard uses the same canonical tracks and spacing as other operational roles. */
+/* Carrier/Fleet Dashboard — live CX 1:1 structural pass. */
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
   width: 100%;
-  margin: 0 0 var(--ws-gap-internal) !important;
-  grid-template-columns: minmax(360px, var(--ws-dashboard-left-col)) minmax(0, var(--ws-dashboard-right-col)) !important;
-  gap: var(--ws-gap-grid) !important;
+  margin: 0 0 8px !important;
+  grid-template-columns: minmax(0, .72fr) minmax(0, 1fr) !important;
+  gap: 8px !important;
 }
 
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid .xdrive-operational-card {
@@ -1889,7 +1889,7 @@
 .xdrive-carrier-workspace .carrier-cx-compliance-dot--red { background: #d94c4c; }
 
 
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
     width: 100%;
     grid-template-columns: minmax(0, 1fr) !important;
@@ -1936,19 +1936,19 @@
    feedback 279px; activity 554px; compliance 278px. */
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
   width: 100% !important;
-  grid-template-columns: minmax(360px, var(--ws-dashboard-left-col)) minmax(0, var(--ws-dashboard-right-col)) !important;
-  gap: var(--ws-gap-grid) !important;
+  grid-template-columns: minmax(0, 620fr) minmax(0, 864fr) !important;
+  gap: 17px !important;
   align-items: start !important;
 }
 
 .xdrive-carrier-workspace .carrier-cx-dashboard-column {
-  gap: var(--ws-gap-grid) !important;
+  gap: 0 !important;
 }
 
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid .xdrive-operational-card__header {
-  min-height: var(--ws-panel-head-h) !important;
-  height: auto !important;
-  padding: 6px 10px !important;
+  min-height: 49px !important;
+  height: 49px !important;
+  padding: 0 10px !important;
   display: flex !important;
   align-items: center !important;
 }
@@ -2067,14 +2067,14 @@
   min-height: 205px;
 }
 
-@media (max-width: 1100px) {
+@media (max-width: 1180px) {
   .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
     grid-template-columns: minmax(0, 1fr) !important;
-    gap: var(--ws-gap-grid) !important;
+    gap: 8px !important;
   }
 
   .xdrive-carrier-workspace .carrier-cx-dashboard-column {
-    gap: var(--ws-gap-grid) !important;
+    gap: 8px !important;
   }
 
   .xdrive-carrier-workspace :is(
