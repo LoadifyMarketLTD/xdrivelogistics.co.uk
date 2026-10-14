@@ -1110,6 +1110,24 @@
   max-width: var(--ws-filter-rail-w) !important;
 }
 
+.xdrive-carrier-workspace .carrier-exchange-rail,
+.xdrive-carrier-workspace .carrier-exchange-rail * {
+  box-sizing: border-box;
+}
+
+.xdrive-carrier-workspace .carrier-exchange-rail input,
+.xdrive-carrier-workspace .carrier-exchange-rail select,
+.xdrive-carrier-workspace .carrier-exchange-rail button {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.xdrive-carrier-workspace .carrier-exchange-rail label,
+.xdrive-carrier-workspace .carrier-exchange-rail label > div {
+  min-width: 0;
+  max-width: 100%;
+}
+
 .xdrive-carrier-workspace .carrier-exchange-primary-tabs,
 .xdrive-carrier-workspace .carrier-exchange-secondary-tabs {
   min-height: var(--ws-tab-h) !important;
