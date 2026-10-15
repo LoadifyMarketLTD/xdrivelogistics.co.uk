@@ -467,6 +467,7 @@ export function MemberDirectoryPage({
         </select>
         {privateGroups.canManage ? <><input className="input" style={{ maxWidth: 220 }} value={newPrivateGroupName} onChange={(event) => setNewPrivateGroupName(event.target.value)} placeholder="New group name" /><button type="button" className="rowbtn blue" disabled={privateGroupWorking || newPrivateGroupName.trim().length < 2} onClick={() => void createPrivateGroup()}>Create Group</button></> : null}
         {privateGroups.loading ? <span className="meta">Loading groups…</span> : null}
+        {!pathname.startsWith('/driver') ? <button type="button" className="rowbtn" style={{ marginLeft: 'auto' }} onClick={() => void load()}>Refresh</button> : null}
       </div>
       {privateGroups.error ? <AlertBanner tone="warning">{privateGroups.error}</AlertBanner> : null}
       {privateGroupActionError ? <AlertBanner tone="warning">{privateGroupActionError}</AlertBanner> : null}
@@ -585,10 +586,6 @@ export function MemberDirectoryPage({
 
   return (
     <div style={{ display: 'grid', gap: 8 }}>
-      <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
-        <span><strong>{eyebrow}</strong> · {title}</span>
-        <ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton>
-      </div>
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {partial && <AlertBanner tone="warning">{capMessage}</AlertBanner>}
       {privateGroupPanel}
