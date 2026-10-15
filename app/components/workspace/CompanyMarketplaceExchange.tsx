@@ -267,7 +267,7 @@ export default function CompanyMarketplaceExchange({
         eyebrow="Carrier exchange"
         title={dedicatedQuotes ? 'Quotes' : 'Loads'}
         description={dedicatedQuotes ? 'Search and manage submitted marketplace quotes without leaving the quote register.' : 'Search live exchange work, inspect operational detail and quote without leaving the load board.'}
-        actions={<ActionButton tone="secondary" onClick={() => tab === 'loads' ? void loadLoads(page, false) : void loadListTab(tab)} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
+        actions={dedicatedQuotes ? <ActionButton tone="secondary" onClick={() => tab === 'loads' ? void loadLoads(page, false) : void loadListTab(tab)} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton> : undefined}
         meta={<span>{generatedAt ? 'Updated ' + when(generatedAt) : 'Live exchange data'}</span>}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}{notice && <AlertBanner tone="info">{notice}</AlertBanner>}{!companyId && hasSupabaseSession && <AlertBanner tone="info">Resolving your active company workspace…</AlertBanner>}
@@ -304,7 +304,7 @@ export default function CompanyMarketplaceExchange({
           </aside>
 
           <main style={{ flex: '1 1 760px', minWidth: 0 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', border: '1px solid #dbe2ea', background: '#f8fafc', marginBottom: 5, fontSize: 11 }}><strong>Search Loads Results</strong><input aria-label="Quick search visible loads" placeholder="Quick search loads, locations, member or ID" value={loadQuickSearch} onChange={(event) => setLoadQuickSearch(event.target.value)} style={{ ...fieldStyle, height: 26, marginLeft: 'auto', width: 255, maxWidth: '50%' }} /><span>{visibleLoads.length} on this page</span></div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', border: '1px solid #dbe2ea', background: '#f8fafc', marginBottom: 5, fontSize: 11 }}><strong>Search Loads Results</strong><ActionButton tone="secondary" onClick={() => void loadLoads(page, false)} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton><input aria-label="Quick search visible loads" placeholder="Quick search loads, locations, member or ID" value={loadQuickSearch} onChange={(event) => setLoadQuickSearch(event.target.value)} style={{ ...fieldStyle, height: 26, marginLeft: 'auto', width: 255, maxWidth: '50%' }} /><span>{visibleLoads.length} on this page</span></div>
             <div className="carrier-exchange-secondary-tabs">
               {LOAD_TYPES.map(([value, label]) => <button key={value} type="button" onClick={() => setFilter('loadType', value)} className={`carrier-exchange-tab${filters.loadType === value ? ' carrier-exchange-tab--active' : ''}`}>{label}</button>)}
               <span style={{ marginLeft: 'auto', color: '#64748b', fontSize: 11, whiteSpace: 'nowrap' }}>{total} result{total === 1 ? '' : 's'}</span>
