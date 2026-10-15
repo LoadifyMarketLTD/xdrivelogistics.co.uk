@@ -77,10 +77,7 @@ type SavedNetworkResponse = {
 
 const normalise = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
 
-export function MemberDirectoryPage({
-  title = 'Directory',
-  eyebrow = 'XDrive member network',
-}: {
+export function MemberDirectoryPage(_props: {
   title?: string;
   eyebrow?: string;
 }) {
