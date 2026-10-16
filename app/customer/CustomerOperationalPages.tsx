@@ -94,15 +94,25 @@ function CustomerOperationalRow({
         <section className="xdrive-cx-load-card__times">
           <div><span>Pickup:</span><strong>{when(job.pickup_datetime)}</strong></div>
           <div><span>Deliver:</span><strong>{when(job.delivery_datetime)}</strong></div>
-          <div><span>{middleLabel}:</span><strong>{middleValue}</strong>{middleMeta ? <span>{middleMeta}</span> : null}</div>
+          {open ? <div className="xdrive-cx-load-card__freight">
+            <div><span>{middleLabel}:</span><strong>{middleValue}</strong></div>
+            <div><span>Vehicle:</span><strong>{(job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')}</strong></div>
+            <div><span>Booking:</span><strong>{job.booking_reference || 'Not supplied'}</strong></div>
+            <div><span>Customer ref:</span><strong>{job.customer_reference || 'Not supplied'}</strong></div>
+          </div> : null}
         </section>
         <section className="xdrive-cx-load-card__status">
           <div className="xdrive-cx-load-card__band">{presentationStatus}</div>
           <div className="xdrive-cx-load-card__posted"><strong>{job.client_name || 'Customer booking'}</strong></div>
           <div className="xdrive-cx-load-card__posted-at">{job.booking_reference ? `Booking ${job.booking_reference}` : job.customer_reference ? `Customer ref ${job.customer_reference}` : 'XDrive transport'}</div>
           <div className="xdrive-cx-load-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-load-card__vehicle"><img className="xdrive-cx-load-card__vehicle-image" src={workspaceVehicleImageSrc((job.vehicle_type ?? 'Not supplied').replaceAll('_', ' '))} alt="" aria-hidden="true" /><strong>{(job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')}</strong></span></div>
+          {open ? <div className="xdrive-cx-load-card__commercial">
+            <div><span>Status:</span><strong>{presentationStatus}</strong></div>
+            <div><span>XDrive ref:</span><strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong></div>
+          </div> : null}
         </section>
       </div>
+      {open && middleMeta ? <div className="xdrive-cx-load-card__notes"><span>Details:</span><strong>{middleMeta}</strong></div> : null}
       <div className="xdrive-cx-load-footer">
         <button type="button" className="xdrive-cx-load-footer__expander" onClick={openDetails} aria-label={sheet && open ? 'Collapse booking' : sheet ? 'Expand booking' : 'Open booking'}>{sheet && open ? '⌃' : '⌄'}</button>
         {actionLabel && actionHref ? <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => router.push(actionHref)}>{actionLabel}</button> : null}

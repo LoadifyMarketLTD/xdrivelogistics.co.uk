@@ -145,15 +145,24 @@ export default function BrokerLoadsPage() {
                       <section className="xdrive-cx-load-card__times">
                         <div><span>Pickup:</span><strong>{when(job.pickup_datetime)}</strong></div>
                         <div><span>Deliver:</span><strong>{when(job.delivery_datetime)}</strong></div>
+                        {open && <div className="xdrive-cx-load-card__freight">
+                          <div><span>Quotes:</span><strong>{quotes.length}</strong></div>
+                          <div><span>Best quote:</span><strong>{bestQuote ? money(bestQuote) : 'No live quote'}</strong></div>
+                          <div><span>Budget:</span><strong>{budget > 0 ? money(budget) : 'Not set'}</strong></div>
+                          <div><span>Spread:</span><strong>{bestQuote && budget > 0 ? money(budget - bestQuote) : '—'}</strong></div>
+                        </div>}
                       </section>
                       <section className="xdrive-cx-load-card__status">
                         <div className="xdrive-cx-load-card__band">{workspaceJobOperationalLabel(job)}</div>
                         <div className="xdrive-cx-load-card__posted"><strong>{job.client_name || 'Customer'}</strong></div>
                         <div className="xdrive-cx-load-card__posted-at">{budget > 0 ? `Budget ${money(budget)}` : 'Budget not set'} · {quotes.length} quote{quotes.length === 1 ? '' : 's'}</div>
                         <div className="xdrive-cx-load-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-load-card__vehicle"><img className="xdrive-cx-load-card__vehicle-image" src={workspaceVehicleImageSrc((job.vehicle_type || 'Vehicle not set').replaceAll('_', ' '))} alt="" aria-hidden="true" /><strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong></span></div>
+                        {open && <div className="xdrive-cx-load-card__commercial">
+                          <div><span>Customer:</span><strong>{job.client_name || 'Not supplied'}</strong></div>
+                          <div><span>Status:</span><strong>{workspaceJobOperationalLabel(job)}</strong></div>
+                        </div>}
                       </section>
                     </div>
-                    {open && <div className="xdrive-cx-load-card__freight"><div><span>Quotes:</span><strong>{quotes.length}</strong></div><div><span>Best quote:</span><strong>{bestQuote ? money(bestQuote) : 'No live quote'}</strong></div><div><span>Customer budget:</span><strong>{budget > 0 ? money(budget) : 'Not set'}</strong></div><div><span>Est. spread:</span><strong>{bestQuote && budget > 0 ? money(budget - bestQuote) : '—'}</strong></div></div>}
                     <div className="xdrive-cx-load-footer">
                       <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => { setExpandedAllIds((current) => { const next = new Set(current); next.delete(job.id); return next; }); setExpanded(open ? null : job.id); }} aria-label={open ? 'Collapse load' : 'Expand load'}>{open ? '⌃' : '⌄'}</button>
                       <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Quotes & award</button>
