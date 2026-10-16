@@ -259,20 +259,14 @@ describe('Driver prototype migration contract', () => {
     expect(collisions).toEqual([]);
   });
 
-  it('keeps live Quotes status tabs at the 28px PR675 height with a 2px blue active underline', () => {
+  it('keeps Driver Quotes status tabs on the shared measured CX-live tab strip', () => {
     const quotes = read('app/driver/quotes/page.tsx');
-    const routeCss = read('app/driver/driver-full-prototype.css');
-    const strip = routeCss.split('.driver-prototype-port .quote-tabs{').at(-1)?.split('}')[0];
-    const button = routeCss.split('.driver-prototype-port .quote-tabs button{').at(-1)?.split('}')[0];
-    const active = routeCss.split('.driver-prototype-port .quote-tabs button.active{').at(-1)?.split('}')[0];
-    const desktop = routeCss.split('  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .quote-tabs,')[1]?.split('  .xdrive-workspace-measured.xdrive-operational-top-workspace .driver-prototype-port .return-tabs{')[0];
-    expect(quotes).toContain('quote-tabs workspace-tab-strip cx-quote-state-tabs');
-    expect(strip).toContain('height:var(--ws-tab-h,28px)!important;');
-    expect(button).toContain('height:var(--ws-tab-h,28px)!important;');
-    expect(button).toContain('font-size:var(--ws-font-label,11px)!important;');
-    expect(active).toContain('border-bottom:2px solid var(--ws-blue,#1d57d8)!important;');
-    expect(desktop).not.toMatch(/(?:height|min-height):(?:29|30|39|40)px!important/);
-    expect(desktop).toContain('height:var(--ws-tab-h,28px)!important;');
+    const baseline = read('app/components/workspace/workspace-measured-cx-baseline.css');
+    expect(quotes).toContain('workspace-tab-strip cx-quote-state-tabs');
+    expect(quotes).not.toContain('quote-tabs workspace-tab-strip');
+    expect(baseline).toContain('.xdrive-workspace-measured .cx-quote-state-tabs');
+    expect(baseline).toContain('min-height: 28px !important;');
+    expect(baseline).toContain('border-top: 6px solid #bfe0fb;');
   });
 
   it('keeps live Diary tabs and paging controls together at the compact PR675 scale', () => {

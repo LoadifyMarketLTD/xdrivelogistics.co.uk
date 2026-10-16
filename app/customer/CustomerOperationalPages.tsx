@@ -9,6 +9,7 @@ import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperational
 import { CompanyJobSheetPanel } from '../components/workspace/CompanyJobSheetPanel';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../components/workspace/useCompanyWorkspaceData';
 import { useVisibleRefresh } from '../components/workspace/useVisibleRefresh';
+import { workspaceVehicleImageSrc } from '../components/workspace/vehiclePresentation';
 import {
   ActionButton,
   AlertBanner,
@@ -22,9 +23,6 @@ const when = (value: string | null | undefined) =>
   value
     ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
     : 'Not set';
-
-const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
-const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
 
 const routeLocationLabel = (location: string | null | undefined, postcode: string | null | undefined, fallback: string) => {
   const place = location?.trim() ?? '';
@@ -87,14 +85,30 @@ function CustomerOperationalRow({
     else router.push(`/customer/jobs/${job.id}`);
   };
   return (
-    <article className="workspace-operational-row" data-state={presentationState}>
-      <div className="workspace-operational-row__top">
-        <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
-        <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
-        <div className="workspace-operational-cell"><div style={labelStyle}>{middleLabel}</div><strong>{middleValue}</strong>{middleMeta ? <div style={{ ...metaStyle, marginTop: 2 }}>{middleMeta}</div> : null}</div>
-        <div className="workspace-operational-cell"><div style={labelStyle}>STATUS / ACTION</div><StatusBadge value={presentationStatus} /><div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 4 }}><ActionButton tone="secondary" onClick={openDetails}>{sheet && open ? 'Collapse' : sheet ? 'Expand' : 'Details'}</ActionButton>{actionLabel && actionHref ? <ActionButton tone="secondary" onClick={() => router.push(actionHref)}>{actionLabel}</ActionButton> : null}</div></div>
+    <article className="xdrive-cx-load-card" data-state={presentationState}>
+      <div className="xdrive-cx-load-card__main">
+        <section className="xdrive-cx-load-card__route">
+          <div><span>From:</span><strong>{routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}</strong></div>
+          <div><span>To:</span><strong>{routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}</strong></div>
+        </section>
+        <section className="xdrive-cx-load-card__times">
+          <div><span>Pickup:</span><strong>{when(job.pickup_datetime)}</strong></div>
+          <div><span>Deliver:</span><strong>{when(job.delivery_datetime)}</strong></div>
+          <div><span>{middleLabel}:</span><strong>{middleValue}</strong>{middleMeta ? <span>{middleMeta}</span> : null}</div>
+        </section>
+        <section className="xdrive-cx-load-card__status">
+          <div className="xdrive-cx-load-card__band">{presentationStatus}</div>
+          <div className="xdrive-cx-load-card__posted"><strong>{job.client_name || 'Customer booking'}</strong></div>
+          <div className="xdrive-cx-load-card__posted-at">{job.booking_reference ? `Booking ${job.booking_reference}` : job.customer_reference ? `Customer ref ${job.customer_reference}` : 'XDrive transport'}</div>
+          <div className="xdrive-cx-load-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-load-card__vehicle"><img className="xdrive-cx-load-card__vehicle-image" src={workspaceVehicleImageSrc((job.vehicle_type ?? 'Not supplied').replaceAll('_', ' '))} alt="" aria-hidden="true" /><strong>{(job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')}</strong></span></div>
+        </section>
       </div>
-      <div className="workspace-record-meta"><span>XDrive XDL-{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Customer booking ref {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref {job.customer_reference}</span>}<span>Vehicle {(job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')}</span></div>
+      <div className="xdrive-cx-load-footer">
+        <button type="button" className="xdrive-cx-load-footer__expander" onClick={openDetails} aria-label={sheet && open ? 'Collapse booking' : sheet ? 'Expand booking' : 'Open booking'}>{sheet && open ? '⌃' : '⌄'}</button>
+        {actionLabel && actionHref ? <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => router.push(actionHref)}>{actionLabel}</button> : null}
+        {!actionHref && <button type="button" onClick={openDetails}>Details</button>}
+        <span style={{ marginLeft: 'auto' }}>XDL-{job.id.slice(0, 8).toUpperCase()}</span>
+      </div>
       {open && sheet ? <CompanyJobSheetPanel jobId={job.id} mode="customer" /> : null}
     </article>
   );

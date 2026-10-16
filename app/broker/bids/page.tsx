@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { confirmBookingPaymentObligation, bookingPaymentObligationRequestBody } from '../../../lib/legal/paymentObligationClient';
 import { useCompanyWorkspaceData, type WorkspaceBid } from '../../components/workspace/useCompanyWorkspaceData';
+import { workspaceVehicleImageSrc } from '../../components/workspace/vehiclePresentation';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
 import {
@@ -12,7 +13,6 @@ import {
   AlertBanner,
   EmptyState,
   PageFrame,
-  StatusBadge,
 } from '../../components/workspace/WorkspaceUI';
 
 type QuoteTab = 'received' | 'archived' | 'submitted' | 'unsuccessful';
@@ -181,7 +181,6 @@ export default function BrokerQuotesPage() {
     }
     return next;
   });
-  const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
   const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
 
   return (
@@ -226,16 +225,20 @@ export default function BrokerQuotesPage() {
                 const quoteStage = canonicalQuoteStage(bid, 'poster');
 
                 return (
-                  <article className="workspace-operational-row" key={bid.id} data-state={bid.status}>
-                    <div className="workspace-operational-row__top">
-                      <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>CARRIER / MEMBER</div><strong><MemberIdentityLink companyId={carrierCompanyId} driverId={carrierDriverId}>{carrierName}</MemberIdentityLink></strong><div style={{ ...metaStyle, marginTop: 2 }}>{carrierType} · {(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div><div style={{ ...metaStyle, marginTop: 2 }}>{identity?.memberId ? `Member ID ${identity.memberId} · ` : ''}{identity?.quoteLevel === 'driver' ? `Driver ${identity.driverAvailability?.replaceAll('_', ' ') || 'availability not supplied'}` : `${identity?.fleetVehicleTypes.length ?? 0} fleet types`}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{quote > 0 ? money(quote) : 'Quote not priced'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={quoteStageLabel(quoteStage)} /><ActionButton tone="secondary" onClick={() => { const opening = !open; setExpanded((current) => { const next = new Set(current); if (open) next.delete(bid.id); else next.add(bid.id); return next; }); if (opening && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
+                  <article className="xdrive-cx-quote-card" key={bid.id} data-state={bid.status} data-quote-stage={quoteStage}>
+                    <div className="xdrive-cx-quote-card__main">
+                      <section className="xdrive-cx-quote-card__route"><div><span>From:</span><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong></div><div><span>To:</span><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong></div></section>
+                      <section className="xdrive-cx-quote-card__times"><div><span>Pickup:</span><strong>{when(job.pickup_datetime)}</strong></div><div><span>Deliver:</span><strong>{when(job.delivery_datetime)}</strong></div></section>
+                      <section className="xdrive-cx-quote-card__status">
+                        <div className="xdrive-cx-quote-card__band">{quoteStageLabel(quoteStage)}</div>
+                        <div className="xdrive-cx-quote-card__service"><strong><MemberIdentityLink companyId={carrierCompanyId} driverId={carrierDriverId}>{carrierName}</MemberIdentityLink></strong></div>
+                        <div className="xdrive-cx-quote-card__posted">{quote > 0 ? money(quote) : 'Quote not priced'} · {carrierType}</div>
+                        <div className="xdrive-cx-quote-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-quote-card__vehicle"><img className="xdrive-cx-quote-card__vehicle-image" src={workspaceVehicleImageSrc((job.vehicle_type || 'Vehicle not set').replaceAll('_', ' '))} alt="" aria-hidden="true" /><strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong></span></div>
+                      </section>
                     </div>
-                    <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span><span>Quote #{bid.id.slice(0, 8).toUpperCase()}</span><span>Customer budget: {budget > 0 ? money(budget) : 'Not set'}</span><span>{margin !== null ? `Est. spread: ${money(margin)}` : 'Spread unavailable'}</span></div>
+                    {open && <div className="xdrive-cx-quote-card__freight"><div><span>Customer budget:</span><strong>{budget > 0 ? money(budget) : 'Not set'}</strong></div><div><span>Estimated spread:</span><strong>{margin !== null ? money(margin) : 'Unavailable'}</strong></div><div><span>Quote ID:</span><strong>{bid.id.slice(0, 8).toUpperCase()}</strong></div><div><span>Submitted:</span><strong>{when(bid.created_at)}</strong></div></div>}
                     {open && (
-                      <div className="workspace-record-details">
+                      <div className="workspace-record-details xdrive-cx-quote-card__expanded-cx">
                         <div className="workspace-detail-grid">
                           <div className="workspace-detail-item"><strong>Carrier / Owner Driver</strong><div><MemberIdentityLink companyId={carrierCompanyId} driverId={carrierDriverId}>{carrierName}</MemberIdentityLink></div><small>{carrierType}{identity?.personName && identity.personName !== carrierName ? ` · ${identity.personName}` : ''}</small></div>
                           <div className="workspace-detail-item"><strong>Quote</strong><div>{quote > 0 ? money(quote) : 'Not set'}</div></div>
@@ -255,7 +258,6 @@ export default function BrokerQuotesPage() {
                         </div>
                         <div style={{ marginTop: 5, padding: '5px 6px', border: '1px solid var(--ws-border-soft, #e2e7ed)', background: '#fff' }}><strong>Carrier message</strong><div style={{ marginTop: 2, whiteSpace: 'pre-wrap' }}>{bid.message || 'No message supplied'}</div></div>
                         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', marginTop: 5 }}>
-                          {bid.status === 'submitted' && <ActionButton tone="success" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award carrier'}</ActionButton>}
                           {quoteStage === 'shortlisted' ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unshortlist')}>Remove shortlist</ActionButton> : null}
                           {['submitted', 'viewed'].includes(quoteStage) ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'shortlist')}>Shortlist</ActionButton> : null}
                           {quoteStage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(quoteStage) ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'archive_poster')}>Archive</ActionButton> : null}
@@ -265,6 +267,12 @@ export default function BrokerQuotesPage() {
                         </div>
                       </div>
                     )}
+                    <div className="xdrive-cx-quote-card__footer">
+                      <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => { const opening = !open; setExpanded((current) => { const next = new Set(current); if (open) next.delete(bid.id); else next.add(bid.id); return next; }); if (opening && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }} aria-label={open ? 'Collapse quote' : 'Expand quote'}>{open ? '⌃' : '⌄'}</button>
+                      {bid.status === 'submitted' && <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working === bid.id} onClick={() => void award(bid.id)}>{working === bid.id ? 'Awarding…' : 'Award carrier'}</button>}
+                      <span className="xdrive-cx-quote-card__quote-state">{quote > 0 ? money(quote) : 'Quote not priced'}</span>
+                      <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>{carrierName}</span>
+                    </div>
                   </article>
                 );
               })}

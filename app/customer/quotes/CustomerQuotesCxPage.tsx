@@ -8,14 +8,13 @@ import { BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT } from '../../../lib/le
 import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceBid, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
+import { workspaceVehicleImageSrc } from '../../components/workspace/vehiclePresentation';
 import {
   ActionButton,
   AlertBanner,
-  DataTable,
   EmptyState,
   OperationalCard,
   PageFrame,
-  StatusBadge,
   WorkspaceDialog,
 } from '../../components/workspace/WorkspaceUI';
 
@@ -198,6 +197,7 @@ export default function CustomerQuotesCxPage() {
   const [messageError, setMessageError] = useState('');
   const [bookingOffers, setBookingOffers] = useState<BuyerBookingOffer[]>([]);
   const [bookingOfferError, setBookingOfferError] = useState('');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(() => new Set());
 
   useEffect(() => {
     let cancelled = false;
@@ -267,6 +267,13 @@ export default function CustomerQuotesCxPage() {
     })).filter((group) => group.quotes.length > 0)
       .filter(({ job }) => !refNeedle || `${job.id} XDL-${job.id.slice(0, 8)} ${job.booking_reference ?? ''} ${job.customer_reference ?? ''}`.toLowerCase().includes(refNeedle));
   }, [allQuotes, carrierSearch, data.jobs, identities, pendingOfferByJob, reference, statusFilter]);
+  const visibleQuoteIds = useMemo(() => grouped.flatMap((group) => group.quotes.map((bid) => bid.id)), [grouped]);
+  const allVisibleExpanded = visibleQuoteIds.length > 0 && visibleQuoteIds.every((id) => expandedIds.has(id));
+  const toggleAllVisible = () => setExpandedIds((current) => {
+    const next = new Set(current);
+    visibleQuoteIds.forEach((id) => { if (allVisibleExpanded) next.delete(id); else next.add(id); });
+    return next;
+  });
 
   const award = async (id: string) => {
     setWorking(id); setMessage('');
@@ -371,7 +378,7 @@ export default function CustomerQuotesCxPage() {
             {status === 'received' ? 'Received' : status === 'archived' ? 'Archived' : status === 'submitted' ? 'Submitted' : 'Unsuccessful'}
           </button>
         ))}
-        <span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" onClick={() => void Promise.all([data.refresh(), loadBookingOffers()])}>Refresh</button></span>
+        <span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" disabled={!visibleQuoteIds.length} onClick={toggleAllVisible}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button><button type="button" className="cx-expand-entries-control" onClick={() => void Promise.all([data.refresh(), loadBookingOffers()])}>Refresh</button></span>
       </div>
 
       {grouped.length === 0 ? (
@@ -379,46 +386,63 @@ export default function CustomerQuotesCxPage() {
           <EmptyState title={data.loading ? 'Loading quotes...' : 'No quotes in this view'} description="Carrier responses appear here after a load is published." />
         </OperationalCard>
       ) : (
-        <div style={{ display: 'grid', gap: 8 }}>
-          {grouped.map(({ job, quotes }) => (
-            <OperationalCard
-              key={job.id}
-              title={routeLabel(job)}
-              subtitle={`Pickup ${when(job.pickup_datetime)} - XDrive XDL-${job.id.slice(0, 8).toUpperCase()}`}
-              actions={<ActionButton tone="secondary" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open load</ActionButton>}
-              flush
-            >
-              <DataTable columns={['Carrier', 'Price', 'Position', 'Message', 'Submitted', 'Status', 'Decision']} rows={quotes.map((bid, index) => {
-                const identity = identities.get(bid.id);
-                const isOwnerDriverBid = !bid.company_id && Boolean(identity?.driverId);
-                const displayName = isOwnerDriverBid ? (identity?.personName || identity?.displayName || 'Owner Driver') : (identity?.companyName || bid.companies?.name || identity?.displayName || 'Carrier');
-                const participant: QuoteParticipant = { bid, job, identity, displayName, isOwnerDriverBid };
-                const quoteStage = canonicalQuoteStage(bid, 'poster');
-                const pendingOffer = pendingOfferByJob.get(job.id);
-                const isPendingSelectedBid = pendingOffer?.bid_id === bid.id;
-                const awardLocked = Boolean(pendingOffer);
-                const messagingAvailable = bid.status === 'submitted' || bid.status === 'accepted' || isPendingSelectedBid;
-                return [
-                  <span key="carrier" style={{ display: 'grid', gap: 2 }}><strong><MemberIdentityLink companyId={isOwnerDriverBid ? null : (bid.company_id ?? identity?.companyId ?? null)} driverId={isOwnerDriverBid ? identity?.driverId ?? null : null}>{displayName}</MemberIdentityLink></strong><small style={{ color: '#64748b' }}>{identity?.memberId ? `ID ${identity.memberId} - ` : ''}{identity?.quoteLevel === 'driver' ? `Driver ${identity.driverAvailability?.replaceAll('_', ' ') || 'availability not supplied'}` : `${identity?.fleetVehicleTypes.length ?? 0} fleet type${identity?.fleetVehicleTypes.length === 1 ? '' : 's'}`}</small></span>,
-                  <strong key="price">{money(Number(bid.bid_price_gbp ?? bid.amount ?? 0), bid.currency ?? 'GBP')}</strong>,
-                  index === 0 ? <StatusBadge key="position" value="Best price" tone="green" /> : `#${index + 1}`,
-                  bid.message ?? 'No message',
-                  when(bid.created_at),
-                  isPendingSelectedBid ? <StatusBadge key="status" value="Awaiting Carrier Acceptance" tone="orange" /> : <StatusBadge key="status" value={quoteStageLabel(quoteStage)} />,
-                  <span key="actions" style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                    {bid.status === 'submitted' && !awardLocked ? <ActionButton tone="success" disabled={working === bid.id} onClick={() => setCandidate(participant)}>Review & Send Offer</ActionButton> : null}
-                    {isPendingSelectedBid ? <StatusBadge value="Offer sent - awaiting carrier" tone="orange" /> : null}
-                    {messagingAvailable ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => { setMessageCandidate(participant); setMessageBody(''); setMessageError(''); }}>Message</ActionButton> : null}
-                    {quoteStage === 'shortlisted' && !awardLocked ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unshortlist')}>Remove shortlist</ActionButton> : null}
-                    {['submitted', 'viewed'].includes(quoteStage) && !awardLocked ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'shortlist')}>Shortlist</ActionButton> : null}
-                    {bid.status === 'submitted' && !awardLocked ? <ActionButton tone="danger" disabled={working === bid.id} onClick={() => void reject(bid.id)}>Reject</ActionButton> : null}
-                    {quoteStage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(quoteStage) ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'archive_poster')}>Archive</ActionButton> : null}
-                    {quoteStage === 'archived' ? <ActionButton tone="secondary" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unarchive_poster')}>Restore</ActionButton> : null}
-                  </span>,
-                ];
-              })} />
-            </OperationalCard>
-          ))}
+        <div className="xdrive-cx-quote-list">
+          {grouped.flatMap(({ job, quotes }) => quotes.map((bid, index) => {
+            const identity = identities.get(bid.id);
+            const isOwnerDriverBid = !bid.company_id && Boolean(identity?.driverId);
+            const displayName = isOwnerDriverBid ? (identity?.personName || identity?.displayName || 'Owner Driver') : (identity?.companyName || bid.companies?.name || identity?.displayName || 'Carrier');
+            const participant: QuoteParticipant = { bid, job, identity, displayName, isOwnerDriverBid };
+            const quoteStage = canonicalQuoteStage(bid, 'poster');
+            const pendingOffer = pendingOfferByJob.get(job.id);
+            const isPendingSelectedBid = pendingOffer?.bid_id === bid.id;
+            const awardLocked = Boolean(pendingOffer);
+            const messagingAvailable = bid.status === 'submitted' || bid.status === 'accepted' || isPendingSelectedBid;
+            const expanded = expandedIds.has(bid.id);
+            const vehicle = (job.vehicle_type || 'Vehicle not supplied').replaceAll('_', ' ');
+            const quoteAmount = money(Number(bid.bid_price_gbp ?? bid.amount ?? 0), bid.currency ?? 'GBP');
+            return (
+              <article key={bid.id} className="xdrive-cx-quote-card" data-quote-stage={quoteStage}>
+                <div className="xdrive-cx-quote-card__main">
+                  <section className="xdrive-cx-quote-card__route">
+                    <div><span>From:</span><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong></div>
+                    <div><span>To:</span><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong></div>
+                  </section>
+                  <section className="xdrive-cx-quote-card__times">
+                    <div><span>Pickup:</span><strong>{when(job.pickup_datetime)}</strong></div>
+                    <div><span>Deliver:</span><strong>{when(job.delivery_datetime)}</strong></div>
+                  </section>
+                  <section className="xdrive-cx-quote-card__status">
+                    <div className="xdrive-cx-quote-card__band">{isPendingSelectedBid ? 'Awaiting Carrier Acceptance' : quoteStageLabel(quoteStage)}</div>
+                    <div className="xdrive-cx-quote-card__service"><strong>{displayName}</strong></div>
+                    <div className="xdrive-cx-quote-card__posted">{quoteAmount}{index === 0 ? ' · Best price' : ''}</div>
+                    <div className="xdrive-cx-quote-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-quote-card__vehicle"><img className="xdrive-cx-quote-card__vehicle-image" src={workspaceVehicleImageSrc(vehicle)} alt="" aria-hidden="true" /><strong>{vehicle}</strong></span></div>
+                  </section>
+                </div>
+                {expanded ? <div className="xdrive-cx-quote-card__expanded-cx">
+                  <div className="xdrive-cx-quote-card__freight">
+                    <div><span>Carrier:</span><strong><MemberIdentityLink companyId={isOwnerDriverBid ? null : (bid.company_id ?? identity?.companyId ?? null)} driverId={isOwnerDriverBid ? identity?.driverId ?? null : null}>{displayName}</MemberIdentityLink></strong></div>
+                    <div><span>Quote:</span><strong>{quoteAmount}</strong></div>
+                    <div><span>Submitted:</span><strong>{when(bid.created_at)}</strong></div>
+                    <div><span>Member ID:</span><strong>{identity?.memberId || 'Not supplied'}</strong></div>
+                  </div>
+                  {bid.message ? <div className="xdrive-cx-quote-card__notes"><span>Quote Notes:</span><strong>{bid.message}</strong></div> : null}
+                </div> : null}
+                <div className="xdrive-cx-quote-card__footer">
+                  <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => setExpandedIds((current) => { const next = new Set(current); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })} aria-label={expanded ? 'Collapse quote' : 'Expand quote'}>{expanded ? '⌃' : '⌄'}</button>
+                  {bid.status === 'submitted' && !awardLocked ? <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working === bid.id} onClick={() => setCandidate(participant)}>Review & Send Offer</button> : null}
+                  {messagingAvailable ? <button type="button" disabled={working === bid.id} onClick={() => { setMessageCandidate(participant); setMessageBody(''); setMessageError(''); }}>Message</button> : null}
+                  {quoteStage === 'shortlisted' && !awardLocked ? <button type="button" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unshortlist')}>Remove shortlist</button> : null}
+                  {['submitted', 'viewed'].includes(quoteStage) && !awardLocked ? <button type="button" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'shortlist')}>Shortlist</button> : null}
+                  {bid.status === 'submitted' && !awardLocked ? <button type="button" disabled={working === bid.id} onClick={() => void reject(bid.id)}>Reject</button> : null}
+                  {quoteStage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(quoteStage) ? <button type="button" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'archive_poster')}>Archive</button> : null}
+                  {quoteStage === 'archived' ? <button type="button" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unarchive_poster')}>Restore</button> : null}
+                  <button type="button" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open load</button>
+                  <span className="xdrive-cx-quote-card__quote-state">{isPendingSelectedBid ? 'Offer sent - awaiting carrier' : quoteAmount}</span>
+                  <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>{displayName}</span>
+                </div>
+              </article>
+            );
+          }))}
         </div>
       )}
         </main>
