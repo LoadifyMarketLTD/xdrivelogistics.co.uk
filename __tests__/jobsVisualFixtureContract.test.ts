@@ -142,15 +142,13 @@ describe('JobsVisualFixture deterministic data coverage', () => {
     expect(fixtureComponent).toContain('JobsOperationalTable');
   });
 
-  it('wraps content in WorkspaceShell with fixtureOverrides', () => {
-    expect(fixtureComponent).toContain('WorkspaceShell');
-    expect(fixtureComponent).toContain('fixtureOverrides');
+  it('wraps content in the canonical TopWorkspaceShell used by operational workspaces', () => {
+    expect(fixtureComponent).toContain('TopWorkspaceShell');
+    expect(fixtureComponent).not.toContain('fixtureOverrides');
   });
 
-  it('provides fixture overrides for companyName, unreadCount and tickerItems', () => {
-    expect(fixtureComponent).toContain('companyName:');
-    expect(fixtureComponent).toContain('unreadCount:');
-    expect(fixtureComponent).toContain('tickerItems:');
+  it('provides the deterministic company identity through the canonical fixture prop', () => {
+    expect(fixtureComponent).toContain('fixtureCompanyName="XDrive Logistics — Jobs Fixture"');
   });
 
   it('applies filterJobsByDriver in the filtered derivation', () => {

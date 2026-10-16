@@ -5,14 +5,16 @@ const live = fs.readFileSync(path.join(process.cwd(), 'app/admin/live-availabili
 const vision = fs.readFileSync(path.join(process.cwd(), 'app/admin/freight-vision/page.tsx'), 'utf8');
 const resources = fs.readFileSync(path.join(process.cwd(), 'app/admin/fleet/resources/page.tsx'), 'utf8');
 const returns = fs.readFileSync(path.join(process.cwd(), 'app/admin/fleet/returns/page.tsx'), 'utf8');
+const shell = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/TopWorkspaceShell.tsx'), 'utf8');
 
 describe('CX connected operational module links', () => {
-  it('links Live Availability and Return Journeys bidirectionally', () => {
-    expect(live).toContain("router.push('/admin/fleet/returns')");
-    expect(live).toContain('Return Journeys');
-    expect(live).toContain('Return Journey');
+  it('keeps Live Availability and Return Journeys connected through the canonical primary navbar without duplicate header navigation', () => {
+    expect(shell).toContain("['carrier-live-availability', 'Live Availability', '/admin/live-availability']");
+    expect(shell).toContain("['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns']");
+    expect(live).not.toContain("router.push('/admin/fleet/returns')");
     expect(live).toContain("router.push('/admin/fleet/drivers')");
     expect(live).toContain('Driver register');
+    expect(live).not.toContain('>Return Journeys</ActionButton>');
     expect(live).not.toContain('/admin/drivers?driver=');
   });
 
@@ -33,11 +35,12 @@ describe('CX connected operational module links', () => {
     expect(returns).toContain('journey.to_postcode');
   });
 
-  it('routes Drivers & Vehicles to the fleet operational registers', () => {
-    expect(resources).toContain("router.push('/admin/fleet/drivers')");
-    expect(resources).toContain("router.push('/admin/fleet/vehicles')");
+  it('routes the CX Drivers & Vehicles rail to the canonical company vehicle and tracking registers', () => {
+    expect(resources).toContain('Users / Drivers</button>');
+    expect(resources).toContain("router.push('/admin/vehicles')}>Company Vehicles</button>");
+    expect(resources).toContain("router.push('/admin/fleet/positions')}>Vehicle Tracking</button>");
     expect(resources).not.toContain("router.push('/admin/drivers')");
-    expect(resources).not.toContain("router.push('/admin/vehicles')");
+    expect(resources).not.toContain("router.push('/admin/fleet/vehicles')");
   });
 
   it('does not create a second tracking or return-journey data source', () => {

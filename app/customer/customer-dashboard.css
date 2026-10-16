@@ -238,47 +238,42 @@
 .customer-supplier-row small { display: block; color: #64748b; font-size: 11px; line-height: 14px; }
 .customer-supplier-row > span:last-child { text-align: right; }
 
-/* Customer operational pages use a full-width card stack.
- * The old 165px sticky filter rail made the register look detached and
- * compressed the real content; keep the same fields, but present them as a
- * compact horizontal filter card above the board. */
+/* Customer operational pages follow the same CX-style vertical filter rail
+ * used by the other six operational workspaces. */
 .xdrive-customer-workspace .workspace-board-layout {
-  grid-template-columns: minmax(0, 1fr) !important;
-  gap: 8px !important;
+  grid-template-columns: var(--ws-filter-rail-w, 165px) minmax(0, 1fr) !important;
+  gap: var(--ws-gap-grid, 12px) !important;
+  align-items: start !important;
 }
 
 .xdrive-customer-workspace .workspace-board-layout > .workspace-filter-rail {
-  position: static !important;
-  top: auto !important;
-  width: 100% !important;
-  display: grid !important;
-  grid-template-columns: 148px minmax(0, 1fr) !important;
-  align-items: stretch !important;
+  position: sticky !important;
+  top: calc(var(--ws-header-h, 50px) + var(--ws-nav-h, 42px) + var(--ws-gap-internal, 8px)) !important;
+  width: var(--ws-filter-rail-w, 165px) !important;
+  display: block !important;
   border: 1px solid var(--ws-border) !important;
   border-radius: var(--ws-radius) !important;
   background: #fff !important;
 }
 
 .xdrive-customer-workspace .workspace-board-layout > .workspace-filter-rail .workspace-filter-rail__header {
-  min-height: 100% !important;
-  border-right: 1px solid var(--ws-border) !important;
-  border-bottom: 0 !important;
+  min-height: var(--ws-panel-head-h, 36px) !important;
+  border-right: 0 !important;
+  border-bottom: 1px solid var(--ws-border) !important;
   background: var(--ws-panel-head) !important;
 }
 
 .xdrive-customer-workspace .workspace-board-layout > .workspace-filter-rail .workspace-filter-rail__body {
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)) !important;
-  align-items: end !important;
-  gap: 8px !important;
-  padding: 8px 10px !important;
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: stretch !important;
+  gap: var(--ws-gap-internal, 8px) !important;
+  padding: 8px !important;
 }
 
-.xdrive-customer-workspace .workspace-board-layout > .workspace-filter-rail .workspace-filter-rail__body > label {
-  min-width: 0 !important;
-}
-
+.xdrive-customer-workspace .workspace-board-layout > .workspace-filter-rail .workspace-filter-rail__body > label,
 .xdrive-customer-workspace .workspace-board-layout > .workspace-filter-rail .workspace-filter-rail__body > .owner-ref-hook-action-button {
-  align-self: end !important;
+  min-width: 0 !important;
 }
 
 .xdrive-customer-workspace .workspace-board-layout > main,
@@ -314,7 +309,6 @@
 .xdrive-customer-workspace .xdrive-operational-card,
 .xdrive-customer-workspace .xdrive-panel {
   margin: 0 !important;
-  border-color: var(--ws-border) !important;
   background: #fff !important;
 }
 

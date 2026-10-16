@@ -205,23 +205,21 @@ export default function WorkspaceNotificationInbox({
         eyebrow={eyebrow}
         title={title}
         description={description}
-        actions={(
-          <>
-            <ActionButton tone="secondary" onClick={() => setPreferencesOpen((current) => !current)}>{preferencesOpen ? 'Hide Preferences' : 'Preferences'}</ActionButton>
-            <ActionButton tone="secondary" disabled={loading || working === 'all' || counts.unread === 0} onClick={() => void markAllRead()}>{working === 'all' ? 'Updating…' : 'Mark all read'}</ActionButton>
-            <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
-          </>
-        )}
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {preferencesOpen && <NotificationPreferencesPanel />}
 
-      <div className="workspace-tab-strip" role="tablist" aria-label="Notification inbox filters" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
+      <div className="workspace-tab-strip" role="tablist" aria-label="Notification inbox filters" style={{ display: 'flex', alignItems: 'center', overflowX: 'auto', marginBottom: 4 }}>
         {tabs.map((item) => (
           <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>
             {item.label} {counts[item.id]}
           </button>
         ))}
+        <span style={{ marginLeft: 'auto', display: 'inline-flex', gap: 6, alignItems: 'center' }}>
+          <ActionButton tone="secondary" onClick={() => setPreferencesOpen((current) => !current)}>{preferencesOpen ? 'Hide Preferences' : 'Preferences'}</ActionButton>
+          <ActionButton tone="secondary" disabled={loading || working === 'all' || counts.unread === 0} onClick={() => void markAllRead()}>{working === 'all' ? 'Updating…' : 'Mark all read'}</ActionButton>
+          <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
+        </span>
       </div>
       <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
         <span><strong>{visible.length}</strong> notification{visible.length === 1 ? '' : 's'} in this view</span>

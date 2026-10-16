@@ -267,7 +267,7 @@ export default function CustomerDashboardHome() {
       show: metrics.pendingAcceptance.length > 0,
     },
     {
-      label: 'Quotes to review',
+      label: 'Quotes to Review',
       detail: 'Compare carrier offers and decide who should receive the booking offer.',
       count: metricState(bidsDataset, metrics.submittedQuotes.length),
       route: '/customer/quotes',
@@ -291,7 +291,7 @@ export default function CustomerDashboardHome() {
       show: metrics.documentAlertJobs.length > 0,
     },
     {
-      label: 'Outstanding invoices',
+      label: 'Outstanding Invoices',
       detail: 'Review invoices that still need payment or reconciliation.',
       count: invoicesDataset.availability !== 'available'
         ? 'Unavailable'
@@ -352,23 +352,11 @@ export default function CustomerDashboardHome() {
                   onClick={() => router.push('/customer/loads')}
                 />
                 <KpiCard
-                  label="Quotes to Review"
-                  value={metricState(bidsDataset, metrics.submittedQuotes.length)}
-                  detail="Carrier quotes still awaiting your decision."
-                  onClick={() => router.push('/customer/quotes')}
-                />
-                <KpiCard
                   label="Active Deliveries"
                   value={metricState(jobsDataset, metrics.activeDeliveries.length)}
                   detail="Transport currently in the live execution lifecycle."
                   tone="green"
                   onClick={() => router.push('/customer/tracking')}
-                />
-                <KpiCard
-                  label="Outstanding Invoices"
-                  value={invoicesDataset.availability !== 'available' ? 'Unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Partial' : metrics.unpaidInvoices.length}
-                  detail={invoicesDataset.availability !== 'available' ? 'Financial data unavailable' : invoicesDataset.partialData || invoicesDataset.limitedData ? 'Financial data partial' : money(metrics.unpaidValue)}
-                  onClick={() => router.push('/customer/invoices')}
                 />
               </KpiGrid>
             </OperationalCard>

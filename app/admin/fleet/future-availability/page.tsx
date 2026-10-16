@@ -55,7 +55,6 @@ export default function FutureAvailabilityPage() {
         eyebrow="Capacity planning"
         title="Future Availability"
         description="Forward scheduled workload, drivers currently marked available and upcoming document-expiry signals. Availability is a planning signal; driver and vehicle eligibility is checked again before allocation."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</ActionButton>}
       />
       <KpiGrid>
         <KpiCard label="Future scheduled jobs" value={futureJobs.length} tone="blue" />

@@ -9,8 +9,8 @@ const migration = fs.readFileSync(path.join(process.cwd(), 'supabase/migrations/
 
 describe('CX Diary P1 feedback and search parity', () => {
   it('supports Booked By and combined Member / Driver search from real identities', () => {
-    expect(diary).toContain('BOOKED BY');
-    expect(diary).toContain('Member, driver or ID');
+    expect(diary).toContain('Booked by:');
+    expect(diary).toContain('Member / Driver:');
     expect(diary).toContain('detail?.createdByName');
     expect(diary).toContain('detail?.awardedCompanyName');
     expect(intelligenceApi).toContain("from('profiles').select('id,full_name,email')");

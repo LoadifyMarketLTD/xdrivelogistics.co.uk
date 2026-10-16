@@ -104,8 +104,7 @@ export default function CustomerNetworkPage() {
       <PageHeader
         eyebrow="Customer relationships"
         title="Companies"
-        description="Carrier companies and owner-driver members that have quoted for or been booked on your own XDrive transport requests."
-        actions={<><ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton><ActionButton tone="primary" onClick={() => router.push('/customer/network/directory')}>Open Directory</ActionButton></>}
+        description="Carrier companies and owner-driver members that have quoted for or been booked on your XDrive transport requests."
       />
       {identityError && <AlertBanner tone="warning">{identityError}</AlertBanner>}
 
@@ -121,7 +120,7 @@ export default function CustomerNetworkPage() {
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 4 }}><span><strong>{visibleCarriers.length}</strong> member relationship{visibleCarriers.length === 1 ? '' : 's'}</span><span>{carriers.length} authorised relationship record{carriers.length === 1 ? '' : 's'}</span></div>
+          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between', marginBottom: 4 }}><span><strong>{visibleCarriers.length}</strong> member relationship{visibleCarriers.length === 1 ? '' : 's'} · {carriers.length} authorised relationship record{carriers.length === 1 ? '' : 's'}</span><span className="workspace-list-controls__right"><ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton></span></div>
           <div className="workspace-panel">
             <DataTable
               columns={['Member', 'Loads quoted', 'Quotes', 'Accepted', 'Latest visible price', 'Relationship', 'Action']}

@@ -112,8 +112,7 @@ export default function BrokerCarrierNetworkPage() {
       <PageHeader
         eyebrow="Carrier relationships"
         title="Carriers"
-        description="Manage broker carrier relationships and invitations here. Use Directory to search the wider XDrive member network."
-        actions={<><ActionButton tone="secondary" onClick={() => router.push('/broker/carrier-network/directory')}>Open Directory</ActionButton><ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton></>}
+        description="Manage broker carrier relationships and invitations."
       />
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
@@ -124,6 +123,7 @@ export default function BrokerCarrierNetworkPage() {
           <div className="workspace-filter-rail__body">
             <label>COMPANY / EMAIL<input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Company, email or ID" /></label>
             <label>STATUS<select value={status} onChange={(event) => setStatus(event.target.value)}><option value="all">All</option><option value="pending">Pending</option><option value="accepted">Accepted</option><option value="revoked">Revoked</option></select></label>
+            <ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
             <ActionButton tone="secondary" onClick={() => { setSearch(''); setStatus('all'); }}>Clear</ActionButton>
             {canManage && (
               <>

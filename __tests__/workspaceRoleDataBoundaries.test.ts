@@ -21,6 +21,7 @@ describe('workspace role and admin dashboard resolution', () => {
   it('resolves representative workspace roles explicitly', () => {
     expect(resolveWorkspaceRole({ role: 'company_admin', rawRole: 'carrier', membershipRole: 'owner' })).toBe('company_owner');
     expect(resolveWorkspaceRole({ role: 'company_admin', rawRole: 'carrier', membershipRole: 'admin' })).toBe('carrier_admin');
+    expect(resolveWorkspaceRole({ role: 'company_admin', rawRole: 'company_admin', membershipRole: 'dispatcher' })).toBe('dispatcher');
     expect(resolveWorkspaceRole({ role: 'company_staff', rawRole: 'dispatcher', membershipRole: 'dispatcher' })).toBe('dispatcher');
     expect(resolveWorkspaceRole({ role: 'company_staff', rawRole: 'fleet_manager', membershipRole: 'member' })).toBe('fleet_manager');
     expect(resolveWorkspaceRole({ role: 'company_staff', rawRole: 'company_staff', membershipRole: 'fleet_manager' })).toBe('fleet_manager');

@@ -1,5 +1,7 @@
 'use client';
 
+import { OperationalExpandAllControl } from '../../components/workspace/OperationalExpandAllControl';
+
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
@@ -10,7 +12,6 @@ import {
   AlertBanner,
   EmptyState,
   PageFrame,
-  PageHeader,
   StatusBadge,
 } from '../../components/workspace/WorkspaceUI';
 
@@ -54,6 +55,7 @@ export default function BrokerLoadsPage() {
   const [customer, setCustomer] = useState(deepCustomer || '');
   const [reference, setReference] = useState(deepJob || '');
   const [expanded, setExpanded] = useState<string | null>(deepJob);
+  const [expandedAllIds, setExpandedAllIds] = useState<Set<string>>(() => new Set());
 
   const rows = useMemo(() => {
     const fromTerm = from.trim().toLowerCase();
@@ -81,6 +83,9 @@ export default function BrokerLoadsPage() {
     completed: data.jobs.filter((job) => matchesTab(job, 'completed')).length,
   }), [data.jobs]);
 
+  const allVisibleExpanded = rows.length > 0 && rows.every((job) => expandedAllIds.has(job.id));
+  const toggleExpandAll = () => { setExpanded(null); setExpandedAllIds((current) => { const next = new Set(current); for (const job of rows) { if (allVisibleExpanded) next.delete(job.id); else next.add(job.id); } return next; }); };
+
   const tabs: Array<{ id: LoadTab; label: string; count: number }> = [
     { id: 'all', label: 'All', count: counts.all },
     { id: 'draft', label: 'Draft', count: counts.draft },
@@ -100,7 +105,6 @@ export default function BrokerLoadsPage() {
 
   return (
     <PageFrame>
-      <PageHeader eyebrow="Customer loads" title="Loads" description="Scan customer transport requests, quote activity and operational state from one broker board." />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
       <div className="workspace-board-layout">
@@ -117,16 +121,16 @@ export default function BrokerLoadsPage() {
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            {tabs.map((item) => <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} {item.count}</button>)}
+          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between', marginBottom: 0 }}><span><strong>Loads</strong> · {rows.length} loads</span><span className="workspace-list-controls__right"><OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!rows.length} onToggle={toggleExpandAll} noun="loads" /><ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton></span></div>
+          <div className="workspace-tab-strip" role="tablist" aria-label="Broker load states" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
+            {tabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} {item.count}</button>)}
           </div>
-
           {rows.length === 0 ? (
             <div className="workspace-panel" style={{ border: '1px solid var(--ws-border)', background: '#fff' }}><EmptyState compact title="No matching loads" description="Adjust the filters or use Post Load from the workspace header." /></div>
           ) : (
             <div className="workspace-record-list">
               {rows.map((job) => {
-                const open = expanded === job.id;
+                const open = expanded === job.id || expandedAllIds.has(job.id);
                 const quotes = data.bids.filter((bid) => bid.job_id === job.id && bid.status === 'submitted');
                 const bestQuote = quotes.map((bid) => Number(bid.bid_price_gbp ?? bid.amount ?? 0)).filter((amount) => amount > 0).sort((a, b) => a - b)[0];
                 const budget = Number(job.budget_amount ?? 0);
@@ -138,7 +142,7 @@ export default function BrokerLoadsPage() {
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.delivery_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>LOAD</div><strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{budget > 0 ? money(budget) : 'Budget not set'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={workspaceJobOperationalLabel(job)} /><ActionButton tone="secondary" onClick={() => setExpanded(open ? null : job.id)}>{open ? 'Collapse' : 'Expand'}</ActionButton></div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{budget > 0 ? money(budget) : 'Budget not set'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={workspaceJobOperationalLabel(job)} /><ActionButton tone="secondary" onClick={() => { setExpandedAllIds((current) => { const next = new Set(current); next.delete(job.id); return next; }); setExpanded(open ? null : job.id); }}>{open ? 'Collapse' : 'Expand'}</ActionButton></div></div>
                     </div>
                     <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span><span>Quotes: {quotes.length}</span><span>{bestQuote ? `Best quote: ${money(bestQuote)}` : 'No live quote'}</span><span>{stage === 'awarded' || stage === 'allocated' ? 'Carrier awarded' : stage === 'in_progress' ? 'Carrier executing' : stage === 'completed' ? 'Completed' : 'Awaiting carrier decision'}</span></div>
                     {open && (

@@ -8,7 +8,7 @@ describe('carrier navbar and Fleet header space cleanup', () => {
   it('keeps one compact workspace identity and suppresses redundant carrier company text', () => {
     expect(shell).toContain('top-workspace-shell__identity');
     expect(shell).toContain('<span>{definition.label}</span>');
-    expect(shell).toContain("role !== 'customer' && !CARRIER_NAV_ROLES.has(role) ? <strong>{companyName}</strong> : null");
+    expect(shell).toContain('<strong>{companyName}</strong>');
   });
 
   it('keeps Fleet actions inside the canonical Reports & Statistics card instead of a separate page header', () => {

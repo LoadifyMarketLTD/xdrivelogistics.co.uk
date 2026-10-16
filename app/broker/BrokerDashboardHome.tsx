@@ -184,8 +184,6 @@ export default function BrokerDashboardHome() {
         >
           <KpiGrid>
             <KpiCard label="Open loads" value={metricState(jobsDataset, metrics.openLoads.length)} detail="Customer work in sourcing" tone="blue" onClick={() => router.push('/broker/loads')} />
-            <KpiCard label="Awaiting award" value={quoteDecisionMetric} detail="Carrier quotes need a decision" tone="orange" onClick={() => router.push('/broker/bids')} />
-            <KpiCard label="Active jobs" value={metricState(jobsDataset, metrics.activeJobs.length)} detail="Driver execution in progress" tone="green" onClick={() => router.push('/broker/jobs')} />
             <KpiCard label="Gross margin" value={metricState(invoicesDataset, money(metrics.grossMargin))} detail="Revenue less carrier cost" tone="navy" onClick={() => router.push('/broker/margins')} />
           </KpiGrid>
         </OperationalCard>

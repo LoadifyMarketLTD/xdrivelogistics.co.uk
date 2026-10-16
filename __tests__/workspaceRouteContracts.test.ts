@@ -52,6 +52,8 @@ describe('workspace route contracts', () => {
   it('keeps the canonical Fleet navigation matrix', () => {
     expect(hrefs('fleet_manager')).toEqual([
       '/admin/fleet',
+      '/admin/live-availability',
+      '/admin/fleet/resources',
       '/admin/fleet/jobs',
       '/admin/fleet/assignments',
       '/admin/fleet/drivers',
@@ -90,6 +92,7 @@ describe('workspace route contracts', () => {
       '/admin/vehicles',
       '/admin/fleet/positions',
       '/admin/fleet',
+      '/admin/fleet/vehicles',
       '/admin/fleet/managers',
       '/admin/team',
       '/admin/dispatchers',

@@ -38,7 +38,6 @@ export default function FleetJobsPage() {
         eyebrow="Fleet operations"
         title="Jobs"
         description="All work contractually won by this carrier company, from received award through allocation, execution and completion."
-        actions={<ActionButton tone="success" onClick={() => router.push('/admin/fleet/assignments')}>Allocation queue</ActionButton>}
       />
       <Panel title="Carrier-won job register" description="Jobs owned by this company as a load poster but awarded to another carrier are excluded from this Fleet register.">
         <DataTable

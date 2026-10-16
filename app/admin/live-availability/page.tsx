@@ -21,7 +21,7 @@ import {
   TwoColumn,
 } from '../../components/workspace/WorkspaceUI';
 
-type Tab = AvailabilityTab;
+type Tab = Exclude<AvailabilityTab, 'future'> | 'all';
 type FreshnessFilter = 'all' | 'live' | 'stale' | 'missing';
 
 const LIVE_AVAILABILITY_DEFAULTS_KEY = 'xdrive:carrier:live-availability:defaults';
@@ -82,7 +82,7 @@ export default function LiveAvailabilityPage() {
   const intelligence = useOperationsIntelligence(data.companyId);
   const privateGroups = usePrivateNetworkGroups(data.companyId);
   const router = useRouter();
-  const [tab, setTab] = useState<Tab>('nearby');
+  const [tab, setTab] = useState<Tab>('all');
   const [search, setSearch] = useState('');
   const [availability, setAvailability] = useState('all');
   const [freshness, setFreshness] = useState<FreshnessFilter>('all');
@@ -194,7 +194,7 @@ export default function LiveAvailabilityPage() {
         return;
       }
       const parsed = JSON.parse(raw) as Partial<{ tab: Tab; availability: string; freshness: FreshnessFilter; nearbyVehicle: string; nearbyBody: string; nearbyMinPayload: string; nearbyMinPallets: string; nearbyTailLiftOnly: boolean; nearbyGroupId: string; nearbyPostcode: string; nearbyRadius: string }>;
-      if (parsed.tab === 'live' || parsed.tab === 'future' || parsed.tab === 'nearby') setTab(parsed.tab);
+      if (parsed.tab === 'all' || parsed.tab === 'live' || parsed.tab === 'nearby') setTab(parsed.tab);
       if (typeof parsed.availability === 'string') setAvailability(parsed.availability);
       if (parsed.freshness === 'all' || parsed.freshness === 'live' || parsed.freshness === 'stale' || parsed.freshness === 'missing') setFreshness(parsed.freshness);
       const savedVehicle = typeof parsed.nearbyVehicle === 'string' ? parsed.nearbyVehicle : 'all';
@@ -258,7 +258,7 @@ export default function LiveAvailabilityPage() {
       const text = `${driver.display_name ?? ''} ${driver.email ?? ''} ${driver.phone ?? ''} ${vehicle?.reg_plate ?? ''} ${vehicle?.type ?? ''} ${currentJob?.pickup_location ?? ''} ${currentJob?.delivery_location ?? ''} ${nextJob?.pickup_location ?? ''} ${future?.futurePosition ?? ''} ${returnJourney?.fromPostcode ?? ''} ${returnJourney?.toPostcode ?? ''}`.toLowerCase();
       if (needle && !text.includes(needle)) return false;
       if (availability !== 'all' && String(driver.availability_status ?? 'offline').toLowerCase() !== availability) return false;
-      if (tab === 'live' && freshness !== 'all' && freshnessState !== freshness) return false;
+      if ((tab === 'all' || tab === 'live') && freshness !== 'all' && freshnessState !== freshness) return false;
       if (nearbyVehicle !== 'all' && String(vehicle?.type ?? '').toLowerCase() !== nearbyVehicle.toLowerCase()) return false;
       if (nearbyBody !== 'all' && String(vehicle?.body_type ?? '').toLowerCase() !== nearbyBody.toLowerCase()) return false;
       if (nearbyMinPayload.trim() && Number(vehicle?.payload_kg ?? 0) < Number(nearbyMinPayload)) return false;
@@ -291,20 +291,6 @@ export default function LiveAvailabilityPage() {
     }];
   }), [filtered]);
 
-  const futurePoints = useMemo<FleetMapPoint[]>(() => filtered.flatMap(({ driver, future, returnJourney, nextJob }) => {
-    const coordinates = future?.coordinates ?? returnJourney?.fromCoordinates ?? null;
-    if (!coordinates) return [];
-    return [{
-      driverId: driver.id,
-      driverName: driver.display_name ?? driver.email ?? 'Driver',
-      lat: coordinates.lat,
-      lng: coordinates.lng,
-      jobId: nextJob?.id ?? null,
-      timestamp: future?.futurePositionDate ?? returnJourney?.availableFrom ?? null,
-      stale: false,
-    }];
-  }), [filtered]);
-
   const nearbyPoints = useMemo<FleetMapPoint[]>(() => filteredNearby.flatMap((position, index) => {
     if (!Number.isFinite(position.lat) || !Number.isFinite(position.lng)) return [];
     return [{
@@ -327,7 +313,7 @@ export default function LiveAvailabilityPage() {
     { key: 'busy', label: 'Busy', value: data.drivers.filter((driver) => driver.availability_status === 'busy').length, detail: 'Fleet drivers', tone: 'purple' as const, onClick: () => { setTab('live'); setAvailability('busy'); } },
     { key: 'fresh', label: 'Fresh locations', value: driverRows.filter((row) => row.freshnessState === 'live').length, detail: 'Within 20 min', tone: 'blue' as const, onClick: () => { setTab('live'); setFreshness('live'); } },
     { key: 'stale', label: 'Stale / missing', value: driverRows.filter((row) => row.freshnessState === 'stale' || row.freshnessState === 'missing').length, detail: 'Needs attention', tone: 'orange' as const, onClick: () => { setTab('live'); setFreshness('all'); } },
-    { key: 'future', label: 'Future positions', value: futurePublished, detail: 'Published capacity', tone: 'blue' as const, onClick: () => setTab('future') },
+    { key: 'future', label: 'Future positions', value: futurePublished, detail: 'Published capacity', tone: 'blue' as const, onClick: () => router.push('/admin/fleet/future-availability') },
     { key: 'conflicts', label: 'Availability conflicts', value: availabilityConflicts, detail: 'Available + active job', tone: availabilityConflicts ? 'red' as const : 'green' as const, onClick: () => setTab('live') },
   ];
 
@@ -337,7 +323,6 @@ export default function LiveAvailabilityPage() {
         eyebrow="Fleet resources"
         title="Live Availability"
         description="Live and future driver capacity, tracking freshness and privacy-safe nearby Exchange vehicle discovery in one operational workspace."
-        actions={<><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</ActionButton><ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading || nearbyLoading}>{data.loading || intelligence.loading || nearbyLoading ? 'Refreshing…' : 'Refresh'}</ActionButton></>}
         meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Operational availability'}</span>}
       />
 
@@ -350,9 +335,9 @@ export default function LiveAvailabilityPage() {
       {filterNotice && <AlertBanner tone="info">{filterNotice}</AlertBanner>}
 
       <div className="workspace-tab-strip" style={{ display: 'flex', marginBottom: 8, overflowX: 'auto' }} role="tablist" aria-label="Availability views">
-        <button type="button" role="tab" aria-selected={tab === 'live'} data-active={tab === 'live' ? 'true' : 'false'} onClick={() => setTab('live')}>My Fleet</button>
-        <button type="button" role="tab" aria-selected={tab === 'future'} data-active={tab === 'future' ? 'true' : 'false'} onClick={() => setTab('future')}>Future</button>
-        <button type="button" role="tab" aria-selected={tab === 'nearby'} data-active={tab === 'nearby' ? 'true' : 'false'} onClick={() => setTab('nearby')}>Live Exchange <span style={{ marginLeft: 4 }}>{nearbyLoading ? '…' : filteredNearby.length}</span></button>
+        <button type="button" role="tab" aria-selected={tab === 'all'} data-active={tab === 'all' ? 'true' : 'false'} onClick={() => setTab('all')}>All</button>
+        <button type="button" role="tab" aria-selected={tab === 'live'} data-active={tab === 'live' ? 'true' : 'false'} onClick={() => setTab('live')}>Drivers &amp; Sub-contractors</button>
+        <button type="button" role="tab" aria-selected={tab === 'nearby'} data-active={tab === 'nearby' ? 'true' : 'false'} onClick={() => setTab('nearby')}>Other Drivers <span style={{ marginLeft: 4 }}>{nearbyLoading ? '…' : filteredNearby.length}</span></button>
       </div>
 
       <OperationalSignalStrip items={signals} ariaLabel="Live availability operational signals" />
@@ -361,7 +346,7 @@ export default function LiveAvailabilityPage() {
         <div className="workspace-filter-fields">
           <label style={labelStyle}>Search<input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === 'nearby' ? 'Member, ID or vehicle type' : 'Driver, registration, route or future position'} /></label>
           {tab !== 'nearby' && <label style={labelStyle}>Availability<select style={inputStyle} value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="all">All states</option>{availabilityValues.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
-          {tab === 'live' && <label style={labelStyle}>Tracking freshness<select style={inputStyle} value={freshness} onChange={(event) => setFreshness(event.target.value as FreshnessFilter)}><option value="all">All freshness</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>}
+          {(tab === 'all' || tab === 'live') && <label style={labelStyle}>Tracking freshness<select style={inputStyle} value={freshness} onChange={(event) => setFreshness(event.target.value as FreshnessFilter)}><option value="all">All freshness</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>}
           {tab === 'nearby' && <label style={labelStyle}>Near postcode / outcode<input style={inputStyle} value={nearbyPostcode} onChange={(event) => setNearbyPostcode(event.target.value)} placeholder="BB1" /></label>}
           {tab === 'nearby' && <label style={labelStyle}>Radius<select style={inputStyle} value={nearbyRadius} onChange={(event) => setNearbyRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} mi</option>)}</select></label>}
           {tab === 'nearby' && <label style={labelStyle}>Private Group<select style={inputStyle} value={nearbyGroupId} onChange={(event) => setNearbyGroupId(event.target.value)}><option value="">All Exchange members</option>{privateGroups.groups.filter((group) => group.allowAvailabilityVisibility).map((group) => <option key={group.id} value={group.id}>{group.name} ({group.members.length})</option>)}</select></label>}
@@ -376,10 +361,11 @@ export default function LiveAvailabilityPage() {
           <ActionButton tone="secondary" onClick={loadDefaults}>Load Default</ActionButton>
           {tab === 'nearby' && <ActionButton tone="success" onClick={() => setNearbyQuery({ postcode: nearbyPostcode.trim(), radius: nearbyRadius, vehicle: nearbyVehicle, body: nearbyBody, minPayload: nearbyMinPayload, minPallets: nearbyMinPallets, tailLiftOnly: nearbyTailLiftOnly, groupId: nearbyGroupId })}>Find Nearest</ActionButton>}
           <ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
+          <ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading || nearbyLoading}>{data.loading || intelligence.loading || nearbyLoading ? 'Refreshing…' : 'Refresh'}</ActionButton>
         </div>
       </Panel>
 
-      {tab === 'live' ? (
+      {tab === 'all' || tab === 'live' ? (
         <TwoColumn rightWidth="minmax(440px,1fr)">
           <Panel title="Live fleet map" description="Green positions are fresh; red positions are older than 20 minutes.">
             <FleetPositionMap points={livePoints} selectedDriverId={selectedDriverId} />
@@ -400,34 +386,12 @@ export default function LiveAvailabilityPage() {
             />
           </Panel>
         </TwoColumn>
-      ) : tab === 'future' ? (
-        <TwoColumn rightWidth="minmax(440px,1fr)">
-          <Panel title="Future position map" description="Blue markers are declared future positions or geocoded return-journey origins. Only postcode-based declarations can be mapped reliably.">
-            <FleetPositionMap points={futurePoints} selectedDriverId={selectedDriverId} mode="future" />
-          </Panel>
-          <Panel title="Future availability" description="Declared future positions and return journeys are shown alongside the next assigned collection.">
-            <DataTable
-              columns={['Driver', 'Availability', 'Future position', 'Vehicle / capacity', 'Return journey', 'Availability window', 'Next assigned work', 'Action']}
-              rows={filtered.map(({ driver, vehicle, future, returnJourney, nextJob }) => [
-                <strong key="driver">{driver.display_name ?? driver.email ?? 'Driver'}</strong>,
-                <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={driver.availability_status === 'available' ? 'green' : driver.availability_status === 'busy' ? 'purple' : 'grey'} />,
-                <div key="future"><span style={{ display: 'block' }}>{future?.futurePosition ?? 'Not published'}</span>{future?.notes ? <span style={{ display: 'block', color: '#64748b' }}>{future.notes}</span> : null}</div>,
-                vehicle ? `${vehicle.reg_plate ?? vehicle.type?.replaceAll('_', ' ') ?? 'Vehicle'} · ${vehicle.payload_kg != null ? `${Math.round(vehicle.payload_kg)} kg` : 'payload not recorded'}${vehicle.pallets_capacity != null ? ` · ${vehicle.pallets_capacity} pallets` : ''}` : 'No assigned vehicle',
-                returnJourney ? `${returnJourney.fromPostcode ?? 'From TBC'} → ${returnJourney.toPostcode ?? 'Go anywhere'}` : 'No return journey',
-                future?.futurePositionDate ? `${when(future.futurePositionDate)}${future.futurePositionUntil ? ` → ${when(future.futurePositionUntil)}` : ''}` : when(returnJourney?.availableFrom),
-                nextJob ? `${nextJob.pickup_location ?? 'Pickup'} · ${when(nextJob.pickup_datetime)}` : 'No future job allocated',
-                <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => setSelectedDriverId(driver.id)}>Locate</ActionButton>{returnJourney ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton> : null}<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Driver register</ActionButton></div>,
-              ])}
-              empty={<EmptyState title="No future availability records match these filters" />}
-            />
-          </Panel>
-        </TwoColumn>
       ) : (
         <TwoColumn rightWidth="minmax(480px,1.08fr)">
           <Panel title="Nearby Exchange map" description="Other companies are shown only at the rounded Exchange area supplied by the privacy boundary; exact driver identity and exact coordinates are never exposed.">
             <FleetPositionMap points={nearbyPoints} selectedDriverId={selectedDriverId} />
           </Panel>
-          <Panel title="Who's nearby" description={`${filteredNearby.length} privacy-scoped Exchange vehicle(s) visible to this company.`}>
+          <Panel title="Who's nearby" description={`${filteredNearby.length} privacy-scoped Exchange vehicle(s) visible to this company. Only opt-in, currently available resources without an active job appear here.`}>
             <DataTable
               columns={['Member', 'Vehicle', 'Capacity', 'Distance', 'Equipment', 'Available until', 'Freshness', 'Action']}
               rows={filteredNearby.map((position, index) => {

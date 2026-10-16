@@ -41,12 +41,37 @@ describe('all operational workspace navigation remains visually reachable', () =
     assertCanonicalPreserved('broker', composeBrokerPrimaryNav(merged));
   });
 
-  it('preserves every canonical Carrier route', () => {
-    assertCanonicalPreserved('company_owner', composeCarrierPrimaryNav(getVisibleWorkspaceNav('company_owner')));
+  it('preserves every canonical Carrier route through primary navigation, More, or its canonical hub', () => {
+    const presented = composeCarrierPrimaryNav(getVisibleWorkspaceNav('company_owner'));
+    const visible = new Set(hrefs(presented));
+    const hubOwned = new Map([
+      ['/admin/won-work', '/admin/marketplace'],
+      ['/admin/drivers', '/admin/fleet/resources'],
+      ['/admin/vehicles', '/admin/fleet/resources'],
+      ['/admin/fleet/drivers', '/admin/fleet/resources'],
+      ['/admin/fleet/vehicles', '/admin/fleet/resources'],
+      ['/admin/settings/billing', '/admin/settings'],
+    ]);
+    for (const href of hrefs(getVisibleWorkspaceNav('company_owner'))) {
+      const visibleRoute = hubOwned.get(href) ?? href;
+      expect(visible.has(visibleRoute), 'company_owner lost canonical nav route ' + href + ' via ' + visibleRoute).toBe(true);
+    }
   });
 
-  it('preserves every canonical Fleet Manager route', () => {
-    assertCanonicalPreserved('fleet_manager', composeFleetPrimaryNav(getVisibleWorkspaceNav('fleet_manager')));
+  it('preserves every canonical Fleet Manager route through primary navigation, More, or its canonical hub', () => {
+    const presented = composeFleetPrimaryNav(getVisibleWorkspaceNav('fleet_manager'));
+    const visible = new Set(hrefs(presented));
+    const hubOwned = new Map([
+      ['/admin/fleet/drivers', '/admin/fleet/resources'],
+      ['/admin/fleet/vehicles', '/admin/fleet/resources'],
+      ['/admin/fleet/availability', '/admin/live-availability'],
+      ['/admin/fleet/future-availability', '/admin/live-availability'],
+      ['/admin/fleet/positions', '/admin/fleet/resources'],
+    ]);
+    for (const href of hrefs(getVisibleWorkspaceNav('fleet_manager'))) {
+      const visibleRoute = hubOwned.get(href) ?? href;
+      expect(visible.has(visibleRoute), 'fleet_manager lost canonical nav route ' + href + ' via ' + visibleRoute).toBe(true);
+    }
   });
 
   it('preserves every canonical Dispatcher route', () => {

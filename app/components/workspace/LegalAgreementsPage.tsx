@@ -309,7 +309,6 @@ export default function LegalAgreementsPage({
         eyebrow={eyebrow}
         title="Legal & Agreements"
         description={description}
-        actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>Refresh</ActionButton>}
       />
 
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
@@ -324,6 +323,7 @@ export default function LegalAgreementsPage({
           <Panel
             title="Current contractual requirement"
             description="This is the server-defined contractual package for your current XDrive registration role."
+            actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void load()}>Refresh</ActionButton>}
           >
             <div style={{ display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>

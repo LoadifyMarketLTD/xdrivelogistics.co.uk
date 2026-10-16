@@ -47,20 +47,24 @@ describe('Carrier CX dashboard convergence contract', () => {
     expect(css).toContain('.xdrive-carrier-workspace .carrier-cx-booking-card');
   });
 
-  it('keeps dashboard actions connected to real XDrive registers', () => {
+  it('keeps dashboard actions connected to real XDrive registers and leaves global surfaces in canonical navigation', () => {
     for (const route of [
       '/admin/won-work',
       '/admin/invoices',
       '/admin/diary',
       '/admin/fleet/assignments',
       '/admin/fleet/returns',
-      '/admin/fleet/compliance',
       '/admin/marketplace/directory',
-      '/admin/marketplace',
-      '/admin/live-availability',
       '/admin/jobs/',
     ]) {
       expect(source).toContain(route);
     }
+
+    const shell = fs.readFileSync(
+      path.join(process.cwd(), 'app/components/workspace/TopWorkspaceShell.tsx'),
+      'utf8',
+    );
+    expect(shell).toContain("['carrier-loads', 'Loads', '/admin/marketplace']");
+    expect(shell).toContain("['carrier-live-availability', 'Live Availability', '/admin/live-availability']");
   });
 });

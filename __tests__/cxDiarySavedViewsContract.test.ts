@@ -14,8 +14,8 @@ describe('CX Diary named Saved Views parity', () => {
 
   it('loads, saves, applies and deletes named Diary views', () => {
     expect(diary).toContain(".from('diary_saved_views')");
-    expect(diary).toContain('SAVED VIEWS');
-    expect(diary).toContain('SAVE CURRENT VIEW');
+    expect(diary).toContain('Saved Views');
+    expect(diary).toContain('Save current view as...');
     expect(diary).toContain('Save View');
     expect(diary).toContain('deleteSavedView');
     expect(diary).toContain('applySavedView');

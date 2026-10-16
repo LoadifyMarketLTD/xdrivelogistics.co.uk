@@ -16,7 +16,8 @@ describe('CX-informed Driver vs Owner Driver settings boundary', () => {
     expect(settings).toContain("driver: 'Driver'");
     expect(settings).toContain("const companyProfileRoles: readonly RoleMode[] = ['customer', 'broker', 'owner', 'carrier'];");
     expect(settings).toContain("const billingRoles: readonly RoleMode[] = ['customer', 'broker', 'owner', 'carrier'];");
-    expect(settings).toContain("!companyProfileVisible && <ActionButton tone=\"secondary\" onClick={() => setSection('profile')}>My Profile</ActionButton>");
+    expect(settings).toContain("{ label: 'My Profile', action: () => setSection('profile'), active: section === 'profile' }");
+    expect(settings).not.toContain("!companyProfileVisible && <ActionButton tone=\"secondary\" onClick={() => setSection('profile')}>My Profile</ActionButton>");
   });
 
   it('keeps Driver and Owner Driver inside the same top-level Settings visual composition', () => {

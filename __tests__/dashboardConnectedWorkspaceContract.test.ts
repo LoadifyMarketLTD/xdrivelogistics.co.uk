@@ -34,9 +34,9 @@ describe('connected workspace dashboard completion', () => {
   it('keeps carrier directory, availability, Freight Vision, messages and event log reachable from canonical navigation while the dashboard stays action-focused', () => {
     const routes = ['/admin/marketplace/directory', '/admin/live-availability', '/admin/freight-vision', '/admin/messages', '/admin/event-log'];
     for (const route of routes) expect(roles).toContain("href: '" + route + "'");
-    expect(carrier).toContain("router.push('/admin/live-availability')");
-    expect(carrier).toContain("router.push('/admin/marketplace')");
-    expect(carrier).toContain("router.push('/admin/fleet/active-jobs')");
+    expect(carrier).toContain("router.push('/admin/marketplace/directory')");
+    expect(carrier).toContain("router.push('/admin/fleet/assignments')");
+    expect(carrier).toContain("router.push('/admin/diary')");
   });
 
   it('connects fleet finance, Freight Vision, messages and event log', () => {

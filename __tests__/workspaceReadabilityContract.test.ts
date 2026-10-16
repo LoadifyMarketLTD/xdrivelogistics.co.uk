@@ -7,10 +7,10 @@ const workspaceCss = fs.readFileSync(path.join(process.cwd(), 'app/components/wo
 const shellCss = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/top-workspace-shell.css'), 'utf8');
 
 describe('workspace readability contract', () => {
-  it('keeps the canonical operational navbar on the measured CX / Owner Driver geometry', () => {
+  it('keeps the canonical operational navbar on the measured Courier Exchange live geometry', () => {
     expect(measuredCss).toContain('--ws-nav-h: 42px;');
-    expect(shellCss).toContain('height: 29px !important;');
-    expect(shellCss).toContain('padding: 2px 8px 9px !important;');
+    expect(shellCss).toContain('height: 42px !important;');
+    expect(shellCss).toContain('padding: 0 13px !important;');
     expect(shellCss).toContain('font-size: 13px !important;');
     expect(shellCss).toContain('font-weight: 600 !important;');
     expect(shellCss).toContain('box-shadow: inset 0 -2px 0 #1d57d8 !important;');

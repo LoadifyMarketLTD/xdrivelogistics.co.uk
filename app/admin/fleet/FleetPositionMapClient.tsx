@@ -95,6 +95,32 @@ export default function FleetPositionMapClient({
         background: '#e2e8f0',
       }}
     >
+      {validPoints.length === 0 && (
+        <div
+          data-testid="fleet-map-no-coords"
+          role="status"
+          aria-live="polite"
+          style={{
+            position: 'absolute',
+            top: '12px',
+            left: '12px',
+            right: '12px',
+            zIndex: 1000,
+            border: '1px solid #cbd5e1',
+            borderRadius: '8px',
+            background: 'rgba(255, 255, 255, 0.94)',
+            color: '#475569',
+            padding: '10px 12px',
+            fontSize: '0.86rem',
+            lineHeight: 1.4,
+            textAlign: 'center',
+            boxShadow: '0 8px 20px rgba(15, 23, 42, 0.10)',
+          }}
+        >
+          {mode === 'future' ? 'No future fleet positions available.' : 'No live fleet positions available.'}
+        </div>
+      )}
+
       {providerError && (
         <div
           data-testid="fleet-map-provider-error"

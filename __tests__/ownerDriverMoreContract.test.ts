@@ -17,6 +17,7 @@ const ownerContext = {
 };
 
 const SECONDARY_ROUTES = [
+  '/driver/jobs',
   '/driver/won-work',
   '/driver/availability',
   '/driver/load-alerts',
@@ -25,8 +26,6 @@ const SECONDARY_ROUTES = [
   '/driver/finance',
   '/driver/messages',
   '/driver/event-log',
-  '/driver/freight-vision',
-  '/driver/drivers-vehicles',
   '/driver/settings',
 ] as const;
 
@@ -39,8 +38,9 @@ describe('Owner Driver integrated secondary navigation contract', () => {
 
   it('keeps core work primary and secondary destinations in Owner Driver More', () => {
     for (const href of SECONDARY_ROUTES) expect(owner).toContain(`'${href}'`);
-    expect(owner).toContain("['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs']");
     expect(owner).toContain("['owner-driver-diary-primary', 'Diary', '/driver/history']");
+    expect(owner).toContain("['owner-driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision']");
+    expect(owner).toContain("['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles']");
     expect(owner).toContain("], 'owner-driver-more', 'More', [");
     expect(owner).not.toContain("return ownerNav.filter((group) => group.id !== 'owner-driver-more')");
   });

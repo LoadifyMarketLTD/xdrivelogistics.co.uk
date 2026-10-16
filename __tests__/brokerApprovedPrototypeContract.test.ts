@@ -18,10 +18,11 @@ describe('Broker cleaned workspace contract', () => {
     expect(shell).toContain('filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user)');
   });
 
-  it('keeps only four primary Broker signals on the dashboard', () => {
-    for (const label of ['Open loads','Awaiting award','Active jobs','Gross margin']) {
-      expect(dashboard).toContain(`label="${label}"`);
-    }
+  it('keeps only two CX-sized primary Broker signals on the dashboard', () => {
+    for (const label of ['Open loads','Gross margin']) expect(dashboard).toContain(`label="${label}"`);
+    for (const label of ['Awaiting award','Active jobs']) expect(dashboard).not.toContain(`label="${label}"`);
+    expect(dashboard).toContain('Needs your attention');
+    expect(dashboard).toContain('Activity at a glance');
     expect(dashboard).not.toContain('Search & filters');
     expect(dashboard).not.toContain('Operational action queue');
     expect(dashboard).not.toContain('Commercial exposure');

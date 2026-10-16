@@ -4,7 +4,7 @@ import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
-import { BellRing, Briefcase, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, Menu, MessageSquare, ReceiptText, RefreshCw, Trophy } from 'lucide-react';
+import { BellRing, Briefcase, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, ReceiptText, RefreshCw, Trophy } from 'lucide-react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -97,17 +97,24 @@ export function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['carrier-dashboard', 'Dashboard', '/admin'],
     ['carrier-directory', 'Directory', '/admin/marketplace/directory'],
     ['carrier-live-availability', 'Live Availability', '/admin/live-availability'],
-    ['carrier-my-fleet', 'My Fleet', '/admin/fleet'],
+    ['carrier-my-fleet', 'My Fleet', '/admin/fleet/vehicles'],
     ['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns'],
     ['carrier-loads', 'Loads', '/admin/marketplace'],
     ['carrier-quotes', 'Quotes', '/admin/exchange-quotes'],
     ['carrier-diary', 'Diary', '/admin/diary'],
     ['carrier-freight-vision', 'Freight Vision', '/admin/freight-vision'],
     ['carrier-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
-    ['carrier-settings', 'Settings', '/admin/settings'],
   ];
 
   const directHrefs = new Set(direct.map(([, , href]) => href));
+  const carrierHubOwnedHrefs = new Set([
+    '/admin/won-work',
+    '/admin/drivers',
+    '/admin/vehicles',
+    '/admin/fleet/drivers',
+    '/admin/fleet/vehicles',
+    '/admin/settings/billing',
+  ]);
   const primary = direct.flatMap(([id, label, href]) => {
     const item = items.get(href);
     return item ? [singleGroup(id, label, item)] : [];
@@ -115,37 +122,24 @@ export function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
 
   const morePreferred = [
     '/admin/bulk-import',
-    '/admin/won-work',
     '/admin/jobs',
     '/admin/fleet/assignments',
     '/admin/pod',
     '/admin/quotes',
     '/admin/invoices',
+    '/admin/settings',
     '/admin/messages',
   ];
-  const settingsOwnedHrefs = new Set([
-    '/admin/documents',
-    '/admin/event-log',
-    '/admin/team',
-    '/admin/fleet/managers',
-    '/admin/dispatchers',
-    '/admin/settings/billing',
-    '/admin/drivers',
-    '/admin/vehicles',
-    '/admin/fleet/drivers',
-    '/admin/fleet/vehicles',
-    '/admin/fleet/positions',
-  ]);
   const more: WorkspaceNavItem[] = [
     { id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre', icon: '!' },
     ...morePreferred.flatMap((href) => {
       const item = items.get(href);
-      return item && !directHrefs.has(href) ? [item] : [];
+      return item && !directHrefs.has(href) && !carrierHubOwnedHrefs.has(href) ? [item] : [];
     }),
   ];
-  const represented = new Set([...directHrefs, ...more.map((item) => item.href)]);
+  const represented = new Set([...directHrefs, ...carrierHubOwnedHrefs, ...more.map((item) => item.href)]);
   for (const [href, item] of items) {
-    if (!represented.has(href) && !settingsOwnedHrefs.has(href)) {
+    if (!represented.has(href)) {
       more.push(item);
       represented.add(href);
     }
@@ -161,7 +155,6 @@ export function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['fleet-live-availability', 'Live Availability', '/admin/live-availability'],
     ['fleet-my-fleet', 'My Fleet', '/admin/fleet/vehicles'],
     ['fleet-return-journeys', 'Return Journeys', '/admin/fleet/returns'],
-    ['fleet-jobs', 'Jobs', '/admin/fleet/jobs'],
     ['fleet-diary', 'Diary', '/admin/diary'],
     ['fleet-freight-vision', 'Freight Vision', '/admin/freight-vision'],
     ['fleet-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
@@ -177,26 +170,32 @@ export function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
     primary.push(singleGroup(id, label, item));
   }
 
-  const morePreferred = [
-    '/admin/fleet/assignments',
+  const fleetHubOwnedHrefs = new Set([
+    '/admin/fleet/drivers',
+    '/admin/fleet/vehicles',
     '/admin/fleet/availability',
     '/admin/fleet/future-availability',
     '/admin/fleet/positions',
+  ]);
+  const morePreferred = [
+    '/admin/fleet/jobs',
+    '/admin/fleet/assignments',
     '/admin/fleet/maintenance',
     '/admin/incidents',
     '/admin/messages',
     '/admin/event-log',
     '/admin/invoices',
     '/admin/fleet/compliance',
+    '/admin/settings',
   ];
   const more: WorkspaceNavItem[] = [
     { id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre', icon: '!' },
     ...morePreferred.flatMap((href) => {
       const item = items.get(href);
-      return item && !used.has(href) ? [item] : [];
+      return item && !used.has(href) && !fleetHubOwnedHrefs.has(href) ? [item] : [];
     }),
   ];
-  const represented = new Set([...used, ...more.map((item) => item.href)]);
+  const represented = new Set([...used, ...fleetHubOwnedHrefs, ...more.map((item) => item.href)]);
   for (const [href, item] of items) {
     if (!represented.has(href)) {
       more.push(item);
@@ -252,58 +251,86 @@ export function composeRolePrimaryNav(
 export function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
     ['customer-dashboard-primary', 'Dashboard', '/customer'],
-    ['customer-post-load-primary', 'Post Load', '/customer/post-load'],
+    ['customer-directory-primary', 'Directory', '/customer/network'],
     ['customer-loads-primary', 'Loads', '/customer/loads'],
     ['customer-quotes-primary', 'Quotes', '/customer/quotes'],
-    ['customer-bookings-primary', 'Bookings', '/customer/bookings'],
     ['customer-diary-primary', 'Diary', '/customer/diary'],
-    ['customer-tracking-primary', 'Tracking', '/customer/tracking'],
-    ['customer-network-primary', 'Network', '/customer/network'],
-    ['customer-action-centre-primary', 'Action Centre', '/customer/action-centre'],
-  ], 'customer-more');
+    ['customer-freight-vision-primary', 'Freight Vision', '/customer/tracking'],
+  ], 'customer-more', 'More', [
+    '/customer/action-centre',
+    '/customer/bookings',
+    '/customer/deliveries',
+    '/customer/documents',
+    '/customer/updates',
+    '/customer/messages',
+    '/customer/disputes',
+    '/customer/event-log',
+    '/customer/invoices',
+    '/customer/team',
+    '/customer/settings',
+  ]);
 }
 
 export function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
     ['broker-dashboard-primary', 'Dashboard', '/broker'],
-    ['broker-action-centre-primary', 'Action Centre', '/broker/action-centre'],
-    ['broker-enquiries-primary', 'Enquiries', '/broker/enquiries'],
+    ['broker-directory-primary', 'Directory', '/broker/carrier-network'],
     ['broker-loads-primary', 'Loads', '/broker/loads'],
-    ['broker-quotes-primary', 'Carrier Quotes', '/broker/bids'],
-    ['broker-jobs-primary', 'Jobs', '/broker/jobs'],
+    ['broker-quotes-primary', 'Quotes', '/broker/bids'],
     ['broker-diary-primary', 'Diary', '/broker/diary'],
-    ['broker-pod-primary', 'POD Review', '/broker/pod-review'],
-    ['broker-finance-primary', 'Finance', '/broker/finance'],
-    ['broker-settings-primary', 'Settings', '/broker/settings'],
-  ], 'broker-more');
+  ], 'broker-more', 'More', [
+    '/broker/action-centre',
+    '/broker/enquiries',
+    '/broker/jobs',
+    '/broker/pod-review',
+    '/broker/customers',
+    '/broker/messages',
+    '/broker/event-log',
+    '/broker/disputes',
+    '/broker/finance',
+    '/broker/settings',
+  ]);
 }
 
 export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver: boolean) {
   if (!ownerDriver) {
     return composeRolePrimaryNav(groups, [
       ['driver-dashboard-primary', 'Dashboard', '/driver'],
-      ['driver-action-centre-primary', 'Action Centre', '/driver/action-centre'],
-      ['driver-jobs-primary', 'My Jobs', '/driver/jobs'],
+      ['driver-directory-primary', 'Directory', '/driver/directory'],
+      ['driver-live-availability-primary', 'Live Availability', '/driver/availability/live'],
+      ['driver-my-fleet-primary', 'My Fleet', '/driver/fleet'],
+      ['driver-returns-primary', 'Return Journeys', '/driver/returns'],
+      ['driver-loads-primary', 'Loads', '/driver/loads'],
+      ['driver-quotes-primary', 'Quotes', '/driver/quotes'],
       ['driver-diary-primary', 'Diary', '/driver/history'],
-      ['driver-availability-primary', 'Availability', '/driver/availability'],
-      ['driver-vehicle-primary', 'Vehicle', '/driver/vehicles'],
-      ['driver-documents-primary', 'Documents', '/driver/documents'],
-      ['driver-settings-primary', 'Settings', '/driver/settings'],
-    ], 'driver-more');
+      ['driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision'],
+    ], 'driver-more', 'More', [
+      '/driver/action-centre',
+      '/driver/jobs',
+      '/driver/availability',
+      '/driver/load-alerts',
+      '/driver/nearby',
+      '/driver/documents',
+      '/driver/messages',
+      '/driver/event-log',
+      '/driver/settings',
+    ]);
   }
 
   return composeRolePrimaryNav(groups, [
     ['owner-driver-dashboard-primary', 'Dashboard', '/driver'],
-    ['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre'],
     ['owner-driver-directory-primary', 'Directory', '/driver/directory'],
     ['owner-driver-live-availability-primary', 'Live Availability', '/driver/availability/live'],
-    ['owner-driver-my-fleet-primary', 'My Fleet', '/driver/vehicles'],
+    ['owner-driver-my-fleet-primary', 'My Fleet', '/driver/fleet'],
     ['owner-driver-returns-primary', 'Return Journeys', '/driver/returns'],
     ['owner-driver-loads-primary', 'Loads', '/driver/loads'],
     ['owner-driver-quotes-primary', 'Quotes', '/driver/quotes'],
-    ['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs'],
     ['owner-driver-diary-primary', 'Diary', '/driver/history'],
+    ['owner-driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision'],
+    ['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles'],
   ], 'owner-driver-more', 'More', [
+    '/driver/action-centre',
+    '/driver/jobs',
     '/driver/won-work',
     '/driver/availability',
     '/driver/load-alerts',
@@ -312,8 +339,6 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
     '/driver/finance',
     '/driver/messages',
     '/driver/event-log',
-    '/driver/freight-vision',
-    '/driver/drivers-vehicles',
     '/driver/settings',
   ]);
 }
@@ -321,23 +346,25 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
 export function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
     ['dispatcher-dashboard-primary', 'Dashboard', '/admin'],
+    ['dispatcher-live-availability-primary', 'Live Availability', '/admin/live-availability'],
+    ['dispatcher-my-fleet-primary', 'My Fleet', '/admin/fleet/vehicles'],
+    ['dispatcher-return-journeys-primary', 'Return Journeys', '/admin/fleet/returns'],
     ['dispatcher-diary-primary', 'Diary', '/admin/diary'],
-    ['dispatcher-unallocated-primary', 'Unallocated', '/admin/fleet/assignments'],
-    ['dispatcher-active-primary', 'Active Jobs', '/admin/fleet/active-jobs'],
-    ['dispatcher-collections-primary', 'Collections', '/admin/collections'],
-    ['dispatcher-deliveries-primary', 'Deliveries', '/admin/deliveries'],
-    ['dispatcher-positions-primary', 'Live Positions', '/admin/fleet/positions'],
-    ['dispatcher-settings-primary', 'Settings', '/admin/settings'],
+    ['dispatcher-freight-vision-primary', 'Freight Vision', '/admin/freight-vision'],
+    ['dispatcher-drivers-vehicles-primary', 'Drivers & Vehicles', '/admin/fleet/resources'],
   ], 'dispatcher-more', 'More', [
     '/admin/action-centre',
+    '/admin/fleet/assignments',
+    '/admin/fleet/active-jobs',
+    '/admin/collections',
+    '/admin/deliveries',
+    '/admin/fleet/positions',
     '/admin/bulk-import',
     '/admin/incidents',
     '/admin/pod',
-    '/admin/freight-vision',
-    '/admin/live-availability',
-    '/admin/fleet/resources',
     '/admin/messages',
     '/admin/event-log',
+    '/admin/settings',
   ]);
 }
 
@@ -384,6 +411,13 @@ const OWNER_DRIVER_MORE_ICONS = {
 function OwnerDriverMoreIcon({ item }: { item: WorkspaceNavItem }) {
   const Icon = OWNER_DRIVER_MORE_ICONS[item.href as keyof typeof OWNER_DRIVER_MORE_ICONS];
   return Icon ? <Icon aria-hidden="true" size={14} strokeWidth={1.8} /> : null;
+}
+/** Reuse Owner Driver icon artwork for equivalent operational routes. The
+ * normalised path is only an icon lookup key; navigation keeps item.href. */
+function SharedMoreIcon({ item }: { item: WorkspaceNavItem }) {
+  const parts = item.href.split('?')[0].split('/');
+  if (['admin', 'broker', 'customer'].includes(parts[1])) parts[1] = 'driver';
+  return <OwnerDriverMoreIcon item={{ ...item, href: parts.join('/') }} />;
 }
 const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
   '/driver/won-work': 'Work',
@@ -561,36 +595,14 @@ export function composeCustomerPrototypeNav(): WorkspaceNavGroup[] {
   ];
 }
 
-type WorkspacePageContext = { eyebrow: string; title: string; description: string };
-
-const CARRIER_PAGE_CONTEXTS: Array<{ href: string; exact?: boolean; context: WorkspacePageContext }> = [
-  { href: '/admin/marketplace/directory', context: { eyebrow: 'Network', title: 'Directory', description: 'Search verified members, capability, location and reputation.' } },
-  { href: '/admin/live-availability', context: { eyebrow: 'Fleet resources', title: 'Live Availability', description: 'Live and future driver capacity, positions and availability.' } },
-  { href: '/admin/fleet/returns', context: { eyebrow: 'Carrier capacity', title: 'Return Journeys', description: 'Publish and search return capacity and future journeys.' } },
-  { href: '/admin/fleet/resources', context: { eyebrow: 'Fleet resources', title: 'Drivers & Vehicles', description: 'Drivers, vehicles, tracking, future capacity and documents.' } },
-  { href: '/admin/freight-vision', context: { eyebrow: 'Operations tracking', title: 'Freight Vision', description: 'Active jobs, live positions, ETA risk and tracking exceptions.' } },
-  { href: '/admin/exchange-quotes', context: { eyebrow: 'Commercial', title: 'Quotes', description: 'Submitted, accepted, unsuccessful, withdrawn and archived quotes.' } },
-  { href: '/admin/diary', context: { eyebrow: 'Operations', title: 'Diary', description: 'Post-award bookings, allocation, evidence and authorised job records in one operating register.' } },
-  { href: '/admin/settings', context: { eyebrow: 'Company admin', title: 'Settings', description: 'Profile, security, company controls and authorised administration.' } },
-  { href: '/admin/team', context: { eyebrow: 'Company administration', title: 'Team & Roles', description: 'Users, permissions, Fleet Managers and Dispatchers.' } },
-  { href: '/admin/marketplace', context: { eyebrow: 'Marketplace', title: 'Loads', description: 'Available loads, matching, route, vehicle and quote actions.' } },
-  { href: '/admin/fleet', exact: true, context: { eyebrow: 'Fleet resources', title: 'My Fleet', description: 'Fleet operations, allocation, readiness and resource control.' } },
-  { href: '/admin', exact: true, context: { eyebrow: 'Carrier workspace', title: 'Dashboard', description: 'Commercial, operational and compliance summary.' } },
-];
-
-function resolveCarrierPageContext(pathname: string): WorkspacePageContext | null {
-  for (const item of CARRIER_PAGE_CONTEXTS) {
-    if (item.exact ? pathname === item.href : pathname === item.href || pathname.startsWith(`${item.href}/`)) return item.context;
-  }
-  return null;
-}
-
 export default function TopWorkspaceShell({
   children,
   forcedRole,
+  fixtureCompanyName,
 }: {
   children: ReactNode;
   forcedRole?: WorkspaceRole;
+  fixtureCompanyName?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -747,11 +759,16 @@ export default function TopWorkspaceShell({
 
     return base;
   }, [role, user]);
-  const [companyName, setCompanyName] = useState('XDrive Logistics');
+  const [companyName, setCompanyName] = useState(() => fixtureCompanyName ?? 'XDrive Logistics');
+  const [hydrated, setHydrated] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [openGroupId, setOpenGroupId] = useState<string | null>(null);
   const navRef = useRef<HTMLElement | null>(null);
   const menuTriggerRefs = useRef<Record<string, HTMLButtonElement | null>>({});
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   const navigationTargets = useMemo(
     () =>
@@ -839,6 +856,10 @@ export default function TopWorkspaceShell({
         : '/driver/directory';
 
   useEffect(() => {
+    if (fixtureCompanyName) {
+      setCompanyName(fixtureCompanyName);
+      return;
+    }
     if (!user?.companyId || !isSupabaseConfigured) {
       if (role === 'customer') setCompanyName('Customer Account');
       else if (role === 'broker') setCompanyName('Broker Company');
@@ -861,7 +882,7 @@ export default function TopWorkspaceShell({
     return () => {
       cancelled = true;
     };
-  }, [definition.label, role, user?.companyId, user?.email]);
+  }, [definition.label, fixtureCompanyName, role, user?.companyId, user?.email]);
 
   useEffect(() => {
     if (!user?.id || !isSupabaseConfigured) {
@@ -950,14 +971,12 @@ export default function TopWorkspaceShell({
   };
 
   const driverPrototypeScope = role === 'driver' || role === 'owner_driver';
-  const carrierPageContext = CARRIER_NAV_ROLES.has(role) ? resolveCarrierPageContext(pathname ?? '') : null;
-
   return (
     <div
       className={`top-workspace-shell${driverPrototypeScope ? ' driver-prototype-port' : ''}`}
       data-workspace-role={role}
+      data-hydrated={hydrated ? 'true' : 'false'}
       data-carrier-nav={CARRIER_NAV_ROLES.has(role) ? 'true' : undefined}
-      data-page-context={carrierPageContext ? 'true' : undefined}
     >
       <header className="top-workspace-shell__header">
         <div className="top-workspace-shell__brand">
@@ -978,7 +997,7 @@ export default function TopWorkspaceShell({
           </button>
           <div className="top-workspace-shell__identity">
             <span>{definition.label}</span>
-            {role !== 'customer' && !CARRIER_NAV_ROLES.has(role) ? <strong>{companyName}</strong> : null}
+            <strong>{companyName}</strong>
           </div>
         </div>
 
@@ -1094,17 +1113,8 @@ export default function TopWorkspaceShell({
                     }
                   }}
                 >
-                  {group.id === 'carrier-more' ? (
-                    <>
-                      <Menu aria-hidden="true" size={18} strokeWidth={2} />
-                      <span className="sr-only">{group.label}</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>{group.label}</span>
-                      <ChevronDown aria-hidden="true" className="top-workspace-nav__caret" size={14} strokeWidth={2} />
-                    </>
-                  )}
+                  <span>{group.label}</span>
+                  <ChevronDown aria-hidden="true" className="top-workspace-nav__caret" size={14} strokeWidth={2} />
                 </button>
                 {open && (
                   <div
@@ -1139,7 +1149,7 @@ export default function TopWorkspaceShell({
                                 ? <OwnerDriverMoreIcon item={item} />
                                 : role === 'customer' && group.id === 'customer-more'
                                   ? <CustomerMoreIcon item={item} />
-                                  : item.icon ?? null}
+                                  : <SharedMoreIcon item={item} />}
                             </span>
                             <span>{item.label}</span>
                           </button>

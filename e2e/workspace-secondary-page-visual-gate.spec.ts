@@ -82,6 +82,44 @@ test('Driver Diary and Return Journeys Add Journey retain compact route-specific
   }
 });
 
+test('CX live operational tabs and search rail stay measured across Availability, My Fleet, Return Journeys and Diary', async ({ page }) => {
+  const adminDir = path.resolve(process.cwd(), 'app/admin');
+  const layout = fs.readFileSync(path.join(adminDir, 'layout.tsx'), 'utf8');
+  const imports = [...layout.matchAll(/^import ['"]([^'"]+\.css)['"];?/gm)]
+    .map((match) => path.resolve(adminDir, match[1]));
+  await page.setContent(`<!doctype html><html><body style="margin:0">
+    <div class="xdrive-workspace-measured xdrive-operational-top-workspace xdrive-carrier-workspace">
+      <div class="top-workspace-shell__content">
+        <div class="workspace-board-layout">
+          <aside class="workspace-filter-rail"><div class="workspace-filter-rail__header">Search Panel</div><div class="workspace-filter-rail__body"><label>SEARCH<input value=""></label></div></aside>
+          <main><div class="workspace-tab-strip" role="tablist"><button data-active="true">All</button><button>Drivers &amp; Sub-contractors</button><button>Other Drivers</button></div></main>
+        </div>
+      </div>
+    </div>
+  </body></html>`);
+  for (const cssPath of imports) await page.addStyleTag({ content: fs.readFileSync(cssPath, 'utf8') });
+  for (const width of [1440, 1024, 768, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const styles = await page.evaluate(() => {
+      const rail = document.querySelector<HTMLElement>('.workspace-filter-rail')!;
+      const tab = document.querySelector<HTMLButtonElement>('.workspace-tab-strip button')!;
+      const input = document.querySelector<HTMLInputElement>('.workspace-filter-rail input')!;
+      return {
+        railWidth: rail.getBoundingClientRect().width,
+        tabHeight: tab.getBoundingClientRect().height,
+        inputHeight: input.getBoundingClientRect().height,
+        overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      };
+    });
+    if (width >= 1201) expect(styles.railWidth, `width=${width}: CX search rail`).toBe(165);
+    expect(styles.tabHeight, `width=${width}: CX subtab height`).toBeGreaterThanOrEqual(26);
+    expect(styles.tabHeight, `width=${width}: CX subtab height`).toBeLessThanOrEqual(29);
+    expect(styles.inputHeight, `width=${width}: compact filter control`).toBeGreaterThanOrEqual(24);
+    expect(styles.inputHeight, `width=${width}: compact filter control`).toBeLessThanOrEqual(32);
+    expect(styles.overflow, `width=${width}: no page overflow`).toBe(false);
+  }
+});
+
 // The real Carrier layout's import order must preserve invalid field feedback.
 test('Carrier Create Job validation controls keep the measured red border', async ({ page }) => {
   const adminDir = path.resolve(process.cwd(), 'app/admin');

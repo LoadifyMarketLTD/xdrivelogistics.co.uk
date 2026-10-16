@@ -21,16 +21,12 @@ describe('CX workspace responsive convergence', () => {
 
   it('uses one responsive record geometry for Loads, Jobs and cross-role operational rows', () => {
     const css = read('app/components/workspace/workspace-measured-cx-baseline.css');
-    const tablet = css.split('@media (max-width: 1200px) {')[1]?.split('\n}')[0] ?? '';
-    const mobile = css.split('@media (max-width: 768px) {').at(-1) ?? '';
     for (const hook of ['.driver-load-row__top', '.driver-job-row__top', '.workspace-operational-row__top']) {
-      expect(tablet).toContain(hook);
-      expect(mobile).toContain(hook);
+      expect(css).toContain(hook);
     }
-    expect(tablet).toContain('grid-template-columns: repeat(2, minmax(0, 1fr)) !important;');
-    expect(mobile).toContain('grid-template-columns: 1fr !important;');
-    expect(mobile).toContain('.driver-job-cell');
-    expect(mobile).toContain('border-right: 0 !important;');
+    expect(css).toMatch(/@media \(max-width: 1200px\)[\s\S]*?\.driver-load-row__top,[\s\S]*?\.driver-job-row__top,[\s\S]*?\.workspace-operational-row__top[\s\S]*?grid-template-columns: repeat\(2, minmax\(0, 1fr\)\) !important;/);
+    expect(css).toMatch(/@media \(max-width: 768px\)[\s\S]*?\.driver-load-row__top,[\s\S]*?\.driver-job-row__top,[\s\S]*?\.workspace-operational-row__top[\s\S]*?grid-template-columns: 1fr !important;/);
+    expect(css).toMatch(/@media \(max-width: 768px\)[\s\S]*?\.driver-job-cell[\s\S]*?border-right: 0 !important;/);
 
     // The common baseline owns terminal dividers at desktop, tablet and phone widths.
     // The old Driver-only :last-child rule lost to the shared !important border.

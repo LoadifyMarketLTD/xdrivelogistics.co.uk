@@ -8,15 +8,21 @@ const roles = read('lib/workspaceRole.ts');
 const notificationsApi = read('app/api/workspace/notifications/route.ts');
 
 describe('Driver top navigation role split', () => {
-  it('keeps employed Driver navigation execution-first in the shared shell', () => {
+  it('keeps employed Driver on the same CX-ordered operational navbar as Owner Driver', () => {
     for (const primary of [
       "['driver-dashboard-primary', 'Dashboard', '/driver']",
-      "['driver-jobs-primary', 'My Jobs', '/driver/jobs']",
+      "['driver-directory-primary', 'Directory', '/driver/directory']",
+      "['driver-live-availability-primary', 'Live Availability', '/driver/availability/live']",
+      "['driver-my-fleet-primary', 'My Fleet', '/driver/fleet']",
+      "['driver-returns-primary', 'Return Journeys', '/driver/returns']",
+      "['driver-loads-primary', 'Loads', '/driver/loads']",
+      "['driver-quotes-primary', 'Quotes', '/driver/quotes']",
       "['driver-diary-primary', 'Diary', '/driver/history']",
-      "['driver-availability-primary', 'Availability', '/driver/availability']",
-      "['driver-vehicle-primary', 'Vehicle', '/driver/vehicles']",
-      "['driver-documents-primary', 'Documents', '/driver/documents']",
+      "['driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision']",
     ]) expect(shell).toContain(primary);
+    expect(shell).toContain("'/driver/action-centre'");
+    expect(shell).toContain("'/driver/jobs'");
+    expect(shell).toContain("'/driver/settings'");
   });
 
   it('keeps commercial tools on Owner Driver while preserving role-aware Book Direct', () => {

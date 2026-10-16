@@ -15,17 +15,14 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     const customer = shell.slice(shell.indexOf('function composeCustomerPrimaryNav'), shell.indexOf('function composeBrokerPrimaryNav'));
     for (const primary of [
       "['customer-dashboard-primary', 'Dashboard', '/customer']",
-      "['customer-post-load-primary', 'Post Load', '/customer/post-load']",
+      "['customer-directory-primary', 'Directory', '/customer/network']",
       "['customer-loads-primary', 'Loads', '/customer/loads']",
       "['customer-quotes-primary', 'Quotes', '/customer/quotes']",
-      "['customer-bookings-primary', 'Bookings', '/customer/bookings']",
       "['customer-diary-primary', 'Diary', '/customer/diary']",
-      "['customer-tracking-primary', 'Tracking', '/customer/tracking']",
-      "['customer-network-primary', 'Network', '/customer/network']",
-      "['customer-action-centre-primary', 'Action Centre', '/customer/action-centre']",
+      "['customer-freight-vision-primary', 'Freight Vision', '/customer/tracking']",
     ]) expect(customer).toContain(primary);
 
-    expect(customer).toContain("], 'customer-more');");
+    expect(customer).toContain("], 'customer-more', 'More', [");
     for (const href of [
       '/customer/deliveries',
       '/customer/documents',
@@ -41,12 +38,15 @@ describe('Customer and Owner Driver workspace structure parity', () => {
 
   it('promotes the core Customer lifecycle and keeps secondary functions under More', () => {
     const customer = shell.slice(shell.indexOf('function composeCustomerPrimaryNav'), shell.indexOf('function composeBrokerPrimaryNav'));
-    for (const href of ['/customer/post-load', '/customer/loads', '/customer/quotes', '/customer/bookings', '/customer/diary', '/customer/tracking', '/customer/network', '/customer/action-centre']) {
+    for (const href of ['/customer/loads', '/customer/quotes', '/customer/diary', '/customer/tracking', '/customer/network', '/customer/action-centre', '/customer/bookings']) {
       expect(customer).toContain(`'${href}'`);
     }
-    expect(customer).toContain("], 'customer-more');");
+    expect(customer).toContain("], 'customer-more', 'More', [");
+    expect(customer).not.toContain("customer-post-load-primary");
     expect(shell).toContain('<CustomerMoreIcon item={item} />');
-    expect(shellCss).toContain('[data-workspace-role="customer"] .top-workspace-nav__menu');
+    expect(shellCss).toContain('.xdrive-operational-top-workspace .top-workspace-nav__menu');
+    expect(shellCss).toContain('width: 248px !important;');
+    expect(shellCss).not.toContain('max-width: min(252px');
   });
 
   it('keeps Settings administrative and removes Customer operational duplicates from its side navigation', () => {
@@ -104,7 +104,7 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(baseline).toContain('.xdrive-workspace-measured .workspace-detail-item > dd');
   });
 
-  it('does not disturb the canonical Owner Driver More workflow', () => {
+  it('does not disturb the Owner Driver More workflow while applying the shared CX-live shell', () => {
     expect(shell).toContain("'/driver/won-work': 'Work'");
     expect(shell).toContain("'/driver/availability': 'Matching & Availability'");
     expect(shell).toContain("'/driver/finance': 'Business'");

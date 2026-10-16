@@ -18,7 +18,7 @@ describe('live Driver approved prototype parity contract', () => {
     expect(adapter).not.toContain('main-nav');
   });
 
-  it('keeps dense Driver page styles plus the frozen PR675 dashboard visual layers', () => {
+  it('keeps dense Driver page styles while legacy dashboard layers remain subordinate to Courier Exchange live', () => {
     const layout = read('app/driver/layout.tsx');
     expect(layout).toContain("driver-full-prototype.css");
     expect(layout).toContain("driver-prototype-parity.css");
@@ -37,12 +37,14 @@ describe('live Driver approved prototype parity contract', () => {
     }
   });
 
-  it('uses prototype page chrome for non-account Driver routes', () => {
+  it('uses the same shared PageFrame and PageHeader chrome for every Driver route', () => {
     const shell = read('app/driver/_components/DriverWorkspaceShell.tsx');
-    expect(shell).toContain('driver-prototype-page-shell');
-    expect(shell).toContain('className="subbar"');
-    expect(shell).toContain('className="pagebody no-left"');
-    expect(shell).toContain('className="main"');
+    expect(shell).toContain('<PageFrame>');
+    expect(shell).toContain('<PageHeader');
+    expect(shell).toContain('driver-workspace-page-toolbar');
+    expect(shell).not.toContain('driver-prototype-page-shell');
+    expect(shell).not.toContain('className="subbar"');
+    expect(shell).not.toContain('className="pagebody no-left"');
   });
 
   it('keeps Company workspace files out of the Driver page styles', () => {

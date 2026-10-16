@@ -105,6 +105,14 @@ export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined)
     return 'owner_driver';
   }
 
+  // Active company subroles take precedence over the generic company_admin profile.
+  // This keeps client workspace resolution aligned with server-side membership authority.
+  if (rawRole === 'fleet_operator' || rawRole === 'fleet_manager' || rawRole === 'fleet_admin' || membershipRole === 'fleet_manager') return 'fleet_manager';
+  if (rawRole === 'dispatcher' || rawRole === 'operations_controller' || membershipRole === 'dispatcher') return 'dispatcher';
+  if (rawRole === 'finance' || rawRole === 'accounting' || rawRole === 'accountant' || membershipRole === 'finance') return 'finance';
+  if (rawRole === 'compliance' || rawRole === 'compliance_manager' || membershipRole === 'compliance') return 'compliance';
+  if (rawRole === 'viewer' || membershipRole === 'viewer') return 'viewer';
+
   if (membershipRole === 'owner') return 'company_owner';
   if (membershipRole === 'admin' || appRole === 'company_admin') return rawRole === 'carrier' ? 'carrier_admin' : 'company_admin';
 
@@ -116,12 +124,6 @@ export const resolveWorkspaceRole = (user: WorkspaceUserLike | null | undefined)
   }
 
   if (appRole === 'driver' || rawRole === 'driver' || rawRole === 'company_driver' || rawRole === 'solo_driver') return 'driver';
-
-  if (rawRole === 'fleet_operator' || rawRole === 'fleet_manager' || rawRole === 'fleet_admin' || membershipRole === 'fleet_manager') return 'fleet_manager';
-  if (rawRole === 'dispatcher' || rawRole === 'operations_controller' || membershipRole === 'dispatcher') return 'dispatcher';
-  if (rawRole === 'finance' || rawRole === 'accounting' || rawRole === 'accountant' || membershipRole === 'finance') return 'finance';
-  if (rawRole === 'compliance' || rawRole === 'compliance_manager' || membershipRole === 'compliance') return 'compliance';
-  if (rawRole === 'viewer' || membershipRole === 'viewer') return 'viewer';
 
   if (appRole === 'company_staff' || membershipRole === 'member') return 'carrier_admin';
 
@@ -189,6 +191,7 @@ const OWNER_DRIVER_NAV: WorkspaceNavGroup[] = [
   ...DRIVER_EXECUTION_NAV,
   { id: 'commercial', label: 'Commercial', items: [
     { id: 'live-availability', label: 'Live Availability', href: '/driver/availability/live', icon: '◷' },
+    { id: 'my-fleet', label: 'My Fleet', href: '/driver/fleet', icon: '▰' },
     { id: 'loads', label: 'Loads', href: '/driver/loads', icon: '▦' },
     { id: 'quotes', label: 'Quotes', href: '/driver/quotes', icon: '◫' },
     { id: 'won-work', label: 'Won Work', href: '/driver/won-work', icon: '✓' },
@@ -249,7 +252,7 @@ const carrierNav: WorkspaceNavGroup[] = [
     { id: 'vehicles', label: 'Vehicles', href: '/admin/vehicles', icon: '▰', capability: 'vehicles.manage' },
     { id: 'vehicle-tracking', label: 'Vehicle Tracking', href: '/admin/fleet/positions', icon: '⌖', capability: 'fleet.positions.view' },
   ] },
-  { id: 'carrier-fleet', label: 'Fleet', items: [{ id: 'fleet', label: 'Fleet', href: '/admin/fleet', icon: '◎', capability: 'fleet.positions.view' }, { id: 'fleet-managers', label: 'Fleet Managers', href: '/admin/fleet/managers', icon: '◉', capability: 'company.members.manage' }] },
+  { id: 'carrier-fleet', label: 'Fleet', items: [{ id: 'fleet', label: 'Fleet', href: '/admin/fleet', icon: '◎', capability: 'fleet.positions.view' }, { id: 'my-fleet', label: 'My Fleet', href: '/admin/fleet/vehicles', icon: '▰', capability: 'fleet.positions.view' }, { id: 'fleet-managers', label: 'Fleet Managers', href: '/admin/fleet/managers', icon: '◉', capability: 'company.members.manage' }] },
   { id: 'carrier-team', label: 'Team & Roles', items: [{ id: 'team-roles', label: 'Team & Roles', href: '/admin/team', icon: 'TEAM', capability: 'company.members.manage' }, { id: 'dispatchers', label: 'Dispatchers', href: '/admin/dispatchers', icon: 'OPS', capability: 'company.members.manage' }] },
   { id: 'carrier-returns', label: 'Returns', items: [{ id: 'returns', label: 'Returns', href: '/admin/fleet/returns', icon: '↩' }] },
   { id: 'carrier-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□', capability: 'jobs.view' }] },
@@ -321,6 +324,8 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     role: 'fleet_manager', label: 'Fleet Workspace', subtitle: 'Capacity, assignments, compliance and live operations', homeHref: '/admin/fleet',
     nav: [
       { id: 'fleet-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/admin/fleet', icon: '⌂' }] },
+      { id: 'fleet-live-availability', label: 'Live Availability', items: [{ id: 'live-availability', label: 'Live Availability', href: '/admin/live-availability', icon: '◷', capability: 'fleet.positions.view' }] },
+      { id: 'fleet-resources', label: 'Drivers & Vehicles', items: [{ id: 'resources', label: 'Drivers & Vehicles', href: '/admin/fleet/resources', icon: '◉', capability: 'fleet.positions.view' }] },
       { id: 'fleet-jobs', label: 'Jobs', items: [{ id: 'jobs', label: 'Jobs', href: '/admin/fleet/jobs', icon: '▣', capability: 'jobs.view' }] },
       { id: 'fleet-assignments', label: 'Assignments', items: [{ id: 'assignments', label: 'Assignments', href: '/admin/fleet/assignments', icon: '⇄', capability: 'jobs.allocate' }] },
       { id: 'fleet-drivers', label: 'Drivers', items: [{ id: 'drivers', label: 'Drivers', href: '/admin/fleet/drivers', icon: '◉', capability: 'drivers.manage' }] },
@@ -355,6 +360,11 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
         { id: 'pod', label: 'POD Queue', href: '/admin/pod', icon: '▤' },
       ] },
       { id: 'resources', label: 'Resources', items: [
+        { id: 'live-availability', label: 'Live Availability', href: '/admin/live-availability', icon: '◷', capability: 'fleet.positions.view' },
+        { id: 'my-fleet', label: 'My Fleet', href: '/admin/fleet/vehicles', icon: '▰', capability: 'fleet.positions.view' },
+        { id: 'return-journeys', label: 'Return Journeys', href: '/admin/fleet/returns', icon: '↩' },
+        { id: 'drivers-vehicles', label: 'Drivers & Vehicles', href: '/admin/fleet/resources', icon: '◉', capability: 'fleet.positions.view' },
+        { id: 'freight-vision', label: 'Freight Vision', href: '/admin/freight-vision', icon: '◎', capability: 'jobs.track' },
         { id: 'drivers', label: 'Drivers', href: '/admin/drivers', icon: '◉' },
         { id: 'vehicles', label: 'Vehicles', href: '/admin/vehicles', icon: '▰' },
         { id: 'positions', label: 'Live Positions', href: '/admin/fleet/positions', icon: '⌖' },

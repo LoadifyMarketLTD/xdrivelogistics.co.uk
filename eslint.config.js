@@ -7,7 +7,7 @@ import { defineConfig, globalIgnores } from 'eslint/config'
 export default defineConfig([
   // Next.js preview/E2E builds generate typed route artifacts in .next-* directories.
   // They are build output, not application sources, and must not be linted.
-  globalIgnores(['.next', '.next-*', 'node_modules', 'dist']),
+  globalIgnores(['.next', '.next-*', 'node_modules', 'dist', '_audit', 'test-results', 'playwright-report']),
   {
     files: ['**/*.{ts,tsx}'],
     extends: [

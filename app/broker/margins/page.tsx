@@ -47,8 +47,7 @@ export default function BrokerMarginsPage() {
       <PageHeader
         eyebrow="Broker finance"
         title="Estimated Margin"
-        description="Estimate-only view using recorded customer budget and accepted or lowest submitted carrier quote. It is not invoiced accounting."
-        actions={<ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>}
+        description="Estimated customer revenue, carrier cost and margin from recorded commercial data."
       />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
@@ -64,9 +63,9 @@ export default function BrokerMarginsPage() {
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
-            <span><strong>{visible.length}</strong> load{visible.length === 1 ? '' : 's'}</span>
-            <span>Budget {money(totals.revenue)} · Carrier estimate {money(totals.cost)} · Estimated margin {money(totals.margin)}</span>
+          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between', marginBottom: 4 }}>
+            <span><strong>{visible.length}</strong> load{visible.length === 1 ? '' : 's'} · Budget {money(totals.revenue)} · Carrier estimate {money(totals.cost)} · Estimated margin {money(totals.margin)}</span>
+            <span className="workspace-list-controls__right"><ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton></span>
           </div>
           <div className="workspace-panel">
             <DataTable

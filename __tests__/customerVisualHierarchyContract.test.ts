@@ -8,18 +8,19 @@ describe('Customer operational visual hierarchy', () => {
   const quotes = read('app/customer/quotes/CustomerQuotesCxPage.tsx');
   const customerCss = read('app/customer/customer-dashboard.css');
 
-  it('keeps Quotes as a full-width operational card stack rather than a detached side rail', () => {
-    expect(quotes).toContain('<OperationalCard');
-    expect(quotes).toContain('title="Quote filters"');
-    expect(quotes).toContain("display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))'");
-    expect(quotes).not.toContain('aria-label="Customer quote filters"');
+  it('keeps Quotes on the shared operational board with the canonical CX-style filter rail', () => {
+    expect(quotes).toContain('className="workspace-board-layout"');
+    expect(quotes).toContain('className="workspace-filter-rail"');
+    expect(quotes).toContain('aria-label="Quote filters"');
+    expect(quotes).toContain('className="workspace-board-main"');
+    expect(quotes).not.toContain('title="Quote filters"');
   });
 
-  it('promotes legacy Customer filter rails into horizontal full-width filter cards', () => {
+  it('uses the same vertical Customer filter rail geometry as the other operational workspaces', () => {
     expect(customerCss).toContain('.xdrive-customer-workspace .workspace-board-layout');
-    expect(customerCss).toContain('grid-template-columns: minmax(0, 1fr) !important');
+    expect(customerCss).toContain('grid-template-columns: var(--ws-filter-rail-w, 165px) minmax(0, 1fr) !important');
     expect(customerCss).toContain('.workspace-board-layout > .workspace-filter-rail');
-    expect(customerCss).toContain('grid-template-columns: 148px minmax(0, 1fr) !important');
+    expect(customerCss).toContain('width: var(--ws-filter-rail-w, 165px) !important');
   });
 
   it('keeps operational registers visually enclosed as cards', () => {

@@ -5,7 +5,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import { VEHICLE_GROUPS, VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
-import { StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type VehicleRow = {
   id: string;
@@ -181,14 +181,7 @@ export default function DriverVehiclesPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-fleet-prototype">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>My Fleet</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" onClick={() => void load()} disabled={loading}>Refresh Tracking</button>
-            <button type="button" className="btn" disabled={!canManageVehicles} onClick={startAdd}>+ Add Vehicle</button>
-            <button type="button" className="btn green" onClick={() => window.location.href = '/driver/availability'}>Advertise Availability</button>
-          </div>
-        </div>
+        <PageHeader eyebrow="Fleet resources" title="My Fleet" description="Vehicles, assignment, capacity and operational readiness." />
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Fleet Filters</div>
@@ -206,7 +199,6 @@ export default function DriverVehiclesPage() {
             <div className="filter"><span className="label">Capacity</span><label className="check"><input type="checkbox" checked={equippedCount > 0} readOnly />Equipment recorded</label></div>
           </aside>
           <main className="main">
-            <div className="head"><div><h1>My Fleet</h1><p>Operational fleet control with inline status, assignment, capacity and readiness</p></div></div>
             {error && <div className="vision-note">{error}</div>}
             {notice && <div className="vision-note">{notice}</div>}
             {!canonicalVehicleSignalAvailable && <div className="vision-note">Canonical active-vehicle signal is temporarily unavailable. Vehicle records remain visible.</div>}

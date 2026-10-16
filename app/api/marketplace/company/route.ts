@@ -128,6 +128,7 @@ const bidActionSchema = z.discriminatedUnion('action', [
     companyId: z.string().uuid(),
     jobId: z.string().uuid(),
     amount: z.number().finite().positive().max(1_000_000),
+    currency: z.enum(['GBP', 'EUR', 'USD']).default('GBP'),
     message: z.string().trim().max(2000).optional().nullable(),
   }),
   z.object({
@@ -395,6 +396,7 @@ async function searchLoads(request: NextRequest, companyId: string) {
   const freight = searchParams.get('freight')?.trim().toLowerCase() ?? '';
   const member = searchParams.get('member')?.trim().toLowerCase() ?? '';
   const description = searchParams.get('description')?.trim().toLowerCase() ?? '';
+  const descriptions = description && description !== 'any' ? description.split(',').map((value) => value.trim()).filter(Boolean) : [];
   const requestedLoadType = searchParams.get('loadType')?.trim().toLowerCase() ?? 'all';
   const postedWithinHours = marketplaceNumber(searchParams.get('postedWithinHours'));
   const dateFrom = searchParams.get('dateFrom')?.trim() ?? '';
@@ -510,7 +512,7 @@ async function searchLoads(request: NextRequest, companyId: string) {
     if ((minVehicle || maxVehicle) && !vehicleMatchesMarketplaceSizeRange(comparableVehicle, minVehicle, maxVehicle)) return false;
     if (body && !bodyText.includes(body)) return false;
     if (member && !memberText.includes(member)) return false;
-    if (description && description !== 'any' && row.jobDescription !== description) return false;
+    if (descriptions.length > 0 && !descriptions.includes(row.jobDescription)) return false;
     if (requestedLoadType !== 'all' && row.loadType !== requestedLoadType) return false;
     return true;
   });
@@ -569,15 +571,30 @@ function bidJobProjection(row: Record<string, unknown>, companyId: string) {
       : publicAreaLabel(row.delivery_postcode, row.delivery_country_code, 'Delivery area TBC'),
     delivery_postcode: awardedToViewer ? marketplaceText(row.delivery_postcode) : publicOutcode(row.delivery_postcode),
     pickup_datetime: marketplaceText(row.pickup_datetime),
+    pickup_time_slot: marketplaceText(row.pickup_time_slot),
     delivery_datetime: marketplaceText(row.delivery_datetime),
+    delivery_time_slot: marketplaceText(row.delivery_time_slot),
     vehicle_type: marketplaceText(row.vehicle_type),
     requested_vehicle_label: marketplaceText(row.requested_vehicle_label),
+    requested_cargo_label: marketplaceText(row.requested_cargo_label),
+    cargo_type: marketplaceText(row.cargo_type),
+    pallets: proposedPriceAmount(row.pallets),
+    weight_kg: proposedPriceAmount(row.weight_kg),
+    length_cm: proposedPriceAmount(row.length_cm),
+    width_cm: proposedPriceAmount(row.width_cm),
+    height_cm: proposedPriceAmount(row.height_cm),
     status: marketplaceText(row.status),
     current_status: marketplaceText(row.current_status),
     budget_amount: proposedPriceAmount(row.budget_amount),
     currency: marketplaceText(row.currency) ?? 'GBP',
+    service_mode: marketplaceText(row.service_mode),
+    direct_delivery_required: row.direct_delivery_required === true,
+    load_details: publicQuoteNotes(marketplaceText(row.load_details)),
+    special_requirements: marketplaceText(row.special_requirements),
+    exchange_posted_at: marketplaceText(row.exchange_posted_at),
     posterName: company?.name ?? 'Marketplace member',
     posterMemberCode: company?.xd_id ?? null,
+    posterPhone: company?.phone ?? null,
   };
 }
 
@@ -604,7 +621,7 @@ async function loadBids(companyId: string) {
   if (jobIds.length > 0) {
     const { data: jobsData, error: jobsError } = await supabaseAdmin!
       .from('jobs')
-      .select('id, company_id, awarded_carrier_company_id, pickup_location, pickup_postcode, pickup_country_code, delivery_location, delivery_postcode, delivery_country_code, pickup_datetime, delivery_datetime, vehicle_type, requested_vehicle_label, status, current_status, budget_amount, currency, companies!jobs_company_id_fkey(name,xd_id)')
+      .select('id, company_id, awarded_carrier_company_id, pickup_location, pickup_postcode, pickup_country_code, pickup_datetime, pickup_time_slot, delivery_location, delivery_postcode, delivery_country_code, delivery_datetime, delivery_time_slot, vehicle_type, requested_vehicle_label, requested_cargo_label, cargo_type, pallets, weight_kg, length_cm, width_cm, height_cm, status, current_status, budget_amount, currency, service_mode, direct_delivery_required, load_details, special_requirements, exchange_posted_at, companies!jobs_company_id_fkey(name,xd_id,phone)')
       .in('id', jobIds);
     if (jobsError) {
       return operationalError({
@@ -841,9 +858,9 @@ export async function POST(request: NextRequest) {
       job_id: input.jobId,
       company_id: input.companyId,
       bidder_user_id: auth.userId,
-      bid_price_gbp: input.amount,
+      bid_price_gbp: input.currency === 'GBP' ? input.amount : null,
       amount: input.amount,
-      currency: job.currency || 'GBP',
+      currency: input.currency,
       message: input.message?.trim() || null,
       status: 'submitted',
     })

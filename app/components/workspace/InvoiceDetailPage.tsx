@@ -165,13 +165,7 @@ export default function InvoiceDetailPage({
         eyebrow="Finance workspace"
         title={invoice ? `${titlePrefix} ${invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}` : titlePrefix}
         description="Commercial amount, invoice lifecycle, payment state, supporting documents and audit history in one authorised view."
-        actions={
-          <>
-            <ActionButton tone="secondary" onClick={() => router.push(backHref)}>Back to register</ActionButton>
-            <ActionButton tone="secondary" onClick={() => window.print()}>Print</ActionButton>
-            <ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton>
-          </>
-        }
+        actions={<ActionButton tone="secondary" onClick={() => router.push(backHref)}>Back to register</ActionButton>}
       />
 
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
@@ -187,7 +181,7 @@ export default function InvoiceDetailPage({
 
           <TwoColumn>
             <div style={{ display: 'grid', gap: '0.9rem' }}>
-              <Panel title="Invoice summary">
+              <Panel title="Invoice summary" actions={<><ActionButton tone="secondary" onClick={() => window.print()}>Print</ActionButton><ActionButton tone="secondary" onClick={() => void load()}>Refresh</ActionButton></>}>
                 <DataTable
                   columns={['Field', 'Value']}
                   rows={[

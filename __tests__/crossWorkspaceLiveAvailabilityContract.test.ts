@@ -20,10 +20,11 @@ describe('cross-workspace Live Availability contract',()=>{
     expect(api).toContain('body_type');
   });
 
-  it('gives company workspaces Live/Future/Nearby plus vehicle capability filters and Book Direct',()=>{
+  it('gives company workspaces the CX live All/Drivers & Sub-contractors/Other Drivers views plus vehicle capability filters and Book Direct',()=>{
+    expect(admin).toContain("tab === 'all'");
     expect(admin).toContain("tab === 'live'");
-    expect(admin).toContain("tab === 'future'");
     expect(admin).toContain("tab === 'nearby'");
+    expect(admin).not.toContain("tab === 'future'");
     expect(admin).toContain('Body type');
     expect(admin).toContain('Min payload (kg)');
     expect(admin).toContain('Min pallets');

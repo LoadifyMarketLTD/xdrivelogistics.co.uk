@@ -7,12 +7,11 @@ import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
-import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 
 type QuoteDirection = 'outgoing' | 'incoming';
-type TabId = 'received' | 'shortlisted' | 'submitted' | 'accepted' | 'unsuccessful' | 'withdrawn' | 'expired' | 'archived';
+type TabId = 'received' | 'archived' | 'submitted' | 'unsuccessful';
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
 type DetailAccess = 'marketplace' | 'assigned' | 'own' | 'protected';
 
@@ -130,18 +129,9 @@ function withinWindow(value: string | null, window: TimeWindow) {
 }
 function quoteBucket(bid: BidRow): TabId {
   const stage = canonicalQuoteStage(bid, bid.direction === 'incoming' ? 'poster' : 'bidder');
-  if (stage === 'archived') return 'archived';
-  if (bid.direction === 'incoming') {
-    if (stage === 'shortlisted') return 'shortlisted';
-    if (stage === 'accepted') return 'accepted';
-    if (stage === 'unsuccessful' || stage === 'withdrawn' || stage === 'expired') return 'unsuccessful';
-    return 'received';
-  }
-  if (stage === 'accepted') return 'accepted';
-  if (stage === 'withdrawn') return 'withdrawn';
-  if (stage === 'expired') return 'expired';
-  if (stage === 'unsuccessful') return 'unsuccessful';
-  return 'submitted';
+  if (stage === 'archived' || stage === 'accepted') return 'archived';
+  if (stage === 'unsuccessful' || stage === 'withdrawn' || stage === 'expired') return 'unsuccessful';
+  return bid.direction === 'incoming' ? 'received' : 'submitted';
 }
 function normaliseCompany(value: unknown): { name: string } | null {
   if (Array.isArray(value)) return (value[0] as { name?: string | null } | undefined)?.name ? { name: String((value[0] as { name: string }).name) } : null;
@@ -374,11 +364,6 @@ export default function MyQuotesPage() {
     return true;
   }), [appliedFilters, bids, companyNames, viewForBid]);
 
-  const counts = useMemo(() => {
-    const next: Record<TabId, number> = { received: 0, shortlisted: 0, submitted: 0, accepted: 0, unsuccessful: 0, withdrawn: 0, expired: 0, archived: 0 };
-    filteredBids.forEach((bid) => { next[quoteBucket(bid)] += 1; });
-    return next;
-  }, [filteredBids]);
   const tabBids = useMemo(() => filteredBids.filter((bid) => quoteBucket(bid) === activeTab), [activeTab, filteredBids]);
   const visibleBids = useMemo(() => tabBids.slice(0, visibleCount), [tabBids, visibleCount]);
   const allVisibleExpanded = visibleBids.length > 0 && visibleBids.every((bid) => expandedIds.has(bid.id));
@@ -398,14 +383,6 @@ export default function MyQuotesPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-quotes-prototype">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Quotes</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" onClick={clearFilters}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => setAppliedFilters(filters)}>Search</button>
-          </div>
-        </div>
-        <DriverIntegratedNav label="Quote tools" items={[{ href: '/driver/quotes', label: 'Quotes' }, { href: '/driver/won-work', label: 'Won Work' }]} />
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Quotes</div>
@@ -413,28 +390,22 @@ export default function MyQuotesPage() {
             <div className="filter"><span className="label">Delivery Time Within</span><select className="select" value={filters.deliveryWithin} onChange={(event) => setFilters((current) => ({ ...current, deliveryWithin: event.target.value as TimeWindow }))}>{TIME_WINDOWS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
             <div className="filter"><span className="label">Load ID / Ref</span><input className="input" value={filters.loadRef} onChange={(event) => setFilters((current) => ({ ...current, loadRef: event.target.value }))} placeholder="Load ID / reference" /></div>
             <div className="filter"><span className="label">Member / Company</span><input className="input" value={filters.bookedBy} onChange={(event) => setFilters((current) => ({ ...current, bookedBy: event.target.value }))} placeholder="Name / XD member ID" /></div>
+            <div className="filter"><button type="button" className="btn primary" onClick={() => setAppliedFilters(filters)}>Search</button> <button type="button" className="btn" onClick={clearFilters}>Clear</button></div>
           </aside>
           <main className="main">
-            <div className="head"><div><h1>Quotes</h1><p>Submitted offers, counter-offers, awards and quote outcomes</p></div></div>
             {error && <div className="vision-note">{error}</div>}
-            <div className="quote-head quote-head-cx">
-              <div><b>Quote Register</b><span>Marketplace offers, counter-offers and outcomes</span></div>
-              <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" className="text-action" onClick={toggleExpandAll}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
-                <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select className="fleet-page-size" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={25}>25</option><option value={50}>50</option></select></label>
-                <span className="quote-count">{tabBids.length ? `1-${Math.min(visibleCount, tabBids.length)} of ${tabBids.length}` : '0 records'}</span>
-                {canLoadMore && <button type="button" className="rowbtn blue" onClick={() => setVisibleCount((current) => current + pageSize)}>Next</button>}
-              </div>
+            <div className="quote-tabs workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Driver quote statuses">
+              <button type="button" role="tab" aria-selected={activeTab === 'received'} data-active={activeTab === 'received' ? 'true' : 'false'} className={activeTab === 'received' ? 'active' : ''} onClick={() => setActiveTab('received')}>Received</button>
+              <button type="button" role="tab" aria-selected={activeTab === 'archived'} data-active={activeTab === 'archived' ? 'true' : 'false'} className={activeTab === 'archived' ? 'active' : ''} onClick={() => setActiveTab('archived')}>Archived</button>
+              <button type="button" role="tab" aria-selected={activeTab === 'submitted'} data-active={activeTab === 'submitted' ? 'true' : 'false'} className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted</button>
+              <button type="button" role="tab" aria-selected={activeTab === 'unsuccessful'} data-active={activeTab === 'unsuccessful' ? 'true' : 'false'} className={activeTab === 'unsuccessful' ? 'active' : ''} onClick={() => setActiveTab('unsuccessful')}>Unsuccessful</button>
+              <span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" onClick={toggleExpandAll} disabled={!tabBids.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button></span>
             </div>
-            <div className="quote-tabs">
-              <button type="button" className={activeTab === 'received' ? 'active' : ''} onClick={() => setActiveTab('received')}>Received <span>{counts.received}</span></button>
-              <button type="button" className={activeTab === 'shortlisted' ? 'active' : ''} onClick={() => setActiveTab('shortlisted')}>Shortlisted <span>{counts.shortlisted}</span></button>
-              <button type="button" className={activeTab === 'submitted' ? 'active' : ''} onClick={() => setActiveTab('submitted')}>Submitted <span>{counts.submitted}</span></button>
-              <button type="button" className={activeTab === 'accepted' ? 'active' : ''} onClick={() => setActiveTab('accepted')}>Accepted / Won <span>{counts.accepted}</span></button>
-              <button type="button" className={activeTab === 'unsuccessful' ? 'active' : ''} onClick={() => setActiveTab('unsuccessful')}>Unsuccessful <span>{counts.unsuccessful}</span></button>
-              <button type="button" className={activeTab === 'withdrawn' ? 'active' : ''} onClick={() => setActiveTab('withdrawn')}>Withdrawn <span>{counts.withdrawn}</span></button>
-              <button type="button" className={activeTab === 'expired' ? 'active' : ''} onClick={() => setActiveTab('expired')}>Expired <span>{counts.expired}</span></button>
-              <button type="button" className={activeTab === 'archived' ? 'active' : ''} onClick={() => setActiveTab('archived')}>Archived <span>{counts.archived}</span></button>
+            <div className="cx-quote-pagination-row">
+              <button type="button" className="rowbtn" onClick={() => void fetchBids()} disabled={loading}>{loading ? 'Refreshing...' : 'Refresh'}</button>
+              <label>Items per Page <select className="fleet-page-size" value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}><option value={25}>25</option><option value={50}>50</option></select></label>
+              <span className="quote-count">{tabBids.length ? `1-${Math.min(visibleCount, tabBids.length)} of ${tabBids.length}` : '0 records'}</span>
+              {canLoadMore && <button type="button" className="rowbtn blue" onClick={() => setVisibleCount((current) => current + pageSize)}>Next</button>}
             </div>
             {loading ? <div className="xd2-calm-empty"><b>Loading quotes…</b><span>Refreshing quote register.</span></div> : visibleBids.length === 0 ? <div className="xd2-calm-empty"><b>No quotes here</b><span>No {activeTab} quotes found.</span></div> : (
               <div className="quote-entries quote-register">

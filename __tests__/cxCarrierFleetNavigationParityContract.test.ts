@@ -13,7 +13,7 @@ describe('CX-close carrier and fleet top navigation', () => {
       "['carrier-dashboard', 'Dashboard', '/admin']",
       "['carrier-directory', 'Directory', '/admin/marketplace/directory']",
       "['carrier-live-availability', 'Live Availability', '/admin/live-availability']",
-      "['carrier-my-fleet', 'My Fleet', '/admin/fleet']",
+      "['carrier-my-fleet', 'My Fleet', '/admin/fleet/vehicles']",
       "['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns']",
       "['carrier-loads', 'Loads', '/admin/marketplace']",
       "['carrier-quotes', 'Quotes', '/admin/exchange-quotes']",

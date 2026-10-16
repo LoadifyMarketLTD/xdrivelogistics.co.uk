@@ -62,17 +62,13 @@ export default function BrokerReportsPage() {
       <PageHeader
         eyebrow="Broker reporting"
         title="Reports & Exports"
-        description="Company-scoped broker performance using recorded customer budgets and accepted carrier quotes."
-        actions={<>
-          <ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton>
-          <ActionButton tone="secondary" disabled={incomplete || rows.length === 0} onClick={() => void exportXlsx()}>Export XLSX</ActionButton>
-        </>}
+        description="Company-scoped broker performance from recorded customer budgets and carrier quotes."
       />
       {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
       {incomplete ? <AlertBanner tone="warning">Report data is unavailable or partial. Exact totals and XLSX export remain disabled until jobs and carrier quotes are complete.</AlertBanner> : null}
-      <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
-        <span><strong>{incomplete ? 'Partial' : rows.length}</strong> reported job{!incomplete && rows.length === 1 ? '' : 's'}</span>
-        <span>{incomplete ? 'Exact totals unavailable' : `Revenue ${money(totals.revenue)} · Carrier cost ${money(totals.carrierCost)} · Margin ${money(totals.margin)}`}</span>
+      <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between', marginBottom: 6 }}>
+        <span><strong>{incomplete ? 'Partial' : rows.length}</strong> reported job{!incomplete && rows.length === 1 ? '' : 's'} · {incomplete ? 'Exact totals unavailable' : `Revenue ${money(totals.revenue)} · Carrier cost ${money(totals.carrierCost)} · Margin ${money(totals.margin)}`}</span>
+        <span className="workspace-list-controls__right"><ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton><ActionButton tone="secondary" disabled={incomplete || rows.length === 0} onClick={() => void exportXlsx()}>Export XLSX</ActionButton></span>
       </div>
       <div className="workspace-panel">
         <DataTable

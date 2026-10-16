@@ -183,7 +183,6 @@ export default function ParticipantMessagesPage({
         eyebrow={eyebrow}
         title={title}
         description={description}
-        actions={<ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
       />
 
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
@@ -231,7 +230,7 @@ export default function ParticipantMessagesPage({
           </div>
           <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}>
             <span>{threads.length} conversation{threads.length === 1 ? '' : 's'} · no fabricated read-state</span>
-            <StatusBadge value="Participant scoped" tone="green" />
+            <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><StatusBadge value="Participant scoped" tone="green" /><ActionButton tone="secondary" disabled={loading} onClick={() => void loadMessages()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton></span>
           </div>
 
           {loading ? (

@@ -187,12 +187,7 @@ export default function InvoicesPage() {
           eyebrow="Accounting / receivables"
           title="Invoices"
           description="Draft, issued, overdue, disputed and settled invoices in one dense accounting register. Payment recording remains in the authoritative invoice detail screen."
-          actions={(
-            <>
-              <ActionButton tone="secondary" disabled={loading} onClick={() => void loadInvoices()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
-              <ActionButton tone="success" onClick={() => router.push('/admin/invoices/new')}>Create Invoice</ActionButton>
-            </>
-          )}
+          actions={<ActionButton tone="success" onClick={() => router.push('/admin/invoices/new')}>Create Invoice</ActionButton>}
         />
 
         {loadError && <AlertBanner tone="danger">{loadError}</AlertBanner>}
@@ -225,6 +220,7 @@ export default function InvoicesPage() {
             <div className="invoice-register-search">
               <input value={searchTerm} onChange={(event) => setSearchTerm(event.target.value)} placeholder="Invoice, job ref or client" aria-label="Search invoices" />
               {searchTerm && <ActionButton tone="secondary" onClick={() => setSearchTerm('')}>Clear</ActionButton>}
+              <ActionButton tone="secondary" disabled={loading} onClick={() => void loadInvoices()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
             </div>
           )}
           flush

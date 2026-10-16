@@ -483,7 +483,12 @@ export default function DriverDashboard() {
         {transitionError ? <AlertBanner tone="danger">{transitionError}</AlertBanner> : null}
         {transitionMessage ? <AlertBanner tone="success">{transitionMessage}</AlertBanner> : null}
 
-        {!ownerDriver ? <>
+        {!ownerDriver ? <div className="driver-owner-parity-grid xdrive-owner-dashboard-grid">
+        <OperationalCard
+          title="Reports & Statistics"
+          subtitle="Execution status and readiness."
+          className="driver-reports-card"
+        >
         <section className="driver-dashboard-statusbar" aria-label="Driver status">
           <button type="button" onClick={() => router.push('/driver/availability')}>
             <span>Availability</span>
@@ -505,8 +510,9 @@ export default function DriverDashboard() {
                 : `${activeJobs.length} live · ${upcomingJobs.length} upcoming`}</small>
           </button>
         </section>
+        </OperationalCard>
 
-        <section className="driver-dashboard-register">
+        <section className="driver-dashboard-register driver-current-assignment-card">
           <div className="driver-dashboard-register__head">
             <div>
               <strong>Current assignment</strong>
@@ -570,7 +576,7 @@ export default function DriverDashboard() {
           </div>
         </section>
 
-        <section className="driver-dashboard-register">
+        <section className="driver-dashboard-register driver-next-booking-card">
           <div className="driver-dashboard-register__head">
             <div>
               <strong>Next booking</strong>
@@ -624,7 +630,7 @@ export default function DriverDashboard() {
             </button>
           </div>
         </section>
-        </> : null}
+        </div> : null}
 
         {ownerDriver ? (
           <>

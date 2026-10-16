@@ -7,7 +7,11 @@ Base audited: `main` at `fecd4d2b`
 
 ## Scope
 
-Owner Driver is the P0 reference workspace. The audit covered the web workspace and its server-authoritative Driver APIs, including:
+This historical P0 audit covers the Owner Driver workspace and its server-authoritative Driver APIs.
+
+For all visual and structural work, the final reference is Courier Exchange live at `https://app.transportexchangegroup.com/pp/freight-exchange`.
+
+The audit covered:
 
 - Dashboard execution and commercial position
 - Directory and Saved Networks
@@ -116,6 +120,6 @@ Includes dashboard convergence, primary nav parity, Owner Driver More, and new P
 
 ## Final classification
 
-Owner Driver P0 is no longer treated as draft or provisional. It is the canonical operational reference workspace for subsequent dashboard/workspace alignment.
+Owner Driver P0 is no longer treated as draft or provisional. It is a production role workspace only; Courier Exchange live is the canonical visual and structural reference for subsequent dashboard/workspace alignment.
 
 No known functional blocker remains from this audit.

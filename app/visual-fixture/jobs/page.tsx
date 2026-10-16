@@ -1,5 +1,8 @@
 import { notFound } from 'next/navigation';
 import JobsVisualFixture from '../../components/workspace/JobsVisualFixture';
+import '../../components/workspace/workspace-light-guard.css';
+import '../../components/workspace/top-workspace-shell.css';
+import '../../components/workspace/workspace-measured-cx-baseline.css';
 
 /**
  * Deterministic visual fixture for the Jobs operational surface.

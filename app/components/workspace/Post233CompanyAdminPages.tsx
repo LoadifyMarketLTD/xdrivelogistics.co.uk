@@ -382,7 +382,6 @@ export function CustomerCompanyTeamPage() {
         eyebrow="Customer administration"
         title="Team"
         description="Company members who can post loads, review quotes, track deliveries or view invoices. Names and profile status are resolved from the company membership and profile records instead of exposing raw user IDs."
-        actions={<ActionButton tone="secondary" onClick={() => void loadTeam()}>Refresh</ActionButton>}
       />
 
       {workspace.error && <AlertBanner>{workspace.error}</AlertBanner>}
@@ -394,7 +393,7 @@ export function CustomerCompanyTeamPage() {
         <KpiCard label="Owners / admins" value={adminCount} tone="navy" />
       </KpiGrid>
 
-      <Panel title="Company team" description="The roster is restricted to the active customer company.">
+      <Panel title="Company team" description="The roster is restricted to the active customer company." actions={<ActionButton tone="secondary" onClick={() => void loadTeam()}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}>
         <DataTable
           columns={['Member', 'Contact', 'Role', 'Membership', 'Profile', 'Joined']}
           rows={memberships.map((membership) => {

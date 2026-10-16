@@ -1,5 +1,7 @@
 'use client';
 
+import { OperationalExpandAllControl } from '../../components/workspace/OperationalExpandAllControl';
+
 import WorkspaceRestrictionBanner from '../../components/workspace/WorkspaceRestrictionBanner';
 import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
 
@@ -324,14 +326,6 @@ export default function AvailableLoadsPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-loads-prototype">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Loads</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" onClick={clearFilters}>Clear</button>
-            <button type="button" className="btn" onClick={() => { setSaveAsDefault(true); applySearch(); }}>Save Default</button>
-            <button type="button" className="btn primary" onClick={applySearch}>Search</button>
-          </div>
-        </div>
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Loads</div>
@@ -346,26 +340,26 @@ export default function AvailableLoadsPage() {
             <div className="filter"><span className="label">Pickup Window</span><div className="row2"><input className="input" type="date" value={dateFromFilter} onChange={(event) => setDateFromFilter(event.target.value)} /><input className="input" type="date" value={dateToFilter} onChange={(event) => setDateToFilter(event.target.value)} /></div></div>
             <div className="filter"><span className="label">Minimum Weight</span><input className="input" type="number" min="0" value={weightMinFilter} onChange={(event) => setWeightMinFilter(event.target.value)} placeholder="kg" /></div>
             <div className="filter"><span className="label">Preferences</span><label className="check"><input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} />Save as Default</label></div>
+            <div className="filter"><button type="button" className="btn primary" onClick={applySearch}>Search</button> <button type="button" className="btn" onClick={clearFilters}>Clear</button></div>
           </aside>
           <main className="main">
-            <div className="head"><div><h1>Loads</h1><p>Search live freight, inspect privacy-safe details and prepare a quote</p></div></div>
             {successMsg && <div className="vision-note">{successMsg}</div>}
             {error && <><div className="vision-note">{error}</div><WorkspaceRestrictionBanner operation="quote" inline /></>}
+            <div className="load-result-head">
+              <div><b>Search Loads Results at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
+              <div className="load-view-switch"><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}>Interactive Freight Radar Map</button></div>
+              <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
+                <OperationalExpandAllControl expanded={expandAll} disabled={!filteredLoads.length} onToggle={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }} noun="loads" />
+                <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
+              </div>
+            </div>
             <div className="load-nav-unified">
-              <div className="load-market-nav"><button type="button" className="active" aria-current="page">Available Loads</button><button type="button" onClick={() => router.push('/driver/load-alerts')}>Matching & Alerts</button><button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button><button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button></div>
-              <span className="load-nav-divider" aria-hidden="true" />
               <div className="load-tabs"><button type="button" className={loadTypeFilter === 'all' ? 'active' : ''} onClick={() => setLoadTypeFilter('all')}>All Live</button><button type="button" className={loadTypeFilter === 'on_demand' ? 'active' : ''} onClick={() => setLoadTypeFilter('on_demand')}>On Demand</button><button type="button" className={loadTypeFilter === 'regular_load' ? 'active' : ''} onClick={() => setLoadTypeFilter('regular_load')}>Regular Load</button><button type="button" className={loadTypeFilter === 'daily_hire' ? 'active' : ''} onClick={() => setLoadTypeFilter('daily_hire')}>Daily Hire</button></div>
               <div className="load-posted">Show loads posted within last <select value={postedWithinFilter} onChange={(event) => setPostedWithinFilter(event.target.value as PostedWithinFilter)}><option value="any">all</option><option value="15m">15 min</option><option value="30m">30 min</option><option value="1h">1 hour</option><option value="2h">2 hours</option></select></div>
-            </div>
-            <div className="load-result-head">
-              <div><b>Search Loads Results</b><span>{loading ? 'Loading…' : `${filteredLoads.length} live results`}</span></div>
-              <div className="load-view-switch"><button type="button" className={viewMode === 'list' ? 'active' : ''} aria-current={viewMode === 'list' ? 'true' : undefined} onClick={() => setViewMode('list')}>List View</button><button type="button" className={viewMode === 'map' ? 'active' : ''} aria-current={viewMode === 'map' ? 'true' : undefined} onClick={() => setViewMode('map')}>Map View</button></div>
-              <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, flexWrap: 'wrap' }}>
-                <button type="button" className="text-action" onClick={() => { setExpandAll((current) => !current); setExpandedLoadId(null); }}>{expandAll ? 'Collapse all visible loads' : 'Expand all visible loads'}</button>
+              <div style={{ marginLeft: 'auto', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                 <label className="load-page-text" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => { const next = Number(event.target.value) as PageSize; setPageSize(next); setVisibleCount(next); }}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
                 <span>{filteredLoads.length ? `1-${Math.min(visibleCount, filteredLoads.length)} of ${filteredLoads.length}` : '0 results'}</span>
                 {canLoadMore && <button type="button" className="rowbtn blue" onClick={() => setVisibleCount((current) => current + pageSize)}>Next</button>}
-                <button type="button" className="btn" onClick={() => void fetchLoads({ background: !loading })} disabled={loading || refreshing}>{refreshing ? 'Refreshing…' : 'Refresh'}</button>
               </div>
             </div>
             {loading ? <div className="xd2-calm-empty"><b>Loading exchange loads…</b><span>Refreshing live freight.</span></div> : loads.length === 0 ? <div className="xd2-calm-empty"><b>No exchange loads available right now</b><span>Refresh the board or keep your availability and return journey current.</span></div> : filteredLoads.length === 0 ? <div className="xd2-calm-empty"><b>No loads match these filters</b><span>Broaden the route, vehicle, freight or date criteria.</span></div> : viewMode === 'map' ? (

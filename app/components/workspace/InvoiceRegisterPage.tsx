@@ -133,7 +133,6 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
         eyebrow={page.eyebrow}
         title={page.title}
         description={page.description}
-        actions={<ActionButton tone="secondary" onClick={() => void workspace.refresh()}>Refresh</ActionButton>}
       />
       {workspace.error && <AlertBanner tone="danger">{workspace.error}</AlertBanner>}
       <KpiGrid>
@@ -148,6 +147,7 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
         title="Invoice register"
         description="Invoice lifecycle and payment state are shown separately. Open a row to view commercial detail, documents, status history, payments and disputes."
         actions={
+          <span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
           <select value={filter} onChange={(event) => setFilter(event.target.value as InvoiceRegisterFilter)} style={{ border: '1px solid #d7e0ea', borderRadius: 8, padding: '0.5rem 0.65rem', background: '#fff', fontSize: '0.76rem' }}>
             <option value="all">All invoice records</option>
             <optgroup label="Invoice state">
@@ -167,6 +167,8 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
               <option value="payment:refunded">Refunded</option>
             </optgroup>
           </select>
+          <ActionButton tone="secondary" onClick={() => void workspace.refresh()}>Refresh</ActionButton>
+          </span>
         }
       >
         <DataTable

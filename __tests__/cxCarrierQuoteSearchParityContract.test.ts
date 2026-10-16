@@ -15,12 +15,12 @@ describe('CX carrier quote search and expansion parity', () => {
     expect(page).toContain('QUOTE_TIME_WINDOWS');
   });
 
-  it('keeps quote state buckets and visible-result expand/collapse', () => {
-    expect(page).toContain('Accepted / Won');
-    expect(page).toContain('Unsuccessful');
-    expect(page).toContain('Archived');
-    expect(page).toContain('OperationalExpandAllControl');
+  it('keeps the exact CX-live quote buckets and visible-result expand/collapse', () => {
+    for (const label of ['Received', 'Archived', 'Submitted', 'Unsuccessful']) expect(page).toContain(label);
+    expect(page).not.toContain('Accepted / Won');
+    expect(page).toContain('cx-expand-entries-control');
     expect(page).toContain('allVisibleQuotesExpanded');
+    expect(page).toContain('toggleAllVisibleQuotes');
     expect(page).toContain('Details');
     expect(page).toContain('Collapse');
   });
@@ -32,7 +32,7 @@ describe('CX carrier quote search and expansion parity', () => {
   });
 
   it('keeps submitted quote withdrawal legitimate and unchanged', () => {
-    expect(page).toContain("bid.status === 'submitted'");
+    expect(page).toContain("const activeQuote = ['submitted', 'viewed', 'shortlisted'].includes(stage)");
     expect(page).toContain('withdrawQuote(bid.id)');
   });
 });

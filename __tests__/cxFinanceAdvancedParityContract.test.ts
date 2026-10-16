@@ -6,6 +6,7 @@ const invoiceDetail = fs.readFileSync(path.join(process.cwd(), 'app/admin/invoic
 const paymentHistory = fs.readFileSync(path.join(process.cwd(), 'app/api/admin/invoices/[id]/payment-history/route.ts'), 'utf8');
 const statements = fs.readFileSync(path.join(process.cwd(), 'app/admin/finance/statements/page.tsx'), 'utf8');
 const financeHome = fs.readFileSync(path.join(process.cwd(), 'app/admin/finance/page.tsx'), 'utf8');
+const workspaceRole = fs.readFileSync(path.join(process.cwd(), 'lib/workspaceRole.ts'), 'utf8');
 
 describe('CX-close finance and accounting parity', () => {
   it('keeps Ready to Invoice as a derived queue, not a fabricated job lifecycle state', () => {
@@ -36,7 +37,8 @@ describe('CX-close finance and accounting parity', () => {
     expect(statements).toContain("data.invoices");
     expect(statements).not.toContain(".from('invoices').update(");
     expect(statements).not.toContain(".from('invoice_payment_history').insert(");
-    expect(financeHome).toContain("router.push('/admin/finance/statements')");
+    expect(workspaceRole).toContain("href: '/admin/finance/statements'");
+    expect(financeHome).not.toContain("router.push('/admin/finance/statements')");
   });
 
   it('uses the same compact responsive in-panel filters as Fleet without fixed desktop-only finance columns', () => {

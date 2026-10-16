@@ -10,7 +10,7 @@ describe('approved prototype Driver primary navigation', () => {
   const diary = read('app/driver/history/page.tsx');
   const messages = read('app/driver/messages/page.tsx');
 
-  it('uses the canonical Owner Driver modules in the shared shell', () => {
+  it('uses the CX-live-aligned Driver modules in the shared shell', () => {
     for (const label of ['Directory','Availability','Vehicle','Return Journeys','Loads','Quotes','Auto-match & Alerts','Diary','Freight Vision','Invoices','Drivers & Staff']) {
       expect(roles).toContain(`label: '${label}'`);
     }

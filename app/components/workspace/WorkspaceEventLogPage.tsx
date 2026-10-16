@@ -259,7 +259,6 @@ export function WorkspaceEventLogPage({
         eyebrow={eyebrow}
         title={title}
         description={description}
-        actions={<ActionButton tone="primary" onClick={() => void loadEvents()} disabled={loading}>Refresh</ActionButton>}
       />
 
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
@@ -288,6 +287,7 @@ export function WorkspaceEventLogPage({
           <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between' }}>
             <span><strong>Event Log</strong> · {filteredEvents.length} event{filteredEvents.length === 1 ? '' : 's'}</span>
             <span className="workspace-list-controls__right">
+              <ActionButton tone="secondary" onClick={() => void loadEvents()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
               <label>Items per Page
                 <select value={itemsPerPage} onChange={(event) => setItemsPerPage(Number(event.target.value))}>
                   <option value={10}>10</option>

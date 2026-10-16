@@ -111,13 +111,15 @@ describe('carrier dashboard convergence contract', () => {
 
   it('keeps carrier commercial links, award truth, and lifecycle labels canonical', () => {
     const carrier = source('app/components/workspace/CarrierOperationsDashboardHome.tsx');
+    const shell = source('app/components/workspace/TopWorkspaceShell.tsx');
 
     expect(carrier).toContain('isCompanyExecutionJob(job, data.companyId)');
     expect(carrier).toContain("const awardedJobIds = new Set(carrierExecutionJobs.map((job) => job.id));");
     expect(carrier).toContain("normalise(bid.status) === 'accepted' && awardedJobIds.has(bid.job_id)");
     expect(carrier).toContain("metricValue(data, ['bids', 'jobs', 'invoices']");
-    expect(carrier).toContain("router.push('/admin/marketplace')");
-    expect(carrier).toContain("router.push('/admin/live-availability')");
+    expect(carrier).toContain("router.push('/admin/marketplace/directory')");
+    expect(shell).toContain("['carrier-loads', 'Loads', '/admin/marketplace']");
+    expect(shell).toContain("['carrier-live-availability', 'Live Availability', '/admin/live-availability']");
     expect(carrier).not.toContain("['submitted', 'pending']");
     expect(carrier).toContain("normalise(bid.status) === 'submitted'");
     expect(carrier).toContain("router.push('/admin/fleet/assignments')");

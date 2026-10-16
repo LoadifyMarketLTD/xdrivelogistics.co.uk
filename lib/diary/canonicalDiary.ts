@@ -50,7 +50,6 @@ const BASE_OPERATIONAL_TABS: CanonicalDiaryTab[] = [
   { id: 'expired', label: 'Expired' },
   { id: 'awaiting_feedback', label: 'Awaiting Feedback' },
   { id: 'recent_feedback', label: 'Recent Feedback' },
-  { id: 'evidence', label: 'POD / Evidence' },
 ];
 
 export const CANONICAL_DIARY_TABS_BY_ROLE: Record<CanonicalDiaryRole, CanonicalDiaryTab[]> = {
@@ -65,20 +64,11 @@ export const CANONICAL_DIARY_TABS_BY_ROLE: Record<CanonicalDiaryRole, CanonicalD
     { id: 'expired', label: 'Expired' },
     { id: 'awaiting_feedback', label: 'Awaiting Feedback' },
     { id: 'recent_feedback', label: 'Recent Feedback' },
-    { id: 'evidence', label: 'POD / Evidence' },
   ],
   broker: BASE_OPERATIONAL_TABS,
   carrier: BASE_OPERATIONAL_TABS,
   fleet_manager: BASE_OPERATIONAL_TABS,
-  dispatcher: [
-    { id: 'all', label: 'All' },
-    { id: 'unallocated', label: 'Unallocated' },
-    { id: 'allocated', label: 'Allocated' },
-    { id: 'in_progress', label: 'In Progress' },
-    { id: 'completed', label: 'Completed' },
-    { id: 'cancelled', label: 'Cancelled' },
-    { id: 'evidence', label: 'POD / Evidence' },
-  ],
+  dispatcher: BASE_OPERATIONAL_TABS,
   owner_driver: BASE_OPERATIONAL_TABS,
   driver: [
     { id: 'all', label: 'All' },

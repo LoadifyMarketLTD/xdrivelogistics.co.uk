@@ -36,7 +36,6 @@ export default function FleetMaintenancePage() {
         eyebrow="Fleet maintenance"
         title="Maintenance"
         description="Recorded vehicle and document information only. Maintenance health is not inferred when no verified maintenance status is available."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/vehicles')}>Manage vehicles</ActionButton>}
       />
       <KpiGrid>
         <KpiCard label="Fleet vehicles" value={data.vehicles.length} />
@@ -62,7 +61,7 @@ export default function FleetMaintenancePage() {
               driver?.display_name ?? driver?.email ?? (vehicle.assigned_driver_id ? 'Assigned driver not in current Fleet roster' : 'Not assigned'),
               `${documents.length} document(s)`,
               <StatusBadge key="status" value={signal.value} tone={signal.tone} />,
-              <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/vehicles')}>Manage vehicle</ActionButton>,
+              <ActionButton key="action" tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Manage vehicle</ActionButton>,
             ];
           })}
           empty={<EmptyState title="No vehicles in the fleet" />}

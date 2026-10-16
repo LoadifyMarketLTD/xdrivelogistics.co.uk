@@ -412,29 +412,6 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
                   <div><span>Main contact</span><strong>{profile?.full_name || user?.email || 'Not recorded'}</strong></div>
                   <div><span>Operating base</span><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not recorded'}</strong></div>
                 </div>
-                <div className="role-settings-actions">
-                  {companyProfileVisible && <ActionButton tone="secondary" onClick={() => setSection('company')}>Company Profile</ActionButton>}
-                  {financeSettingsVisible && <ActionButton tone="secondary" onClick={() => setSection('finance')}>Finance & Invoices</ActionButton>}
-                  {financeSettingsVisible && routes.billing && <ActionButton tone="secondary" onClick={() => router.push(routes.billing!)}>Membership & Billing</ActionButton>}
-                  {!companyProfileVisible && <ActionButton tone="secondary" onClick={() => setSection('profile')}>My Profile</ActionButton>}
-                </div>
-              </Panel>
-
-              <Panel title="Help & support" description="Workspace help and account assistance.">
-                <div className="role-settings-links">
-                  {routes.support && <button type="button" onClick={() => router.push(routes.support!)}><strong>Help Centre</strong><span>Platform guidance and support information.</span></button>}
-                  {routes.legal && <button type="button" onClick={() => router.push(routes.legal!)}><strong>Legal & Agreements</strong><span>Accepted terms and evidence history.</span></button>}
-                  {routes.notifications && <button type="button" onClick={() => router.push(routes.notifications!)}><strong>Latest Updates</strong><span>Open workspace notifications.</span></button>}
-                </div>
-              </Panel>
-
-              <Panel title={profile?.full_name || user?.email || 'My account'} description="Profile and workspace administration.">
-                <div className="role-settings-links">
-                  <button type="button" onClick={() => setSection('profile')}><strong>My Profile</strong><span>Personal account details.</span></button>
-                  {companyProfileVisible && <button type="button" onClick={() => setSection('company')}><strong>Company Profile</strong><span>Company identity and contact details.</span></button>}
-                  {routes.documents && <button type="button" onClick={() => router.push(routes.documents!)}><strong>Documents</strong><span>Operational and compliance records.</span></button>}
-                  {routes.audit && <button type="button" onClick={() => router.push(routes.audit!)}><strong>Audit / Event Log</strong><span>Search account and transport activity.</span></button>}
-                </div>
               </Panel>
             </div>
           ) : section === 'company' ? (

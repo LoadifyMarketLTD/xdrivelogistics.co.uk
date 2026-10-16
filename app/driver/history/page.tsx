@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
-import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import DriverInvoicePreviewModal from '../_components/DriverInvoicePreviewModal';
 import { useAuth } from '../../components/AuthContext';
 import { supabase, isSupabaseConfigured } from '../../../lib/supabaseClient';
@@ -15,10 +14,11 @@ import { hasCompletePodEvidence } from '../../../lib/jobs/podCompletion';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
 import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
-import { ActionButton, AlertBanner, EmptyState, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { ActionButton, AlertBanner, EmptyState } from '../../components/workspace/WorkspaceUI';
 import workspaceStyles from '../../components/workspace/WorkspaceUI.module.css';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
+import { workspaceVehicleImageSrc } from '../../components/workspace/vehiclePresentation';
 
 type CompanyRelation = { name: string } | Array<{ name: string }> | null;
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
@@ -196,6 +196,13 @@ function fmtDate(value: string | null) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? '—' : date.toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 }
+function cxDriverTimeParts(value: string | null) {
+  if (!value) return { primary: 'ASAP', meta: '' };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { primary: 'Not set', meta: '' };
+  const zone = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' }).formatToParts(date).find((part) => part.type === 'timeZoneName')?.value ?? '';
+  return { primary: date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), meta: `${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}` };
+}
 function rawDateLabel(value: string | null) {
   const raw = value?.trim();
   if (!raw) return 'Date not supplied';
@@ -264,15 +271,6 @@ function filterMatches(job: HistoryJob, filter: HistoryFilter, reviews: ReviewRo
     feedbackEligible: canLeaveCompanyFeedback(job, reviewerCompanyId),
     hasEvidence: hasCompletePodEvidence(job),
   });
-}
-function statusTone(job: HistoryJob): 'blue' | 'green' | 'red' | 'purple' | 'orange' | 'grey' {
-  const stage = jobStage(job);
-  if (stage === 'expired') return 'grey';
-  if (stage === 'completed') return 'green';
-  if (stage === 'cancelled') return 'red';
-  if (stage === 'disputed') return 'purple';
-  if (stage === 'awarded' || stage === 'allocated' || stage === 'in_progress') return 'blue';
-  return 'orange';
 }
 function parsePrivateNotes(value: string | null) {
   const raw = value?.trim();
@@ -571,7 +569,11 @@ export default function JobHistoryPage() {
   };
 
   const filterRail = (
-    <aside className="left driver-filter-rail diary-filter-rail" aria-label="Diary search filters">
+    <aside className="left driver-filter-rail diary-filter-rail cx-diary-filter-rail" aria-label="Diary search filters">
+      <div className="cx-diary-rail-nav">
+        <ActionButton tone="secondary" onClick={() => router.push('/driver/directory')}>Contacts</ActionButton>
+        <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Payment Report</ActionButton>
+      </div>
       <div className="left-title">Search Panel</div>
       <div className="diary-filter-body">
         <div className="filter"><span className="label">Booking Scope</span><select value={diaryScope} disabled={!canViewCompanyDiary} aria-label="Diary source" onChange={(e) => setSelectedDiaryScope(e.target.value as 'company' | 'mine')}><option value="company">Company Diary</option><option value="mine">My assigned jobs</option></select></div>
@@ -582,34 +584,35 @@ export default function JobHistoryPage() {
         <div className="filter"><span className="label">Member Name / ID</span><input value={search.memberName} onChange={(e) => setSearch((current) => ({ ...current, memberName: e.target.value }))} placeholder="Company name" /></div>
         <div className="filter"><span className="label">Archived</span><select value={search.archive} onChange={(e) => setSearch((current) => ({ ...current, archive: e.target.value as ArchiveFilter }))}><option value="all">All records</option><option value="active">Active register</option><option value="closed">Closed records</option></select></div>
         <div className="driver-filter-actions"><ActionButton tone="success" onClick={() => setAppliedSearch(search)}>Search</ActionButton><ActionButton tone="secondary" onClick={() => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); }}>Clear</ActionButton></div>
-        <ActionButton tone="secondary" onClick={() => router.push('/driver/finance')}>Payment Report</ActionButton>
       </div>
     </aside>
   );
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell subtitle="Search, scan and expand every assigned booking from one operational diary." headerActions={<ActionButton tone="primary" onClick={() => void fetchHistory()} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</ActionButton>}>
-        <DriverIntegratedNav label="Diary tools" items={[{ href: '/driver/history', label: 'Diary' }, { href: '/driver/jobs', label: 'My Jobs' }]} />
+      <DriverWorkspaceShell hideHeader>
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
         <div className="driver-diary-board diary-pagebody">
           {filterRail}
           <main className="driver-board-main main diary-main">
             <div className="driver-diary-controlbar">
-              <div className={`diary-tabs workspace-tab-strip ${workspaceStyles.jobsStatusTabs}`} role="tablist" aria-label="Diary states">
-              {historyFilters.map((item) => <button key={item.id} type="button" role="tab" className={`${workspaceStyles.jobsStatusTab} ${statusFilter === item.id ? workspaceStyles.jobsStatusTabActive : ''}`} aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label} <span>{searchedJobs.filter((job) => filterMatches(job, item.id, reviewsByJob[job.id] ?? [], feedbackReviewerCompanyId)).length}</span></button>)}
-            </div>
-            <div className="diary-head diary-head-cx">
-              <span>{visibleFiltered.length} booking{visibleFiltered.length === 1 ? '' : 's'} · showing {visibleJobs.length}</span>
-              <span className="driver-diary-summary-actions">
-                <button type="button" onClick={toggleExpandAll} disabled={!visibleJobs.length}>{allExpanded ? 'Collapse all' : 'Expand all'}</button>
-                <label>Per page:<select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
-                <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))}>‹</button>
-                <span>{visibleFiltered.length === 0 ? '0' : `${(safePage - 1) * itemsPerPage + 1}-${Math.min(safePage * itemsPerPage, visibleFiltered.length)} of ${visibleFiltered.length}`}</span>
-                <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))}>›</button>
-              </span>
-            </div>
+              <div className="diary-head diary-head-cx workspace-record-meta workspace-list-controls cx-diary-toolbar">
+                <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>Diary at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></span>
+                <span className="driver-diary-summary-actions workspace-list-controls__right">
+                  <button type="button" className="cx-expand-entries-control" disabled={!visibleJobs.length} onClick={toggleExpandAll}>{allExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button>
+                  <ActionButton tone="secondary" onClick={() => void fetchHistory()} disabled={loading || refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</ActionButton>
+                </span>
+              </div>
+              <div className={`diary-tabs workspace-tab-strip cx-diary-state-tabs ${workspaceStyles.jobsStatusTabs}`} role="tablist" aria-label="Diary states">
+                {historyFilters.map((item) => <button key={item.id} type="button" role="tab" className={`${workspaceStyles.jobsStatusTab} ${statusFilter === item.id ? workspaceStyles.jobsStatusTabActive : ''}`} aria-selected={statusFilter === item.id} data-active={statusFilter === item.id ? 'true' : 'false'} onClick={() => setStatusFilter(item.id)}>{item.label}</button>)}
+                <span className="cx-diary-pagination">
+                  <label>Items per Page: <select value={itemsPerPage} onChange={(e) => setItemsPerPage(Number(e.target.value))}><option value={10}>10</option><option value={25}>25</option><option value={50}>50</option></select></label>
+                  <button type="button" disabled={safePage <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} aria-label="Previous Diary page">‹</button>
+                  <span>{visibleFiltered.length === 0 ? '0' : `${(safePage - 1) * itemsPerPage + 1}-${Math.min(safePage * itemsPerPage, visibleFiltered.length)} of ${visibleFiltered.length}`}</span>
+                  <button type="button" disabled={safePage >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} aria-label="Next Diary page">›</button>
+                </span>
+              </div>
             </div>
 
             {loading && jobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="Loading diary…" /></div> : visibleJobs.length === 0 ? <div className="driver-load-row"><EmptyState compact title="No bookings in this view" description="Adjust the status or search filters." /></div> : (
@@ -645,41 +648,35 @@ export default function JobHistoryPage() {
                   const deliveryAddress = sheet?.delivery.address ?? job.delivery_location; const deliveryPostcode = sheet?.delivery.postcode ?? job.delivery_postcode;
                   const cargoType = human(sheet?.cargo.type ?? job.requested_cargo_label ?? job.cargo_type);
                   const cargoWeight = sheet?.cargo.weightKg ?? job.weight_kg; const cargoPallets = sheet?.cargo.pallets ?? job.pallets; const cargoValue = sheet?.cargo.cargoValueGbp ?? job.cargo_value_gbp;
+                  const pickupWhen = cxDriverTimeParts(job.pickup_datetime ?? job.collection_window_start);
+                  const deliveryWhen = cxDriverTimeParts(job.delivery_datetime ?? job.delivery_window_start);
+                  const bandLabel = stage === 'completed' ? 'Delivered' : expired ? 'Expired' : workspaceJobOperationalLabel(job);
+                  const memberLabel = job.companies?.name ?? 'Member not supplied';
 
                   return (
-                    <article key={job.id} className="diary-booking driver-diary-entry" data-state={expired ? 'expired' : currentStatus}>
-                      <div className="driver-load-row__top driver-diary-entry__top">
-                        <div className="driver-load-cell driver-diary-route-cell"><div className="driver-diary-route-line"><span>From:</span><b>{formatExecutionAddress(job.pickup_location, job.pickup_postcode)}</b></div></div>
-                        <div className="driver-load-cell driver-diary-route-cell"><div className="driver-diary-route-line"><span>To:</span><b>{formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</b></div></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Timing / load</span><strong className="driver-cell-primary">Pickup {fmtDate(job.pickup_datetime ?? job.collection_window_start)}</strong><span className="driver-cell-secondary">Deliver {fmtDate(job.delivery_datetime ?? job.delivery_window_start)} · {human(job.vehicle_type)}</span></div>
-                        <div className="driver-load-cell"><span className="driver-cell-label">Status / member</span><strong className="driver-cell-primary">{expired ? 'Expired' : workspaceJobOperationalLabel(job)}</strong><span className="driver-cell-secondary"><MemberIdentityLink companyId={job.company_id}>{job.companies?.name ?? 'Member not supplied'}</MemberIdentityLink> · Commercial terms in Order</span></div>
-                      </div>
-                      <div className="driver-load-row__meta">
-                        <span>Load #{job.id.slice(0, 8).toUpperCase()}</span>{job.booking_reference && <span>Booking: {job.booking_reference}</span>}{job.customer_reference && <span>Customer ref: {job.customer_reference}</span>}
-                        <StatusBadge value={expired ? 'Expired' : workspaceJobOperationalLabel(job)} tone={expired ? 'grey' : statusTone(job)} />{hasPod && <StatusBadge value="POD captured" tone="green" />}{awaitingFeedback && <StatusBadge value="Awaiting feedback" tone="orange" />}{feedbackReceived && <StatusBadge value="Feedback received" tone="green" />}
-                        <div className="driver-row-actions"><ActionButton tone="secondary" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }}>{expanded ? 'Collapse' : 'Details'}</ActionButton>{isOwnAssignedJob && <ActionButton tone="secondary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</ActionButton>}</div>
+                    <article key={job.id} className="diary-booking driver-diary-entry xdrive-cx-diary-card" data-state={expired ? 'expired' : currentStatus} data-stage={expired ? 'expired' : stage}>
+                      <div className="xdrive-cx-diary-card__main">
+                        <section className="cx-diary-route xdrive-cx-diary-card__route">
+                          <div><span>From:</span><strong>{formatExecutionAddress(job.pickup_location, job.pickup_postcode)}</strong></div>
+                          <div><span>To:</span><strong>{formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</strong></div>
+                        </section>
+                        <section className="xdrive-cx-diary-card__times">
+                          <div><span>Pickup:</span><span className="cx-diary-datetime"><strong>{pickupWhen.primary}</strong>{pickupWhen.meta ? <span>{pickupWhen.meta}</span> : null}</span></div>
+                          <div><span>Deliver:</span><span className="cx-diary-datetime"><strong>{deliveryWhen.primary}</strong>{deliveryWhen.meta ? <span>{deliveryWhen.meta}</span> : null}</span></div>
+                        </section>
+                        <section className="xdrive-cx-diary-card__status">
+                          <div className="xdrive-cx-diary-card__band">{bandLabel}</div>
+                          <div className="xdrive-cx-diary-card__status-line"><MemberIdentityLink companyId={job.company_id}>{memberLabel}</MemberIdentityLink></div>
+                          <div className="xdrive-cx-diary-card__status-stamp">{isOwnAssignedJob ? 'Assigned to you' : 'Company booking'}{hasPod ? ' · POD captured' : ''}{awaitingFeedback ? ' · Awaiting feedback' : ''}{feedbackReceived ? ' · Feedback received' : ''}</div>
+                          <div className="xdrive-cx-diary-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-diary-card__vehicle"><img className="xdrive-cx-diary-card__vehicle-image" src={workspaceVehicleImageSrc(requestedVehicle)} alt="" aria-hidden="true" /><strong>{requestedVehicle}</strong></span></div>
+                        </section>
                       </div>
 
-                      <div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
-                        {isOwnAssignedJob && currentStatus === 'delivered' && !hasPod ? (
-                          <button
-                            type="button"
-                            data-operation="primary"
-                            onClick={() => router.push(`/driver/jobs/${job.id}`)}
-                          >
-                            Complete POD
-                          </button>
-                        ) : null}
-                        {canRequestCancellation ? (
-                          <button
-                            type="button"
-                            data-operation="cancel"
-                            disabled={cancellingJobId === job.id}
-                            onClick={() => void requestDiaryCancellation(job)}
-                          >
-                            {cancellingJobId === job.id ? 'Sending…' : cancellationLabel}
-                          </button>
-                        ) : null}
+                      <div className="xdrive-cx-diary-card__footer driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
+                        <button type="button" className="xdrive-cx-diary-card__expander" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }} aria-label={expanded ? 'Collapse booking' : 'Expand booking'}>{expanded ? '▴' : '▾'}</button>
+                        {canManageFeedback && <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => setFeedbackJobId(job.id)}>{feedbackReceived ? 'Edit Feedback' : 'Leave Feedback'}</button>}
+                        {isOwnAssignedJob && currentStatus === 'delivered' && !hasPod ? <button type="button" data-operation="primary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Complete POD</button> : null}
+                        {canRequestCancellation ? <button type="button" data-operation="cancel" disabled={cancellingJobId === job.id} onClick={() => void requestDiaryCancellation(job)}>{cancellingJobId === job.id ? 'Sending…' : cancellationLabel}</button> : null}
                         {isOwnAssignedJob && DETAIL_TABS
                           .filter((detailItem) => detailItem.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices))
                           .map((detailItem) => (
@@ -709,7 +706,8 @@ export default function JobHistoryPage() {
                                     : detailItem.label}
                             </button>
                           ))}
-                        {canManageFeedback && <button type="button" onClick={() => setFeedbackJobId(job.id)}>{feedbackReceived ? 'Edit Feedback' : 'Leave Feedback'}</button>}{feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
+                        {isOwnAssignedJob && <button type="button" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</button>}
+                        {feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
                       </div>
 
                       {expanded && !isOwnAssignedJob && (

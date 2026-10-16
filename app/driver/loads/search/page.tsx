@@ -351,12 +351,11 @@ export default function SearchLoadsPage() {
         <div className="driver-board-layout driver-load-search-board">
           {filterRail}
           <main className="driver-board-main">
-            <div className="driver-tab-strip" aria-label="Load search views">
-              <button type="button" onClick={() => router.push('/driver/loads')}>All Live</button>
-              <button type="button" data-active="true">Advanced Search <span>{total}</span></button>
-              <button type="button" onClick={() => router.push('/driver/quotes')}>My Quotes</button>
-              <button type="button" onClick={() => router.push('/driver/won-work')}>Won Work</button>
-              <button type="button" onClick={() => router.push('/driver/returns')}>Return Journeys</button>
+            <div className="driver-tab-strip" aria-label="Load types">
+              <button type="button" data-active={filters.loadType === 'all'} onClick={() => setFilters((current) => ({ ...current, loadType: 'all' }))}>All Live</button>
+              <button type="button" data-active={filters.loadType === 'on_demand'} onClick={() => setFilters((current) => ({ ...current, loadType: 'on_demand' }))}>On Demand</button>
+              <button type="button" data-active={filters.loadType === 'regular_load'} onClick={() => setFilters((current) => ({ ...current, loadType: 'regular_load' }))}>Regular Load</button>
+              <button type="button" data-active={filters.loadType === 'daily_hire'} onClick={() => setFilters((current) => ({ ...current, loadType: 'daily_hire' }))}>Daily Hire</button>
             </div>
 
             <div className="driver-load-view-toggle" role="tablist" aria-label="Load result presentation">

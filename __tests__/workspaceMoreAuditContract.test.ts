@@ -38,14 +38,19 @@ describe('workspace More audit contract', () => {
     expect(customer).toContain("label: 'Directory', href: '/customer/network'");
   });
 
-  it('does not duplicate the consolidated Drivers & Vehicles hub inside Carrier and Dispatcher More', () => {
+  it('does not duplicate hub-owned Carrier routes inside More and keeps Dispatcher free of resource duplicates', () => {
     const carrier = shell.slice(shell.indexOf('function composeCarrierPrimaryNav'), shell.indexOf('function composeFleetPrimaryNav'));
     const dispatcher = shell.slice(shell.indexOf('function composeDispatcherPrimaryNav'), shell.indexOf('function composeFinancePrimaryNav'));
-    expect(carrier).not.toContain("'/admin/fleet/drivers'");
-    expect(carrier).not.toContain("'/admin/fleet/vehicles'");
-    expect(carrier).not.toContain("'/admin/fleet/positions'");
-    expect(dispatcher).not.toContain("'/admin/fleet/drivers'");
-    expect(dispatcher).not.toContain("'/admin/fleet/vehicles'");
+    const carrierMorePreferred = carrier.slice(carrier.indexOf('const morePreferred'), carrier.indexOf('const more: WorkspaceNavItem[]'));
+    expect(carrier).toContain('const carrierHubOwnedHrefs = new Set([');
+    for (const href of ['/admin/won-work', '/admin/fleet/drivers', '/admin/fleet/vehicles', '/admin/settings/billing']) {
+      expect(carrier).toContain(`'${href}'`);
+      expect(carrierMorePreferred).not.toContain(`'${href}'`);
+    }
+    expect(carrier).toContain('...carrierHubOwnedHrefs');
+    const dispatcherMore = dispatcher.slice(dispatcher.indexOf("], 'dispatcher-more', 'More', ["));
+    expect(dispatcherMore).not.toContain("'/admin/fleet/drivers'");
+    expect(dispatcherMore).not.toContain("'/admin/fleet/vehicles'");
   });
 
   it('keeps every retained More destination permitted for its operational role', () => {
@@ -66,10 +71,11 @@ describe('workspace More audit contract', () => {
     }
   });
 
-  it('keeps Action Centre visible in both Driver and Owner Driver primary navigation', () => {
+  it('keeps Action Centre reachable once from More for Driver and Owner Driver', () => {
     const driver = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
-    expect(driver).toContain("['driver-action-centre-primary', 'Action Centre', '/driver/action-centre']");
-    expect(driver).toContain("['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre']");
+    expect(driver).toContain("'/driver/action-centre'");
+    expect(driver).not.toContain("['driver-action-centre-primary', 'Action Centre', '/driver/action-centre']");
+    expect(driver).not.toContain("['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre']");
     expect(isCapabilityAllowedForPath('/driver/action-centre', null, activeContext('driver'))).toBe(true);
     expect(isCapabilityAllowedForPath('/driver/action-centre', null, activeContext('owner_driver'))).toBe(true);
   });

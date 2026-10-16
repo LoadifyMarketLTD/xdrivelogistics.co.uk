@@ -9,7 +9,7 @@ Unify the entire operational XDrive platform so every workspace looks and behave
 
 Use:
 
-1. **Owner Driver on Netlify Preview 675** as the canonical XDrive structural reference.
+1. **Courier Exchange live** at `https://app.transportexchangegroup.com/pp/freight-exchange` is the canonical visual and structural reference for all seven operational workspaces.
 2. **Courier Exchange / Freight Exchange (CX)** as the canonical visual-language reference.
 3. Keep role-specific capabilities and permissions different, but do not allow the visual system to fragment by role.
 
@@ -104,7 +104,7 @@ If the browser lands on login, continue using the authenticated screenshots and 
 
 ## Correct implementation order
 
-### Phase A — unify every operational workspace to Owner Driver 675 structure
+### Phase A — unify every operational workspace to the measured Courier Exchange live structure
 
 Make the platform structurally one product:
 - same shell geometry
@@ -225,7 +225,7 @@ Current validation after the deduplication/consolidation pass:
 - focused migration/reference/responsive contracts passed
 - deterministic Chromium visual fixture gate passed 19 / 19, covering Jobs, Post Load for authorised roles, all operational workspace visual fixtures, the 1025-1280px shell action breakpoint, shared responsive record columns, and expanded-detail typography
 
-The visual fixture is a deterministic layout harness, not authenticated production proof. Preview 675 remains the canonical visual authority.
+The visual fixture is a deterministic layout harness, not authenticated production proof. Courier Exchange live at `https://app.transportexchangegroup.com/pp/freight-exchange` remains the canonical visual authority.
 
 Before any commit/push/merge, rerun the relevant gates if further source edits are made:
 
@@ -235,17 +235,17 @@ Before any commit/push/merge, rerun the relevant gates if further source edits a
 4. `git diff --check`
 5. focused visual/navigation contracts and runtime verification as appropriate
 
-Do not update tests merely to make them green. Only change a test when it clearly encodes a superseded visual contract and the replacement expectation is grounded in Owner Driver 675/CX.
+Do not update tests merely to make them green. Only change a test when it clearly encodes a superseded visual contract and the replacement expectation is grounded in Courier Exchange live.
 
 ## Browser verification
 
 Opera Browser Connector was connected successfully.
 
 Use it for:
-- Preview 675 Owner Driver
+- Courier Exchange live visual measurement and behavior comparison
 - Loads
 - Diary
-- authenticated role pages when available
+- authenticated XDrive role pages when available
 
 Owner Driver direct navigation to `/customer`, `/broker`, `/admin` and `/admin/fleet` returned 403, which is expected role-boundary behavior.
 

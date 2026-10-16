@@ -6,19 +6,19 @@ const legacyEntry = fs.readFileSync(path.join(process.cwd(), 'app/admin/drivers-
 const workspaceRole = fs.readFileSync(path.join(process.cwd(), 'lib/workspaceRole.ts'), 'utf8');
 
 describe('CX Drivers & Vehicles consolidated access contract', () => {
-  it('presents the combined workspace as Drivers & Vehicles', () => {
+  it('presents the combined workspace as Drivers & Vehicles without duplicate register shortcuts in the header', () => {
     expect(source).toContain('title="Drivers & Vehicles"');
-    expect(source).toContain('Drivers Register');
-    expect(source).toContain('Vehicles Register');
+    expect(source).not.toContain('Drivers Register');
+    expect(source).not.toContain('Vehicles Register');
   });
 
-  it('keeps direct navigation to canonical registers and connected capacity surfaces', () => {
-    expect(source).toContain("router.push('/admin/fleet/drivers')");
-    expect(source).toContain("router.push('/admin/fleet/vehicles')");
-    expect(source).toContain("router.push('/admin/fleet/positions')");
-    expect(source).toContain('Vehicle Tracking');
-    expect(source).toContain("router.push('/admin/live-availability')");
-    expect(source).toContain("router.push('/admin/fleet/returns')");
+  it('keeps the exact CX resource-local subnavigation and leaves Live Availability / Return Journeys to the primary navbar', () => {
+    expect(source).toContain('Users / Drivers</button>');
+    expect(source).toContain("router.push('/admin/vehicles')}>Company Vehicles</button>");
+    expect(source).toContain("router.push('/admin/fleet/positions')}>Vehicle Tracking</button>");
+    const navBlock = source.slice(source.indexOf('aria-label="Drivers and vehicles workspace navigation"'), source.indexOf('{data.error'));
+    expect(navBlock).not.toContain("router.push('/admin/live-availability')");
+    expect(navBlock).not.toContain("router.push('/admin/fleet/returns')");
   });
 
   it('routes the historical Drivers & Vehicles entry point into the consolidated resource workspace', () => {
@@ -34,18 +34,18 @@ describe('CX Drivers & Vehicles consolidated access contract', () => {
     expect(workspaceRole).toContain("href: '/admin/fleet/positions'");
   });
 
-  it('keeps a CX-style Company Vehicles register in the consolidated workspace', () => {
+  it('keeps a CX-style Company Vehicles register without repeating global navigation as row actions', () => {
     expect(source).toContain('title="Company Vehicles"');
-    expect(source).toContain("columns={['Vehicle', 'Size / type', 'Year', 'Max payload', 'Assigned driver', 'Tracking', 'Advertising', 'Notify when tracked', 'Documents', 'Actions']}");
+    expect(source).toContain("columns={['Vehicle', 'Size / type', 'Year', 'Max payload', 'Assigned driver', 'Tracking', 'Advertising', 'Notify when tracked', 'Documents']}");
     expect(source).toContain('vehicle.manufacture_year');
     expect(source).toContain('vehicle.payload_kg');
-    expect(source).toContain("router.push('/admin/event-log')");
-    expect(source).toContain("router.push('/admin/documents')");
+    expect(source).not.toContain("router.push('/admin/event-log')}>Event Log");
+    expect(source).not.toContain("router.push('/admin/documents')}>Documents");
   });
 
-  it('keeps Resources selected as the consolidated operating view', () => {
+  it('keeps Users / Drivers selected as the consolidated CX operating view', () => {
     expect(source).toContain('aria-selected="true"');
     expect(source).toContain('data-active="true"');
-    expect(source).toContain('Resources</button>');
+    expect(source).toContain('Users / Drivers</button>');
   });
 });

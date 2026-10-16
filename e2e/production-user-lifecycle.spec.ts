@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 const targetBaseUrl = process.env.PLAYWRIGHT_BASE_URL ?? process.env.E2E_BASE_URL ?? '';
-const isProductionTarget = /https:\/\/xdrivelogistics\.co\.uk\/?$/i.test(targetBaseUrl);
+const isProductionTarget = /https:\/\/(?:www\.)?xdrivelogistics\.co\.uk\/?$/i.test(targetBaseUrl);
 const isDeployPreviewTarget =
   /https:\/\/deploy-preview-\d+--xdrivelogistics\.netlify\.app\/?$/i.test(targetBaseUrl);
 const isLifecycleTarget = isProductionTarget || isDeployPreviewTarget;

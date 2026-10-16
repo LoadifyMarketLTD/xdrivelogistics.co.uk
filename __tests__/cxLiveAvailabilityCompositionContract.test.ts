@@ -10,10 +10,11 @@ describe('CX-close Live Availability composition', () => {
     expect(source).not.toContain('<KpiCard');
   });
 
-  it('keeps Live Fleet, Future and Nearby Exchange as primary page tabs', () => {
-    expect(source).toContain('Live Fleet');
-    expect(source).toContain('Future');
-    expect(source).toContain('Nearby Exchange');
+  it('keeps the exact Courier Exchange live availability tabs', () => {
+    expect(source).toContain('>All</button>');
+    expect(source).toContain('>Drivers &amp; Sub-contractors</button>');
+    expect(source).toContain('>Other Drivers <span');
+    expect(source).not.toContain('>Future</button>');
     const tabs = source.indexOf('aria-label="Availability views"');
     const signals = source.indexOf('<OperationalSignalStrip');
     expect(tabs).toBeGreaterThan(0);

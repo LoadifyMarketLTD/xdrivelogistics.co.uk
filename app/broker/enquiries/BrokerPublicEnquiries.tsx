@@ -146,8 +146,7 @@ export default function BrokerPublicEnquiries() {
       <PageHeader
         eyebrow="Customer intake"
         title="Enquiries"
-        description="Review customer transport requests, route details and commercial status without leaving the operational board."
-        actions={<ActionButton tone="secondary" onClick={() => void load()} disabled={loading}>Refresh</ActionButton>}
+        description="Review customer transport requests, route details and commercial status."
       />
 
       {error && <AlertBanner>{error}</AlertBanner>}
@@ -175,6 +174,10 @@ export default function BrokerPublicEnquiries() {
                 {item.label} {item.count}
               </button>
             ))}
+          </div>
+          <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between' }}>
+            <span><strong>{filtered.length}</strong> enquir{filtered.length === 1 ? 'y' : 'ies'}</span>
+            <span className="workspace-list-controls__right"><ActionButton tone="secondary" onClick={() => void load()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton></span>
           </div>
 
           {loading ? (

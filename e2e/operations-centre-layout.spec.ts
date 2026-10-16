@@ -166,10 +166,11 @@ test.describe('fleet map deterministic runtime proof', () => {
       await page.goto('/visual-fixture/fleet-map/no-coords', { waitUntil: 'domcontentloaded' });
 
       await assertNoHorizontalOverflow(page, viewport.label);
+      await expect(page.getByTestId('fleet-map-ready')).toBeVisible({ timeout: 15_000 });
       await expect(page.getByTestId('fleet-map-no-coords')).toContainText(
         'No live fleet positions available.',
       );
-      await expect(page.locator('.leaflet-container')).toHaveCount(0);
+      await expect(page.locator('.leaflet-container')).toBeVisible();
       await assertFleetContainerBounds(page, viewport);
 
       await attachScreenshot(page, testInfo, `fleet-no-coords-${viewport.label}`);
@@ -182,10 +183,11 @@ test.describe('fleet map deterministic runtime proof', () => {
       await page.goto('/visual-fixture/fleet-map/invalid-coords', { waitUntil: 'domcontentloaded' });
 
       await assertNoHorizontalOverflow(page, viewport.label);
+      await expect(page.getByTestId('fleet-map-ready')).toBeVisible({ timeout: 15_000 });
       await expect(page.getByTestId('fleet-map-no-coords')).toContainText(
         'No live fleet positions available.',
       );
-      await expect(page.locator('.leaflet-container')).toHaveCount(0);
+      await expect(page.locator('.leaflet-container')).toBeVisible();
       await assertFleetContainerBounds(page, viewport);
 
       await attachScreenshot(page, testInfo, `fleet-invalid-coords-${viewport.label}`);

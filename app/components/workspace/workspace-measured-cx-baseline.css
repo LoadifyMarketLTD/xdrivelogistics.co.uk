@@ -9,7 +9,7 @@
   --ws-header-h: 50px;
   --ws-nav-h: 42px;
   --ws-page-x: 12px;
-  --ws-page-y: 12px;
+  --ws-page-y: 8px;
   --ws-gap-micro: 4px;
   --ws-gap-internal: 8px;
   --ws-gap-grid: 12px;
@@ -22,7 +22,7 @@
   --ws-filter-rail-w: 165px;
   --ws-control-h: 24px;
   --ws-tab-h: 28px;
-  --ws-micro-action-h: 22px;
+  --ws-micro-action-h: 24px;
   --ws-panel-head-h: 36px;
   --ws-table-head-h: 40px;
   --ws-table-row-h: 42px;
@@ -70,7 +70,7 @@
   padding: var(--ws-page-y) var(--ws-page-x) 16px !important;
 }
 
-/* Canonical operational dashboard geometry — Owner Driver Preview 675 reference. */
+/* Canonical operational dashboard geometry — measured from Courier Exchange live. */
 .xdrive-workspace-measured .xdrive-admin-dashboard-home {
   width: 100% !important;
   padding: 8px 10px 12px !important;
@@ -98,7 +98,7 @@
   align-items: start;
 }
 
-/* Preview 675 Reports & Statistics geometry shared by operational dashboards.
+/* Owner Driver Reports & Statistics geometry shared by operational dashboards.
  * KPI/Signal primitives retain their compact presentation on secondary pages;
  * only dashboard instances inherit these two-column Owner Driver tiles.
  * Never apply this adapter to the independent Super Admin shell. */
@@ -280,6 +280,16 @@
   font-size: var(--ws-font-label) !important;
   line-height: 15px !important;
   font-weight: 500 !important;
+}
+
+.xdrive-workspace-measured .workspace-filter-rail input[type="radio"],
+.xdrive-workspace-measured .workspace-filter-rail input[type="checkbox"] {
+  width: 14px !important;
+  height: 14px !important;
+  min-width: 14px !important;
+  min-height: 14px !important;
+  margin: 0 !important;
+  flex: 0 0 14px !important;
 }
 
 /* Shared presentation hooks used by every operational workspace. */
@@ -489,7 +499,7 @@
   font-weight: 600 !important;
 }
 
-/* PR675 /driver/loads tab geometry: flat row, compact text and a 2px active underline. */
+/* Owner Driver /driver/loads tab geometry: flat row, compact text and a 2px active underline. */
 .xdrive-workspace-measured .driver-tab-strip,
 .xdrive-workspace-measured .workspace-tab-strip,
 .xdrive-workspace-measured .driver-status-tabs,
@@ -565,6 +575,64 @@
   font-weight: 600 !important;
 }
 
+/* CX live operational subtab treatment: compact blue cells with a downward active marker.
+   Applied to shared workspace status strips across Loads / Quotes / Diary and role variants. */
+.xdrive-workspace-measured .workspace-tab-strip {
+  gap: 0 !important;
+  min-height: 28px !important;
+  overflow: visible auto !important;
+  border-bottom: 1px solid #cfd7e3 !important;
+  background: #eaf4ff !important;
+}
+
+.xdrive-workspace-measured .workspace-tab-strip > button,
+.xdrive-workspace-measured .workspace-tab-strip > a {
+  position: relative !important;
+  height: 28px !important;
+  min-height: 28px !important;
+  padding: 0 11px !important;
+  border: 0 !important;
+  border-right: 1px solid #d7e2ee !important;
+  border-bottom: 0 !important;
+  background: #d7ebfb !important;
+  color: #475569 !important;
+  font-size: 11px !important;
+  line-height: 28px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-workspace-measured .workspace-tab-strip > button:hover,
+.xdrive-workspace-measured .workspace-tab-strip > a:hover {
+  background: #cfe7fb !important;
+  color: #1f2937 !important;
+}
+
+.xdrive-workspace-measured .workspace-tab-strip > button[data-active="true"],
+.xdrive-workspace-measured .workspace-tab-strip > a[data-active="true"],
+.xdrive-workspace-measured .workspace-tab-strip > button[aria-selected="true"],
+.xdrive-workspace-measured .workspace-tab-strip > a[aria-selected="true"] {
+  background: #b8dcfb !important;
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured .workspace-tab-strip > button[data-active="true"]::after,
+.xdrive-workspace-measured .workspace-tab-strip > a[data-active="true"]::after,
+.xdrive-workspace-measured .workspace-tab-strip > button[aria-selected="true"]::after,
+.xdrive-workspace-measured .workspace-tab-strip > a[aria-selected="true"]::after {
+  content: "" !important;
+  position: absolute !important;
+  left: 50% !important;
+  bottom: -6px !important;
+  width: 0 !important;
+  height: 0 !important;
+  transform: translateX(-50%) !important;
+  border-left: 6px solid transparent !important;
+  border-right: 6px solid transparent !important;
+  border-top: 6px solid #b8dcfb !important;
+  z-index: 2 !important;
+}
+
 /* Panels and sections. */
 .xdrive-workspace-measured .workspace-panel,
 .xdrive-workspace-measured .driver-panel,
@@ -578,12 +646,661 @@
   box-shadow: none !important;
 }
 
+/* Shared OperationalTable adopts the resolved Owner Driver table palette.
+ * Source: driver-full-prototype.css th/td rules; geometry remains token-owned.
+ * Scope the adapter to the shared primitive, not every role-specific table or
+ * Super Admin. No new !important declarations are needed for this cascade. */
+/* The Owner Driver shared table uses the 1120px fixed-layout register from
+ * driver-full-prototype.css. Retain its scrollable container and sticky head;
+ * do not inherit unrelated table backgrounds from workspace-light-guard.css. */
+.xdrive-workspace-measured .xdrive-operational-table {
+  min-width: 1120px;
+  table-layout: fixed;
+  background: transparent;
+  border-color: hsl(var(--border));
+}
+
+.xdrive-workspace-measured .xdrive-operational-table thead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: transparent;
+}
+
+.xdrive-workspace-measured .xdrive-operational-table th {
+  letter-spacing: .02em;
+  color: #4b5d72;
+  background: #edf2f6;
+  border-bottom-color: #cfd6df;
+  border-right: 1px solid #e2e6eb;
+}
+
+.xdrive-workspace-measured .xdrive-operational-table td {
+  font-weight: 500;
+  color: #2e4055;
+  border-bottom-color: #e6e9ed;
+  border-right: 1px solid #f1f3f5;
+}
+
+.xdrive-workspace-measured .xdrive-operational-table tbody tr:hover td {
+  background: #f9fbfd;
+}
+
 /* Operational records. */
 .xdrive-workspace-measured .driver-load-list,
 .xdrive-workspace-measured .driver-job-list,
 .xdrive-workspace-measured .workspace-record-list {
   display: grid !important;
-  gap: var(--ws-gap-internal) !important;
+  gap: 5px !important;
+}
+
+.xdrive-workspace-measured .xdrive-inline-link {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 3px !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--ws-blue) !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+  text-decoration: underline !important;
+  box-shadow: none !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-footer > a {
+  color: #0f4fc4 !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+  font-weight: 600 !important;
+}
+
+/* CX live is visually clearer because primary data is darker/heavier while meta stays secondary. */
+.xdrive-workspace-measured .xdrive-cx-load-card {
+  border-width: 1px !important;
+  border-color: #1683f3 !important;
+  color: #111827 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card > div:first-child > section {
+  padding: 7px 9px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card strong {
+  color: #111827 !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card section,
+.xdrive-workspace-measured .xdrive-cx-load-card section div,
+.xdrive-workspace-measured .xdrive-cx-load-card section span {
+  line-height: 15px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card section > div:not(:first-child) {
+  color: #4b5563 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card .xdrive-cx-load-footer {
+  min-height: 24px !important;
+  padding: 1px 7px !important;
+  background: #f3f4f6 !important;
+  border-top-color: #d7dce2 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-footer > button:not(.xdrive-inline-link) {
+  min-width: 96px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 12px !important;
+  font-size: 11px !important;
+  line-height: 20px !important;
+}
+
+.xdrive-workspace-measured .xdrive-vehicle-size-range {
+  display: grid;
+  gap: 2px;
+}
+
+.xdrive-workspace-measured .xdrive-vehicle-size-range__labels {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+  color: #475569;
+  font-size: 10px;
+  line-height: 12px;
+}
+
+.xdrive-workspace-measured .xdrive-vehicle-size-range__track {
+  position: relative;
+  height: 18px;
+}
+
+.xdrive-workspace-measured .xdrive-vehicle-size-range__track::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  right: 2px;
+  top: 8px;
+  height: 3px;
+  border-radius: 999px;
+  background: #cfd7e3;
+}
+
+.xdrive-workspace-measured .xdrive-vehicle-size-range input[type="range"] {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 18px !important;
+  min-height: 18px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+  appearance: none;
+  pointer-events: none;
+}
+
+.xdrive-workspace-measured .xdrive-vehicle-size-range input[type="range"]::-webkit-slider-runnable-track {
+  height: 3px;
+  background: transparent;
+}
+
+.xdrive-workspace-measured .xdrive-vehicle-size-range input[type="range"]::-webkit-slider-thumb {
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: 1px solid #0f4fc4;
+  border-radius: 50%;
+  background: #fff;
+  appearance: none;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.xdrive-workspace-measured .xdrive-vehicle-size-range__input--max {
+  z-index: 2;
+}
+
+.xdrive-workspace-measured .cx-quote-state-tabs {
+  display: flex !important;
+  gap: 0 !important;
+  min-height: 28px !important;
+  margin-bottom: 10px !important;
+  overflow: visible !important;
+  background: #eaf4ff !important;
+  border-bottom: 1px solid #cfd7e3 !important;
+}
+
+.xdrive-workspace-measured .cx-quote-state-tabs .carrier-exchange-tab {
+  min-height: 28px !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-right: 1px solid #d7e2ee !important;
+  border-bottom: 0 !important;
+  border-radius: 0 !important;
+  background: #d7ebfb !important;
+  color: #475569 !important;
+  font-size: 11px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-workspace-measured .cx-quote-state-tabs .carrier-exchange-tab--active {
+  position: relative;
+  background: #bfe0fb !important;
+  color: #0f172a !important;
+}
+
+.xdrive-workspace-measured .cx-quote-state-tabs .carrier-exchange-tab--active::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: -6px;
+  width: 0;
+  height: 0;
+  transform: translateX(-50%);
+  border-left: 6px solid transparent;
+  border-right: 6px solid transparent;
+  border-top: 6px solid #bfe0fb;
+  z-index: 3;
+}
+
+.xdrive-workspace-measured .cx-quote-state-tabs__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-left: auto;
+  min-height: 28px;
+  padding: 0 8px;
+}
+
+.xdrive-workspace-measured .cx-quote-pagination-row {
+  min-height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 7px;
+  margin: -4px 0 6px;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.xdrive-workspace-measured .cx-quote-pagination-row label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.xdrive-workspace-measured .cx-expand-entries-control {
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #1683f3 !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+  font-weight: 600 !important;
+  text-decoration: underline !important;
+  box-shadow: none !important;
+  cursor: pointer !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card {
+  overflow: hidden;
+  border: 1px solid #1683f3;
+  border-radius: 2px;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .18);
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-list {
+  display: grid;
+  gap: 9px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__main {
+  display: grid;
+  grid-template-columns: 38% 38% 24%;
+  min-height: 95px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__main > section {
+  min-width: 0;
+  padding: 7px 10px;
+  border-right: 1px solid #c7ced8;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__main > section:last-child {
+  padding-left: 15px;
+  padding-right: 15px;
+  border-right: 0;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__route > div,
+.xdrive-workspace-measured .xdrive-cx-quote-card__times > div {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 4px;
+  margin-bottom: 3px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__main span {
+  color: #64748b;
+  font-size: 11px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__main strong {
+  color: #111827;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .cx-quote-datetime {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
+  color: #475569 !important;
+  font-size: 11px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .cx-quote-datetime > strong {
+  color: #111827 !important;
+  font-size: 13px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured .cx-quote-datetime > span {
+  color: #64748b !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__meta {
+  margin-top: 3px;
+  color: #475569;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__band {
+  margin: -1px -1px 4px;
+  padding: 3px 8px;
+  background: #b8d9f5;
+  color: #111827;
+  text-align: center;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__band--sold {
+  color: #f00000;
+  font-weight: 800;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__posted {
+  color: #475569;
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__service {
+  margin-top: 1px;
+  color: #111827;
+  font-size: 12px;
+  line-height: 15px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__status-meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+  color: #374151;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__status-meta strong {
+  font-size: 11px !important;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__vehicle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-left: auto;
+  margin-right: 3px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__vehicle-icon {
+  position: relative;
+  width: 22px;
+  height: 9px;
+  border-radius: 2px 3px 2px 2px;
+  background: #111;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__vehicle-icon::before {
+  content: "";
+  position: absolute;
+  right: -5px;
+  bottom: 0;
+  width: 7px;
+  height: 6px;
+  border-radius: 1px;
+  background: #111;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__vehicle-icon::after {
+  content: "";
+  position: absolute;
+  left: 3px;
+  bottom: -4px;
+  width: 4px;
+  height: 4px;
+  border: 1px solid #111;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 15px 0 0 -1px #fff, 15px 0 0 0 #111;
+}
+
+.xdrive-workspace-measured .cx-quote-search-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.xdrive-workspace-measured .cx-quote-search-actions > button {
+  min-height: 27px !important;
+  height: 27px !important;
+  padding: 0 14px !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+  line-height: 25px !important;
+}
+
+.xdrive-workspace-measured .cx-quote-search-actions > button:first-child {
+  min-width: 66px !important;
+  border-color: #55a718 !important;
+  background: #73c82c !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-workspace-measured .cx-quote-search-actions > button:last-child {
+  min-width: 52px !important;
+  border-color: #b8bec7 !important;
+  background: linear-gradient(#fff, #ececec) !important;
+  color: #475569 !important;
+  font-weight: 500 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__expanded {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  padding: 6px 10px;
+  border-top: 1px solid #d7dce2;
+  background: #f8fafc;
+  font-size: 11px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__expanded-cx {
+  border-top: 1px solid #d7dce2;
+  background: #fff;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__freight {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  min-height: 54px;
+  padding: 6px 10px;
+  background: #f8f8f8;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__freight > div {
+  display: flex;
+  gap: 5px;
+  align-items: baseline;
+  min-width: 0;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__freight span,
+.xdrive-workspace-measured .xdrive-cx-quote-card__freight strong {
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__freight span {
+  color: #52719a;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__freight strong {
+  color: #374151;
+  font-weight: 500;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__notes {
+  min-height: 34px;
+  padding: 6px 10px;
+  border-top: 1px solid #d7dce2;
+  background: #fff;
+  color: #374151;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__notes > span {
+  margin-right: 5px;
+  color: #64748b;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-table {
+  border-top: 1px solid #d7dce2;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-table__head,
+.xdrive-workspace-measured .xdrive-cx-quote-table__row {
+  display: grid;
+  grid-template-columns: 1.55fr .72fr .56fr .88fr .78fr .62fr .72fr .72fr;
+  align-items: center;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-table__head {
+  min-height: 31px;
+  background: #deecfa;
+  color: #334155;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-table__row {
+  min-height: 41px;
+  background: #f4f4f4;
+  color: #475569;
+  font-size: 10px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-table__head span,
+.xdrive-workspace-measured .xdrive-cx-quote-table__row span,
+.xdrive-workspace-measured .xdrive-cx-quote-table__row strong {
+  min-width: 0;
+  padding: 0 8px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-table__row strong {
+  color: #475569;
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__footer {
+  min-height: 23px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0 6px;
+  border-top: 1px solid #d7dce2;
+  background: #f2f2f2;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__expander {
+  width: 20px !important;
+  min-width: 20px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #111827 !important;
+  font-size: 10px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__cancel {
+  min-width: 112px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 12px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #ef2a2a !important;
+  color: #fff !important;
+  font-size: 11px !important;
+  line-height: 22px !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__quote-state {
+  color: #475569;
+  font-size: 11px;
+  line-height: 22px;
+  font-weight: 500;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__quote-state--unsuccessful {
+  min-height: 22px;
+  padding: 0 9px;
+  background: #ef2a2a;
+  color: #fff;
+  font-weight: 800;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__quote-state--accepted {
+  min-height: 22px;
+  padding: 0 9px;
+  background: #5caf42;
+  color: #fff;
+  font-weight: 800;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__member {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  color: #374151;
+  font-size: 11px;
+  line-height: 14px;
+  overflow: hidden;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__member strong,
+.xdrive-workspace-measured .xdrive-cx-quote-card__member a {
+  color: #374151 !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  text-decoration: underline !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-quote-card__member .xdrive-inline-link {
+  font-size: 11px !important;
+  line-height: 14px !important;
+}
+
+@media (max-width: 980px) {
+  .xdrive-workspace-measured .xdrive-cx-quote-card__main {
+    grid-template-columns: 1fr;
+  }
+  .xdrive-workspace-measured .xdrive-cx-quote-card__main > section {
+    border-right: 0;
+    border-bottom: 1px solid #cfd7e3;
+  }
+  .xdrive-workspace-measured .xdrive-cx-quote-card__expanded {
+    grid-template-columns: 1fr;
+  }
 }
 
 .xdrive-workspace-measured .driver-load-row,
@@ -619,7 +1336,7 @@
 .xdrive-workspace-measured .driver-job-cell,
 .xdrive-workspace-measured .workspace-operational-cell {
   min-width: 0 !important;
-  padding: 8px 10px !important;
+  padding: 7px 9px !important;
   border-right: 1px solid var(--ws-border-soft) !important;
 }
 
@@ -884,4 +1601,2632 @@
 /* Cross-role text/action adapters for legacy operational cells. */
 .xdrive-workspace-measured .workspace-operational-cell>div:first-child{
   font-size:var(--ws-font-label)!important;line-height:15px!important;font-weight:500!important;color:#5e6874!important
+}
+
+/* Keep the shared Carrier Loads card readable at tablet and mobile widths. */
+@media (max-width: 1024px) {
+  .xdrive-workspace-measured .xdrive-exchange-load-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+  .xdrive-workspace-measured .xdrive-exchange-load-card-grid > section:last-child {
+    grid-column: 1 / -1;
+  }
+}
+@media (max-width: 768px) {
+  .xdrive-workspace-measured .xdrive-exchange-load-card-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .xdrive-workspace-measured .xdrive-exchange-load-card-grid > section {
+    grid-column: auto;
+    border-right: 0 !important;
+    border-bottom: 1px solid var(--ws-border-soft);
+  }
+}
+
+/* The same filter/results composition is used by Loads, Quotes and Won work. */
+@media (max-width: 768px) {
+  .xdrive-workspace-measured .xdrive-exchange-workspace-layout {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .xdrive-workspace-measured .xdrive-exchange-workspace-layout > .carrier-exchange-rail {
+    flex: 0 0 auto !important;
+    width: 100% !important;
+    max-width: none !important;
+  }
+  .xdrive-workspace-measured .xdrive-exchange-workspace-layout > main {
+    flex: 1 1 auto !important;
+    width: 100%;
+    min-width: 0;
+  }
+  .xdrive-workspace-measured .carrier-exchange-secondary-tabs {
+    overflow-x: auto;
+    flex-wrap: nowrap;
+  }
+}
+
+/* Diary split follows the same responsive stacking as other workspaces. */
+@media (max-width: 1200px) {
+  .xdrive-workspace-measured .xdrive-diary-split-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .xdrive-workspace-measured .xdrive-diary-split-layout > * {
+    min-width: 0;
+  }
+}
+
+/* Shared operational record controls stay usable on narrow screens. */
+@media (max-width: 768px) {
+  .xdrive-workspace-measured .workspace-list-controls,
+  .xdrive-workspace-measured .workspace-record-meta {
+    flex-wrap: wrap !important;
+    min-width: 0;
+    height: auto !important;
+  }
+  .xdrive-workspace-measured .workspace-list-controls__right {
+    margin-left: 0;
+    flex-wrap: wrap;
+    max-width: 100%;
+  }
+}
+
+/* Shared mobile tab overflow guard: every operational role, never Super Admin. */
+@media (max-width: 768px) {
+  .xdrive-workspace-measured .workspace-tab-strip,
+  .xdrive-workspace-measured .driver-tab-strip,
+  .xdrive-workspace-measured .driver-status-tabs,
+  .xdrive-workspace-measured [role='tablist'] {
+    display: flex !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+  }
+  .xdrive-workspace-measured .workspace-tab-strip > *,
+  .xdrive-workspace-measured .driver-tab-strip > *,
+  .xdrive-workspace-measured .driver-status-tabs > *,
+  .xdrive-workspace-measured [role='tablist'] > * {
+    flex-shrink: 0 !important;
+    white-space: nowrap;
+  }
+}
+
+/* Carrier dashboard Owner Driver geometry adapter; scoped to operational roles. */
+.xdrive-workspace-measured .carrier-owner-parity-grid.xdrive-owner-dashboard-grid {
+  grid-template-columns: minmax(360px, var(--ws-dashboard-left-col)) minmax(0, var(--ws-dashboard-right-col)) !important;
+  gap: var(--ws-gap-grid) !important;
+}
+.xdrive-workspace-measured .carrier-cx-dashboard-subgrid.xdrive-owner-dashboard-subgrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+}
+@media (max-width: 1100px) {
+  .xdrive-workspace-measured .carrier-owner-parity-grid.xdrive-owner-dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+@media (max-width: 760px) {
+  .xdrive-workspace-measured .carrier-cx-dashboard-subgrid.xdrive-owner-dashboard-subgrid {
+    grid-template-columns: minmax(0, 1fr) !important;
+    height: auto !important;
+  }
+}
+
+/* ========================================================================
+ * SEVEN-WORKSPACE GLOBAL VISUAL CONTRACT
+ * Applies to Owner Driver, Driver, Customer, Broker, Carrier,
+ * Fleet Manager and Dispatcher. Super Admin is intentionally excluded.
+ * Role CSS may change content/visibility only; shared geometry lives here.
+ * ======================================================================== */
+
+.xdrive-workspace-measured {
+  --ws-toolbar-h: 32px;
+  --ws-settings-rail-w: 210px;
+}
+
+.xdrive-workspace-measured :where(
+  .xdrive-page-frame,
+  .xdrive-operational-page-layout,
+  .driver-diary-shell-content
+) {
+  width: 100% !important;
+  max-width: none !important;
+  padding: var(--ws-page-y) var(--ws-page-x) 16px !important;
+}
+
+.xdrive-workspace-measured :where(
+  .workspace-board-layout,
+  .driver-board-layout,
+  .driver-diary-board,
+  .driver-quotes-board
+) {
+  display: grid !important;
+  grid-template-columns: var(--ws-filter-rail-w) minmax(0, 1fr) !important;
+  gap: var(--ws-gap-grid) !important;
+  align-items: start !important;
+  min-width: 0 !important;
+}
+
+.xdrive-workspace-measured :where(
+  .workspace-board-main,
+  .driver-board-main
+) {
+  min-width: 0 !important;
+  width: 100% !important;
+  display: grid !important;
+  gap: var(--ws-gap-internal) !important;
+  align-content: start !important;
+}
+
+.xdrive-workspace-measured :where(
+  .workspace-filter-rail,
+  .driver-filter-rail
+) {
+  width: var(--ws-filter-rail-w) !important;
+  min-width: var(--ws-filter-rail-w) !important;
+  max-width: var(--ws-filter-rail-w) !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
+  box-shadow: none !important;
+}
+
+.xdrive-workspace-measured :where(
+  .workspace-filter-rail__header,
+  .driver-filter-rail__header
+) {
+  min-height: var(--ws-panel-head-h) !important;
+  padding: 0 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  border-bottom: 1px solid var(--ws-border) !important;
+  background: var(--ws-panel-head) !important;
+  font-size: var(--ws-font-panel-title) !important;
+  line-height: 16px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured :where(
+  .workspace-filter-rail__body,
+  .driver-filter-rail__body
+) {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: var(--ws-gap-internal) !important;
+  padding: 8px !important;
+}
+
+.xdrive-workspace-measured :where(
+  .workspace-filter-rail,
+  .driver-filter-rail
+) :where(input, select, textarea) {
+  width: 100% !important;
+  min-height: var(--ws-control-h) !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: #fff !important;
+  padding: 0 7px !important;
+  font-size: var(--ws-font-label) !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured :where(
+  .workspace-list-controls,
+  .driver-board-summary,
+  .driver-diary-toolbar
+) {
+  min-height: var(--ws-toolbar-h) !important;
+  padding: 4px 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: var(--ws-gap-internal) !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: #fff !important;
+  font-size: var(--ws-font-meta) !important;
+  line-height: 15px !important;
+}
+
+.xdrive-workspace-measured :where(
+  .workspace-panel,
+  .driver-panel,
+  .xdrive-panel,
+  .xdrive-operational-card,
+  .workspace-card
+) {
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
+  box-shadow: none !important;
+}
+
+.xdrive-workspace-measured :where(
+  .workspace-panel__header,
+  .driver-panel__header,
+  .xdrive-panel__header
+) {
+  min-height: var(--ws-panel-head-h) !important;
+  padding: 0 10px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: var(--ws-gap-internal) !important;
+  border-bottom: 1px solid var(--ws-border) !important;
+  background: var(--ws-panel-head) !important;
+}
+
+.xdrive-workspace-measured .role-settings-layout {
+  grid-template-columns: var(--ws-settings-rail-w) minmax(0, 1fr) !important;
+  gap: 10px !important;
+}
+
+.xdrive-workspace-measured .role-settings-nav button {
+  min-height: 34px !important;
+  padding: 0 10px !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .role-settings-overview {
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: var(--ws-gap-internal) !important;
+}
+
+@media (max-width: 1024px) {
+  .xdrive-workspace-measured :where(
+    .workspace-board-layout,
+    .driver-board-layout,
+    .driver-diary-board,
+    .driver-quotes-board
+  ) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .xdrive-workspace-measured :where(
+    .workspace-filter-rail,
+    .driver-filter-rail
+  ) {
+    position: static !important;
+    top: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+
+  .xdrive-workspace-measured :where(
+    .workspace-filter-rail__body,
+    .driver-filter-rail__body
+  ) {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .xdrive-workspace-measured .role-settings-layout {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+@media (max-width: 560px) {
+  .xdrive-workspace-measured :where(
+    .workspace-filter-rail__body,
+    .driver-filter-rail__body
+  ) {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+/* Legacy Driver prototype pages are retained only as content renderers.
+ * Their geometry is forced onto the same shared workspace contract. */
+.xdrive-workspace-measured :where(
+  .driver-loads-prototype,
+  .driver-quotes-prototype,
+  .driver-returns-prototype,
+  .driver-fleet-prototype,
+  .driver-freight-vision-prototype,
+  .driver-live-availability-prototype,
+  .driver-drivers-vehicles-prototype
+) > .pagebody {
+  display: grid !important;
+  grid-template-columns: var(--ws-filter-rail-w) minmax(0, 1fr) !important;
+  gap: var(--ws-gap-grid) !important;
+  align-items: start !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+}
+
+.xdrive-workspace-measured :where(
+  .driver-loads-prototype,
+  .driver-quotes-prototype,
+  .driver-returns-prototype,
+  .driver-fleet-prototype,
+  .driver-freight-vision-prototype,
+  .driver-live-availability-prototype,
+  .driver-drivers-vehicles-prototype
+) > .pagebody > .left {
+  position: sticky !important;
+  top: calc(var(--ws-header-h) + var(--ws-nav-h) + var(--ws-gap-internal)) !important;
+  width: var(--ws-filter-rail-w) !important;
+  min-width: var(--ws-filter-rail-w) !important;
+  max-width: var(--ws-filter-rail-w) !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+.xdrive-workspace-measured :where(
+  .driver-loads-prototype,
+  .driver-quotes-prototype,
+  .driver-returns-prototype,
+  .driver-fleet-prototype,
+  .driver-freight-vision-prototype,
+  .driver-live-availability-prototype,
+  .driver-drivers-vehicles-prototype
+) .left-title {
+  min-height: var(--ws-panel-head-h) !important;
+  padding: 0 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  border-bottom: 1px solid var(--ws-border) !important;
+  background: var(--ws-panel-head) !important;
+  font-size: var(--ws-font-panel-title) !important;
+  line-height: 16px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured :where(
+  .driver-loads-prototype,
+  .driver-quotes-prototype,
+  .driver-returns-prototype,
+  .driver-fleet-prototype,
+  .driver-freight-vision-prototype,
+  .driver-live-availability-prototype,
+  .driver-drivers-vehicles-prototype
+) .left > .filter,
+.xdrive-workspace-measured :where(
+  .driver-returns-prototype
+) .left > form > .filter {
+  padding: 4px 8px !important;
+  margin: 0 !important;
+  border-bottom: 1px solid var(--ws-border-soft) !important;
+}
+
+.xdrive-workspace-measured :where(
+  .driver-loads-prototype,
+  .driver-quotes-prototype,
+  .driver-returns-prototype,
+  .driver-fleet-prototype,
+  .driver-freight-vision-prototype,
+  .driver-live-availability-prototype,
+  .driver-drivers-vehicles-prototype
+) > .pagebody > .main {
+  min-width: 0 !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.xdrive-workspace-measured :where(
+  .load-nav-unified,
+  .quote-head-cx,
+  .return-tabs,
+  .fleet-cx-toolbar,
+  .vision-head,
+  .avail-topbar,
+  .subtabs
+) {
+  min-height: var(--ws-toolbar-h) !important;
+  padding: 3px 8px !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: #fff !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 1024px) {
+  .xdrive-workspace-measured :where(
+    .driver-loads-prototype,
+    .driver-quotes-prototype,
+    .driver-returns-prototype,
+    .driver-fleet-prototype,
+    .driver-freight-vision-prototype,
+    .driver-live-availability-prototype,
+    .driver-drivers-vehicles-prototype
+  ) > .pagebody {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+
+  .xdrive-workspace-measured :where(
+    .driver-loads-prototype,
+    .driver-quotes-prototype,
+    .driver-returns-prototype,
+    .driver-fleet-prototype,
+    .driver-freight-vision-prototype,
+    .driver-live-availability-prototype,
+    .driver-drivers-vehicles-prototype
+  ) > .pagebody > .left {
+    position: static !important;
+    top: auto !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+}
+
+.xdrive-workspace-measured .driver-directory-prototype-page > .pagebody {
+  display: grid !important;
+  grid-template-columns: var(--ws-filter-rail-w) minmax(0, 1fr) !important;
+  gap: var(--ws-gap-grid) !important;
+  align-items: start !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+}
+
+.xdrive-workspace-measured .driver-directory-prototype-page > .pagebody > .left {
+  position: sticky !important;
+  top: calc(var(--ws-header-h) + var(--ws-nav-h) + var(--ws-gap-internal)) !important;
+  width: var(--ws-filter-rail-w) !important;
+  min-width: var(--ws-filter-rail-w) !important;
+  max-width: var(--ws-filter-rail-w) !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+.xdrive-workspace-measured .driver-directory-prototype-page .left-title {
+  min-height: var(--ws-panel-head-h) !important;
+  padding: 0 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  border-bottom: 1px solid var(--ws-border) !important;
+  background: var(--ws-panel-head) !important;
+}
+
+.xdrive-workspace-measured .driver-directory-prototype-page .left > .filter {
+  padding: 4px 8px !important;
+  margin: 0 !important;
+  border-bottom: 1px solid var(--ws-border-soft) !important;
+}
+
+.xdrive-workspace-measured .driver-directory-prototype-page > .pagebody > .main {
+  min-width: 0 !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+.xdrive-workspace-measured .driver-directory-prototype-page :where(.directory-hero, .dir-tabs, .dir-summary) {
+  min-height: var(--ws-toolbar-h) !important;
+  border-radius: var(--ws-radius) !important;
+  box-shadow: none !important;
+}
+
+@media (max-width: 1024px) {
+  .xdrive-workspace-measured .driver-directory-prototype-page > .pagebody {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+  .xdrive-workspace-measured .driver-directory-prototype-page > .pagebody > .left {
+    position: static !important;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: none !important;
+  }
+}
+
+
+/* ========================================================================
+ * 7-WORKSPACE DASHBOARD HARD LOCK — COURIER EXCHANGE LIVE PARITY
+ * Courier Exchange live is the final visual reference. All seven operational
+ * workspaces inherit the same measured geometry, card shell, header height, gaps and borders.
+ * Super Admin is intentionally excluded by the measured wrapper boundary.
+ * ======================================================================== */
+
+.xdrive-workspace-measured .xdrive-owner-dashboard-grid {
+  grid-template-columns: minmax(360px, .84fr) minmax(0, 1.16fr) !important;
+  gap: 12px !important;
+  align-items: start !important;
+}
+
+.xdrive-workspace-measured .xdrive-owner-dashboard-column {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: 12px !important;
+  align-content: start !important;
+}
+
+.xdrive-workspace-measured .xdrive-owner-dashboard-subgrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+  align-items: start !important;
+}
+
+.xdrive-workspace-measured .xdrive-owner-dashboard-grid .xdrive-operational-card {
+  min-width: 0 !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
+  box-shadow: none !important;
+}
+
+.xdrive-workspace-measured .xdrive-owner-dashboard-grid .xdrive-operational-card__header {
+  min-height: var(--ws-panel-head-h) !important;
+  padding: 6px 10px !important;
+  border-bottom: 1px solid var(--ws-border) !important;
+  background: var(--ws-panel-head) !important;
+}
+
+.xdrive-workspace-measured .xdrive-owner-dashboard-grid .xdrive-operational-card__body:not(.xdrive-operational-card__body--flush) {
+  padding: 8px 10px !important;
+}
+
+.xdrive-workspace-measured .xdrive-owner-dashboard-grid [aria-label="Operational key performance indicators"],
+.xdrive-workspace-measured .xdrive-owner-dashboard-grid .xdrive-operational-dashboard-signals {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+  margin: 0 !important;
+}
+
+.xdrive-workspace-measured .xdrive-owner-dashboard-grid [data-workspace-kpi-card],
+.xdrive-workspace-measured .xdrive-owner-dashboard-grid .xdrive-operational-dashboard-signals > *,
+.xdrive-workspace-measured .carrier-owner-parity-grid .carrier-cx-stat-card {
+  min-height: var(--ws-dashboard-stat-h) !important;
+  height: var(--ws-dashboard-stat-h) !important;
+  padding: 10px 12px !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-dashboard-stat-bg) !important;
+  box-shadow: none !important;
+}
+
+/* Company Driver uses execution-specific content but the same CX dashboard
+ * geometry and card shell as every other operational workspace. */
+.xdrive-workspace-measured .driver-owner-parity-grid {
+  width: 100% !important;
+  margin: 0 !important;
+}
+
+.xdrive-workspace-measured .driver-owner-parity-grid > .driver-reports-card {
+  grid-column: 1 !important;
+  grid-row: 1 !important;
+}
+
+.xdrive-workspace-measured .driver-owner-parity-grid > .driver-current-assignment-card {
+  grid-column: 2 !important;
+  grid-row: 1 !important;
+}
+
+.xdrive-workspace-measured .driver-owner-parity-grid > .driver-dashboard-readiness {
+  grid-column: 1 !important;
+  grid-row: 2 !important;
+}
+
+.xdrive-workspace-measured .driver-owner-parity-grid > .driver-next-booking-card {
+  grid-column: 2 !important;
+  grid-row: 2 !important;
+}
+
+.xdrive-workspace-measured .driver-owner-parity-grid > :where(
+  .driver-dashboard-register,
+  .driver-dashboard-readiness
+) {
+  min-width: 0 !important;
+  margin: 0 !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-panel) !important;
+  box-shadow: none !important;
+  overflow: hidden !important;
+}
+
+.xdrive-workspace-measured .driver-owner-parity-grid .driver-dashboard-register__head {
+  min-height: var(--ws-panel-head-h) !important;
+  padding: 6px 10px !important;
+  border-bottom: 1px solid var(--ws-border) !important;
+  background: var(--ws-panel-head) !important;
+}
+
+@media (max-width: 1100px) {
+  .xdrive-workspace-measured .driver-owner-parity-grid > :where(
+    .driver-reports-card,
+    .driver-dashboard-register,
+    .driver-dashboard-readiness
+  ) {
+    grid-column: 1 !important;
+    grid-row: auto !important;
+  }
+}
+
+
+/* Company Driver readiness uses the same 2x2 dense card rhythm as the shared
+ * dashboard tiles; these borders replace the former three-column separator. */
+.xdrive-workspace-measured .driver-owner-parity-grid .driver-dashboard-readiness__grid button {
+  border-right: 1px solid var(--ws-border) !important;
+  border-bottom: 1px solid var(--ws-border) !important;
+}
+.xdrive-workspace-measured .driver-owner-parity-grid .driver-dashboard-readiness__grid button:nth-child(even) {
+  border-right: 0 !important;
+}
+.xdrive-workspace-measured .driver-owner-parity-grid .driver-dashboard-readiness__grid button:nth-last-child(-n + 2) {
+  border-bottom: 0 !important;
+}
+
+
+/* Carrier dashboard role-content adapter.
+ * The live Carrier page used to pin CX-measured absolute heights that made this
+ * one role diverge from the seven-workspace Owner Driver geometry. Keep the
+ * role-specific content, but let the shared grid/card contract own dimensions. */
+.xdrive-workspace-measured.xdrive-carrier-workspace .carrier-cx-dashboard-grid {
+  grid-template-columns: minmax(360px, .84fr) minmax(0, 1.16fr) !important;
+  gap: 12px !important;
+  margin-bottom: 12px !important;
+}
+
+.xdrive-workspace-measured.xdrive-carrier-workspace .carrier-cx-dashboard-column {
+  gap: 12px !important;
+}
+
+.xdrive-workspace-measured.xdrive-carrier-workspace :where(
+  .carrier-cx-reporting-card,
+  .carrier-cx-feedback-card,
+  .carrier-cx-activity-card,
+  .carrier-cx-compliance-card,
+  .carrier-cx-reporting-card .xdrive-operational-card__body--flush,
+  .carrier-cx-reporting-body,
+  .carrier-cx-reporting-body .carrier-cx-stat-grid,
+  .carrier-cx-dashboard-subgrid,
+  .carrier-cx-dashboard-subgrid > .xdrive-operational-card,
+  .carrier-cx-dashboard-subgrid > .xdrive-operational-card .xdrive-operational-card__body--flush,
+  .carrier-cx-feedback-card .xdrive-operational-card__body--flush,
+  .carrier-cx-feedback-card .carrier-cx-feedback-grid,
+  .carrier-cx-feedback-card .carrier-cx-feedback-panel,
+  .carrier-cx-activity-card .xdrive-operational-card__body--flush,
+  .carrier-cx-compliance-card .xdrive-operational-card__body--flush,
+  .carrier-cx-compliance-card .carrier-cx-compliance-body
+) {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.xdrive-workspace-measured.xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-stat-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 8px !important;
+}
+
+.xdrive-workspace-measured.xdrive-carrier-workspace .carrier-cx-reporting-body .carrier-cx-stat-card {
+  position: relative !important;
+  height: var(--ws-dashboard-stat-h) !important;
+  min-height: var(--ws-dashboard-stat-h) !important;
+  padding: 10px 12px !important;
+  align-content: space-between !important;
+  justify-items: start !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: var(--ws-dashboard-stat-bg) !important;
+  text-align: left !important;
+}
+
+.xdrive-workspace-measured.xdrive-carrier-workspace .carrier-cx-stat-card > span,
+.xdrive-workspace-measured.xdrive-carrier-workspace .carrier-cx-stat-card > em {
+  position: static !important;
+}
+
+.xdrive-workspace-measured.xdrive-carrier-workspace .carrier-cx-stat-card > small {
+  max-width: none !important;
+  text-align: left !important;
+}
+
+.xdrive-workspace-measured.xdrive-carrier-workspace .carrier-cx-dashboard-subgrid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 12px !important;
+}
+
+.xdrive-workspace-measured.xdrive-carrier-workspace .carrier-cx-activity-card .carrier-cx-booking-list {
+  max-height: none !important;
+}
+
+@media (max-width: 1100px) {
+  .xdrive-workspace-measured.xdrive-carrier-workspace .carrier-cx-dashboard-grid {
+    grid-template-columns: minmax(0, 1fr) !important;
+  }
+}
+
+
+/* CX live Diary baseline: measured from the authenticated Courier Exchange Diary reference. */
+.xdrive-workspace-measured .cx-diary-rail-nav {
+  display: grid;
+  gap: 4px;
+  margin-bottom: 5px;
+}
+
+.xdrive-workspace-measured .cx-diary-rail-nav > button {
+  min-height: 28px !important;
+  height: 28px !important;
+  border-radius: 2px !important;
+  font-size: 11px !important;
+  line-height: 26px !important;
+}
+
+.xdrive-workspace-measured .cx-diary-my-day {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 0 9px;
+  border: 1px solid #cf9e00;
+  background: linear-gradient(#ffd84c, #f4bd13);
+  color: #374151;
+  font-size: 12px !important;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.xdrive-workspace-measured .cx-diary-advanced-search > summary,
+.xdrive-workspace-measured .cx-diary-filter-rail details > summary {
+  min-height: 20px;
+  color: #1683f3;
+  font-size: 10px;
+  line-height: 20px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.xdrive-workspace-measured .cx-diary-advanced-search__body {
+  display: grid;
+  gap: 4px;
+  padding-top: 4px;
+}
+
+.xdrive-workspace-measured .cx-diary-view-options {
+  display: grid;
+  gap: 3px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.xdrive-workspace-measured .cx-diary-view-options legend {
+  margin-bottom: 2px;
+  color: #5e6874;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.xdrive-workspace-measured .cx-diary-view-options label {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 5px;
+}
+
+.xdrive-workspace-measured .cx-diary-filter-rail .workspace-filter-actions > button {
+  min-height: 27px !important;
+  height: 27px !important;
+  padding: 0 13px !important;
+  border-radius: 999px !important;
+  font-size: 11px !important;
+}
+
+.xdrive-workspace-measured .cx-diary-toolbar {
+  min-height: 34px !important;
+  height: 34px !important;
+  margin: 0 !important;
+  padding: 4px 8px !important;
+  border: 1px solid #cfd7e3 !important;
+  border-bottom: 0 !important;
+  background: linear-gradient(#fff, #f1f1f1) !important;
+}
+
+.xdrive-workspace-measured .cx-diary-toolbar__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #475569;
+  font-size: 11px;
+}
+
+.xdrive-workspace-measured .cx-diary-toolbar__title strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.xdrive-workspace-measured .cx-diary-toolbar__calendar {
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.xdrive-workspace-measured .cx-diary-state-tabs {
+  display: flex !important;
+  align-items: center !important;
+  width: 100% !important;
+  gap: 0 !important;
+  margin-bottom: 9px !important;
+  overflow: visible !important;
+  border-top: 1px solid #d7e2ee !important;
+}
+
+.xdrive-workspace-measured .cx-diary-state-tabs > button {
+  padding: 0 11px !important;
+  font-size: 10px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-workspace-measured .cx-diary-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto !important;
+  min-height: 28px;
+  padding: 0 5px;
+  color: #64748b;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .cx-diary-pagination label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px !important;
+}
+
+.xdrive-workspace-measured .cx-diary-pagination select {
+  height: 23px !important;
+  min-height: 23px !important;
+  padding: 0 22px 0 7px !important;
+  font-size: 10px !important;
+}
+
+.xdrive-workspace-measured .cx-diary-pagination > button {
+  width: 20px !important;
+  min-width: 20px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #64748b !important;
+}
+
+
+.xdrive-workspace-measured .workspace-record-list:has(> .xdrive-cx-diary-card) {
+  gap: 9px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card {
+  overflow: hidden !important;
+  border: 1px solid #b7c2ce !important;
+  border-radius: 2px !important;
+  background: #fff !important;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .16) !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="completed"] {
+  border-color: #69b73a !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="in_progress"] {
+  border-color: #e2a72d !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="awarded"],
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="allocated"] {
+  border-color: #4f9de8 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="cancelled"],
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="expired"] {
+  border-color: #aeb6c0 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__main {
+  display: grid;
+  grid-template-columns: 36% 36% 28%;
+  min-height: 128px;
+  background: #fff;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__main > section {
+  min-width: 0;
+  padding: 8px 10px;
+  border-right: 1px solid #cfd7e3;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__main > section:last-child {
+  padding: 7px 10px;
+  border-right: 0;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__route > div,
+.xdrive-workspace-measured .xdrive-cx-diary-card__times > div {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 5px;
+  margin-bottom: 5px;
+  align-items: baseline;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__route > div > span,
+.xdrive-workspace-measured .xdrive-cx-diary-card__times > div > span:first-child {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: 400;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="completed"] .xdrive-cx-diary-card__route > div > span,
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="completed"] .xdrive-cx-diary-card__times > div > span:first-child {
+  color: #4d9b2f;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__route strong {
+  color: #1f2937;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .cx-diary-datetime {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
+}
+
+.xdrive-workspace-measured .cx-diary-datetime > strong {
+  color: #1f2937;
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .cx-diary-datetime > span {
+  color: #64748b;
+  font-size: 10px;
+  line-height: 15px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__band {
+  min-height: 21px;
+  margin: -1px -1px 6px;
+  padding: 2px 8px;
+  background: #b8d9f5;
+  color: #111827;
+  text-align: center;
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="completed"] .xdrive-cx-diary-card__band {
+  background: #79b85b;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="cancelled"] .xdrive-cx-diary-card__band,
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="expired"] .xdrive-cx-diary-card__band {
+  background: #b8b8b8;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card[data-stage="in_progress"] .xdrive-cx-diary-card__band {
+  background: #f4cf74;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__status-line {
+  color: #1f2937;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__status-line strong {
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__status-stamp {
+  margin-top: 1px;
+  color: #475569;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__status-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 8px;
+  margin-top: 3px;
+  color: #374151;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin-left: auto;
+  margin-right: 16px;
+  min-width: 48px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle > strong {
+  font-size: 10px;
+  line-height: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle-image {
+  display: block;
+  width: 46px;
+  height: 20px;
+  object-fit: contain;
+  object-position: center;
+  flex: 0 0 auto;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle-icon {
+  width: 40px;
+  height: 18px;
+  flex: 0 0 auto;
+  background: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 82 34'%3E%3Cpath fill='%23111111' d='M3 9h47.5c3.4 0 6.2 1 8.5 3.1L68 20h8.5c1.4 0 2.5 1.1 2.5 2.5V27H68a7.8 7.8 0 0 0-15.2 0H28.2a7.8 7.8 0 0 0-15.2 0H3V9Z'/%3E%3Cpath fill='%23ffffff' d='M55 12.2h4.6L67 19h-12Z'/%3E%3Ccircle cx='20.6' cy='27' r='5.2' fill='%23111111'/%3E%3Ccircle cx='60.4' cy='27' r='5.2' fill='%23111111'/%3E%3C/svg%3E");
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle-icon::before,
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle-icon::after {
+  content: none;
+}
+
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__footer {
+  display: flex;
+  align-items: stretch;
+  min-height: 23px;
+  border-top: 1px solid #cfd7e3;
+  background: #f2f2f2;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__footer > button {
+  min-height: 22px !important;
+  height: 22px !important;
+  padding: 0 10px !important;
+  border: 0 !important;
+  border-right: 1px solid #bfc6ce !important;
+  border-radius: 0 !important;
+  background: linear-gradient(#fff, #efefef) !important;
+  color: #374151 !important;
+  font-size: 11px !important;
+  line-height: 22px !important;
+  font-weight: 500 !important;
+  box-shadow: none !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__footer > .xdrive-cx-diary-card__expander {
+  width: 22px !important;
+  min-width: 22px !important;
+  padding: 0 !important;
+  color: #111827 !important;
+  font-size: 9px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__footer > .xdrive-cx-diary-card__feedback {
+  min-width: 112px !important;
+  background: #71b92d !important;
+  color: #fff !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0;
+  padding: 6px 10px;
+  border-top: 1px solid #d7dce2;
+  background: #f8f8f8;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta > div {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  min-width: 0;
+  min-height: 18px;
+  color: #475569;
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta span {
+  color: #52719a;
+  font-size: 10px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta strong {
+  color: #374151;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta a {
+  color: #1683f3;
+  font-size: 10px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-wide {
+  grid-column: 1 / -1;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__timeline-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-top: 1px solid #d7dce2;
+  background: #fff;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__timeline-meta strong {
+  color: #374151;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__secondary-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-height: 31px;
+  padding: 3px 7px;
+  border-top: 1px solid #d7dce2;
+  background: #fbfdff;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__secondary-actions > button,
+.xdrive-workspace-measured .xdrive-cx-diary-card__secondary-actions select {
+  min-height: 24px !important;
+  height: 24px !important;
+  font-size: 10px !important;
+  line-height: 22px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__allocate {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+@media (max-width: 1100px) {
+  .xdrive-workspace-measured .xdrive-cx-diary-card__main {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .xdrive-workspace-measured .xdrive-cx-diary-card__status {
+    grid-column: 1 / -1;
+    border-top: 1px solid #cfd7e3;
+  }
+
+  .xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .xdrive-workspace-measured .xdrive-cx-diary-card__main {
+    grid-template-columns: 1fr;
+  }
+
+  .xdrive-workspace-measured .xdrive-cx-diary-card__main > section {
+    border-right: 0;
+    border-bottom: 1px solid #cfd7e3;
+  }
+
+  .xdrive-workspace-measured .xdrive-cx-diary-card__main > section:last-child {
+    border-bottom: 0;
+  }
+
+  .xdrive-workspace-measured .xdrive-cx-diary-card__footer {
+    flex-wrap: wrap;
+  }
+
+  .xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .xdrive-workspace-measured .xdrive-cx-diary-card__expanded-wide {
+    grid-column: auto;
+  }
+}
+
+
+.xdrive-workspace-measured .cx-diary-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 10px;
+  color: #374151;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.xdrive-workspace-measured .cx-diary-view-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.xdrive-workspace-measured .cx-diary-view-toggle input {
+  margin: 0;
+}
+
+.xdrive-workspace-measured .cx-diary-groups-box {
+  border: 1px solid #b8d9f5;
+  background: #fff;
+}
+
+.xdrive-workspace-measured .cx-diary-groups-box__title {
+  min-height: 21px;
+  padding: 2px 8px;
+  background: #e5f2ff;
+  color: #334155;
+  font-size: 10px;
+  line-height: 17px;
+  font-weight: 500;
+}
+
+.xdrive-workspace-measured .cx-diary-groups-box__body {
+  display: grid;
+  gap: 5px;
+  padding: 6px 8px;
+  text-align: center;
+}
+
+.xdrive-workspace-measured .cx-diary-groups-box__body select {
+  width: 100%;
+}
+
+.xdrive-workspace-measured .cx-diary-groups-box__body > button {
+  min-height: 0 !important;
+  height: auto !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #1683f3 !important;
+  font-size: 10px !important;
+  line-height: 16px !important;
+  text-decoration: underline !important;
+  box-shadow: none !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__main {
+  min-height: 90px;
+}
+
+.xdrive-workspace-measured .cx-diary-toolbar {
+  min-height: 32px !important;
+  height: 32px !important;
+}
+
+
+/* CX live Loads parity. */
+.xdrive-workspace-measured .cx-loads-toolbar {
+  min-height: 32px !important;
+  height: 32px !important;
+  margin: 0 !important;
+  padding: 4px 8px !important;
+  border: 1px solid #cfd7e3 !important;
+  border-bottom: 0 !important;
+  background: linear-gradient(#fff, #f1f1f1) !important;
+}
+
+.xdrive-workspace-measured .cx-loads-toolbar__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: #475569;
+  font-size: 11px;
+}
+
+.xdrive-workspace-measured .cx-loads-toolbar__title strong {
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.xdrive-workspace-measured .cx-loads-toolbar__calendar {
+  color: #4b5563;
+  font-size: 13px;
+}
+
+.xdrive-workspace-measured .cx-loads-view-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: 3px;
+  color: #374151;
+  font-size: 10px;
+  font-weight: 400;
+}
+
+.xdrive-workspace-measured .cx-loads-view-toggle label {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.xdrive-workspace-measured .cx-loads-view-toggle input {
+  margin: 0;
+}
+
+.xdrive-workspace-measured .workspace-list-controls.cx-loads-toolbar .cx-expand-entries-control {
+  height: auto !important;
+  min-height: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: #1683f3 !important;
+  font-size: 10px !important;
+  line-height: 16px !important;
+  font-weight: 600 !important;
+  text-decoration: underline !important;
+  box-shadow: none !important;
+}
+
+.xdrive-workspace-measured .cx-loads-secondary-tabs {
+  display: flex !important;
+  align-items: center !important;
+  gap: 0 !important;
+  min-height: 28px !important;
+  margin-bottom: 9px !important;
+  overflow: visible !important;
+}
+
+.xdrive-workspace-measured .cx-loads-secondary-tabs > .carrier-exchange-tab {
+  min-height: 28px !important;
+  height: 28px !important;
+  padding: 0 11px !important;
+  font-size: 10px !important;
+  line-height: 28px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-workspace-measured .cx-loads-quick-search {
+  width: 112px;
+  height: 23px;
+  min-height: 23px;
+  margin-left: 5px;
+  padding: 0 18px 0 5px;
+  border: 1px solid #bfc8d2;
+  border-radius: 3px;
+  background: #fff;
+  color: #374151;
+  font-size: 10px;
+}
+
+.xdrive-workspace-measured .cx-loads-posted-within {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: 5px;
+  color: #475569;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .cx-loads-posted-within select {
+  width: 58px;
+  height: 23px;
+  min-height: 23px;
+  padding: 0 17px 0 5px;
+  border: 1px solid #bfc8d2;
+  border-radius: 3px;
+  background: #fff;
+  font-size: 10px;
+}
+
+.xdrive-workspace-measured .cx-loads-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  padding: 0 4px;
+  color: #64748b;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .cx-loads-pagination label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.xdrive-workspace-measured .cx-loads-pagination select {
+  width: 50px;
+  height: 23px;
+  min-height: 23px;
+  padding: 0 16px 0 5px;
+  font-size: 10px;
+}
+
+.xdrive-workspace-measured .cx-loads-pagination > button {
+  width: 20px !important;
+  min-width: 20px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: #64748b !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-list {
+  display: grid;
+  gap: 9px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card {
+  overflow: hidden;
+  border: 1px solid #1683f3 !important;
+  border-radius: 2px !important;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, .15);
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__main {
+  display: grid;
+  grid-template-columns: 36.5% 36.5% 27%;
+  min-height: 82px;
+  background: #fff;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__main > section {
+  min-width: 0;
+  padding: 6px 9px;
+  border-right: 1px solid #cfd7e3;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__main > section:last-child {
+  border-right: 0;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__route > div,
+.xdrive-workspace-measured .xdrive-cx-load-card__times > div:not(.xdrive-cx-load-card__freight) {
+  display: grid;
+  grid-template-columns: 43px minmax(0, 1fr);
+  gap: 5px;
+  align-items: baseline;
+  margin-bottom: 3px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__route span,
+.xdrive-workspace-measured .xdrive-cx-load-card__times > div > span:first-child {
+  color: #64748b;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__route strong,
+.xdrive-workspace-measured .cx-load-datetime > strong {
+  color: #111827 !important;
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured .cx-load-datetime {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 0;
+}
+
+.xdrive-workspace-measured .cx-load-datetime > span {
+  color: #64748b !important;
+  font-size: 10px !important;
+  line-height: 15px !important;
+  font-weight: 400 !important;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__direct {
+  display: inline-block;
+  margin-top: 4px;
+  color: #b45309 !important;
+  font-size: 10px !important;
+  font-weight: 600;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__band {
+  min-height: 21px;
+  margin: -1px -1px 5px;
+  padding: 2px 8px;
+  background: #b8d9f5;
+  color: #111827;
+  text-align: center;
+  font-size: 12px;
+  line-height: 17px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__posted {
+  color: #374151;
+  font-size: 11px;
+  line-height: 14px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__posted strong {
+  font-size: 12px !important;
+  line-height: 15px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__posted-at {
+  margin-top: 1px;
+  color: #64748b;
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__status-meta {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 2px;
+  color: #374151;
+  font-size: 10px;
+  line-height: 13px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__vehicle {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  margin-left: auto;
+  margin-right: 16px;
+  min-width: 48px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__vehicle strong {
+  font-size: 10px !important;
+  line-height: 11px !important;
+  font-weight: 700 !important;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__vehicle-image {
+  display: block;
+  width: 46px;
+  height: 20px;
+  object-fit: contain;
+  object-position: center;
+  flex: 0 0 auto;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__freight {
+  margin-top: 42px;
+  padding-top: 5px;
+  border-top: 1px solid #d7dce2;
+  color: #475569;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__freight > div {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  gap: 5px;
+  align-items: baseline;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__commercial > div {
+  display: grid;
+  grid-template-columns: 86px minmax(0, 1fr);
+  gap: 5px;
+  align-items: baseline;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__freight span,
+.xdrive-workspace-measured .xdrive-cx-load-card__commercial span {
+  color: #52719a;
+  font-size: 11px;
+  line-height: 15px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__freight strong,
+.xdrive-workspace-measured .xdrive-cx-load-card__commercial strong {
+  color: #374151 !important;
+  font-size: 11px !important;
+  line-height: 15px !important;
+  font-weight: 500 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__commercial {
+  margin-top: 5px;
+  padding-top: 4px;
+  border-top: 1px solid #d7dce2;
+  color: #475569;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__notes {
+  min-height: 30px;
+  padding: 6px 9px;
+  border-top: 1px solid #d7dce2;
+  background: #fff;
+  color: #475569;
+  font-size: 10px;
+  line-height: 15px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__notes span {
+  margin-right: 5px;
+  color: #52719a;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__notes strong {
+  font-size: 10px !important;
+  font-weight: 500 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__secondary-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  min-height: 23px;
+  padding: 2px 7px;
+  border-top: 1px solid #e2e8f0;
+  background: #fbfdff;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__secondary-actions a,
+.xdrive-workspace-measured .xdrive-cx-load-card__secondary-actions button {
+  color: #0f4fc4 !important;
+  font-size: 10px !important;
+  line-height: 16px !important;
+  font-weight: 600 !important;
+  text-decoration: underline !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-footer {
+  display: flex;
+  align-items: center;
+  min-height: 23px !important;
+  height: 23px;
+  padding: 0 !important;
+  border-top: 1px solid #d7dce2 !important;
+  background: #f2f2f2 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-footer > button.xdrive-cx-load-footer__expander {
+  width: 22px !important;
+  min-width: 22px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 !important;
+  border: 0 !important;
+  border-right: 1px solid #bfc6ce !important;
+  border-radius: 0 !important;
+  background: linear-gradient(#fff, #ececec) !important;
+  color: #111827 !important;
+  font-size: 9px !important;
+  line-height: 22px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-footer > button.xdrive-cx-load-footer__quote {
+  min-width: 110px !important;
+  height: 22px !important;
+  min-height: 22px !important;
+  padding: 0 14px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: #69b82c !important;
+  color: #fff !important;
+  font-size: 11px !important;
+  line-height: 22px !important;
+  font-weight: 800 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-footer__member {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: auto;
+  min-width: 0;
+  padding-right: 6px;
+  overflow: hidden;
+  color: #475569;
+  font-size: 10px;
+  line-height: 15px;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-footer__member .xdrive-inline-link,
+.xdrive-workspace-measured .xdrive-cx-load-footer__member a {
+  color: #0f4fc4 !important;
+  font-size: 10px !important;
+  line-height: 15px !important;
+  font-weight: 600 !important;
+  text-decoration: underline !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-footer__company {
+  color: #374151 !important;
+  font-weight: 700 !important;
+}
+
+@media (max-width: 1100px) {
+  .xdrive-workspace-measured .xdrive-cx-load-card__main {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .xdrive-workspace-measured .xdrive-cx-load-card__status {
+    grid-column: 1 / -1;
+    border-top: 1px solid #cfd7e3;
+  }
+}
+
+@media (max-width: 720px) {
+  .xdrive-workspace-measured .xdrive-cx-load-card__main {
+    grid-template-columns: 1fr;
+  }
+
+  .xdrive-workspace-measured .xdrive-cx-load-card__main > section {
+    border-right: 0;
+    border-bottom: 1px solid #cfd7e3;
+  }
+
+  .xdrive-workspace-measured .xdrive-cx-load-card__main > section:last-child {
+    border-bottom: 0;
+  }
+
+  .xdrive-workspace-measured .cx-loads-secondary-tabs {
+    overflow-x: auto !important;
+  }
+
+  .xdrive-workspace-measured .cx-loads-pagination {
+    margin-left: 0;
+  }
+}
+
+
+.xdrive-workspace-measured .cx-loads-beta-label {
+  color: #e11d48;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-list {
+  gap: 8px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__main > section {
+  padding-top: 4px;
+  padding-bottom: 4px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__band {
+  min-height: 19px;
+  margin-bottom: 4px;
+  padding-top: 1px;
+  padding-bottom: 1px;
+  line-height: 17px;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__posted-at {
+  line-height: 12px;
+}
+
+
+/* Quote Now — professional CX-inspired commercial quote sheet */
+.xdrive-workspace-measured .xdrive-quote-modal {
+  margin: -10px -10px 0;
+  color: #172033;
+  background: #fff;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__close {
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #7c858f;
+  color: #fff;
+  font-size: 18px;
+  line-height: 1;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__close:disabled {
+  opacity: .55;
+  cursor: not-allowed;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__member {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr) 94px;
+  gap: 10px;
+  align-items: center;
+  min-height: 94px;
+  padding: 11px 12px;
+  border-bottom: 1px solid #d7dce2;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__mark {
+  width: 54px;
+  height: 54px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #d7dce2;
+  border-radius: 50%;
+  background: #fff;
+  color: #172033;
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__member-copy {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__member-copy > strong {
+  overflow: hidden;
+  color: #2f3742;
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__member-copy > span {
+  color: #737b86;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__member-copy b {
+  color: #4b5563;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__requested-vehicle {
+  justify-self: end;
+  width: 90px;
+  height: 48px;
+  object-fit: contain;
+  object-position: center;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__route {
+  border-bottom: 1px solid #d7dce2;
+  background: #fff;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__route > div {
+  display: grid;
+  grid-template-columns: 50px minmax(0, 1fr) 118px;
+  gap: 6px;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 12px;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__route > div + div {
+  border-top: 1px solid #edf0f4;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__route span {
+  color: #5f6874;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__route strong {
+  min-width: 0;
+  overflow: hidden;
+  color: #374151;
+  font-size: 11px;
+  line-height: 15px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__route time {
+  color: #8a929c;
+  font-size: 10px;
+  line-height: 14px;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__error {
+  padding: 8px 12px 0;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__form {
+  display: grid;
+  gap: 0;
+  background: #fff;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__field-row {
+  display: grid;
+  grid-template-columns: 122px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 54px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #e3e7ec;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__field-row > label {
+  color: #626b76;
+  font-size: 11px;
+  line-height: 14px;
+  font-weight: 500;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__field-row sup {
+  color: #e3342f;
+  font-size: 12px;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__field-row label small {
+  display: block;
+  color: #626b76;
+  font-size: 10px;
+  line-height: 13px;
+  font-weight: 500;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__field-row select,
+.xdrive-workspace-measured .xdrive-quote-modal__field-row input,
+.xdrive-workspace-measured .xdrive-quote-modal__extra-row select,
+.xdrive-workspace-measured .xdrive-quote-modal__extra-row input {
+  height: 30px;
+  min-height: 30px;
+  border: 1px solid #bfc6cf;
+  border-radius: 4px;
+  background: #fff;
+  color: #253041;
+  font-size: 11px;
+  outline: none;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__field-row select:focus,
+.xdrive-workspace-measured .xdrive-quote-modal__field-row input:focus,
+.xdrive-workspace-measured .xdrive-quote-modal__extra-row select:focus,
+.xdrive-workspace-measured .xdrive-quote-modal__extra-row input:focus,
+.xdrive-workspace-measured .xdrive-quote-modal__notes textarea:focus {
+  border-color: #1683f3;
+  box-shadow: 0 0 0 2px rgba(22, 131, 243, .12);
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__vehicle-select {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 60px;
+  gap: 7px;
+  align-items: center;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__vehicle-select select {
+  width: 100%;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__vehicle-select img {
+  width: 58px;
+  height: 32px;
+  object-fit: contain;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__currency {
+  width: 132px;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__price-row {
+  grid-template-columns: 122px minmax(0, 1fr) auto;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__money {
+  display: grid;
+  grid-template-columns: 24px minmax(0, 1fr);
+  align-items: center;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__money > span {
+  color: #4b5563;
+  font-size: 18px;
+  text-align: center;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__money > input {
+  width: 100%;
+  padding: 0 7px;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__extras-trigger {
+  height: 25px;
+  min-height: 25px;
+  padding: 0 10px;
+  border: 1px solid #c7ced7;
+  border-radius: 14px;
+  background: #fff;
+  color: #1683f3;
+  font-size: 10px;
+  line-height: 23px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__extras-trigger b {
+  font-size: 17px;
+  font-weight: 500;
+  vertical-align: -1px;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__extras {
+  display: grid;
+  gap: 5px;
+  padding: 7px 12px 7px 144px;
+  border-bottom: 1px solid #e3e7ec;
+  background: #fbfdff;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__extra-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 104px 24px;
+  gap: 6px;
+  align-items: center;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__extra-row select {
+  width: 100%;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__money--small {
+  grid-template-columns: 20px minmax(0, 1fr);
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__money--small > span {
+  font-size: 13px;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__extra-remove {
+  width: 22px;
+  height: 22px;
+  border: 0;
+  border-radius: 50%;
+  background: #7d858f;
+  color: #fff;
+  font-size: 14px;
+  line-height: 22px;
+  cursor: pointer;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__total {
+  display: grid;
+  grid-template-columns: auto auto;
+  justify-content: center;
+  align-items: baseline;
+  column-gap: 8px;
+  min-height: 94px;
+  padding: 18px 12px 12px;
+  border-bottom: 1px solid #e3e7ec;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(22,131,243,.055), transparent 60%),
+    #fff;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__total > span {
+  color: #777f88;
+  font-size: 27px;
+  line-height: 34px;
+  font-weight: 400;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__total > strong {
+  color: #434a53 !important;
+  font-size: 38px !important;
+  line-height: 42px !important;
+  font-weight: 800 !important;
+  letter-spacing: -.6px;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__total > small {
+  grid-column: 1 / -1;
+  justify-self: center;
+  margin-top: 3px;
+  color: #8a929c;
+  font-size: 10px;
+  line-height: 14px;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__notes {
+  display: grid;
+  gap: 6px;
+  padding: 10px 12px 12px;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__notes > span {
+  color: #626b76;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal__notes textarea {
+  width: 100%;
+  min-height: 88px;
+  padding: 8px;
+  border: 1px solid #c7ced7;
+  border-radius: 4px;
+  background: #fff;
+  color: #253041;
+  font: inherit;
+  font-size: 11px;
+  line-height: 16px;
+  resize: vertical;
+  outline: none;
+}
+
+@media (max-width: 640px) {
+  .xdrive-workspace-measured .xdrive-quote-modal__member {
+    grid-template-columns: 50px minmax(0, 1fr) 70px;
+  }
+
+  .xdrive-workspace-measured .xdrive-quote-modal__requested-vehicle {
+    width: 68px;
+  }
+
+  .xdrive-workspace-measured .xdrive-quote-modal__route > div {
+    grid-template-columns: 42px minmax(0, 1fr);
+  }
+
+  .xdrive-workspace-measured .xdrive-quote-modal__route time {
+    grid-column: 2;
+    text-align: left;
+  }
+
+  .xdrive-workspace-measured .xdrive-quote-modal__field-row,
+  .xdrive-workspace-measured .xdrive-quote-modal__price-row {
+    grid-template-columns: 1fr;
+    gap: 5px;
+  }
+
+  .xdrive-workspace-measured .xdrive-quote-modal__extras {
+    padding-left: 12px;
+  }
+}
+
+.xdrive-workspace-measured .xdrive-quote-modal { overflow-x: hidden; }
+
+
+/* Loads readability pass — preserve CX density, remove eye-strain. */
+.xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail {
+  flex-basis: 178px !important;
+  width: 178px !important;
+}
+
+.xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail label,
+.xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail fieldset,
+.xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail legend,
+.xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail div[role="group"] {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail select {
+  min-height: 27px !important;
+  height: 27px !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .cx-loads-toolbar__title,
+.xdrive-workspace-measured .cx-loads-toolbar__title strong {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .cx-loads-view-toggle,
+.xdrive-workspace-measured .cx-loads-posted-within,
+.xdrive-workspace-measured .cx-loads-pagination {
+  font-size: 11px !important;
+  line-height: 15px !important;
+}
+
+.xdrive-workspace-measured .cx-loads-secondary-tabs > .carrier-exchange-tab {
+  font-size: 11px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-workspace-measured .cx-loads-quick-search,
+.xdrive-workspace-measured .cx-loads-posted-within select,
+.xdrive-workspace-measured .cx-loads-pagination select {
+  font-size: 11px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__route span,
+.xdrive-workspace-measured .xdrive-cx-load-card__times > div > span:first-child {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__route strong,
+.xdrive-workspace-measured .cx-load-datetime > strong {
+  font-size: 14px !important;
+  line-height: 18px !important;
+  font-weight: 750 !important;
+}
+
+.xdrive-workspace-measured .cx-load-datetime > span {
+  font-size: 11px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__band {
+  min-height: 22px !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 750 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__posted {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__posted strong {
+  font-size: 13px !important;
+  line-height: 17px !important;
+  font-weight: 750 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__posted-at,
+.xdrive-workspace-measured .xdrive-cx-load-card__status-meta {
+  font-size: 11px !important;
+  line-height: 15px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__vehicle strong {
+  font-size: 11px !important;
+  line-height: 13px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__freight {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__freight > div {
+  grid-template-columns: 74px minmax(0, 1fr) !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__commercial > div {
+  grid-template-columns: 94px minmax(0, 1fr) !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__freight span,
+.xdrive-workspace-measured .xdrive-cx-load-card__commercial span,
+.xdrive-workspace-measured .xdrive-cx-load-card__freight strong,
+.xdrive-workspace-measured .xdrive-cx-load-card__commercial strong {
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-card__notes,
+.xdrive-workspace-measured .xdrive-cx-load-card__notes strong {
+  font-size: 11px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-footer > button.xdrive-cx-load-footer__quote {
+  font-size: 12px !important;
+  line-height: 22px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-load-footer__member,
+.xdrive-workspace-measured .xdrive-cx-load-footer__member .xdrive-inline-link,
+.xdrive-workspace-measured .xdrive-cx-load-footer__member a {
+  font-size: 11px !important;
+  line-height: 15px !important;
+}
+
+
+/* Diary readability pass — measured against CX live at the same 1920x1080 viewport. */
+.xdrive-workspace-measured .cx-diary-filter-rail {
+  --cx-diary-text: 12px;
+  --cx-diary-meta: 11px;
+}
+
+.xdrive-workspace-measured .cx-diary-filter-rail .workspace-filter-rail__header {
+  min-height: 34px !important;
+  padding: 0 10px !important;
+  font-size: 14px !important;
+  line-height: 34px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured .cx-diary-filter-rail .workspace-filter-rail__body {
+  gap: 6px !important;
+  padding: 9px !important;
+}
+
+.xdrive-workspace-measured .cx-diary-filter-rail :where(label, legend) {
+  color: #3f4a57 !important;
+  font-size: var(--cx-diary-text) !important;
+  line-height: 16px !important;
+  font-weight: 500 !important;
+}
+
+.xdrive-workspace-measured .cx-diary-filter-rail :where(input:not([type="radio"]):not([type="checkbox"]), select) {
+  min-height: 30px !important;
+  height: 30px !important;
+  padding: 0 8px !important;
+  color: #202936 !important;
+  font-size: 12px !important;
+  line-height: 28px !important;
+  font-weight: 500 !important;
+}
+
+.xdrive-workspace-measured .cx-diary-filter-rail :where(input[type="radio"], input[type="checkbox"]) {
+  width: 15px !important;
+  height: 15px !important;
+  min-width: 15px !important;
+  min-height: 15px !important;
+}
+
+.xdrive-workspace-measured .cx-diary-rail-nav > button {
+  min-height: 31px !important;
+  height: 31px !important;
+  font-size: 12px !important;
+  line-height: 29px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured .cx-diary-filter-rail details > summary,
+.xdrive-workspace-measured .cx-diary-advanced-search > summary,
+.xdrive-workspace-measured .cx-diary-groups-box__title {
+  font-size: 11.5px !important;
+  line-height: 20px !important;
+}
+
+.xdrive-workspace-measured .cx-diary-groups-box__body > button,
+.xdrive-workspace-measured .cx-diary-filter-rail .workspace-filter-actions > button {
+  font-size: 12px !important;
+}
+
+.xdrive-workspace-measured .cx-diary-toolbar {
+  min-height: 36px !important;
+  height: 36px !important;
+  padding: 4px 9px !important;
+}
+
+.xdrive-workspace-measured .cx-diary-toolbar__title,
+.xdrive-workspace-measured .cx-diary-toolbar__title strong,
+.xdrive-workspace-measured .cx-diary-view-toggle {
+  font-size: 12px !important;
+  line-height: 18px !important;
+}
+
+.xdrive-workspace-measured .cx-diary-toolbar__calendar {
+  font-size: 14px !important;
+}
+
+.xdrive-workspace-measured .cx-diary-state-tabs > button {
+  min-height: 30px !important;
+  height: 30px !important;
+  padding: 0 12px !important;
+  font-size: 11.5px !important;
+  line-height: 30px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-workspace-measured .cx-diary-pagination,
+.xdrive-workspace-measured .cx-diary-pagination label,
+.xdrive-workspace-measured .cx-diary-pagination select {
+  font-size: 11px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__main {
+  min-height: 102px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__main > section {
+  padding: 8px 11px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__route > div,
+.xdrive-workspace-measured .xdrive-cx-diary-card__times > div {
+  grid-template-columns: 54px minmax(0, 1fr) !important;
+  gap: 6px !important;
+  margin-bottom: 6px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__route > div > span,
+.xdrive-workspace-measured .xdrive-cx-diary-card__times > div > span:first-child {
+  font-size: 12px !important;
+  line-height: 17px !important;
+  font-weight: 500 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__route strong,
+.xdrive-workspace-measured .cx-diary-datetime > strong {
+  color: #141a22 !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
+  font-weight: 750 !important;
+}
+
+.xdrive-workspace-measured .cx-diary-datetime > span {
+  font-size: 11px !important;
+  line-height: 17px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__band {
+  min-height: 24px !important;
+  padding: 2px 8px !important;
+  font-size: 13px !important;
+  line-height: 20px !important;
+  font-weight: 750 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__status-line,
+.xdrive-workspace-measured .xdrive-cx-diary-card__status-line strong {
+  font-size: 12.5px !important;
+  line-height: 17px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__status-stamp {
+  font-size: 11px !important;
+  line-height: 15px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__status-meta {
+  margin-top: 5px !important;
+  font-size: 11.5px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle {
+  margin-right: 16px !important;
+  min-width: 48px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle > strong {
+  font-size: 10px !important;
+  line-height: 11px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle-image {
+  display: block !important;
+  width: 46px !important;
+  height: 20px !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  flex: 0 0 auto !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__footer {
+  min-height: 26px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__footer > button {
+  min-height: 25px !important;
+  height: 25px !important;
+  padding: 0 11px !important;
+  font-size: 12px !important;
+  line-height: 25px !important;
+  font-weight: 550 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__footer > .xdrive-cx-diary-card__expander {
+  width: 25px !important;
+  min-width: 25px !important;
+  font-size: 10px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__footer > .xdrive-cx-diary-card__feedback {
+  min-width: 124px !important;
+  font-size: 12px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta {
+  padding: 8px 11px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta > div {
+  min-height: 20px !important;
+  gap: 6px !important;
+  font-size: 11.5px !important;
+  line-height: 17px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta span,
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta strong,
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta a {
+  font-size: 11.5px !important;
+  line-height: 17px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__timeline-meta {
+  gap: 12px !important;
+  min-height: 34px !important;
+  padding: 7px 11px !important;
+  font-size: 11.5px !important;
+  line-height: 17px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__timeline-meta strong {
+  font-size: 11.5px !important;
+  line-height: 17px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__secondary-actions {
+  min-height: 36px !important;
+  padding: 5px 8px !important;
+  gap: 5px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__secondary-actions > button,
+.xdrive-workspace-measured .xdrive-cx-diary-card__secondary-actions select {
+  min-height: 27px !important;
+  height: 27px !important;
+  font-size: 11.5px !important;
+  line-height: 25px !important;
+}
+
+
+/* Keep Diary vehicle presentation identical to the approved Loads vehicle treatment. */
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle {
+  display: inline-flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  gap: 1px !important;
+  margin-left: auto !important;
+  margin-right: 16px !important;
+  min-width: 48px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle strong {
+  font-size: 11px !important;
+  line-height: 13px !important;
+  font-weight: 700 !important;
+  white-space: nowrap !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle-image {
+  display: block !important;
+  width: 46px !important;
+  height: 20px !important;
+  object-fit: contain !important;
+  object-position: center !important;
+  flex: 0 0 auto !important;
 }

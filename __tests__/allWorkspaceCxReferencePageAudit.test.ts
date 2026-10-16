@@ -23,7 +23,7 @@ const workspacePages = [
 ].sort();
 const driverPages = pageFiles('app/driver').sort();
 
-describe('all operational workspace pages follow the Owner Driver reference contract', () => {
+describe('all operational workspace pages follow the Courier Exchange live reference contract', () => {
   it('audits every current Admin, Broker and Customer route page', () => {
     expect(workspacePages).toHaveLength(127);
     for (const file of workspacePages) {
@@ -39,7 +39,7 @@ describe('all operational workspace pages follow the Owner Driver reference cont
   });
 
   it('audits every current Driver route page against the approved shared/prototype families', () => {
-    expect(driverPages).toHaveLength(40);
+    expect(driverPages).toHaveLength(41);
     for (const file of driverPages) {
       const source = read(file);
       const lines = source.split(/\r?\n/).length;
@@ -113,6 +113,47 @@ describe('all operational workspace pages follow the Owner Driver reference cont
     expect(carrierCss).toContain('.xdrive-carrier-workspace .carrier-invoice-create-panel {');
     expect(carrierCss).toContain('.xdrive-carrier-workspace .carrier-invoice-create-fields {');
     expect(carrierCss).toContain('border-radius: var(--ws-radius) !important;');
+  });
+
+  it('locks all seven operational dashboards to the same measured Courier Exchange live two-column geometry', () => {
+    const dashboards = [
+      'app/components/workspace/CarrierOperationsDashboardHome.tsx',
+      'app/components/workspace/FleetControlDashboardHome.tsx',
+      'app/broker/BrokerDashboardHome.tsx',
+      'app/customer/CustomerDashboardHome.tsx',
+    ];
+    for (const file of dashboards) {
+      const source = read(file);
+      expect(source, file).toContain('xdrive-owner-dashboard-grid');
+    }
+
+    for (const file of [
+      'app/components/workspace/CarrierOperationsDashboardHome.tsx',
+      'app/components/workspace/FleetControlDashboardHome.tsx',
+      'app/customer/CustomerDashboardHome.tsx',
+    ]) {
+      const source = read(file);
+      expect(source, file).toContain('xdrive-owner-dashboard-column');
+    }
+
+    const dispatcher = read('app/components/workspace/DispatcherControlDashboardHome.tsx');
+    const convergence = read('app/components/workspace/OperationalConvergence.tsx');
+    expect(dispatcher).toContain('<OperationalWorkspaceGrid');
+    expect(convergence).toContain('xdrive-owner-dashboard-grid');
+    expect(convergence).toContain('xdrive-owner-dashboard-column');
+
+    const brokerCss = read('app/broker/broker-dashboard-convergence.css');
+    expect(brokerCss).toContain('.broker-owner-activity');
+    expect(brokerCss).toContain('grid-column: 2');
+
+    const driver = read('app/driver/page.tsx');
+    expect(driver).toContain('driver-owner-parity-grid xdrive-owner-dashboard-grid');
+    expect(driver).toContain('driver-current-assignment-card');
+    expect(driver).toContain('driver-next-booking-card');
+
+    const baseline = read('app/components/workspace/workspace-measured-cx-baseline.css');
+    expect(baseline).toContain('7-WORKSPACE DASHBOARD HARD LOCK');
+    expect(baseline).toContain('grid-template-columns: minmax(360px, .84fr) minmax(0, 1.16fr) !important');
   });
 
   it('keeps Super Admin on its separate shell and outside the operational measured wrapper', () => {

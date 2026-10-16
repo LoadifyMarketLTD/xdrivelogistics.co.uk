@@ -126,6 +126,7 @@ export default function FreightVisionPage() {
   const targetJobId = searchParams.get('jobId');
   const [pickupFilter, setPickupFilter] = useState('');
   const [deliveryFilter, setDeliveryFilter] = useState('');
+  const [view, setView] = useState<'all_in_progress' | 'live_tracked'>('all_in_progress');
   const [stateFilter, setStateFilter] = useState<'all' | TrackingState>('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
@@ -170,11 +171,12 @@ export default function FreightVisionPage() {
       const status = String(job.current_status ?? job.status ?? '').toLowerCase();
       if (pickupNeedle && !pickup.includes(pickupNeedle)) return false;
       if (deliveryNeedle && !delivery.includes(deliveryNeedle)) return false;
+      if (view === 'live_tracked' && state === 'not_tracking') return false;
       if (stateFilter !== 'all' && state !== stateFilter) return false;
       if (statusFilter !== 'all' && status !== statusFilter) return false;
       return true;
     });
-  }, [deliveryFilter, pickupFilter, rows, stateFilter, statusFilter]);
+  }, [deliveryFilter, pickupFilter, rows, stateFilter, statusFilter, view]);
 
   const points = useMemo<FleetMapPoint[]>(() => filtered.flatMap(({ job, driver, location, state }) => {
     if (!driver || !location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) return [];
@@ -219,7 +221,6 @@ export default function FreightVisionPage() {
         eyebrow="Operations tracking"
         title="Freight Vision"
         description="Active jobs, live driver positions, planned targets, tracking freshness and exception signals in one operational control desk. Behind ETA is a schedule-risk rule, not traffic-predicted ETA."
-        actions={<ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>}
         meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Operational data'} · Visible-only background refresh</span>}
       />
 
@@ -227,18 +228,30 @@ export default function FreightVisionPage() {
       {intelligence.error && <AlertBanner tone="warning">{intelligence.error}</AlertBanner>}
       {intelligence.partial && <AlertBanner tone="warning">Some timeline or contact intelligence is temporarily unavailable. Core jobs and live tracking remain visible.</AlertBanner>}
 
-      <OperationalSignalStrip items={trackingSignals} ariaLabel="Freight Vision operational states" />
+      <div className="workspace-board-layout">
+        <aside className="workspace-filter-rail" aria-label="Freight Vision search panel">
+          <div className="workspace-filter-rail__header">Search Panel</div>
+          <div className="workspace-filter-rail__body">
+            <label>LOAD ID / REF<input value={targetJobId ?? ''} readOnly placeholder="Job reference" /></label>
+            <label>PICKUP<input value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Town / postcode" /></label>
+            <label>DELIVERY<input value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Town / postcode" /></label>
+            <label>ETA / TRACKING<select value={stateFilter} onChange={(event) => setStateFilter(event.target.value as 'all' | TrackingState)}><option value="all">All states</option><option value="on_time">On time</option><option value="behind_eta">Behind ETA</option><option value="late">Late</option><option value="not_tracking">Not tracking</option><option value="not_started">Not started</option></select></label>
+            <label>JOB STATUS<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All active statuses</option>{statuses.map((status) => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}</select></label>
+            <ActionButton tone="success" onClick={() => { setPickupFilter(''); setDeliveryFilter(''); setStateFilter('all'); setStatusFilter('all'); }}>Search</ActionButton>
+            <ActionButton tone="secondary" onClick={() => { setPickupFilter(''); setDeliveryFilter(''); setStateFilter('all'); setStatusFilter('all'); }}>Clear</ActionButton>
+            <ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
+          </div>
+        </aside>
 
-      <Panel title="Tracking filters" description="Filter by route, live-risk state or job status before acting on an exception." style={{ marginBottom: 12 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(170px,1fr))', gap: 8 }}>
-          <label style={labelStyle}>Pickup<input style={inputStyle} value={pickupFilter} onChange={(event) => setPickupFilter(event.target.value)} placeholder="Town / postcode" /></label>
-          <label style={labelStyle}>Delivery<input style={inputStyle} value={deliveryFilter} onChange={(event) => setDeliveryFilter(event.target.value)} placeholder="Town / postcode" /></label>
-          <label style={labelStyle}>ETA / tracking state<select style={inputStyle} value={stateFilter} onChange={(event) => setStateFilter(event.target.value as 'all' | TrackingState)}><option value="all">All states</option><option value="on_time">On time</option><option value="behind_eta">Behind ETA</option><option value="late">Late</option><option value="not_tracking">Not tracking</option><option value="not_started">Not started</option></select></label>
-          <label style={labelStyle}>Job status<select style={inputStyle} value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}><option value="all">All active statuses</option>{statuses.map((status) => <option key={status} value={status}>{status.replaceAll('_', ' ')}</option>)}</select></label>
-        </div>
-      </Panel>
+        <main style={{ minWidth: 0 }}>
+          <div className="workspace-tab-strip" role="tablist" aria-label="Freight Vision views" style={{ display: 'flex', overflowX: 'auto', marginBottom: 8 }}>
+            <button type="button" role="tab" aria-selected={view === 'all_in_progress'} data-active={view === 'all_in_progress' ? 'true' : 'false'} onClick={() => setView('all_in_progress')}>All In Progress</button>
+            <button type="button" role="tab" aria-selected={view === 'live_tracked'} data-active={view === 'live_tracked' ? 'true' : 'false'} onClick={() => setView('live_tracked')}>Live Tracked</button>
+          </div>
 
-      <TwoColumn rightWidth="minmax(460px,1.05fr)">
+          <OperationalSignalStrip items={trackingSignals} ariaLabel="Freight Vision operational states" />
+
+          <TwoColumn rightWidth="minmax(460px,1.05fr)">
         <Panel title="Live freight map" description="Green = fresh tracking. Red = location missing or older than 20 minutes.">
           {points.length > 0 ? (
             <FleetPositionMap points={points} selectedDriverId={selectedDriverId} />
@@ -261,7 +274,9 @@ export default function FreightVisionPage() {
             empty={<EmptyState title="No active jobs match the current filters" description="Clear one or more filters or refresh the operational data." />}
           />
         </Panel>
-      </TwoColumn>
+          </TwoColumn>
+        </main>
+      </div>
 
       {selected && (
         <Panel
@@ -291,7 +306,5 @@ export default function FreightVisionPage() {
   );
 }
 
-const inputStyle = { width: '100%', minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '4px 8px', background: '#fff', color: '#0f172a', fontSize: 12, boxSizing: 'border-box' as const };
-const labelStyle = { display: 'grid', gap: 4, color: '#475569', fontSize: 11, fontWeight: 800 } as const;
 const detailCardStyle = { border: '1px solid #dbe2ea', background: '#f8fafc', padding: 10, borderRadius: 4, color: '#0f172a', fontSize: 12 } as const;
 const detailTextStyle = { marginTop: 6, color: '#475569', lineHeight: 1.5 } as const;

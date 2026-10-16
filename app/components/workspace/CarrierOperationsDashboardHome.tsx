@@ -452,6 +452,12 @@ export default function CarrierOperationsDashboardHome() {
 
   const paymentFeedback = feedbackSummary[paymentFeedbackMode];
   const deliveryFeedback = feedbackSummary[deliveryFeedbackMode];
+  const jobsDataset = data.datasets.jobs;
+  const invoicesDataset = data.datasets.invoices;
+  const jobsUnavailable = jobsDataset.availability !== 'available';
+  const jobsPartial = !jobsUnavailable && (jobsDataset.partialData || jobsDataset.limitedData);
+  const invoicesUnavailable = invoicesDataset.availability !== 'available';
+  const invoicesPartial = !invoicesUnavailable && (invoicesDataset.partialData || invoicesDataset.limitedData);
 
   const selectReportRange = (value: string) => {
     const end = new Date();
@@ -470,9 +476,27 @@ export default function CarrierOperationsDashboardHome() {
   return (
     <div className="xdrive-admin-dashboard-home">
       {data.error ? <AlertBanner>{data.error}</AlertBanner> : null}
+      {jobsUnavailable ? (
+        <AlertBanner tone="warning">
+          Job data unavailable. Carrier activity and allocation metrics are hidden until the jobs dataset is available.
+        </AlertBanner>
+      ) : jobsPartial ? (
+        <AlertBanner tone="warning">
+          Job data is partial. Carrier activity and allocation metrics may be incomplete.
+        </AlertBanner>
+      ) : null}
+      {invoicesUnavailable ? (
+        <AlertBanner tone="warning">
+          Financial data unavailable. Accounts Payable and commercial totals are hidden until invoice data is available.
+        </AlertBanner>
+      ) : invoicesPartial ? (
+        <AlertBanner tone="warning">
+          Financial data is partial. Accounts Payable and commercial totals remain partial until complete invoice data is available.
+        </AlertBanner>
+      ) : null}
 
-      <div className="carrier-cx-dashboard-grid">
-        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--left">
+      <div className="carrier-cx-dashboard-grid carrier-owner-parity-grid xdrive-owner-dashboard-grid">
+        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--left xdrive-owner-dashboard-column">
           <OperationalCard
             title="Reports & Statistics"
             className="carrier-cx-reporting-card"
@@ -542,7 +566,7 @@ export default function CarrierOperationsDashboardHome() {
             </div>
           </OperationalCard>
 
-          <div className="carrier-cx-dashboard-subgrid">
+          <div className="carrier-cx-dashboard-subgrid xdrive-owner-dashboard-subgrid">
             <OperationalCard title="Accounts Payable" flush>
               <CommercialRow
                 label="Latest Invoices Received"
@@ -661,9 +685,9 @@ export default function CarrierOperationsDashboardHome() {
           </OperationalCard>
         </div>
 
-        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--right">
+        <div className="carrier-cx-dashboard-column carrier-cx-dashboard-column--right xdrive-owner-dashboard-column">
           <OperationalCard
-            title="Activity 'at a glance'"
+            title="Activity at a glance"
             className="carrier-cx-activity-card"
             flush
           >
@@ -706,7 +730,7 @@ export default function CarrierOperationsDashboardHome() {
               </button>
             </div>
 
-            <div className="carrier-cx-booking-list">
+            <div className="carrier-cx-booking-list" role="region" aria-label="Carrier operational workboard">
               {latestBookings.map((job) => {
                 const completed = classifyWorkspaceJobStage(job) === 'completed';
                 const evidenceReady = (job.delivery_photos?.length ?? 0) > 0;

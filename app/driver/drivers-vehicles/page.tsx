@@ -6,7 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
-import { StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
 
 type VehicleRow = {
   id: string;
@@ -31,7 +31,7 @@ export default function DriverDriversVehiclesPage() {
   const [canManage, setCanManage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<'users' | 'vehicles' | 'tracking' | 'documents' | 'events'>('vehicles');
+  const [tab, setTab] = useState<'users' | 'vehicles' | 'tracking'>('users');
   const [search, setSearch] = useState('');
 
   const load = useCallback(async () => {
@@ -72,14 +72,7 @@ export default function DriverDriversVehiclesPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-drivers-vehicles-prototype">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Drivers & Vehicles</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" onClick={() => router.push('/driver/account')}>Company Profile</button>
-            {canManageDrivers && <button type="button" className="btn" onClick={() => router.push('/driver/drivers')}>Add Driver</button>}
-            <button type="button" className="btn primary" disabled={!canManage} onClick={() => router.push('/driver/vehicles')}>Add Vehicle</button>
-          </div>
-        </div>
+        <PageHeader eyebrow="Fleet resources" title="Drivers & Vehicles" description="Driver, vehicle, tracking and document resources." />
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search</div>
@@ -91,14 +84,14 @@ export default function DriverDriversVehiclesPage() {
             </div>
           </aside>
           <main className="main">
-            <div className="head"><div><h1>Drivers & Vehicles</h1><p>Manage users, drivers, vehicles, tracking, documents and audit history</p></div></div>
             {error && <div className="vision-note">{error}</div>}
             <div className="subtabs">
               <button type="button" className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users / Drivers</button>
               <button type="button" className={tab === 'vehicles' ? 'active' : ''} onClick={() => setTab('vehicles')}>Company Vehicles</button>
               <button type="button" className={tab === 'tracking' ? 'active' : ''} onClick={() => setTab('tracking')}>Vehicle Tracking</button>
-              <button type="button" className={tab === 'documents' ? 'active' : ''} onClick={() => setTab('documents')}>Documents</button>
-              <button type="button" className={tab === 'events' ? 'active' : ''} onClick={() => setTab('events')}>Event Log</button>
+              <span className="spacer" />
+              {canManageDrivers && <button type="button" className="btn" onClick={() => router.push('/driver/drivers')}>Add Driver</button>}
+              <button type="button" className="btn primary" disabled={!canManage} onClick={() => router.push('/driver/vehicles')}>Add Vehicle</button>
             </div>
             {tab === 'users' && <div className="dv-panel active">
               <div className="toolbar"><b>Users / Drivers</b><span className="spacer" />{canManageDrivers && <button type="button" className="btn primary" onClick={() => router.push('/driver/drivers')}>Open Driver Manager</button>}</div>
@@ -119,9 +112,6 @@ export default function DriverDriversVehiclesPage() {
               <div className="split"><div className="splitlist">{vehicles.map((vehicle) => <div key={vehicle.id} className="listrow"><div className="grow"><b>{vehicle.reg_plate ?? vehicleName(vehicle)}</b><span className="meta">{vehicleName(vehicle)}</span></div><StatusBadge value={vehicle.id === canonicalVehicleId ? 'Canonical' : 'No live signal'} tone={vehicle.id === canonicalVehicleId ? 'green' : 'grey'} /></div>)}</div><div className="splitmain"><div className="map"><div className="mapnote">Approved XDrive tracking only. No position is fabricated when tracking data is unavailable.</div></div></div></div>
             </div>}
 
-            {tab === 'documents' && <div className="dv-panel active"><div className="toolbar"><b>Vehicle & Driver Documents</b><span className="spacer" /><button type="button" className="btn primary" onClick={() => router.push('/driver/documents')}>Open Documents</button></div><div className="xd2-calm-empty"><b>Documents remain server-authoritative</b><span>Open the Driver Documents register to review or upload real records.</span></div></div>}
-
-            {tab === 'events' && <div className="dv-panel active"><div className="toolbar"><b>Event Log</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/event-log')}>Open Event Log</button></div><div className="xd2-calm-empty"><b>Operational history</b><span>Open the Event Log to review recorded operational activity for this workspace.</span></div></div>}
           </main>
         </div>
       </section>

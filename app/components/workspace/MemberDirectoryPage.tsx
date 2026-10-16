@@ -6,7 +6,7 @@ import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { useAuth } from '../AuthContext';
 import { MemberIdentityLink, MemberProfileOverlay } from './MemberProfile';
-import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
+import { ActionButton, AlertBanner, EmptyState, PageHeader, StatusBadge } from './WorkspaceUI';
 import { usePrivateNetworkGroups } from './usePrivateNetworkGroups';
 
 type DeliveryReliability = { score: number | null; evidenceCount: number; completedJobs: number };
@@ -87,7 +87,6 @@ export function MemberDirectoryPage(_props: {
   const ownerDriver = resolveWorkspaceRole(user) === 'owner_driver';
   const [companies, setCompanies] = useState<DirectoryCompany[]>([]);
   const [drivers, setDrivers] = useState<DirectoryDriver[]>([]);
-  const [tab, setTab] = useState<'companies' | 'drivers'>('companies');
   const [member, setMember] = useState('');
   const [location, setLocation] = useState('');
   const [memberType, setMemberType] = useState('');
@@ -479,30 +478,14 @@ export function MemberDirectoryPage(_props: {
     : 'Part of the Directory enrichment is temporarily unavailable. Verified member records are still shown.';
 
   if (pathname.startsWith('/driver')) {
-    const records = tab === 'companies' ? visibleCompanies : visibleDrivers;
+    const records = [...visibleCompanies, ...visibleDrivers];
     const displayedCompanies = visibleCompanies.slice(0, directoryVisibleCount);
     const displayedDrivers = visibleDrivers.slice(0, directoryVisibleCount);
     const shownCount = Math.min(directoryVisibleCount, records.length);
     const canShowMore = directoryVisibleCount < records.length;
     return (
       <section className="page driver-directory-prototype-page">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Directory</b></span>
-          <div className="sub-actions">
-            {ownerDriver ? (
-              <button
-                type="button"
-                className={savedOnly ? 'btn primary' : 'btn'}
-                disabled={savedNetworkLoading}
-                onClick={() => setSavedOnly((current) => !current)}
-              >
-                {savedNetworkLoading ? 'Loading Saved…' : `Saved Networks (${savedCompanyIds.size})`}
-              </button>
-            ) : null}
-            <button type="button" className="btn" onClick={clear}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find Nearest</button>
-          </div>
-        </div>
+        <PageHeader eyebrow="Member network" title="Directory" description="Search members by location, capability, vehicle and performance." />
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search</div>
@@ -511,24 +494,25 @@ export function MemberDirectoryPage(_props: {
             <div className="filter"><span className="label">Member Name / ID</span><input className="input" value={member} onChange={(event) => setMember(event.target.value)} placeholder="Name or XD member ID" /></div>
             <div className="filter"><span className="label">Location / Radius</span><div className="row2"><input className="input" value={nearestLocation} onChange={(event) => setNearestLocation(event.target.value)} placeholder="Town / postcode" /><select className="select" value={nearestRadius} onChange={(event) => setNearestRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} miles</option>)}</select></div></div>
             <div className="filter"><span className="label">Vehicle Size</span><input className="input" value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="Any vehicle" /></div>
-            {tab === 'companies' && <div className="filter"><span className="label">Member Type</span><input className="input" value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier / Owner Driver / Broker" /></div>}
+            <div className="filter"><span className="label">Member Type</span><input className="input" value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier / Owner Driver / Broker" /></div>
             <div className="filter"><span className="label">Specialist Services</span><select className="select" value={specialistService} onChange={(event) => setSpecialistService(event.target.value)}><option value="">Any service</option>{specialistServices.map((value) => <option key={value} value={value}>{value}</option>)}</select><label className="check"><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} />Tail Lift</label></div>
             <div className="filter"><span className="label">Reliability</span><div className="row2"><select className="select" value={deliveryMin} onChange={(event) => setDeliveryMin(event.target.value)}><option value="">Any delivery score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select><select className="select" value={paymentMin} onChange={(event) => setPaymentMin(event.target.value)}><option value="">Any payment score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></div></div>
-            {tab === 'drivers' && <div className="filter"><span className="label">Availability</span><select className="select" value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></div>}
+            <div className="filter"><span className="label">Availability</span><select className="select" value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></div>
+            {ownerDriver ? <div className="filter"><button type="button" className={savedOnly ? 'btn primary' : 'btn'} disabled={savedNetworkLoading} onClick={() => setSavedOnly((current) => !current)}>{savedNetworkLoading ? 'Loading Saved…' : `Saved Networks (${savedCompanyIds.size})`}</button></div> : null}
+            <div className="filter"><button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Search</button> <button type="button" className="btn" onClick={clear}>Clear</button></div>
           </aside>
           <main className="main">
-            <div className="head"><div><h1>Directory</h1><p>Search the XDrive member network by identity, location, capability, vehicle and performance</p></div></div>
             {error && <AlertBanner tone="danger">{error}</AlertBanner>}
             {savedNetworkError && <AlertBanner tone="warning">{savedNetworkError}</AlertBanner>}
             {partial && <AlertBanner tone="warning">{capMessage}</AlertBanner>}
             {privateGroupPanel}
             <div className="directory-hero">
               <div><b>XDrive Member Network</b><span>Companies and drivers · capability · trust · reliability</span></div>
-              <div className="dir-hero-actions"><button type="button" className="btn" onClick={() => void load()}>Refresh</button><button type="button" className="btn primary" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Search</button></div>
+              <div className="dir-hero-actions"><button type="button" className="btn" onClick={() => void load()}>Refresh</button></div>
             </div>
             <div className="dir-tabs">
-              <button type="button" className={tab === 'companies' ? 'active' : ''} onClick={() => setTab('companies')}>COMPANIES <span>{visibleCompanies.length}</span></button>
-              <button type="button" className={tab === 'drivers' ? 'active' : ''} onClick={() => setTab('drivers')}>DRIVERS <span>{visibleDrivers.length}</span></button>
+              <strong>COMPANIES {visibleCompanies.length}</strong>
+              <strong>DRIVERS {visibleDrivers.length}</strong>
               <div className="dir-sort">Sort By: <select className="select" defaultValue="Distance"><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
             </div>
             <div className="dir-summary">
@@ -545,7 +529,8 @@ export function MemberDirectoryPage(_props: {
                 <table className="dir-table" style={{ minWidth: 1280 }}>
                   <thead><tr><th>Member</th><th>Location</th><th>Member Type</th><th>Vehicle / Capability</th><th>Delivery / Tracking</th><th>Payment / Last Seen</th><th>Status</th><th>Actions</th></tr></thead>
                   <tbody>
-                    {tab === 'companies' ? displayedCompanies.map((company) => (
+                    <tr className="dir-section"><td colSpan={8}><strong>COMPANIES</strong></td></tr>
+                    {displayedCompanies.map((company) => (
                       <tr key={company.companyId} className="dir-row">
                         <td><div className="dir-member-link"><b><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></b><span className="meta">{company.memberId ?? 'Member ID not supplied'}</span></div></td>
                         <td>{[company.city, company.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi` : ''}</span></td>
@@ -556,7 +541,9 @@ export function MemberDirectoryPage(_props: {
                         <td><StatusBadge value="Not advertised" /></td>
                         <td><button type="button" className="rowbtn blue" onClick={() => setProfileTarget({ companyId: company.companyId })}>Profile</button>{ownerDriver && <button type="button" className="rowbtn" onClick={() => void toggleSavedCompany(company.companyId)}>{savedCompanyIds.has(company.companyId) ? 'Remove Saved' : 'Save Network'}</button>}{privateGroups.canManage && selectedPrivateGroupId && company.companyId !== user?.companyId && !selectedPrivateGroup?.members.some((member) => member.companyId === company.companyId) ? <button type="button" className="rowbtn" disabled={privateGroupWorking} onClick={() => void updatePrivateGroupMember(selectedPrivateGroupId, company.companyId)}>Add to Group</button> : null}{messagesRoute && <button type="button" className="rowbtn" onClick={() => openMemberMessages(company.companyId)}>Message</button>}{canBookCompany(company) && <button type="button" className="rowbtn" onClick={() => openDirectBooking(company.companyId)}>Book Direct</button>}</td>
                       </tr>
-                    )) : displayedDrivers.map((driver) => (
+                    ))}
+                    <tr className="dir-section"><td colSpan={8}><strong>DRIVERS</strong></td></tr>
+                    {displayedDrivers.map((driver) => (
                       <tr key={driver.driverId} className="dir-row">
                         <td><b>{driver.displayName}</b><span className="meta">{driver.memberId ?? driver.companyName}</span></td>
                         <td>{[driver.city, driver.postcode].filter(Boolean).join(' ') || 'Not supplied'}<span className="meta">{driver.country ?? 'Country not supplied'}{driver.distanceMiles != null ? ` · ${driver.distanceMiles.toFixed(1)} mi` : ''}</span></td>
@@ -596,14 +583,15 @@ export function MemberDirectoryPage(_props: {
             <label>FIND MY NEAREST<input value={nearestLocation} onChange={(event) => setNearestLocation(event.target.value)} placeholder="Postcode / outcode, e.g. BB1" /></label>
             <label>RADIUS<select value={nearestRadius} onChange={(event) => setNearestRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} miles</option>)}</select></label>
             <label>COUNTRY<select value={country} onChange={(event) => setCountry(event.target.value)}><option value="">Any country</option>{countries.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
-            {tab === 'companies' ? <label>MEMBER TYPE<input value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier, broker, customer…" /></label> : null}
+            <label>MEMBER TYPE<input value={memberType} onChange={(event) => setMemberType(event.target.value)} placeholder="Carrier, broker, customer…" /></label>
             <label>VEHICLE TYPE<input value={vehicle} onChange={(event) => setVehicle(event.target.value)} placeholder="LWB, Luton, Artic…" /></label>
             <label>SPECIALIST SERVICE<select value={specialistService} onChange={(event) => setSpecialistService(event.target.value)}><option value="">Any service</option>{specialistServices.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>
             <label style={{ display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} /> TAIL LIFT CAPABILITY</label>
             <label>DELIVERY RELIABILITY<select value={deliveryMin} onChange={(event) => setDeliveryMin(event.target.value)}><option value="">Any verified score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></label>
             <label>PAYMENT RELIABILITY<select value={paymentMin} onChange={(event) => setPaymentMin(event.target.value)}><option value="">Any verified score</option><option value="80">80%+</option><option value="90">90%+</option><option value="95">95%+</option></select></label>
-            {tab === 'drivers' ? <label>AVAILABILITY<select value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label> : null}
+            <label>AVAILABILITY<select value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="">Any availability</option><option value="available">Available</option><option value="busy">Busy</option><option value="offline">Offline</option></select></label>
             <ActionButton tone="success" onClick={() => setNearestQuery({ near: nearestLocation.trim(), radius: nearestRadius })}>Find My Nearest</ActionButton>
+            {ownerDriver ? <ActionButton tone={savedOnly ? 'success' : 'secondary'} disabled={savedNetworkLoading} onClick={() => setSavedOnly((current) => !current)}>{savedNetworkLoading ? 'Loading Saved…' : `Saved Networks (${savedCompanyIds.size})`}</ActionButton> : null}
             <ActionButton tone="secondary" onClick={clear}>Clear</ActionButton>
             {reputationNote && <span style={{ color: '#475569', fontSize: 11, lineHeight: '14px' }}>{reputationNote}</span>}
             {privacy && <span style={{ color: '#64748b', fontSize: 11, lineHeight: '14px' }}>{privacy}</span>}
@@ -611,16 +599,14 @@ export function MemberDirectoryPage(_props: {
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" role="tablist" aria-label="Directory member types" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            <button type="button" data-active={tab === 'companies' ? 'true' : 'false'} onClick={() => setTab('companies')}>Companies {visibleCompanies.length}</button>
-            <button type="button" data-active={tab === 'drivers' ? 'true' : 'false'} onClick={() => setTab('drivers')}>Drivers {visibleDrivers.length}</button>
-          </div>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{tab === 'companies' ? visibleCompanies.length : visibleDrivers.length}</strong> matching loaded record(s)</span><span>Click a company identity for Member Profile</span></div>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{visibleCompanies.length + visibleDrivers.length}</strong> matching loaded record(s)</span><span>Companies and drivers are shown together, as in Courier Exchange Directory.</span></div>
 
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div>
-          ) : tab === 'companies' ? (
-            <div className="workspace-record-list">
+          ) : (
+            <div style={{ display: 'grid', gap: 8 }}>
+              <div className="workspace-record-meta"><strong>COMPANIES</strong><span>{visibleCompanies.length}</span></div>
+              <div className="workspace-record-list">
               {visibleCompanies.map((company) => (
                 <article key={company.companyId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
@@ -633,9 +619,9 @@ export function MemberDirectoryPage(_props: {
                 </article>
               ))}
               {visibleCompanies.length === 0 && <div className="workspace-panel"><EmptyState compact title="No companies match these loaded records" /></div>}
-            </div>
-          ) : (
-            <div className="workspace-record-list">
+              </div>
+              <div className="workspace-record-meta"><strong>DRIVERS</strong><span>{visibleDrivers.length}</span></div>
+              <div className="workspace-record-list">
               {visibleDrivers.map((driver) => (
                 <article key={driver.driverId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
@@ -648,6 +634,7 @@ export function MemberDirectoryPage(_props: {
                 </article>
               ))}
               {visibleDrivers.length === 0 && <div className="workspace-panel"><EmptyState compact title="No drivers match these loaded records" /></div>}
+              </div>
             </div>
           )}
         </main>

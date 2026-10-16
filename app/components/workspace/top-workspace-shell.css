@@ -273,7 +273,7 @@
   position: relative;
   height: 29px !important;
   min-height: 29px !important;
-  padding: 2px 8px 9px !important;
+  padding: 0 13px !important;
   border: 0 !important;
   border-radius: 0 !important;
   background: transparent !important;
@@ -318,10 +318,11 @@
   right: 16px;
   left: auto;
   z-index: 95;
-  width: 230px !important;
+  width: 248px !important;
   max-height: calc(100vh - 104px);
   overflow-y: auto;
   overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   padding: 4px !important;
   border: 1px solid #cfd7e3 !important;
   border-radius: 4px !important;
@@ -516,7 +517,7 @@
     right: 8px !important;
     left: 8px !important;
     width: auto !important;
-    max-height: calc(100vh - 60px);
+    max-height: calc(100vh - 104px);
     overflow-y: auto;
   }
 
@@ -626,20 +627,13 @@
 }
 
 
-/* Owner Driver More: compact, legible secondary navigation without affecting other roles. */
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu,
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu {
-  width: 252px !important;
-}
-
 .xdrive-operational-top-workspace .top-workspace-nav__trigger:focus-visible,
 .xdrive-operational-top-workspace .top-workspace-nav__menu-item:focus-visible {
   outline: 2px solid #1d57d8;
   outline-offset: -2px;
 }
 
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu-section,
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu-section {
+.xdrive-operational-top-workspace .top-workspace-shell .top-workspace-nav__menu-section {
   padding: 7px 9px 4px;
   color: #526377;
   font-size: 10px;
@@ -647,30 +641,12 @@
   font-weight: 800;
 }
 
-@media (max-width: 768px) {
-  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu,
-  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu {
-    width: auto !important;
-  }
-}
-
-
-@media (min-width: 481px) and (max-width: 768px) {
-  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu,
-  .xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu {
-    right: 8px !important;
-    left: auto !important;
-    width: 280px !important;
-  }
-}
-
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="owner_driver"] .top-workspace-nav__menu-icon svg,
-.xdrive-operational-top-workspace .top-workspace-shell[data-workspace-role="customer"] .top-workspace-nav__menu-icon svg {
+.xdrive-operational-top-workspace .top-workspace-shell .top-workspace-nav__menu-icon svg {
   width: 14px;
   height: 14px;
 }
 
-/* Owner Driver More - Preview 656 canonical behaviour, reconciled with current main shell. */
+/* Legacy Owner Driver More behaviour, reconciled under the Courier Exchange live shell contract. */
 .xdrive-driver-workspace .top-workspace-nav__group[data-group-id="owner-driver-more"] .top-workspace-nav__menu {
   position: fixed;
   top: 92px !important;
@@ -697,91 +673,5 @@
     left: 8px !important;
     width: auto !important;
     max-height: calc(100vh - 104px);
-  }
-}
-
-/* Carrier/Admin navbar consolidation: active page context shares the navbar row. */
-.top-workspace-shell[data-carrier-nav="true"] .top-workspace-nav--primary .top-workspace-nav__track {
-  justify-content: flex-start !important;
-  gap: 0 !important;
-}
-
-.top-workspace-shell[data-carrier-nav="true"] .top-workspace-nav__group[data-group-id="carrier-more"] .top-workspace-nav__trigger {
-  width: 34px !important;
-  min-width: 34px !important;
-  justify-content: center;
-  padding-left: 6px !important;
-  padding-right: 6px !important;
-}
-
-.top-workspace-nav__context {
-  min-width: 0;
-  margin-left: auto;
-  padding: 0 4px 0 10px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  align-self: stretch;
-  overflow: hidden;
-  border-left: 1px solid #e2e8f0;
-  white-space: nowrap;
-}
-
-.top-workspace-nav__context-eyebrow {
-  flex: 0 0 auto;
-  color: #1d57d8;
-  font-size: 9px;
-  line-height: 12px;
-  font-weight: 750;
-  letter-spacing: .03em;
-  text-transform: uppercase;
-}
-
-.top-workspace-nav__context strong {
-  flex: 0 0 auto;
-  color: #172033;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 750;
-}
-
-.top-workspace-nav__context-description {
-  min-width: 0;
-  max-width: 430px;
-  overflow: hidden;
-  color: #64748b;
-  font-size: 10px;
-  line-height: 14px;
-  font-weight: 500;
-  text-overflow: ellipsis;
-}
-
-/* The title/description now live in the navbar row for Carrier/Admin.
- * Keep only page-specific actions below the nav; remove the duplicated heading block.
- */
-.top-workspace-shell[data-page-context="true"] .top-workspace-shell__content .xdrive-page-header__copy {
-  display: none !important;
-}
-
-.top-workspace-shell[data-page-context="true"] .top-workspace-shell__content .xdrive-page-header {
-  min-height: 0 !important;
-  margin: 0 0 6px !important;
-  justify-content: flex-end !important;
-  gap: 0 !important;
-}
-
-.top-workspace-shell[data-page-context="true"] .top-workspace-shell__content .xdrive-page-header:not(:has(.xdrive-page-header__actions)) {
-  display: none !important;
-}
-
-@media (max-width: 1450px) {
-  .top-workspace-nav__context-description {
-    display: none;
-  }
-}
-
-@media (max-width: 1180px) {
-  .top-workspace-nav__context {
-    display: none;
   }
 }

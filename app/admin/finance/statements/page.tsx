@@ -117,8 +117,7 @@ export default function FinanceStatementsPage() {
       <PageHeader
         eyebrow="Finance / statements"
         title="Statements"
-        description="Create a company-scoped invoice statement by counterparty and date range from the verified invoice register. This is an export view; it does not mutate invoice or payment state."
-        actions={<ActionButton tone="secondary" disabled={rows.length === 0} onClick={() => void exportStatement()}>Export Statement XLSX</ActionButton>}
+        description="Create a company-scoped invoice statement by counterparty and date range from the verified invoice register."
       />
 
       <Panel title="Statement filters" description="Choose a counterparty and optional invoice-date window.">
@@ -139,6 +138,7 @@ export default function FinanceStatementsPage() {
             <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }} />
           </label>
           <ActionButton tone="secondary" onClick={() => { setCounterparty('all'); setFromDate(''); setToDate(''); }}>Clear</ActionButton>
+          <ActionButton tone="secondary" disabled={rows.length === 0} onClick={() => void exportStatement()}>Export Statement XLSX</ActionButton>
         </div>
       </Panel>
 

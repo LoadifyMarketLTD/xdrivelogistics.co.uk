@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { supabase } from '../../../../lib/supabaseClient';
 import { classifyWorkspaceJobStage, fleetQueueStage, isCompanyExecutionJob } from '../../../../lib/jobs/workspaceJobStage';
 import { useCompanyWorkspaceData, type WorkspaceBid, type WorkspaceLocation } from '../../../components/workspace/useCompanyWorkspaceData';
@@ -49,7 +49,6 @@ const expiryAttention = (value: string | null | undefined) => {
 };
 
 export default function FleetAssignmentsPage() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const data = useCompanyWorkspaceData();
   const deepJobId = searchParams.get('job');
@@ -248,7 +247,6 @@ export default function FleetAssignmentsPage() {
         eyebrow="Fleet allocation"
         title="Won / Received — Unallocated"
         description="Work assigned to this company that still needs a driver or vehicle allocation remains here until an authorised fleet operator selects the executing driver. XDrive verifies the driver and assigned vehicle before allocation."
-        actions={<ActionButton tone="secondary" onClick={() => router.push('/admin/fleet')}>Fleet Dashboard</ActionButton>}
       />
 
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}

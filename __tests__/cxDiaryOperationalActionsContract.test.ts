@@ -6,12 +6,14 @@ const freightVision = fs.readFileSync(path.join(process.cwd(), 'app/admin/freigh
 const manageRoute = fs.readFileSync(path.join(process.cwd(), 'app/api/admin/jobs/[id]/manage/route.ts'), 'utf8');
 
 describe('CX Diary P0 operational action parity', () => {
-  it('connects Diary to existing finance, tracking, messaging and canonical job editing', () => {
-    expect(diary).toContain("router.push('/admin/finance/reports')");
+  it('keeps the CX rail Payment Report shortcut while operational actions remain record-local', () => {
+    expect(diary).toContain("router.push('/admin/finance')");
+    expect(diary).toContain('>Payment Report<');
+    expect(diary).toContain('xdrive-cx-diary-card__secondary-actions');
     expect(diary).toContain('/admin/freight-vision?jobId=');
     expect(diary).toContain('/admin/messages?jobId=');
     expect(diary).toContain('/admin/jobs/${encodeURIComponent(job.id)}');
-    for (const label of ['Payment Report', 'Track', 'Message', 'Edit']) expect(diary).toContain(`>${label}<`);
+    for (const label of ['Track', 'Message', 'Edit']) expect(diary).toContain(`>${label}<`);
   });
 
   it('keeps cancellation on the canonical company-authorised server workflow', () => {

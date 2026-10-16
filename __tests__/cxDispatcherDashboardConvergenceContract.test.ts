@@ -11,16 +11,17 @@ describe('Dispatcher CX convergence contract', () => {
     expect(source).toContain('isCompanyExecutionJob(job, data.companyId)');
     expect(source).not.toContain('(job.awarded_carrier_company_id ?? job.company_id) === data.companyId');
   });
-  it('replaces the KPI wall with compact operational signals', () => {
+  it('keeps two CX-sized primary dispatch signals and moves secondary control lower', () => {
     expect(source).toContain('<OperationalSignalStrip');
     expect(source).not.toContain('<KpiGrid>');
     expect(source).not.toContain('<KpiCard');
-    for (const label of ['Unallocated', 'Due next 2h', 'Active', 'Exceptions', 'Available Drivers', 'Stale GPS']) {
-      expect(source).toContain(`label: '${label}'`);
-    }
+    for (const label of ['Unallocated', 'Active']) expect(source).toContain(`label: '${label}'`);
+    expect(source).toContain('Resource availability');
+    expect(source).toContain('Live exceptions');
+    expect(source).toContain('Stale GPS positions');
   });
 
-  it('uses the canonical Owner Driver dashboard hierarchy for dispatch work', () => {
+  it('uses the measured Courier Exchange live dashboard hierarchy for dispatch work', () => {
     expect(source).toContain('<OperationalWorkspaceGrid');
     expect(source).toContain('title="Reports & Statistics"');
     expect(source).toContain('title="Activity at a glance"');

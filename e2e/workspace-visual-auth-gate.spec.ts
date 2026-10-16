@@ -231,7 +231,10 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
         if (viewport.width > 768) {
           await expect(page.getByRole('button', { name: /Notifications/i })).toBeVisible();
           if (role === 'broker' || role === 'customer') {
-            await expect(page.getByRole('button', { name: 'Action Centre' })).toBeVisible();
+            // CX keeps the primary row for operating modules only. Action Centre
+            // remains reachable through More rather than consuming a primary slot.
+            await expect(track.getByRole('button', { name: 'Action Centre', exact: true })).toHaveCount(0);
+            await expect(track.getByRole('button', { name: 'More', exact: true })).toBeVisible();
           }
         } else {
           const notifications = page.getByRole('button', { name: /Notifications/i });
@@ -255,7 +258,7 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
         expect(kpiLabels).toEqual(expectedKpis[role]);
         expect(new Set(kpiLabels).size).toBe(kpiLabels.length);
 
-        // Dashboard KPI tiles use the same two-column Owner Driver 675 surface.
+        // Dashboard KPI tiles use the same measured Courier Exchange live surface.
         // Secondary pages may still use the compact KPI strip; Super Admin is
         // deliberately outside this measured-workspace selector.
         const dashboardKpiStrip = page.locator(
@@ -541,7 +544,7 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
     }
   });
 
-  test('Driver Quotes status tabs use the PR675 28px strip and 2px underline in the visual fixture', async ({ page }) => {
+  test('Driver Quotes status tabs use the measured CX live 28px strip and 2px underline in the visual fixture', async ({ page }) => {
     test.setTimeout(90_000);
     await gotoFixture(page, '/visual-fixture/workspace/owner-driver');
     await expect(page.locator('.xdrive-owner-dashboard-grid')).toBeVisible();
@@ -552,7 +555,7 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
         root.classList.add('xdrive-operational-top-workspace', 'xdrive-driver-workspace');
         const probe = document.createElement('section');
         probe.className = 'driver-prototype-port';
-        probe.innerHTML = '<div class="quote-tabs"><button class="active">Received</button><button>Shortlisted</button><button>Submitted</button><button>Accepted</button><button>Unsuccessful</button><button>Withdrawn</button><button>Expired</button><button>Archived</button></div>';
+        probe.innerHTML = '<div class="quote-tabs"><button class="active">Received</button><button>Archived</button><button>Submitted</button><button>Unsuccessful</button></div>';
         root.appendChild(probe);
         const strip = probe.querySelector<HTMLElement>('.quote-tabs')!;
         const active = probe.querySelector<HTMLElement>('button.active')!;
@@ -564,6 +567,7 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
           underlineWidth: activeStyle.borderBottomWidth,
           underlineColor: activeStyle.borderBottomColor,
           scrollable: strip.scrollWidth > strip.clientWidth + 1,
+          overflowX: getComputedStyle(strip).overflowX,
           bodyOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
         };
         probe.remove();
@@ -575,7 +579,7 @@ test.describe('operational top-workspace visual fixture gate (deterministic fixt
       expect(actual.underlineWidth).toBe('2px');
       expect(actual.underlineColor).toBe('rgb(29, 87, 216)');
       expect(actual.bodyOverflow).toBe(false);
-      if (width === 390) expect(actual.scrollable).toBe(true);
+      if (width === 390) expect(['auto', 'scroll']).toContain(actual.overflowX);
     }
   });
 

@@ -6,7 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { supabase } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
-import { StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
 import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import DriverFreightVisionMap, { type DriverFreightVisionPoint } from '../_components/DriverFreightVisionMap';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
@@ -184,23 +184,16 @@ export default function DriverFreightVisionPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-freight-vision-prototype">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Freight Vision</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" onClick={() => router.push('/driver/finance')} title="Open Finance">Payment Report</button>
-            <button type="button" className="btn" onClick={() => setSearch('')}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => void load()} disabled={loading}>Refresh</button>
-          </div>
-        </div>
+        <PageHeader eyebrow="Driver operations" title="Freight Vision" description="Live tracked jobs, ETA and operational exceptions." />
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Panel</div>
             <div className="filter"><span className="label">Booking Scope</span><div className="vision-scope"><button type="button" className="active" onClick={() => { setScope('all'); setSearch(''); setRiskFilter('all'); }}>My Driver Jobs</button></div></div>
             <div className="filter"><span className="label">Load ID / Ref</span><input className="input" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Load ID / ref" /></div>
-            <div className="filter"><span className="label">Live state</span><label className="check"><input type="checkbox" checked={scope === 'tracked'} onChange={(event) => setScope(event.target.checked ? 'tracked' : 'all')} />Live tracked only</label></div>
+            <div className="filter"><span className="label">Live state</span><span className="muted small">Use the Freight Vision tabs to switch between all active work and live tracked work.</span></div>
+            <div className="filter"><button type="button" className="btn" onClick={() => setSearch('')}>Clear</button></div>
           </aside>
           <main className="main">
-            <div className="head"><div><h1>Freight Vision</h1><p>Live tracked jobs, traffic-aware ETA and proactive exception visibility</p></div></div>
             {error && <div className="vision-note">{error}</div>}
             <div className="vision-head">
               <div className="vision-view">
@@ -208,7 +201,10 @@ export default function DriverFreightVisionPage() {
                 <button type="button" className={view === 'list' ? 'active' : ''} onClick={() => setView('list')}>List View</button>
                 <button type="button" className={view === 'map' ? 'active' : ''} onClick={() => setView('map')}>Map View</button>
               </div>
-              <div className="vision-live-tabs"><button type="button" className={riskFilter === 'all' ? 'active' : ''} onClick={() => setRiskFilter('all')}>All In Progress</button></div>
+              <div className="vision-live-tabs">
+                <button type="button" className={scope === 'all' ? 'active' : ''} onClick={() => { setScope('all'); setRiskFilter('all'); }}>All In Progress</button>
+                <button type="button" className={scope === 'tracked' ? 'active' : ''} onClick={() => { setScope('tracked'); setRiskFilter('all'); }}>Live Tracked</button>
+              </div>
               <button type="button" className="text-action spacer" onClick={openMap}>Open Freight Vision in new window</button>
               <span className="vision-auto-refresh">Auto refresh 60s</span>
               <button type="button" className="btn" onClick={() => void load()} disabled={loading}>Refresh</button>

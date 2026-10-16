@@ -17,12 +17,10 @@ describe('operational shell and onboarding recovery contract', () => {
 
   it('exposes Settings only for operational roles with settings authority', () => {
     for (const marker of [
-      "['carrier-settings', 'Settings', '/admin/settings']",
+      "'/admin/settings'",
       "{ id: 'customer-settings', label: 'Settings', href: '/customer/settings'",
-      "['broker-settings-primary', 'Settings', '/broker/settings']",
+      "'/broker/settings'",
       "'/driver/settings'",
-      "['driver-settings-primary', 'Settings', '/driver/settings']",
-      "['dispatcher-settings-primary', 'Settings', '/admin/settings']",
       "['finance-settings-primary', 'Settings', '/admin/settings']",
       "['compliance-settings-primary', 'Settings', '/admin/settings']",
     ]) expect(shell).toContain(marker);

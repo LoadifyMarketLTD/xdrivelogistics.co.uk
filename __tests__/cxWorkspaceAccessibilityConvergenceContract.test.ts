@@ -19,10 +19,10 @@ describe('CX workspace accessibility convergence', () => {
   });
 
   it('keeps carrier work views as semantic tabs with selected state', () => {
-    const source = read('app/components/workspace/CarrierOperationsDashboardHome.tsx');
+    const source = read('app/admin/live-availability/page.tsx');
     expect(source).toContain('role="tablist"');
     expect(source).toContain('role="tab"');
-    expect(source).toContain('aria-selected={selected}');
+    expect(source).toContain("aria-selected={tab === 'live'}");
   });
 
   it('keeps driver operational actions as real buttons and textual status labels', () => {

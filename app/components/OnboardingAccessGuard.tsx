@@ -9,6 +9,16 @@ const workspacePrefixes = ['/admin', '/broker', '/customer', '/driver', '/dashbo
 const editableStatuses = new Set(['invited', 'draft', 'in_progress', 'request_changes']);
 const reviewStatuses = new Set(['submitted', 'under_review', 'compliance_review', 'admin_approval']);
 const missingColumnCodes = new Set(['42703', 'PGRST204']);
+const accessCheckTimeout = Symbol('access-check-timeout');
+const ACCESS_CHECK_TIMEOUT_MS = 8_000;
+
+const withAccessCheckTimeout = async <T,>(operation: PromiseLike<T>): Promise<T | typeof accessCheckTimeout> =>
+  Promise.race([
+    Promise.resolve(operation),
+    new Promise<typeof accessCheckTimeout>((resolve) => {
+      window.setTimeout(() => resolve(accessCheckTimeout), ACCESS_CHECK_TIMEOUT_MS);
+    }),
+  ]);
 
 const isWorkspacePath = (pathname: string) =>
   workspacePrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -30,21 +40,38 @@ export default function OnboardingAccessGuard() {
     setChecking(true);
 
     const verifyAccess = async () => {
-      let profileResult = await supabase
-        .from('profiles')
-        .select('role, is_internal_account')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      let profileResult = await withAccessCheckTimeout(
+        supabase
+          .from('profiles')
+          .select('role, is_internal_account')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+      );
+
+      if (profileResult === accessCheckTimeout) {
+        // A stalled onboarding lookup must not leave an authenticated workspace
+        // permanently covered by a blocking overlay. Existing auth/route guards
+        // and operation-specific readiness gates remain authoritative.
+        setChecking(false);
+        return;
+      }
 
       if (
         profileResult.error &&
         missingColumnCodes.has(String(profileResult.error.code ?? ''))
       ) {
-        profileResult = await supabase
-          .from('profiles')
-          .select('role')
-          .eq('user_id', user.id)
-          .maybeSingle() as typeof profileResult;
+        const fallbackProfileResult = await withAccessCheckTimeout(
+          supabase
+            .from('profiles')
+            .select('role')
+            .eq('user_id', user.id)
+            .maybeSingle(),
+        );
+        if (fallbackProfileResult === accessCheckTimeout) {
+          setChecking(false);
+          return;
+        }
+        profileResult = fallbackProfileResult as typeof profileResult;
       }
 
       if (cancelled) return;
@@ -65,11 +92,18 @@ export default function OnboardingAccessGuard() {
         return;
       }
 
-      const { data: application, error } = await supabase
-        .from('onboarding_applications')
-        .select('status')
-        .eq('user_id', user.id)
-        .maybeSingle();
+      const applicationResult = await withAccessCheckTimeout(
+        supabase
+          .from('onboarding_applications')
+          .select('status')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+      );
+      if (applicationResult === accessCheckTimeout) {
+        setChecking(false);
+        return;
+      }
+      const { data: application, error } = applicationResult;
 
       if (cancelled) return;
       if (error || !application) {

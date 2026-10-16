@@ -274,25 +274,21 @@ export default function FleetResourcesPage() {
         eyebrow="Fleet resources"
         title="Drivers & Vehicles"
         description="One consolidated fleet workspace for driver/vehicle relationships, availability, live tracking, future capacity, return journeys and operational attention."
-        actions={
-          <>
-            <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Drivers Register</ActionButton>
-            <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles Register</ActionButton>
-            <ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
-          </>
-        }
         meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Fleet resource view'}</span>}
       />
 
-      <div className="workspace-tab-strip" role="tablist" style={{ display: 'flex', alignItems: 'center', marginBottom: 8, overflowX: 'auto' }} aria-label="Drivers and vehicles workspace navigation">
-        <button type="button" role="tab" aria-selected="true" data-active="true">Resources</button>
-        <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/fleet/drivers')}>Drivers</button>
-        <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</button>
-        <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/fleet/positions')}>Vehicle Tracking</button>
-        <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/live-availability')}>Live Availability</button>
-        <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</button>
-      </div>
+      <div className="workspace-board-layout">
+        <aside className="workspace-filter-rail" aria-label="Drivers and vehicles workspace navigation">
+          <div className="workspace-filter-rail__header">Drivers &amp; Vehicles</div>
+          <div className="workspace-filter-rail__body">
+            <button type="button" role="tab" aria-selected="true" data-active="true">Users / Drivers</button>
+            <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/vehicles')}>Company Vehicles</button>
+            <button type="button" role="tab" aria-selected="false" data-active="false" onClick={() => router.push('/admin/fleet/positions')}>Vehicle Tracking</button>
+            <ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
+          </div>
+        </aside>
 
+        <main style={{ minWidth: 0 }}>
       {data.error && <AlertBanner tone="warning">{data.error}</AlertBanner>}
       {intelligence.error && <AlertBanner tone="warning">{intelligence.error}</AlertBanner>}
       {futureError && <AlertBanner tone="danger">{futureError}</AlertBanner>}
@@ -339,7 +335,7 @@ export default function FleetResourcesPage() {
             <StatusBadge key="advertising" value={row.vehicle ? row.advertising : row.vehicles.length > 1 ? 'multiple vehicles' : 'none'} tone={row.vehicle && row.advertising === 'exchange' ? 'green' : row.vehicle && row.advertising === 'partner' ? 'blue' : 'grey'} />,
             <StatusBadge key="tracking" value={row.trackingState} tone={row.trackingState === 'live' ? 'green' : row.trackingState === 'stale' ? 'orange' : 'grey'} />,
             row.flags.length ? <div key="flags" style={{ display: 'grid', gap: 3 }}>{row.flags.map((flag) => <StatusBadge key={flag} value={flag} tone="orange" />)}</div> : <StatusBadge key="clear" value="No local alert" tone="blue" />,
-            <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => openFuturePosition(row.driver.id, row.future?.futurePosition, row.future?.futurePositionDate, row.future?.futurePositionUntil, row.future?.notes)}>Future Position</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Drivers</ActionButton>{row.vehicle ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : row.vehicles.length > 1 ? <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicles</ActionButton> : null}{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
+            <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => openFuturePosition(row.driver.id, row.future?.futurePosition, row.future?.futurePositionDate, row.future?.futurePositionUntil, row.future?.notes)}>Future Position</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journey</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton>{row.currentJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.currentJob!.id}`)}>Current job</ActionButton> : row.nextJob ? <ActionButton tone="secondary" onClick={() => router.push(`/admin/jobs/${row.nextJob!.id}`)}>Next job</ActionButton> : null}</div>,
           ])}
           empty={<EmptyState title="No fleet resources match the current filters" />}
         />
@@ -347,7 +343,7 @@ export default function FleetResourcesPage() {
 
       <Panel title="Company Vehicles" description="CX-style company vehicle register with capacity, assignment, tracking and evidence access in one operational table." style={{ marginTop: 12 }}>
         <DataTable
-          columns={['Vehicle', 'Size / type', 'Year', 'Max payload', 'Assigned driver', 'Tracking', 'Advertising', 'Notify when tracked', 'Documents', 'Actions']}
+          columns={['Vehicle', 'Size / type', 'Year', 'Max payload', 'Assigned driver', 'Tracking', 'Advertising', 'Notify when tracked', 'Documents']}
           rows={data.vehicles.map((vehicle) => {
             const assignedDriver = vehicle.assigned_driver_id ? data.drivers.find((driver) => driver.id === vehicle.assigned_driver_id) ?? null : null;
             const latestLocation = vehicle.assigned_driver_id ? latestLocations.get(vehicle.assigned_driver_id) ?? null : null;
@@ -376,7 +372,6 @@ export default function FleetResourcesPage() {
               <select key="advertising" aria-label={`Advertising state for ${vehicleLabel}`} value={advertisingState} disabled={vehicleWorking} onChange={(event) => void updateVehicleAdvertising(vehicle.id, event.target.value as 'none' | 'exchange' | 'partner')} style={{ ...inputStyle, minWidth: 105 }}><option value="none">None</option><option value="exchange">Exchange</option><option value="partner">Partner</option></select>,
               <label key="notify" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, whiteSpace: 'nowrap' }}><input type="checkbox" checked={vehicle.notify_when_tracked === true} disabled={vehicleWorking} onChange={(event) => void updateNotifyWhenTracked(vehicle.id, event.target.checked)} /> Notify</label>,
               <StatusBadge key="documents" value={documentState} tone={vehicleDocuments.length ? 'blue' : 'orange'} />,
-              <div key="actions" style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/event-log')}>Event Log</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/documents')}>Documents</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Edit</ActionButton></div>,
             ];
           })}
           empty={<EmptyState title={vehiclesAvailable ? 'No company vehicles recorded' : 'Vehicle data unavailable'} description={vehiclesAvailable ? 'Add company vehicles to build the operational fleet register.' : 'The vehicle source could not be confirmed.'} />}
@@ -386,17 +381,18 @@ export default function FleetResourcesPage() {
       {unassignedVehicles.length > 0 && (
         <Panel title="Unassigned vehicles" description="Vehicles without a linked driver remain visible so they are not lost from operational planning." style={{ marginTop: 12 }}>
           <DataTable
-            columns={['Registration', 'Vehicle', 'Advertising', 'State', 'Action']}
+            columns={['Registration', 'Vehicle', 'Advertising', 'State']}
             rows={unassignedVehicles.map((vehicle) => [
               <strong key="reg">{vehicle.reg_plate ?? 'No registration'}</strong>,
               vehicle.type?.replaceAll('_', ' ') ?? 'Vehicle',
               <StatusBadge key="advertising" value={intelligence.advertisingByVehicle.get(vehicle.id) ?? 'none'} tone={intelligence.advertisingByVehicle.get(vehicle.id) === 'exchange' ? 'green' : intelligence.advertisingByVehicle.get(vehicle.id) === 'partner' ? 'blue' : 'grey'} />,
               <StatusBadge key="state" value="Unassigned" tone="orange" />,
-              <ActionButton key="open" tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Manage vehicles</ActionButton>,
             ])}
           />
         </Panel>
       )}
+        </main>
+      </div>
     </PageFrame>
   );
 }

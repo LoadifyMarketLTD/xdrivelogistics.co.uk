@@ -13,7 +13,8 @@ describe('Customer clean workspace contract', () => {
       expect(shell).toContain(`label: '${label}'`);
     }
     expect(roles).toContain("primaryAction: { label: 'Post Load', href: '/customer/post-load', capability: 'loads.create' }");
-    expect(shell).toContain("customer-post-load-primary', 'Post Load', '/customer/post-load'");
+    expect(shell).toContain("customer-directory-primary', 'Directory', '/customer/network'");
+    expect(shell).not.toContain("customer-post-load-primary");
     expect(shell).toContain("if (role === 'customer') {");
     expect(shell).toContain('filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user)');
     expect(shell).toContain("{ id: 'customer-loads', label: 'My Loads'");
@@ -22,11 +23,11 @@ describe('Customer clean workspace contract', () => {
     expect(shell).not.toContain("{ id: 'customer-loads', label: 'Loads', items:");
   });
 
-  it('keeps only the four primary customer signals at the top', () => {
-    for (const label of ['Open Loads','Quotes to Review','Active Deliveries','Outstanding Invoices']) {
+  it('keeps the two CX-sized primary customer signals at the top', () => {
+    for (const label of ['Open Loads','Active Deliveries']) {
       expect(dashboard).toContain(`label="${label}"`);
     }
-    for (const removedLabel of ['Awaiting award','Delayed','POD ready']) {
+    for (const removedLabel of ['Quotes to Review','Outstanding Invoices','Awaiting award','Delayed','POD ready']) {
       expect(dashboard).not.toContain(`label="${removedLabel}"`);
     }
     expect(dashboard).toContain('<KpiGrid>');
@@ -60,6 +61,7 @@ describe('Customer clean workspace contract', () => {
   });
 
   it('does not render the customer company name beside the workspace label', () => {
-    expect(shell).toContain("role !== 'customer' && !CARRIER_NAV_ROLES.has(role) ? <strong>{companyName}</strong> : null");
+    expect(shell).toContain('<span>{definition.label}</span>');
+    expect(shell).toContain('<strong>{companyName}</strong>');
   });
 });

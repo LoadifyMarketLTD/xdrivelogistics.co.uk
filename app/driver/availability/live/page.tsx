@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import DriverNearbyMap from '../../_components/DriverNearbyMap';
@@ -58,7 +58,9 @@ const isDriverOrSubcontractor = (memberType: string | null | undefined) => {
   return ['owner_driver', 'owner driver', 'carrier', 'fleet', 'courier', 'subcontractor', 'sub-contractor'].some((token) => value.includes(token));
 };
 
-export default function LiveAvailabilityPage() {
+export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?: 'availability' | 'fleet' } = {}) {
+  const pathname = usePathname();
+  const mode: 'availability' | 'fleet' = explicitMode ?? (pathname.startsWith('/driver/fleet') ? 'fleet' : 'availability');
   const router = useRouter();
   const { user } = useAuth();
   const privateGroups = usePrivateNetworkGroups(user?.companyId ?? null);
@@ -215,7 +217,7 @@ export default function LiveAvailabilityPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
-        subtitle="Publish your own availability when you want work and discover privacy-scoped Exchange vehicle capacity in the same operational workspace."
+        subtitle={mode === 'fleet' ? 'Manage live and future fleet capacity with privacy-scoped Exchange availability in the Courier Exchange operating layout.' : 'Publish your own availability when you want work and discover privacy-scoped Exchange vehicle capacity in the same operational workspace.'}
         availabilityLabel={presence ? 'Live Availability On' : 'Live Availability Off'}
         headerActions={
           <button type="button" className="driver-more-button driver-live-command-button" onClick={refreshAll} disabled={busy || nearbyLoading}>
@@ -226,9 +228,9 @@ export default function LiveAvailabilityPage() {
         <div className="driver-live-availability-canonical">
           <aside className="driver-more-rail driver-live-filter-rail">
             <div className="driver-live-mode">
+              {mode === 'fleet' ? <button type="button" className="driver-more-button--success" onClick={() => router.push('/driver/availability')}>Add Future Position</button> : null}
               <button type="button" data-active="true" aria-pressed="true" disabled>Live</button>
-              <button type="button" onClick={() => router.push('/driver/availability')}>Future & Schedule</button>
-              <button type="button" onClick={() => router.push('/driver/nearby')}>Nearby</button>
+              <button type="button" onClick={() => router.push('/driver/availability')}>Future</button>
             </div>
 
             <div className="driver-more-rail__title">Search Panel</div>
@@ -317,7 +319,7 @@ export default function LiveAvailabilityPage() {
                 <button type="button" data-active={audience === 'drivers-subcontractors'} aria-pressed={audience === 'drivers-subcontractors'} onClick={() => setAudience('drivers-subcontractors')}>Drivers & Sub-contractors</button>
                 <button type="button" data-active={audience === 'other-drivers'} aria-pressed={audience === 'other-drivers'} onClick={() => setAudience('other-drivers')}>Other Drivers</button>
               </div>
-              <span className="driver-live-count">Live Availability ({visible.length} vehicles)</span>
+              <span className="driver-live-count">{mode === 'fleet' ? 'My Fleet' : 'Live Availability'} ({visible.length} vehicles)</span>
             </div>
 
             <div className="driver-live-map-panel">
@@ -373,4 +375,8 @@ export default function LiveAvailabilityPage() {
       </DriverWorkspaceShell>
     </ProtectedRoute>
   );
+}
+
+export default function LiveAvailabilityPage() {
+  return <DriverAvailabilityLiveWorkspace />;
 }

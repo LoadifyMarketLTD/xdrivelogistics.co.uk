@@ -4,7 +4,7 @@ import path from 'node:path';
 const fleet = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/FleetControlDashboardHome.tsx'), 'utf8');
 
 describe('CX-density My Fleet resource register', () => {
-  it('keeps the Owner Driver dashboard structure while retaining the dense fleet resource register', () => {
+  it('keeps the measured Courier Exchange live dashboard structure while retaining the dense fleet resource register', () => {
     expect(fleet).toContain('title="Reports & Statistics"');
     expect(fleet).toContain('title="Activity at a glance"');
     expect(fleet).toContain('<OperationalSignalStrip');

@@ -15,7 +15,6 @@ import {
   EmptyState,
   OperationalCard,
   PageFrame,
-  PageHeader,
   StatusBadge,
   WorkspaceDialog,
 } from '../../components/workspace/WorkspaceUI';
@@ -189,7 +188,7 @@ export default function CustomerQuotesCxPage() {
   const [message, setMessage] = useState('');
   const [identityError, setIdentityError] = useState('');
   const [identities, setIdentities] = useState<Map<string, BidderIdentity>>(new Map());
-  const [statusFilter, setStatusFilter] = useState<'all' | 'submitted' | 'shortlisted' | 'pending_acceptance' | 'accepted' | 'unsuccessful' | 'archived'>('all');
+  const [statusFilter, setStatusFilter] = useState<'received' | 'archived' | 'submitted' | 'unsuccessful'>('received');
   const [reference, setReference] = useState('');
   const [carrierSearch, setCarrierSearch] = useState('');
   const [candidate, setCandidate] = useState<QuoteParticipant | null>(null);
@@ -244,7 +243,6 @@ export default function CustomerQuotesCxPage() {
 
   const allQuotes = useMemo(() => data.bids.filter((bid) => ['submitted', 'accepted', 'rejected', 'declined', 'unsuccessful', 'withdrawn'].includes(String(bid.status).toLowerCase())), [data.bids]);
   const pendingOfferByJob = useMemo(() => new Map(bookingOffers.filter((offer) => offer.status === 'pending').map((offer) => [offer.job_id, offer])), [bookingOffers]);
-  const pendingOfferByBid = useMemo(() => new Map(bookingOffers.filter((offer) => offer.status === 'pending').map((offer) => [offer.bid_id, offer])), [bookingOffers]);
   const grouped = useMemo(() => {
     const refNeedle = reference.trim().toLowerCase();
     const carrierNeedle = carrierSearch.trim().toLowerCase();
@@ -253,14 +251,12 @@ export default function CustomerQuotesCxPage() {
       quotes: allQuotes
         .filter((bid) => {
           if (bid.job_id !== job.id) return false;
-          if (statusFilter === 'all') return true;
           const pendingOffer = pendingOfferByJob.get(job.id);
-          if (statusFilter === 'pending_acceptance') return pendingOffer?.bid_id === bid.id;
           const stage = canonicalQuoteStage(bid, 'poster');
-          if (statusFilter === 'submitted') return ['submitted', 'viewed'].includes(stage) && !pendingOffer;
-          if (statusFilter === 'shortlisted') return stage === 'shortlisted' && !pendingOffer;
-          if (statusFilter === 'unsuccessful') return ['unsuccessful', 'withdrawn', 'expired'].includes(stage);
-          return stage === statusFilter;
+          if (statusFilter === 'received') return ['submitted', 'viewed', 'shortlisted'].includes(stage) || pendingOffer?.bid_id === bid.id;
+          if (statusFilter === 'archived') return ['accepted', 'archived'].includes(stage);
+          if (statusFilter === 'submitted') return false;
+          return ['unsuccessful', 'withdrawn', 'expired'].includes(stage);
         })
         .filter((bid) => {
           if (!carrierNeedle) return true;
@@ -346,68 +342,36 @@ export default function CustomerQuotesCxPage() {
     router.push(`/customer/messages?bidId=${encodeURIComponent(messageCandidate.bid.id)}&jobId=${encodeURIComponent(messageCandidate.job.id)}${conversation}`);
   };
 
-  const counts = {
-    all: allQuotes.length,
-    submitted: allQuotes.filter((bid) => ['submitted', 'viewed'].includes(canonicalQuoteStage(bid, 'poster')) && !pendingOfferByJob.has(bid.job_id)).length,
-    shortlisted: allQuotes.filter((bid) => canonicalQuoteStage(bid, 'poster') === 'shortlisted' && !pendingOfferByJob.has(bid.job_id)).length,
-    pending_acceptance: allQuotes.filter((bid) => pendingOfferByBid.has(bid.id)).length,
-    accepted: allQuotes.filter((bid) => canonicalQuoteStage(bid, 'poster') === 'accepted').length,
-    unsuccessful: allQuotes.filter((bid) => ['unsuccessful', 'withdrawn', 'expired'].includes(canonicalQuoteStage(bid, 'poster'))).length,
-    archived: allQuotes.filter((bid) => canonicalQuoteStage(bid, 'poster') === 'archived').length,
-  };
 
   return (
     <PageFrame>
-      <PageHeader
-        eyebrow="Customer commercial"
-        title="Quotes"
-        description="Compare carrier responses by load, inspect member profiles, message the verified bidder and send one booking offer for carrier acceptance."
-        actions={<><ActionButton tone="secondary" onClick={() => router.push('/customer/messages')}>Messages</ActionButton><ActionButton tone="secondary" onClick={() => void Promise.all([data.refresh(), loadBookingOffers()])}>Refresh</ActionButton></>}
-      />
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
       {message && <AlertBanner tone={message.includes('successfully') || message.includes('rejected') || message.includes('sent') ? 'success' : 'danger'}>{message}</AlertBanner>}
       {identityError && <AlertBanner tone="warning">{identityError}</AlertBanner>}
       {bookingOfferError && <AlertBanner tone="warning">{bookingOfferError}</AlertBanner>}
-      <OperationalCard
-        title="Quote filters"
-        subtitle="Search and filter carrier responses without shrinking the quote board into a narrow side column."
-        actions={<ActionButton tone="secondary" onClick={() => { setReference(''); setCarrierSearch(''); setStatusFilter('all'); }}>Clear filters</ActionButton>}
-      >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 8, alignItems: 'end' }}>
-          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
-            LOAD ID / REF
-            <input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive or customer reference" style={{ height: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 9px', fontSize: 12 }} />
-          </label>
-          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
-            CARRIER / MEMBER
-            <input value={carrierSearch} onChange={(event) => setCarrierSearch(event.target.value)} placeholder="Company, owner driver or member ID" style={{ height: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 9px', fontSize: 12 }} />
-          </label>
-          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
-            STATUS
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)} style={{ height: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 9px', fontSize: 12, background: '#fff' }}>
-              <option value="all">All quote activity</option>
-              <option value="submitted">Awaiting decision</option>
-              <option value="shortlisted">Shortlisted</option>
-              <option value="pending_acceptance">Awaiting carrier acceptance</option>
-              <option value="accepted">Accepted</option>
-              <option value="unsuccessful">Unsuccessful</option>
+      <div className="workspace-board-layout">
+        <aside className="workspace-filter-rail" aria-label="Quote filters">
+          <div className="workspace-filter-rail__header">Search Quotes</div>
+          <div className="workspace-filter-rail__body">
+            <label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive or customer reference" /></label>
+            <label>CARRIER / MEMBER<input value={carrierSearch} onChange={(event) => setCarrierSearch(event.target.value)} placeholder="Company or member ID" /></label>
+            <label>STATUS<select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as typeof statusFilter)}>
+              <option value="received">Received</option>
               <option value="archived">Archived</option>
-            </select>
-          </label>
-        </div>
-      </OperationalCard>
-
-      <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginTop: 8, marginBottom: 6 }}>
-        {(['all', 'submitted', 'shortlisted', 'pending_acceptance', 'accepted', 'unsuccessful', 'archived'] as const).map((status) => (
-          <button key={status} type="button" data-active={statusFilter === status ? 'true' : 'false'} onClick={() => setStatusFilter(status)}>
-            {status === 'all' ? 'All' : status === 'submitted' ? 'Awaiting Decision' : status === 'pending_acceptance' ? 'Awaiting Carrier' : status === 'shortlisted' ? 'Shortlisted' : status === 'unsuccessful' ? 'Unsuccessful' : status[0].toUpperCase() + status.slice(1)} {counts[status]}
+              <option value="submitted">Submitted</option>
+              <option value="unsuccessful">Unsuccessful</option>
+            </select></label>
+            <ActionButton tone="secondary" onClick={() => { setReference(''); setCarrierSearch(''); setStatusFilter('received'); }}>Clear</ActionButton>
+          </div>
+        </aside>
+        <main className="workspace-board-main">
+      <div className="workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Customer quote statuses">
+        {(['received', 'archived', 'submitted', 'unsuccessful'] as const).map((status) => (
+          <button key={status} type="button" role="tab" aria-selected={statusFilter === status} data-active={statusFilter === status ? 'true' : 'false'} onClick={() => setStatusFilter(status)}>
+            {status === 'received' ? 'Received' : status === 'archived' ? 'Archived' : status === 'submitted' ? 'Submitted' : 'Unsuccessful'}
           </button>
         ))}
-      </div>
-
-      <div className="workspace-record-meta" style={{ justifyContent: 'space-between', marginBottom: 8 }}>
-        <span><strong>{grouped.length}</strong> load{grouped.length === 1 ? '' : 's'} with matching quotes</span>
-        <span>Lowest visible price shown first per load - one booking offer may await carrier acceptance at a time</span>
+        <span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" onClick={() => void Promise.all([data.refresh(), loadBookingOffers()])}>Refresh</button></span>
       </div>
 
       {grouped.length === 0 ? (
@@ -457,6 +421,8 @@ export default function CustomerQuotesCxPage() {
           ))}
         </div>
       )}
+        </main>
+      </div>
       {candidate ? <AwardConfirmation candidate={candidate} working={working === candidate.bid.id} onCancel={() => setCandidate(null)} onConfirm={() => void award(candidate.bid.id)} /> : null}
       {messageCandidate ? <MessageParticipantDialog candidate={messageCandidate} body={messageBody} working={messageWorking} error={messageError} onBodyChange={setMessageBody} onCancel={() => { setMessageCandidate(null); setMessageBody(''); setMessageError(''); }} onSend={() => void sendBidMessage()} /> : null}
     </PageFrame>

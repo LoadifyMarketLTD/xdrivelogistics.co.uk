@@ -6,7 +6,7 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import DriverIntegratedNav from '../_components/DriverIntegratedNav';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
-import { StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
 import DriverNearbyMap from '../_components/DriverNearbyMap';
 import { useAuth } from '../../components/AuthContext';
 import { matchesAvailabilityFilters } from '../../../lib/availability/canonicalAvailability';
@@ -144,13 +144,7 @@ export default function DriverNearbyPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-live-availability-prototype">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Who's Nearby</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); setBodyType('all'); setMinPayload(''); setMinPallets(''); setTailLiftOnly(false); setPrivateGroupId(''); setPostcode(''); setRadius('100'); setAudience('all'); setQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' }); }}>Clear</button>
-            <button type="button" className="btn primary" onClick={() => setQuery({ postcode: postcode.trim(), radius, vehicle, body: bodyType, minPayload, minPallets, tailLiftOnly, groupId: privateGroupId })} disabled={loading}>{loading ? 'Refreshing…' : 'Search'}</button>
-          </div>
-        </div>
+        <PageHeader eyebrow="Driver availability" title="Who's Nearby" description="Find exchange-visible vehicle capacity by location and vehicle." />
         <DriverIntegratedNav label="Availability tools" items={[{ href: '/driver/availability/live', label: 'Live' }, { href: '/driver/availability', label: 'Future & Schedule' }, { href: '/driver/nearby', label: "Who's Nearby" }]} />
 
         <div className="pagebody">
@@ -166,16 +160,16 @@ export default function DriverNearbyPage() {
             <div className="filter"><span className="label">Min pallets</span><input className="input" type="number" min="0" value={minPallets} onChange={(event) => setMinPallets(event.target.value)} placeholder="Any" /></div>
             <div className="filter"><span className="label">Equipment</span><label className="check"><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} />Tail lift required</label></div>
             <div className="filter"><span className="label">Private Group</span><select className="select" value={privateGroupId} onChange={(event) => setPrivateGroupId(event.target.value)}><option value="">All Exchange members</option>{privateGroups.groups.filter((group) => group.allowAvailabilityVisibility).map((group) => <option key={group.id} value={group.id}>{group.name} ({group.members.length})</option>)}</select></div>
+            <div className="filter"><button type="button" className="btn primary" onClick={() => setQuery({ postcode: postcode.trim(), radius, vehicle, body: bodyType, minPayload, minPallets, tailLiftOnly, groupId: privateGroupId })} disabled={loading}>{loading ? 'Refreshing…' : 'Search'}</button> <button type="button" className="btn" onClick={() => { setSearch(''); setVehicle('all'); setBodyType('all'); setMinPayload(''); setMinPallets(''); setTailLiftOnly(false); setPrivateGroupId(''); setPostcode(''); setRadius('100'); setAudience('all'); setQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' }); }}>Clear</button></div>
           </aside>
           <main className="main">
-            <div className="head"><div><h1>Who's Nearby</h1><p>Find exchange-visible nearby vehicle capacity by location, member and vehicle</p></div></div>
             {error && <div className="vision-note">{error}</div>}
             <div className="avail-topbar">
               <div className="avail-view-tabs"><button type="button" className={viewMode === 'map' ? 'active' : ''} onClick={() => setViewMode('map')}>Map View</button><button type="button" className={viewMode === 'list' ? 'active' : ''} onClick={() => setViewMode('list')}>List View</button></div>
               <div className="avail-audience"><button type="button" className={audience === 'all' ? 'active' : ''} onClick={() => setAudience('all')}>All</button><button type="button" className={audience === 'drivers-subcontractors' ? 'active' : ''} onClick={() => setAudience('drivers-subcontractors')}>Drivers & Sub-contractors</button><button type="button" className={audience === 'other-drivers' ? 'active' : ''} onClick={() => setAudience('other-drivers')}>Other Drivers</button></div>
               <button type="button" className="text-action" onClick={openVisibleMap}>Open map in new window</button>
             </div>
-            <div className="toolbar"><b>Who's Nearby</b><span className="spacer" /><button type="button" className="btn" onClick={() => router.push('/driver/returns')}>Add Future Position</button><button type="button" className="btn green" onClick={() => router.push('/driver/vehicles')}>Register Your Vehicles</button></div>
+            <div className="toolbar"><b>Who's Nearby</b><span className="spacer" /><span className="muted small">{visible.length} visible position{visible.length === 1 ? '' : 's'}</span></div>
             <div className="availgrid" style={viewMode === 'list' ? { gridTemplateColumns: '1fr' } : undefined}>
               <div className="map availmap" style={viewMode === 'list' ? { display: 'none' } : undefined}>
                 {viewMode === 'map' && (

@@ -2,7 +2,7 @@
  * Scoped to /admin only. Owner Driver and Super Admin are intentionally untouched. */
 .xdrive-carrier-workspace .top-workspace-shell__content {
   background: #f4f6f8;
-  color: #1a1f2b;
+  color: var(--ws-text);
 }
 
 .xdrive-carrier-workspace .carrier-register-page,
@@ -1176,7 +1176,7 @@
   }
 }
 
-/* Owner Driver dashboard geometry is inherited from the shared workspace baseline. */
+/* Dashboard geometry is inherited from the shared Courier Exchange live baseline. */
 .xdrive-carrier-workspace .carrier-owner-parity-grid {
   margin-bottom: 12px;
 }
@@ -1191,25 +1191,16 @@
   }
 }
 
-/* CX-parity Carrier/Fleet dashboard: one tab at a time, starting with Dashboard. */
+/* CX-parity Carrier dashboard content hooks only.
+ * Shared dashboard dimensions come exclusively from workspace-measured-cx-baseline.css
+ * so Carrier cannot drift away from Owner Driver / the other operational roles. */
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.06fr) minmax(430px, .94fr);
-  gap: 8px;
-  align-items: start;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
-.xdrive-carrier-workspace .carrier-cx-dashboard-column {
-  min-width: 0;
-  display: grid;
-  gap: 8px;
-}
-
+.xdrive-carrier-workspace .carrier-cx-dashboard-column,
 .xdrive-carrier-workspace .carrier-cx-dashboard-subgrid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 8px;
+  min-width: 0;
 }
 
 .xdrive-carrier-workspace .carrier-cx-stat-grid,
@@ -1946,8 +1937,8 @@
 }
 
 .xdrive-carrier-workspace .carrier-cx-dashboard-grid .xdrive-operational-card__header {
-  min-height: 49px !important;
-  height: 49px !important;
+  min-height: var(--ws-panel-head-h) !important;
+  height: auto !important;
   padding: 0 10px !important;
   display: flex !important;
   align-items: center !important;

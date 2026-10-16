@@ -12,11 +12,10 @@ import {
   AlertBanner,
   EmptyState,
   PageFrame,
-  PageHeader,
   StatusBadge,
 } from '../../components/workspace/WorkspaceUI';
 
-type QuoteTab = 'received' | 'shortlisted' | 'accepted' | 'archived' | 'unsuccessful';
+type QuoteTab = 'received' | 'archived' | 'submitted' | 'unsuccessful';
 type BidderIdentity = {
   bidId: string;
   companyId: string | null;
@@ -45,10 +44,9 @@ const priceOf = (bid: WorkspaceBid) => Number(bid.bid_price_gbp ?? bid.amount ??
 
 function matchesTab(bid: WorkspaceBid, tab: QuoteTab) {
   const stage = canonicalQuoteStage(bid, 'poster');
-  if (tab === 'received') return ['submitted', 'viewed'].includes(stage);
-  if (tab === 'shortlisted') return stage === 'shortlisted';
-  if (tab === 'accepted') return stage === 'accepted';
-  if (tab === 'archived') return stage === 'archived';
+  if (tab === 'received') return ['submitted', 'viewed', 'shortlisted'].includes(stage);
+  if (tab === 'archived') return ['accepted', 'archived'].includes(stage);
+  if (tab === 'submitted') return false;
   return ['unsuccessful', 'withdrawn', 'expired'].includes(stage);
 }
 
@@ -63,7 +61,7 @@ export default function BrokerQuotesPage() {
   const [to, setTo] = useState('');
   const [carrier, setCarrier] = useState('');
   const [reference, setReference] = useState(deepJob || '');
-  const [expanded, setExpanded] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [working, setWorking] = useState<string | null>(null);
   const [message, setMessage] = useState('');
   const [identities, setIdentities] = useState<Record<string, BidderIdentity>>({});
@@ -120,13 +118,6 @@ export default function BrokerQuotesPage() {
       .sort((a, b) => priceOf(a.bid) - priceOf(b.bid));
   }, [carrier, customer, data.bids, data.jobs, from, identities, reference, tab, to]);
 
-  const counts = useMemo(() => ({
-    received: data.bids.filter((bid) => matchesTab(bid, 'received')).length,
-    shortlisted: data.bids.filter((bid) => matchesTab(bid, 'shortlisted')).length,
-    accepted: data.bids.filter((bid) => matchesTab(bid, 'accepted')).length,
-    archived: data.bids.filter((bid) => matchesTab(bid, 'archived')).length,
-    unsuccessful: data.bids.filter((bid) => matchesTab(bid, 'unsuccessful')).length,
-  }), [data.bids]);
 
   const award = async (bidId: string) => {
     if (!confirmBookingPaymentObligation()) return;
@@ -176,24 +167,25 @@ export default function BrokerQuotesPage() {
     setCustomer(''); setFrom(''); setTo(''); setCarrier(''); setReference('');
     if (deepJob) router.push('/broker/bids');
   };
-  const tabs: Array<{ id: QuoteTab; label: string; count: number }> = [
-    { id: 'received', label: 'Received', count: counts.received },
-    { id: 'shortlisted', label: 'Shortlisted', count: counts.shortlisted },
-    { id: 'accepted', label: 'Accepted', count: counts.accepted },
-    { id: 'unsuccessful', label: 'Unsuccessful', count: counts.unsuccessful },
-    { id: 'archived', label: 'Archived', count: counts.archived },
+  const tabs: Array<{ id: QuoteTab; label: string }> = [
+    { id: 'received', label: 'Received' },
+    { id: 'archived', label: 'Archived' },
+    { id: 'submitted', label: 'Submitted' },
+    { id: 'unsuccessful', label: 'Unsuccessful' },
   ];
+  const allVisibleExpanded = rows.length > 0 && rows.every(({ bid }) => expanded.has(bid.id));
+  const toggleAllVisible = () => setExpanded((current) => {
+    const next = new Set(current);
+    for (const { bid } of rows) {
+      if (allVisibleExpanded) next.delete(bid.id); else next.add(bid.id);
+    }
+    return next;
+  });
   const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
   const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
 
   return (
     <PageFrame>
-      <PageHeader
-        eyebrow="Carrier sourcing"
-        title="Quotes"
-        description={deepJob ? `Compare and award quotes for load ${deepJob.slice(0, 8).toUpperCase()} from the Broker Quotes board.` : 'Compare carrier and owner-driver responses, inspect the member profile and award without leaving the broker board.'}
-        actions={deepJob ? <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>Show all quotes</ActionButton> : undefined}
-      />
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
       {identityWarning && <AlertBanner tone="warning">{identityWarning}</AlertBanner>}
       {message && <AlertBanner tone={message.includes('successfully') ? 'success' : 'danger'}>{message}</AlertBanner>}
@@ -207,13 +199,14 @@ export default function BrokerQuotesPage() {
             <label>TO<input value={to} onChange={(event) => setTo(event.target.value)} placeholder="Delivery town / postcode" /></label>
             <label>CARRIER / OWNER DRIVER<input value={carrier} onChange={(event) => setCarrier(event.target.value)} placeholder="Member name" /></label>
             <label>LOAD / QUOTE REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Reference" /></label>
-            <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Filters apply as you type.</span><ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton></div>
+            <div style={{ display: 'grid', gap: 4 }}><span style={metaStyle}>Filters apply as you type.</span>{deepJob ? <ActionButton tone="secondary" onClick={() => router.push('/broker/bids')}>Show all quotes</ActionButton> : null}<ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton></div>
           </div>
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-tab-strip" style={{ display: 'flex', overflowX: 'auto', marginBottom: 4 }}>
-            {tabs.map((item) => <button key={item.id} type="button" data-active={tab === item.id ? 'true' : 'false'} onClick={() => setTab(item.id)}>{item.label} {item.count}</button>)}
+          <div className="workspace-tab-strip cx-quote-state-tabs" role="tablist" aria-label="Broker quote statuses">
+            {tabs.map((item) => <button key={item.id} type="button" role="tab" aria-selected={tab === item.id} data-active={tab === item.id ? 'true' : 'false'} onClick={() => { setTab(item.id); setExpanded(new Set()); }}>{item.label}</button>)}
+            <span className="cx-quote-state-tabs__action"><button type="button" className="cx-expand-entries-control" onClick={toggleAllVisible} disabled={!rows.length}>{allVisibleExpanded ? 'Collapse All Entries' : 'Expand All Entries'}</button><button type="button" className="cx-expand-entries-control" onClick={() => void data.refresh()}>Refresh</button></span>
           </div>
 
           {rows.length === 0 ? (
@@ -222,7 +215,7 @@ export default function BrokerQuotesPage() {
             <div className="workspace-record-list">
               {rows.map(({ bid, job, identity }) => {
                 if (!job) return null;
-                const open = expanded === bid.id;
+                const open = expanded.has(bid.id);
                 const quote = priceOf(bid);
                 const budget = Number(job.budget_amount ?? 0);
                 const margin = budget > 0 && quote > 0 ? budget - quote : null;
@@ -238,7 +231,7 @@ export default function BrokerQuotesPage() {
                       <div className="workspace-operational-cell"><div style={labelStyle}>FROM</div><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{job.client_name || 'Customer'}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>TO</div><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong><div style={{ ...metaStyle, marginTop: 2 }}>{when(job.pickup_datetime)}</div></div>
                       <div className="workspace-operational-cell"><div style={labelStyle}>CARRIER / MEMBER</div><strong><MemberIdentityLink companyId={carrierCompanyId} driverId={carrierDriverId}>{carrierName}</MemberIdentityLink></strong><div style={{ ...metaStyle, marginTop: 2 }}>{carrierType} · {(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</div><div style={{ ...metaStyle, marginTop: 2 }}>{identity?.memberId ? `Member ID ${identity.memberId} · ` : ''}{identity?.quoteLevel === 'driver' ? `Driver ${identity.driverAvailability?.replaceAll('_', ' ') || 'availability not supplied'}` : `${identity?.fleetVehicleTypes.length ?? 0} fleet types`}</div></div>
-                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{quote > 0 ? money(quote) : 'Quote not priced'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={quoteStageLabel(quoteStage)} /><ActionButton tone="secondary" onClick={() => { const opening = !open; setExpanded(open ? null : bid.id); if (opening && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
+                      <div className="workspace-operational-cell"><div style={labelStyle}>COMMERCIAL</div><strong>{quote > 0 ? money(quote) : 'Quote not priced'}</strong><div style={{ display: 'flex', gap: 4, alignItems: 'center', flexWrap: 'wrap', marginTop: 3 }}><StatusBadge value={quoteStageLabel(quoteStage)} /><ActionButton tone="secondary" onClick={() => { const opening = !open; setExpanded((current) => { const next = new Set(current); if (open) next.delete(bid.id); else next.add(bid.id); return next; }); if (opening && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }}>{open ? 'Close' : 'Open'}</ActionButton></div></div>
                     </div>
                     <div className="workspace-record-meta"><span>Load #{job.id.slice(0, 8).toUpperCase()}</span><span>Quote #{bid.id.slice(0, 8).toUpperCase()}</span><span>Customer budget: {budget > 0 ? money(budget) : 'Not set'}</span><span>{margin !== null ? `Est. spread: ${money(margin)}` : 'Spread unavailable'}</span></div>
                     {open && (

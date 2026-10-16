@@ -86,6 +86,7 @@ describe('driver parity across dual identity contexts', () => {
       '/driver/drivers-vehicles',
       '/driver/drivers',
       '/driver/finance',
+      '/driver/fleet',
       '/driver/freight-vision',
       '/driver/load-alerts',
       '/driver/loads',

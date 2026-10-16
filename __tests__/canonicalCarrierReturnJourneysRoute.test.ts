@@ -6,7 +6,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 describe('canonical carrier Return Journeys route', () => {
   const legacy = read('app/admin/returns/page.tsx');
   const workflow = read('app/admin/workflowUi.tsx');
-  const modules = read('app/admin/AdminWorkspaceModules.tsx');
+  const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
 
   it('keeps /admin/returns only as a redirect alias', () => {
     expect(legacy).toContain("redirect('/admin/fleet/returns')");
@@ -15,10 +15,10 @@ describe('canonical carrier Return Journeys route', () => {
     expect(legacy).not.toContain('.insert(');
   });
 
-  it('points carrier Return Journey navigation at the canonical fleet workspace', () => {
+  it('points carrier Return Journey navigation at the canonical fleet workspace without a second legacy route', () => {
     expect(workflow).toContain("href: '/admin/fleet/returns'");
-    expect(modules).toContain("router.push('/admin/fleet/returns')");
+    expect(shell).toContain("['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns']");
     expect(workflow).not.toContain("href: '/admin/returns'");
-    expect(modules).not.toContain("router.push('/admin/returns')");
+    expect(shell).not.toContain("'/admin/returns'");
   });
 });

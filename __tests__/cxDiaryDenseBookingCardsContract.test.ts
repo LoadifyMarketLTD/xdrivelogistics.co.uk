@@ -6,28 +6,31 @@ const sheet = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace
 
 describe('CX-density carrier Diary contract', () => {
   it('adds the CX-style operational search dimensions without a new data source', () => {
-    expect(diary).toContain('BOOKING SCOPE');
+    expect(diary).toContain('Booking Scope');
     expect(diary).toContain('Jobs Sub-contracted');
     expect(diary).toContain('Our Bookings');
-    expect(diary).toContain('PICKUP TIME WITHIN');
-    expect(diary).toContain('DELIVERY TIME WITHIN');
-    expect(diary).toContain('LOAD ID / REF');
+    expect(diary).toContain('Pickup Time Within:');
+    expect(diary).toContain('Delivery Time Within:');
+    expect(diary).toContain('Load ID / Ref:');
     expect(diary).toContain(".from('jobs')");
     expect(diary).not.toContain('/api/diary/');
   });
 
-  it('surfaces route, schedule, freight and evidence before expansion', () => {
+  it('keeps the CX collapsed card dense and retains freight/evidence in the expandable record detail', () => {
+    expect(diary).toContain('xdrive-cx-diary-card__main');
+    expect(diary).toContain('xdrive-cx-diary-card__expanded-meta');
     expect(diary).toContain('requested_cargo_label');
     expect(diary).toContain('job_distance_miles');
     expect(diary).toContain('weight_kg');
     expect(diary).toContain('pallets');
-    expect(diary).toContain('hard_copy_pod');
-    expect(diary).toContain('Load notes:');
+    expect(diary).toContain('Hard-copy POD:');
+    expect(diary).toContain('Load Notes:');
   });
 
-  it('opens the existing authorised job-sheet tabs from each booking action bar', () => {
-    expect(diary).toContain("(['agreement','route','progress','exception','evidence','pod','invoice','payment','dispute','event-log'] as JobSheetTab[])");
-    expect(diary).toContain('openJobTab(job.id, tabId)');
+  it('opens the existing authorised job-sheet tabs from the CX footer and expanded operational actions', () => {
+    for (const tabId of ['pod', 'agreement', 'progress', 'event-log', 'evidence', 'invoice', 'exception', 'payment', 'dispute']) {
+      expect(diary).toContain(`openJobTab(job.id, '${tabId}')`);
+    }
     expect(sheet).toContain('initialTab?: JobSheetTab');
     expect(sheet).toContain('setTab(normalizeTab(initialTab))');
   });

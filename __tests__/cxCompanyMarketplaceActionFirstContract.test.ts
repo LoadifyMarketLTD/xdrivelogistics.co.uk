@@ -8,21 +8,24 @@ describe('CX-close Company Marketplace composition', () => {
     expect(source).not.toContain('OperationalSignalStrip');
     expect(source).not.toContain('ExchangeKpiStrip');
     expect(source).not.toContain('<KpiCard');
-    expect(source).toContain("title={dedicatedQuotes ? 'Quotes' : 'Loads'}");
+    expect(source).toContain("initialTab?: 'loads' | 'bids' | 'won'");
   });
 
-  it('keeps only Loads and Won Work as local views because Quotes is already a primary navbar route', () => {
-    expect(source).toContain("tabButton('loads', 'Available Loads')");
-    expect(source).toContain("tabButton('won', 'Won Work')");
+  it('keeps Loads, Quotes and Won Work route-selected instead of duplicating local navigation', () => {
+    expect(source).toContain("const [tab] = useState<'loads' | 'bids' | 'won'>(initialTab)");
+    expect(source).toContain("{tab === 'loads' && <>");
+    expect(source).toContain("{tab === 'bids' && <div");
+    expect(source).toContain("{tab === 'won' && <div");
     expect(source).not.toContain("tabButton('bids', 'My Quotes')");
-    expect(source).toContain('Submit marketplace quote');
+    expect(source).toContain('ariaLabel="Submit marketplace quote"');
     expect(source).toContain('Submit Quote');
   });
 
   it('keeps List View / Map View and global expansion on operational loads', () => {
-    expect(source).toContain('OperationalExpandAllControl');
+    expect(source).toContain('cx-expand-entries-control');
+    expect(source).toContain('toggleExpandAll');
     expect(source).toContain('List View');
-    expect(source).toContain('Map View');
+    expect(source).toContain('Interactive Freight Radar Map');
     expect(source).toContain('<MarketplaceLoadMap');
   });
 

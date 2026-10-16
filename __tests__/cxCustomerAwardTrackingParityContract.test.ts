@@ -84,6 +84,6 @@ describe('CX-close Customer quote award and tracking parity', () => {
 
   it('keeps customer tracking states visible without changing lifecycle authority', () => {
     expect(customerOps).toContain("'upcoming' | 'live' | 'delayed' | 'delivered' | 'photo_evidence'");
-    expect(customerOps).toContain('Track awarded transport from upcoming collection through live movement, delivery and available delivery-photo evidence.');
+    expect(customerOps).toContain('Track awarded transport from collection through live movement and delivery.');
   });
 });

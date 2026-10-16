@@ -1,14 +1,14 @@
-# XDrive — All Workspaces Owner Reference Alignment
+# XDrive — All Workspaces Courier Exchange Reference Alignment
 
 Date: 2026-10-02
 Branch: `fix/driver-dashboard-booking-offers-20261001`
 
 ## Scope
 
-Completed code-only alignment for operational workspaces using Owner Driver as the visual reference.
+Historical note: this pass used an internal Driver surface. That rule is superseded. Courier Exchange live at `https://app.transportexchangegroup.com/pp/freight-exchange` is now the final visual reference for all seven operational workspaces.
 
 Explicit exclusions:
-- `app/driver/**` — Owner Driver/reference surface not modified.
+- `app/driver/**` — Driver surface was not modified during this historical pass.
 - `app/super-admin/**` — Super Admin not modified.
 - Opera/browser was not used for implementation or verification.
 
@@ -116,7 +116,7 @@ Final forbidden-scope check must remain empty:
 ## Main integration verification
 
 The `origin/main` integration was rebuilt from the current main line rather than merging the working branch wholesale.
-Owner Driver and Super Admin remain excluded from the visual adapter. Shared workspace primitives use isolated non-driver hooks so existing Driver selectors are not activated.
+Historical implementation note: Driver and Super Admin were excluded from that adapter. Current visual convergence is governed by Courier Exchange live; Super Admin remains excluded from the seven-workspace visual scope.
 
 Final gates on the main integration candidate:
 - 118 Admin/Broker/Customer route pages classified by the page audit
@@ -127,4 +127,4 @@ Final gates on the main integration candidate:
 - production `next build` passed
 - forbidden-scope diff for `app/driver/**` and `app/super-admin/**` is empty
 
-Three unrelated contract assertions (`operationalShellRecoveryContract`, `unifiedWorkspaceNavbarContract`, `dashboardConnectedWorkspaceContract`) also fail unchanged on clean `origin/main`; they target pre-existing Driver/navigation expectations and were not modified because Owner Driver is explicitly reference-only in this task.
+Three unrelated contract assertions (`operationalShellRecoveryContract`, `unifiedWorkspaceNavbarContract`, `dashboardConnectedWorkspaceContract`) also failed unchanged on clean `origin/main`; they targeted pre-existing Driver/navigation expectations and were not modified in that historical pass. Current visual expectations are grounded in Courier Exchange live.

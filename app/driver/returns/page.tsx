@@ -10,7 +10,7 @@ import { getMissingColumnFromError } from '../../../lib/supabaseSchemaCompat';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { OperationalExpandAllControl } from '../../components/workspace/OperationalExpandAllControl';
-import { AlertBanner } from '../../components/workspace/WorkspaceUI';
+import { AlertBanner, PageHeader } from '../../components/workspace/WorkspaceUI';
 
 type DriverRow = {
   id: string;
@@ -221,7 +221,7 @@ export default function ReturnJourneysPage() {
     void loadJourneys(tab === 'mine' ? 'mine' : 'marketplace', 1, false);
     // Search filters are submitted explicitly; tab and page-size changes reload the current board.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [driverId, tab, pageSize]);
+  }, [driverId, pageSize, search.kind, tab]);
 
   const handleSearch = (event: FormEvent) => {
     event.preventDefault();
@@ -350,14 +350,7 @@ export default function ReturnJourneysPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-returns-prototype">
-        <div className="subbar">
-          <span className="crumb">Workspace &nbsp;/&nbsp; <b>Return Journeys</b></span>
-          <div className="sub-actions">
-            <button type="button" className="btn" onClick={clearSearch}>Clear</button>
-            <button type="button" className="btn" onClick={() => setTab('mine')}>Our Journeys</button>
-            <button type="button" className="btn primary" onClick={() => setTab('add')}>+ Add Journey</button>
-          </div>
-        </div>
+        <PageHeader eyebrow="Driver capacity" title="Return Journeys" description="Search, publish and manage empty-vehicle return capacity." />
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">{tab === 'add' ? 'Future Position' : tab === 'mine' ? 'My Journeys' : 'Journey Search'}</div>
@@ -368,7 +361,7 @@ export default function ReturnJourneysPage() {
               <div className="filter"><span className="label">Date</span><select className="select" value={search.date} onChange={(event) => setSearch((current) => ({ ...current, date: event.target.value }))}><option value="anytime">Anytime</option><option value="today">Today</option><option value="tomorrow">Tomorrow</option><option value="today10">Today + 10 Days</option></select></div>
               <div className="filter"><span className="label">Search Tools</span><button type="button" className="rowbtn" onClick={() => setAdvancedOpen((value) => !value)}>Advanced Search</button></div>
               {advancedOpen && <><div className="filter"><span className="label">Member / Driver</span><input className="input" value={search.member} onChange={(event) => setSearch((current) => ({ ...current, member: event.target.value }))} placeholder="Name or ID" /></div><div className="filter"><span className="label">Journey Type</span><select className="select" value={search.kind} onChange={(event) => setSearch((current) => ({ ...current, kind: event.target.value as SearchDefaults['kind'] }))}><option value="all">All</option><option value="ad_hoc">Ad Hoc</option><option value="regular">Regular</option></select></div></>}
-              <div className="filter"><button type="submit" className="btn primary">Search</button> <button type="button" className="btn" onClick={saveSearchDefault}>Save as Default</button></div>
+              <div className="filter"><button type="submit" className="btn primary">Search</button> <button type="button" className="btn" onClick={clearSearch}>Clear</button> <button type="button" className="btn" onClick={saveSearchDefault}>Save as Default</button></div>
             </form>}
             {tab === 'mine' && <div className="filter"><div className="linkrow active">Journeys<span className="count">{total}</span></div><div className="linkrow">Live status<span className="count">{liveStatus}</span></div><div className="linkrow">Future position<span className="count">{driver?.future_position ?? 'None'}</span></div></div>}
             {tab === 'add' && <form onSubmit={(event) => void saveFuturePosition(event)}><div className="filter"><span className="label">Future location</span><input className="input" value={futurePosition} onChange={(event) => setFuturePosition(event.target.value)} placeholder="e.g. Birmingham B1" /></div><div className="filter"><span className="label">Available from</span><input className="input" type="datetime-local" value={futureDate} onChange={(event) => setFutureDate(event.target.value)} /></div><div className="filter"><span className="label">Available until</span><input className="input" type="datetime-local" value={futureUntil} onChange={(event) => setFutureUntil(event.target.value)} /></div><div className="filter"><span className="label">Availability notes</span><textarea className="input" value={futureNotes} onChange={(event) => setFutureNotes(event.target.value)} placeholder="Capacity, area or timing notes" /></div><button type="submit" className="btn primary" disabled={saving}>{saving ? 'Saving…' : 'Save Position'}</button></form>}
@@ -377,9 +370,11 @@ export default function ReturnJourneysPage() {
             {error && <AlertBanner tone="danger">{error}</AlertBanner>}
             {successMsg && <AlertBanner tone="success">{successMsg}</AlertBanner>}
             <div className="return-tabs">
-              <button type="button" className={tab === 'search' ? 'active' : ''} onClick={() => setTab('search')}>All</button>
-              <button type="button" className={tab === 'mine' ? 'active' : ''} onClick={() => setTab('mine')}>My Journeys</button>
-              <button type="button" className={tab === 'add' ? 'active' : ''} onClick={() => setTab('add')}>Add Journey</button>
+              {([['all', 'All'], ['ad_hoc', 'Ad Hoc'], ['regular', 'Regular']] as const).map(([kind, label]) => (
+                <button key={kind} type="button" className={tab === 'search' && search.kind === kind ? 'active' : ''} onClick={() => { setSearch((current) => ({ ...current, kind })); setTab('search'); setPage(1); }}>{label}</button>
+              ))}
+              <button type="button" className="btn" onClick={() => setTab('add')}>Add Journey</button>
+              <button type="button" className={tab === 'mine' ? 'btn active' : 'btn'} onClick={() => setTab('mine')}>Our Journeys</button>
               <span className="spacer" />
               {tab !== 'add' && <label style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>Items per Page <select value={pageSize} onChange={(event) => setPageSize(Number(event.target.value))}>{pageSizeOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select></label>}
               {tab !== 'add' && <span>{total ? `${(page - 1) * pageSize + 1}-${Math.min(page * pageSize,total)} of ${total}` : '0 results'}</span>}
