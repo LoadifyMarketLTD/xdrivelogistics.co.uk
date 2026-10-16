@@ -100,7 +100,7 @@ export function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['carrier-my-fleet', 'My Fleet', '/admin/fleet/vehicles'],
     ['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns'],
     ['carrier-loads', 'Loads', '/admin/marketplace'],
-    ['carrier-quotes', 'Quotes', '/admin/exchange-quotes'],
+    ['carrier-quotes', 'Quotes', '/admin/exchange'],
     ['carrier-diary', 'Diary', '/admin/diary'],
     ['carrier-freight-vision', 'Freight Vision', '/admin/freight-vision'],
     ['carrier-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
@@ -782,12 +782,21 @@ export default function TopWorkspaceShell({
     [nav],
   );
 
+  const fixtureRouteFor = useCallback((href: string) => {
+    if (!fixtureCompanyName) return href;
+    if (href === '/admin/marketplace') return '/visual-fixture/loads';
+    if (href === '/admin/exchange' || href === '/admin/exchange-quotes') return '/visual-fixture/quotes';
+    if (href === '/admin/diary') return '/visual-fixture/diary';
+    return href;
+  }, [fixtureCompanyName]);
+
   const prefetchedRoutesRef = useRef(new Set<string>());
   const prefetchRoute = useCallback((href: string) => {
-    if (!href || prefetchedRoutesRef.current.has(href)) return;
-    prefetchedRoutesRef.current.add(href);
-    router.prefetch(href);
-  }, [router]);
+    const targetHref = fixtureRouteFor(href);
+    if (!targetHref || prefetchedRoutesRef.current.has(targetHref)) return;
+    prefetchedRoutesRef.current.add(targetHref);
+    router.prefetch(targetHref);
+  }, [fixtureRouteFor, router]);
 
   // Do not bulk-prefetch every visible workspace route on mount. These are
   // protected dynamic routes, so prefetching the whole navbar competes with
@@ -934,15 +943,17 @@ export default function TopWorkspaceShell({
   }, [openGroupId]);
 
   const isActive = (href: string) => {
-    const [baseHref] = href.split('?');
-    if (CARRIER_NAV_ROLES.has(role)) return baseHref === activeNavigationHref;
+    const targetHref = fixtureRouteFor(href);
+    const [baseHref] = targetHref.split('?');
+    if (fixtureCompanyName) return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
+    if (CARRIER_NAV_ROLES.has(role)) return href.split('?')[0] === activeNavigationHref;
     if (baseHref === definition.homeHref) return pathname === baseHref;
     return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
   };
 
   const openRoute = (href: string) => {
     setOpenGroupId(null);
-    router.push(href);
+    router.push(fixtureRouteFor(href));
   };
 
   const focusMenuItem = (groupId: string, edge: 'first' | 'last' = 'first') => {

@@ -7,7 +7,7 @@ import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbac
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useAuth } from '../../components/AuthContext';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
-import { workspaceVehicleImageSrc } from '../../components/workspace/vehiclePresentation';
+import CxDiaryCard from '../../components/workspace/CxDiaryCard';
 import { ActionButton, AlertBanner, EmptyState, PageFrame } from '../../components/workspace/WorkspaceUI';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket } from '../../../lib/diary/canonicalDiary';
@@ -198,38 +198,35 @@ export default function CustomerDiaryPage() {
                 const vehicle = (job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ');
                 const band = stage === 'completed' ? 'Delivered' : workspaceJobOperationalLabel(job);
                 return (
-                  <article key={job.id} className="workspace-operational-row xdrive-cx-diary-card" data-state={normalizedJobStatus(job)} data-stage={stage}>
-                    <div className="xdrive-cx-diary-card__main">
-                      <section className="cx-diary-route xdrive-cx-diary-card__route">
-                        <div><span>From:</span><strong>{routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}</strong></div>
-                        <div><span>To:</span><strong>{routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}</strong></div>
-                      </section>
-                      <section className="xdrive-cx-diary-card__times">
-                        <div><span>Pickup:</span><span className="cx-diary-datetime"><strong>{pickupWhen.primary}</strong>{pickupWhen.meta ? <span>{pickupWhen.meta}</span> : null}</span></div>
-                        <div><span>Deliver:</span><span className="cx-diary-datetime"><strong>{deliveryWhen.primary}</strong>{deliveryWhen.meta ? <span>{deliveryWhen.meta}</span> : null}</span></div>
-                      </section>
-                      <section className="xdrive-cx-diary-card__status">
-                        <div className="xdrive-cx-diary-card__band">{band}</div>
-                        <div className="xdrive-cx-diary-card__status-line">{carrierCompanyId || awardedOwnerDriverId ? <MemberIdentityLink companyId={carrierCompanyId} driverId={awardedOwnerDriverId}>{carrierName}</MemberIdentityLink> : <strong>{carrierName}</strong>}</div>
-                        <div className="xdrive-cx-diary-card__status-stamp">{quoteInfo?.submitted ?? 0} submitted quote{(quoteInfo?.submitted ?? 0) === 1 ? '' : 's'}{job.assigned_driver_id ? ' · executing driver assigned' : ''}</div>
-                        <div className="xdrive-cx-diary-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-diary-card__vehicle"><img className="xdrive-cx-diary-card__vehicle-image" src={workspaceVehicleImageSrc(vehicle)} alt="" aria-hidden="true" /><strong>{vehicle}</strong></span></div>
-                      </section>
-                    </div>
-                    <div className="xdrive-cx-diary-card__footer">
+                  <CxDiaryCard
+                    key={job.id}
+                    from={routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}
+                    to={routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}
+                    pickup={pickupWhen}
+                    delivery={deliveryWhen}
+                    band={band}
+                    statusLine={carrierCompanyId || awardedOwnerDriverId ? <MemberIdentityLink companyId={carrierCompanyId} driverId={awardedOwnerDriverId}>{carrierName}</MemberIdentityLink> : <strong>{carrierName}</strong>}
+                    statusStamp={<>{quoteInfo?.submitted ?? 0} submitted quote{(quoteInfo?.submitted ?? 0) === 1 ? '' : 's'}{job.assigned_driver_id ? ' · executing driver assigned' : ''}</>}
+                    loadId={job.id.slice(0, 8).toUpperCase()}
+                    vehicle={vehicle}
+                    state={normalizedJobStatus(job)}
+                    stage={stage}
+                    expanded={open}
+                    footer={<>
                       <button type="button" className="xdrive-cx-diary-card__expander" onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }} aria-label={open ? 'Collapse booking' : 'Expand booking'}>{open ? '▴' : '▾'}</button>
                       {canManageFeedback && feedbackAvailable ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => setFeedbackJobId(job.id)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
                       {stage !== 'open' ? <button type="button" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open booking</button> : null}
                       <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>History</button>
-                    </div>
-                    {open && <div className="xdrive-cx-diary-card__expanded-meta">
+                    </>}
+                    expandedMeta={<>
                       {job.booking_reference && <div><span>Booking:</span><strong>{job.booking_reference}</strong></div>}
                       {job.customer_reference && <div><span>Customer ref:</span><strong>{job.customer_reference}</strong></div>}
                       <div><span>POD:</span><strong>{job.pod_generated || job.has_delivery_evidence ? 'Available' : job.pod_required ? 'Required' : 'Not recorded'}</strong></div>
                       <div><span>Delivery photo:</span><strong>{deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</strong></div>
                       <div><span>Updated:</span><strong>{when(job.updated_at)}</strong></div>
-                    </div>}
-                    {open && <CompanyJobSheetPanel jobId={job.id} mode="customer" />}
-                  </article>
+                    </>}
+                    expandedContent={<CompanyJobSheetPanel jobId={job.id} mode="customer" />}
+                  />
                 );
               })}
             </div>

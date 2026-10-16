@@ -7,15 +7,18 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 describe('CX carrier Exchange Quotes navigation contract', () => {
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
   const workspaceRole = read('lib/workspaceRole.ts');
+  const exchangePage = read('app/admin/exchange/page.tsx');
   const exchangeQuotesPage = read('app/admin/exchange-quotes/page.tsx');
   const marketplace = read('app/components/workspace/CompanyMarketplaceExchange.tsx');
 
-  it('maps the primary carrier Quotes navigation to marketplace bid lifecycle', () => {
-    expect(workspaceRole).toContain("href: '/admin/exchange-quotes'");
-    expect(shell).toContain("['carrier-quotes', 'Quotes', '/admin/exchange-quotes']");
+  it('maps the primary carrier Quotes navigation to the canonical /admin/exchange marketplace bid lifecycle', () => {
+    expect(workspaceRole).toContain("href: '/admin/exchange'");
+    expect(shell).toContain("['carrier-quotes', 'Quotes', '/admin/exchange']");
+    expect(exchangePage).toContain('initialTab="bids"');
     expect(exchangeQuotesPage).toContain('initialTab="bids"');
     expect(marketplace).toContain("initialTab = 'loads'");
     expect(marketplace).toContain("useState<'loads' | 'bids' | 'won'>(initialTab)");
+    expect(marketplace).toContain('<CxQuoteCard');
   });
 
   it('keeps the separate customer quote workflow discoverable instead of deleting it', () => {
@@ -24,7 +27,8 @@ describe('CX carrier Exchange Quotes navigation contract', () => {
     expect(shell).toContain("const customerQuotesHref = '/admin/quotes';");
   });
 
-  it('authorises the dedicated carrier exchange quote route for a company owner', () => {
+  it('authorises the canonical carrier exchange route and retains the compatibility quote route', () => {
+    expect(isRoleAllowedForPath('/admin/exchange', 'company_admin', { workspaceRole: 'company_owner' })).toBe(true);
     expect(isRoleAllowedForPath('/admin/exchange-quotes', 'company_admin', { workspaceRole: 'company_owner' })).toBe(true);
   });
 });

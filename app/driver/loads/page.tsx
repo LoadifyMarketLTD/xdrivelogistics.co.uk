@@ -5,7 +5,7 @@ import { OperationalExpandAllControl } from '../../components/workspace/Operatio
 import WorkspaceRestrictionBanner from '../../components/workspace/WorkspaceRestrictionBanner';
 import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { isSupabaseConfigured } from '../../../lib/supabaseClient';
@@ -13,7 +13,7 @@ import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import { ActionButton } from '../../components/workspace/WorkspaceUI';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import { workspaceVehicleImageSrc } from '../../components/workspace/vehiclePresentation';
+import CxLoadCard from '../../components/workspace/CxLoadCard';
 
 type BidStatus = 'submitted' | 'accepted' | 'rejected' | 'withdrawn' | null;
 
@@ -122,6 +122,13 @@ function fmtDate(value: string | null) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'TBC';
   return date.toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+}
+function cxTimeParts(value: string | null) {
+  if (!value) return { primary: 'ASAP', meta: '' };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { primary: 'TBC', meta: '' };
+  const zone = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' }).formatToParts(date).find((part) => part.type === 'timeZoneName')?.value ?? '';
+  return { primary: date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }), meta: `${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}` };
 }
 function postedWithinMs(filter: PostedWithinFilter) {
   const values: Record<Exclude<PostedWithinFilter, 'any'>, number> = {
@@ -380,18 +387,42 @@ export default function AvailableLoadsPage() {
                   const toCollection = load.distance_to_pickup_miles != null ? `${load.distance_to_pickup_miles.toFixed(1)} miles${load.pickup_eta_minutes != null ? ` · ${Math.round(load.pickup_eta_minutes)} min` : ''}` : 'Not available';
                   const jobDistance = load.distance_miles != null ? `${load.distance_miles.toFixed(1)} miles${load.distance_minutes != null ? ` · ${Math.round(load.distance_minutes)} min` : ''}` : 'Not available';
                   const hasProposedPrice = load.budget_amount != null && load.budget_amount > 0;
-                  return <article key={load.id} className={`load-card cx-load-card xdrive-cx-load-card${expanded ? ' expanded' : ''}`}>
-                    <div className="load-primary xdrive-cx-load-card__main">
-                      <div className="load-route xdrive-cx-load-card__route"><div className="load-route-line"><span>From:</span><b>{load.pickup_area}</b></div><div className="load-route-line"><span>To:</span><b>{load.delivery_area}</b></div></div>
-                      <div className="load-times xdrive-cx-load-card__times"><div className="load-time-line"><span>Pickup:</span><b>{fmtDate(load.pickup_datetime)}</b></div><div className="load-time-line"><span>Deliver:</span><b>{fmtDate(load.delivery_datetime)}</b></div>{expanded && <div className="xdrive-cx-load-card__freight"><div><span>Dist:</span><strong>{jobDistance}</strong></div><div><span>Weight:</span><strong>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</strong></div><div><span>Packaging:</span><strong>{cargoLabel}</strong></div><div><span>Dims:</span><strong>{dim ?? 'Not supplied'}</strong></div></div>}</div>
-                      <div className="load-member xdrive-cx-load-card__status"><span className="load-type xdrive-cx-load-card__band">{load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace')}</span><div className="load-postedby xdrive-cx-load-card__posted">Posted by <b>{load.member.postedBy ?? load.member.name}</b></div><span className="meta xdrive-cx-load-card__posted-at">{fmtDate(load.exchange_posted_at)}</span><div className="xdrive-cx-load-card__status-meta"><span>Load ID: {load.id.slice(0,8).toUpperCase()}</span><span className="load-vehicle xdrive-cx-load-card__vehicle"><img className="xdrive-cx-load-card__vehicle-image" src={workspaceVehicleImageSrc(selectedVehicleLabel)} alt="" aria-hidden="true" /><strong>{selectedVehicleLabel}</strong></span></div>{expanded && <div className="xdrive-cx-load-card__commercial"><div><span>Requested:</span><strong>{selectedVehicleLabel}</strong></div><div><span>Payment Terms:</span><strong>{load.payment_terms ?? 'Not supplied'}</strong></div><div><span>Hard copy POD:</span><strong>{load.hard_copy_pod ?? 'No additional requirement'}</strong></div></div>}</div>
-                    </div>
-                    {expanded && <div className="xdrive-cx-load-card__notes load-extra-note"><span>Load Notes:</span><strong>{load.public_quote_notes ?? 'No public quote notes supplied.'}</strong><small>Pre-award execution contacts and exact private addresses remain protected until authorised award/allocation.</small></div>}
-                    {expanded && load.handling_requirements.length > 0 && <div className="xdrive-cx-load-card__notes load-extra-note load-extra-requirements"><span>Requirements:</span><strong>{load.handling_requirements.join(' · ')}</strong></div>}
-                    {expanded && <div className="xdrive-cx-load-card__notes"><span>To Collection:</span><strong>{toCollection}</strong></div>}
+                  const serviceLabel = load.service_mode?.replace(/_/g,' ') ?? (load.direct_delivery_required ? 'Deliver Direct' : 'Marketplace');
+                  return <Fragment key={load.id}>
+                    <CxLoadCard
+                      className={`load-card cx-load-card${expanded ? ' expanded' : ''}`}
+                      from={load.pickup_area}
+                      to={load.delivery_area}
+                      pickup={cxTimeParts(load.pickup_datetime)}
+                      delivery={cxTimeParts(load.delivery_datetime)}
+                      band={serviceLabel}
+                      posted={<>Posted by {load.member.postedBy ?? load.member.name}</>}
+                      postedAt={fmtDate(load.exchange_posted_at)}
+                      loadId={load.id.slice(0,8).toUpperCase()}
+                      vehicle={selectedVehicleLabel}
+                      expanded={expanded}
+                      freight={<>
+                        <div><span>Dist:</span><strong>{jobDistance}</strong></div>
+                        <div><span>Weight:</span><strong>{load.weight_kg != null ? `${load.weight_kg} kg` : 'Not supplied'}</strong></div>
+                        <div><span>Packaging:</span><strong>{cargoLabel}</strong></div>
+                        <div><span>Dims:</span><strong>{dim ?? 'Not supplied'}</strong></div>
+                      </>}
+                      commercial={<>
+                        <div><span>Requested:</span><strong>{selectedVehicleLabel}</strong></div>
+                        <div><span>Payment Terms:</span><strong>{load.payment_terms ?? 'Not supplied'}</strong></div>
+                        <div><span>Hard copy POD:</span><strong>{load.hard_copy_pod ?? 'No additional requirement'}</strong></div>
+                      </>}
+                      notes={<><span>Load Notes:</span><strong>{load.public_quote_notes ?? 'No public quote notes supplied.'}</strong>{load.handling_requirements.length > 0 ? <><span>Requirements:</span><strong>{load.handling_requirements.join(' · ')}</strong></> : null}<span>To Collection:</span><strong>{toCollection}</strong></>}
+                      footer={<>
+                        <button type="button" className="load-expand xdrive-cx-load-footer__expander" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '▴' : '▾'}</button>
+                        {!quoted && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}
+                        <span className="load-footer-spacer" />
+                        <button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button>
+                        <span className="load-footer-identity">{load.member.memberId ?? 'Member ID unavailable'} · {load.member.name}{load.member.phone ? ` · ${load.member.phone}` : ''}</span>
+                      </>}
+                    />
                     {bidLoadId === load.id && !quoted && <div className="driver-inline-quote driver-inline-quote--marketplace"><div className="driver-filter-field"><label>Your quote (£)</label><input type="number" min="1" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} /></div><div className="driver-filter-field"><label>Message</label><textarea rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} /></div><ActionButton tone="success" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit(load.id)}>{bidLoading ? 'Submitting…' : 'Submit Quote'}</ActionButton><ActionButton tone="secondary" onClick={() => setBidLoadId(null)}>Cancel</ActionButton></div>}
-                    <div className="load-card-footer xdrive-cx-load-footer"><button type="button" className="load-expand xdrive-cx-load-footer__expander" aria-expanded={expanded} aria-label={expanded ? 'Collapse load details' : 'Expand load details'} onClick={() => { if(expandAll){setExpandAll(false);setExpandedLoadId(null);} else setExpandedLoadId(expanded ? null : load.id); }}>{expanded ? '⌃' : '⌄'}</button>{!quoted && <button type="button" className="load-quote-footer xdrive-cx-load-footer__quote" onClick={() => { setExpandedLoadId(load.id); setBidLoadId(load.id); setBidAmount(hasProposedPrice && load.budget_amount != null ? String(load.budget_amount) : ''); setBidMessage(''); }}>Quote Now</button>}<span className="load-footer-spacer" /><button type="button" className="text-action" onClick={() => router.push(`/driver/loads/${load.id}`)}>View Details</button><span className="load-footer-identity">{load.member.memberId ?? 'Member ID unavailable'} · {load.member.name}{load.member.phone ? ` · ${load.member.phone}` : ''}</span></div>
-                  </article>;
+                  </Fragment>;
                 })}
               </div>
             )}

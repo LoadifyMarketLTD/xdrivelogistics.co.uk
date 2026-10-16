@@ -17,19 +17,19 @@ const roles: AuditRole[] = [
     { kind: 'loads', path: '/broker/loads' }, { kind: 'quotes', path: '/broker/bids' }, { kind: 'diary', path: '/broker/diary' },
   ]},
   { id: 'admin', emailKey: 'E2E_ADMIN_EMAIL', passwordKey: 'E2E_ADMIN_PASSWORD', routes: [
-    { kind: 'loads', path: '/admin/marketplace' }, { kind: 'quotes', path: '/admin/exchange-quotes' }, { kind: 'diary', path: '/admin/diary' },
+    { kind: 'loads', path: '/admin/marketplace' }, { kind: 'quotes', path: '/admin/exchange' }, { kind: 'diary', path: '/admin/diary' },
   ]},
   { id: 'fleet-manager', emailKey: 'E2E_FLEET_MANAGER_EMAIL', passwordKey: 'E2E_FLEET_MANAGER_PASSWORD', routes: [
-    { kind: 'loads', path: '/admin/marketplace' }, { kind: 'quotes', path: '/admin/exchange-quotes' }, { kind: 'diary', path: '/admin/diary' },
+    { kind: 'loads', path: '/admin/marketplace' }, { kind: 'quotes', path: '/admin/exchange' }, { kind: 'diary', path: '/admin/diary' },
   ]},
   { id: 'dispatcher', emailKey: 'E2E_DISPATCHER_EMAIL', passwordKey: 'E2E_DISPATCHER_PASSWORD', routes: [
-    { kind: 'loads', path: '/admin/marketplace' }, { kind: 'quotes', path: '/admin/exchange-quotes' }, { kind: 'diary', path: '/admin/diary' },
+    { kind: 'loads', path: '/admin/marketplace' }, { kind: 'quotes', path: '/admin/exchange' }, { kind: 'diary', path: '/admin/diary' },
   ]},
   { id: 'owner-driver', emailKey: 'E2E_OWNER_DRIVER_EMAIL', passwordKey: 'E2E_OWNER_DRIVER_PASSWORD', routes: [
     { kind: 'loads', path: '/driver/loads' }, { kind: 'quotes', path: '/driver/quotes' }, { kind: 'diary', path: '/driver/history' },
   ]},
   { id: 'carrier-admin', emailKey: 'E2E_CARRIER_ADMIN_EMAIL', passwordKey: 'E2E_CARRIER_ADMIN_PASSWORD', routes: [
-    { kind: 'loads', path: '/admin/marketplace' }, { kind: 'quotes', path: '/admin/exchange-quotes' }, { kind: 'diary', path: '/admin/diary' },
+    { kind: 'loads', path: '/admin/marketplace' }, { kind: 'quotes', path: '/admin/exchange' }, { kind: 'diary', path: '/admin/diary' },
   ]},
   { id: 'company-driver', emailKey: 'E2E_COMPANY_DRIVER_EMAIL', passwordKey: 'E2E_COMPANY_DRIVER_PASSWORD', routes: [
     { kind: 'loads', path: '/driver/loads' }, { kind: 'quotes', path: '/driver/quotes' }, { kind: 'diary', path: '/driver/history' },

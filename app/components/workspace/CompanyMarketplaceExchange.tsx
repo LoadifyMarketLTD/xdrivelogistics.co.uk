@@ -12,6 +12,8 @@ import { marketplaceVehicleSizeOptions, marketplaceVehicleSizeRank } from '../..
 import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
+import CxLoadCard from './CxLoadCard';
+import CxQuoteCard from './CxQuoteCard';
 import { MemberProfileOverlay } from './MemberProfile';
 import {
   ActionButton,
@@ -487,37 +489,32 @@ export default function CompanyMarketplaceExchange({
                 const deliveryWhen = cxSlotParts(load.delivery_datetime, load.delivery_time_slot || (!load.delivery_datetime ? 'ASAP' : null));
                 const requestedVehicle = vehicleLabel(load);
                 const notes = load.special_requirements || load.access_restrictions || '';
-                return <article key={load.id} className="xdrive-cx-load-card">
-                  <div className="xdrive-cx-load-card__main">
-                    <section className="xdrive-cx-load-card__route">
-                      <div><span>From:</span><strong>{routeLabel(load.pickup_location, load.pickup_postcode)}</strong></div>
-                      <div><span>To:</span><strong>{routeLabel(load.delivery_location, load.delivery_postcode)}</strong></div>
-                      {load.exchange_visibility === 'direct' ? <span className="xdrive-cx-load-card__direct">Direct invite</span> : null}
-                    </section>
-                    <section className="xdrive-cx-load-card__times">
-                      <div><span>Pickup:</span><span className="cx-load-datetime"><strong>{pickupWhen.primary}</strong>{pickupWhen.meta ? <span>{pickupWhen.meta}</span> : null}</span></div>
-                      <div><span>Deliver:</span><span className="cx-load-datetime"><strong>{deliveryWhen.primary}</strong>{deliveryWhen.meta ? <span>{deliveryWhen.meta}</span> : null}</span></div>
-                      {isExpanded && <div className="xdrive-cx-load-card__freight">
-                        <div><span>Dist:</span><strong>{load.journeyDistanceMiles != null ? `${load.journeyDistanceMiles.toFixed(1)} miles` : 'Not Supplied'}</strong></div>
-                        <div><span>Weight:</span><strong>{load.weight_kg != null ? `${Number(load.weight_kg).toLocaleString()} kg` : 'Not Supplied'}</strong></div>
-                        <div><span>Packaging:</span><strong>{load.pallets != null ? `${load.pallets} Pallet${load.pallets === 1 ? '' : 's'}` : load.requested_cargo_label || load.cargo_type?.replace(/_/g, ' ') || 'Not Supplied'}</strong></div>
-                        <div><span>Dims:</span><strong>Not Supplied</strong></div>
-                      </div>}
-                    </section>
-                    <section className="xdrive-cx-load-card__status">
-                      <div className="xdrive-cx-load-card__band">{descriptionLabel(load.jobDescription)}</div>
-                      <div className="xdrive-cx-load-card__posted"><strong>Posted by {load.posterName}</strong></div>
-                      {load.exchange_posted_at ? <div className="xdrive-cx-load-card__posted-at">@ {cxWhen(load.exchange_posted_at)}</div> : null}
-                      <div className="xdrive-cx-load-card__status-meta"><span>Load ID: {load.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-load-card__vehicle"><img className="xdrive-cx-load-card__vehicle-image" src={vehicleImageSrc(requestedVehicle)} alt="" aria-hidden="true" /><strong>{requestedVehicle}</strong></span></div>
-                      {isExpanded && <div className="xdrive-cx-load-card__commercial">
-                        <div><span>Requested:</span><strong>{requestedVehicle}</strong></div>
-                        <div><span>Payment Terms:</span><strong>{load.payment_terms || 'Not Supplied'}</strong></div>
-                        <div><span>Hard copy POD:</span><strong>{load.hard_copy_pod || 'Not Supplied'}</strong></div>
-                      </div>}
-                    </section>
-                  </div>
-                  {isExpanded && notes ? <div className="xdrive-cx-load-card__notes"><span>Load Notes:</span><strong>{notes}</strong></div> : null}
-                  <div className="xdrive-cx-load-footer">
+                return <CxLoadCard
+                  key={load.id}
+                  from={routeLabel(load.pickup_location, load.pickup_postcode)}
+                  to={routeLabel(load.delivery_location, load.delivery_postcode)}
+                  routeMeta={load.exchange_visibility === 'direct' ? <span className="xdrive-cx-load-card__direct">Direct invite</span> : null}
+                  pickup={pickupWhen}
+                  delivery={deliveryWhen}
+                  band={descriptionLabel(load.jobDescription)}
+                  posted={<>Posted by {load.posterName}</>}
+                  postedAt={load.exchange_posted_at ? <>@ {cxWhen(load.exchange_posted_at)}</> : null}
+                  loadId={load.id.slice(0, 8).toUpperCase()}
+                  vehicle={requestedVehicle}
+                  expanded={isExpanded}
+                  freight={<>
+                    <div><span>Dist:</span><strong>{load.journeyDistanceMiles != null ? `${load.journeyDistanceMiles.toFixed(1)} miles` : 'Not Supplied'}</strong></div>
+                    <div><span>Weight:</span><strong>{load.weight_kg != null ? `${Number(load.weight_kg).toLocaleString()} kg` : 'Not Supplied'}</strong></div>
+                    <div><span>Packaging:</span><strong>{load.pallets != null ? `${load.pallets} Pallet${load.pallets === 1 ? '' : 's'}` : load.requested_cargo_label || load.cargo_type?.replace(/_/g, ' ') || 'Not Supplied'}</strong></div>
+                    <div><span>Dims:</span><strong>Not Supplied</strong></div>
+                  </>}
+                  commercial={<>
+                    <div><span>Requested:</span><strong>{requestedVehicle}</strong></div>
+                    <div><span>Payment Terms:</span><strong>{load.payment_terms || 'Not Supplied'}</strong></div>
+                    <div><span>Hard copy POD:</span><strong>{load.hard_copy_pod || 'Not Supplied'}</strong></div>
+                  </>}
+                  notes={notes ? <><span>Load Notes:</span><strong>{notes}</strong></> : null}
+                  footer={<>
                     <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => setExpanded((current) => { const next = new Set(current); if (next.has(load.id)) next.delete(load.id); else next.add(load.id); return next; })} aria-label={isExpanded ? 'Collapse load' : 'Expand load'}>{isExpanded ? '▴' : '▾'}</button>
                     {!load.myBid || ['withdrawn', 'rejected', 'unsuccessful'].includes(load.myBid.status) ? <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => openQuote(load)}>Quote Now</button> : null}
                     <span className="xdrive-cx-load-footer__member">
@@ -526,8 +523,8 @@ export default function CompanyMarketplaceExchange({
                       <button className="xdrive-inline-link xdrive-cx-load-footer__company" type="button" onClick={() => setMemberTarget(load)}>{load.posterName}</button>
                       {load.posterPhone ? <a href={`tel:${load.posterPhone.replace(/\s+/g, '')}`}>{load.posterPhone}</a> : null}
                     </span>
-                  </div>
-                </article>;
+                  </>}
+                />;
               })}
               {!loading && visibleLoads.length === 0 && <div className="carrier-exchange-empty" style={{ minHeight: 52, padding: 10, display: 'grid', placeItems: 'center', textAlign: 'center', color: '#64748b', border: '1px solid #dbe2ea', background: '#fff' }}>No live loads match this search.</div>}
             </div>}
@@ -579,25 +576,22 @@ export default function CompanyMarketplaceExchange({
                       : stage === 'archived'
                         ? `Archived Quote ${quoteAmount}`
                         : `You Quoted ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`;
-              return <article key={bid.id} className="xdrive-cx-quote-card" data-quote-stage={stage}>
-                <div className="xdrive-cx-quote-card__main">
-                  <section className="xdrive-cx-quote-card__route">
-                    <div><span>From:</span><strong>{routeLabel(bid.job?.pickup_location, bid.job?.pickup_postcode)}</strong></div>
-                    <div><span>To:</span><strong>{routeLabel(bid.job?.delivery_location, bid.job?.delivery_postcode)}</strong></div>
-                  </section>
-                  <section className="xdrive-cx-quote-card__times">
-                    <div><span>Pickup:</span><span className="cx-quote-datetime"><strong>{pickupLabel.primary}</strong>{pickupLabel.meta ? <span>{pickupLabel.meta}</span> : null}</span></div>
-                    <div><span>Deliver:</span><span className="cx-quote-datetime"><strong>{deliveryLabel.primary}</strong>{deliveryLabel.meta ? <span>{deliveryLabel.meta}</span> : null}</span></div>
-                  </section>
-                  <section className="xdrive-cx-quote-card__status">
-                    <div className={`xdrive-cx-quote-card__band${sold ? ' xdrive-cx-quote-card__band--sold' : ''}`}>{sold ? 'SOLD' : serviceLabel}</div>
-                    <div className="xdrive-cx-quote-card__posted">@ {cxWhen(bid.job?.exchange_posted_at || bid.created_at)}</div>
-                    <div className="xdrive-cx-quote-card__service">{sold ? serviceLabel : <>Posted by {bid.job?.posterName || 'Marketplace member'}</>}</div>
-                    <div className="xdrive-cx-quote-card__status-meta"><span>Load ID: {bid.job_id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-quote-card__vehicle"><span className="xdrive-cx-quote-card__vehicle-icon" aria-hidden="true" /><strong>{vehicle}</strong></span></div>
-                  </section>
-                </div>
-                {expandedQuote && <div className="xdrive-cx-quote-card__expanded-cx"><div className="xdrive-cx-quote-card__freight"><div><span>Dist:</span><strong>Unknown</strong></div><div><span>Weight:</span><strong>{Number.isFinite(Number(bid.job?.weight_kg)) && Number(bid.job?.weight_kg) > 0 ? `${Number(bid.job?.weight_kg)} kg` : 'Not Supplied'}</strong></div><div><span>Packaging:</span><strong>{bid.job?.pallets ? `${bid.job.pallets} Pallet${bid.job.pallets === 1 ? '' : 's'}` : bid.job?.requested_cargo_label || bid.job?.cargo_type?.replace(/_/g, ' ') || 'Not Supplied'}</strong></div><div><span>Dims:</span><strong>{[bid.job?.length_cm, bid.job?.width_cm, bid.job?.height_cm].every((value) => Number(value) > 0) ? `${Number(bid.job?.length_cm)} x ${Number(bid.job?.width_cm)} x ${Number(bid.job?.height_cm)} cm` : 'Not Supplied'}</strong></div></div>{loadNotes ? <div className="xdrive-cx-quote-card__notes"><span>Load Notes:</span><strong>{loadNotes}</strong></div> : null}<div className="xdrive-cx-quote-table"><div className="xdrive-cx-quote-table__head"><span>Quote from Member</span><span>Vehicle</span><span>Rating</span><span>Phone</span><span>Created</span><span>Quote</span><span>ETA</span><span>Distance</span></div><div className="xdrive-cx-quote-table__row"><strong>{bid.job?.posterName || 'Marketplace member'}{bid.job?.posterMemberCode ? ` (${bid.job.posterMemberCode})` : ''}</strong><span>{vehicle}</span><span>—</span><span>{bid.job?.posterPhone || 'Not Supplied'}</span><span>{cxShortWhen(bid.created_at)}</span><strong>{quoteAmount}</strong><span>Not Supplied</span><span>Unknown</span></div></div></div>}
-                <div className="xdrive-cx-quote-card__footer">
+              return <CxQuoteCard
+                key={bid.id}
+                routeFrom={routeLabel(bid.job?.pickup_location, bid.job?.pickup_postcode)}
+                routeTo={routeLabel(bid.job?.delivery_location, bid.job?.delivery_postcode)}
+                pickup={pickupLabel}
+                delivery={deliveryLabel}
+                band={serviceLabel}
+                sold={sold}
+                postedAt={<>@ {cxWhen(bid.job?.exchange_posted_at || bid.created_at)}</>}
+                service={sold ? serviceLabel : <>Posted by {bid.job?.posterName || 'Marketplace member'}</>}
+                loadId={bid.job_id.slice(0, 8).toUpperCase()}
+                vehicle={vehicle}
+                stage={stage}
+                expanded={expandedQuote}
+                expandedContent={<><div className="xdrive-cx-quote-card__freight"><div><span>Dist:</span><strong>Unknown</strong></div><div><span>Weight:</span><strong>{Number.isFinite(Number(bid.job?.weight_kg)) && Number(bid.job?.weight_kg) > 0 ? `${Number(bid.job?.weight_kg)} kg` : 'Not Supplied'}</strong></div><div><span>Packaging:</span><strong>{bid.job?.pallets ? `${bid.job.pallets} Pallet${bid.job.pallets === 1 ? '' : 's'}` : bid.job?.requested_cargo_label || bid.job?.cargo_type?.replace(/_/g, ' ') || 'Not Supplied'}</strong></div><div><span>Dims:</span><strong>{[bid.job?.length_cm, bid.job?.width_cm, bid.job?.height_cm].every((value) => Number(value) > 0) ? `${Number(bid.job?.length_cm)} x ${Number(bid.job?.width_cm)} x ${Number(bid.job?.height_cm)} cm` : 'Not Supplied'}</strong></div></div>{loadNotes ? <div className="xdrive-cx-quote-card__notes"><span>Load Notes:</span><strong>{loadNotes}</strong></div> : null}<div className="xdrive-cx-quote-table"><div className="xdrive-cx-quote-table__head"><span>Quote from Member</span><span>Vehicle</span><span>Rating</span><span>Phone</span><span>Created</span><span>Quote</span><span>ETA</span><span>Distance</span></div><div className="xdrive-cx-quote-table__row"><strong>{bid.job?.posterName || 'Marketplace member'}{bid.job?.posterMemberCode ? ` (${bid.job.posterMemberCode})` : ''}</strong><span>{vehicle}</span><span>—</span><span>{bid.job?.posterPhone || 'Not Supplied'}</span><span>{cxShortWhen(bid.created_at)}</span><strong>{quoteAmount}</strong><span>Not Supplied</span><span>Unknown</span></div></div></>}
+                footer={<>
                   <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => setExpandedQuotes((current) => { const next = new Set(current); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })} aria-label={expandedQuote ? 'Collapse quote' : 'Expand quote'}>{expandedQuote ? '▴' : '▾'}</button>
                   {activeQuote ? <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working} onClick={() => void withdrawQuote(bid.id)}>Cancel Quote</button> : null}
                   <span className={`xdrive-cx-quote-card__quote-state xdrive-cx-quote-card__quote-state--${stage}`}>{footerState}</span>
@@ -609,8 +603,8 @@ export default function CompanyMarketplaceExchange({
                   </span>
                   {stage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(stage) ? <button type="button" className="xdrive-inline-link" disabled={working} onClick={() => void updateQuoteLifecycle(bid.id, 'archive_bidder')}>Archive</button> : null}
                   {stage === 'archived' ? <button type="button" className="xdrive-inline-link" disabled={working} onClick={() => void updateQuoteLifecycle(bid.id, 'unarchive_bidder')}>Restore</button> : null}
-                </div>
-              </article>;
+                </>}
+              />;
             })}
             {!loading && visibleBids.length === 0 && <div className="carrier-exchange-empty" style={{ minHeight: 52, padding: 10, display: 'grid', placeItems: 'center', textAlign: 'center', color: '#64748b', border: '1px solid #dbe2ea', background: '#fff' }}>{bids.length === 0 ? 'No marketplace quotes have been submitted by this company.' : 'No quotes match the current state and search filters.'}</div>}
           </div>

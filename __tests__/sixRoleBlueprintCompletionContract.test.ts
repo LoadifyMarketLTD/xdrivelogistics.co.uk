@@ -32,7 +32,7 @@ describe('six-role canonical blueprint completion', () => {
 
   it('exposes Carrier Won Work and POD as first-class routes', () => {
     const nav = hrefs('carrier_admin');
-    for (const route of ['/admin/marketplace','/admin/exchange-quotes','/admin/won-work','/admin/jobs','/admin/pod','/admin/fleet/assignments','/admin/drivers','/admin/vehicles','/admin/live-availability','/admin/fleet','/admin/fleet/returns','/admin/marketplace/directory','/admin/freight-vision','/admin/invoices','/admin/documents','/admin/messages','/admin/event-log']) {
+    for (const route of ['/admin/marketplace','/admin/exchange','/admin/won-work','/admin/jobs','/admin/pod','/admin/fleet/assignments','/admin/drivers','/admin/vehicles','/admin/live-availability','/admin/fleet','/admin/fleet/returns','/admin/marketplace/directory','/admin/freight-vision','/admin/invoices','/admin/documents','/admin/messages','/admin/event-log']) {
       expect(nav).toContain(route);
     }
     expect(read('app/admin/won-work/page.tsx')).toContain('initialTab="won"');

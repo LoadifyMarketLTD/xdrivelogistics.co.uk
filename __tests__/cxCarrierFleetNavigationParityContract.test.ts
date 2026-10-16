@@ -16,7 +16,7 @@ describe('CX-close carrier and fleet top navigation', () => {
       "['carrier-my-fleet', 'My Fleet', '/admin/fleet/vehicles']",
       "['carrier-return-journeys', 'Return Journeys', '/admin/fleet/returns']",
       "['carrier-loads', 'Loads', '/admin/marketplace']",
-      "['carrier-quotes', 'Quotes', '/admin/exchange-quotes']",
+      "['carrier-quotes', 'Quotes', '/admin/exchange']",
       "['carrier-diary', 'Diary', '/admin/diary']",
       "['carrier-freight-vision', 'Freight Vision', '/admin/freight-vision']",
       "['carrier-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources']",

@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { useAuth } from '../../components/AuthContext';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
-import { workspaceVehicleImageSrc } from '../../components/workspace/vehiclePresentation';
+import CxLoadCard from '../../components/workspace/CxLoadCard';
 import {
   ActionButton,
   AlertBanner,
@@ -17,9 +17,13 @@ import {
 
 type LoadTab = 'all' | 'draft' | 'open' | 'awarded' | 'active' | 'completed';
 
-const when = (value: string | null | undefined) => value
-  ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
-  : 'Not set';
+const cxTimeParts = (value: string | null | undefined) => {
+  if (!value) return { primary: 'ASAP', meta: '' };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { primary: 'Not set', meta: '' };
+  const zone = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' }).formatToParts(date).find((part) => part.type === 'timeZoneName')?.value ?? '';
+  return { primary: date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }), meta: `${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}` };
+};
 
 const money = (value: number | null | undefined) =>
   typeof value === 'number' && Number.isFinite(value)
@@ -135,43 +139,40 @@ export default function BrokerLoadsPage() {
                 const budget = Number(job.budget_amount ?? 0);
                 const stage = classifyWorkspaceJobStage(job);
 
+                const vehicleLabel = (job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ');
                 return (
-                  <article className="xdrive-cx-load-card" key={job.id} data-state={statusOf(job)}>
-                    <div className="xdrive-cx-load-card__main">
-                      <section className="xdrive-cx-load-card__route">
-                        <div><span>From:</span><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong></div>
-                        <div><span>To:</span><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong></div>
-                      </section>
-                      <section className="xdrive-cx-load-card__times">
-                        <div><span>Pickup:</span><strong>{when(job.pickup_datetime)}</strong></div>
-                        <div><span>Deliver:</span><strong>{when(job.delivery_datetime)}</strong></div>
-                        {open && <div className="xdrive-cx-load-card__freight">
-                          <div><span>Quotes:</span><strong>{quotes.length}</strong></div>
-                          <div><span>Best quote:</span><strong>{bestQuote ? money(bestQuote) : 'No live quote'}</strong></div>
-                          <div><span>Budget:</span><strong>{budget > 0 ? money(budget) : 'Not set'}</strong></div>
-                          <div><span>Spread:</span><strong>{bestQuote && budget > 0 ? money(budget - bestQuote) : '—'}</strong></div>
-                        </div>}
-                      </section>
-                      <section className="xdrive-cx-load-card__status">
-                        <div className="xdrive-cx-load-card__band">{workspaceJobOperationalLabel(job)}</div>
-                        <div className="xdrive-cx-load-card__posted"><strong>{job.client_name || 'Customer'}</strong></div>
-                        <div className="xdrive-cx-load-card__posted-at">{budget > 0 ? `Budget ${money(budget)}` : 'Budget not set'} · {quotes.length} quote{quotes.length === 1 ? '' : 's'}</div>
-                        <div className="xdrive-cx-load-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-load-card__vehicle"><img className="xdrive-cx-load-card__vehicle-image" src={workspaceVehicleImageSrc((job.vehicle_type || 'Vehicle not set').replaceAll('_', ' '))} alt="" aria-hidden="true" /><strong>{(job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ')}</strong></span></div>
-                        {open && <div className="xdrive-cx-load-card__commercial">
-                          <div><span>Customer:</span><strong>{job.client_name || 'Not supplied'}</strong></div>
-                          <div><span>Status:</span><strong>{workspaceJobOperationalLabel(job)}</strong></div>
-                        </div>}
-                      </section>
-                    </div>
-                    <div className="xdrive-cx-load-footer">
-                      <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => { setExpandedAllIds((current) => { const next = new Set(current); next.delete(job.id); return next; }); setExpanded(open ? null : job.id); }} aria-label={open ? 'Collapse load' : 'Expand load'}>{open ? '⌃' : '⌄'}</button>
+                  <CxLoadCard
+                    key={job.id}
+                    from={job.pickup_postcode || job.pickup_location || 'Collection not set'}
+                    to={job.delivery_postcode || job.delivery_location || 'Delivery not set'}
+                    pickup={cxTimeParts(job.pickup_datetime)}
+                    delivery={cxTimeParts(job.delivery_datetime)}
+                    band={workspaceJobOperationalLabel(job)}
+                    posted={job.client_name || 'Customer'}
+                    postedAt={<>{budget > 0 ? `Budget ${money(budget)}` : 'Budget not set'} · {quotes.length} quote{quotes.length === 1 ? '' : 's'}</>}
+                    loadId={job.id.slice(0, 8).toUpperCase()}
+                    vehicle={vehicleLabel}
+                    expanded={open}
+                    dataState={statusOf(job)}
+                    freight={<>
+                      <div><span>Quotes:</span><strong>{quotes.length}</strong></div>
+                      <div><span>Best quote:</span><strong>{bestQuote ? money(bestQuote) : 'No live quote'}</strong></div>
+                      <div><span>Budget:</span><strong>{budget > 0 ? money(budget) : 'Not set'}</strong></div>
+                      <div><span>Spread:</span><strong>{bestQuote && budget > 0 ? money(budget - bestQuote) : '—'}</strong></div>
+                    </>}
+                    commercial={<>
+                      <div><span>Customer:</span><strong>{job.client_name || 'Not supplied'}</strong></div>
+                      <div><span>Status:</span><strong>{workspaceJobOperationalLabel(job)}</strong></div>
+                    </>}
+                    footer={<>
+                      <button type="button" className="xdrive-cx-load-footer__expander" onClick={() => { setExpandedAllIds((current) => { const next = new Set(current); next.delete(job.id); return next; }); setExpanded(open ? null : job.id); }} aria-label={open ? 'Collapse load' : 'Expand load'}>{open ? '▴' : '▾'}</button>
                       <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => router.push(`/broker/compare-quotes?job=${job.id}`)}>Quotes & award</button>
                       {canEditOwnedJobs && job.company_id === data.companyId && <button type="button" onClick={() => router.push(`/broker/jobs/${job.id}/edit`)}>Edit Job</button>}
                       <button type="button" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Job view</button>
                       {stage === 'completed' && <button type="button" onClick={() => router.push('/broker/pod-review')}>POD</button>}
                       <span style={{ marginLeft: 'auto' }}>{stage === 'awarded' || stage === 'allocated' ? 'Carrier awarded' : stage === 'in_progress' ? 'Carrier executing' : stage === 'completed' ? 'Completed' : 'Awaiting carrier decision'}</span>
-                    </div>
-                  </article>
+                    </>}
+                  />
                 );
               })}
             </div>

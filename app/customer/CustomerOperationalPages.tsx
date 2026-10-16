@@ -9,7 +9,7 @@ import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperational
 import { CompanyJobSheetPanel } from '../components/workspace/CompanyJobSheetPanel';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../components/workspace/useCompanyWorkspaceData';
 import { useVisibleRefresh } from '../components/workspace/useVisibleRefresh';
-import { workspaceVehicleImageSrc } from '../components/workspace/vehiclePresentation';
+import CxLoadCard from '../components/workspace/CxLoadCard';
 import {
   ActionButton,
   AlertBanner,
@@ -23,6 +23,17 @@ const when = (value: string | null | undefined) =>
   value
     ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
     : 'Not set';
+
+const cxTimeParts = (value: string | null | undefined) => {
+  if (!value) return { primary: 'ASAP', meta: '' };
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return { primary: 'Not set', meta: '' };
+  const zone = new Intl.DateTimeFormat('en-GB', { timeZoneName: 'short' }).formatToParts(date).find((part) => part.type === 'timeZoneName')?.value ?? '';
+  return {
+    primary: date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false }),
+    meta: `${zone ? ` (${zone})` : ''} ${date.toLocaleDateString('en-GB')}`,
+  };
+};
 
 const routeLocationLabel = (location: string | null | undefined, postcode: string | null | undefined, fallback: string) => {
   const place = location?.trim() ?? '';
@@ -84,43 +95,41 @@ function CustomerOperationalRow({
     if (sheet) onToggle();
     else router.push(`/customer/jobs/${job.id}`);
   };
+  const vehicle = (job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ');
   return (
-    <article className="xdrive-cx-load-card" data-state={presentationState}>
-      <div className="xdrive-cx-load-card__main">
-        <section className="xdrive-cx-load-card__route">
-          <div><span>From:</span><strong>{routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}</strong></div>
-          <div><span>To:</span><strong>{routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}</strong></div>
-        </section>
-        <section className="xdrive-cx-load-card__times">
-          <div><span>Pickup:</span><strong>{when(job.pickup_datetime)}</strong></div>
-          <div><span>Deliver:</span><strong>{when(job.delivery_datetime)}</strong></div>
-          {open ? <div className="xdrive-cx-load-card__freight">
-            <div><span>{middleLabel}:</span><strong>{middleValue}</strong></div>
-            <div><span>Vehicle:</span><strong>{(job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')}</strong></div>
-            <div><span>Booking:</span><strong>{job.booking_reference || 'Not supplied'}</strong></div>
-            <div><span>Customer ref:</span><strong>{job.customer_reference || 'Not supplied'}</strong></div>
-          </div> : null}
-        </section>
-        <section className="xdrive-cx-load-card__status">
-          <div className="xdrive-cx-load-card__band">{presentationStatus}</div>
-          <div className="xdrive-cx-load-card__posted"><strong>{job.client_name || 'Customer booking'}</strong></div>
-          <div className="xdrive-cx-load-card__posted-at">{job.booking_reference ? `Booking ${job.booking_reference}` : job.customer_reference ? `Customer ref ${job.customer_reference}` : 'XDrive transport'}</div>
-          <div className="xdrive-cx-load-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-load-card__vehicle"><img className="xdrive-cx-load-card__vehicle-image" src={workspaceVehicleImageSrc((job.vehicle_type ?? 'Not supplied').replaceAll('_', ' '))} alt="" aria-hidden="true" /><strong>{(job.vehicle_type ?? 'Not supplied').replaceAll('_', ' ')}</strong></span></div>
-          {open ? <div className="xdrive-cx-load-card__commercial">
-            <div><span>Status:</span><strong>{presentationStatus}</strong></div>
-            <div><span>XDrive ref:</span><strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong></div>
-          </div> : null}
-        </section>
-      </div>
-      {open && middleMeta ? <div className="xdrive-cx-load-card__notes"><span>Details:</span><strong>{middleMeta}</strong></div> : null}
-      <div className="xdrive-cx-load-footer">
-        <button type="button" className="xdrive-cx-load-footer__expander" onClick={openDetails} aria-label={sheet && open ? 'Collapse booking' : sheet ? 'Expand booking' : 'Open booking'}>{sheet && open ? '⌃' : '⌄'}</button>
-        {actionLabel && actionHref ? <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => router.push(actionHref)}>{actionLabel}</button> : null}
-        {!actionHref && <button type="button" onClick={openDetails}>Details</button>}
-        <span style={{ marginLeft: 'auto' }}>XDL-{job.id.slice(0, 8).toUpperCase()}</span>
-      </div>
+    <>
+      <CxLoadCard
+        from={routeLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection')}
+        to={routeLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery')}
+        pickup={cxTimeParts(job.pickup_datetime)}
+        delivery={cxTimeParts(job.delivery_datetime)}
+        band={presentationStatus}
+        posted={job.client_name || 'Customer booking'}
+        postedAt={job.booking_reference ? `Booking ${job.booking_reference}` : job.customer_reference ? `Customer ref ${job.customer_reference}` : 'XDrive transport'}
+        loadId={job.id.slice(0, 8).toUpperCase()}
+        vehicle={vehicle}
+        expanded={open}
+        dataState={presentationState}
+        freight={<>
+          <div><span>{middleLabel}:</span><strong>{middleValue}</strong></div>
+          <div><span>Vehicle:</span><strong>{vehicle}</strong></div>
+          <div><span>Booking:</span><strong>{job.booking_reference || 'Not supplied'}</strong></div>
+          <div><span>Customer ref:</span><strong>{job.customer_reference || 'Not supplied'}</strong></div>
+        </>}
+        commercial={<>
+          <div><span>Status:</span><strong>{presentationStatus}</strong></div>
+          <div><span>XDrive ref:</span><strong>XDL-{job.id.slice(0, 8).toUpperCase()}</strong></div>
+        </>}
+        notes={middleMeta ? <><span>Details:</span><strong>{middleMeta}</strong></> : null}
+        footer={<>
+          <button type="button" className="xdrive-cx-load-footer__expander" onClick={openDetails} aria-label={sheet && open ? 'Collapse booking' : sheet ? 'Expand booking' : 'Open booking'}>{sheet && open ? '▴' : '▾'}</button>
+          {actionLabel && actionHref ? <button type="button" className="xdrive-cx-load-footer__quote" onClick={() => router.push(actionHref)}>{actionLabel}</button> : null}
+          {!actionHref && <button type="button" onClick={openDetails}>Details</button>}
+          <span style={{ marginLeft: 'auto' }}>XDL-{job.id.slice(0, 8).toUpperCase()}</span>
+        </>}
+      />
       {open && sheet ? <CompanyJobSheetPanel jobId={job.id} mode="customer" /> : null}
-    </article>
+    </>
   );
 }
 

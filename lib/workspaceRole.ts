@@ -238,7 +238,7 @@ const carrierNav: WorkspaceNavGroup[] = [
   { id: 'carrier-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/admin/marketplace/directory', icon: '⊕', capability: 'loads.view.marketplace' }] },
   { id: 'carrier-live', label: 'Live Availability', items: [{ id: 'live-availability', label: 'Live Availability', href: '/admin/live-availability', icon: '◉', capability: 'fleet.positions.view' }] },
   { id: 'carrier-freight-vision', label: 'Freight Vision', items: [{ id: 'freight-vision', label: 'Freight Vision', href: '/admin/freight-vision', icon: '◎', capability: 'jobs.track' }] },
-  { id: 'carrier-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/admin/exchange-quotes', icon: '◫', capability: 'quotes.submit' }] },
+  { id: 'carrier-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/admin/exchange', icon: '◫', capability: 'quotes.submit' }] },
   { id: 'carrier-won-work', label: 'Won Work', items: [{ id: 'won-work', label: 'Won Work', href: '/admin/won-work', icon: '✓', capability: 'jobs.view' }] },
   { id: 'carrier-jobs', label: 'Jobs', items: [
     { id: 'jobs', label: 'Jobs', href: '/admin/jobs', icon: '▣', capability: 'jobs.view' },

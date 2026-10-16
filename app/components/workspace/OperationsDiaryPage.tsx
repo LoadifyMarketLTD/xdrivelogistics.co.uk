@@ -10,7 +10,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../lib/feedback/canonicalFeedback';
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
-import { workspaceVehicleImageSrc } from './vehiclePresentation';
+import CxDiaryCard from './CxDiaryCard';
 import {
   ActionButton,
   AlertBanner,
@@ -843,24 +843,21 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
                 const assignedGroups = assignedGroupIds.map((groupId) => groupById.get(groupId)).filter((group): group is DiaryGroupRow => Boolean(group));
                 const availableGroups = groups.filter((group) => !assignedGroupIds.includes(group.id));
                 return (
-                  <article key={job.id} className="workspace-operational-row xdrive-cx-diary-card" data-state={status} data-stage={stage}>
-                    <div className="xdrive-cx-diary-card__main">
-                      <section className="cx-diary-route xdrive-cx-diary-card__route">
-                        <div><span>From:</span><strong>{job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}{job.pickup_postcode && job.pickup_location && !job.pickup_location.includes(job.pickup_postcode) ? `, ${job.pickup_postcode}` : ''}</strong></div>
-                        <div><span>To:</span><strong>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}{job.delivery_postcode && job.delivery_location && !job.delivery_location.includes(job.delivery_postcode) ? `, ${job.delivery_postcode}` : ''}</strong></div>
-                      </section>
-                      <section className="xdrive-cx-diary-card__times">
-                        <div><span>Pickup:</span><span className="cx-diary-datetime"><strong>{pickupWhen.primary}</strong>{pickupWhen.meta ? <span>{pickupWhen.meta}</span> : null}</span></div>
-                        <div><span>Deliver:</span><span className="cx-diary-datetime"><strong>{deliveryWhen.primary}</strong>{deliveryWhen.meta ? <span>{deliveryWhen.meta}</span> : null}</span></div>
-                      </section>
-                      <section className="xdrive-cx-diary-card__status">
-                        <div className="xdrive-cx-diary-card__band">{cxBandLabel}</div>
-                        <div className="xdrive-cx-diary-card__status-line"><strong>{cxStatusLine}</strong></div>
-                        {cxStatusStamp ? <div className="xdrive-cx-diary-card__status-stamp">@ {cxStatusStamp}</div> : null}
-                        <div className="xdrive-cx-diary-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-diary-card__vehicle xdrive-cx-load-card__vehicle"><img className="xdrive-cx-diary-card__vehicle-image xdrive-cx-load-card__vehicle-image" src={workspaceVehicleImageSrc(requestedVehicle)} alt="" aria-hidden="true" /><strong>{requestedVehicle}</strong></span></div>
-                      </section>
-                    </div>
-                    <div className="xdrive-cx-diary-card__footer">
+                  <CxDiaryCard
+                    key={job.id}
+                    from={<>{job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}{job.pickup_postcode && job.pickup_location && !job.pickup_location.includes(job.pickup_postcode) ? `, ${job.pickup_postcode}` : ''}</>}
+                    to={<>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}{job.delivery_postcode && job.delivery_location && !job.delivery_location.includes(job.delivery_postcode) ? `, ${job.delivery_postcode}` : ''}</>}
+                    pickup={pickupWhen}
+                    delivery={deliveryWhen}
+                    band={cxBandLabel}
+                    statusLine={<strong>{cxStatusLine}</strong>}
+                    statusStamp={cxStatusStamp ? <>@ {cxStatusStamp}</> : null}
+                    loadId={job.id.slice(0, 8).toUpperCase()}
+                    vehicle={requestedVehicle}
+                    state={status}
+                    stage={stage}
+                    expanded={open}
+                    footer={<>
                       <button type="button" className="xdrive-cx-diary-card__expander" onClick={() => toggleJob(job.id)} aria-label={open ? 'Collapse booking' : 'Expand booking'}>{open ? '▴' : '▾'}</button>
                       {showFeedbackAction && <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{reviewsByJob[job.id]?.length ? 'Edit Feedback' : 'Leave Feedback'}</button>}
                       <button type="button" onClick={() => openJobTab(job.id, 'pod')}>POD</button>
@@ -869,8 +866,8 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
                       <button type="button" onClick={() => openJobTab(job.id, 'event-log')}>History</button>
                       <button type="button" onClick={() => openJobTab(job.id, 'evidence')}>Documents</button>
                       <button type="button" onClick={() => openJobTab(job.id, 'invoice')}>View invoice (£)</button>
-                    </div>
-                    {open && <div className="xdrive-cx-diary-card__expanded-meta">
+                    </>}
+                    expandedMeta={<>
                       <div><span>Dist:</span><strong>{distance ?? 'Not Supplied'}</strong></div>
                       <div><span>Weight:</span><strong>{weight ?? 'Not Supplied'}</strong></div>
                       <div><span>Packaging:</span><strong>{job.pallets != null ? `${job.pallets} pallet${job.pallets === 1 ? '' : 's'}` : cargo}</strong></div>
@@ -886,7 +883,8 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
                       {detail?.ownerCompanyName && <div className="xdrive-cx-diary-card__expanded-wide"><span>Posted by:</span><strong>{detail.ownerCompanyName}</strong>{bookedTo ? <span> · Booked to <strong>{bookedTo}</strong></span> : null}{counterpartyPhone ? <a href={`tel:${counterpartyPhone.replace(/\s+/g, '')}`}>{counterpartyPhone}</a> : null}</div>}
                       {(agreedRate || detail?.paymentTerms) && <div className="xdrive-cx-diary-card__expanded-wide">{agreedRate ? <><span>Agreed rate:</span><strong>{agreedRate}</strong></> : null}{agreedRate && detail?.paymentTerms ? <span> · </span> : null}{detail?.paymentTerms ? <><span>Payment terms:</span><strong>{detail.paymentTerms}</strong></> : null}</div>}
                       {assignedGroups.map((group) => <div key={`${job.id}-group-${group.id}`}><span>Group:</span><strong>{group.name}</strong>{canManageDiaryGroups && <button type="button" className="xdrive-inline-link" onClick={() => void removeJobFromGroup(job.id, group.id)} aria-label={`Remove booking from ${group.name}`}>×</button>}</div>)}
-                    </div>}
+                    </>}
+                  >
                     {open && (milestones.length > 0 || detail?.driverNotes || detail?.deliveryNotes) && <div className="xdrive-cx-diary-card__timeline-meta">
                       {milestones.map((milestone) => <span key={`${job.id}-${milestone.eventType}`}><strong>{MILESTONE_LABELS[milestone.eventType]}</strong> {when(milestone.createdAt)}</span>)}
                       {detail?.driverNotes && <span><strong>Driver notes:</strong> {detail.driverNotes}</span>}
@@ -913,7 +911,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
                         <span style={{ padding: '8px 10px' }}><strong>{stage === 'completed' ? 'Delivered On' : 'Delivery ETA'}</strong><br />{when(job.delivery_datetime)}<br />{job.pod_generated ? 'POD generated' : 'POD pending'}</span>
                       </div>
                     ) : <CompanyJobSheetPanel jobId={job.id} mode="carrier" initialTab={detailTabByJob[job.id] ?? 'agreement'} />)}
-                  </article>
+                  </CxDiaryCard>
                 );
               })}
             </div>

@@ -8,7 +8,8 @@ import { BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT } from '../../../lib/le
 import { canonicalQuoteStage, quoteStageLabel } from '../../../lib/quotes/canonicalQuote';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceBid, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
-import { workspaceVehicleImageSrc } from '../../components/workspace/vehiclePresentation';
+import CxQuoteCard from '../../components/workspace/CxQuoteCard';
+import { cxDateParts } from '../../components/workspace/CxLoadCard';
 import {
   ActionButton,
   AlertBanner,
@@ -401,24 +402,20 @@ export default function CustomerQuotesCxPage() {
             const vehicle = (job.vehicle_type || 'Vehicle not supplied').replaceAll('_', ' ');
             const quoteAmount = money(Number(bid.bid_price_gbp ?? bid.amount ?? 0), bid.currency ?? 'GBP');
             return (
-              <article key={bid.id} className="xdrive-cx-quote-card" data-quote-stage={quoteStage}>
-                <div className="xdrive-cx-quote-card__main">
-                  <section className="xdrive-cx-quote-card__route">
-                    <div><span>From:</span><strong>{job.pickup_postcode || job.pickup_location || 'Collection not set'}</strong></div>
-                    <div><span>To:</span><strong>{job.delivery_postcode || job.delivery_location || 'Delivery not set'}</strong></div>
-                  </section>
-                  <section className="xdrive-cx-quote-card__times">
-                    <div><span>Pickup:</span><strong>{when(job.pickup_datetime)}</strong></div>
-                    <div><span>Deliver:</span><strong>{when(job.delivery_datetime)}</strong></div>
-                  </section>
-                  <section className="xdrive-cx-quote-card__status">
-                    <div className="xdrive-cx-quote-card__band">{isPendingSelectedBid ? 'Awaiting Carrier Acceptance' : quoteStageLabel(quoteStage)}</div>
-                    <div className="xdrive-cx-quote-card__service"><strong>{displayName}</strong></div>
-                    <div className="xdrive-cx-quote-card__posted">{quoteAmount}{index === 0 ? ' · Best price' : ''}</div>
-                    <div className="xdrive-cx-quote-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-quote-card__vehicle"><img className="xdrive-cx-quote-card__vehicle-image" src={workspaceVehicleImageSrc(vehicle)} alt="" aria-hidden="true" /><strong>{vehicle}</strong></span></div>
-                  </section>
-                </div>
-                {expanded ? <div className="xdrive-cx-quote-card__expanded-cx">
+              <CxQuoteCard
+                key={bid.id}
+                routeFrom={job.pickup_postcode || job.pickup_location || 'Collection not set'}
+                routeTo={job.delivery_postcode || job.delivery_location || 'Delivery not set'}
+                pickup={cxDateParts(job.pickup_datetime, 'TBC')}
+                delivery={cxDateParts(job.delivery_datetime)}
+                band={isPendingSelectedBid ? 'Awaiting Carrier Acceptance' : quoteStageLabel(quoteStage)}
+                postedAt={<>@ {when(bid.created_at)}</>}
+                service={<><strong>{displayName}</strong> · {quoteAmount}{index === 0 ? ' · Best price' : ''}</>}
+                loadId={job.id.slice(0, 8).toUpperCase()}
+                vehicle={vehicle}
+                stage={quoteStage}
+                expanded={expanded}
+                expandedContent={<>
                   <div className="xdrive-cx-quote-card__freight">
                     <div><span>Carrier:</span><strong><MemberIdentityLink companyId={isOwnerDriverBid ? null : (bid.company_id ?? identity?.companyId ?? null)} driverId={isOwnerDriverBid ? identity?.driverId ?? null : null}>{displayName}</MemberIdentityLink></strong></div>
                     <div><span>Quote:</span><strong>{quoteAmount}</strong></div>
@@ -426,9 +423,9 @@ export default function CustomerQuotesCxPage() {
                     <div><span>Member ID:</span><strong>{identity?.memberId || 'Not supplied'}</strong></div>
                   </div>
                   {bid.message ? <div className="xdrive-cx-quote-card__notes"><span>Quote Notes:</span><strong>{bid.message}</strong></div> : null}
-                </div> : null}
-                <div className="xdrive-cx-quote-card__footer">
-                  <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => setExpandedIds((current) => { const next = new Set(current); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })} aria-label={expanded ? 'Collapse quote' : 'Expand quote'}>{expanded ? '⌃' : '⌄'}</button>
+                </>}
+                footer={<>
+                  <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => setExpandedIds((current) => { const next = new Set(current); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; })} aria-label={expanded ? 'Collapse quote' : 'Expand quote'}>{expanded ? '▴' : '▾'}</button>
                   {bid.status === 'submitted' && !awardLocked ? <button type="button" className="xdrive-cx-quote-card__cancel" disabled={working === bid.id} onClick={() => setCandidate(participant)}>Review & Send Offer</button> : null}
                   {messagingAvailable ? <button type="button" disabled={working === bid.id} onClick={() => { setMessageCandidate(participant); setMessageBody(''); setMessageError(''); }}>Message</button> : null}
                   {quoteStage === 'shortlisted' && !awardLocked ? <button type="button" disabled={working === bid.id} onClick={() => void updateQuoteLifecycle(bid.id, 'unshortlist')}>Remove shortlist</button> : null}
@@ -439,8 +436,8 @@ export default function CustomerQuotesCxPage() {
                   <button type="button" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open load</button>
                   <span className="xdrive-cx-quote-card__quote-state">{isPendingSelectedBid ? 'Offer sent - awaiting carrier' : quoteAmount}</span>
                   <span className="xdrive-cx-quote-card__member" style={{ marginLeft: 'auto' }}>{displayName}</span>
-                </div>
-              </article>
+                </>}
+              />
             );
           }))}
         </div>

@@ -308,6 +308,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/operations-centre', workspace: 'carrier_fleet', anyOf: ['jobs.dispatch'] },
   { prefix: '/admin/marketplace', workspace: 'carrier_fleet', anyOf: ['loads.view.marketplace'] },
   { prefix: '/admin/won-work', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
+  { prefix: '/admin/exchange', workspace: 'carrier_fleet', anyOf: ['quotes.submit'] },
   { prefix: '/admin/exchange-quotes', workspace: 'carrier_fleet', anyOf: ['quotes.submit'] },
   { prefix: '/admin/pod', workspace: 'carrier_fleet', anyOf: ['jobs.review_pod'] },
   { prefix: '/admin/quotes', workspace: 'carrier_fleet', anyOf: ['quotes.submit'] },

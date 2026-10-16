@@ -18,7 +18,7 @@ import { ActionButton, AlertBanner, EmptyState } from '../../components/workspac
 import workspaceStyles from '../../components/workspace/WorkspaceUI.module.css';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import { workspaceVehicleImageSrc } from '../../components/workspace/vehiclePresentation';
+import CxDiaryCard from '../../components/workspace/CxDiaryCard';
 
 type CompanyRelation = { name: string } | Array<{ name: string }> | null;
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
@@ -654,25 +654,22 @@ export default function JobHistoryPage() {
                   const memberLabel = job.companies?.name ?? 'Member not supplied';
 
                   return (
-                    <article key={job.id} className="diary-booking driver-diary-entry xdrive-cx-diary-card" data-state={expired ? 'expired' : currentStatus} data-stage={expired ? 'expired' : stage}>
-                      <div className="xdrive-cx-diary-card__main">
-                        <section className="cx-diary-route xdrive-cx-diary-card__route">
-                          <div><span>From:</span><strong>{formatExecutionAddress(job.pickup_location, job.pickup_postcode)}</strong></div>
-                          <div><span>To:</span><strong>{formatExecutionAddress(job.delivery_location, job.delivery_postcode)}</strong></div>
-                        </section>
-                        <section className="xdrive-cx-diary-card__times">
-                          <div><span>Pickup:</span><span className="cx-diary-datetime"><strong>{pickupWhen.primary}</strong>{pickupWhen.meta ? <span>{pickupWhen.meta}</span> : null}</span></div>
-                          <div><span>Deliver:</span><span className="cx-diary-datetime"><strong>{deliveryWhen.primary}</strong>{deliveryWhen.meta ? <span>{deliveryWhen.meta}</span> : null}</span></div>
-                        </section>
-                        <section className="xdrive-cx-diary-card__status">
-                          <div className="xdrive-cx-diary-card__band">{bandLabel}</div>
-                          <div className="xdrive-cx-diary-card__status-line"><MemberIdentityLink companyId={job.company_id}>{memberLabel}</MemberIdentityLink></div>
-                          <div className="xdrive-cx-diary-card__status-stamp">{isOwnAssignedJob ? 'Assigned to you' : 'Company booking'}{hasPod ? ' · POD captured' : ''}{awaitingFeedback ? ' · Awaiting feedback' : ''}{feedbackReceived ? ' · Feedback received' : ''}</div>
-                          <div className="xdrive-cx-diary-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-diary-card__vehicle"><img className="xdrive-cx-diary-card__vehicle-image" src={workspaceVehicleImageSrc(requestedVehicle)} alt="" aria-hidden="true" /><strong>{requestedVehicle}</strong></span></div>
-                        </section>
-                      </div>
-
-                      <div className="xdrive-cx-diary-card__footer driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
+                    <CxDiaryCard
+                      key={job.id}
+                      className="diary-booking driver-diary-entry"
+                      from={formatExecutionAddress(job.pickup_location, job.pickup_postcode)}
+                      to={formatExecutionAddress(job.delivery_location, job.delivery_postcode)}
+                      pickup={pickupWhen}
+                      delivery={deliveryWhen}
+                      band={bandLabel}
+                      statusLine={<MemberIdentityLink companyId={job.company_id}>{memberLabel}</MemberIdentityLink>}
+                      statusStamp={<>{isOwnAssignedJob ? 'Assigned to you' : 'Company booking'}{hasPod ? ' · POD captured' : ''}{awaitingFeedback ? ' · Awaiting feedback' : ''}{feedbackReceived ? ' · Feedback received' : ''}</>}
+                      loadId={job.id.slice(0, 8).toUpperCase()}
+                      vehicle={requestedVehicle}
+                      state={expired ? 'expired' : currentStatus}
+                      stage={expired ? 'expired' : stage}
+                      expanded={expanded}
+                      footer={<div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
                         <button type="button" className="xdrive-cx-diary-card__expander" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }} aria-label={expanded ? 'Collapse booking' : 'Expand booking'}>{expanded ? '▴' : '▾'}</button>
                         {canManageFeedback && <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => setFeedbackJobId(job.id)}>{feedbackReceived ? 'Edit Feedback' : 'Leave Feedback'}</button>}
                         {isOwnAssignedJob && currentStatus === 'delivered' && !hasPod ? <button type="button" data-operation="primary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Complete POD</button> : null}
@@ -708,8 +705,8 @@ export default function JobHistoryPage() {
                           ))}
                         {isOwnAssignedJob && <button type="button" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</button>}
                         {feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
-                      </div>
-
+                      </div>}
+                      expandedContent={<>
                       {expanded && !isOwnAssignedJob && (
                         <div className="driver-row-details driver-diary-details"><CompanyJobSheetPanel jobId={job.id} mode="carrier" /></div>
                       )}
@@ -762,7 +759,8 @@ export default function JobHistoryPage() {
                           {reviews.length > 0 && <div className="driver-diary-feedback-list" aria-label="Booking feedback">{reviews.map((review) => <div key={review.id} className="driver-diary-feedback-row"><strong>{review.rating != null ? `${review.rating}/5` : 'Feedback received'}</strong><span>{review.comment?.trim() || 'No written comment supplied.'}</span><small>{fmtDate(review.created_at)}</small></div>)}</div>}
                         </div>
                       )}
-                    </article>
+                      </>}
+                    />
                   );
                 })}
               </div>

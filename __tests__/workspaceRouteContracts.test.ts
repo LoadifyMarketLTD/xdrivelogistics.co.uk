@@ -81,7 +81,7 @@ describe('workspace route contracts', () => {
       '/admin/marketplace/directory',
       '/admin/live-availability',
       '/admin/freight-vision',
-      '/admin/exchange-quotes',
+      '/admin/exchange',
       '/admin/won-work',
       '/admin/jobs',
       '/admin/bulk-import',

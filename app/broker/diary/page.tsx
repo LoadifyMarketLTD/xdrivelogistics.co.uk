@@ -6,7 +6,7 @@ import { useAuth } from '../../components/AuthContext';
 import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
-import { workspaceVehicleImageSrc } from '../../components/workspace/vehiclePresentation';
+import CxDiaryCard from '../../components/workspace/CxDiaryCard';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
 import { brokerDiaryStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
@@ -254,37 +254,34 @@ export default function BrokerDiaryPage() {
                 const vehicle = (job.vehicle_type || 'Vehicle not set').replaceAll('_', ' ');
                 const band = stage === 'completed' ? 'Delivered' : workspaceJobOperationalLabel(job);
                 return (
-                  <article className="workspace-operational-row xdrive-cx-diary-card" key={job.id} data-state={normalizedJobStatus(job)} data-stage={stage}>
-                    <div className="xdrive-cx-diary-card__main">
-                      <section className="cx-diary-route xdrive-cx-diary-card__route">
-                        <div><span>From:</span><strong>{postcodeOrLocation(job.pickup_postcode, job.pickup_location)}</strong></div>
-                        <div><span>To:</span><strong>{postcodeOrLocation(job.delivery_postcode, job.delivery_location)}</strong></div>
-                      </section>
-                      <section className="xdrive-cx-diary-card__times">
-                        <div><span>Pickup:</span><span className="cx-diary-datetime"><strong>{pickupWhen.primary}</strong>{pickupWhen.meta ? <span>{pickupWhen.meta}</span> : null}</span></div>
-                        <div><span>Deliver:</span><span className="cx-diary-datetime"><strong>{deliveryWhen.primary}</strong>{deliveryWhen.meta ? <span>{deliveryWhen.meta}</span> : null}</span></div>
-                      </section>
-                      <section className="xdrive-cx-diary-card__status">
-                        <div className="xdrive-cx-diary-card__band">{band}</div>
-                        <div className="xdrive-cx-diary-card__status-line">{carrierCompanyId ? <MemberIdentityLink companyId={carrierCompanyId}>{carrierName}</MemberIdentityLink> : <strong>{carrierName}</strong>}</div>
-                        <div className="xdrive-cx-diary-card__status-stamp">{job.client_name || 'Customer not set'}</div>
-                        <div className="xdrive-cx-diary-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-diary-card__vehicle"><img className="xdrive-cx-diary-card__vehicle-image" src={workspaceVehicleImageSrc(vehicle)} alt="" aria-hidden="true" /><strong>{vehicle}</strong></span></div>
-                      </section>
-                    </div>
-                    <div className="xdrive-cx-diary-card__footer">
+                  <CxDiaryCard
+                    key={job.id}
+                    from={postcodeOrLocation(job.pickup_postcode, job.pickup_location)}
+                    to={postcodeOrLocation(job.delivery_postcode, job.delivery_location)}
+                    pickup={pickupWhen}
+                    delivery={deliveryWhen}
+                    band={band}
+                    statusLine={carrierCompanyId ? <MemberIdentityLink companyId={carrierCompanyId}>{carrierName}</MemberIdentityLink> : <strong>{carrierName}</strong>}
+                    statusStamp={job.client_name || 'Customer not set'}
+                    loadId={job.id.slice(0, 8).toUpperCase()}
+                    vehicle={vehicle}
+                    state={normalizedJobStatus(job)}
+                    stage={stage}
+                    expanded={open}
+                    footer={<>
                       <button type="button" className="xdrive-cx-diary-card__expander" onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }} aria-label={open ? 'Collapse booking' : 'Expand booking'}>{open ? '▴' : '▾'}</button>
                       {canLeaveCompanyFeedback && feedbackAvailable && <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button>}
                       <button type="button" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Open job</button>
                       <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>History</button>
-                    </div>
-                    {open && <div className="xdrive-cx-diary-card__expanded-meta">
+                    </>}
+                    expandedMeta={<>
                       {job.booking_reference && <div><span>Booking:</span><strong>{job.booking_reference}</strong></div>}
                       {job.customer_reference && <div><span>Customer ref:</span><strong>{job.customer_reference}</strong></div>}
                       <div><span>Delivery photo:</span><strong>{deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</strong></div>
                       {review ? <div><span>Feedback:</span><strong>{review.rating ?? '—'}/5 · {when(review.created_at)}</strong></div> : feedbackAvailable ? <div><span>Feedback:</span><strong>Awaiting</strong></div> : null}
-                    </div>}
-                    {open && <CompanyJobSheetPanel jobId={job.id} mode="broker" />}
-                  </article>
+                    </>}
+                    expandedContent={<CompanyJobSheetPanel jobId={job.id} mode="broker" />}
+                  />
                 );
               })}
             </div>

@@ -9,7 +9,7 @@ import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
-import { workspaceVehicleImageSrc } from '../../components/workspace/vehiclePresentation';
+import CxQuoteCard from '../../components/workspace/CxQuoteCard';
 
 type QuoteDirection = 'outgoing' | 'incoming';
 type TabId = 'received' | 'archived' | 'submitted' | 'unsuccessful';
@@ -480,28 +480,21 @@ export default function MyQuotesPage() {
                               ? `Quote ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`
                               : `You Quoted ${quoteAmount} @ ${cxShortWhen(bid.created_at)}`;
 
-                  return <article key={bid.id} className="xdrive-cx-quote-card" data-quote-stage={quoteStage}>
-                    <div className="xdrive-cx-quote-card__main">
-                      <section className="xdrive-cx-quote-card__route">
-                        <div><span>From:</span><strong>{view.pickup}</strong></div>
-                        <div><span>To:</span><strong>{view.delivery}</strong></div>
-                      </section>
-                      <section className="xdrive-cx-quote-card__times">
-                        <div><span>Pickup:</span><span className="cx-quote-datetime"><strong>{pickupLabel.primary}</strong>{pickupLabel.meta ? <span>{pickupLabel.meta}</span> : null}</span></div>
-                        <div><span>Deliver:</span><span className="cx-quote-datetime"><strong>{view.deliveryDatetime ? deliveryLabel.primary : 'ASAP'}</strong>{view.deliveryDatetime && deliveryLabel.meta ? <span>{deliveryLabel.meta}</span> : null}</span></div>
-                      </section>
-                      <section className="xdrive-cx-quote-card__status">
-                        <div className={`xdrive-cx-quote-card__band${sold ? ' xdrive-cx-quote-card__band--sold' : ''}`}>{sold ? 'SOLD' : view.service || 'Marketplace Load'}</div>
-                        <div className="xdrive-cx-quote-card__posted">@ {cxWhen(view.postedAt || bid.created_at)}</div>
-                        <div className="xdrive-cx-quote-card__service">{sold ? view.service || 'Marketplace Load' : <>Posted by {counterpartName}</>}</div>
-                        <div className="xdrive-cx-quote-card__status-meta">
-                          <span>Load ID: {bid.job_id.slice(0, 8).toUpperCase()}</span>
-                          <span className="xdrive-cx-quote-card__vehicle"><img className="xdrive-cx-quote-card__vehicle-image" src={workspaceVehicleImageSrc(vehicle)} alt="" aria-hidden="true" /><strong>{vehicle}</strong></span>
-                        </div>
-                      </section>
-                    </div>
-
-                    {expanded && <div className="xdrive-cx-quote-card__expanded-cx">
+                  return <CxQuoteCard
+                    key={bid.id}
+                    routeFrom={view.pickup}
+                    routeTo={view.delivery}
+                    pickup={pickupLabel}
+                    delivery={view.deliveryDatetime ? deliveryLabel : { primary: 'ASAP', meta: '' }}
+                    band={view.service || 'Marketplace Load'}
+                    sold={sold}
+                    postedAt={<>@ {cxWhen(view.postedAt || bid.created_at)}</>}
+                    service={sold ? view.service || 'Marketplace Load' : <>Posted by {counterpartName}</>}
+                    loadId={bid.job_id.slice(0, 8).toUpperCase()}
+                    vehicle={vehicle}
+                    stage={quoteStage}
+                    expanded={expanded}
+                    expandedContent={<>
                       <div className="xdrive-cx-quote-card__freight">
                         <div><span>To Collection:</span><strong>{view.distanceToPickupMiles != null ? `${view.distanceToPickupMiles.toFixed(1)} miles` : 'Not Supplied'}</strong></div>
                         <div><span>Job Distance:</span><strong>{view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} miles` : 'Not Supplied'}</strong></div>
@@ -518,9 +511,8 @@ export default function MyQuotesPage() {
                           <span>{view.jobDistanceMiles != null ? `${view.jobDistanceMiles.toFixed(1)} mi` : 'Unknown'}</span>
                         </div>
                       </div>
-                    </div>}
-
-                    <div className="xdrive-cx-quote-card__footer">
+                    </>}
+                    footer={<>
                       <button type="button" className="xdrive-cx-quote-card__expander" onClick={() => { const opening = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(bid.id)) next.delete(bid.id); else next.add(bid.id); return next; }); if (opening && bid.direction === 'incoming' && !bid.viewed_at) void updateQuoteLifecycle(bid.id, 'viewed'); }} aria-label={expanded ? 'Collapse quote' : 'Expand quote'}>{expanded ? '▴' : '▾'}</button>
                       {activeQuote ? <button type="button" className="xdrive-cx-quote-card__cancel" onClick={() => void handleWithdrawBid(bid.id)}>Cancel Quote</button> : null}
                       <span className={`xdrive-cx-quote-card__quote-state xdrive-cx-quote-card__quote-state--${quoteStage}`}>{footerState}</span>
@@ -534,8 +526,8 @@ export default function MyQuotesPage() {
                       {bid.direction === 'incoming' && ['submitted', 'viewed'].includes(quoteStage) && <button type="button" className="xdrive-inline-link" onClick={() => void updateQuoteLifecycle(bid.id, 'shortlist')}>Shortlist</button>}
                       {quoteStage !== 'archived' && ['accepted', 'unsuccessful', 'withdrawn', 'expired'].includes(quoteStage) && <button type="button" className="xdrive-inline-link" onClick={() => void updateQuoteLifecycle(bid.id, bid.direction === 'incoming' ? 'archive_poster' : 'archive_bidder')}>Archive</button>}
                       {quoteStage === 'archived' && <button type="button" className="xdrive-inline-link" onClick={() => void updateQuoteLifecycle(bid.id, bid.direction === 'incoming' ? 'unarchive_poster' : 'unarchive_bidder')}>Restore</button>}
-                    </div>
-                  </article>;
+                    </>}
+                  />;
                 })}
                 {canLoadMore && <button type="button" className="cx-expand-entries-control" onClick={() => setVisibleCount((current) => current + pageSize)}>Load more quotes</button>}
               </div>
