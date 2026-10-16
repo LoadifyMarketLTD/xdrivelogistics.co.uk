@@ -857,7 +857,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
                         <div className="xdrive-cx-diary-card__band">{cxBandLabel}</div>
                         <div className="xdrive-cx-diary-card__status-line"><strong>{cxStatusLine}</strong></div>
                         {cxStatusStamp ? <div className="xdrive-cx-diary-card__status-stamp">@ {cxStatusStamp}</div> : null}
-                        <div className="xdrive-cx-diary-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-diary-card__vehicle"><img className="xdrive-cx-diary-card__vehicle-image" src={workspaceVehicleImageSrc(requestedVehicle)} alt="" aria-hidden="true" /><strong>{requestedVehicle}</strong></span></div>
+                        <div className="xdrive-cx-diary-card__status-meta"><span>Load ID: {job.id.slice(0, 8).toUpperCase()}</span><span className="xdrive-cx-diary-card__vehicle xdrive-cx-load-card__vehicle"><img className="xdrive-cx-diary-card__vehicle-image xdrive-cx-load-card__vehicle-image" src={workspaceVehicleImageSrc(requestedVehicle)} alt="" aria-hidden="true" /><strong>{requestedVehicle}</strong></span></div>
                       </section>
                     </div>
                     <div className="xdrive-cx-diary-card__footer">
