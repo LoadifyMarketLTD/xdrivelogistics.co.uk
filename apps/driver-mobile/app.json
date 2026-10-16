@@ -1,0 +1,19 @@
+{
+  "expo": {
+    "name": "XDrive Logistics Driver",
+    "slug": "xdrive-driver",
+    "scheme": "xdrivedriver",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "android": {
+      "package": "co.uk.xdrivelogistics.driver",
+      "versionCode": 1,
+      "predictiveBackGestureEnabled": false
+    },
+    "ios": {
+      "bundleIdentifier": "co.uk.xdrivelogistics.driver",
+      "supportsTablet": false
+    }
+  }
+}
