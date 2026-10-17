@@ -1,0 +1,41 @@
+/* 2026-10-17: compact dashboard flow shared by all white operational workspaces.
+ * Admin is the baseline. Panels size to content; no reserved vertical whitespace. */
+.xdrive-carrier-workspace .carrier-cx-dashboard-column {
+  align-content: start !important;
+  grid-auto-rows: max-content !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-grid :is(
+  .carrier-cx-reporting-card,
+  .carrier-cx-feedback-card,
+  .carrier-cx-activity-card,
+  .carrier-cx-compliance-card
+) {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-card .carrier-cx-stat-grid,
+.xdrive-carrier-workspace .carrier-cx-feedback-card .carrier-cx-feedback-grid,
+.xdrive-carrier-workspace .carrier-cx-activity-card .carrier-cx-booking-list,
+.xdrive-carrier-workspace .carrier-cx-compliance-card .carrier-cx-compliance-grid {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-reporting-card .carrier-cx-stat-card {
+  min-height: 116px !important;
+  padding: 34px 12px 20px !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-feedback-card .carrier-cx-feedback-grid > *,
+.xdrive-carrier-workspace .carrier-cx-compliance-card .carrier-cx-compliance-grid > * {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-dashboard-column--right > .xdrive-operational-card + .xdrive-operational-card,
+.xdrive-carrier-workspace .carrier-cx-dashboard-column--left > .xdrive-operational-card + .xdrive-operational-card,
+.xdrive-carrier-workspace .carrier-cx-dashboard-column > .carrier-cx-dashboard-subgrid + .xdrive-operational-card {
+  margin-top: 0 !important;
+}
