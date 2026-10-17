@@ -67,3 +67,19 @@ Operations/Dispatcher and Fleet Manager keep their existing capability restricti
 
 ## Rule
 Do not add role-specific CSS that overrides the shared Loads / Quotes / Diary identity. Any future visual adjustment to these pages must be made against Admin Marketplace and propagated through the common identity layer.
+
+## Post-deploy verification
+After commit dbcbae0 was deployed to main live:
+- main live E2E: 7/7 PASS
+- runtime: about 3.0 minutes
+- Customer, Broker, Operations/Dispatcher, Fleet Manager, Owner Driver, Carrier Admin and Company Driver all passed the hardened identity audit on their allowed Loads / Quotes / Diary routes
+- exact runtime page geometry assertions passed:
+  - display: flex
+  - rail-to-main gap: 10 px
+  - page left edge: 12 px
+  - page width: 1656 px
+  - filter rail: 165 px
+  - main: 1481 px
+  - first filter control: 27 px where present
+
+The production login hydration wait in the E2E test was updated to use networkidle + visible interactive controls instead of private React __reactProps/__reactFiber keys, which are not guaranteed in production builds.

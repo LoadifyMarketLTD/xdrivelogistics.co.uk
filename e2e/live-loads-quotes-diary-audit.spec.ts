@@ -58,10 +58,10 @@ for (const role of roles) {
 
     await page.setViewportSize({ width: 1680, height: 900 });
     await page.goto('/login', { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => {
-      const form = document.querySelector('form');
-      return Boolean(form && Object.keys(form).some((key) => key.startsWith('__reactProps$') || key.startsWith('__reactFiber$')));
-    }, undefined, { timeout: 30_000 });
+    await page.waitForLoadState('networkidle', { timeout: 30_000 }).catch(() => null);
+    await expect(page.locator('form').first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('button[type="submit"], button:has-text("Sign In"), button:has-text("Login")').first()).toBeVisible({ timeout: 15_000 });
+    await page.waitForTimeout(750);
     const emailInput = page.locator('#email');
     const passwordInput = page.locator('#password');
     await expect(emailInput).toBeVisible();
