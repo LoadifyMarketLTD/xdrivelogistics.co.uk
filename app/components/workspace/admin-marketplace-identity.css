@@ -1,0 +1,341 @@
+/* Admin Marketplace visual identity contract.
+ * Baseline measured on main /admin/marketplace at 1680x900 on 2026-10-17:
+ * 165px rail + 10px gap, 32px toolbar, 29px secondary nav, 8px list gap,
+ * 27px filter controls and the shared CX cards.
+ * This file is loaded last in all white operational layouts so role CSS cannot
+ * drift Loads / Quotes / Diary away from the Admin Marketplace identity. */
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.workspace-board-layout,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-diary-board,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.xdrive-exchange-workspace-layout {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.workspace-board-layout > .workspace-filter-rail,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-diary-board > .driver-filter-rail,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.xdrive-exchange-workspace-layout > .carrier-exchange-rail {
+  flex: 0 0 var(--ws-filter-rail-w, 165px) !important;
+  width: var(--ws-filter-rail-w, 165px) !important;
+  min-width: 0 !important;
+  align-self: flex-start !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.workspace-board-layout > main,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-diary-board > main,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.xdrive-exchange-workspace-layout > main {
+  flex: 1 1 760px !important;
+  min-width: 0 !important;
+  width: auto !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-loads-prototype > .pagebody,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-quotes-prototype > .pagebody {
+  display: flex !important;
+  align-items: flex-start !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-loads-prototype > .pagebody > .left,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-quotes-prototype > .pagebody > .left {
+  flex: 0 0 var(--ws-filter-rail-w, 165px) !important;
+  width: var(--ws-filter-rail-w, 165px) !important;
+  min-width: 0 !important;
+  align-self: flex-start !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-loads-prototype > .pagebody > .main,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-quotes-prototype > .pagebody > .main {
+  flex: 1 1 760px !important;
+  min-width: 0 !important;
+  width: auto !important;
+}
+
+/* Search rail = Admin Marketplace Panel anatomy. */
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity > .workspace-filter-rail,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity > .driver-filter-rail,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity > .pagebody > .left {
+  position: sticky !important;
+  top: calc(var(--ws-header-h, 50px) + var(--ws-nav-h, 42px)) !important;
+  overflow: hidden !important;
+  border: 1px solid var(--ws-border, #d8dee8) !important;
+  border-radius: 4px !important;
+  background: #fff !important;
+  box-shadow: none !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity .workspace-filter-rail__header,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity .left-title {
+  min-height: 36px !important;
+  height: 36px !important;
+  display: flex !important;
+  align-items: center !important;
+  padding: 8px 10px !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-bottom: 1px solid var(--ws-border, #d8dee8) !important;
+  border-radius: 0 !important;
+  background: var(--ws-panel-head, #f4f6f8) !important;
+  color: var(--ws-text, #202936) !important;
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity .workspace-filter-rail__body,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity .diary-filter-body {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  gap: 7px !important;
+  padding: 10px !important;
+  background: #fff !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity > .pagebody > .left > .filter {
+  display: grid !important;
+  gap: 3px !important;
+  padding: 0 10px 7px !important;
+  margin: 0 !important;
+  background: #fff !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity > .pagebody > .left > .left-title + .filter {
+  padding-top: 10px !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity :where(
+  .workspace-filter-rail__body label,
+  .workspace-filter-rail__body legend,
+  .diary-filter-body .label,
+  .left .filter > .label
+) {
+  color: #3f4a57 !important;
+  font-size: 11px !important;
+  line-height: 15px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity :where(
+  .workspace-filter-rail input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+  .workspace-filter-rail select,
+  .driver-filter-rail input:not([type="checkbox"]):not([type="radio"]),
+  .driver-filter-rail select,
+  .left .input,
+  .left .select,
+  .left input:not([type="checkbox"]):not([type="radio"]),
+  .left select
+) {
+  min-height: 27px !important;
+  height: 27px !important;
+  padding: 0 9px !important;
+  border: 1px solid var(--ws-border, #d8dee8) !important;
+  border-radius: 4px !important;
+  background: #fff !important;
+  color: #202936 !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+  box-shadow: none !important;
+}
+
+/* Admin Marketplace results header: 32px / 4x8 padding. */
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity :where(
+  .workspace-record-meta.workspace-list-controls,
+  .load-result-head,
+  .cx-diary-toolbar
+) {
+  min-height: 32px !important;
+  height: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 4px 8px !important;
+  margin: 0 !important;
+  border: 1px solid var(--ws-border, #d8dee8) !important;
+  border-radius: 4px 4px 0 0 !important;
+  background: transparent !important;
+  color: var(--ws-text, #202936) !important;
+  font-size: 10px !important;
+  line-height: 14px !important;
+  box-shadow: none !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity :where(
+  .workspace-record-meta.workspace-list-controls strong,
+  .load-result-head b,
+  .cx-diary-toolbar__title,
+  .cx-diary-toolbar__title strong
+) {
+  font-size: 12px !important;
+  line-height: 16px !important;
+  font-weight: 700 !important;
+}
+
+/* Admin Marketplace secondary navigation: 29px high with 9px separation to list. */
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity :where(
+  .workspace-tab-strip,
+  .load-nav-unified,
+  .cx-diary-state-tabs,
+  .cx-quote-state-tabs
+) {
+  min-height: 29px !important;
+  height: auto !important;
+  display: flex !important;
+  align-items: stretch !important;
+  gap: 0 !important;
+  padding: 0 !important;
+  margin: 0 0 9px !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity :where(
+  .workspace-tab-strip > button,
+  .load-nav-unified button,
+  .load-tabs > button,
+  .cx-diary-state-tabs > button,
+  .cx-quote-state-tabs > button
+) {
+  min-height: 29px !important;
+  height: 29px !important;
+  padding: 0 10px !important;
+  border-radius: 0 !important;
+  font-size: 11px !important;
+  line-height: 27px !important;
+  font-weight: 650 !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity :where(
+  .workspace-record-list,
+  .xdrive-cx-load-list,
+  .xdrive-cx-quote-list,
+  .load-list
+) {
+  display: grid !important;
+  gap: 8px !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Keep the shared card anatomy authoritative under every role wrapper. */
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity :where(
+  .xdrive-cx-load-card,
+  .xdrive-cx-quote-card,
+  .xdrive-cx-diary-card
+) {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  box-shadow: none !important;
+}
+
+/* Driver legacy wrappers must not add their own page gutters around the canonical board. */
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-loads-prototype,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-quotes-prototype {
+  width: 100% !important;
+  max-width: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-loads-prototype > .pagebody,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-quotes-prototype > .pagebody,
+.xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-diary-board {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+@media (max-width: 900px) {
+  .xdrive-workspace-measured .xdrive-admin-marketplace-identity.workspace-board-layout,
+  .xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-diary-board,
+  .xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-loads-prototype > .pagebody,
+  .xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-quotes-prototype > .pagebody {
+    display: grid !important;
+    grid-template-columns: 1fr !important;
+  }
+
+  .xdrive-workspace-measured .xdrive-admin-marketplace-identity.workspace-board-layout > .workspace-filter-rail,
+  .xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-diary-board > .driver-filter-rail,
+  .xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-loads-prototype > .pagebody > .left,
+  .xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-quotes-prototype > .pagebody > .left {
+    position: static !important;
+    width: 100% !important;
+    flex-basis: auto !important;
+  }
+}
+
+
+/* Specificity hard gate: this file is intentionally loaded last. Legacy role
+ * styles often use four-class selectors plus !important, so the canonical
+ * Admin Marketplace contract must outrank them rather than rely on source order. */
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
+  .workspace-filter-rail input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
+  .workspace-filter-rail select,
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
+  .driver-filter-rail input:not([type="checkbox"]):not([type="radio"]),
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
+  .driver-filter-rail select,
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
+  .left .input,
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
+  .left .select,
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
+  .left input:not([type="checkbox"]):not([type="radio"]),
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
+  .left select {
+  min-height: 27px !important;
+  height: 27px !important;
+  padding: 0 9px !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
+  .carrier-exchange-rail input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
+  .carrier-exchange-rail select {
+  min-height: 27px !important;
+  height: 27px !important;
+  padding: 0 9px !important;
+  font-size: 12px !important;
+  line-height: 16px !important;
+}
+
+
+/* Driver route gutter normalisation to the measured Admin Marketplace frame:
+ * x=12, width=1656 at a 1680px viewport. */
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.driver-loads-prototype {
+  box-sizing: border-box !important;
+  padding-left: 12px !important;
+  padding-right: 12px !important;
+}
+
+.xdrive-workspace-visual.xdrive-workspace-measured
+  .xdrive-admin-marketplace-identity.driver-diary-board {
+  width: calc(100% + 24px) !important;
+  max-width: none !important;
+  margin-left: -12px !important;
+  margin-right: -12px !important;
+}

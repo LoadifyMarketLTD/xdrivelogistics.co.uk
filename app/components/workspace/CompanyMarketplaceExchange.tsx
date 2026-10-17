@@ -422,7 +422,7 @@ export default function CompanyMarketplaceExchange({
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}{notice && <AlertBanner tone="info">{notice}</AlertBanner>}{!companyId && hasSupabaseSession && <AlertBanner tone="info">Resolving your active company workspace…</AlertBanner>}
 
       {tab === 'loads' && <>
-        <div className="xdrive-exchange-workspace-layout xdrive-loads-workspace-layout" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
+        <div className="xdrive-exchange-workspace-layout xdrive-loads-workspace-layout xdrive-admin-marketplace-identity" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
           <aside className="carrier-exchange-rail" style={{ flex: '0 0 var(--ws-filter-rail-w, 164px)', width: 'var(--ws-filter-rail-w, 164px)', minWidth: 0, alignSelf: 'flex-start' }}>
             <Panel title="Search Loads">
               <div style={{ display: 'grid', gap: 7 }}>
@@ -533,7 +533,7 @@ export default function CompanyMarketplaceExchange({
         </div>
       </>}
 
-      {tab === 'bids' && <div className="xdrive-exchange-workspace-layout" style={{ display: 'flex', alignItems: 'flex-start', gap: 8, flexWrap: 'wrap' }}>
+      {tab === 'bids' && <div className="xdrive-exchange-workspace-layout xdrive-admin-marketplace-identity" style={{ display: 'flex', alignItems: 'flex-start', gap: 10, flexWrap: 'wrap' }}>
         <aside className="carrier-exchange-rail" style={{ flex: '0 0 var(--ws-filter-rail-w, 164px)', width: 'var(--ws-filter-rail-w, 164px)', minWidth: 0, alignSelf: 'flex-start' }}>
           <Panel title="Search Panel">
             <div style={{ display: 'grid', gap: 6 }}>

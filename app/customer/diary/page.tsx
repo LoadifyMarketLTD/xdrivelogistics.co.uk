@@ -141,7 +141,7 @@ export default function CustomerDiaryPage() {
     <PageFrame>
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
 
-      <div className="workspace-board-layout customer-diary-admin-parity">
+      <div className="workspace-board-layout xdrive-admin-marketplace-identity">
         <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Customer diary filters">
           <div className="cx-diary-rail-nav">
             <ActionButton tone="secondary" onClick={() => router.push('/customer/network/directory')}>Contacts</ActionButton>

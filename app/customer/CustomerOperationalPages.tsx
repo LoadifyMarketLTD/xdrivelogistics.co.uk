@@ -200,7 +200,7 @@ export function CustomerLoadsOperationalPage() {
     <PageFrame>
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
 
-      <div className="workspace-board-layout">
+      <div className="workspace-board-layout xdrive-admin-marketplace-identity">
         <aside className="workspace-filter-rail" aria-label="Customer load filters"><div className="workspace-filter-rail__header">Search Loads</div><div className="workspace-filter-rail__body"><label>DATE<input type="date" value={date} onChange={(event) => setDate(event.target.value)} /></label><label>PICKUP<input value={pickup} onChange={(event) => setPickup(event.target.value)} placeholder="Town / postcode" /></label><label>DELIVERY<input value={delivery} onChange={(event) => setDelivery(event.target.value)} placeholder="Town / postcode" /></label><label>LOAD ID / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="XDrive, customer booking or customer ref" /></label><ActionButton tone="secondary" onClick={() => { setReference(''); setPickup(''); setDelivery(''); setDate(''); }}>Clear</ActionButton></div></aside>
         <main style={{ minWidth: 0 }}>
           <div className="workspace-record-meta workspace-list-controls" style={{ justifyContent: 'space-between', marginBottom: 0 }}><span><strong>Loads</strong> · {rows.length} load{rows.length === 1 ? '' : 's'} in this view</span><span className="workspace-list-controls__right"><OperationalExpandAllControl expanded={allVisibleExpanded} disabled={!rows.length} onToggle={toggleExpandAll} noun="loads" /><ActionButton tone="secondary" onClick={() => void data.refresh()}>Refresh</ActionButton></span></div>

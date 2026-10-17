@@ -333,7 +333,7 @@ export default function AvailableLoadsPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <section className="page driver-loads-prototype">
+      <section className="page driver-loads-prototype xdrive-admin-marketplace-identity">
         <div className="pagebody">
           <aside className="left">
             <div className="left-title">Search Loads</div>

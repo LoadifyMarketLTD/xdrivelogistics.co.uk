@@ -428,7 +428,7 @@ export default function MyQuotesPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <section className="page driver-quotes-prototype">
+      <section className="page driver-quotes-prototype xdrive-admin-marketplace-identity">
         <div className="pagebody">
           <aside className="left carrier-exchange-rail">
             <div className="left-title">Search Panel</div>

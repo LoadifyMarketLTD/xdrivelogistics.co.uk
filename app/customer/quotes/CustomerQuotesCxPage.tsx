@@ -357,7 +357,7 @@ export default function CustomerQuotesCxPage() {
       {message && <AlertBanner tone={message.includes('successfully') || message.includes('rejected') || message.includes('sent') ? 'success' : 'danger'}>{message}</AlertBanner>}
       {identityError && <AlertBanner tone="warning">{identityError}</AlertBanner>}
       {bookingOfferError && <AlertBanner tone="warning">{bookingOfferError}</AlertBanner>}
-      <div className="workspace-board-layout">
+      <div className="workspace-board-layout xdrive-admin-marketplace-identity">
         <aside className="workspace-filter-rail" aria-label="Quote filters">
           <div className="workspace-filter-rail__header">Search Quotes</div>
           <div className="workspace-filter-rail__body">

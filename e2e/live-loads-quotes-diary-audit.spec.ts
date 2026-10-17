@@ -73,9 +73,21 @@ for (const role of roles) {
     let authenticated = !new URL(page.url()).pathname.startsWith('/login');
     let loginAlert: string | null = null;
     for (let attempt = 1; attempt <= 3 && !authenticated; attempt += 1) {
-      const signIn = page.locator('button[type="submit"], button:has-text("Sign In"), button:has-text("Login")').first();
-      if (await signIn.isVisible({ timeout: 5_000 }).catch(() => false)) {
-        await signIn.click({ timeout: 10_000 });
+      let submitted = false;
+      for (let clickAttempt = 1; clickAttempt <= 3 && !submitted; clickAttempt += 1) {
+        const signIn = page.locator('button[type="submit"], button:has-text("Sign In"), button:has-text("Login")').first();
+        if (!(await signIn.isVisible({ timeout: 5_000 }).catch(() => false))) break;
+        try {
+          await signIn.click({ timeout: 5_000 });
+          submitted = true;
+        } catch {
+          await page.waitForTimeout(600);
+          if (!new URL(page.url()).pathname.startsWith('/login')) submitted = true;
+        }
+      }
+      if (!submitted && new URL(page.url()).pathname.startsWith('/login')) {
+        const form = page.locator('form').first();
+        if (await form.count()) await form.evaluate((node) => (node as HTMLFormElement).requestSubmit());
       }
       await page.waitForTimeout(5_000);
       authenticated = !new URL(page.url()).pathname.startsWith('/login');
@@ -101,7 +113,7 @@ for (const role of roles) {
       await page.waitForTimeout(1500);
       await page.waitForFunction(() => {
         const text = document.body.innerText;
-        return !/(?:Loading[^\n]*(?:loads|quotes|diary|freight)|Refreshing[^\n]*|Searching[^\n]*)/i.test(text);
+        return !/(?:Restoring workspace access|Loading[^\n]*(?:loads|quotes|diary|freight)|Refreshing[^\n]*|Searching[^\n]*)/i.test(text);
       }, undefined, { timeout: 30_000 }).catch(() => null);
       await page.waitForTimeout(1_000);
       const url = page.url();
@@ -125,6 +137,30 @@ for (const role of roles) {
           content: rect('.top-workspace-shell__content'),
         };
       });
+      const identityGeometry = await page.evaluate(() => {
+        const marker = document.querySelector('.xdrive-admin-marketplace-identity') as HTMLElement | null;
+        if (!marker) return null;
+        const isDriverPrototype = marker.classList.contains('driver-loads-prototype') || marker.classList.contains('driver-quotes-prototype');
+        const layout = isDriverPrototype ? marker.querySelector(':scope > .pagebody') as HTMLElement | null : marker;
+        if (!layout) return null;
+        const rail = (layout.querySelector(':scope > .workspace-filter-rail') || layout.querySelector(':scope > .driver-filter-rail') || layout.querySelector(':scope > .carrier-exchange-rail') || layout.querySelector(':scope > .left')) as HTMLElement | null;
+        const main = (layout.querySelector(':scope > main') || layout.querySelector(':scope > .main')) as HTMLElement | null;
+        const firstControl = rail?.querySelector('input:not([type="checkbox"]):not([type="radio"]):not([type="range"]), select') as HTMLElement | null;
+        const lr = layout.getBoundingClientRect();
+        const ls = getComputedStyle(layout);
+        const rr = rail?.getBoundingClientRect();
+        const mr = main?.getBoundingClientRect();
+        const cr = firstControl?.getBoundingClientRect();
+        return {
+          display: ls.display,
+          gap: ls.gap,
+          x: Math.round(lr.x),
+          width: Math.round(lr.width),
+          railWidth: rr ? Math.round(rr.width) : null,
+          mainWidth: mr ? Math.round(mr.width) : null,
+          controlHeight: cr ? Math.round(cr.height) : null,
+        };
+      });
       const bodyText = (await page.locator('body').innerText()).slice(0, 500);
       let geometry = null;
       if (cardCount > 0) {
@@ -144,7 +180,19 @@ for (const role of roles) {
       expect(loginVisible, role.id + ' ' + route.kind + ': route must remain authenticated').toBe(0);
       expect(url, role.id + ' ' + route.kind + ': route must not redirect to login').not.toMatch(/\/login(?:\?|$)/);
       expect(measuredRoot, role.id + ' ' + route.kind + ': measured workspace root').toBeGreaterThan(0);
-      const record = { role: role.id, kind: route.kind, path: route.path, status: response?.status() ?? null, url, cardCount, measuredRoot, loginVisible, shellGeometry, geometry, bodyText };
+      expect(identityGeometry, role.id + ' ' + route.kind + ': Admin Marketplace visual identity marker').not.toBeNull();
+      if (identityGeometry) {
+        expect(identityGeometry.display, role.id + ' ' + route.kind + ': Admin Marketplace layout display').toBe('flex');
+        expect(identityGeometry.gap, role.id + ' ' + route.kind + ': Admin Marketplace layout gap').toBe('10px');
+        expect(identityGeometry.x, role.id + ' ' + route.kind + ': Admin Marketplace layout left edge').toBe(12);
+        expect(identityGeometry.width, role.id + ' ' + route.kind + ': Admin Marketplace layout width').toBe(1656);
+        expect(identityGeometry.railWidth, role.id + ' ' + route.kind + ': Admin Marketplace rail width').toBe(165);
+        expect(identityGeometry.mainWidth, role.id + ' ' + route.kind + ': Admin Marketplace main width').toBe(1481);
+        if (identityGeometry.controlHeight != null) {
+          expect(identityGeometry.controlHeight, role.id + ' ' + route.kind + ': Admin Marketplace filter control height').toBe(27);
+        }
+      }
+      const record = { role: role.id, kind: route.kind, path: route.path, status: response?.status() ?? null, url, cardCount, measuredRoot, loginVisible, shellGeometry, identityGeometry, geometry, bodyText };
       results.push(record);
       await page.screenshot({ path: path.join(outDir, role.id + '-' + route.kind + '.png'), fullPage: true });
     }

@@ -732,7 +732,7 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
-      <div className="workspace-board-layout">
+      <div className="workspace-board-layout xdrive-admin-marketplace-identity">
         <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Diary search filters">
           <div className="cx-diary-rail-nav">
             <ActionButton tone="secondary" onClick={() => router.push('/admin/marketplace/directory')}>Contacts</ActionButton>

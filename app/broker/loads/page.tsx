@@ -110,7 +110,7 @@ export default function BrokerLoadsPage() {
     <PageFrame>
       {data.error && <AlertBanner>{data.error}</AlertBanner>}
 
-      <div className="workspace-board-layout">
+      <div className="workspace-board-layout xdrive-admin-marketplace-identity">
         <aside className="workspace-filter-rail" aria-label="Load filters">
           <div className="workspace-filter-rail__header">Search Loads</div>
           <div className="workspace-filter-rail__body">

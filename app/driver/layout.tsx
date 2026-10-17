@@ -20,6 +20,7 @@ import '../components/workspace/workspace-measured-cx-baseline.css';
 // Admin is the canonical white-workspace shell baseline for every operational role.
 import '../admin/carrier-workspace-canonical.css';
 import '../components/workspace/dashboard-compact-global.css';
+import '../components/workspace/admin-marketplace-identity.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Force dynamic rendering so hard reloads and deep links receive matching nonces.

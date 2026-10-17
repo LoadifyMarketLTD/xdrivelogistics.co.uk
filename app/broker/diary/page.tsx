@@ -195,7 +195,7 @@ export default function BrokerDiaryPage() {
       {feedbackError && <AlertBanner tone="warning">{feedbackError}</AlertBanner>}
       {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
 
-      <div className="workspace-board-layout">
+      <div className="workspace-board-layout xdrive-admin-marketplace-identity">
         <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Diary filters">
           <div className="cx-diary-rail-nav">
             <ActionButton tone="secondary" onClick={() => router.push('/broker/carrier-network/directory')}>Contacts</ActionButton>

@@ -593,7 +593,7 @@ export default function JobHistoryPage() {
       <DriverWorkspaceShell hideHeader>
         {error && <AlertBanner tone="danger">{error}</AlertBanner>}
         {detailWarning && <AlertBanner tone="warning">{detailWarning}</AlertBanner>}
-        <div className="driver-diary-board diary-pagebody">
+        <div className="driver-diary-board diary-pagebody xdrive-admin-marketplace-identity">
           {filterRail}
           <main className="driver-board-main main diary-main">
             <div className="driver-diary-controlbar">
