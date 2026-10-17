@@ -141,7 +141,7 @@ export default function CustomerDiaryPage() {
     <PageFrame>
       {data.error && <AlertBanner tone="danger">{data.error}</AlertBanner>}
 
-      <div className="workspace-board-layout">
+      <div className="workspace-board-layout customer-diary-admin-parity">
         <aside className="workspace-filter-rail cx-diary-filter-rail" aria-label="Customer diary filters">
           <div className="cx-diary-rail-nav">
             <ActionButton tone="secondary" onClick={() => router.push('/customer/network/directory')}>Contacts</ActionButton>
@@ -158,7 +158,7 @@ export default function CustomerDiaryPage() {
           </div>
         </aside>
 
-        <main style={{ minWidth: 0 }}>
+        <main className="workspace-board-main" style={{ minWidth: 0 }}>
           <div className="workspace-record-meta workspace-list-controls cx-diary-toolbar">
             <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>Diary at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></span>
             <span className="workspace-list-controls__right">

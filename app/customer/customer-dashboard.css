@@ -333,3 +333,52 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+/* Customer Diary uses the frozen Admin Diary page geometry.
+ * Keep Customer actions/data, but do not let generic Customer operational
+ * overrides change the Admin Diary visual baseline. */
+.xdrive-customer-workspace .workspace-board-layout.customer-diary-admin-parity {
+  grid-template-columns: var(--ws-filter-rail-w) minmax(0, 1fr) !important;
+  gap: var(--ws-gap-grid) !important;
+  align-items: start !important;
+}
+
+.xdrive-customer-workspace .customer-diary-admin-parity > .workspace-filter-rail.cx-diary-filter-rail {
+  position: sticky !important;
+  top: calc(var(--ws-header-h) + var(--ws-nav-h)) !important;
+  width: var(--ws-filter-rail-w) !important;
+  align-self: start !important;
+  overflow: hidden !important;
+  border: 1px solid var(--ws-border) !important;
+  border-radius: var(--ws-radius) !important;
+  background: #f7f9fc !important;
+  box-shadow: none !important;
+}
+
+.xdrive-customer-workspace .customer-diary-admin-parity > .cx-diary-filter-rail .workspace-filter-rail__header {
+  min-height: 34px !important;
+  height: auto !important;
+  padding: 0 10px !important;
+  border-right: 0 !important;
+  border-bottom: 1px solid var(--ws-border) !important;
+  background: var(--ws-panel-head) !important;
+  font-size: 14px !important;
+  line-height: 34px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-customer-workspace .customer-diary-admin-parity > .cx-diary-filter-rail .workspace-filter-rail__body {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) !important;
+  align-items: stretch !important;
+  gap: 6px !important;
+  padding: 9px !important;
+}
+
+.xdrive-customer-workspace .customer-diary-admin-parity > .workspace-board-main {
+  min-width: 0 !important;
+  display: grid !important;
+  gap: var(--ws-gap-internal) !important;
+  align-content: start !important;
+}
