@@ -23,6 +23,18 @@
   min-height: 0 !important;
 }
 
+.xdrive-carrier-workspace .carrier-cx-activity-card .xdrive-operational-card__body--flush,
+.xdrive-carrier-workspace .carrier-cx-compliance-card .xdrive-operational-card__body--flush,
+.xdrive-carrier-workspace .carrier-cx-compliance-card .carrier-cx-compliance-body {
+  height: auto !important;
+  min-height: 0 !important;
+}
+
+.xdrive-carrier-workspace .carrier-cx-activity-card .carrier-cx-booking-list {
+  max-height: none !important;
+  overflow: visible !important;
+}
+
 .xdrive-carrier-workspace .carrier-cx-reporting-card .carrier-cx-stat-card {
   min-height: 116px !important;
   padding: 34px 12px 20px !important;
