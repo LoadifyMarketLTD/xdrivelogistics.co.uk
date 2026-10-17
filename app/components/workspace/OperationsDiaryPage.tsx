@@ -310,8 +310,12 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
       setError('Diary jobs could not be loaded.');
       setJobs([]);
     } else {
-      const scoped = ((jobsResult.data ?? []) as JobRow[]).filter((job) => isOperatingCompanyJob(job, companyId));
+      const loadedJobs = (jobsResult.data ?? []) as JobRow[];
+      const scoped = loadedJobs.filter((job) => isOperatingCompanyJob(job, companyId));
       setJobs(scoped);
+      if (loadedJobs.length >= 300) {
+        setNotice((current) => current || 'Diary reached the 300-record query limit. Older bookings may not be included in the current results.');
+      }
     }
     if (driversResult.error) {
       setError((current) => current || 'Driver roster could not be loaded.');
@@ -709,7 +713,13 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
     setAppliedSearch(search);
     if (saveAsDefault) window.localStorage.setItem('xdrive:operations-diary:default-search', JSON.stringify(search));
   };
-  const clearSearch = () => { setSearch(EMPTY_SEARCH); setAppliedSearch(EMPTY_SEARCH); };
+  const clearSearch = () => {
+    setSearch(EMPTY_SEARCH);
+    setAppliedSearch(EMPTY_SEARCH);
+    setSelectedGroupFilter('');
+    setSelectedSavedViewId('');
+    setPage(1);
+  };
   const datePresetToday = new Date();
   const datePresetTomorrow = new Date(datePresetToday.getTime() + 86400000);
   const localDateKey = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);

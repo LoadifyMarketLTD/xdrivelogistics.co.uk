@@ -75,7 +75,26 @@ type SavedNetworkResponse = {
   error?: string;
 };
 
+type DirectorySort = 'Distance' | 'Member Name' | 'Delivery Reliability' | 'Payment Reliability';
+
 const normalise = (value: string | null | undefined) => (value ?? '').trim().toLowerCase();
+
+function sortDirectoryRecords<T extends DirectoryCompany | DirectoryDriver>(records: T[], sort: DirectorySort): T[] {
+  return [...records].sort((a, b) => {
+    if (sort === 'Member Name') {
+      const nameA = 'name' in a ? a.name : a.displayName;
+      const nameB = 'name' in b ? b.name : b.displayName;
+      return nameA.localeCompare(nameB);
+    }
+    if (sort === 'Delivery Reliability') {
+      return (b.deliveryReliability.score ?? -1) - (a.deliveryReliability.score ?? -1);
+    }
+    if (sort === 'Payment Reliability') {
+      return (b.paymentReliability.score ?? -1) - (a.paymentReliability.score ?? -1);
+    }
+    return (a.distanceMiles ?? Number.POSITIVE_INFINITY) - (b.distanceMiles ?? Number.POSITIVE_INFINITY);
+  });
+}
 
 export function MemberDirectoryPage(_props: {
   title?: string;
@@ -106,6 +125,7 @@ export function MemberDirectoryPage(_props: {
   const [truncation, setTruncation] = useState<DirectoryTruncation>({});
   const [privacy, setPrivacy] = useState('');
   const [reputationNote, setReputationNote] = useState('');
+  const [directorySort, setDirectorySort] = useState<DirectorySort>('Distance');
   const [directoryPageSize, setDirectoryPageSize] = useState(25);
   const [directoryVisibleCount, setDirectoryVisibleCount] = useState(25);
   const [savedCompanyIds, setSavedCompanyIds] = useState<Set<string>>(new Set());
@@ -435,6 +455,15 @@ export function MemberDirectoryPage(_props: {
     });
   }, [availability, country, deliveryMin, drivers, location, member, paymentMin, savedCompanyIds, savedOnly, specialistService, tailLiftOnly, vehicle]);
 
+  const sortedCompanies = useMemo(
+    () => sortDirectoryRecords(visibleCompanies, directorySort),
+    [directorySort, visibleCompanies],
+  );
+  const sortedDrivers = useMemo(
+    () => sortDirectoryRecords(visibleDrivers, directorySort),
+    [directorySort, visibleDrivers],
+  );
+
   const clear = () => {
     setMember('');
     setLocation('');
@@ -450,6 +479,8 @@ export function MemberDirectoryPage(_props: {
     setNearestRadius('50');
     setNearestQuery({ near: '', radius: '50' });
     setSavedOnly(false);
+    setDirectorySort('Distance');
+    setDirectoryVisibleCount(directoryPageSize);
   };
 
   const selectedPrivateGroup = privateGroups.groups.find((group) => group.id === selectedPrivateGroupId) ?? null;
@@ -478,11 +509,11 @@ export function MemberDirectoryPage(_props: {
     : 'Part of the Directory enrichment is temporarily unavailable. Verified member records are still shown.';
 
   if (pathname.startsWith('/driver')) {
-    const records = [...visibleCompanies, ...visibleDrivers];
-    const displayedCompanies = visibleCompanies.slice(0, directoryVisibleCount);
-    const displayedDrivers = visibleDrivers.slice(0, directoryVisibleCount);
-    const shownCount = Math.min(directoryVisibleCount, records.length);
-    const canShowMore = directoryVisibleCount < records.length;
+    const records = [...sortedCompanies, ...sortedDrivers];
+    const displayedCompanies = sortedCompanies.slice(0, directoryVisibleCount);
+    const displayedDrivers = sortedDrivers.slice(0, directoryVisibleCount);
+    const shownCount = displayedCompanies.length + displayedDrivers.length;
+    const canShowMore = directoryVisibleCount < sortedCompanies.length || directoryVisibleCount < sortedDrivers.length;
     return (
       <section className="page driver-directory-prototype-page">
         <PageHeader eyebrow="Member network" title="Directory" description="Search members by location, capability, vehicle and performance." />
@@ -513,7 +544,7 @@ export function MemberDirectoryPage(_props: {
             <div className="dir-tabs">
               <strong>COMPANIES {visibleCompanies.length}</strong>
               <strong>DRIVERS {visibleDrivers.length}</strong>
-              <div className="dir-sort">Sort By: <select className="select" defaultValue="Distance"><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
+              <div className="dir-sort">Sort By: <select className="select" value={directorySort} onChange={(event) => { setDirectorySort(event.target.value as DirectorySort); setDirectoryVisibleCount(directoryPageSize); }}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></div>
             </div>
             <div className="dir-summary">
               <span>{records.length} matching loaded record(s)</span>
@@ -599,7 +630,7 @@ export function MemberDirectoryPage(_props: {
         </aside>
 
         <main style={{ minWidth: 0 }}>
-          <div className="workspace-record-meta" style={{ justifyContent: 'space-between' }}><span><strong>{visibleCompanies.length + visibleDrivers.length}</strong> matching loaded record(s)</span><span>Companies and drivers are shown together, as in Courier Exchange Directory.</span></div>
+          <div className="workspace-record-meta" style={{ justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}><span><strong>{visibleCompanies.length + visibleDrivers.length}</strong> matching loaded record(s)</span><label style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>Sort By <select className="select" aria-label="Sort directory results" value={directorySort} onChange={(event) => setDirectorySort(event.target.value as DirectorySort)}><option>Distance</option><option>Member Name</option><option>Delivery Reliability</option><option>Payment Reliability</option></select></label><span>Companies and drivers are shown together, as in Courier Exchange Directory.</span></div>
 
           {loading ? (
             <div className="workspace-panel"><EmptyState compact title="Loading Directory…" /></div>
@@ -607,7 +638,7 @@ export function MemberDirectoryPage(_props: {
             <div style={{ display: 'grid', gap: 8 }}>
               <div className="workspace-record-meta"><strong>COMPANIES</strong><span>{visibleCompanies.length}</span></div>
               <div className="workspace-record-list">
-              {visibleCompanies.map((company) => (
+              {sortedCompanies.map((company) => (
                 <article key={company.companyId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">MEMBER</div><strong><MemberIdentityLink companyId={company.companyId}>{company.name}</MemberIdentityLink></strong><div className="driver-cell-secondary">{company.memberId ? `Member ID ${company.memberId}` : 'Member ID not supplied'}</div></div>
@@ -622,7 +653,7 @@ export function MemberDirectoryPage(_props: {
               </div>
               <div className="workspace-record-meta"><strong>DRIVERS</strong><span>{visibleDrivers.length}</span></div>
               <div className="workspace-record-list">
-              {visibleDrivers.map((driver) => (
+              {sortedDrivers.map((driver) => (
                 <article key={driver.driverId} className="workspace-operational-row">
                   <div className="workspace-operational-row__top">
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DRIVER / MEMBER</div><strong>{driver.displayName}</strong><div className="driver-cell-secondary">{driver.companyId ? <MemberIdentityLink companyId={driver.companyId}>{driver.companyName}</MemberIdentityLink> : driver.companyName}{driver.memberId ? ` · Member ID ${driver.memberId}` : ''}</div></div>
