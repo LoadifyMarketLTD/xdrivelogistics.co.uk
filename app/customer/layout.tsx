@@ -6,6 +6,7 @@ import '../components/workspace/workspace-light-guard.css';
 import '../components/workspace/top-workspace-shell.css';
 import './customer-dashboard.css';
 import '../components/workspace/workspace-measured-cx-baseline.css';
+import '../admin/carrier-workspace-canonical.css';
 
 // Protected workspace documents receive a per-request CSP nonce from middleware.
 // Force dynamic rendering so hard reloads and deep links receive matching nonces.
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function CustomerLayout({ children }: { children: ReactNode }) {
   return (
-    <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-customer-workspace">
+    <div className="xdrive-workspace-visual xdrive-workspace-measured xdrive-operational-top-workspace xdrive-canonical-workspace xdrive-carrier-workspace xdrive-customer-workspace">
       <ProtectedRoute allowedRoles={['customer']}>
         <TopWorkspaceShell forcedRole="customer">{children}</TopWorkspaceShell>
       </ProtectedRoute>
