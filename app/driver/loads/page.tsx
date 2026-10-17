@@ -10,7 +10,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../components/ProtectedRoute';
 import { isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
-import { ActionButton } from '../../components/workspace/WorkspaceUI';
+import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../_components/MarketplaceQuoteModal';
 import MarketplaceLoadMap from '../../components/workspace/MarketplaceLoadMap';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import CxLoadCard from '../../components/workspace/CxLoadCard';
@@ -293,9 +293,9 @@ export default function AvailableLoadsPage() {
     setVehicleFilter('any'); setPickupFilter(''); setDeliveryFilter(''); setCargoFilter(''); setWeightMinFilter(''); setDateFromFilter(''); setDateToFilter(''); setMemberFilter('');
     setRegionFilter('any'); setPostedWithinFilter('any'); setJobTimingFilter('any'); setLoadTypeFilter('all'); setSortBy('date_desc'); setSaveAsDefault(false); window.localStorage.removeItem(LOAD_FILTER_STORAGE_KEY);
   };
-  const handleBidSubmit = async (loadId: string) => {
-    if (!bidAmount || bidLoading) return;
-    const amount = Number.parseFloat(bidAmount);
+  const handleBidSubmit = async (loadId: string, quote: MarketplaceQuoteSubmitPayload) => {
+    if (bidLoading) return;
+    const amount = quote.totalAmount;
     if (!Number.isFinite(amount) || amount <= 0) { setError('Enter a valid quote amount greater than £0.'); return; }
     setBidLoading(true); setError('');
     try {
@@ -304,7 +304,13 @@ export default function AvailableLoadsPage() {
       const response = await fetch('/api/driver/bids', {
         method: 'POST',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: loadId, amount, message: bidMessage.trim() }),
+        body: JSON.stringify({
+          jobId: loadId,
+          amount,
+          baseAmount: quote.baseAmount,
+          additionalExtrasGbp: quote.additionalExtrasGbp,
+          message: quote.message,
+        }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string; denialReasons?: string[] };
       if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
@@ -421,13 +427,47 @@ export default function AvailableLoadsPage() {
                         <span className="load-footer-identity">{load.member.memberId ?? 'Member ID unavailable'} · {load.member.name}{load.member.phone ? ` · ${load.member.phone}` : ''}</span>
                       </>}
                     />
-                    {bidLoadId === load.id && !quoted && <div className="driver-inline-quote driver-inline-quote--marketplace"><div className="driver-filter-field"><label>Your quote (£)</label><input type="number" min="1" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} /></div><div className="driver-filter-field"><label>Message</label><textarea rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} /></div><ActionButton tone="success" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit(load.id)}>{bidLoading ? 'Submitting…' : 'Submit Quote'}</ActionButton><ActionButton tone="secondary" onClick={() => setBidLoadId(null)}>Cancel</ActionButton></div>}
+
                   </Fragment>;
                 })}
               </div>
             )}
           </main>
         </div>
+        <MarketplaceQuoteModal
+          target={(() => {
+            const load = loads.find((candidate) => candidate.id === bidLoadId);
+            if (!load) return null;
+            const vehicle = load.requested_vehicle_label
+              ?? (load.vehicle_type ? (VEHICLE_LABELS[load.vehicle_type] ?? load.vehicle_type.replace(/_/g, ' ')) : 'Any vehicle');
+            return {
+              id: load.id,
+              memberName: load.member.postedBy ?? load.member.name,
+              memberCode: load.member.memberId,
+              pickup: `${load.pickup_area}${load.pickup_postcode_area ? `, ${load.pickup_postcode_area}` : ''}`,
+              delivery: `${load.delivery_area}${load.delivery_postcode_area ? `, ${load.delivery_postcode_area}` : ''}`,
+              pickupAt: load.pickup_datetime,
+              deliveryAt: load.delivery_datetime,
+              vehicle,
+            };
+          })()}
+          amount={bidAmount}
+          message={bidMessage}
+          working={bidLoading}
+          error={error}
+          onAmountChange={setBidAmount}
+          onMessageChange={setBidMessage}
+          onSubmit={(payload) => {
+            if (bidLoadId) void handleBidSubmit(bidLoadId, payload);
+          }}
+          onClose={() => {
+            if (!bidLoading) {
+              setBidLoadId(null);
+              setBidAmount('');
+              setBidMessage('');
+            }
+          }}
+        />
       </section>
     </ProtectedRoute>
   );

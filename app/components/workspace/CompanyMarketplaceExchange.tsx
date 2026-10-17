@@ -14,6 +14,7 @@ import { canonicalQuoteStage } from '../../../lib/quotes/canonicalQuote';
 import MarketplaceLoadMap from './MarketplaceLoadMap';
 import CxLoadCard from './CxLoadCard';
 import CxQuoteCard from './CxQuoteCard';
+import MarketplaceQuoteNowDialog from './MarketplaceQuoteNowDialog';
 import { MemberProfileOverlay } from './MemberProfile';
 import {
   ActionButton,
@@ -21,7 +22,6 @@ import {
   PageFrame,
   Panel,
   OperationalTable,
-  WorkspaceDialog,
 } from './WorkspaceUI';
 
 type LoadRow = {
@@ -644,80 +644,50 @@ export default function CompanyMarketplaceExchange({
 
       {memberTarget?.company_id && <MemberProfileOverlay companyId={memberTarget.company_id} onClose={() => setMemberTarget(null)} />}
 
-      {bidTarget && <WorkspaceDialog
-        ariaLabel="Submit marketplace quote"
-        title="Quote Now"
-        width={468}
-        maxHeight={760}
-        onDismiss={() => setBidTarget(null)}
-        dismissDisabled={working}
-        headerActions={<button type="button" className="xdrive-quote-modal__close" aria-label="Close quote form" disabled={working} onClick={() => setBidTarget(null)}>×</button>}
-        actions={<><ActionButton tone="secondary" disabled={working} onClick={() => setBidTarget(null)}>Cancel</ActionButton><ActionButton tone="success" disabled={working || quoteTotal <= 0} onClick={() => void submitQuote()}>{working ? 'Submitting…' : 'Submit Quote'}</ActionButton></>}
-      >
-        <div className="xdrive-quote-modal">
-          <section className="xdrive-quote-modal__member">
-            <div className="xdrive-quote-modal__mark" aria-hidden="true">{bidTarget.posterName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'XD'}</div>
-            <div className="xdrive-quote-modal__member-copy">
-              <strong>{bidTarget.posterName}</strong>
-              <span>Member ID: <b>{bidTarget.posterMemberCode ?? '—'}</b></span>
-              <span>Load ID: <b>{bidTarget.id.slice(0, 8).toUpperCase()}</b></span>
-              <span>Requested: <b>{vehicleLabel(bidTarget)}</b></span>
-            </div>
-            <img className="xdrive-quote-modal__requested-vehicle" src={vehicleImageSrc(vehicleLabel(bidTarget))} alt="" />
-          </section>
-
-          <section className="xdrive-quote-modal__route">
-            <div><span>From:</span><strong>{routeLabel(bidTarget.pickup_location, bidTarget.pickup_postcode)}, GB</strong><time>{cxWhen(bidTarget.pickup_datetime)}</time></div>
-            <div><span>To:</span><strong>{routeLabel(bidTarget.delivery_location, bidTarget.delivery_postcode)}, GB</strong><time>{bidTarget.delivery_datetime ? cxWhen(bidTarget.delivery_datetime) : 'ASAP'}</time></div>
-          </section>
-
-          {error && <div className="xdrive-quote-modal__error"><AlertBanner tone="danger">{error}</AlertBanner><WorkspaceRestrictionBanner companyId={companyId} operation="quote" inline /></div>}
-
-          <section className="xdrive-quote-modal__form">
-            <div className="xdrive-quote-modal__field-row">
-              <label htmlFor="quote-vehicle">Vehicle:<sup>*</sup></label>
-              <div className="xdrive-quote-modal__vehicle-select">
-                <select id="quote-vehicle" value={quoteVehicleId} onChange={(event) => setQuoteVehicleId(event.target.value)} disabled={quoteVehiclesLoading}>
-                  <option value="">{quoteVehiclesLoading ? 'Loading active fleet…' : 'Choose vehicle later'}</option>
-                  {quoteVehicles.map((vehicle) => <option key={vehicle.id} value={vehicle.id}>{[vehicle.reg_plate, vehicle.make, vehicle.model, vehicle.type?.replace(/_/g, ' ')].filter(Boolean).join(' · ')}</option>)}
-                </select>
-                {selectedQuoteVehicle && <img src={vehicleImageSrc(selectedQuoteVehicle.type ?? vehicleLabel(bidTarget))} alt="" />}
-              </div>
-            </div>
-
-            <div className="xdrive-quote-modal__field-row">
-              <label htmlFor="quote-currency">Choose currency:</label>
-              <select id="quote-currency" className="xdrive-quote-modal__currency" value={quoteCurrency} onChange={(event) => setQuoteCurrency(event.target.value as 'GBP' | 'EUR' | 'USD')}><option value="GBP">GBP - Pounds</option><option value="EUR">EUR - Euro</option><option value="USD">USD - US Dollars</option></select>
-            </div>
-
-            <div className="xdrive-quote-modal__field-row xdrive-quote-modal__price-row">
-              <label htmlFor="quote-amount">My Quote:<sup>*</sup><small>price (exc. VAT)</small></label>
-              <div className="xdrive-quote-modal__money"><span>{quoteCurrencySymbol}</span><input id="quote-amount" autoFocus type="number" min="0.01" step="0.01" inputMode="decimal" value={quoteAmount} onChange={(event) => setQuoteAmount(event.target.value)} /></div>
-              <button type="button" className="xdrive-quote-modal__extras-trigger" onClick={() => setQuoteExtras((current) => [...current, { id: `${Date.now()}-${current.length}`, kind: 'congestion', amount: '' }])}>Extras <b>＋</b></button>
-            </div>
-
-            {quoteExtras.length > 0 && <div className="xdrive-quote-modal__extras">
-              {quoteExtras.map((extra) => <div key={extra.id} className="xdrive-quote-modal__extra-row">
-                <select value={extra.kind} onChange={(event) => setQuoteExtras((current) => current.map((item) => item.id === extra.id ? { ...item, kind: event.target.value as QuoteExtraKind } : item))}>
-                  {QUOTE_EXTRA_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
-                </select>
-                <div className="xdrive-quote-modal__money xdrive-quote-modal__money--small"><span>{quoteCurrencySymbol}</span><input type="number" min="0" step="0.01" inputMode="decimal" value={extra.amount} onChange={(event) => setQuoteExtras((current) => current.map((item) => item.id === extra.id ? { ...item, amount: event.target.value } : item))} /></div>
-                <button type="button" className="xdrive-quote-modal__extra-remove" aria-label="Remove extra" onClick={() => setQuoteExtras((current) => current.filter((item) => item.id !== extra.id))}>×</button>
-              </div>)}
-            </div>}
-
-            <div className="xdrive-quote-modal__total">
-              <span>Total:</span><strong>{quoteCurrencySymbol} {quoteTotal.toFixed(2)}</strong>
-              {quoteExtrasTotal > 0 && <small>{quoteCurrencySymbol}{(Number.isFinite(quoteBaseAmount) && quoteBaseAmount > 0 ? quoteBaseAmount : 0).toFixed(2)} quote + {quoteCurrencySymbol}{quoteExtrasTotal.toFixed(2)} extras</small>}
-            </div>
-
-            <label className="xdrive-quote-modal__notes">
-              <span>Notes:</span>
-              <textarea value={quoteMessage} onChange={(event) => setQuoteMessage(event.target.value)} rows={4} placeholder="Add availability, timing or commercial notes…" />
-            </label>
-          </section>
-        </div>
-      </WorkspaceDialog>}
+      {bidTarget && <MarketplaceQuoteNowDialog
+        target={{
+          id: bidTarget.id,
+          memberName: bidTarget.posterName,
+          memberCode: bidTarget.posterMemberCode,
+          requestedVehicle: vehicleLabel(bidTarget),
+          pickup: `${routeLabel(bidTarget.pickup_location, bidTarget.pickup_postcode)}, GB`,
+          delivery: `${routeLabel(bidTarget.delivery_location, bidTarget.delivery_postcode)}, GB`,
+          pickupWhen: cxWhen(bidTarget.pickup_datetime),
+          deliveryWhen: bidTarget.delivery_datetime ? cxWhen(bidTarget.delivery_datetime) : 'ASAP',
+        }}
+        working={working}
+        errorContent={error ? <div className="xdrive-quote-modal__error"><AlertBanner tone="danger">{error}</AlertBanner><WorkspaceRestrictionBanner companyId={companyId} operation="quote" inline /></div> : null}
+        vehicleValue={quoteVehicleId}
+        vehicleOptions={quoteVehicles.map((vehicle) => ({
+          value: vehicle.id,
+          label: [vehicle.reg_plate, vehicle.make, vehicle.model, vehicle.type?.replace(/_/g, ' ')].filter(Boolean).join(' · '),
+        }))}
+        vehicleLoading={quoteVehiclesLoading}
+        onVehicleChange={setQuoteVehicleId}
+        selectedVehicleImageSrc={selectedQuoteVehicle ? vehicleImageSrc(selectedQuoteVehicle.type ?? vehicleLabel(bidTarget)) : null}
+        currencyValue={quoteCurrency}
+        currencyOptions={[
+          { value: 'GBP', label: 'GBP - Pounds' },
+          { value: 'EUR', label: 'EUR - Euro' },
+          { value: 'USD', label: 'USD - US Dollars' },
+        ]}
+        onCurrencyChange={(value) => setQuoteCurrency(value as 'GBP' | 'EUR' | 'USD')}
+        currencySymbol={quoteCurrencySymbol}
+        amount={quoteAmount}
+        onAmountChange={setQuoteAmount}
+        extras={quoteExtras}
+        extraOptions={QUOTE_EXTRA_OPTIONS}
+        onAddExtra={() => setQuoteExtras((current) => [...current, { id: `${Date.now()}-${current.length}`, kind: 'congestion', amount: '' }])}
+        onExtraKindChange={(id, kind) => setQuoteExtras((current) => current.map((item) => item.id === id ? { ...item, kind: kind as QuoteExtraKind } : item))}
+        onExtraAmountChange={(id, amount) => setQuoteExtras((current) => current.map((item) => item.id === id ? { ...item, amount } : item))}
+        onRemoveExtra={(id) => setQuoteExtras((current) => current.filter((item) => item.id !== id))}
+        total={quoteTotal}
+        extrasTotal={quoteExtrasTotal}
+        message={quoteMessage}
+        onMessageChange={setQuoteMessage}
+        onClose={() => setBidTarget(null)}
+        onSubmit={() => void submitQuote()}
+      />}
     </PageFrame>
   );
 }

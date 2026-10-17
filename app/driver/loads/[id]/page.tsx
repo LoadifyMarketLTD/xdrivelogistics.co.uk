@@ -10,6 +10,7 @@ import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
 import { ActionButton, EmptyState, StatusBadge } from '../../../components/workspace/WorkspaceUI';
+import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../../_components/MarketplaceQuoteModal';
 
 type MarketplaceLoad = {
   id: string;
@@ -104,6 +105,7 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
   const [bidAmount, setBidAmount] = useState('');
   const [bidMessage, setBidMessage] = useState('');
   const [bidLoading, setBidLoading] = useState(false);
+  const [quoteModalOpen, setQuoteModalOpen] = useState(false);
 
   const getAccessToken = useCallback(async () => {
     const { data: sessionData } = await supabase.auth.getSession();
@@ -141,9 +143,9 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
 
   useEffect(() => { void fetchLoad(); }, [fetchLoad]);
 
-  const handleBidSubmit = async (overrideAmount?: number) => {
+  const handleBidSubmit = async (quote: MarketplaceQuoteSubmitPayload) => {
     if (bidLoading) return;
-    const amount = overrideAmount ?? Number.parseFloat(bidAmount);
+    const amount = quote.totalAmount;
     if (!Number.isFinite(amount) || amount <= 0) {
       setError('Enter a valid quote amount greater than £0.');
       return;
@@ -161,12 +163,19 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
           Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ jobId: id, amount, message: bidMessage.trim() }),
+        body: JSON.stringify({
+          jobId: id,
+          amount,
+          baseAmount: quote.baseAmount,
+          additionalExtrasGbp: quote.additionalExtrasGbp,
+          message: quote.message,
+        }),
       });
       const payload = (await response.json().catch(() => ({}))) as { error?: string; denialReasons?: string[] };
       if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
       setSuccess('Quote submitted successfully. The posting member will review it.');
       setBidMessage('');
+      setQuoteModalOpen(false);
       await fetchLoad();
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Your quote could not be submitted.');
@@ -215,11 +224,43 @@ export default function LoadDetailPage({ params }: { params: Promise<{ id: strin
                 <div style={{ padding: '8px 9px', border: '1px solid #bfdbfe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}><strong>Execution privacy boundary:</strong> exact street addresses, collection/delivery contacts, customer reference, PO number, booking reference, access instructions and private execution notes are intentionally not delivered to this pre-award page. After an authorised award/allocation, use Won Work / Jobs / Diary for the full job sheet.</div>
 
                 {load.myBid ? <div style={{ padding: 8, border: '1px solid #bae6fd', borderRadius: 4, background: '#f0f9ff', color: '#0369a1', fontSize: 12 }}><strong>Quote already submitted</strong><div style={{ marginTop: 3 }}>Amount: {money(load.myBid.amount)} · Status: {load.myBid.status ?? 'submitted'}</div>{load.myBid.message && <div style={{ marginTop: 3 }}>Message: {load.myBid.message}</div>}</div> : (
-                  <div className="driver-inline-quote driver-inline-quote--marketplace"><div className="driver-filter-field"><label htmlFor="marketplace-quote-amount">Your quote (£)</label><input id="marketplace-quote-amount" type="number" min="0" step="0.01" value={bidAmount} onChange={(event) => setBidAmount(event.target.value)} placeholder="e.g. 250.00" /></div><div className="driver-filter-field"><label htmlFor="marketplace-quote-message">Message</label><textarea id="marketplace-quote-message" rows={2} value={bidMessage} onChange={(event) => setBidMessage(event.target.value)} placeholder="Optional message to posting member" /></div>{hasProposedPrice && <ActionButton tone="success" disabled={bidLoading} onClick={() => void handleBidSubmit(load.budget_amount ?? undefined)}>{bidLoading ? 'Accepting…' : `Accept proposed price (${money(load.budget_amount, load.currency)})`}</ActionButton>}<ActionButton tone="primary" disabled={bidLoading || !bidAmount} onClick={() => void handleBidSubmit()}>{bidLoading ? 'Submitting…' : hasProposedPrice ? 'Submit counter-offer' : 'Submit quote'}</ActionButton><ActionButton tone="secondary" onClick={() => router.back()}>Cancel</ActionButton></div>
+                  <div className="driver-inline-quote driver-inline-quote--marketplace">
+                    {hasProposedPrice ? <ActionButton tone="success" disabled={bidLoading} onClick={() => { setBidAmount(String(load.budget_amount ?? '')); setQuoteModalOpen(true); }}>{`Accept proposed price (${money(load.budget_amount, load.currency)})`}</ActionButton> : null}
+                    <ActionButton tone="primary" disabled={bidLoading} onClick={() => setQuoteModalOpen(true)}>Quote Now</ActionButton>
+                    <ActionButton tone="secondary" onClick={() => router.back()}>Cancel</ActionButton>
+                  </div>
                 )}
               </div>
             </article>
           ) : null}
+          <MarketplaceQuoteModal
+            target={load && quoteModalOpen ? {
+              id: load.id,
+              memberName: load.member.postedBy ?? load.member.name,
+              memberCode: load.member.memberId,
+              pickup: `${load.pickup_area}${load.pickup_postcode_area ? `, ${load.pickup_postcode_area}` : ''}`,
+              delivery: `${load.delivery_area}${load.delivery_postcode_area ? `, ${load.delivery_postcode_area}` : ''}`,
+              pickupAt: load.pickup_datetime,
+              deliveryAt: load.delivery_datetime,
+              vehicle: load.requested_vehicle_label
+                ?? load.requested_vehicle_type?.replace(/_/g, ' ')
+                ?? load.vehicle_type?.replace(/_/g, ' ')
+                ?? 'Vehicle not specified',
+            } : null}
+            amount={bidAmount}
+            message={bidMessage}
+            working={bidLoading}
+            error={error}
+            onAmountChange={setBidAmount}
+            onMessageChange={setBidMessage}
+            onSubmit={(payload) => void handleBidSubmit(payload)}
+            onClose={() => {
+              if (!bidLoading) {
+                setQuoteModalOpen(false);
+                setBidMessage('');
+              }
+            }}
+          />
         </div>
       </DriverWorkspaceShell>
     </ProtectedRoute>

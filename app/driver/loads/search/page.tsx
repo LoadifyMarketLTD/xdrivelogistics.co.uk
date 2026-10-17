@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import DriverMarketplaceRadarMap from '../../_components/DriverMarketplaceRadarMap';
-import MarketplaceQuoteModal from '../../_components/MarketplaceQuoteModal';
+import MarketplaceQuoteModal, { type MarketplaceQuoteSubmitPayload } from '../../_components/MarketplaceQuoteModal';
 import { supabase, isSupabaseConfigured } from '../../../../lib/supabaseClient';
 import { marketplaceVehicleSizeOptions, marketplaceVehicleSizeRank } from '../../../../lib/vehicleSizeRange';
 import { MemberIdentityLink } from '../../../components/workspace/MemberProfile';
@@ -279,9 +279,9 @@ export default function SearchLoadsPage() {
     setError('');
   };
 
-  const submitQuote = async () => {
+  const submitQuote = async (quote: MarketplaceQuoteSubmitPayload) => {
     if (!quoteTarget || quoteWorking) return;
-    const amount = Number.parseFloat(quoteAmount);
+    const amount = quote.totalAmount;
     if (!Number.isFinite(amount) || amount <= 0) {
       setError('Enter a valid quote amount greater than £0.');
       return;
@@ -298,7 +298,13 @@ export default function SearchLoadsPage() {
       const response = await fetch('/api/driver/bids', {
         method: 'POST',
         headers: { Authorization: auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: quoteTarget.id, amount, message: quoteMessage.trim() }),
+        body: JSON.stringify({
+          jobId: quoteTarget.id,
+          amount,
+          baseAmount: quote.baseAmount,
+          additionalExtrasGbp: quote.additionalExtrasGbp,
+          message: quote.message,
+        }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) { window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED)); throw new Error(payload.error || 'Your quote could not be submitted.'); }
@@ -448,6 +454,7 @@ export default function SearchLoadsPage() {
             pickup: routeLabel(quoteTarget.pickup_location, quoteTarget.pickup_postcode, 'Collection area TBC'),
             delivery: routeLabel(quoteTarget.delivery_location, quoteTarget.delivery_postcode, 'Delivery area TBC'),
             pickupAt: quoteTarget.pickup_datetime,
+            deliveryAt: quoteTarget.delivery_datetime,
             vehicle: vehicleLabel(quoteTarget),
           } : null}
           amount={quoteAmount}
@@ -456,7 +463,7 @@ export default function SearchLoadsPage() {
           error={error}
           onAmountChange={setQuoteAmount}
           onMessageChange={setQuoteMessage}
-          onSubmit={() => void submitQuote()}
+          onSubmit={(payload) => void submitQuote(payload)}
           onClose={() => { if (!quoteWorking) { setQuoteTarget(null); setQuoteAmount(''); setQuoteMessage(''); } }}
         />
       </DriverWorkspaceShell>

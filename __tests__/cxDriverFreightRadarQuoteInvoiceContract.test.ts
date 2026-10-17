@@ -9,6 +9,7 @@ describe('CX-close Driver marketplace radar / quote / invoice contract', () => {
   const vehicleRange = read('lib/vehicleSizeRange.ts');
   const radar = read('app/driver/_components/DriverMarketplaceRadarMap.tsx');
   const quoteModal = read('app/driver/_components/MarketplaceQuoteModal.tsx');
+  const sharedQuoteDialog = read('app/components/workspace/MarketplaceQuoteNowDialog.tsx');
   const invoicePreview = read('app/driver/_components/DriverInvoicePreviewModal.tsx');
   const invoiceRoute = read('app/api/driver/finance/invoices/[id]/preview/route.ts');
   const css = read('app/driver/driver-cx-loads-convergence.css');
@@ -54,13 +55,20 @@ describe('CX-close Driver marketplace radar / quote / invoice contract', () => {
     expect(radar).not.toContain('delivery_lng');
   });
 
-  it('keeps Quote Now contextual while preserving the existing bid API payload', () => {
+  it('keeps Quote Now contextual while carrying the shared rich quote payload', () => {
     expect(advancedSearch).toContain("fetch('/api/driver/bids'");
-    expect(advancedSearch).toContain('jobId: quoteTarget.id, amount, message: quoteMessage.trim()');
+    expect(advancedSearch).toContain('jobId: quoteTarget.id');
+    expect(advancedSearch).toContain('baseAmount: quote.baseAmount');
+    expect(advancedSearch).toContain('additionalExtrasGbp: quote.additionalExtrasGbp');
+    expect(advancedSearch).toContain('message: quote.message');
     expect(advancedSearch).toContain('<MarketplaceQuoteModal');
-    expect(quoteModal).toContain('My quote price (exc. VAT)');
-    expect(quoteModal).toContain('Submit Quote');
-    expect(quoteModal).not.toContain('Vehicle selector');
+    expect(quoteModal).toContain('<MarketplaceQuoteNowDialog');
+    expect(sharedQuoteDialog).toContain('className="xdrive-quote-modal__member"');
+    expect(sharedQuoteDialog).toContain('Choose currency:');
+    expect(sharedQuoteDialog).toContain('My Quote:');
+    expect(sharedQuoteDialog).toContain('Extras <b>＋</b>');
+    expect(sharedQuoteDialog).toContain('Total:');
+    expect(sharedQuoteDialog).toContain('Submit Quote');
   });
 
   it('keeps contextual invoice preview behind the existing authenticated PDF endpoint', () => {
