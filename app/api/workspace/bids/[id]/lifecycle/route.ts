@@ -48,7 +48,7 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const { data: bid, error: bidError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, job_id, company_id, bidder_user_id, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, jobs!inner(company_id)')
+    .select('id, job_id, company_id, bidder_user_id, status, viewed_at, shortlisted_at, poster_archived_at, bidder_archived_at, jobs!job_bids_job_id_fkey(company_id)')
     .eq('id', bidId)
     .maybeSingle();
 

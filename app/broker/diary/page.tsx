@@ -66,6 +66,16 @@ export default function BrokerDiaryPage() {
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [feedbackSaving, setFeedbackSaving] = useState(false);
+  const [diaryClock, setDiaryClock] = useState('');
+
+  useEffect(() => {
+    const updateClock = () => setDiaryClock(
+      new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' }),
+    );
+    updateClock();
+    const timer = window.setInterval(updateClock, 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   const companyId = data.companyId;
   const canLeaveCompanyFeedback = Boolean(user?.membershipRole && ['owner', 'admin', 'dispatcher'].includes(user.membershipRole));
@@ -215,7 +225,7 @@ export default function BrokerDiaryPage() {
 
         <main style={{ minWidth: 0 }}>
           <div className="workspace-record-meta workspace-list-controls cx-diary-toolbar">
-            <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>Diary at {new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', timeZoneName: 'short' })}</strong></span>
+            <span className="cx-diary-toolbar__title"><span className="cx-diary-toolbar__calendar" aria-hidden="true">▣</span><strong>{diaryClock ? `Diary at ${diaryClock}` : 'Diary'}</strong></span>
             <span className="workspace-list-controls__right">
               <button type="button" className="cx-expand-entries-control" disabled={!visibleRows.length} onClick={() => { setExpandAll((current) => !current); setExpanded(null); }}>{expandAll ? 'Collapse All Entries' : 'Expand All Entries'}</button>
               <ActionButton tone="secondary" onClick={() => { void data.refresh(); void loadReviews(); }}>Refresh</ActionButton>

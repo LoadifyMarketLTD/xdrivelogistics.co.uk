@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
   const { data: bidData, error: bidError } = await supabaseAdmin
     .from('job_bids')
-    .select('id, company_id, bidder_driver_id, bidder_user_id, bidder_id, jobs!inner(company_id)')
+    .select('id, company_id, bidder_driver_id, bidder_user_id, bidder_id, jobs!job_bids_job_id_fkey(company_id)')
     .in('jobs.company_id', ownerCompanyIds);
 
   if (bidError) return NextResponse.json({ error: 'Unable to load bidder identities.' }, { status: 500 });

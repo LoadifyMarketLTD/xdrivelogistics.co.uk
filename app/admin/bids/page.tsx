@@ -135,9 +135,8 @@ export default function BidsPage() {
     let identityByBidId = new Map<string, CarrierIdentity>();
     if (token) {
       const identityResponse = await fetch('/api/admin/bids/identities', {
-        headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: bookingPaymentObligationRequestBody,
-    });
+        headers: { Authorization: 'Bearer ' + token },
+      });
       if (identityResponse.ok) {
         const identityJson = await identityResponse.json() as { identities?: CarrierIdentity[] };
         identityByBidId = new Map((identityJson.identities ?? []).map((identity) => [identity.bidId, identity]));
