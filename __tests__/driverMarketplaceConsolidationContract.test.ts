@@ -29,7 +29,8 @@ describe('Driver Marketplace consolidation contract', () => {
     const loads = read('app/driver/loads/page.tsx');
     const submit = read('app/api/driver/_lib/submitQuote.ts');
     expect(loads).toContain("load.myBid.status !== 'withdrawn'");
-    expect(loads).toContain('load-extra-note load-extra-requirements');
+    expect(loads).toContain('notes={<><span>Load Notes:</span>');
+    expect(loads).toContain('load.handling_requirements.join');
     expect(loads).toContain('>Quote Now</button>');
     expect(submit).toContain("withdrawnBid: status === 'withdrawn' ? bid : null");
     expect(submit).toContain(".eq('status', 'withdrawn')");

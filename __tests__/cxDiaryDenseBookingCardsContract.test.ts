@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 const diary = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/OperationsDiaryPage.tsx'), 'utf8');
+const diaryCard = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/CxDiaryCard.tsx'), 'utf8');
 const sheet = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/CompanyJobSheetPanel.tsx'), 'utf8');
 
 describe('CX-density carrier Diary contract', () => {
@@ -17,8 +18,9 @@ describe('CX-density carrier Diary contract', () => {
   });
 
   it('keeps the CX collapsed card dense and retains freight/evidence in the expandable record detail', () => {
-    expect(diary).toContain('xdrive-cx-diary-card__main');
-    expect(diary).toContain('xdrive-cx-diary-card__expanded-meta');
+    expect(diary).toContain('CxDiaryCard');
+    expect(diaryCard).toContain('xdrive-cx-diary-card__main');
+    expect(diaryCard).toContain('xdrive-cx-diary-card__expanded-meta');
     expect(diary).toContain('requested_cargo_label');
     expect(diary).toContain('job_distance_miles');
     expect(diary).toContain('weight_kg');
