@@ -12,6 +12,7 @@
  *    API contract rather than a full send.
  */
 import { expect, test } from '@playwright/test';
+import { loginWithCredentials } from './helpers/authLogin';
 import {
   CANONICAL_INVOICE_STATUSES,
   toCanonicalInvoiceStatus,
@@ -114,16 +115,11 @@ test.describe('invoice payment status canonicalization', () => {
 
 // ─── Authenticated tests (skipped without E2E_ADMIN_EMAIL) ───────────────────
 
-const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? '';
-const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? '';
+const ADMIN_EMAIL = process.env.E2E_CARRIER_ADMIN_EMAIL ?? process.env.E2E_ADMIN_EMAIL ?? '';
+const ADMIN_PASSWORD = process.env.E2E_CARRIER_ADMIN_PASSWORD ?? process.env.E2E_ADMIN_PASSWORD ?? '';
 
 async function loginAsAdmin(page: import('@playwright/test').Page) {
-  await page.goto('/login');
-  await page.waitForSelector('input[type="email"]', { timeout: 10_000 });
-  await page.fill('input[type="email"]', ADMIN_EMAIL);
-  await page.fill('input[type="password"]', ADMIN_PASSWORD);
-  await page.click('button[type="submit"], button:has-text("Sign in"), button:has-text("Login")');
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 20_000 });
+  await loginWithCredentials(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 }
 
 test.describe('admin invoice list — authenticated', () => {
@@ -193,6 +189,9 @@ test.describe('admin invoice lifecycle actions — authenticated', () => {
     }
   });
 
+});
+
+test.describe('invoice lifecycle API auth contract', () => {
   test('lifecycle API returns 401 without auth token', async ({ request }) => {
     const response = await request.post('/api/admin/invoices/non-existent-id/lifecycle', {
       data: { action: 'void' },
@@ -201,7 +200,6 @@ test.describe('admin invoice lifecycle actions — authenticated', () => {
   });
 
   test('lifecycle API rejects requests without auth with 401 or 503', async ({ request }) => {
-    // Without a valid bearer token the endpoint must return 401 (or 503 if not configured)
     const response = await request.post('/api/admin/invoices/00000000-0000-0000-0000-000000000000/lifecycle', {
       data: { action: 'void' },
     });

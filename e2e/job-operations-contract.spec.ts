@@ -13,6 +13,7 @@
  *    server; without it the endpoint returns 503 (tested as a contract).
  */
 import { expect, test } from '@playwright/test';
+import { loginWithCredentials } from './helpers/authLogin';
 
 // ─── Static contract: job status state machine ───────────────────────────────
 
@@ -189,12 +190,7 @@ const ADMIN_EMAIL = process.env.E2E_ADMIN_EMAIL ?? '';
 const ADMIN_PASSWORD = process.env.E2E_ADMIN_PASSWORD ?? '';
 
 async function loginAsAdmin(page: import('@playwright/test').Page) {
-  await page.goto('/login');
-  await page.waitForSelector('input[type="email"]', { timeout: 10_000 });
-  await page.fill('input[type="email"]', ADMIN_EMAIL);
-  await page.fill('input[type="password"]', ADMIN_PASSWORD);
-  await page.click('button[type="submit"], button:has-text("Sign in"), button:has-text("Login")');
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 20_000 });
+  await loginWithCredentials(page, ADMIN_EMAIL, ADMIN_PASSWORD);
 }
 
 test.describe('admin job management — authenticated', () => {
@@ -219,6 +215,9 @@ test.describe('admin job management — authenticated', () => {
     }
   });
 
+});
+
+test.describe('admin job API auth contract', () => {
   test('job transition API returns 401/503 for unauthenticated POST', async ({ request }) => {
     const response = await request.post(
       '/api/admin/jobs/00000000-0000-0000-0000-000000000000/transition',
