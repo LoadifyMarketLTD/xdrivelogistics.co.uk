@@ -57,7 +57,7 @@ describe('cross-workspace dashboard consistency', () => {
     expect(tracking).toContain('const trackingState = delayed');
     expect(tracking).toContain('value="Live ETA"');
     expect(tracking).toContain('value="Awaiting live position"');
-    expect(tracking).toContain("sheet ? 'Expand' : 'Details'");
+    expect(tracking).toContain("aria-label={sheet && open ? 'Collapse booking' : sheet ? 'Expand booking' : 'Open booking'}");
     expect(tracking).toContain('actionLabel="Open full booking"');
   });
 
@@ -106,7 +106,8 @@ describe('cross-workspace dashboard consistency', () => {
     const brokerDiary = read('app/broker/diary/page.tsx');
     const brokerJobs = read('app/broker/jobs/page.tsx');
     const brokerLoads = read('app/broker/loads/page.tsx');
-    expect(brokerDiary).toContain("aria-label={open ? 'Collapse booking' : 'Expand booking'}");
+    expect(brokerDiary).toContain('<CxDiaryActions');
+    expect(read('app/components/workspace/CxDiaryActions.tsx')).toContain("aria-label={expanded ? 'Collapse booking' : 'Expand booking'}");
     expect(brokerJobs).toContain("{open ? 'Collapse' : 'Expand'}");
     expect(brokerLoads).toContain('OperationalExpandAllControl');
     expect(brokerLoads).toContain('expandedAllIds.has(job.id)');
