@@ -112,7 +112,7 @@ Completed in this certification pass:
 - [x] Code-level finance/access boundary regression set: 10/10 additional tests passed for finance authority, execution separation, customer dispute access and driver finance role boundaries.
 - [x] Focused downstream invoice/document handler matrix: 9/9 PASS across issuer owner, buyer owner, outsider, dispatcher, owner-driver and employed-driver roles, including customer-visibility gating and tenant-bound document signing.
 
-Still required before claiming **production/live PASS**:
+- **Netlify Stripe webhook environment:** `STRIPE_CONNECT_WEBHOOK_SECRET` is stored as a secret for Production and Deploy Previews, with the sandbox signing secret isolated to Deploy Previews.\n\nStill required before claiming **production/live PASS**:
 
 - [ ] Stripe provider scenarios that cannot be certified by the completed success/refund/expiry tests alone: network timeout before/after Checkout creation, delayed async success/failure and a real provider dispute lifecycle. Database/contract coverage for these paths already passes.
 - [ ] Invoice-specific Resend lifecycle beyond signed transport: actual invoice PDF attachment/hash, unknown provider timeout, worker restart/recovery, persisted provider acceptance without resend, bounce/complaint ordering and duplicate signed invoice events. Signed provider transport itself is now PASS.
