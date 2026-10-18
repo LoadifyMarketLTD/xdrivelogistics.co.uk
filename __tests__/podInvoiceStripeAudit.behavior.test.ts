@@ -131,6 +131,15 @@ describe('audit: corrected safeguards', () => {
     expect(h.stripe.mock.calls[0][1].params['line_items[0][price_data][unit_amount]']).toBe(8000);
   });
   it('rejects cancelled invoice even when old approval exists', async () => { h.tables.invoices[0].status = 'Cancelled'; expect((await checkout(request('/', { invoiceId: id }))).status).toBe(409); });
+  it('retries an unknown Stripe network outcome with the same provider idempotency key', async () => {
+    h.stripe.mockRejectedValueOnce(new Error('network timeout'));
+    expect((await checkout(request('/', { invoiceId: id }))).status).toBe(502);
+    h.stripe.mockResolvedValueOnce({ id: 'cs_expected', url: 'https://checkout.stripe.test/test' });
+    expect((await checkout(request('/', { invoiceId: id }))).status).toBe(200);
+    expect(h.stripe).toHaveBeenCalledTimes(2);
+    expect(h.stripe.mock.calls[0][1].idempotencyKey).toBe('xdrive-job-payment:attempt-test');
+    expect(h.stripe.mock.calls[1][1].idempotencyKey).toBe('xdrive-job-payment:attempt-test');
+  });
   it('rejects an empty signature object as complete POD', () => { expect(hasCompletePodEvidence({ pod_generated: true, delivery_photos: ['stored/path.png'], client_signature_name: 'Recipient', delivery_signature_data: {} })).toBe(false); });
 });
 

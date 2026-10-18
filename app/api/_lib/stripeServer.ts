@@ -46,7 +46,13 @@ export async function stripeRequest<T>(
     }
   }
 
-  const response = await fetch(url, { method, headers, body, cache: 'no-store' });
+  const response = await fetch(url, {
+    method,
+    headers,
+    body,
+    cache: 'no-store',
+    signal: AbortSignal.timeout(20_000),
+  });
   const payload = (await response.json().catch(() => ({}))) as T & { error?: { message?: string; code?: string } };
   if (!response.ok) {
     const error = new Error(payload.error?.message || `Stripe request failed (${response.status}).`);
