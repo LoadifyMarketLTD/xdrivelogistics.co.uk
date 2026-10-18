@@ -7,6 +7,7 @@ import { useAuth } from '../../components/AuthContext';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
 import { PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
+import DriverFleetIntegratedNav from '../_components/DriverFleetIntegratedNav';
 
 type VehicleRow = {
   id: string;
@@ -72,6 +73,7 @@ export default function DriverDriversVehiclesPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-drivers-vehicles-prototype">
+        <DriverFleetIntegratedNav />
         <PageHeader eyebrow="Fleet resources" title="Drivers & Vehicles" description="Driver, vehicle, tracking and document resources." />
         <div className="pagebody">
           <aside className="left">

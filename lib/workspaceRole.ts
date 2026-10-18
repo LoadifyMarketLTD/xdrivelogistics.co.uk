@@ -285,7 +285,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
       { id: 'broker-quotes', label: 'Quotes', items: [{ id: 'quotes', label: 'Quotes', href: '/broker/bids', icon: '◫', capability: 'quotes.receive' }] },
       { id: 'broker-jobs', label: 'Jobs', items: [{ id: 'jobs', label: 'Jobs', href: '/broker/jobs', icon: '▣', capability: 'jobs.track' }] },
       { id: 'broker-pod', label: 'POD', items: [{ id: 'pod', label: 'POD Review', href: '/broker/pod-review', icon: '▤', capability: 'jobs.review_pod' }] },
-      { id: 'broker-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/broker/carrier-network', icon: '⊕', capability: 'settings.manage' }] },
+      { id: 'broker-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/broker/carrier-network/directory', icon: '⊕', capability: 'quotes.receive' }] },
       { id: 'broker-customers', label: 'Customers', items: [{ id: 'customers', label: 'Customers', href: '/broker/customers', icon: '◌' }] },
       { id: 'broker-diary', label: 'Diary', items: [{ id: 'diary', label: 'Diary', href: '/broker/diary', icon: '□', capability: 'jobs.view' }] },
       { id: 'broker-messages', label: 'Messages', items: [{ id: 'messages', label: 'Messages', href: '/broker/messages', icon: '◫' }] },

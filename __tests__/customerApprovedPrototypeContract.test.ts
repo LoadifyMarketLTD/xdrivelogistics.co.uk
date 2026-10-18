@@ -13,10 +13,15 @@ describe('Customer clean workspace contract', () => {
       expect(shell).toContain(`label: '${label}'`);
     }
     expect(roles).toContain("primaryAction: { label: 'Post Load', href: '/customer/post-load', capability: 'loads.create' }");
-    expect(shell).toContain("customer-directory-primary', 'Directory', '/customer/network'");
+    expect(shell).toContain("customer-network-primary', 'Network', '/customer/network'");
+    expect(shell).toContain("customer-action-centre-primary', 'Action Centre', '/customer/action-centre'");
+    expect(shell).toContain("customer-bookings-primary', 'Bookings', '/customer/bookings'");
+    expect(shell).toContain("customer-settings-primary', 'Settings', '/customer/settings'");
     expect(shell).not.toContain("customer-post-load-primary");
     expect(shell).toContain("if (role === 'customer') {");
     expect(shell).toContain('filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user)');
+    expect(shell).toContain('const accessibleBase = filterWorkspaceNavByAccess(base, role, user)');
+    expect(shell).toContain('composeCustomerPrimaryNav(mergeCanonicalNavFallback(preferred, accessibleBase))');
     expect(shell).toContain("{ id: 'customer-loads', label: 'My Loads'");
     expect(shell).toContain("{ id: 'customer-quotes', label: 'Quotes'");
     expect(shell).toContain("{ id: 'customer-bookings', label: 'Bookings'");

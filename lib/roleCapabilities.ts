@@ -341,6 +341,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/broker/action-centre', workspace: 'broker' },
   { prefix: '/broker/enquiries', workspace: 'broker', anyOf: ['quotes.receive'] },
   { prefix: '/broker/customers', workspace: 'broker', anyOf: ['company.manage'] },
+  { prefix: '/broker/carrier-network/directory', workspace: 'broker', anyOf: ['quotes.receive'] },
   { prefix: '/broker/carrier-network', workspace: 'broker', anyOf: ['company.manage'] },
   { prefix: '/broker/post-load', workspace: 'broker', anyOf: ['loads.create'] },
   { prefix: '/broker/bulk-import', workspace: 'broker', anyOf: ['loads.create'] },

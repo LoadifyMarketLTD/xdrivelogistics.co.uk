@@ -10,6 +10,7 @@ import { PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI'
 import { workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import DriverFreightVisionMap, { type DriverFreightVisionPoint } from '../_components/DriverFreightVisionMap';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
+import DriverFleetIntegratedNav from '../_components/DriverFleetIntegratedNav';
 
 type JobRow = {
   id: string;
@@ -184,6 +185,7 @@ export default function DriverFreightVisionPage() {
   return (
     <ProtectedRoute allowedRoles={['driver']}>
       <section className="page driver-freight-vision-prototype">
+        <DriverFleetIntegratedNav />
         <PageHeader eyebrow="Driver operations" title="Freight Vision" description="Live tracked jobs, ETA and operational exceptions." />
         <div className="pagebody">
           <aside className="left">

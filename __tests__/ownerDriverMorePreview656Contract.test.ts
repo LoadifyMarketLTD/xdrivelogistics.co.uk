@@ -11,15 +11,19 @@ const context = {
   appAccess: true,
   accountStatus: 'active',
   companyStatus: 'active',
+  ownerDriverWorkspace: true,
 };
 
-describe('Owner Driver integrated navigation after Preview 656', () => {
+describe('Owner Driver integrated navigation after IA consolidation', () => {
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
 
-  it('keeps secondary work, availability and business destinations reachable through More', () => {
-    const block = shell.slice(shell.indexOf("return composeRolePrimaryNav(groups, [", shell.indexOf("if (!ownerDriver)")), shell.indexOf('export function composeDispatcherPrimaryNav'));
+  it('keeps only secondary availability and business tools in More', () => {
+    const block = shell.slice(
+      shell.indexOf("return composeRolePrimaryNav(groups, [", shell.indexOf('if (!ownerDriver)') + 1),
+      shell.indexOf('export function composeDispatcherPrimaryNav'),
+    );
+    const more = block.slice(block.indexOf("], 'owner-driver-more', 'More', ["));
     for (const marker of [
-      '/driver/won-work',
       '/driver/availability',
       '/driver/load-alerts',
       '/driver/nearby',
@@ -27,16 +31,26 @@ describe('Owner Driver integrated navigation after Preview 656', () => {
       '/driver/finance',
       '/driver/messages',
       '/driver/event-log',
+    ]) expect(more).toContain(marker);
+
+    for (const removedDuplicate of [
+      '/driver/won-work',
       '/driver/freight-vision',
       '/driver/drivers-vehicles',
       '/driver/settings',
-    ]) expect(block).toContain(marker);
-    expect(block).toContain("], 'owner-driver-more', 'More', [");
+    ]) expect(more).not.toContain(removedDuplicate);
   });
 
-  it('keeps every integrated Owner Driver route authorised', () => {
-    for (const href of ['/driver/jobs','/driver/availability','/driver/won-work','/driver/load-alerts','/driver/nearby','/driver/documents','/driver/finance','/driver/messages']) {
+  it('keeps every retained Owner Driver secondary route authorised', () => {
+    for (const href of ['/driver/availability','/driver/load-alerts','/driver/nearby','/driver/documents','/driver/finance','/driver/messages','/driver/event-log']) {
       expect(isCapabilityAllowedForPath(href, 'driver', context), href).toBe(true);
+    }
+  });
+
+  it('keeps fleet detail routes inside the My Fleet sub-workspace', () => {
+    const fleetNav = read('app/driver/_components/DriverFleetIntegratedNav.tsx');
+    for (const href of ['/driver/fleet','/driver/vehicles','/driver/drivers-vehicles','/driver/freight-vision']) {
+      expect(fleetNav).toContain(`href: '${href}'`);
     }
   });
 

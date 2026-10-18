@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import DriverWorkspaceShell from '../../_components/DriverWorkspaceShell';
 import DriverNearbyMap from '../../_components/DriverNearbyMap';
+import DriverFleetIntegratedNav from '../../_components/DriverFleetIntegratedNav';
 import { readRouteAuthHeader } from '../../../../lib/routeAuthCookie';
 import { StatusBadge } from '../../../components/workspace/WorkspaceUI';
 import { useAuth } from '../../../components/AuthContext';
@@ -225,6 +226,7 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
           </button>
         }
       >
+        {mode === 'fleet' ? <DriverFleetIntegratedNav /> : null}
         <div className="driver-live-availability-canonical">
           <aside className="driver-more-rail driver-live-filter-rail">
             <div className="driver-live-mode">

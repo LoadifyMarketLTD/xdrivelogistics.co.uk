@@ -8,43 +8,56 @@ const roles = read('lib/workspaceRole.ts');
 const notificationsApi = read('app/api/workspace/notifications/route.ts');
 
 describe('Driver top navigation role split', () => {
-  it('keeps employed Driver on the same CX-ordered operational navbar as Owner Driver', () => {
+  it('keeps employed Driver execution-focused and avoids Owner Driver commercial navigation', () => {
     for (const primary of [
       "['driver-dashboard-primary', 'Dashboard', '/driver']",
-      "['driver-directory-primary', 'Directory', '/driver/directory']",
-      "['driver-live-availability-primary', 'Live Availability', '/driver/availability/live']",
-      "['driver-my-fleet-primary', 'My Fleet', '/driver/fleet']",
-      "['driver-returns-primary', 'Return Journeys', '/driver/returns']",
-      "['driver-loads-primary', 'Loads', '/driver/loads']",
-      "['driver-quotes-primary', 'Quotes', '/driver/quotes']",
+      "['driver-action-centre-primary', 'Action Centre', '/driver/action-centre']",
+      "['driver-jobs-primary', 'My Jobs', '/driver/jobs']",
       "['driver-diary-primary', 'Diary', '/driver/history']",
-      "['driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision']",
+      "['driver-availability-primary', 'Availability', '/driver/availability']",
+      "['driver-vehicle-primary', 'Vehicle', '/driver/vehicles']",
+      "['driver-documents-primary', 'Documents', '/driver/documents']",
+      "['driver-settings-primary', 'Settings', '/driver/settings']",
     ]) expect(shell).toContain(primary);
-    expect(shell).toContain("'/driver/action-centre'");
-    expect(shell).toContain("'/driver/jobs'");
-    expect(shell).toContain("'/driver/settings'");
+
+    const driverBlock = shell.slice(
+      shell.indexOf('if (!ownerDriver)'),
+      shell.indexOf("return composeRolePrimaryNav(groups, [", shell.indexOf('if (!ownerDriver)') + 1),
+    );
+    for (const commercial of ['/driver/loads', '/driver/quotes', '/driver/fleet', '/driver/returns']) {
+      expect(driverBlock).not.toContain(`'${commercial}'`);
+    }
   });
 
-  it('keeps commercial tools on Owner Driver while preserving role-aware Book Direct', () => {
+  it('keeps Owner Driver commercial tools while consolidating fleet resources into My Fleet', () => {
     for (const href of ['/driver/directory','/driver/nearby','/driver/returns','/driver/loads','/driver/quotes','/driver/won-work']) {
       expect(roles).toContain(`href: '${href}'`);
     }
+    expect(shell).toContain("['owner-driver-my-fleet-primary', 'My Fleet', '/driver/fleet']");
+    expect(read('app/driver/_components/DriverFleetIntegratedNav.tsx')).toContain("'/driver/vehicles'");
+    expect(read('app/driver/_components/DriverFleetIntegratedNav.tsx')).toContain("'/driver/drivers-vehicles'");
+    expect(read('app/driver/_components/DriverFleetIntegratedNav.tsx')).toContain("'/driver/freight-vision'");
     expect(shell).toContain("role === 'owner_driver'");
     expect(shell).toContain("user?.canCommercialBid === true");
   });
 
-  it('keeps Owner Driver business controls reachable without duplicating Settings inside More', () => {
-    for (const label of ['Invoices','Company Profile','Drivers & Staff','Settings','Membership & Billing']) {
+  it('keeps Owner Driver Settings primary and business controls secondary without duplicate settings routes', () => {
+    for (const label of ['Invoices','Company Profile','Drivers & Staff','Company Settings','Membership & Billing']) {
       expect(roles).toContain(`label: '${label}'`);
     }
-    expect(shell).toContain("], 'owner-driver-more', 'More', [");
-    expect(shell).toContain("'/driver/drivers-vehicles'");
-    expect(shell).toContain("'/driver/settings'");
-    expect(shell).toContain("'/driver/finance'");
-    const owner = shell.slice(shell.indexOf('function composeDriverPrimaryNav'), shell.indexOf('function composeDispatcherPrimaryNav'));
-    expect(owner).not.toContain("'/driver/settings?section=company'");
-    expect(owner).not.toContain("'/driver/settings?section=overview'");
-    expect(owner).not.toContain("'/settings/billing'");
+    expect(shell).toContain("['owner-driver-settings-primary', 'Settings', '/driver/settings']");
+    const owner = shell.slice(
+      shell.indexOf("return composeRolePrimaryNav(groups, [", shell.indexOf('if (!ownerDriver)') + 1),
+      shell.indexOf('export function composeDispatcherPrimaryNav'),
+    );
+    const more = owner.slice(owner.indexOf("], 'owner-driver-more', 'More', ["));
+    expect(more).toContain("'/driver/finance'");
+    expect(more).not.toContain("'/driver/settings'");
+    expect(more).not.toContain("'/driver/drivers-vehicles'");
+    expect(more).not.toContain("'/driver/freight-vision'");
+    expect(more).not.toContain("'/driver/settings?section=company'");
+    expect(more).not.toContain("'/driver/settings?section=overview'");
+    expect(more).not.toContain("'/settings/billing'");
     expect(shell).toContain('showOwnerDriverPostLoadAction');
   });
 

@@ -3,8 +3,9 @@
 import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 
 import Image from 'next/image';
+import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { BellRing, Briefcase, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, ReceiptText, RefreshCw, Trophy } from 'lucide-react';
+import { BellRing, ChevronDown, CalendarClock, CircleAlert, FileText, ListChecks, MapPin, MessageSquare, ReceiptText, RefreshCw } from 'lucide-react';
 import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from 'react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -104,6 +105,7 @@ export function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['carrier-diary', 'Diary', '/admin/diary'],
     ['carrier-freight-vision', 'Freight Vision', '/admin/freight-vision'],
     ['carrier-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
+    ['carrier-settings', 'Settings', '/admin/settings'],
   ];
 
   const directHrefs = new Set(direct.map(([, , href]) => href));
@@ -125,10 +127,10 @@ export function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
     '/admin/jobs',
     '/admin/fleet/assignments',
     '/admin/pod',
-    '/admin/quotes',
     '/admin/invoices',
-    '/admin/settings',
+    '/admin/documents',
     '/admin/messages',
+    '/admin/event-log',
   ];
   const more: WorkspaceNavItem[] = [
     { id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre', icon: '!' },
@@ -137,14 +139,6 @@ export function composeCarrierPrimaryNav(groups: WorkspaceNavGroup[]) {
       return item && !directHrefs.has(href) && !carrierHubOwnedHrefs.has(href) ? [item] : [];
     }),
   ];
-  const represented = new Set([...directHrefs, ...carrierHubOwnedHrefs, ...more.map((item) => item.href)]);
-  for (const [href, item] of items) {
-    if (!represented.has(href)) {
-      more.push(item);
-      represented.add(href);
-    }
-  }
-
   return more.length ? [...primary, { id: 'carrier-more', label: 'More', items: more }] : primary;
 }
 
@@ -155,9 +149,11 @@ export function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
     ['fleet-live-availability', 'Live Availability', '/admin/live-availability'],
     ['fleet-my-fleet', 'My Fleet', '/admin/fleet/vehicles'],
     ['fleet-return-journeys', 'Return Journeys', '/admin/fleet/returns'],
+    ['fleet-jobs', 'Jobs', '/admin/fleet/jobs'],
     ['fleet-diary', 'Diary', '/admin/diary'],
     ['fleet-freight-vision', 'Freight Vision', '/admin/freight-vision'],
     ['fleet-drivers-vehicles', 'Drivers & Vehicles', '/admin/fleet/resources'],
+    ['fleet-settings', 'Settings', '/admin/settings'],
   ];
 
   const used = new Set<string>();
@@ -178,7 +174,6 @@ export function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
     '/admin/fleet/positions',
   ]);
   const morePreferred = [
-    '/admin/fleet/jobs',
     '/admin/fleet/assignments',
     '/admin/fleet/maintenance',
     '/admin/incidents',
@@ -186,7 +181,6 @@ export function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
     '/admin/event-log',
     '/admin/invoices',
     '/admin/fleet/compliance',
-    '/admin/settings',
   ];
   const more: WorkspaceNavItem[] = [
     { id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre', icon: '!' },
@@ -195,13 +189,6 @@ export function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
       return item && !used.has(href) && !fleetHubOwnedHrefs.has(href) ? [item] : [];
     }),
   ];
-  const represented = new Set([...used, ...fleetHubOwnedHrefs, ...more.map((item) => item.href)]);
-  for (const [href, item] of items) {
-    if (!represented.has(href)) {
-      more.push(item);
-      represented.add(href);
-    }
-  }
   return more.length ? [...primary, { id: 'fleet-more', label: 'More', items: more }] : primary;
 }
 
@@ -236,29 +223,22 @@ export function composeRolePrimaryNav(
       moreUsed.add(href);
     }
   }
-  if (moreHrefs) {
-    for (const [href, item] of items) {
-      if (!used.has(href) && !moreUsed.has(href)) {
-        more.push(item);
-        moreUsed.add(href);
-      }
-    }
-  }
-
   return more.length ? [...primary, { id: moreId, label: moreLabel, items: more }] : primary;
 }
 
 export function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
     ['customer-dashboard-primary', 'Dashboard', '/customer'],
-    ['customer-directory-primary', 'Directory', '/customer/network'],
+    ['customer-action-centre-primary', 'Action Centre', '/customer/action-centre'],
     ['customer-loads-primary', 'Loads', '/customer/loads'],
     ['customer-quotes-primary', 'Quotes', '/customer/quotes'],
+    ['customer-bookings-primary', 'Bookings', '/customer/bookings'],
     ['customer-diary-primary', 'Diary', '/customer/diary'],
-    ['customer-freight-vision-primary', 'Freight Vision', '/customer/tracking'],
+    ['customer-tracking-primary', 'Tracking', '/customer/tracking'],
+    ['customer-network-primary', 'Network', '/customer/network'],
+    ['customer-settings-primary', 'Settings', '/customer/settings'],
   ], 'customer-more', 'More', [
-    '/customer/action-centre',
-    '/customer/bookings',
+    '/customer/bulk-import',
     '/customer/deliveries',
     '/customer/documents',
     '/customer/updates',
@@ -267,28 +247,33 @@ export function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
     '/customer/event-log',
     '/customer/invoices',
     '/customer/team',
-    '/customer/settings',
   ]);
 }
 
 export function composeBrokerPrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
     ['broker-dashboard-primary', 'Dashboard', '/broker'],
-    ['broker-directory-primary', 'Directory', '/broker/carrier-network'],
+    ['broker-action-centre-primary', 'Action Centre', '/broker/action-centre'],
+    ['broker-directory-primary', 'Directory', '/broker/carrier-network/directory'],
+    ['broker-enquiries-primary', 'Enquiries', '/broker/enquiries'],
     ['broker-loads-primary', 'Loads', '/broker/loads'],
-    ['broker-quotes-primary', 'Quotes', '/broker/bids'],
+    ['broker-quotes-primary', 'Carrier Quotes', '/broker/bids'],
+    ['broker-jobs-primary', 'Jobs', '/broker/jobs'],
     ['broker-diary-primary', 'Diary', '/broker/diary'],
+    ['broker-pod-primary', 'POD Review', '/broker/pod-review'],
+    ['broker-finance-primary', 'Finance', '/broker/finance'],
+    ['broker-settings-primary', 'Settings', '/broker/settings'],
   ], 'broker-more', 'More', [
-    '/broker/action-centre',
-    '/broker/enquiries',
-    '/broker/jobs',
-    '/broker/pod-review',
+    '/broker/bulk-import',
     '/broker/customers',
+    '/broker/margins',
     '/broker/messages',
     '/broker/event-log',
     '/broker/disputes',
-    '/broker/finance',
-    '/broker/settings',
+    '/broker/customer-invoices',
+    '/broker/carrier-costs',
+    '/broker/reports',
+    '/broker/team',
   ]);
 }
 
@@ -296,42 +281,32 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
   if (!ownerDriver) {
     return composeRolePrimaryNav(groups, [
       ['driver-dashboard-primary', 'Dashboard', '/driver'],
-      ['driver-directory-primary', 'Directory', '/driver/directory'],
-      ['driver-live-availability-primary', 'Live Availability', '/driver/availability/live'],
-      ['driver-my-fleet-primary', 'My Fleet', '/driver/fleet'],
-      ['driver-returns-primary', 'Return Journeys', '/driver/returns'],
-      ['driver-loads-primary', 'Loads', '/driver/loads'],
-      ['driver-quotes-primary', 'Quotes', '/driver/quotes'],
+      ['driver-action-centre-primary', 'Action Centre', '/driver/action-centre'],
+      ['driver-jobs-primary', 'My Jobs', '/driver/jobs'],
       ['driver-diary-primary', 'Diary', '/driver/history'],
-      ['driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision'],
+      ['driver-availability-primary', 'Availability', '/driver/availability'],
+      ['driver-vehicle-primary', 'Vehicle', '/driver/vehicles'],
+      ['driver-documents-primary', 'Documents', '/driver/documents'],
+      ['driver-settings-primary', 'Settings', '/driver/settings'],
     ], 'driver-more', 'More', [
-      '/driver/action-centre',
-      '/driver/jobs',
-      '/driver/availability',
-      '/driver/load-alerts',
-      '/driver/nearby',
-      '/driver/documents',
       '/driver/messages',
       '/driver/event-log',
-      '/driver/settings',
     ]);
   }
 
   return composeRolePrimaryNav(groups, [
     ['owner-driver-dashboard-primary', 'Dashboard', '/driver'],
+    ['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre'],
     ['owner-driver-directory-primary', 'Directory', '/driver/directory'],
     ['owner-driver-live-availability-primary', 'Live Availability', '/driver/availability/live'],
     ['owner-driver-my-fleet-primary', 'My Fleet', '/driver/fleet'],
     ['owner-driver-returns-primary', 'Return Journeys', '/driver/returns'],
     ['owner-driver-loads-primary', 'Loads', '/driver/loads'],
     ['owner-driver-quotes-primary', 'Quotes', '/driver/quotes'],
+    ['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs'],
     ['owner-driver-diary-primary', 'Diary', '/driver/history'],
-    ['owner-driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision'],
-    ['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles'],
+    ['owner-driver-settings-primary', 'Settings', '/driver/settings'],
   ], 'owner-driver-more', 'More', [
-    '/driver/action-centre',
-    '/driver/jobs',
-    '/driver/won-work',
     '/driver/availability',
     '/driver/load-alerts',
     '/driver/nearby',
@@ -339,33 +314,40 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
     '/driver/finance',
     '/driver/messages',
     '/driver/event-log',
-    '/driver/settings',
   ]);
 }
 
 export function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
-  return composeRolePrimaryNav(groups, [
+  const composed = composeRolePrimaryNav(groups, [
     ['dispatcher-dashboard-primary', 'Dashboard', '/admin'],
-    ['dispatcher-live-availability-primary', 'Live Availability', '/admin/live-availability'],
-    ['dispatcher-my-fleet-primary', 'My Fleet', '/admin/fleet/vehicles'],
-    ['dispatcher-return-journeys-primary', 'Return Journeys', '/admin/fleet/returns'],
     ['dispatcher-diary-primary', 'Diary', '/admin/diary'],
-    ['dispatcher-freight-vision-primary', 'Freight Vision', '/admin/freight-vision'],
+    ['dispatcher-unallocated-primary', 'Unallocated', '/admin/fleet/assignments'],
+    ['dispatcher-active-jobs-primary', 'Active Jobs', '/admin/fleet/active-jobs'],
+    ['dispatcher-collections-primary', 'Collections', '/admin/collections'],
+    ['dispatcher-deliveries-primary', 'Deliveries', '/admin/deliveries'],
+    ['dispatcher-positions-primary', 'Live Positions', '/admin/fleet/positions'],
     ['dispatcher-drivers-vehicles-primary', 'Drivers & Vehicles', '/admin/fleet/resources'],
+    ['dispatcher-settings-primary', 'Settings', '/admin/settings'],
   ], 'dispatcher-more', 'More', [
-    '/admin/action-centre',
-    '/admin/fleet/assignments',
-    '/admin/fleet/active-jobs',
-    '/admin/collections',
-    '/admin/deliveries',
-    '/admin/fleet/positions',
     '/admin/bulk-import',
     '/admin/incidents',
     '/admin/pod',
     '/admin/messages',
     '/admin/event-log',
-    '/admin/settings',
   ]);
+
+  const more = composed.find((group) => group.id === 'dispatcher-more');
+  const requiredSecondary: WorkspaceNavItem[] = [
+    { id: 'action-centre', label: 'Action Centre', href: '/admin/action-centre', icon: '!' },
+    { id: 'messages', label: 'Messages', href: '/admin/messages', icon: 'MSG' },
+    { id: 'event-log', label: 'Event Log', href: '/admin/event-log', icon: 'LOG', capability: 'jobs.view' },
+  ];
+  if (more) {
+    const requiredHrefs = new Set(requiredSecondary.map((item) => item.href));
+    more.items = [...requiredSecondary, ...more.items.filter((item) => !requiredHrefs.has(item.href))];
+    return composed;
+  }
+  return [...composed, { id: 'dispatcher-more', label: 'More', items: requiredSecondary }];
 }
 
 function composeFinancePrimaryNav(groups: WorkspaceNavGroup[]) {
@@ -378,7 +360,7 @@ function composeFinancePrimaryNav(groups: WorkspaceNavGroup[]) {
     ['finance-balances-primary', 'Balances', '/admin/finance/balances'],
     ['finance-reports-primary', 'Reports', '/admin/finance/reports'],
     ['finance-settings-primary', 'Settings', '/admin/settings'],
-  ], 'finance-more');
+  ], 'finance-more', 'More', []);
 }
 
 function composeCompliancePrimaryNav(groups: WorkspaceNavGroup[]) {
@@ -391,11 +373,10 @@ function composeCompliancePrimaryNav(groups: WorkspaceNavGroup[]) {
     ['compliance-expiry-primary', 'Expiry', '/admin/documents/expiry'],
     ['compliance-incidents-primary', 'Incidents', '/admin/incidents'],
     ['compliance-settings-primary', 'Settings', '/admin/settings'],
-  ], 'compliance-more');
+  ], 'compliance-more', 'More', []);
 }
 
 const OWNER_DRIVER_MORE_ICONS = {
-  '/driver/won-work': Trophy,
   '/driver/availability': CalendarClock,
   '/driver/load-alerts': BellRing,
   '/driver/nearby': MapPin,
@@ -403,9 +384,6 @@ const OWNER_DRIVER_MORE_ICONS = {
   '/driver/finance': ReceiptText,
   '/driver/messages': MessageSquare,
   '/driver/event-log': ListChecks,
-  '/driver/freight-vision': MapPin,
-  '/driver/drivers-vehicles': Briefcase,
-  '/driver/settings': ListChecks,
 } as const;
 
 function OwnerDriverMoreIcon({ item }: { item: WorkspaceNavItem }) {
@@ -420,7 +398,6 @@ function SharedMoreIcon({ item }: { item: WorkspaceNavItem }) {
   return <OwnerDriverMoreIcon item={{ ...item, href: parts.join('/') }} />;
 }
 const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
-  '/driver/won-work': 'Work',
   '/driver/availability': 'Matching & Availability',
   '/driver/load-alerts': 'Matching & Availability',
   '/driver/nearby': 'Matching & Availability',
@@ -428,9 +405,6 @@ const OWNER_DRIVER_MORE_SECTIONS: Record<string, string> = {
   '/driver/finance': 'Business',
   '/driver/messages': 'Business',
   '/driver/event-log': 'Operations',
-  '/driver/freight-vision': 'Operations',
-  '/driver/drivers-vehicles': 'Administration',
-  '/driver/settings': 'Administration',
 };
 
 const CUSTOMER_MORE_ICONS = {
@@ -449,7 +423,6 @@ const CUSTOMER_MORE_SECTIONS: Record<string, string> = {
   '/customer/event-log': 'Collaboration',
   '/customer/invoices': 'Finance',
   '/customer/team': 'Administration',
-  '/customer/settings': 'Administration',
 };
 function CustomerMoreIcon({ item }: { item: WorkspaceNavItem }) {
   const Icon = CUSTOMER_MORE_ICONS[item.href as keyof typeof CUSTOMER_MORE_ICONS];
@@ -494,7 +467,7 @@ export function composeBrokerPrototypeNav(): WorkspaceNavGroup[] {
     { id: 'broker-collaboration', label: 'Collaboration', items: [
       { id: 'broker-messages', label: 'Messages', href: '/broker/messages', icon: 'MSG' },
       { id: 'broker-event-log', label: 'Event Log', href: '/broker/event-log', icon: 'LOG' },
-      { id: 'broker-network', label: 'Directory', href: '/broker/carrier-network', icon: 'DIR' },
+      { id: 'broker-network', label: 'Directory', href: '/broker/carrier-network/directory', icon: 'DIR' },
     ] },
     { id: 'broker-finance', label: 'Finance', items: [
       { id: 'broker-finance-home', label: 'Finance', href: '/broker/finance', icon: 'GBP' },
@@ -606,11 +579,13 @@ export default function TopWorkspaceShell({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user, logout, isLoading: authLoading } = useAuth();
+  const workspaceRoleReady = Boolean(fixtureCompanyName || (!authLoading && user));
   const resolvedRole = forcedRole ?? resolveWorkspaceRole(user);
   const role = resolveWorkspaceSurfaceRole(pathname ?? '/', resolvedRole);
   const definition = getWorkspaceDefinition(role);
   const nav = useMemo(() => {
+    if (!workspaceRoleReady) return [];
     const base = getVisibleWorkspaceNav(role).map((group) => ({ ...group, items: [...group.items] }));
 
     if (CARRIER_NAV_ROLES.has(role)) {
@@ -734,31 +709,33 @@ export default function TopWorkspaceShell({
       }
     }
 
+    const accessibleBase = filterWorkspaceNavByAccess(base, role, user);
+
     if (role === 'broker') {
       const preferred = filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user);
-      return composeBrokerPrimaryNav(mergeCanonicalNavFallback(preferred, base));
+      return composeBrokerPrimaryNav(mergeCanonicalNavFallback(preferred, accessibleBase));
     }
     if (role === 'customer') {
       const preferred = filterWorkspaceNavByAccess(composeCustomerPrototypeNav(), role, user);
-      return composeCustomerPrimaryNav(mergeCanonicalNavFallback(preferred, base));
+      return composeCustomerPrimaryNav(mergeCanonicalNavFallback(preferred, accessibleBase));
     }
-    if (CARRIER_NAV_ROLES.has(role)) return composeCarrierPrimaryNav(base);
-    if (role === 'fleet_manager') return composeFleetPrimaryNav(base);
-    if (role === 'owner_driver') return composeDriverPrimaryNav(base, true);
-    if (role === 'driver') return composeDriverPrimaryNav(base, false);
-    if (role === 'dispatcher') return composeDispatcherPrimaryNav(base);
-    if (role === 'finance') return composeFinancePrimaryNav(base);
-    if (role === 'compliance') return composeCompliancePrimaryNav(base);
+    if (CARRIER_NAV_ROLES.has(role)) return composeCarrierPrimaryNav(accessibleBase);
+    if (role === 'fleet_manager') return composeFleetPrimaryNav(accessibleBase);
+    if (role === 'owner_driver') return composeDriverPrimaryNav(accessibleBase, true);
+    if (role === 'driver') return composeDriverPrimaryNav(accessibleBase, false);
+    if (role === 'dispatcher') return composeDispatcherPrimaryNav(accessibleBase);
+    if (role === 'finance') return composeFinancePrimaryNav(accessibleBase);
+    if (role === 'compliance') return composeCompliancePrimaryNav(accessibleBase);
     if (role === 'viewer') {
-      return composeRolePrimaryNav(base, [
+      return composeRolePrimaryNav(accessibleBase, [
         ['viewer-dashboard-primary', 'Dashboard', '/admin'],
         ['viewer-diary-primary', 'Diary', '/admin/diary'],
         ['viewer-jobs-primary', 'Jobs', '/admin/jobs'],
       ], 'viewer-more');
     }
 
-    return base;
-  }, [role, user]);
+    return accessibleBase;
+  }, [role, user, workspaceRoleReady]);
   const [companyName, setCompanyName] = useState(() => fixtureCompanyName ?? 'XDrive Logistics');
   const [hydrated, setHydrated] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -951,16 +928,11 @@ export default function TopWorkspaceShell({
     return pathname === baseHref || pathname.startsWith(`${baseHref}/`);
   };
 
-  const openRoute = (href: string) => {
-    setOpenGroupId(null);
-    router.push(fixtureRouteFor(href));
-  };
-
   const focusMenuItem = (groupId: string, edge: 'first' | 'last' = 'first') => {
     window.requestAnimationFrame(() => {
       const menu = document.getElementById(`workspace-menu-${groupId}`);
       const items = menu
-        ? Array.from(menu.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'))
+        ? Array.from(menu.querySelectorAll<HTMLElement>('[role="menuitem"]'))
         : [];
       const target = edge === 'last' ? items.at(-1) : items[0];
       target?.focus();
@@ -969,9 +941,9 @@ export default function TopWorkspaceShell({
 
   const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
     if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
-    const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('[role="menuitem"]'));
     if (!items.length) return;
-    const currentIndex = Math.max(0, items.indexOf(document.activeElement as HTMLButtonElement));
+    const currentIndex = Math.max(0, items.indexOf(document.activeElement as HTMLElement));
     let nextIndex = currentIndex;
     if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % items.length;
     if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + items.length) % items.length;
@@ -987,6 +959,7 @@ export default function TopWorkspaceShell({
       className={`top-workspace-shell${driverPrototypeScope ? ' driver-prototype-port' : ''}`}
       data-workspace-role={role}
       data-hydrated={hydrated ? 'true' : 'false'}
+      data-role-ready={workspaceRoleReady ? 'true' : 'false'}
       data-carrier-nav={CARRIER_NAV_ROLES.has(role) ? 'true' : undefined}
     >
       <header className="top-workspace-shell__header">
@@ -1069,8 +1042,8 @@ export default function TopWorkspaceShell({
         className="top-workspace-nav top-workspace-nav--primary"
         aria-label={`${definition.label} navigation`}
       >
-        <div className="top-workspace-nav__track">
-          {nav.map((group, groupIndex) => {
+        <div className="top-workspace-nav__track" aria-busy={!workspaceRoleReady}>
+          {workspaceRoleReady && nav.map((group, groupIndex) => {
             const groupActive = group.items.some((item) => isActive(item.href));
 
             if (group.items.length === 1) {
@@ -1082,17 +1055,18 @@ export default function TopWorkspaceShell({
                   className="top-workspace-nav__group"
                   data-first={groupIndex === 0 ? 'true' : 'false'}
                 >
-                  <button
-                    type="button"
+                  <Link
+                    href={fixtureRouteFor(item.href)}
+                    prefetch={false}
                     className="top-workspace-nav__item"
                     data-active={active ? 'true' : 'false'}
                     onPointerEnter={() => prefetchRoute(item.href)}
                     onFocus={() => prefetchRoute(item.href)}
-                    onClick={() => openRoute(item.href)}
+                    onClick={() => setOpenGroupId(null)}
                     aria-current={active ? 'page' : undefined}
                   >
                     {item.label}
-                  </button>
+                  </Link>
                 </div>
               );
             }
@@ -1145,15 +1119,16 @@ export default function TopWorkspaceShell({
                               {sectionLabel}
                             </div>
                           )}
-                          <button
-                            type="button"
+                          <Link
+                            href={fixtureRouteFor(item.href)}
+                            prefetch={false}
                             role="menuitem"
                             className="top-workspace-nav__menu-item"
                             data-active={active ? 'true' : 'false'}
                             data-section-start={group.id === 'owner-driver-more' && item.href === '/driver/documents' ? 'true' : undefined}
                             onPointerEnter={() => prefetchRoute(item.href)}
                             onFocus={() => prefetchRoute(item.href)}
-                            onClick={() => openRoute(item.href)}
+                            onClick={() => setOpenGroupId(null)}
                           >
                             <span className="top-workspace-nav__menu-icon" aria-hidden="true">
                               {role === 'owner_driver'
@@ -1163,7 +1138,7 @@ export default function TopWorkspaceShell({
                                   : <SharedMoreIcon item={item} />}
                             </span>
                             <span>{item.label}</span>
-                          </button>
+                          </Link>
                         </Fragment>
                       );
                     })}

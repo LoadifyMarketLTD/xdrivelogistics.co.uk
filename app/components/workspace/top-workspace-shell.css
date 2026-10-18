@@ -271,6 +271,9 @@
 
 .xdrive-operational-top-workspace .top-workspace-nav__item {
   position: relative;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
   height: 29px !important;
   min-height: 29px !important;
   padding: 0 13px !important;
@@ -337,6 +340,7 @@
 
 .xdrive-operational-top-workspace .top-workspace-nav__menu-item {
   width: 100%;
+  text-decoration: none;
   min-height: 32px !important;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);

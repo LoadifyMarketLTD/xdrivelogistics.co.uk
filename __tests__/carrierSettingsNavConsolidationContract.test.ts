@@ -6,11 +6,13 @@ describe('Carrier settings and navbar consolidation contract', () => {
   const shellCss = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/top-workspace-shell.css'), 'utf8');
   const settingsCss = fs.readFileSync(path.join(process.cwd(), 'app/components/workspace/role-settings-workspace.css'), 'utf8');
 
-  it('preserves authorised administration routes in Carrier navigation without a second role-specific exclusion', () => {
-    expect(shell).toContain('const more: WorkspaceNavItem[] = [');
-    expect(shell).toContain('const represented = new Set(');
+  it('keeps Carrier navigation curated instead of re-injecting every leftover route', () => {
+    const carrier = shell.slice(shell.indexOf('export function composeCarrierPrimaryNav'), shell.indexOf('export function composeFleetPrimaryNav'));
+    expect(carrier).toContain("['carrier-settings', 'Settings', '/admin/settings']");
+    expect(carrier).toContain('const more: WorkspaceNavItem[] = [');
+    expect(carrier).not.toContain('const represented = new Set(');
+    expect(carrier).not.toContain('if (!represented.has(href))');
     expect(shell).not.toContain('settingsOwnedHrefs');
-    expect(shell).toContain('if (!represented.has(href))');
   });
 
   it('uses the shared Owner Driver label and caret for the Carrier utility menu', () => {
@@ -27,6 +29,7 @@ describe('Carrier settings and navbar consolidation contract', () => {
     expect(shellCss).not.toContain('[data-page-context=');
     expect(shell).toContain('top-workspace-nav--primary');
   });
+
   it('keeps Settings readable and consistently spaced without duplicate shortcut density', () => {
     expect(settingsCss).toContain('grid-template-columns:210px minmax(0,1fr)');
     expect(settingsCss).toContain('min-height:34px');

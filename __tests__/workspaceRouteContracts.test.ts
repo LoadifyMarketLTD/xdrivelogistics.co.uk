@@ -118,7 +118,7 @@ describe('workspace route contracts', () => {
       '/broker/bids',
       '/broker/jobs',
       '/broker/pod-review',
-      '/broker/carrier-network',
+      '/broker/carrier-network/directory',
       '/broker/customers',
       '/broker/diary',
       '/broker/messages',
@@ -139,7 +139,7 @@ describe('workspace route contracts', () => {
 
   it('authorizes canonical Directory routes and retains legacy aliases only as compatibility redirects', () => {
     expect(getProtectedRouteRequirement('/customer/network/directory')?.prefix).toBe('/customer/network');
-    expect(getProtectedRouteRequirement('/broker/carrier-network/directory')?.prefix).toBe('/broker/carrier-network');
+    expect(getProtectedRouteRequirement('/broker/carrier-network/directory')?.prefix).toBe('/broker/carrier-network/directory');
     expect(getProtectedRouteRequirement('/admin/marketplace/directory')?.prefix).toBe('/admin/marketplace');
     expect(getProtectedRouteRequirement('/driver/loads/directory')?.prefix).toBe('/driver/loads/directory');
     expect(getProtectedRouteRequirement('/driver/network')?.prefix).toBe('/driver/network');

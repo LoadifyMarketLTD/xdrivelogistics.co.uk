@@ -29,7 +29,9 @@ describe('Owner Driver shared primitive cascade contract', () => {
     const component = read('app/components/workspace/TopWorkspaceShell.tsx');
     expect(component).toContain('<SharedMoreIcon item={item} />');
     expect(component).not.toContain(': item.icon ?? null}');
-    expect(component).toContain('onClick={() => openRoute(item.href)}');
+    expect(component).toContain('href={fixtureRouteFor(item.href)}');
+    expect(component).toContain('prefetch={false}');
+    expect(component).not.toContain('onClick={() => openRoute(item.href)}');
   });
 
   it('copies the actual Owner Driver table palette rather than a parallel role palette', () => {

@@ -16,15 +16,18 @@ describe('approved prototype Driver primary navigation', () => {
     }
     for (const primary of [
       "['owner-driver-dashboard-primary', 'Dashboard', '/driver']",
+      "['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre']",
       "['owner-driver-directory-primary', 'Directory', '/driver/directory']",
       "['owner-driver-returns-primary', 'Return Journeys', '/driver/returns']",
       "['owner-driver-loads-primary', 'Loads', '/driver/loads']",
       "['owner-driver-quotes-primary', 'Quotes', '/driver/quotes']",
+      "['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs']",
       "['owner-driver-diary-primary', 'Diary', '/driver/history']",
+      "['owner-driver-settings-primary', 'Settings', '/driver/settings']",
     ]) expect(shell).toContain(primary);
     expect(shell).toContain("], 'owner-driver-more', 'More', [");
     expect(shell).toContain("'/driver/event-log'");
-    expect(shell).toContain("'/driver/freight-vision'");
+    expect(shell).not.toContain("['owner-driver-freight-vision-primary'");
   });
 
   it('keeps Directory on the real shared member data source', () => {

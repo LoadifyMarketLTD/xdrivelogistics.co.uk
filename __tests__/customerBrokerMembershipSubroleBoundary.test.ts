@@ -26,7 +26,7 @@ describe('Customer and Broker company subrole boundaries', () => {
 
   it('keeps Broker viewer read-only', () => {
     const context = { ...active, workspaceRole: 'broker' as const, membershipRole: 'viewer' };
-    for (const path of ['/broker', '/broker/loads', '/broker/bids', '/broker/jobs', '/broker/diary', '/broker/messages', '/broker/event-log']) {
+    for (const path of ['/broker', '/broker/loads', '/broker/bids', '/broker/jobs', '/broker/diary', '/broker/messages', '/broker/event-log', '/broker/carrier-network/directory']) {
       expect(isRoleAllowedForPath(path, 'broker', context)).toBe(true);
     }
     for (const path of ['/broker/post-load', '/broker/compare-quotes', '/broker/awards', '/broker/pod-review', '/broker/disputes', '/broker/finance', '/broker/team', '/broker/settings', '/broker/customers', '/broker/carrier-network']) {
@@ -36,7 +36,7 @@ describe('Customer and Broker company subrole boundaries', () => {
 
   it('gives Broker dispatcher operational quote/POD authority without admin, dispute, or finance authority', () => {
     const context = { ...active, workspaceRole: 'broker' as const, membershipRole: 'dispatcher' };
-    for (const path of ['/broker/post-load', '/broker/compare-quotes', '/broker/awards', '/broker/jobs', '/broker/diary', '/broker/pod-review']) {
+    for (const path of ['/broker/post-load', '/broker/compare-quotes', '/broker/awards', '/broker/jobs', '/broker/diary', '/broker/pod-review', '/broker/carrier-network/directory']) {
       expect(isRoleAllowedForPath(path, 'broker', context)).toBe(true);
     }
     for (const path of ['/broker/disputes', '/broker/finance', '/broker/margins', '/broker/team', '/broker/settings', '/broker/customers', '/broker/carrier-network']) {
