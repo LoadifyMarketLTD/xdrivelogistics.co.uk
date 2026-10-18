@@ -75,8 +75,8 @@ export function CompanyFeedbackDialog({
       }
     >
       {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
-      <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#64748b' }}>RATING<select value={rating} onChange={(event) => setRating(Number(event.target.value))}>{[5,4,3,2,1].map((value) => <option key={value} value={value}>{value} / 5</option>)}</select></label>
-      <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#64748b' }}>COMMENT<textarea value={comment} maxLength={2000} rows={5} onChange={(event) => setComment(event.target.value)} placeholder="Optional operational feedback" /></label>
+      <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 700, color: '#64748b' }}>RATING<select value={rating} onChange={(event) => setRating(Number(event.target.value))}>{[5,4,3,2,1].map((value) => <option key={value} value={value}>{value} / 5</option>)}</select></label>
+      <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 700, color: '#64748b' }}>COMMENT<textarea value={comment} maxLength={2000} rows={5} onChange={(event) => setComment(event.target.value)} placeholder="Optional operational feedback" /></label>
     </WorkspaceDialog>
   );
 }

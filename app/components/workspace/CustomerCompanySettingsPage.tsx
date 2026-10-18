@@ -56,7 +56,7 @@ const inputStyle = {
   border: '1px solid #cbd5e1',
   borderRadius: 4,
   padding: '0 8px',
-  fontSize: 12,
+  fontSize: 14,
   color: '#0f172a',
   background: '#ffffff',
 } as const;
@@ -65,7 +65,7 @@ const labelStyle = {
   display: 'grid',
   gap: 4,
   color: '#334155',
-  fontSize: 11,
+  fontSize: 14,
   lineHeight: '14px',
   fontWeight: 700,
 } as const;
@@ -221,7 +221,7 @@ export default function CustomerCompanySettingsPage() {
             { id: 'notifications', label: 'Notifications', detail: 'Workspace notifications', onClick: () => router.push('/customer/notifications') },
             { id: 'settings', label: 'Settings', detail: 'Workspace preferences', onClick: () => router.push('/customer/settings') },
           ]}
-          footer={<span style={{ color: '#64748b', fontSize: 11, lineHeight: '14px' }}>Only preferences available for this account can be edited here.</span>}
+          footer={<span style={{ color: '#64748b', fontSize: 14, lineHeight: '14px' }}>Only preferences available for this account can be edited here.</span>}
         />
 
         <main style={{ minWidth: 0, display: 'grid', gap: 8 }}>
@@ -256,7 +256,7 @@ export default function CustomerCompanySettingsPage() {
               </Panel>
 
               <Panel title="Account preferences" description="Only settings currently available for this customer account are shown.">
-                <p style={{ margin: 0, color: '#64748b', fontSize: 11, lineHeight: '15px' }}>
+                <p style={{ margin: 0, color: '#64748b', fontSize: 14, lineHeight: '15px' }}>
                   Collection contacts, delivery contacts, payment terms and execution instructions are managed on each transport booking. Additional account preferences will appear here when they are available for this workspace.
                 </p>
               </Panel>

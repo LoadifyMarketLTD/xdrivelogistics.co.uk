@@ -310,7 +310,7 @@ export default function FleetResourcesPage() {
             <label style={{ ...labelStyle, gridColumn: '1 / -1' }}>Capacity / timing notes<textarea style={{ ...inputStyle, minHeight: 64, paddingTop: 7 }} maxLength={1000} value={futureNotesDraft} onChange={(event) => setFutureNotesDraft(event.target.value)} placeholder="Capacity, operating area, timing or vehicle notes" /></label>
             <div style={{ gridColumn: '1 / -1', display: 'flex', gap: 5, alignItems: 'center', justifyContent: 'flex-end' }}><ActionButton tone="success" disabled={futureWorking} onClick={() => void saveFuturePosition()}>{futureWorking ? 'Saving…' : 'Publish / Update'}</ActionButton><ActionButton tone="secondary" disabled={futureWorking} onClick={() => { setFuturePositionDraft(''); setFutureDateDraft(''); setFutureUntilDraft(''); setFutureNotesDraft(''); }}>Clear fields</ActionButton><ActionButton tone="secondary" disabled={futureWorking} onClick={() => setFutureDriverId(null)}>Close</ActionButton></div>
           </div>
-          <div style={{ marginTop: 6, color: '#64748b', fontSize: 11 }}>Clearing both fields and pressing Publish / Update removes the published future position. The server revalidates company membership and active-driver ownership.</div>
+          <div style={{ marginTop: 6, color: '#64748b', fontSize: 14 }}>Clearing both fields and pressing Publish / Update removes the published future position. The server revalidates company membership and active-driver ownership.</div>
         </Panel>
       ) : null}
 
@@ -370,7 +370,7 @@ export default function FleetResourcesPage() {
               assignedDriver?.display_name ?? assignedDriver?.email ?? 'Unassigned',
               <div key="tracking"><StatusBadge value={trackingState} tone={trackingState === 'Live' ? 'green' : trackingState === 'Stale' ? 'orange' : 'grey'} />{locationTime ? <span style={{ display: 'block', marginTop: 3, color: '#64748b' }}>{when(locationTime)}</span> : null}</div>,
               <select key="advertising" aria-label={`Advertising state for ${vehicleLabel}`} value={advertisingState} disabled={vehicleWorking} onChange={(event) => void updateVehicleAdvertising(vehicle.id, event.target.value as 'none' | 'exchange' | 'partner')} style={{ ...inputStyle, minWidth: 105 }}><option value="none">None</option><option value="exchange">Exchange</option><option value="partner">Partner</option></select>,
-              <label key="notify" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 11, whiteSpace: 'nowrap' }}><input type="checkbox" checked={vehicle.notify_when_tracked === true} disabled={vehicleWorking} onChange={(event) => void updateNotifyWhenTracked(vehicle.id, event.target.checked)} /> Notify</label>,
+              <label key="notify" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, fontSize: 14, whiteSpace: 'nowrap' }}><input type="checkbox" checked={vehicle.notify_when_tracked === true} disabled={vehicleWorking} onChange={(event) => void updateNotifyWhenTracked(vehicle.id, event.target.checked)} /> Notify</label>,
               <StatusBadge key="documents" value={documentState} tone={vehicleDocuments.length ? 'blue' : 'orange'} />,
             ];
           })}
@@ -397,5 +397,5 @@ export default function FleetResourcesPage() {
   );
 }
 
-const inputStyle = { width: '100%', minHeight: 32, border: '1px solid var(--ws-border, #cfd7e3)', borderRadius: 4, padding: '5px 8px', background: '#fff', color: 'var(--ws-text, #172033)', fontSize: 12, boxSizing: 'border-box' as const };
-const labelStyle = { display: 'grid', gap: 4, color: 'var(--ws-muted, #64748b)', fontSize: 11, fontWeight: 700 } as const;
+const inputStyle = { width: '100%', minHeight: 32, border: '1px solid var(--ws-border, #cfd7e3)', borderRadius: 4, padding: '5px 8px', background: '#fff', color: 'var(--ws-text, #172033)', fontSize: 14, boxSizing: 'border-box' as const };
+const labelStyle = { display: 'grid', gap: 4, color: 'var(--ws-muted, #64748b)', fontSize: 14, fontWeight: 700 } as const;

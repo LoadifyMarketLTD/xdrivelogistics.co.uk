@@ -61,9 +61,9 @@ function SectionMessage({ section }: { section: SectionState }) {
   if (section.state === 'available' && section.items?.length) {
     return (
       <div style={{ display: 'grid', gap: 8 }}>
-        <div style={{ padding: '7px 9px', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#f8fafc', color: workspaceTheme.muted, fontSize: 11 }}>{section.message}</div>
+        <div style={{ padding: '7px 9px', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#f8fafc', color: workspaceTheme.muted, fontSize: 14 }}>{section.message}</div>
         <div style={{ display: 'grid', gap: 5 }}>
-          {section.items.map((item, index) => <div key={`${item}-${index}`} style={{ minHeight: 34, padding: '7px 9px', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#fff', color: workspaceTheme.text, fontSize: 12, lineHeight: '17px' }}>{item}</div>)}
+          {section.items.map((item, index) => <div key={`${item}-${index}`} style={{ minHeight: 34, padding: '7px 9px', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#fff', color: workspaceTheme.text, fontSize: 14, lineHeight: '17px' }}>{item}</div>)}
         </div>
       </div>
     );
@@ -223,18 +223,18 @@ export function MemberProfileOverlay({
           {loading ? (
             <EmptyState compact title="Loading member profile…" />
           ) : error ? (
-            <div style={{ padding: 9, border: '1px solid #fecaca', borderRadius: 4, background: '#fef2f2', color: '#b91c1c', fontSize: 12 }}>{error}</div>
+            <div style={{ padding: 9, border: '1px solid #fecaca', borderRadius: 4, background: '#fef2f2', color: '#b91c1c', fontSize: 14 }}>{error}</div>
           ) : profile && tab === 'details' ? (
             <div style={{ display: 'grid', gap: 10 }}>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, overflow: 'hidden' }}>
                 {detailRows.map(([label, value]) => (
                   <div key={label} style={{ minHeight: 50, padding: '7px 9px', borderRight: `1px solid ${workspaceTheme.divider}`, borderBottom: `1px solid ${workspaceTheme.divider}` }}>
-                    <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10, lineHeight: '13px', textTransform: 'uppercase', fontWeight: 700 }}>{label}</span>
-                    <strong style={{ display: 'block', marginTop: 2, color: workspaceTheme.text, fontSize: 12, lineHeight: '16px', fontWeight: 650 }}>{value}</strong>
+                    <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 14, lineHeight: '13px', textTransform: 'uppercase', fontWeight: 700 }}>{label}</span>
+                    <strong style={{ display: 'block', marginTop: 2, color: workspaceTheme.text, fontSize: 14, lineHeight: '16px', fontWeight: 650 }}>{value}</strong>
                   </div>
                 ))}
               </div>
-              <div style={{ padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#f8fafc', color: workspaceTheme.muted, fontSize: 11, lineHeight: '15px' }}>
+              <div style={{ padding: 8, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: '#f8fafc', color: workspaceTheme.muted, fontSize: 14, lineHeight: '15px' }}>
                 This profile shows business-facing member information only. Private addresses, personal contact details and internal compliance evidence are not published here.
               </div>
             </div>

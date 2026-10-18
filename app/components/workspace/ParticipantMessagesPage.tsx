@@ -194,7 +194,7 @@ export default function ParticipantMessagesPage({
         <aside className="workspace-filter-rail" aria-label="Message conversations">
           <div className="workspace-filter-rail__header">Conversations</div>
           <div className="workspace-filter-rail__body">
-            <div style={{ fontSize: 11, color: '#64748b', lineHeight: '16px' }}>
+            <div style={{ fontSize: 14, color: '#64748b', lineHeight: '16px' }}>
               Existing participant conversations only. XDrive does not expose arbitrary recipient lookup from this surface.
             </div>
             <div style={{ display: 'grid', gap: 4 }}>
@@ -213,9 +213,9 @@ export default function ParticipantMessagesPage({
                     cursor: 'pointer',
                   }}
                 >
-                  <strong style={{ display: 'block', fontSize: 12, lineHeight: '16px', color: '#0f172a' }}>{thread.counterpartName}</strong>
-                  <span style={{ display: 'block', fontSize: 11, lineHeight: '14px', color: '#475569' }}>{thread.context ? `${thread.context.kind === 'quote' ? 'Quote' : 'Job'} · ${thread.context.loadRef}` : thread.counterpartCompanyName ?? 'Participant conversation'}</span>
-                  <span style={{ display: 'block', marginTop: 2, fontSize: 11, lineHeight: '14px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  <strong style={{ display: 'block', fontSize: 14, lineHeight: '16px', color: '#0f172a' }}>{thread.counterpartName}</strong>
+                  <span style={{ display: 'block', fontSize: 14, lineHeight: '14px', color: '#475569' }}>{thread.context ? `${thread.context.kind === 'quote' ? 'Quote' : 'Job'} · ${thread.context.loadRef}` : thread.counterpartCompanyName ?? 'Participant conversation'}</span>
+                  <span style={{ display: 'block', marginTop: 2, fontSize: 14, lineHeight: '14px', color: '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {thread.latestBody || 'Message'} · {fmtDateTime(thread.latestAt)}
                   </span>
                 </button>
@@ -252,7 +252,7 @@ export default function ParticipantMessagesPage({
                     <StatusBadge value={selected.context.jobStatus ?? selected.context.status ?? 'Context linked'} tone="blue" />
                     {selectedJobHref ? <ActionButton tone="secondary" onClick={() => router.push(selectedJobHref)}>Open job</ActionButton> : null}
                   </div>
-                  <div style={{ paddingTop: 6, fontSize: 12, color: '#475569' }}>{selected.context.routeLabel}</div>
+                  <div style={{ paddingTop: 6, fontSize: 14, color: '#475569' }}>{selected.context.routeLabel}</div>
                 </div>
               )}
 
@@ -269,7 +269,7 @@ export default function ParticipantMessagesPage({
                       <span>{fmtDateTime(message.createdAt)}</span>
                       <StatusBadge value={message.direction === 'outbound' ? 'Sent' : 'Received'} tone={message.direction === 'outbound' ? 'blue' : 'green'} />
                     </div>
-                    <div style={{ padding: '8px 10px', fontSize: 13, lineHeight: '19px', color: '#0f172a', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                    <div style={{ padding: '8px 10px', fontSize: 14, lineHeight: '19px', color: '#0f172a', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                       {message.body}
                     </div>
                   </article>
@@ -278,7 +278,7 @@ export default function ParticipantMessagesPage({
 
               {selected.canReply ? (
                 <div style={{ marginTop: 10, paddingTop: 10, borderTop: '1px solid #e2e8f0', display: 'grid', gap: 6 }}>
-                  <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+                  <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 700, color: '#475569' }}>
                     REPLY
                     <textarea
                       value={reply}
@@ -290,7 +290,7 @@ export default function ParticipantMessagesPage({
                     />
                   </label>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
-                    <span style={{ fontSize: 11, lineHeight: '14px', color: '#64748b' }}>{reply.length}/4000 · messages are immutable once sent</span>
+                    <span style={{ fontSize: 14, lineHeight: '14px', color: '#64748b' }}>{reply.length}/4000 · messages are immutable once sent</span>
                     <ActionButton tone="primary" disabled={sending || !reply.trim()} onClick={() => void sendReply()}>{sending ? 'Sending…' : 'Send Reply'}</ActionButton>
                   </div>
                 </div>

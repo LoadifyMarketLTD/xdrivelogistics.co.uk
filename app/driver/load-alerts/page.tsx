@@ -178,14 +178,14 @@ export default function DriverLoadAlertsPage() {
           <div className="workspace-panel__header" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center' }}>
             <div>
               <strong>Smart Load Alerts</strong>
-              <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Opt in to relevant marketplace work instead of relying on a general notification bell.</div>
+              <div style={{ fontSize: 14, color: '#64748b', marginTop: 2 }}>Opt in to relevant marketplace work instead of relying on a general notification bell.</div>
             </div>
             <StatusBadge value={preference.enabled ? 'Enabled' : 'Disabled'} tone={preference.enabled ? 'green' : 'grey'} />
           </div>
           <div className="workspace-panel__body">
             <label style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
               <input type="checkbox" checked={preference.enabled} onChange={(event) => patch('enabled', event.target.checked)} disabled={loading || schemaUnavailable} />
-              <span><strong>Send me matching load alerts</strong><br /><span style={{ color: '#64748b', fontSize: 12 }}>Only loads that pass your selected location, vehicle and budget rules can generate an alert.</span></span>
+              <span><strong>Send me matching load alerts</strong><br /><span style={{ color: '#64748b', fontSize: 14 }}>Only loads that pass your selected location, vehicle and budget rules can generate an alert.</span></span>
             </label>
           </div>
         </section>
@@ -194,7 +194,7 @@ export default function DriverLoadAlertsPage() {
           <section className="workspace-panel">
             <div className="workspace-panel__header"><strong>Where should XDrive match?</strong></div>
             <div className="workspace-panel__body" style={{ display: 'grid', gap: 12 }}>
-              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.currentRadiusEnabled} onChange={(event) => patch('currentRadiusEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Current position</strong><br /><span style={{ fontSize: 12, color: '#64748b' }}>Match collection points near your recent Driver location.</span></span></label>
+              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.currentRadiusEnabled} onChange={(event) => patch('currentRadiusEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Current position</strong><br /><span style={{ fontSize: 14, color: '#64748b' }}>Match collection points near your recent Driver location.</span></span></label>
               <label>RADIUS
                 <select value={preference.radiusMiles} onChange={(event) => patch('radiusMiles', Number(event.target.value))} disabled={loading || schemaUnavailable || !preference.currentRadiusEnabled}>
                   {[5, 10, 20, 30, 50, 100, 200, 300].map((miles) => <option key={miles} value={miles}>{miles} miles</option>)}
@@ -206,10 +206,10 @@ export default function DriverLoadAlertsPage() {
                 </select>
               </label>
 
-              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.homeOutcodeEnabled} onChange={(event) => patch('homeOutcodeEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Home area</strong><br /><span style={{ fontSize: 12, color: '#64748b' }}>Match by UK outcode only, not by a private home address.</span></span></label>
+              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.homeOutcodeEnabled} onChange={(event) => patch('homeOutcodeEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Home area</strong><br /><span style={{ fontSize: 14, color: '#64748b' }}>Match by UK outcode only, not by a private home address.</span></span></label>
               <label>HOME OUTCODE<input value={preference.homeOutcode} onChange={(event) => patch('homeOutcode', event.target.value.toUpperCase())} placeholder="e.g. BB1" disabled={loading || schemaUnavailable || !preference.homeOutcodeEnabled} /></label>
 
-              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.futurePositionEnabled} onChange={(event) => patch('futurePositionEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Future / return position</strong><br /><span style={{ fontSize: 12, color: '#64748b' }}>Use your saved future position when it lines up with the collection time.</span></span></label>
+              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.futurePositionEnabled} onChange={(event) => patch('futurePositionEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Future / return position</strong><br /><span style={{ fontSize: 14, color: '#64748b' }}>Use your saved future position when it lines up with the collection time.</span></span></label>
               <div className="workspace-record-meta"><span>Saved position: <strong>{context?.futurePosition ?? 'Not set'}</strong></span><span>{when(context?.futurePositionDate)}</span></div>
             </div>
           </section>
@@ -217,19 +217,19 @@ export default function DriverLoadAlertsPage() {
           <section className="workspace-panel">
             <div className="workspace-panel__header"><strong>Which loads should qualify?</strong></div>
             <div className="workspace-panel__body" style={{ display: 'grid', gap: 12 }}>
-              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.requireVehicleMatch} onChange={(event) => patch('requireVehicleMatch', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Require vehicle match</strong><br /><span style={{ fontSize: 12, color: '#64748b' }}>Only alert when the load matches your active XDrive vehicle type.</span></span></label>
+              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.requireVehicleMatch} onChange={(event) => patch('requireVehicleMatch', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Require vehicle match</strong><br /><span style={{ fontSize: 14, color: '#64748b' }}>Only alert when the load matches your active XDrive vehicle type.</span></span></label>
               <div className="workspace-record-meta"><span>Vehicle: <strong>{humanize(context?.vehicleType)}</strong></span><span>{context?.vehicleRegistration ?? 'Registration not available'}</span></div>
               <label>MINIMUM LOAD BUDGET (£)<input type="number" min="0" step="1" value={preference.minimumBudgetGbp ?? ''} onChange={(event) => patch('minimumBudgetGbp', event.target.value === '' ? null : Number(event.target.value))} placeholder="No minimum" disabled={loading || schemaUnavailable} /></label>
-              <div style={{ fontSize: 12, color: '#64748b' }}>If a load has no stated budget and you set a minimum, that load will not match.</div>
+              <div style={{ fontSize: 14, color: '#64748b' }}>If a load has no stated budget and you set a minimum, that load will not match.</div>
             </div>
           </section>
 
           <section className="workspace-panel">
             <div className="workspace-panel__header"><strong>How should XDrive alert you?</strong></div>
             <div className="workspace-panel__body" style={{ display: 'grid', gap: 12 }}>
-              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.inAppEnabled} onChange={(event) => patch('inAppEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>In-app</strong><br /><span style={{ fontSize: 12, color: '#64748b' }}>Add matching loads to your XDrive notifications.</span></span></label>
-              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.emailEnabled} onChange={(event) => patch('emailEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Email</strong><br /><span style={{ fontSize: 12, color: '#64748b' }}>Send the public collection/delivery areas and a link back to XDrive.</span></span></label>
-              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.pushEnabled} onChange={(event) => patch('pushEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Push</strong><br /><span style={{ fontSize: 12, color: '#64748b' }}>Use an active registered Driver device when push delivery is configured.</span></span></label>
+              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.inAppEnabled} onChange={(event) => patch('inAppEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>In-app</strong><br /><span style={{ fontSize: 14, color: '#64748b' }}>Add matching loads to your XDrive notifications.</span></span></label>
+              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.emailEnabled} onChange={(event) => patch('emailEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Email</strong><br /><span style={{ fontSize: 14, color: '#64748b' }}>Send the public collection/delivery areas and a link back to XDrive.</span></span></label>
+              <label style={{ display: 'flex', gap: 8 }}><input type="checkbox" checked={preference.pushEnabled} onChange={(event) => patch('pushEnabled', event.target.checked)} disabled={loading || schemaUnavailable} /><span><strong>Push</strong><br /><span style={{ fontSize: 14, color: '#64748b' }}>Use an active registered Driver device when push delivery is configured.</span></span></label>
               <div className="workspace-record-meta"><span>{sourcesSelected} matching source{sourcesSelected === 1 ? '' : 's'}</span><span>{channelsSelected} channel{channelsSelected === 1 ? '' : 's'}</span></div>
             </div>
           </section>
@@ -237,7 +237,7 @@ export default function DriverLoadAlertsPage() {
 
         <section className="workspace-panel" style={{ marginTop: 8 }}>
           <div className="workspace-panel__body" style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-            <div style={{ fontSize: 12, color: '#64748b', maxWidth: 720 }}>
+            <div style={{ fontSize: 14, color: '#64748b', maxWidth: 720 }}>
               XDrive uses your exact tracking coordinates only while checking whether a load is nearby. Alerts show public collection and delivery areas, never your live coordinates or a customer's exact pre-award address.
             </div>
             <ActionButton tone="primary" onClick={() => void save()} disabled={loading || saving || schemaUnavailable}>{saving ? 'Saving…' : 'Save Load Alerts'}</ActionButton>

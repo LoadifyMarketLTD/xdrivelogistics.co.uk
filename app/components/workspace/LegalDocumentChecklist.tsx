@@ -37,7 +37,7 @@ export default function LegalDocumentChecklist({ agreements, language, selected,
           <section key={index}><h4>{section.title}</h4><p style={{ whiteSpace: 'pre-line' }}>{section.body}</p></section>)}
       </div>
     </details>
-    {editable && <p style={{ margin: 0, color: '#475569', fontSize: 12 }}>
+    {editable && <p style={{ margin: 0, color: '#475569', fontSize: 14 }}>
       {copy.unsignedDraftNotice}
     </p>}
   </div>;

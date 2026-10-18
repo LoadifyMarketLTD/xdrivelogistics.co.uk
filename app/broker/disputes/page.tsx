@@ -131,7 +131,7 @@ export default function BrokerDisputesPage() {
                         value={notes[row.id] ?? ''}
                         onChange={(event) => setNotes((current) => ({ ...current, [row.id]: event.target.value }))}
                         rows={2}
-                        style={{ width: '100%', minHeight: 48, border: '1px solid #cbd5e1', borderRadius: 4, padding: 6, fontSize: 11, resize: 'vertical' }}
+                        style={{ width: '100%', minHeight: 48, border: '1px solid #cbd5e1', borderRadius: 4, padding: 6, fontSize: 14, resize: 'vertical' }}
                       />
                       <div style={{ display: 'flex', gap: 4 }}>
                         <ActionButton tone="success" disabled={working === row.id} onClick={() => void runAction(row.id, 'resolve')}>{working === row.id ? 'Saving…' : 'Resolve'}</ActionButton>

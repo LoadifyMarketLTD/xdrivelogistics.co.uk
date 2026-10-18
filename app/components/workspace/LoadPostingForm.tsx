@@ -783,8 +783,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               onClick={() => setDirectTargetMode('marketplace')}
               style={{ border: directTargetMode === 'marketplace' ? '2px solid #1d57d8' : '1px solid #cfd7e3', borderRadius: 6, background: directTargetMode === 'marketplace' ? '#eff6ff' : '#fff', padding: 10, textAlign: 'left', cursor: 'pointer' }}
             >
-              <strong style={{ display: 'block', fontSize: 12, color: '#172033' }}>XDrive Exchange</strong>
-              <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: '#64748b' }}>Publish to eligible carriers and receive quotes.</span>
+              <strong style={{ display: 'block', fontSize: 14, color: '#172033' }}>XDrive Exchange</strong>
+              <span style={{ display: 'block', marginTop: 3, fontSize: 14, color: '#64748b' }}>Publish to eligible carriers and receive quotes.</span>
             </button>
             {mode !== 'customer' && (
               <button
@@ -793,8 +793,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                 onClick={() => setDirectTargetMode('external_subcontractor')}
                 style={{ border: directTargetMode === 'external_subcontractor' ? '2px solid #1d57d8' : '1px solid #cfd7e3', borderRadius: 6, background: directTargetMode === 'external_subcontractor' ? '#eff6ff' : '#fff', padding: 10, textAlign: 'left', cursor: 'pointer' }}
               >
-                <strong style={{ display: 'block', fontSize: 12, color: '#172033' }}>External subcontractor</strong>
-                <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: '#64748b' }}>Confirm work with a non-XDrive subcontractor and retain the commercial record.</span>
+                <strong style={{ display: 'block', fontSize: 14, color: '#172033' }}>External subcontractor</strong>
+                <span style={{ display: 'block', marginTop: 3, fontSize: 14, color: '#64748b' }}>Confirm work with a non-XDrive subcontractor and retain the commercial record.</span>
               </button>
             )}
             {(mode === 'admin' || mode === 'owner') && (
@@ -804,8 +804,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                 onClick={() => setDirectTargetMode('internal_resource')}
                 style={{ border: directTargetMode === 'internal_resource' ? '2px solid #1d57d8' : '1px solid #cfd7e3', borderRadius: 6, background: directTargetMode === 'internal_resource' ? '#eff6ff' : '#fff', padding: 10, textAlign: 'left', cursor: 'pointer' }}
               >
-                <strong style={{ display: 'block', fontSize: 12, color: '#172033' }}>Company driver + vehicle</strong>
-                <span style={{ display: 'block', marginTop: 3, fontSize: 11, color: '#64748b' }}>Create and allocate the booking directly to internal resources.</span>
+                <strong style={{ display: 'block', fontSize: 14, color: '#172033' }}>Company driver + vehicle</strong>
+                <span style={{ display: 'block', marginTop: 3, fontSize: 14, color: '#64748b' }}>Create and allocate the booking directly to internal resources.</span>
               </button>
             )}
           </div>
@@ -818,9 +818,9 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                   {privateGroups.groups.filter((group) => group.allowLoadVisibility).map((group) => <option key={group.id} value={group.id}>Private Group · {group.name} ({group.members.length})</option>)}
                 </select>
               </label>
-              {privateGroups.loading ? <span style={{ color: '#64748b', fontSize: 11 }}>Loading Private Groups…</span> : null}
+              {privateGroups.loading ? <span style={{ color: '#64748b', fontSize: 14 }}>Loading Private Groups…</span> : null}
               {privateGroups.error ? <AlertBanner tone="warning">{privateGroups.error}</AlertBanner> : null}
-              {visibilityGroupId ? <span style={{ color: '#475569', fontSize: 11 }}>Only member companies in the selected Private Group can discover and quote this load.</span> : null}
+              {visibilityGroupId ? <span style={{ color: '#475569', fontSize: 14 }}>Only member companies in the selected Private Group can discover and quote this load.</span> : null}
             </div>
           )}
 
@@ -879,8 +879,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               aria-pressed={form.loadType === option.value}
               style={{ border: form.loadType === option.value ? '2px solid #1d57d8' : '1px solid #cfd7e3', borderRadius: 6, background: form.loadType === option.value ? '#eff6ff' : '#fff', padding: '10px', textAlign: 'left', cursor: 'pointer' }}
             >
-              <strong style={{ display: 'block', color: '#172033', fontSize: 12 }}>{option.label}</strong>
-              <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: 11, lineHeight: '15px' }}>{option.detail}</span>
+              <strong style={{ display: 'block', color: '#172033', fontSize: 14 }}>{option.label}</strong>
+              <span style={{ display: 'block', marginTop: 3, color: '#64748b', fontSize: 14, lineHeight: '15px' }}>{option.detail}</span>
             </button>
           ))}
         </div>
@@ -919,7 +919,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
       <Panel title="Smart / Pro Alerts" description="Optional booking-level proximity alerts. XDrive uses authorised live or telematics positions and never exposes the driver's exact coordinates in the notification.">
         <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
           <input type="checkbox" checked={form.proximityAlertsEnabled} onChange={(event) => set('proximityAlertsEnabled', event.target.checked)} />
-          <span><strong>Enable pickup and delivery proximity alerts</strong><br /><span style={{ color: '#64748b', fontSize: 11 }}>Notify the posting company when the assigned vehicle enters the configured collection or delivery radius.</span></span>
+          <span><strong>Enable pickup and delivery proximity alerts</strong><br /><span style={{ color: '#64748b', fontSize: 14 }}>Notify the posting company when the assigned vehicle enters the configured collection or delivery radius.</span></span>
         </label>
         {form.proximityAlertsEnabled ? (
           <div style={{ ...gridStyle, marginTop: 10 }}>

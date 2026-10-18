@@ -286,7 +286,7 @@ export default function QuotesPage() {
                   ))}
                 </select>
               </label>
-              <div style={{ fontSize: 11, color: '#64748b', lineHeight: '15px' }}>Filters apply live to the current status tab.</div>
+              <div style={{ fontSize: 14, color: '#64748b', lineHeight: '15px' }}>Filters apply live to the current status tab.</div>
               <ActionButton tone="secondary" onClick={clearFilters}>Clear filters</ActionButton>
             </div>
           </aside>
@@ -341,7 +341,7 @@ export default function QuotesPage() {
             )}
 
             {!loading && filteredQuotes.length > QUOTES_PER_PAGE && (
-              <div style={{ minHeight: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 11, color: '#64748b' }}>
+              <div style={{ minHeight: 32, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginTop: 8, fontSize: 14, color: '#64748b' }}>
                 <span>Showing {safeQuotePage * QUOTES_PER_PAGE + 1}–{Math.min((safeQuotePage + 1) * QUOTES_PER_PAGE, filteredQuotes.length)} of {filteredQuotes.length}</span>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <ActionButton tone="secondary" onClick={() => setQuotePage((previous) => Math.max(previous - 1, 0))} disabled={safeQuotePage === 0}>Previous</ActionButton>
@@ -388,7 +388,7 @@ export default function QuotesPage() {
 }
 
 function QuoteField({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#334155' }}><span>{label}</span>{children}</label>;
+  return <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 700, color: '#334155' }}><span>{label}</span>{children}</label>;
 }
 
 const modalFieldPairStyle: React.CSSProperties = {

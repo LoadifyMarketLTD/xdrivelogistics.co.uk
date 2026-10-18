@@ -114,13 +114,13 @@ function AwardConfirmation({
           ['Load ref', `XDL-${candidate.job.id.slice(0, 8).toUpperCase()}`],
         ].map(([label, value]) => (
           <div key={label} style={{ minHeight: 54, padding: '8px 9px', borderRight: '1px solid #e2e8f0', borderBottom: '1px solid #e2e8f0' }}>
-            <span style={{ display: 'block', color: '#64748b', fontSize: 11, lineHeight: '14px', textTransform: 'uppercase', fontWeight: 700 }}>{label}</span>
-            <strong style={{ display: 'block', marginTop: 3, color: '#0f172a', fontSize: 12, lineHeight: '16px' }}>{value}</strong>
+            <span style={{ display: 'block', color: '#64748b', fontSize: 14, lineHeight: '14px', textTransform: 'uppercase', fontWeight: 700 }}>{label}</span>
+            <strong style={{ display: 'block', marginTop: 3, color: '#0f172a', fontSize: 14, lineHeight: '16px' }}>{value}</strong>
           </div>
         ))}
       </div>
-      {candidate.bid.message ? <div style={{ padding: 9, border: '1px solid #e2e8f0', borderRadius: 4, background: '#f8fafc', color: '#334155', fontSize: 11, lineHeight: '16px' }}><strong>Carrier message:</strong> {candidate.bid.message}</div> : null}
-      <div style={{ padding: 9, border: '1px solid #fed7aa', borderRadius: 4, background: '#fff7ed', color: '#9a3412', fontSize: 11, lineHeight: '16px' }}>
+      {candidate.bid.message ? <div style={{ padding: 9, border: '1px solid #e2e8f0', borderRadius: 4, background: '#f8fafc', color: '#334155', fontSize: 14, lineHeight: '16px' }}><strong>Carrier message:</strong> {candidate.bid.message}</div> : null}
+      <div style={{ padding: 9, border: '1px solid #fed7aa', borderRadius: 4, background: '#fff7ed', color: '#9a3412', fontSize: 14, lineHeight: '16px' }}>
         <strong style={{ display: 'block', marginBottom: 4 }}>Payment obligation acknowledgement</strong>
         <span>{BOOKING_PAYMENT_OBLIGATION_ACKNOWLEDGEMENT_TEXT}</span>
         <span style={{ display: 'block', marginTop: 5 }}>Selecting Send Booking Offer records this acknowledgement and creates a pending carrier acceptance request. No transport agreement is formed until the carrier accepts. On acceptance, the selected bid becomes accepted, competing submitted bids are rejected, and the booking advances under the authoritative backend lifecycle.</span>
@@ -160,11 +160,11 @@ function MessageParticipantDialog({
         </>
       }
     >
-      <div style={{ padding: 9, border: '1px solid #dbeafe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '16px' }}>
+      <div style={{ padding: 9, border: '1px solid #dbeafe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 14, lineHeight: '16px' }}>
         The recipient is resolved by XDrive from this real quote. You cannot replace the recipient with another user ID from this screen.
       </div>
       {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
-      <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+      <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 700, color: '#475569' }}>
         MESSAGE
         <textarea
           autoFocus
@@ -176,7 +176,7 @@ function MessageParticipantDialog({
           style={{ width: '100%', padding: 8, border: '1px solid #cbd5e1', borderRadius: 4, font: 'inherit', resize: 'vertical' }}
         />
       </label>
-      <span style={{ fontSize: 11, lineHeight: '14px', color: '#64748b' }}>{body.length}/4000 · messages are immutable once sent</span>
+      <span style={{ fontSize: 14, lineHeight: '14px', color: '#64748b' }}>{body.length}/4000 · messages are immutable once sent</span>
     </WorkspaceDialog>
   );
 }

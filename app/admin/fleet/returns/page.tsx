@@ -404,7 +404,7 @@ export default function CompanyReturnJourneysPage() {
             <label>STATUS<select value={tab} onChange={(event) => setTab(event.target.value as ReturnTab)}><option value="all">All states</option><option value="active">Active</option><option value="closed">Closed</option></select></label>
             <label>VEHICLE<select value={vehicleFilter} onChange={(event) => setVehicleFilter(event.target.value)}><option value="all">All vehicle types</option>{vehicleOptions.map((value) => <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>)}</select></label>
             <label>BODY TYPE<select value={bodyFilter} onChange={(event) => setBodyFilter(event.target.value)}><option value="all">All body types</option>{bodyOptions.map((value) => <option key={value} value={value}>{value.replace(/_/g, ' ')}</option>)}</select></label>
-            <div style={{ fontSize: 11, color: '#64748b', lineHeight: '15px' }}>Filters apply live to company return records.</div>
+            <div style={{ fontSize: 14, color: '#64748b', lineHeight: '15px' }}>Filters apply live to company return records.</div>
             <ActionButton tone="secondary" onClick={() => void loadJourneys()} disabled={loading}>{loading ? 'Refreshing…' : 'Refresh'}</ActionButton>
             <ActionButton tone="secondary" onClick={() => { setFrom(''); setTo(''); setDriverSearch(''); setTab('all'); setJourneyKindFilter('all'); setVehicleFilter('all'); setBodyFilter('all'); }}>Clear filters</ActionButton>
           </div>
@@ -440,7 +440,7 @@ export default function CompanyReturnJourneysPage() {
                 <span>{mapPoints.length} tracked driver{mapPoints.length === 1 ? '' : 's'} in this filtered return view</span>
               </div>
               <FleetPositionMap points={mapPoints} selectedDriverId={null} mode="live" />
-              <div style={{ marginTop: 6, color: '#64748b', fontSize: 11, lineHeight: '15px' }}>Map markers show the latest authorised driver positions only. They do not fabricate a route or ETA for return capacity.</div>
+              <div style={{ marginTop: 6, color: '#64748b', fontSize: 14, lineHeight: '15px' }}>Map markers show the latest authorised driver positions only. They do not fabricate a route or ETA for return capacity.</div>
             </section>
           ) : null}
 
@@ -488,7 +488,7 @@ export default function CompanyReturnJourneysPage() {
                     </div>
 
                     {meta.notes.trim() ? (
-                      <div style={{ padding: '7px 10px', borderTop: '1px solid var(--ws-border-soft)', background: '#f8fafc', color: 'var(--ws-text)', fontSize: 12, lineHeight: '16px' }}>
+                      <div style={{ padding: '7px 10px', borderTop: '1px solid var(--ws-border-soft)', background: '#f8fafc', color: 'var(--ws-text)', fontSize: 14, lineHeight: '16px' }}>
                         <strong style={{ color: 'var(--ws-navy)' }}>Return notes:</strong> {meta.notes.trim()}
                       </div>
                     ) : null}
@@ -528,7 +528,7 @@ const compactLinkStyle = {
   borderRadius: 4,
   background: '#fff',
   color: 'var(--ws-navy)',
-  fontSize: 11,
+  fontSize: 14,
   fontWeight: 700,
   textDecoration: 'none',
 } as const;
@@ -539,7 +539,7 @@ const viewModeButtonStyle = (active: boolean) => ({
   borderRight: '1px solid var(--ws-border)',
   background: active ? '#eff6ff' : '#fff',
   color: active ? '#0b2f6b' : '#64748b',
-  fontSize: 11,
+  fontSize: 14,
   fontWeight: active ? 800 : 700,
   padding: '0 10px',
   cursor: 'pointer',

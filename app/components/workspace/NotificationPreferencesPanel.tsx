@@ -81,12 +81,12 @@ export default function NotificationPreferencesPanel({ driverMode = false }: { d
     {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
     <div style={{ display: 'grid', gap: 8 }}>
       {DEFINITIONS.map((definition) => <div key={definition.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto auto', gap: 12, alignItems: 'center', padding: '8px 0', borderBottom: '1px solid #eef2f7' }}>
-        <div><strong style={{ display: 'block', fontSize: 12 }}>{definition.label}</strong><span style={{ color: '#64748b', fontSize: 11 }}>{definition.description}</span></div>
-        <label style={{ display: 'inline-flex', gap: 5, alignItems: 'center', fontSize: 11, fontWeight: 700 }}><input type="checkbox" checked={values[definition.id].inApp} onChange={(event) => setValues((current) => ({ ...current, [definition.id]: { ...current[definition.id], inApp: event.target.checked } }))} />In-app</label>
-        <label style={{ display: 'inline-flex', gap: 5, alignItems: 'center', fontSize: 11, fontWeight: 700 }}><input type="checkbox" checked={values[definition.id].email} onChange={(event) => setValues((current) => ({ ...current, [definition.id]: { ...current[definition.id], email: event.target.checked } }))} />Email</label>
+        <div><strong style={{ display: 'block', fontSize: 14 }}>{definition.label}</strong><span style={{ color: '#64748b', fontSize: 14 }}>{definition.description}</span></div>
+        <label style={{ display: 'inline-flex', gap: 5, alignItems: 'center', fontSize: 14, fontWeight: 700 }}><input type="checkbox" checked={values[definition.id].inApp} onChange={(event) => setValues((current) => ({ ...current, [definition.id]: { ...current[definition.id], inApp: event.target.checked } }))} />In-app</label>
+        <label style={{ display: 'inline-flex', gap: 5, alignItems: 'center', fontSize: 14, fontWeight: 700 }}><input type="checkbox" checked={values[definition.id].email} onChange={(event) => setValues((current) => ({ ...current, [definition.id]: { ...current[definition.id], email: event.target.checked } }))} />Email</label>
       </div>)}
     </div>
-    {driverMode && <div style={{ marginTop: 10, color: '#64748b', fontSize: 11 }}>Load Alert push notifications are managed separately in your Load Alert preferences. These switches control the XDrive inbox and email channels only.</div>}
+    {driverMode && <div style={{ marginTop: 10, color: '#64748b', fontSize: 14 }}>Load Alert push notifications are managed separately in your Load Alert preferences. These switches control the XDrive inbox and email channels only.</div>}
     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}><ActionButton tone="primary" disabled={saving} onClick={() => void save()}>{saving ? 'Saving…' : 'Save Preferences'}</ActionButton></div>
   </Panel>;
 }

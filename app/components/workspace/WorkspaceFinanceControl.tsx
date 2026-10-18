@@ -179,7 +179,7 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
           />
         )}
       </Panel>
-      {payload?.note ? <div style={{ fontSize: 11, lineHeight: '16px', color: '#64748b' }}>{payload.note}</div> : null}
+      {payload?.note ? <div style={{ fontSize: 14, lineHeight: '16px', color: '#64748b' }}>{payload.note}</div> : null}
     </div>
   );
 }

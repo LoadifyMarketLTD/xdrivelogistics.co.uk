@@ -134,14 +134,14 @@ export default function DriverInstructionPanel({ jobId }: { jobId: string }) {
 
         {state.canAdd ? (
           <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: 8, display: 'grid', gap: 6 }}>
-            <label style={{ display: 'grid', gap: 4, color: '#334155', fontSize: 11, fontWeight: 700 }}>
+            <label style={{ display: 'grid', gap: 4, color: '#334155', fontSize: 14, fontWeight: 700 }}>
               Add change / message
               <textarea
                 value={instruction}
                 maxLength={2000}
                 onChange={(event) => setInstruction(event.target.value)}
                 placeholder="For example: Delivery address update: use the rear gate. Call the site contact 15 minutes before arrival."
-                style={{ width: '100%', minHeight: 72, border: '1px solid #cfd7e3', borderRadius: 4, padding: '7px 8px', fontSize: 12, boxSizing: 'border-box', resize: 'vertical', background: '#fff', color: '#172033' }}
+                style={{ width: '100%', minHeight: 72, border: '1px solid #cfd7e3', borderRadius: 4, padding: '7px 8px', fontSize: 14, boxSizing: 'border-box', resize: 'vertical', background: '#fff', color: '#172033' }}
               />
             </label>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>

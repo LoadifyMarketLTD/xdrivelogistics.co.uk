@@ -108,8 +108,8 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
       <div style={{ display: 'grid', gap: 8, padding: 10 }}>
         {blockers.map((blocker) => <div key={blocker.code} data-restriction-code={blocker.code} style={{ display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', padding: '9px 10px', borderRadius: 6, background: '#fff', border: '1px solid #f4d4d0', minWidth: 0 }}>
           <div style={{ minWidth: 0, flex: '1 1 260px', overflowWrap: 'anywhere' }}>
-            <strong style={{ display: 'block', fontSize: 13 }}>{blocker.title}</strong>
-            <span style={{ display: 'block', marginTop: 2, fontSize: 12 }}>{blocker.message}</span>
+            <strong style={{ display: 'block', fontSize: 14 }}>{blocker.title}</strong>
+            <span style={{ display: 'block', marginTop: 2, fontSize: 14 }}>{blocker.message}</span>
           </div>
           {blocker.actionType === 'stripe_setup' && blocker.companyId ? <StripeSetupAction
             companyId={blocker.companyId} context={operation ?? 'commercial'}
@@ -118,7 +118,7 @@ export default function WorkspaceRestrictionBanner({ role: suppliedRole, operati
             : isSafeRecoveryHref(blocker.actionHref) ? <a href={blocker.actionHref} target="_blank" rel="noopener noreferrer" style={{ ...buttonStyle, textDecoration: 'none' }}>{blocker.actionLabel}</a>
               : <button type="button" style={buttonStyle} onClick={() => router.push(root + '/support?reason=' + encodeURIComponent(blocker.code))}>Contact support</button>}
         </div>)}
-        {(current || error) && <><div style={{ fontSize: 12 }}>Recovery opens separately so your current form stays intact. Return here to re-check; nothing is posted or quoted automatically.</div>
+        {(current || error) && <><div style={{ fontSize: 14 }}>Recovery opens separately so your current form stays intact. Return here to re-check; nothing is posted or quoted automatically.</div>
           <button type="button" disabled={loading} onClick={() => void refresh()} style={{ ...buttonStyle, justifySelf: 'start' }}>{loading ? 'Checking...' : 'Re-check requirements'}</button></>}
       </div>
     </section>

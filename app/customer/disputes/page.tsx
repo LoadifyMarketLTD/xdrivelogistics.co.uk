@@ -141,7 +141,7 @@ export default function CustomerDisputesPage() {
             <ActionButton tone="warning" disabled={saving || !selectedJobId} onClick={() => void submit()}>
               {saving ? 'Submitting…' : 'Raise dispute'}
             </ActionButton>
-            <p style={{ margin: 0, fontSize: 11, lineHeight: 1.45, color: '#64748b' }}>
+            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.45, color: '#64748b' }}>
               Only jobs in your customer workspace can be submitted. The server verifies the job relationship before creating the dispute.
             </p>
           </div>

@@ -364,12 +364,12 @@ export default function FleetControlDashboardHome() {
                 <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/availability')}>Availability</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/returns')}>Return Journeys</ActionButton>
                 <ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/compliance')}>Compliance</ActionButton>
-                <button type="button" onClick={() => router.push('/admin/fleet/positions')} style={{ minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 8px', border: '1px solid #D8DEE8', borderRadius: 4, background: '#fff', color: '#1A1F2B', fontSize: 12, cursor: 'pointer' }}><span>Tracking alerts</span><strong>{trackingDataUnavailable ? 'Unavailable' : trackingAttentionCount}</strong></button>
-                <button type="button" onClick={() => router.push('/admin/fleet/compliance')} style={{ minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 8px', border: '1px solid #D8DEE8', borderRadius: 4, background: '#fff', color: '#1A1F2B', fontSize: 12, cursor: 'pointer' }}><span>Compliance alerts</span><strong>{complianceDataUnavailable ? 'Unavailable' : complianceAttentionCount}</strong></button>
+                <button type="button" onClick={() => router.push('/admin/fleet/positions')} style={{ minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 8px', border: '1px solid #D8DEE8', borderRadius: 4, background: '#fff', color: '#1A1F2B', fontSize: 14, cursor: 'pointer' }}><span>Tracking alerts</span><strong>{trackingDataUnavailable ? 'Unavailable' : trackingAttentionCount}</strong></button>
+                <button type="button" onClick={() => router.push('/admin/fleet/compliance')} style={{ minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 8px', border: '1px solid #D8DEE8', borderRadius: 4, background: '#fff', color: '#1A1F2B', fontSize: 14, cursor: 'pointer' }}><span>Compliance alerts</span><strong>{complianceDataUnavailable ? 'Unavailable' : complianceAttentionCount}</strong></button>
                 <button
                   type="button"
                   onClick={() => router.push('/admin/fleet/compliance')}
-                  style={{ minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 8px', border: '1px solid #D8DEE8', borderRadius: 4, background: '#fff', color: '#1A1F2B', fontSize: 12, cursor: 'pointer' }}
+                  style={{ minHeight: 32, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, padding: '0 8px', border: '1px solid #D8DEE8', borderRadius: 4, background: '#fff', color: '#1A1F2B', fontSize: 14, cursor: 'pointer' }}
                 >
                   <span>Documents expiring</span>
                   <strong>{documentsExpiringValue}</strong>
@@ -416,7 +416,7 @@ export default function FleetControlDashboardHome() {
           <div style={{ flex: '1 1 280px', minWidth: 220 }}><OperationalFilterInput id="fleet-resource-search" value={resourceSearchDraft} onChange={setResourceSearchDraft} onClear={clearResourceSearch} placeholder="Search driver, vehicle, postcode or status" /></div>
           <ActionButton tone="primary" onClick={() => setResourceSearchTerm(resourceSearchDraft.trim().toLowerCase())}>Search</ActionButton>
           <ActionButton tone="secondary" onClick={clearResourceSearch}>Clear</ActionButton>
-          <span style={{ marginLeft: 'auto', color: workspaceTheme.muted, fontSize: 11 }}>{visibleResources.length} visible resource{visibleResources.length === 1 ? '' : 's'}</span>
+          <span style={{ marginLeft: 'auto', color: workspaceTheme.muted, fontSize: 14 }}>{visibleResources.length} visible resource{visibleResources.length === 1 ? '' : 's'}</span>
         </div>
         <DataTable
           columns={['Driver', 'Vehicle', 'Availability', 'Current location / tracked', 'Future position', 'Return journey', 'Advertise', 'Documents', 'Actions']}
@@ -438,12 +438,12 @@ export default function FleetControlDashboardHome() {
             const futureLabel = future?.futurePosition ? future.futurePosition + (future.futurePositionDate ? ' · ' + when(future.futurePositionDate) : '') : 'No future position';
             const journeyLabel = journey ? (journey.fromPostcode || 'From not set') + ' → ' + (journey.toPostcode || 'Go Anywhere') : 'No return journey';
             return [
-              <span key="driver"><strong style={{ display: 'block' }}>{driverName(driver)}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10, marginTop: 1 }}>{normalise(driver.status) || 'status unavailable'} · {driver.phone ?? driver.email ?? 'No contact recorded'}</span></span>,
-              <span key="vehicle"><strong>{vehicleSignal}</strong>{vehicle?.type ? <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>{vehicle.type.replace(/_/g, ' ')}</span> : null}</span>,
+              <span key="driver"><strong style={{ display: 'block' }}>{driverName(driver)}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 14, marginTop: 1 }}>{normalise(driver.status) || 'status unavailable'} · {driver.phone ?? driver.email ?? 'No contact recorded'}</span></span>,
+              <span key="vehicle"><strong>{vehicleSignal}</strong>{vehicle?.type ? <span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 14 }}>{vehicle.type.replace(/_/g, ' ')}</span> : null}</span>,
               <StatusBadge key="availability" value={driver.availability_status ?? 'offline'} tone={normalise(driver.status) === 'active' && normalise(driver.availability_status) === 'available' ? 'green' : undefined} />,
-              <span key="tracking"><strong style={{ display: 'block' }}>{locationLabel}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 10 }}>{trackingDataUnavailable ? 'Tracking unavailable' : compactTimeAgo(timestamp)}</span></span>,
-              <span key="future"><strong style={{ display: 'block' }}>{futureLabel}</strong>{future ? <button type="button" onClick={() => router.push('/admin/fleet/availability')} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d57d8', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Set / edit</button> : null}</span>,
-              <span key="journey"><strong style={{ display: 'block' }}>{journeyLabel}</strong>{journey ? <button type="button" onClick={() => router.push('/admin/fleet/returns')} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d57d8', fontSize: 10, fontWeight: 700, cursor: 'pointer' }}>Manage journey</button> : null}</span>,
+              <span key="tracking"><strong style={{ display: 'block' }}>{locationLabel}</strong><span style={{ display: 'block', color: workspaceTheme.muted, fontSize: 14 }}>{trackingDataUnavailable ? 'Tracking unavailable' : compactTimeAgo(timestamp)}</span></span>,
+              <span key="future"><strong style={{ display: 'block' }}>{futureLabel}</strong>{future ? <button type="button" onClick={() => router.push('/admin/fleet/availability')} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d57d8', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Set / edit</button> : null}</span>,
+              <span key="journey"><strong style={{ display: 'block' }}>{journeyLabel}</strong>{journey ? <button type="button" onClick={() => router.push('/admin/fleet/returns')} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d57d8', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>Manage journey</button> : null}</span>,
               <StatusBadge key="advertise" value={advertising || 'Not advertised'} tone={advertising && normalise(advertising) !== 'not advertised' ? 'green' : undefined} />,
               <StatusBadge key="documents" value={documentSignal.label} tone={documentSignal.tone} />,
               <span key="actions" style={{ display: 'inline-flex', gap: 4 }}><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/drivers')}>Driver</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/vehicles')}>Vehicle</ActionButton><ActionButton tone="secondary" onClick={() => router.push('/admin/fleet/positions')}>Track</ActionButton></span>,
@@ -463,7 +463,7 @@ export default function FleetControlDashboardHome() {
           <OperationalFilterSelect id="fleet-focus" value={focus} onChange={(value) => setFocus(value as FleetFocus)} options={[{ value: 'all', label: 'All attention' }, { value: 'tracking', label: 'Tracking' }, { value: 'compliance', label: 'Compliance' }]} />
           <OperationalFilterSelect id="fleet-urgency" value={urgency} onChange={(value) => setUrgency(value as FleetUrgency)} options={[{ value: 'all', label: 'All priorities' }, { value: 'critical', label: 'Critical only' }, { value: 'high', label: 'High only' }]} />
           <ActionButton tone="primary" onClick={() => setSearchTerm(searchDraft.trim().toLowerCase())}>Search</ActionButton><ActionButton tone="secondary" onClick={clearFilters}>Clear</ActionButton>
-          <span style={{ marginLeft: 'auto', color: workspaceTheme.muted, fontSize: 11 }}>{visibleAttention.length} / {attentionItems.length}</span>
+          <span style={{ marginLeft: 'auto', color: workspaceTheme.muted, fontSize: 14 }}>{visibleAttention.length} / {attentionItems.length}</span>
         </div>
         <DataTable
           columns={['Priority', 'Area', 'Driver / vehicle', 'Detail', 'State', 'Action']}

@@ -133,22 +133,22 @@ export default function CompanyFinanceSettingsPanel({ companyId, companyName }: 
         <label>VAT treatment<select value={settings.defaultVatTreatment} onChange={(e) => { const treatment = e.target.value; const rate = treatment === 'standard' ? 20 : treatment === 'reduced' ? 5 : treatment === 'zero_rated' || treatment === 'not_registered' ? 0 : settings.defaultVatRate; setSettings((v) => ({ ...v, defaultVatTreatment: treatment, defaultVatRate: rate })); }}><option value="standard">Standard rate</option><option value="reduced">Reduced rate</option><option value="zero_rated">Zero-rated</option><option value="reverse_charge">Reverse charge</option><option value="not_registered">Not VAT registered</option></select></label>
         <label>VAT rate<select value={settings.defaultVatRate} onChange={(e) => setSettings((v) => ({ ...v, defaultVatRate: Number(e.target.value) }))}><option value={0}>0%</option><option value={5}>5%</option><option value={20}>20%</option></select></label>
       </div>
-      <div style={{ marginTop: 10, color: '#64748b', fontSize: 11 }}>Standard XDrive payment terms remain Pay now, 14 days or 30 days. Any exceptional extension is handled separately and is not a company default.</div>
+      <div style={{ marginTop: 10, color: '#64748b', fontSize: 14 }}>Standard XDrive payment terms remain Pay now, 14 days or 30 days. Any exceptional extension is handled separately and is not a company default.</div>
     </Panel>}
 
     {tab === 'email' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(280px,1fr))', gap: 10, alignItems: 'start' }}>
       <Panel title="Invoice Email Template" description="Saved company default. Authorised invoice senders can still override it for an individual invoice.">
         <div style={{ display: 'grid', gap: 8 }}>
-          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 800 }}>SUBJECT<input value={settings.invoiceEmailSubject} onChange={(e) => setSettings((v) => ({ ...v, invoiceEmailSubject: e.target.value.slice(0,500) }))} style={{ minHeight: 34 }} /></label>
-          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 800 }}>MESSAGE<textarea rows={15} value={settings.invoiceEmailMessage} onChange={(e) => setSettings((v) => ({ ...v, invoiceEmailMessage: e.target.value.slice(0,10000) }))} style={{ resize: 'vertical' }} /></label>
-          <div style={{ color: '#64748b', fontSize: 10 }}>Tokens: {INVOICE_EMAIL_TOKENS.map((token) => `[[${token}]]`).join(' · ')}</div>
+          <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 800 }}>SUBJECT<input value={settings.invoiceEmailSubject} onChange={(e) => setSettings((v) => ({ ...v, invoiceEmailSubject: e.target.value.slice(0,500) }))} style={{ minHeight: 34 }} /></label>
+          <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 800 }}>MESSAGE<textarea rows={15} value={settings.invoiceEmailMessage} onChange={(e) => setSettings((v) => ({ ...v, invoiceEmailMessage: e.target.value.slice(0,10000) }))} style={{ resize: 'vertical' }} /></label>
+          <div style={{ color: '#64748b', fontSize: 14 }}>Tokens: {INVOICE_EMAIL_TOKENS.map((token) => `[[${token}]]`).join(' · ')}</div>
           <ActionButton tone="secondary" onClick={() => setSettings((v) => ({ ...v, invoiceEmailSubject: DEFAULT_INVOICE_EMAIL_SUBJECT, invoiceEmailMessage: DEFAULT_INVOICE_EMAIL_MESSAGE }))}>Reset to XDrive Default</ActionButton>
         </div>
       </Panel>
       <Panel title="Invoice Email Preview" description="Sample values are used only for this preview.">
         <div style={{ border: '1px solid #e2e8f0', borderRadius: 4, overflow: 'hidden', background: '#fff' }}>
-          <div style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', fontSize: 11 }}><strong>Subject:</strong> {previewSubject}</div>
-          <div style={{ padding: 10, whiteSpace: 'pre-wrap', fontSize: 12, lineHeight: 1.55 }}>{previewMessage}</div>
+          <div style={{ padding: '8px 10px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc', fontSize: 14 }}><strong>Subject:</strong> {previewSubject}</div>
+          <div style={{ padding: 10, whiteSpace: 'pre-wrap', fontSize: 14, lineHeight: 1.55 }}>{previewMessage}</div>
         </div>
       </Panel>
     </div>}

@@ -148,7 +148,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
       </div>
 
       {deleteArmed && job && (
-        <div style={{ border: '1px solid #fecaca', background: '#fff7f7', borderRadius: 5, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', color: '#991b1b', fontSize: 12 }}>
+        <div style={{ border: '1px solid #fecaca', background: '#fff7f7', borderRadius: 5, padding: '10px 12px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, flexWrap: 'wrap', color: '#991b1b', fontSize: 14 }}>
           <div><strong>Delete XDL-{job.id.slice(0, 8).toUpperCase()} permanently?</strong><div style={{ marginTop: 2 }}>This is allowed only while the load is unawarded, unallocated and has no protected quote, POD, invoice or execution history.</div></div>
           <div style={{ display: 'flex', gap: 7 }}>
             <ActionButton tone="secondary" disabled={working === 'delete'} onClick={() => setDeleteArmed(false)}>Keep Load</ActionButton>
@@ -191,7 +191,7 @@ export default function CustomerBookingDetailPage({ params }: { params: Promise<
                   ];
                 })}
               />
-              <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #bfdbfe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 11, lineHeight: '15px' }}>
+              <div style={{ marginTop: 8, padding: '7px 8px', border: '1px solid #bfdbfe', borderRadius: 4, background: '#eff6ff', color: '#1e3a8a', fontSize: 14, lineHeight: '15px' }}>
                 Carrier reputation, live ETA/distance and richer booking-comparison attributes remain separate parity-ledger fields until the authorised customer quote projection exposes them. Price, member identity, quote message and submission time above are real current-contract fields.
               </div>
             </Panel>

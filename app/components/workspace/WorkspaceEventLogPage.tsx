@@ -20,7 +20,7 @@ type EventRow = {
 const cellLabelStyle = {
   display: 'block',
   color: '#526176',
-  fontSize: 11,
+  fontSize: 14,
   lineHeight: '14px',
   fontWeight: 650,
 } as const;
@@ -28,7 +28,7 @@ const cellLabelStyle = {
 const cellPrimaryStyle = {
   display: 'block',
   color: '#172033',
-  fontSize: 13,
+  fontSize: 14,
   lineHeight: '18px',
   fontWeight: 650,
   overflowWrap: 'anywhere',
@@ -36,7 +36,7 @@ const cellPrimaryStyle = {
 
 const cellMetaStyle = {
   color: '#64748b',
-  fontSize: 11,
+  fontSize: 14,
   lineHeight: '15px',
   overflowWrap: 'anywhere',
 } as const;

@@ -114,7 +114,7 @@ export default function MfaSecurityPanel() {
     {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
     <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
       <StatusBadge value={hasVerifiedMfa ? '2FA enabled' : '2FA not enabled'} tone={hasVerifiedMfa ? 'green' : 'orange'} />
-      <span style={{ color: '#64748b', fontSize: 11 }}>Session assurance: {currentLevel ?? 'unknown'}{nextLevel && nextLevel !== currentLevel ? ` → ${nextLevel} available` : ''}</span>
+      <span style={{ color: '#64748b', fontSize: 14 }}>Session assurance: {currentLevel ?? 'unknown'}{nextLevel && nextLevel !== currentLevel ? ` → ${nextLevel} available` : ''}</span>
     </div>
 
     {!hasVerifiedMfa && !enrollment && <ActionButton tone="primary" disabled={working} onClick={() => void beginEnrollment()}>{working ? 'Starting…' : 'Set up authenticator'}</ActionButton>}
@@ -122,19 +122,19 @@ export default function MfaSecurityPanel() {
     {enrollment && <div style={{ display: 'grid', gap: 10 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'auto minmax(0,1fr)', gap: 12, alignItems: 'center' }}>
         <img src={enrollment.qrCode} alt="XDrive two-factor authentication QR code" width={160} height={160} style={{ border: '1px solid #e2e8f0', borderRadius: 4, background: '#fff', padding: 6 }} />
-        <div style={{ minWidth: 0 }}><strong style={{ display: 'block', marginBottom: 4 }}>Scan with your authenticator app</strong><span style={{ color: '#64748b', fontSize: 11 }}>If scanning is unavailable, enter this secret manually:</span><code style={{ display: 'block', marginTop: 5, overflowWrap: 'anywhere', fontSize: 11 }}>{enrollment.secret}</code></div>
+        <div style={{ minWidth: 0 }}><strong style={{ display: 'block', marginBottom: 4 }}>Scan with your authenticator app</strong><span style={{ color: '#64748b', fontSize: 14 }}>If scanning is unavailable, enter this secret manually:</span><code style={{ display: 'block', marginTop: 5, overflowWrap: 'anywhere', fontSize: 14 }}>{enrollment.secret}</code></div>
       </div>
-      <label style={{ display: 'grid', gap: 4, maxWidth: 240, fontSize: 11, fontWeight: 800 }}>6-DIGIT CODE<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" /></label>
+      <label style={{ display: 'grid', gap: 4, maxWidth: 240, fontSize: 14, fontWeight: 800 }}>6-DIGIT CODE<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" /></label>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="primary" disabled={working} onClick={() => void verifyEnrollment()}>{working ? 'Verifying…' : 'Verify and enable 2FA'}</ActionButton><ActionButton tone="secondary" disabled={working} onClick={() => { setEnrollment(null); setCode(''); }}>Cancel</ActionButton></div>
     </div>}
 
     {hasVerifiedMfa && <div style={{ display: 'grid', gap: 10 }}>
-      <label style={{ display: 'grid', gap: 4, maxWidth: 240, fontSize: 11, fontWeight: 800 }}>AUTHENTICATOR CODE<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" /></label>
+      <label style={{ display: 'grid', gap: 4, maxWidth: 240, fontSize: 14, fontWeight: 800 }}>AUTHENTICATOR CODE<input inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(event) => setCode(event.target.value.replace(/\D/g, '').slice(0, 6))} placeholder="123456" /></label>
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
         {currentLevel !== 'aal2' && <ActionButton tone="primary" disabled={working} onClick={() => void stepUp()}>{working ? 'Verifying…' : 'Verify this session'}</ActionButton>}
         <ActionButton tone="danger" disabled={working} onClick={() => void disableMfa()}>{working ? 'Updating…' : 'Disable 2FA'}</ActionButton>
       </div>
-      <div style={{ color: '#64748b', fontSize: 11 }}>Disabling a verified factor requires a recent AAL2 verification; XDrive performs that verification first when required.</div>
+      <div style={{ color: '#64748b', fontSize: 14 }}>Disabling a verified factor requires a recent AAL2 verification; XDrive performs that verification first when required.</div>
     </div>}
   </Panel>;
 }

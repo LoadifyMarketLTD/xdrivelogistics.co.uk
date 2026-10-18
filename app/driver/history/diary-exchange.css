@@ -686,7 +686,7 @@
 }
 .driver-diary-route .driver-diary-vehicle-line,
 .driver-diary-route .driver-diary-ref-line{
-  font-size:9.5px!important;
+  font-size: 14px!important;
   line-height:12px!important;
   color:var(--ws-muted,#64748b)!important;
 }

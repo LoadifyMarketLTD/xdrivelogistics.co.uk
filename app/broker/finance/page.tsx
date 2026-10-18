@@ -12,7 +12,7 @@ import { WorkspaceFinanceControl } from '../../components/workspace/WorkspaceFin
 const compactCopy: React.CSSProperties = {
   margin: 0,
   color: '#64748b',
-  fontSize: 11,
+  fontSize: 14,
   lineHeight: '16px',
 };
 

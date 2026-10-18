@@ -9,13 +9,13 @@ import { ActionButton, AlertBanner, EmptyState, Panel } from './WorkspaceUI';
 const VEHICLES = ['Small Van', 'SWB Van', 'MWB Van', 'LWB Van', 'XLWB Van', 'Luton', 'Luton Tail Lift', 'Curtainside Van', '3.5T', '5T', '7.5T', '12T', '18T', '26T', 'Artic 44T Curtainsider', 'Artic 44T Box Trailer', 'Artic 44T Flatbed', 'Artic 44T Refrigerated', 'Hiab', 'Moffett', 'ADR Vehicle', 'Refrigerated Vehicle'];
 const CARGO = ['Documents', 'Parcels', 'Pallets', 'Machinery', 'Furniture', 'Retail Goods', 'Mixed Freight', 'ADR Goods', 'Temperature Controlled Freight', 'Other'];
 const QUARTER_HOUR_SLOTS = Array.from({ length: 96 }, (_, index) => `${String(Math.floor(index / 4)).padStart(2, '0')}:${String((index % 4) * 15).padStart(2, '0')}`);
-const fieldStyle = { width: '100%', minHeight: 32, border: '1px solid #cfd7e3', borderRadius: 4, padding: '0 8px', fontSize: 12, boxSizing: 'border-box' as const, background: '#fff', color: '#172033' };
+const fieldStyle = { width: '100%', minHeight: 32, border: '1px solid #cfd7e3', borderRadius: 4, padding: '0 8px', fontSize: 14, boxSizing: 'border-box' as const, background: '#fff', color: '#172033' };
 const textareaStyle = { ...fieldStyle, minHeight: 72, padding: '7px 8px', resize: 'vertical' as const };
-const labelStyle = { display: 'grid', gap: 4, color: '#334155', fontSize: 11, lineHeight: '14px', fontWeight: 700 };
+const labelStyle = { display: 'grid', gap: 4, color: '#334155', fontSize: 14, lineHeight: '14px', fontWeight: 700 };
 const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(180px,1fr))', gap: 8 } as const;
-const microButtonStyle = { minHeight: 26, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 7px', background: '#fff', color: '#334155', fontSize: 11, fontWeight: 700, cursor: 'pointer' } as const;
+const microButtonStyle = { minHeight: 26, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 7px', background: '#fff', color: '#334155', fontSize: 14, fontWeight: 700, cursor: 'pointer' } as const;
 const invalidStyle = { border: '1px solid #dc2626', background: '#fffafa' };
-const errorTextStyle = { color: '#b91c1c', fontSize: 11, lineHeight: '14px', fontWeight: 700 } as const;
+const errorTextStyle = { color: '#b91c1c', fontSize: 14, lineHeight: '14px', fontWeight: 700 } as const;
 
 const normalizePostcode = (value: string) => {
   const compact = value.toUpperCase().replace(/\s+/g, '').trim();
@@ -125,7 +125,7 @@ function StopFields({
   const postcodeError = showErrors && (!postcode.trim() ? 'Required' : !isFullUkPostcode(postcode) ? 'Enter a full UK postcode' : '');
   const addressError = showErrors && !address.trim() ? 'Required' : '';
   return <div style={{ display: 'grid', gap: 7 }}>
-    <strong style={{ fontSize: 12 }}>{title}</strong>
+    <strong style={{ fontSize: 14 }}>{title}</strong>
     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
       <label style={labelStyle}>Date *<input style={{ ...fieldStyle, ...(showErrors && !date ? invalidStyle : {}) }} type="date" value={date} onChange={(event) => onDate(event.target.value)} />{showErrors && !date ? <span style={errorTextStyle}>Required</span> : null}</label>
       <label style={labelStyle}>Time *<select style={{ ...fieldStyle, ...(showErrors && !time ? invalidStyle : {}) }} value={time} onChange={(event) => onTime(event.target.value)}><option value="">Select time</option>{QUARTER_HOUR_SLOTS.map((slot) => <option key={slot} value={slot}>{slot}</option>)}</select>{showErrors && !time ? <span style={errorTextStyle}>Required</span> : null}</label>
@@ -253,9 +253,9 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
         <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(v) => set('deliveryDate', v)} onTime={(v) => set('deliveryTime', v)} onPostcode={(v) => set('deliveryPostcode', v)} onAddress={(v) => set('deliveryAddress', v)} onContact={(v) => set('deliveryContact', v)} onPhone={(v) => set('deliveryPhone', v)} showErrors={showErrors} />
       </div>
       <div style={{ display: 'grid', gap: 8, borderTop: '1px solid #e2e8f0', marginTop: 12, paddingTop: 10 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}><div><strong style={{ fontSize: 12 }}>Additional stops</strong><div style={{ fontSize: 11, color: '#64748b' }}>Corrections are allowed at any stage. A progressed stop can be corrected, but its executed position/type cannot be removed or reordered.</div></div><ActionButton tone="secondary" disabled={saving || additionalStops.length >= 8} onClick={addStop}>{additionalStops.length >= 8 ? 'Maximum 8 stops' : 'Add stop'}</ActionButton></div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8 }}><div><strong style={{ fontSize: 14 }}>Additional stops</strong><div style={{ fontSize: 14, color: '#64748b' }}>Corrections are allowed at any stage. A progressed stop can be corrected, but its executed position/type cannot be removed or reordered.</div></div><ActionButton tone="secondary" disabled={saving || additionalStops.length >= 8} onClick={addStop}>{additionalStops.length >= 8 ? 'Maximum 8 stops' : 'Add stop'}</ActionButton></div>
         {additionalStops.map((stop, index) => <div key={stop.id} style={{ border: '1px solid #dbe3ee', borderRadius: 4, padding: 10, display: 'grid', gap: 8, background: '#fbfdff' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><strong style={{ fontSize: 12 }}>Stop {index + 2}{stop.locked ? ' · Executed position locked' : ''}</strong><div style={{ display: 'flex', gap: 5 }}><button type="button" style={microButtonStyle} disabled={index === 0 || saving || stop.locked || Boolean(additionalStops[index - 1]?.locked)} onClick={() => moveStop(stop.id, -1)}>Move up</button><button type="button" style={microButtonStyle} disabled={index === additionalStops.length - 1 || saving || stop.locked || Boolean(additionalStops[index + 1]?.locked)} onClick={() => moveStop(stop.id, 1)}>Move down</button><button type="button" style={microButtonStyle} disabled={saving || stop.locked} onClick={() => removeStop(stop.id)}>Remove</button></div></div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}><strong style={{ fontSize: 14 }}>Stop {index + 2}{stop.locked ? ' · Executed position locked' : ''}</strong><div style={{ display: 'flex', gap: 5 }}><button type="button" style={microButtonStyle} disabled={index === 0 || saving || stop.locked || Boolean(additionalStops[index - 1]?.locked)} onClick={() => moveStop(stop.id, -1)}>Move up</button><button type="button" style={microButtonStyle} disabled={index === additionalStops.length - 1 || saving || stop.locked || Boolean(additionalStops[index + 1]?.locked)} onClick={() => moveStop(stop.id, 1)}>Move down</button><button type="button" style={microButtonStyle} disabled={saving || stop.locked} onClick={() => removeStop(stop.id)}>Remove</button></div></div>
           <label style={labelStyle}>Stop type<select style={fieldStyle} value={stop.type} disabled={Boolean(stop.locked)} onChange={(event) => updateStop(stop.id, { type: event.target.value as 'collection' | 'delivery' })}><option value="collection">Collection</option><option value="delivery">Delivery</option></select></label>
           <StopFields title={stop.type === 'collection' ? 'Collection stop' : 'Delivery stop'} date={stop.date} time={stop.time} postcode={stop.postcode} address={stop.address} contact={stop.contact} phone={stop.phone} onDate={(v) => updateStop(stop.id, { date: v })} onTime={(v) => updateStop(stop.id, { time: v })} onPostcode={(v) => updateStop(stop.id, { postcode: v })} onAddress={(v) => updateStop(stop.id, { address: v })} onContact={(v) => updateStop(stop.id, { contact: v })} onPhone={(v) => updateStop(stop.id, { phone: v })} showErrors={showErrors} />
           <label style={labelStyle}>Private stop instructions<textarea style={textareaStyle} value={stop.instructions} onChange={(event) => updateStop(stop.id, { instructions: event.target.value })} /></label>
@@ -274,7 +274,7 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
         <label style={labelStyle}>Height (cm)<input style={fieldStyle} inputMode="decimal" value={form.height} onChange={(event) => set('height', event.target.value)} /></label>
         <label style={labelStyle}>Cargo value (£)<input style={fieldStyle} inputMode="decimal" value={form.cargoValue} onChange={(event) => set('cargoValue', event.target.value)} /></label>
       </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10, fontSize: 11 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 10, fontSize: 14 }}>
         <label><input type="checkbox" checked={form.tailLift} onChange={(event) => set('tailLift', event.target.checked)} /> Tail lift required</label>
         <label><input type="checkbox" checked={form.forklift} onChange={(event) => set('forklift', event.target.checked)} /> Forklift available at collection</label>
         <label><input type="checkbox" checked={form.handball} onChange={(event) => set('handball', event.target.checked)} /> Handball required</label>

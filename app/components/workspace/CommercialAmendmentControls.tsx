@@ -48,11 +48,11 @@ const fieldStyle = {
   padding: '0 8px',
   background: '#fff',
   color: '#172033',
-  fontSize: 12,
+  fontSize: 14,
   boxSizing: 'border-box' as const,
 };
 const textAreaStyle = { ...fieldStyle, minHeight: 72, padding: '8px' };
-const labelStyle = { display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#334155' };
+const labelStyle = { display: 'grid', gap: 4, fontSize: 14, fontWeight: 700, color: '#334155' };
 const localDateTime = (value: string | null) => {
   if (!value) return '';
   const date = new Date(value);
@@ -337,7 +337,7 @@ export default function CommercialAmendmentControls(props: Props) {
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
       <div>
         <strong>Job changes / amendments</strong>
-        <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>
+        <div style={{ fontSize: 14, color: '#64748b', marginTop: 2 }}>
           Accepted booking terms remain versioned. A proposed change is not active until the counterparty accepts it.
         </div>
       </div>
@@ -355,12 +355,12 @@ export default function CommercialAmendmentControls(props: Props) {
       <div key={row.id} style={{ border: '1px solid #f5a300', background: '#fffaf0', borderRadius: 6, padding: 10, display: 'grid', gap: 7 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8, flexWrap: 'wrap' }}>
           <strong>Job Change Request · v{row.version_number}</strong>
-          <span style={{ fontSize: 11, fontWeight: 800, color: '#9a5a00' }}>PENDING ACCEPTANCE</span>
+          <span style={{ fontSize: 14, fontWeight: 800, color: '#9a5a00' }}>PENDING ACCEPTANCE</span>
         </div>
-        <div style={{ fontSize: 12 }}><strong>Reason:</strong> {row.reason}</div>
-        <div style={{ fontSize: 12 }}><strong>Proposed carrier total:</strong> {displayMoney(row.effective_agreed_amount, row.currency)}</div>
+        <div style={{ fontSize: 14 }}><strong>Reason:</strong> {row.reason}</div>
+        <div style={{ fontSize: 14 }}><strong>Proposed carrier total:</strong> {displayMoney(row.effective_agreed_amount, row.currency)}</div>
         {priceAdjustment(row) ? (
-          <div style={{ fontSize: 12 }}>
+          <div style={{ fontSize: 14 }}>
             <strong>Price adjustment:</strong> {signedMoney(priceAdjustment(row)!.delta, row.currency)}
             {' '}({displayMoney(priceAdjustment(row)!.from, row.currency)} → {displayMoney(priceAdjustment(row)!.to, row.currency)})
           </div>
@@ -368,19 +368,19 @@ export default function CommercialAmendmentControls(props: Props) {
         {amendmentChangeLines(row).length ? (
           <div style={{ display: 'grid', gap: 4, borderTop: '1px solid #fde7b2', paddingTop: 6 }}>
             {amendmentChangeLines(row).map((change, index) => (
-              <div key={row.id + '-change-' + index} style={{ fontSize: 11, color: '#475569' }}>
+              <div key={row.id + '-change-' + index} style={{ fontSize: 14, color: '#475569' }}>
                 <strong>{change.label}:</strong> {change.from} → {change.to}
               </div>
             ))}
           </div>
         ) : null}
         {verbalSummary(row) ? (
-          <div style={{ fontSize: 11, color: '#475569' }}>
+          <div style={{ fontSize: 14, color: '#475569' }}>
             <strong>Verbal agreement recorded by poster:</strong> {verbalSummary(row)}
             <div>App acceptance is still required before this change becomes active.</div>
           </div>
         ) : null}
-        <div style={{ fontSize: 11, color: '#64748b' }}>Proposed {humanTime(row.proposed_at)}</div>
+        <div style={{ fontSize: 14, color: '#64748b' }}>Proposed {humanTime(row.proposed_at)}</div>
         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <ActionButton
             tone="primary"
@@ -468,7 +468,7 @@ export default function CommercialAmendmentControls(props: Props) {
           />
         </label>
 
-        <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 12, color: '#334155', fontWeight: 700 }}>
+        <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, color: '#334155', fontWeight: 700 }}>
           <input
             type="checkbox"
             checked={verbalAgreementConfirmed}
@@ -488,7 +488,7 @@ export default function CommercialAmendmentControls(props: Props) {
             />
           </label>
         ) : null}
-        <div style={{ fontSize: 11, color: '#64748b' }}>
+        <div style={{ fontSize: 14, color: '#64748b' }}>
           The verbal-agreement tick records the poster's declaration only. The change becomes active only after the carrier or assigned driver accepts it in XDrive.
         </div>
 
@@ -507,7 +507,7 @@ export default function CommercialAmendmentControls(props: Props) {
     {!loading && rows.length === 0 ? <EmptyState compact title="No job amendments recorded" /> : null}
     {!loading && rows.length > 0 ? (
       <div style={{ display: 'grid', gap: 5 }}>
-        <strong style={{ fontSize: 12 }}>Change history</strong>
+        <strong style={{ fontSize: 14 }}>Change history</strong>
         {rows.map((row) => (
           <div key={'history-' + row.id} style={{ border: '1px solid #e2e8f0', borderRadius: 6, padding: 8, display: 'grid', gap: 5 }}>
             <div className="workspace-record-meta">
@@ -517,19 +517,19 @@ export default function CommercialAmendmentControls(props: Props) {
               <span>{humanTime(row.decided_at ?? row.proposed_at)}</span>
             </div>
             {priceAdjustment(row) ? (
-              <div style={{ fontSize: 11, color: '#475569' }}>
+              <div style={{ fontSize: 14, color: '#475569' }}>
                 <strong>Price:</strong> {displayMoney(priceAdjustment(row)!.from, row.currency)}
                 {' '}→ {displayMoney(priceAdjustment(row)!.to, row.currency)}
                 {' '}({signedMoney(priceAdjustment(row)!.delta, row.currency)})
               </div>
             ) : null}
             {amendmentChangeLines(row).map((change, index) => (
-              <div key={row.id + '-history-change-' + index} style={{ fontSize: 11, color: '#475569' }}>
+              <div key={row.id + '-history-change-' + index} style={{ fontSize: 14, color: '#475569' }}>
                 <strong>{change.label}:</strong> {change.from} → {change.to}
               </div>
             ))}
             {verbalSummary(row) ? (
-              <div style={{ fontSize: 11, color: '#64748b' }}>
+              <div style={{ fontSize: 14, color: '#64748b' }}>
                 <strong>Verbal agreement declaration:</strong> {verbalSummary(row)}
               </div>
             ) : null}

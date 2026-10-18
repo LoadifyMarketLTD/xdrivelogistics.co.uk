@@ -406,11 +406,11 @@ export default function BulkBookingImport({ mode }: { mode: ImportMode }) {
 
       <Panel title="1. Prepare and validate workbook" description="Download the controlled template, complete one booking per row, then upload the .xlsx file for validation. Nothing is created during validation.">
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={{ display: 'inline-flex', alignItems: 'center', minHeight: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 12px', background: '#fff', fontWeight: 800, fontSize: 12, cursor: 'pointer' }}>
+          <label style={{ display: 'inline-flex', alignItems: 'center', minHeight: 34, border: '1px solid #cbd5e1', borderRadius: 6, padding: '0 12px', background: '#fff', fontWeight: 800, fontSize: 14, cursor: 'pointer' }}>
             Choose XLSX
             <input type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" onChange={(event) => void parseFile(event)} style={{ display: 'none' }} />
           </label>
-          <span style={{ color: '#64748b', fontSize: 12 }}>{fileName || 'No workbook selected'}</span>
+          <span style={{ color: '#64748b', fontSize: 14 }}>{fileName || 'No workbook selected'}</span>
         </div>
       </Panel>
 
@@ -425,7 +425,7 @@ export default function BulkBookingImport({ mode }: { mode: ImportMode }) {
               `${row.vehicle} · ${row.cargo}`,
               row.bookingReference || row.customerReference || '—',
               row.errors.length
-                ? <span key="errors" style={{ color: '#b91c1c', fontSize: 11 }}>{row.errors.join('; ')}</span>
+                ? <span key="errors" style={{ color: '#b91c1c', fontSize: 14 }}>{row.errors.join('; ')}</span>
                 : <StatusBadge key="valid" value={row.status === 'created' ? 'created' : row.status === 'failed' ? 'failed' : 'ready'} tone={row.status === 'failed' ? 'red' : 'green'} />,
               row.result || '—',
             ])}
@@ -435,7 +435,7 @@ export default function BulkBookingImport({ mode }: { mode: ImportMode }) {
 
       <Panel title="3. Create bookings" description="Draft is the safer default. Publishing uses the same marketplace readiness controls as manual Post Load.">
         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 12, fontWeight: 700, color: '#334155' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 14, fontWeight: 700, color: '#334155' }}>
             <input type="checkbox" checked={publish} onChange={(event) => setPublish(event.target.checked)} disabled={running || created.length > 0} />
             Publish valid bookings to the Exchange immediately
           </label>
@@ -448,7 +448,7 @@ export default function BulkBookingImport({ mode }: { mode: ImportMode }) {
           </ActionButton>
         </div>
         {invalid.length > 0 && (
-          <div style={{ marginTop: 10, color: '#b45309', fontSize: 11, fontWeight: 700 }}>
+          <div style={{ marginTop: 10, color: '#b45309', fontSize: 14, fontWeight: 700 }}>
             Correct all {invalid.length} invalid row(s) in Excel and upload the workbook again before import.
           </div>
         )}

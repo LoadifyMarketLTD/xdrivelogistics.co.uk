@@ -322,7 +322,7 @@ export default function AvailabilityPage() {
               <dl className="driver-availability-facts">
                 <div><dt>Vehicle</dt><dd>{vehicleLabel}</dd></div><div><dt>Registration</dt><dd>{vehicle?.reg_plate ?? '—'}</dd></div><div><dt>Payload</dt><dd>{vehicle?.payload_kg ? `${vehicle.payload_kg} kg` : '—'}</dd></div><div><dt>Tail lift</dt><dd>{vehicle ? (vehicle.has_tail_lift ? 'Yes' : 'No') : '—'}</dd></div>
               </dl>
-              <div style={{ marginTop: 6, color: '#64748b', fontSize: 11, lineHeight: '15px' }}>Vehicle identity only; full operational eligibility is revalidated by the server when quoting or allocating work.</div>
+              <div style={{ marginTop: 6, color: '#64748b', fontSize: 14, lineHeight: '15px' }}>Vehicle identity only; full operational eligibility is revalidated by the server when quoting or allocating work.</div>
             </div>
 
             <div className="driver-availability-section">

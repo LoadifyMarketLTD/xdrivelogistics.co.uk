@@ -71,7 +71,7 @@
 .driver-live-legend i[data-tone='green']{background:#62b72c}
 .driver-live-legend i[data-tone='amber']{background:#f5a300}
 .driver-live-legend i[data-tone='red']{background:#e62b35}
-.driver-live-legend b{min-width:22px;height:22px;border-radius:11px;display:grid;place-items:center;background:#1d57d8;color:#fff;font-size:9px}
+.driver-live-legend b{min-width:22px;height:22px;border-radius:11px;display:grid;place-items:center;background:#1d57d8;color:#fff;font-size: 14px}
 .driver-live-table-scroll{width:100%;min-width:0;overflow:auto;border:1px solid #d4dce5;border-top:0;background:#fff;max-height:330px}
 .driver-live-table{width:100%;min-width:900px;border-collapse:collapse;font-size:var(--ws-font-body, 14px)}
 .driver-live-table th{height:var(--ws-table-head-h,40px);padding:6px 8px;background:#eef4fb;border-right:1px solid #d9e1ea;border-bottom:1px solid #c8d3df;color:#36506d;text-align:left;font-size: 14px;text-transform:uppercase;white-space:nowrap}

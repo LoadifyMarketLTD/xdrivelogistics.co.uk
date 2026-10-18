@@ -121,8 +121,8 @@ export default function CompanyBlockedMembersPanel({ companyId }: { companyId: s
 
     <Panel title="Block a Member" description="Blocked companies are prevented from normal commercial interaction where the XDrive workflow checks the company block contract.">
       <div style={{ display: 'grid', gridTemplateColumns: 'minmax(220px,1fr) minmax(260px,2fr) auto', gap: 8, alignItems: 'end' }}>
-        <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 800 }}>XD ID / company number / exact company name<input value={reference} onChange={(e) => setReference(e.target.value.slice(0, 160))} placeholder="XD-001234 or company name" /></label>
-        <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 800 }}>Reason<input value={reason} onChange={(e) => setReason(e.target.value.slice(0, 500))} placeholder="Internal reason (optional)" /></label>
+        <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 800 }}>XD ID / company number / exact company name<input value={reference} onChange={(e) => setReference(e.target.value.slice(0, 160))} placeholder="XD-001234 or company name" /></label>
+        <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 800 }}>Reason<input value={reason} onChange={(e) => setReason(e.target.value.slice(0, 500))} placeholder="Internal reason (optional)" /></label>
         <ActionButton tone="primary" disabled={working} onClick={() => void blockMember()}>{working ? 'Saving…' : 'Block Member'}</ActionButton>
       </div>
     </Panel>

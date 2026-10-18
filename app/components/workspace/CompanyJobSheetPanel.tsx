@@ -487,7 +487,7 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
               {operatorNextStatus === 'completed' && !podCompleteForOperator ? <AlertBanner tone="warning">Complete POD first: delivery evidence, recipient signature and recipient name are required before completion.</AlertBanner> : null}
               {operatorNextStatus ? (
                 <>
-                  <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700 }}>
+                  <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 700 }}>
                     OPERATOR NOTE (OPTIONAL)
                     <textarea value={operatorNote} onChange={(event) => setOperatorNote(event.target.value)} maxLength={1000} placeholder="Reason or operational context for this status update" style={{ minHeight: 64, resize: 'vertical' }} />
                   </label>
@@ -495,10 +495,10 @@ export function CompanyJobSheetPanel({ jobId, mode, initialTab = 'agreement' }: 
                     <ActionButton tone="success" disabled={operatorWorking || operatorTransitionBlocked} onClick={() => void advanceOperatorStatus()}>
                       {operatorWorking ? 'Saving status...' : OPERATOR_STATUS_ACTION[operatorNextStatus] ?? `Advance to ${human(operatorNextStatus)}`}
                     </ActionButton>
-                    <span style={{ fontSize: 11, color: '#64748b' }}>Sequential transition only. XDrive revalidates current status, executing company, assignment and POD server-side.</span>
+                    <span style={{ fontSize: 14, color: '#64748b' }}>Sequential transition only. XDrive revalidates current status, executing company, assignment and POD server-side.</span>
                   </div>
                 </>
-              ) : <span style={{ fontSize: 11, color: '#64748b' }}>No further operator transition is available from this status.</span>}
+              ) : <span style={{ fontSize: 14, color: '#64748b' }}>No further operator transition is available from this status.</span>}
               {operatorMessage ? <AlertBanner tone={operatorMessage.startsWith('Status updated') ? 'success' : 'warning'}>{operatorMessage}</AlertBanner> : null}
             </div>
           ) : null}

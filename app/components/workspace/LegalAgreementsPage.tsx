@@ -328,11 +328,11 @@ export default function LegalAgreementsPage({
             <div style={{ display: 'grid', gap: 8 }}>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, alignItems: 'center' }}>
                 <StatusBadge value={model.requiresReacceptance ? 'action required' : 'current'} />
-                <strong style={{ fontSize: 12, color: '#0f172a' }}>{ROLE_LABELS[model.currentRequirement.registrationRole] ?? model.currentRequirement.registrationRole}</strong>
-                <span style={{ fontSize: 11, color: '#64748b' }}>Legal gate {model.currentRequirement.legalVersion}</span>
+                <strong style={{ fontSize: 14, color: '#0f172a' }}>{ROLE_LABELS[model.currentRequirement.registrationRole] ?? model.currentRequirement.registrationRole}</strong>
+                <span style={{ fontSize: 14, color: '#64748b' }}>Legal gate {model.currentRequirement.legalVersion}</span>
               </div>
 
-              <label style={{ display: 'grid', gap: 4, maxWidth: 280, fontSize: 10, color: '#64748b' }}>
+              <label style={{ display: 'grid', gap: 4, maxWidth: 280, fontSize: 14, color: '#64748b' }}>
                 <strong style={{ color: '#0f172a' }}>Legal document language</strong>
                 <select value={legalLanguage} onChange={(event) => { setLegalLanguage(event.target.value as LegalLanguage); resetConfirmations(); }} style={{ border: '1px solid #dbe3ee', borderRadius: 4, padding: '7px 8px', background: '#fff', color: '#0f172a', fontWeight: 700 }}>
                   {LEGAL_LANGUAGES.map((item) => <option key={item} value={item}>{LEGAL_LANGUAGE_LABELS[item]}</option>)}
@@ -365,12 +365,12 @@ export default function LegalAgreementsPage({
                 <ul>{model.currentRequirement.agreements.filter(item => acceptedDocumentCodes.includes(item.code)).map(item =>
                   <li key={item.code}>{item.label} - v{item.version}</li>)}</ul>
                 {model.reacceptanceReasons.length > 0 && (
-                  <div style={{ display: 'grid', gap: 3, color: '#7c2d12', fontSize: 11, lineHeight: '15px' }}>
+                  <div style={{ display: 'grid', gap: 3, color: '#7c2d12', fontSize: 14, lineHeight: '15px' }}>
                     {model.reacceptanceReasons.map((reason) => <span key={reason}>• {reasonLabel(reason)}</span>)}
                   </div>
                 )}
 
-                <label style={{ display: 'grid', gap: 4, maxWidth: 420, fontSize: 11, color: '#334155' }}>
+                <label style={{ display: 'grid', gap: 4, maxWidth: 420, fontSize: 14, color: '#334155' }}>
 
 
                   <strong style={{ color: '#0f172a' }}>Full legal name of signer</strong>
@@ -379,39 +379,39 @@ export default function LegalAgreementsPage({
                   <input type="text" value={signerFullName} onChange={(event) => setSignerFullName(event.target.value)} maxLength={120} autoComplete="name" placeholder="Enter your full legal name" style={{ border: '1px solid #dbe3ee', borderRadius: 4, padding: '8px 9px', background: '#fff', color: '#0f172a', fontWeight: 700 }} />
 
 
-                  <span style={{ color: '#64748b', fontSize: 10 }}>Typing your full name and completing the confirmations below forms your electronic signature.</span>
+                  <span style={{ color: '#64748b', fontSize: 14 }}>Typing your full name and completing the confirmations below forms your electronic signature.</span>
 
 
                 </label>
 
 
 
-                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, color: '#334155' }}>
                   <input type="checkbox" checked={languageComprehensionConfirmed} onChange={(event) => setLanguageComprehensionConfirmed(event.target.checked)} />
                   <span>{legalCopy.languageComprehensionConfirmation}</span>
                 </label>
 
-                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, color: '#334155' }}>
 
 
                   <input type="checkbox" checked={agreementsAccepted} onChange={(event) => setAgreementsAccepted(event.target.checked)} />
                   <span>{model.currentRequirement.acceptanceStatement}</span>
                 </label>
-                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, color: '#334155' }}>
                   <input type="checkbox" checked={authorityConfirmed} onChange={(event) => setAuthorityConfirmed(event.target.checked)} />
                   <span>{model.currentRequirement.authorityStatement}</span>
                 </label>
-                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, color: '#334155' }}>
                   <input type="checkbox" checked={roleDeclarationConfirmed} onChange={(event) => setRoleDeclarationConfirmed(event.target.checked)} />
                   <span>{model.currentRequirement.roleStatement}</span>
                 </label>
-                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, color: '#334155' }}>
                   <input type="checkbox" checked={privacyAcknowledged} onChange={(event) => setPrivacyAcknowledged(event.target.checked)} />
                   <span>{model.currentRequirement.privacyStatement} Privacy acknowledgement remains separate from contractual acceptance.</span>
                 </label>
 
                 {isInitialRemediation && (
-                  <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 11, color: '#334155' }}>
+                  <label style={{ display: 'flex', gap: 8, alignItems: 'flex-start', fontSize: 14, color: '#334155' }}>
                     <input
                       type="checkbox"
                       checked={initialEvidenceRemediationConfirmed}
@@ -450,22 +450,22 @@ export default function LegalAgreementsPage({
                   <article key={record.id} style={{ border: '1px solid #dbe3ee', borderRadius: 4, background: '#fff', padding: 10, display: 'grid', gap: 7 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8, alignItems: 'center' }}>
                       <div>
-                        <strong style={{ display: 'block', fontSize: 12, color: '#0f172a' }}>{ROLE_LABELS[record.registrationRole] ?? record.registrationRole}</strong>
-                        <span style={{ color: '#64748b', fontSize: 10 }}>{formatDateTime(record.acceptedAt)}</span>
+                        <strong style={{ display: 'block', fontSize: 14, color: '#0f172a' }}>{ROLE_LABELS[record.registrationRole] ?? record.registrationRole}</strong>
+                        <span style={{ color: '#64748b', fontSize: 14 }}>{formatDateTime(record.acceptedAt)}</span>
                       </div>
                       <StatusBadge value={record.status} />
                     </div>
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 5 }}>
                       {record.agreements.map((agreement) => (
-                        <div key={`${record.id}-${agreement.code}`} style={{ fontSize: 10, color: '#475569' }}>
+                        <div key={`${record.id}-${agreement.code}`} style={{ fontSize: 14, color: '#475569' }}>
                           <strong style={{ color: '#0f172a' }}>{agreementLabelByCode.get(agreement.code) ?? agreement.code.replace(/_/g, ' ')}</strong>
                           <span> · v{agreement.version}{agreement.language ? ` · ${agreement.language}` : ''}</span>
                         </div>
                       ))}
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 5, paddingTop: 5, borderTop: '1px solid #edf1f6', color: '#64748b', fontSize: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 5, paddingTop: 5, borderTop: '1px solid #edf1f6', color: '#64748b', fontSize: 14 }}>
                       <span>Event: <strong style={{ color: '#334155' }}>{record.source.replace(/_/g, ' ')}</strong></span>
                       <span>Legal gate: <strong style={{ color: '#334155' }}>{record.legalVersion}</strong></span>
                       <span>Privacy: <strong style={{ color: '#334155' }}>{record.privacyVersion}</strong></span>

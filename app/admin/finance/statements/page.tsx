@@ -122,18 +122,18 @@ export default function FinanceStatementsPage() {
 
       <Panel title="Statement filters" description="Choose a counterparty and optional invoice-date window.">
         <div className="workspace-filter-fields workspace-filter-fields--even">
-          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+          <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 700, color: '#475569' }}>
             COUNTERPARTY
             <select value={counterparty} onChange={(event) => setCounterparty(event.target.value)} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }}>
               <option value="all">All counterparties</option>
               {counterparties.map((name) => <option key={name} value={name}>{name}</option>)}
             </select>
           </label>
-          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+          <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 700, color: '#475569' }}>
             FROM
             <input type="date" value={fromDate} onChange={(event) => setFromDate(event.target.value)} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }} />
           </label>
-          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+          <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 700, color: '#475569' }}>
             TO
             <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }} />
           </label>

@@ -293,7 +293,7 @@ export default function FleetAssignmentsPage() {
           <div style={{ marginTop: 12 }}>
             <TwoColumn rightWidth="minmax(0, 1.2fr)">
             <div style={{ display: 'grid', gap: 8, alignContent: 'start' }}>
-              <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700 }}>
+              <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 700 }}>
                 DRIVER
                 <select value={selectedDriverId} onChange={(event) => setSelectedDriverId(event.target.value)} style={{ minHeight: 32 }}>
                   <option value="">Select driver</option>

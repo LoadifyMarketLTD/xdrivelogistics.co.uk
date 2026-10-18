@@ -101,8 +101,8 @@ const EMPTY: OperationsSettings = {
   updatedAt: null,
 };
 
-const labelStyle = { display: 'grid', gap: 4, fontSize: 11, fontWeight: 800, color: '#334155' } as const;
-const checkboxStyle = { display: 'flex', alignItems: 'center', gap: 7, minHeight: 30, fontSize: 12, color: '#334155' } as const;
+const labelStyle = { display: 'grid', gap: 4, fontSize: 14, fontWeight: 800, color: '#334155' } as const;
+const checkboxStyle = { display: 'flex', alignItems: 'center', gap: 7, minHeight: 30, fontSize: 14, color: '#334155' } as const;
 
 export default function CompanyOperationsSettingsPanel({ companyId, companyName }: { companyId: string; companyName: string }) {
   const [settings, setSettings] = useState<OperationsSettings>(EMPTY);
@@ -204,7 +204,7 @@ export default function CompanyOperationsSettingsPanel({ companyId, companyName 
         <label style={labelStyle}>Directory Location<input value={settings.directoryLocation} onChange={(e) => setSettings((v) => ({ ...v, directoryLocation: e.target.value.slice(0, 240) }))} placeholder="Member directory location" /></label>
         <label style={{ ...checkboxStyle, alignSelf: 'end' }}><input type="checkbox" checked={settings.emailVisibleToMembers} onChange={(e) => setSettings((v) => ({ ...v, emailVisibleToMembers: e.target.checked }))} /> Email visible to members</label>
       </div>
-      <div style={{ marginTop: 8, color: '#64748b', fontSize: 11 }}>Operator&apos;s Licence is a recorded reference only; it does not become verified merely because it is entered here.</div>
+      <div style={{ marginTop: 8, color: '#64748b', fontSize: 14 }}>Operator&apos;s Licence is a recorded reference only; it does not become verified merely because it is entered here.</div>
     </Panel>}
 
     {tab === 'documents' && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(320px,1fr))', gap: 10 }}>
@@ -237,8 +237,8 @@ export default function CompanyOperationsSettingsPanel({ companyId, companyName 
           const checked = selected.has(code);
           const status = row?.verification_status ?? (verificationRequired && checked ? 'pending' : checked ? 'declared' : null);
           return <label key={code} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, minHeight: 36, border: '1px solid #e2e8f0', borderRadius: 4, padding: '5px 8px', background: '#fff' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 12 }}><input type="checkbox" checked={checked} onChange={(e) => setSelected((current) => { const next = new Set(current); if (e.target.checked) next.add(code); else next.delete(code); return next; })} /> {label}</span>
-            {status ? <StatusBadge value={status} tone={status === 'verified' ? 'green' : status === 'rejected' ? 'red' : status === 'pending' ? 'orange' : 'blue'} /> : verificationRequired ? <span style={{ fontSize: 10, color: '#64748b' }}>verification required</span> : null}
+            <span style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 14 }}><input type="checkbox" checked={checked} onChange={(e) => setSelected((current) => { const next = new Set(current); if (e.target.checked) next.add(code); else next.delete(code); return next; })} /> {label}</span>
+            {status ? <StatusBadge value={status} tone={status === 'verified' ? 'green' : status === 'rejected' ? 'red' : status === 'pending' ? 'orange' : 'blue'} /> : verificationRequired ? <span style={{ fontSize: 14, color: '#64748b' }}>verification required</span> : null}
           </label>;
         })}
       </div>

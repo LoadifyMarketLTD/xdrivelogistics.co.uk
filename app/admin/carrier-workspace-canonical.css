@@ -1577,7 +1577,7 @@
   right: 8px;
   bottom: 6px;
   color: #667085;
-  font-size: 9px;
+  font-size: 14px;
   font-style: normal;
   text-decoration: underline;
 }
@@ -1590,7 +1590,7 @@
   height: 23px !important;
   min-height: 23px !important;
   border-radius: 2px !important;
-  font-size: 9px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-carrier-workspace .carrier-cx-dashboard-subgrid {
@@ -1694,7 +1694,7 @@
   height: 22px;
   border: 1px solid #cbd1d8;
   background: #fff;
-  font-size: 9px;
+  font-size: 14px;
 }
 
 .xdrive-carrier-workspace .carrier-cx-performance-chart {
@@ -1725,7 +1725,7 @@
 
 .xdrive-carrier-workspace .carrier-cx-feedback-panel > small {
   color: var(--ws-muted);
-  font-size: 9px;
+  font-size: 14px;
   line-height: 12px;
 }
 
@@ -1756,7 +1756,7 @@
   border: 1px solid #c9ced5;
   border-radius: 2px;
   background: #fff;
-  font-size: 9px;
+  font-size: 14px;
 }
 
 .xdrive-carrier-workspace .carrier-cx-booking-filters button {
@@ -1792,7 +1792,7 @@
   border: 0;
   background: transparent;
   color: #64748b;
-  font-size: 9px;
+  font-size: 14px;
   font-weight: 600;
   text-decoration: underline;
   cursor: pointer;
@@ -1836,7 +1836,7 @@
 
 .xdrive-carrier-workspace .carrier-cx-watchlist-orb span {
   max-width: 90px;
-  font-size: 9px;
+  font-size: 14px;
   line-height: 12px;
   text-align: center;
   text-decoration: underline;
@@ -1864,7 +1864,7 @@
 
 .xdrive-carrier-workspace .carrier-cx-compliance-legend small {
   color: var(--ws-muted);
-  font-size: 9px;
+  font-size: 14px;
   text-align: right;
 }
 

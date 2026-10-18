@@ -2730,7 +2730,7 @@
   min-width: 22px !important;
   padding: 0 !important;
   color: #111827 !important;
-  font-size: 9px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__footer > .xdrive-cx-diary-card__feedback {
@@ -3344,7 +3344,7 @@
   border-radius: 0 !important;
   background: linear-gradient(#fff, #ececec) !important;
   color: #111827 !important;
-  font-size: 9px !important;
+  font-size: 14px !important;
   line-height: 22px !important;
 }
 

@@ -113,7 +113,7 @@ export function JobSmartAlertsPanel({ jobId }: { jobId: string }) {
     label: string,
     key: keyof Pick<SmartAlertPreferences, 'pickupProximityEnabled' | 'deliveryProximityEnabled' | 'onSitePickupEnabled' | 'loadedEnabled' | 'onSiteDeliveryEnabled' | 'podSubmittedEnabled' | 'inAppEnabled' | 'emailEnabled' | 'pushEnabled'>,
   ) => (
-    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12 }}>
+    <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 14 }}>
       <input
         type="checkbox"
         checked={Boolean(preferences[key])}

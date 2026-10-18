@@ -46,8 +46,9 @@ describe('canonical global operational typography', () => {
 
   it('rejects pre-canonical 10px–13px operational font sizes outside the navbar exception', () => {
     const violations: string[] = [];
-    const fontSize = /font-size\s*:\s*(?:10(?:\.\d+)?|11(?:\.\d+)?|12(?:\.\d+)?|13(?:\.\d+)?)px/gi;
-    const inlineFontSize = /fontSize\s*:\s*['"](?:10(?:\.\d+)?|11(?:\.\d+)?|12(?:\.\d+)?|13(?:\.\d+)?)px['"]/gi;
+    const fontSize = /font-size\s*:\s*(?:[0-9](?:\.\d+)?|1[0-3](?:\.\d+)?)px/gi;
+    const inlineFontSize = /fontSize\s*:\s*['"](?:[0-9](?:\.\d+)?|1[0-3](?:\.\d+)?)px['"]/gi;
+    const inlineNumericFontSize = /fontSize\s*:\s*(?:[0-9](?:\.\d+)?|1[0-3](?:\.\d+)?)\b/gi;
     const oldToken = /--ws-font-(?:body|label|meta|micro)\s*:\s*(?:10|11|12|13)px/gi;
     const oldFallback = /var\(--ws-font-(?:body|label|meta|micro),\s*(?:10|11|12|13)(?:\.\d+)?px\)/gi;
     const oldTitleFallback = /var\(--ws-font-(?:panel-title|section-title),\s*13(?:\.\d+)?px\)/gi;
@@ -55,7 +56,7 @@ describe('canonical global operational typography', () => {
     for (const file of OPERATIONAL_DIRS.flatMap(walk)) {
       if (file.endsWith(path.join('app', 'components', 'workspace', 'top-workspace-shell.css'))) continue;
       const source = fs.readFileSync(path.join(ROOT, file), 'utf8');
-      for (const regex of [fontSize, inlineFontSize, oldToken, oldFallback, oldTitleFallback]) {
+      for (const regex of [fontSize, inlineFontSize, inlineNumericFontSize, oldToken, oldFallback, oldTitleFallback]) {
         regex.lastIndex = 0;
         if (regex.test(source)) violations.push(file);
       }

@@ -84,7 +84,7 @@ export default function DriverChangePasswordPage() {
           <section className="driver-account-column driver-account-profile-column">
             <div className="driver-account-column__head">Change Password</div>
             <div className="driver-account-edit">
-              <p style={{ margin: 0, color: '#64748b', fontSize: 10, lineHeight: '14px' }}>{guidance}</p>
+              <p style={{ margin: 0, color: '#64748b', fontSize: 14, lineHeight: '14px' }}>{guidance}</p>
               <form onSubmit={handleSubmit} className="driver-account-edit">
                 <label>New password<input type="password" value={newPassword} onChange={(event) => setNewPassword(event.target.value)} autoComplete="new-password" required /></label>
                 <label>Confirm new password<input type="password" value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} autoComplete="new-password" required /></label>

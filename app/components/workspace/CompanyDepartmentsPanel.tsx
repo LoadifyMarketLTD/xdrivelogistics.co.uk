@@ -110,8 +110,8 @@ export default function CompanyDepartmentsPanel({ companyId }: { companyId: stri
     {error && <AlertBanner tone="danger">{error}</AlertBanner>}
     {notice && <AlertBanner tone="success">{notice}</AlertBanner>}
     <div style={{ display: 'grid', gridTemplateColumns: 'minmax(180px,1fr) minmax(220px,2fr) auto', gap: 6, alignItems: 'end', marginBottom: 10 }}>
-      <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 800 }}>DEPARTMENT NAME<input value={name} onChange={(event) => setName(event.target.value.slice(0,80))} placeholder="Operations" /></label>
-      <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 800 }}>DESCRIPTION<input value={description} onChange={(event) => setDescription(event.target.value.slice(0,500))} placeholder="Optional team purpose" /></label>
+      <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 800 }}>DEPARTMENT NAME<input value={name} onChange={(event) => setName(event.target.value.slice(0,80))} placeholder="Operations" /></label>
+      <label style={{ display: 'grid', gap: 4, fontSize: 14, fontWeight: 800 }}>DESCRIPTION<input value={description} onChange={(event) => setDescription(event.target.value.slice(0,500))} placeholder="Optional team purpose" /></label>
       <ActionButton tone="primary" disabled={working === 'create' || !name.trim()} onClick={() => void createDepartment()}>{working === 'create' ? 'Creating…' : 'Add Department'}</ActionButton>
     </div>
 

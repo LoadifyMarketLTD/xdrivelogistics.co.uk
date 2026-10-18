@@ -413,7 +413,7 @@ export default function LiveAvailabilityPage() {
               })}
               empty={<EmptyState title={nearbyLoading ? 'Loading nearby Exchange availability…' : nearbyError ? 'Nearby Exchange availability unavailable' : 'No nearby Exchange vehicles'} />}
             />
-            <div style={{ marginTop: 8, padding: '8px 10px', border: '1px solid #dbe2ea', background: '#f8fafc', color: '#475569', fontSize: 11, lineHeight: '15px' }}>
+            <div style={{ marginTop: 8, padding: '8px 10px', border: '1px solid #dbe2ea', background: '#f8fafc', color: '#475569', fontSize: 14, lineHeight: '15px' }}>
               <strong style={{ color: '#0b2f6b' }}>Privacy boundary:</strong> own-fleet availability may use exact coordinates. Exchange discovery intentionally exposes only a rounded area, member identity and coarse vehicle/capacity information; driver identity is not disclosed.
             </div>
           </Panel>
@@ -423,5 +423,5 @@ export default function LiveAvailabilityPage() {
   );
 }
 
-const inputStyle = { width: '100%', minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px', background: '#fff', color: '#0f172a', fontSize: 12, boxSizing: 'border-box' as const };
-const labelStyle = { display: 'grid', gap: 4, color: '#475569', fontSize: 11, fontWeight: 800 } as const;
+const inputStyle = { width: '100%', minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px', background: '#fff', color: '#0f172a', fontSize: 14, boxSizing: 'border-box' as const };
+const labelStyle = { display: 'grid', gap: 4, color: '#475569', fontSize: 14, fontWeight: 800 } as const;

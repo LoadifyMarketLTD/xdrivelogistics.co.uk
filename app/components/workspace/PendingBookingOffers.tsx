@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useCallback, useEffect, useState } from 'react';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
@@ -21,8 +21,8 @@ export default function PendingBookingOffers({ onChanged }: { onChanged?: () => 
     {error&&<AlertBanner tone="danger">{error}</AlertBanner>}{message&&<AlertBanner tone="success">{message}</AlertBanner>}
     <div style={{display:'grid',gap:8}}>{offers.map(offer=>{const job=offer.job; const pickup=job?.pickup_postcode||job?.pickup_location||'Collection'; const delivery=job?.delivery_postcode||job?.delivery_location||'Delivery'; return <div key={offer.id} style={{border:'1px solid #d7e0ea',borderRadius:4,padding:10,background:'#fff',display:'grid',gap:6}}>
       <div style={{display:'flex',justifyContent:'space-between',gap:12,flexWrap:'wrap'}}><strong>{pickup} → {delivery}</strong><strong>{new Intl.NumberFormat('en-GB',{style:'currency',currency:offer.currency||'GBP'}).format(Number(offer.quoted_amount))}</strong></div>
-      <div style={{fontSize:12,color:'#475569'}}>Buyer: {offer.buyer_name} · Payment terms: {job?.payment_terms??'Not supplied'} · Vehicle: {job?.requested_vehicle_label??job?.vehicle_type??'Not supplied'}</div>
-      <div style={{fontSize:11,color:'#64748b'}}>Awarded {new Date(offer.offered_at).toLocaleString('en-GB')} · Ref {job?.booking_reference??job?.customer_reference??offer.job_id.slice(0,8).toUpperCase()}</div>
+      <div style={{fontSize: 14,color:'#475569'}}>Buyer: {offer.buyer_name} · Payment terms: {job?.payment_terms??'Not supplied'} · Vehicle: {job?.requested_vehicle_label??job?.vehicle_type??'Not supplied'}</div>
+      <div style={{fontSize: 14,color:'#64748b'}}>Awarded {new Date(offer.offered_at).toLocaleString('en-GB')} · Ref {job?.booking_reference??job?.customer_reference??offer.job_id.slice(0,8).toUpperCase()}</div>
       <div style={{display:'flex',gap:6,justifyContent:'flex-end',flexWrap:'wrap'}}><ActionButton tone="danger" disabled={working===offer.id} onClick={()=>void respond(offer,'decline')}>Decline</ActionButton><ActionButton tone="success" disabled={working===offer.id} onClick={()=>void respond(offer,'accept')}>{working===offer.id?'Saving…':'Accept Booking'}</ActionButton></div>
     </div>})}</div>
   </Panel>;

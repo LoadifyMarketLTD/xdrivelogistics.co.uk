@@ -114,7 +114,7 @@ export default function CustomerNetworkPage() {
           <div className="workspace-filter-rail__body">
             <label>COMPANY / MEMBER<input value={companySearch} onChange={(event) => setCompanySearch(event.target.value)} placeholder="Company, owner driver or member ID" /></label>
             <label>RELATIONSHIP<select value={relationship} onChange={(event) => setRelationship(event.target.value as 'all' | 'booked' | 'quoted')}><option value="all">All relationships</option><option value="booked">Booked carriers</option><option value="quoted">Quote activity only</option></select></label>
-            <div style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>This is your commercial relationship register. It is not the global XDrive Directory.</div>
+            <div style={{ fontSize: 14, lineHeight: '15px', color: '#64748b' }}>This is your commercial relationship register. It is not the global XDrive Directory.</div>
             <ActionButton tone="secondary" onClick={() => { setCompanySearch(''); setRelationship('all'); }}>Clear</ActionButton>
           </div>
         </aside>

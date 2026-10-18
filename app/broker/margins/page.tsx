@@ -57,7 +57,7 @@ export default function BrokerMarginsPage() {
           <div className="workspace-filter-rail__body">
             <label>CUSTOMER<input value={customer} onChange={(event) => setCustomer(event.target.value)} placeholder="Customer name" /></label>
             <label>LOAD / REF<input value={reference} onChange={(event) => setReference(event.target.value)} placeholder="Load or reference" /></label>
-            <div style={{ fontSize: 11, lineHeight: '15px', color: '#64748b' }}>Values remain estimates until a commercial agreement/invoice exists. No accounting figures are fabricated.</div>
+            <div style={{ fontSize: 14, lineHeight: '15px', color: '#64748b' }}>Values remain estimates until a commercial agreement/invoice exists. No accounting figures are fabricated.</div>
             <ActionButton tone="secondary" onClick={() => { setCustomer(''); setReference(''); }}>Clear</ActionButton>
           </div>
         </aside>

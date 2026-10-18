@@ -128,7 +128,7 @@ export default function PodWorkspaceViewer({
   if (loading) {
     return (
       <Panel title={title}>
-        <div style={{ padding: '8px 2px', color: '#64748b', fontSize: 12 }}>
+        <div style={{ padding: '8px 2px', color: '#64748b', fontSize: 14 }}>
           Loading POD…
         </div>
       </Panel>
@@ -167,7 +167,7 @@ export default function PodWorkspaceViewer({
         }}
       >
         <div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
             POD status
           </div>
           <div style={{ marginTop: 4 }}>
@@ -175,7 +175,7 @@ export default function PodWorkspaceViewer({
           </div>
         </div>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
             Evidence contract
           </div>
           <strong style={{ display: 'block', marginTop: 4 }}>{[
@@ -186,16 +186,16 @@ export default function PodWorkspaceViewer({
           ].join(' · ')}</strong>
         </div>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
             Received by
           </div>
           <strong style={{ display: 'block', marginTop: 4 }}>{pod.receiverName || 'Recipient'}</strong>
           {pod.receiverCompany ? (
-            <span style={{ display: 'block', color: '#64748b', fontSize: 11 }}>{pod.receiverCompany}</span>
+            <span style={{ display: 'block', color: '#64748b', fontSize: 14 }}>{pod.receiverCompany}</span>
           ) : null}
         </div>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
             Completed
           </div>
           <strong style={{ display: 'block', marginTop: 4 }}>
@@ -203,13 +203,13 @@ export default function PodWorkspaceViewer({
           </strong>
         </div>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
             Delivery status
           </div>
           <strong style={{ display: 'block', marginTop: 4 }}>{pod.deliveryStatus || 'Completed Delivery'}</strong>
         </div>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
             Items
           </div>
           <strong style={{ display: 'block', marginTop: 4 }}>
@@ -217,7 +217,7 @@ export default function PodWorkspaceViewer({
           </strong>
         </div>
         <div>
-          <div style={{ fontSize: 10, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>
             Evidence
           </div>
           <strong style={{ display: 'block', marginTop: 4 }}>
@@ -235,7 +235,7 @@ export default function PodWorkspaceViewer({
         }}
       >
         <div style={{ border: '1px solid #d8dee8', background: '#fff', padding: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, color: '#334155', marginBottom: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 800, color: '#334155', marginBottom: 8 }}>
             Recipient signature
           </div>
           {signatureIsImage ? (
@@ -252,7 +252,7 @@ export default function PodWorkspaceViewer({
               }}
             />
           ) : (
-            <div style={{ color: '#64748b', fontSize: 12 }}>
+            <div style={{ color: '#64748b', fontSize: 14 }}>
               {pod.signatureData ? 'Signature recorded.' : 'Signature unavailable.'}
             </div>
           )}
@@ -261,7 +261,7 @@ export default function PodWorkspaceViewer({
         <div style={{ display: 'grid', gap: 8 }}>
           {deliveryPhotos.length > 0 ? (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 800, marginBottom: 5 }}>Delivery photos</div>
+              <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 5 }}>Delivery photos</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {deliveryPhotos.map((url, index) => (
                   <ActionButton key={url} tone="secondary" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}>
@@ -274,7 +274,7 @@ export default function PodWorkspaceViewer({
 
           {damagePhotos.length > 0 ? (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 800, marginBottom: 5 }}>Damage evidence</div>
+              <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 5 }}>Damage evidence</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {damagePhotos.map((url, index) => (
                   <ActionButton key={url} tone="secondary" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}>
@@ -287,7 +287,7 @@ export default function PodWorkspaceViewer({
 
           {documents.length > 0 ? (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 800, marginBottom: 5 }}>POD documents</div>
+              <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 5 }}>POD documents</div>
               <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                 {documents.map((url, index) => (
                   <ActionButton key={url} tone="secondary" onClick={() => window.open(url, '_blank', 'noopener,noreferrer')}>
@@ -299,7 +299,7 @@ export default function PodWorkspaceViewer({
           ) : null}
 
           {(pod.deliveryNotes || pod.receiverNotes || pod.driverNotes || pod.comments || pod.leftAt) ? (
-            <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 8, fontSize: 12, lineHeight: 1.45 }}>
+            <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: 8, fontSize: 14, lineHeight: 1.45 }}>
               {pod.leftAt ? <div><strong>Left at:</strong> {pod.leftAt}</div> : null}
               {pod.deliveryNotes ? <div><strong>Delivery notes:</strong> {pod.deliveryNotes}</div> : null}
               {pod.receiverNotes ? <div><strong>Receiver notes:</strong> {pod.receiverNotes}</div> : null}

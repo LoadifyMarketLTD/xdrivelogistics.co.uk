@@ -598,8 +598,8 @@
 .xdrive-driver-workspace .driver-dashboard-readiness__grid button:hover{background:#f7fafc}
 .xdrive-driver-workspace .driver-dashboard-readiness__grid span{
   color:#5e6e81;
-  font-size:9.5px;
-  line-height:13px;
+  font-size:14px;
+  line-height:18px;
   font-weight:800;
   text-transform:uppercase;
 }
@@ -611,8 +611,8 @@
 }
 .xdrive-driver-workspace .driver-dashboard-readiness__grid small{
   color:#748194;
-  font-size:9.5px;
-  line-height:13px;
+  font-size:14px;
+  line-height:18px;
 }
 
 @media(max-width:768px){
@@ -656,5 +656,38 @@
     width:auto;
     min-width:112px;
     flex:0 0 auto;
+  }
+}
+
+
+/* Dashboard CX geometry: employed/company driver keeps the same two-column
+ * operational rhythm as every other workspace while preserving execution-only content. */
+.xdrive-driver-workspace .driver-owner-parity-grid > .driver-reports-card {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.xdrive-driver-workspace .driver-owner-parity-grid > .driver-current-assignment-card {
+  grid-column: 2;
+  grid-row: 1;
+}
+
+.xdrive-driver-workspace .driver-owner-parity-grid > .driver-dashboard-readiness {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.xdrive-driver-workspace .driver-owner-parity-grid > .driver-next-booking-card {
+  grid-column: 2;
+  grid-row: 2;
+}
+
+@media (max-width: 1100px) {
+  .xdrive-driver-workspace .driver-owner-parity-grid > .driver-reports-card,
+  .xdrive-driver-workspace .driver-owner-parity-grid > .driver-current-assignment-card,
+  .xdrive-driver-workspace .driver-owner-parity-grid > .driver-dashboard-readiness,
+  .xdrive-driver-workspace .driver-owner-parity-grid > .driver-next-booking-card {
+    grid-column: 1;
+    grid-row: auto;
   }
 }
