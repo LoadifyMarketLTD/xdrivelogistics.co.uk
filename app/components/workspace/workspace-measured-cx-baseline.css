@@ -4404,3 +4404,73 @@
 ) {
   font-weight: 700 !important;
 }
+
+
+/* Global readable typography hard lock.
+ * Diary 14/16px readability is the minimum across every measured operational workspace.
+ * This intentionally includes non-clickable operational copy, card metadata, filters and table text.
+ * Heading hierarchy remains owned by the existing h1/h2/h3 rules. Super Admin is not in this shell. */
+.xdrive-workspace-measured {
+  --ws-font-body: 14px;
+  --ws-font-label: 14px;
+  --ws-font-meta: 14px;
+  --ws-font-micro: 14px;
+  font-size: 14px;
+}
+
+.xdrive-workspace-measured :where(
+  p,
+  span,
+  small,
+  label,
+  legend,
+  dt,
+  dd,
+  li,
+  th,
+  td,
+  strong,
+  b,
+  a,
+  button,
+  summary,
+  input,
+  select,
+  option,
+  textarea,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"]
+) {
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+.xdrive-workspace-measured :where(
+  .workspace-record-title,
+  .workspace-card-title,
+  .xdrive-operational-card__title,
+  .xdrive-panel__title,
+  .driver-detail-item > strong,
+  .workspace-detail-item > strong,
+  .workspace-record-details strong
+) {
+  font-size: 16px !important;
+  line-height: 20px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured :where(
+  .workspace-record-meta,
+  .workspace-record-details,
+  .workspace-list-controls,
+  .driver-board-summary,
+  .workspace-filter-rail,
+  .driver-filter-rail,
+  .xdrive-action-centre-badge,
+  .xdrive-jobs-status-meta
+) {
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
