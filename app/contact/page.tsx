@@ -28,6 +28,23 @@ const contactCards = [
     href: `mailto:${COMPANY_CONFIG.emails.support}`,
     icon: Headphones,
   },
+  {
+    label: 'Finance',
+    value: COMPANY_CONFIG.emails.invoices,
+    secondaryValue: COMPANY_CONFIG.emails.payments,
+    icon: ReceiptText,
+  },
+  {
+    label: 'Phone',
+    value: COMPANY_CONFIG.phoneDisplay,
+    href: `tel:${COMPANY_CONFIG.phone}`,
+    icon: Phone,
+  },
+  {
+    label: 'Registered office',
+    value: COMPANY_CONFIG.address.full,
+    icon: MapPin,
+  },
 ] as const;
 
 export default function ContactPage() {
@@ -55,52 +72,37 @@ export default function ContactPage() {
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {contactCards.map((card) => {
               const Icon = card.icon;
-              return (
-                <a key={card.label} href={card.href} className="block min-w-0">
-                  <div className="h-full min-h-[180px] min-w-0 border border-[#D7E6FA] bg-white p-7 shadow-[0_18px_50px_rgba(0,43,108,0.06)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(0,43,108,0.1)]">
-                    <Icon className="h-8 w-8 text-[#FDB913]" />
-                    <p className="mt-8 text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]/70">{card.label}</p>
-                    <p className="mt-3 break-all text-base font-black leading-6 text-[#002B6C] sm:text-[1.05rem]">{card.value}</p>
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-
-          <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
-            <div className="min-w-0 border border-[#D7E6FA] bg-white p-7 shadow-[0_18px_50px_rgba(0,43,108,0.05)]">
-              <ReceiptText className="h-8 w-8 text-[#FDB913]" />
-              <p className="mt-6 text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]/70">Finance</p>
-              <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-2">
-                <a href={`mailto:${COMPANY_CONFIG.emails.invoices}`} className="min-w-0 break-all text-[0.98rem] font-black leading-6 text-[#002B6C] hover:text-[#003B8F]">
-                  <span className="block text-xs uppercase tracking-[0.12em] text-[#003B8F]/60">Invoices</span>
-                  {COMPANY_CONFIG.emails.invoices}
-                </a>
-                <a href={`mailto:${COMPANY_CONFIG.emails.payments}`} className="min-w-0 break-all text-[0.98rem] font-black leading-6 text-[#002B6C] hover:text-[#003B8F]">
-                  <span className="block text-xs uppercase tracking-[0.12em] text-[#003B8F]/60">Payments</span>
-                  {COMPANY_CONFIG.emails.payments}
-                </a>
-              </div>
-            </div>
-
-            <div className="border border-[#D7E6FA] bg-white p-7 shadow-[0_18px_50px_rgba(0,43,108,0.05)]">
-              <div className="grid gap-5">
-                <a href={`tel:${COMPANY_CONFIG.phone}`} className="flex items-start gap-4">
-                  <Phone className="mt-1 h-6 w-6 shrink-0 text-[#FDB913]" />
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]/70">Phone</p>
-                    <p className="mt-1 font-black text-[#002B6C]">{COMPANY_CONFIG.phoneDisplay}</p>
-                  </div>
-                </a>
-                <div className="flex items-start gap-4">
-                  <MapPin className="mt-1 h-6 w-6 shrink-0 text-[#FDB913]" />
-                  <div>
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]/70">Registered office</p>
-                    <p className="mt-1 font-black leading-6 text-[#002B6C]">{COMPANY_CONFIG.address.full}</p>
+              const content = (
+                <div className="flex h-full min-h-[190px] min-w-0 flex-col border border-[#D7E6FA] bg-white p-7 shadow-[0_18px_50px_rgba(0,43,108,0.06)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(0,43,108,0.1)]">
+                  <Icon className="h-8 w-8 shrink-0 text-[#FDB913]" />
+                  <div className="mt-auto pt-8">
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]/70">{card.label}</p>
+                    {'secondaryValue' in card ? (
+                      <div className="mt-3 grid gap-2">
+                        <a href={`mailto:${card.value}`} className="min-w-0 break-all text-[0.98rem] font-black leading-6 text-[#002B6C] hover:text-[#003B8F]">
+                          {card.value}
+                        </a>
+                        <a href={`mailto:${card.secondaryValue}`} className="min-w-0 break-all text-[0.98rem] font-black leading-6 text-[#002B6C] hover:text-[#003B8F]">
+                          {card.secondaryValue}
+                        </a>
+                      </div>
+                    ) : (
+                      <p className="mt-3 break-words text-base font-black leading-6 text-[#002B6C] sm:text-[1.05rem]">{card.value}</p>
+                    )}
                   </div>
                 </div>
-              </div>
-            </div>
+              );
+
+              return 'href' in card ? (
+                <a key={card.label} href={card.href} className="block min-w-0">
+                  {content}
+                </a>
+              ) : (
+                <div key={card.label} className="min-w-0">
+                  {content}
+                </div>
+              );
+            })}
           </div>
         </div>
       </section>
