@@ -47,6 +47,27 @@ async function setup(legacy = false) {
 }
 
 describe('September membership migrations execute against canonical and hosted legacy schemas', () => {
+  it('replays legacy POD reconciliation without a hosted delivery_status column and remains idempotent', async () => {
+    const db = new PGlite();
+    try {
+      await db.exec(`CREATE TABLE jobs(id uuid,delivered_at timestamptz,pod_generated_at timestamptz,updated_at timestamptz,
+        client_signature_name text,driver_notes text,delivery_photos jsonb,assigned_driver_id uuid,current_status text,status text,
+        delivery_signature_data jsonb,pod_photos jsonb,pod_generated boolean);
+        CREATE TABLE drivers(id uuid,user_id uuid);
+        CREATE TABLE proof_of_delivery(job_id uuid,delivered_on date,received_by text,delivery_status text,delivery_notes text,
+          photo_urls text[],created_by uuid,created_at timestamptz,updated_at timestamptz);
+        INSERT INTO jobs(id,current_status,client_signature_name,delivery_signature_data,delivery_photos)
+        VALUES ('${company}','delivered','Test Recipient','{"type":"typed","text":"Test Recipient"}','["evidence/test-photo.jpg"]');`);
+      const backfill = migration('20261005084441_reconcile_legacy_pod_records.sql');
+      await db.exec(backfill); await db.exec(backfill);
+      expect((await db.query(`SELECT count(*)::int AS n FROM proof_of_delivery`)).rows[0]).toEqual({ n: 1 });
+      expect((await db.query(`SELECT received_by,delivery_status,photo_urls FROM proof_of_delivery`)).rows[0]).toEqual({
+        received_by: 'Test Recipient', delivery_status: 'Completed Delivery', photo_urls: ['evidence/test-photo.jpg'],
+      });
+      expect((await db.query(`SELECT pod_generated FROM jobs`)).rows[0]).toEqual({ pod_generated: true });
+    } finally { await db.close(); }
+  });
+
   it('replays the contact backfill without a hosted website column and only copies approved values', async () => {
     const db = new PGlite();
     try {

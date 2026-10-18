@@ -1,5 +1,8 @@
 BEGIN;
 
+-- Capture the nullable hosted field before the historical POD backfill reads it.
+ALTER TABLE public.jobs ADD COLUMN IF NOT EXISTS delivery_status text;
+
 WITH eligible AS (
   SELECT
     j.id AS job_id,
