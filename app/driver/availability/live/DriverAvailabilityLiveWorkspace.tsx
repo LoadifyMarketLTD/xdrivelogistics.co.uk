@@ -10,7 +10,8 @@ import { readRouteAuthHeader } from '../../../../lib/routeAuthCookie';
 import { StatusBadge } from '../../../components/workspace/WorkspaceUI';
 import { useAuth } from '../../../components/AuthContext';
 import { usePrivateNetworkGroups } from '../../../components/workspace/usePrivateNetworkGroups';
-import { matchesAvailabilityFilters } from '../../../../lib/availability/canonicalAvailability';
+import { AVAILABILITY_BODY_TYPE_OPTIONS, matchesAvailabilityFilters } from '../../../../lib/availability/canonicalAvailability';
+import { marketplaceVehicleSizeOptions } from '../../../../lib/vehicleSizeRange';
 
 type Visibility = 'private' | 'fleet' | 'exchange';
 type Presence = { visibility: Visibility; available_until: string; recorded_at: string };
@@ -36,12 +37,6 @@ type NearbyPosition = {
 type NearbyResponse = {
   positions?: NearbyPosition[];
   error?: string;
-};
-
-const VISIBILITY_COPY: Record<Visibility, string> = {
-  private: 'Only you. Your position is not shared with Fleet or the Exchange.',
-  fleet: 'Your own Fleet/company can use your exact availability position. The Exchange cannot.',
-  exchange: 'Your Fleet can use the exact position. Exchange users receive only a deliberately rounded area position.',
 };
 
 const vehicleLabel = (value: string | null | undefined) => value
@@ -83,6 +78,7 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
   const [privateGroupId, setPrivateGroupId] = useState('');
   const [audience, setAudience] = useState<Audience>('all');
   const [postcode, setPostcode] = useState('');
+  const [postcodeArea, setPostcodeArea] = useState('');
   const [radius, setRadius] = useState('100');
   const [query, setQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' });
 
@@ -140,6 +136,35 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
     void Promise.all([loadPresence(), loadNearby()]);
   }, [loadNearby, loadPresence]);
 
+  useEffect(() => {
+    const raw = postcode.trim().toUpperCase();
+    if (raw.length < 2) {
+      setPostcodeArea('');
+      return;
+    }
+    const timer = window.setTimeout(async () => {
+      const compact = raw.replace(/\s+/g, '');
+      const fullPostcode = /^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/.test(compact);
+      const outcode = /^[A-Z]{1,2}\d[A-Z\d]?$/.test(compact);
+      if (!fullPostcode && !outcode) {
+        setPostcodeArea('');
+        return;
+      }
+      try {
+        const response = await fetch(`/api/location/postcode-area?q=${encodeURIComponent(compact)}`, { cache: 'no-store' });
+        if (!response.ok) {
+          setPostcodeArea('');
+          return;
+        }
+        const payload = await response.json() as { area?: string | null };
+        setPostcodeArea(payload.area ?? '');
+      } catch {
+        setPostcodeArea('');
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [postcode]);
+
   const start = async () => {
     if (!navigator.geolocation || busy) {
       if (!navigator.geolocation) setError('Location access is not available on this device/browser.');
@@ -189,8 +214,8 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
     setBusy(false);
   };
 
-  const vehicleOptions = useMemo(() => [...new Set(positions.map((position) => position.vehicle_type).filter((value): value is string => Boolean(value)))].sort(), [positions]);
-  const bodyOptions = useMemo(() => [...new Set(positions.map((position) => position.body_type).filter((value): value is string => Boolean(value)))].sort(), [positions]);
+  const vehicleOptions = useMemo(() => marketplaceVehicleSizeOptions(), []);
+  const bodyOptions = useMemo(() => AVAILABILITY_BODY_TYPE_OPTIONS, []);
 
   const visible = useMemo(() => positions.filter((position) => {
     if (!matchesAvailabilityFilters(position, {
@@ -219,12 +244,6 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell
         subtitle={mode === 'fleet' ? 'Manage live and future fleet capacity with privacy-scoped Exchange availability in the Courier Exchange operating layout.' : 'Publish your own availability when you want work and discover privacy-scoped Exchange vehicle capacity in the same operational workspace.'}
-        availabilityLabel={presence ? 'Live Availability On' : 'Live Availability Off'}
-        headerActions={
-          <button type="button" className="driver-more-button driver-live-command-button" onClick={refreshAll} disabled={busy || nearbyLoading}>
-            {nearbyLoading ? 'Refreshing...' : 'Refresh'}
-          </button>
-        }
       >
         {mode === 'fleet' ? <DriverFleetIntegratedNav /> : null}
         <div className="driver-live-availability-canonical">
@@ -242,22 +261,20 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
                 <strong>Share availability</strong>
                 <StatusBadge value={presence ? 'ON' : 'OFF'} tone={presence ? 'green' : 'grey'} />
               </div>
-              <span className="driver-live-share-copy">OFF by default. Maximum 8 hours, then it expires automatically.</span>
-              {presence && <span className="driver-live-share-expiry">Expires {when(presence.available_until)}</span>}
+              {presence && <span className="driver-live-share-expiry">Until {when(presence.available_until)}</span>}
             </div>
 
             <label className="driver-more-filter">
-              <span>Who may use this position?</span>
+              <span>Visibility</span>
               <select value={visibility} onChange={(event) => setVisibility(event.target.value as Visibility)} disabled={busy || Boolean(presence)}>
                 <option value="private">Private</option>
                 <option value="fleet">My Fleet only</option>
                 <option value="exchange">Fleet + Exchange area</option>
               </select>
-              <small>{VISIBILITY_COPY[visibility]}</small>
             </label>
 
             <label className="driver-more-filter">
-              <span>Auto-off after</span>
+              <span>Auto-off</span>
               <select value={hours} onChange={(event) => setHours(Number(event.target.value))} disabled={busy || Boolean(presence)}>
                 <option value={1}>1 hour</option>
                 <option value={4}>4 hours</option>
@@ -276,6 +293,7 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
             <label className="driver-more-filter">
               <span>Near postcode / outcode</span>
               <input value={postcode} onChange={(event) => setPostcode(event.target.value)} placeholder="e.g. BB1" />
+              {postcodeArea && <span className="driver-live-postcode-area">{postcodeArea}</span>}
             </label>
 
             <label className="driver-more-filter">
@@ -294,11 +312,11 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
               <span>Vehicle Size</span>
               <select value={vehicle} onChange={(event) => setVehicle(event.target.value)}>
                 <option value="all">Any vehicle</option>
-                {vehicleOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}
+                {vehicleOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
               </select>
             </label>
 
-            <label className="driver-more-filter"><span>Body type</span><select value={bodyType} onChange={(event) => setBodyType(event.target.value)}><option value="all">Any body</option>{bodyOptions.map((value) => <option key={value} value={value}>{vehicleLabel(value)}</option>)}</select></label>
+            <label className="driver-more-filter"><span>Body type</span><select value={bodyType} onChange={(event) => setBodyType(event.target.value)}><option value="all">Any body</option>{bodyOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
             <label className="driver-more-filter"><span>Min payload (kg)</span><input type="number" min="0" value={minPayload} onChange={(event) => setMinPayload(event.target.value)} placeholder="Any" /></label>
             <label className="driver-more-filter"><span>Min pallets</span><input type="number" min="0" value={minPallets} onChange={(event) => setMinPallets(event.target.value)} placeholder="Any" /></label>
             <label className="driver-more-filter"><span>Equipment</span><span><input type="checkbox" checked={tailLiftOnly} onChange={(event) => setTailLiftOnly(event.target.checked)} /> Tail lift required</span></label>
@@ -306,7 +324,7 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
 
             <div className="driver-live-search-actions">
               <button type="button" className="driver-more-button driver-more-button--success" onClick={() => setQuery({ postcode: postcode.trim(), radius, vehicle, body: bodyType, minPayload, minPallets, tailLiftOnly, groupId: privateGroupId })}>Find Nearest</button>
-              <button type="button" className="driver-more-link-button" onClick={() => { setPostcode(''); setRadius('100'); setQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' }); setSearch(''); setVehicle('all'); setBodyType('all'); setMinPayload(''); setMinPallets(''); setTailLiftOnly(false); setPrivateGroupId(''); setAudience('all'); }}>Clear filters</button>
+              <button type="button" className="driver-more-link-button" onClick={() => { setPostcode(''); setPostcodeArea(''); setRadius('100'); setQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' }); setSearch(''); setVehicle('all'); setBodyType('all'); setMinPayload(''); setMinPallets(''); setTailLiftOnly(false); setPrivateGroupId(''); setAudience('all'); }}>Clear filters</button>
             </div>
           </aside>
 
@@ -321,7 +339,13 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
                 <button type="button" data-active={audience === 'drivers-subcontractors'} aria-pressed={audience === 'drivers-subcontractors'} onClick={() => setAudience('drivers-subcontractors')}>Drivers & Sub-contractors</button>
                 <button type="button" data-active={audience === 'other-drivers'} aria-pressed={audience === 'other-drivers'} onClick={() => setAudience('other-drivers')}>Other Drivers</button>
               </div>
-              <span className="driver-live-count">{mode === 'fleet' ? 'My Fleet' : 'Live Availability'} ({visible.length} vehicles)</span>
+              <div className="driver-live-topbar-actions">
+                <StatusBadge value={presence ? 'Live Availability On' : 'Live Availability Off'} tone={presence ? 'green' : 'grey'} />
+                <button type="button" className="driver-more-button driver-live-command-button" onClick={refreshAll} disabled={busy || nearbyLoading}>
+                  {nearbyLoading ? 'Refreshing...' : 'Refresh'}
+                </button>
+                <span className="driver-live-count">{mode === 'fleet' ? 'My Fleet' : 'Live Availability'} ({visible.length} vehicles)</span>
+              </div>
             </div>
 
             <div className="driver-live-map-panel">

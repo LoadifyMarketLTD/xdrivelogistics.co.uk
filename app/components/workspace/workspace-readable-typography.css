@@ -545,3 +545,13 @@
     grid-template-columns: 1fr !important;
   }
 }
+
+
+.xdrive-workspace-measured .workspace-postcode-area {
+  display: block;
+  margin-top: 2px;
+  color: #31506f;
+  font-size: 14px !important;
+  line-height: 18px !important;
+  font-weight: 600;
+}

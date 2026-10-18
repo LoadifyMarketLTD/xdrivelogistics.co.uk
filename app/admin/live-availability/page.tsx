@@ -8,7 +8,8 @@ import { useCompanyWorkspaceData, type WorkspaceLocation } from '../../component
 import { useOperationsIntelligence } from '../../components/workspace/useOperationsIntelligence';
 import { usePrivateNetworkGroups } from '../../components/workspace/usePrivateNetworkGroups';
 import { supabase } from '../../../lib/supabaseClient';
-import { matchesAvailabilityFilters, type AvailabilityTab } from '../../../lib/availability/canonicalAvailability';
+import { AVAILABILITY_BODY_TYPE_OPTIONS, matchesAvailabilityFilters, type AvailabilityTab } from '../../../lib/availability/canonicalAvailability';
+import { marketplaceVehicleSizeOptions } from '../../../lib/vehicleSizeRange';
 import {
   ActionButton,
   AlertBanner,
@@ -93,6 +94,7 @@ export default function LiveAvailabilityPage() {
   const [nearbyTailLiftOnly, setNearbyTailLiftOnly] = useState(false);
   const [nearbyGroupId, setNearbyGroupId] = useState('');
   const [nearbyPostcode, setNearbyPostcode] = useState('');
+  const [nearbyPostcodeArea, setNearbyPostcodeArea] = useState('');
   const [nearbyRadius, setNearbyRadius] = useState('100');
   const [nearbyQuery, setNearbyQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' });
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
@@ -147,6 +149,35 @@ export default function LiveAvailabilityPage() {
     void loadNearby();
   }, [loadNearby]);
 
+  useEffect(() => {
+    const raw = nearbyPostcode.trim().toUpperCase();
+    if (raw.length < 2) {
+      setNearbyPostcodeArea('');
+      return;
+    }
+    const timer = window.setTimeout(async () => {
+      const compact = raw.replace(/\s+/g, '');
+      const fullPostcode = /^[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}$/.test(compact);
+      const outcode = /^[A-Z]{1,2}\d[A-Z\d]?$/.test(compact);
+      if (!fullPostcode && !outcode) {
+        setNearbyPostcodeArea('');
+        return;
+      }
+      try {
+        const response = await fetch(`/api/location/postcode-area?q=${encodeURIComponent(compact)}`, { cache: 'no-store' });
+        if (!response.ok) {
+          setNearbyPostcodeArea('');
+          return;
+        }
+        const payload = await response.json() as { area?: string | null };
+        setNearbyPostcodeArea(payload.area ?? '');
+      } catch {
+        setNearbyPostcodeArea('');
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [nearbyPostcode]);
+
   const refreshAll = async () => {
     await Promise.all([data.refresh(), intelligence.refresh(), loadNearby()]);
   };
@@ -162,6 +193,7 @@ export default function LiveAvailabilityPage() {
     setNearbyTailLiftOnly(false);
     setNearbyGroupId('');
     setNearbyPostcode('');
+    setNearbyPostcodeArea('');
     setNearbyRadius('100');
     setNearbyQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', minPayload: '', minPallets: '', tailLiftOnly: false, groupId: '' });
     setFilterNotice('');
@@ -304,8 +336,8 @@ export default function LiveAvailabilityPage() {
   }), [filteredNearby]);
 
   const availabilityValues = useMemo(() => [...new Set(data.drivers.map((driver) => String(driver.availability_status ?? 'offline').toLowerCase()))].sort(), [data.drivers]);
-  const nearbyVehicleTypes = useMemo(() => [...new Set([...nearbyPositions.map((position) => position.vehicle_type), ...data.vehicles.map((vehicle) => vehicle.type)].filter((value): value is string => Boolean(value)))].sort(), [data.vehicles, nearbyPositions]);
-  const nearbyBodyTypes = useMemo(() => [...new Set([...nearbyPositions.map((position) => position.body_type), ...data.vehicles.map((vehicle) => vehicle.body_type)].filter((value): value is string => Boolean(value)))].sort(), [data.vehicles, nearbyPositions]);
+  const nearbyVehicleTypes = useMemo(() => marketplaceVehicleSizeOptions(), []);
+  const nearbyBodyTypes = useMemo(() => AVAILABILITY_BODY_TYPE_OPTIONS, []);
   const futurePublished = driverRows.filter((row) => Boolean(row.future?.futurePosition || row.returnJourney)).length;
   const availabilityConflicts = driverRows.filter((row) => row.driver.availability_status === 'available' && row.currentJob).length;
   const signals = [
@@ -343,16 +375,16 @@ export default function LiveAvailabilityPage() {
 
       <OperationalSignalStrip items={signals} ariaLabel="Live availability operational signals" />
 
-      <Panel title="Availability filters" description={tab === 'nearby' ? 'Search privacy-scoped Exchange availability by member or vehicle type.' : 'Filter the operational register without changing saved driver data.'} style={{ marginBottom: 12 }}>
+      <Panel title="Availability filters" style={{ marginBottom: 12 }}>
         <div className="workspace-filter-fields">
           <label style={labelStyle}>Search<input style={inputStyle} value={search} onChange={(event) => setSearch(event.target.value)} placeholder={tab === 'nearby' ? 'Member, ID or vehicle type' : 'Driver, registration, route or future position'} /></label>
           {tab !== 'nearby' && <label style={labelStyle}>Availability<select style={inputStyle} value={availability} onChange={(event) => setAvailability(event.target.value)}><option value="all">All states</option>{availabilityValues.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>}
           {(tab === 'all' || tab === 'live') && <label style={labelStyle}>Tracking freshness<select style={inputStyle} value={freshness} onChange={(event) => setFreshness(event.target.value as FreshnessFilter)}><option value="all">All freshness</option><option value="live">Live</option><option value="stale">Stale</option><option value="missing">Missing</option></select></label>}
-          {tab === 'nearby' && <label style={labelStyle}>Near postcode / outcode<input style={inputStyle} value={nearbyPostcode} onChange={(event) => setNearbyPostcode(event.target.value)} placeholder="BB1" /></label>}
+          {tab === 'nearby' && <label style={labelStyle}>Near postcode / outcode<input style={inputStyle} value={nearbyPostcode} onChange={(event) => setNearbyPostcode(event.target.value)} placeholder="BB1" />{nearbyPostcodeArea && <span className="workspace-postcode-area">{nearbyPostcodeArea}</span>}</label>}
           {tab === 'nearby' && <label style={labelStyle}>Radius<select style={inputStyle} value={nearbyRadius} onChange={(event) => setNearbyRadius(event.target.value)}>{['10','20','30','50','100','200','300'].map((value) => <option key={value} value={value}>{value} mi</option>)}</select></label>}
           {tab === 'nearby' && <label style={labelStyle}>Private Group<select style={inputStyle} value={nearbyGroupId} onChange={(event) => setNearbyGroupId(event.target.value)}><option value="">All Exchange members</option>{privateGroups.groups.filter((group) => group.allowAvailabilityVisibility).map((group) => <option key={group.id} value={group.id}>{group.name} ({group.members.length})</option>)}</select></label>}
-          <label style={labelStyle}>Vehicle<select style={inputStyle} value={nearbyVehicle} onChange={(event) => setNearbyVehicle(event.target.value)}><option value="all">All vehicle types</option>{nearbyVehicleTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>
-          <label style={labelStyle}>Body type<select style={inputStyle} value={nearbyBody} onChange={(event) => setNearbyBody(event.target.value)}><option value="all">All body types</option>{nearbyBodyTypes.map((value) => <option key={value} value={value}>{value.replaceAll('_', ' ')}</option>)}</select></label>
+          <label style={labelStyle}>Vehicle size<select style={inputStyle} value={nearbyVehicle} onChange={(event) => setNearbyVehicle(event.target.value)}><option value="all">Any vehicle</option>{nearbyVehicleTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
+          <label style={labelStyle}>Body type<select style={inputStyle} value={nearbyBody} onChange={(event) => setNearbyBody(event.target.value)}><option value="all">Any body</option>{nearbyBodyTypes.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label>
           <label style={labelStyle}>Min payload (kg)<input style={inputStyle} type="number" min="0" value={nearbyMinPayload} onChange={(event) => setNearbyMinPayload(event.target.value)} placeholder="Any" /></label>
           <label style={labelStyle}>Min pallets<input style={inputStyle} type="number" min="0" value={nearbyMinPallets} onChange={(event) => setNearbyMinPallets(event.target.value)} placeholder="Any" /></label>
           <label style={{ ...labelStyle, alignContent: 'end' }}><span>Equipment</span><span style={{ minHeight: 32, display: 'flex', alignItems: 'center', gap: 6 }}><input type="checkbox" checked={nearbyTailLiftOnly} onChange={(event) => setNearbyTailLiftOnly(event.target.checked)} />Tail lift required</span></label>

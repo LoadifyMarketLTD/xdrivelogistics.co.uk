@@ -23,7 +23,8 @@ describe('opt-in availability tracking contract', () => {
     expect(driverApi).not.toContain('mapbox.com');
     expect(page).toContain('Start live availability');
     expect(page).toContain('Stop live availability');
-    expect(page).toContain('OFF by default');
+    expect(page).not.toContain('OFF by default');
+    expect(page).not.toContain('Only you. Your position');
   });
 
   it('suppresses availability for active jobs and non-available drivers', () => {

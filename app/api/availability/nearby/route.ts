@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
+import { normaliseAvailabilityFilterValue } from '../../../../lib/availability/canonicalAvailability';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -244,8 +245,8 @@ export async function GET(request: NextRequest) {
     if (requestedScope === 'fleet' || requestedScope === 'exchange') {
       if (position.scope !== requestedScope) return false;
     }
-    if (requestedVehicleType && String(position.vehicle_type ?? '').toLowerCase() !== requestedVehicleType) return false;
-    if (requestedBodyType && String(position.body_type ?? '').toLowerCase() !== requestedBodyType) return false;
+    if (requestedVehicleType && normaliseAvailabilityFilterValue(position.vehicle_type) !== normaliseAvailabilityFilterValue(requestedVehicleType)) return false;
+    if (requestedBodyType && normaliseAvailabilityFilterValue(position.body_type) !== normaliseAvailabilityFilterValue(requestedBodyType)) return false;
     if (Number.isFinite(minPayloadKg) && minPayloadKg > 0 && Number(position.payload_kg ?? 0) < minPayloadKg) return false;
     if (Number.isFinite(minPallets) && minPallets > 0 && Number(position.pallets_capacity ?? 0) < minPallets) return false;
     if (tailLiftOnly && position.has_tail_lift !== true) return false;
