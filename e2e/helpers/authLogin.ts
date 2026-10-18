@@ -10,14 +10,11 @@ export async function loginWithCredentials(page: Page, email: string, password: 
     await expect(emailInput).toBeVisible({ timeout: 15_000 });
     await expect(passwordInput).toBeVisible({ timeout: 15_000 });
 
-    // Local Next.js can render the form before React has attached its event
-    // handlers. Wait briefly for hydration when possible, then retry the whole
-    // login flow if the click does not navigate.
-    await page.waitForFunction(() => {
-      const form = document.querySelector('form');
-      if (!form) return false;
-      return Object.keys(form).some((key) => key.startsWith('__reactProps$') || key.startsWith('__reactFiber$'));
-    }, undefined, { timeout: 15_000 }).catch(() => null);
+    // Production can paint the login form before the client handler is ready.
+    // Do not wait on private React keys: they are not a stable hydration signal
+    // and can consume the entire Playwright test timeout. Give the client a
+    // short settle window, then rely on navigation as the real success signal.
+    await page.waitForTimeout(1_250);
 
     await emailInput.fill(email);
     await passwordInput.fill(password);
