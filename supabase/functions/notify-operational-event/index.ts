@@ -35,7 +35,7 @@ const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://www.xdrivelogistics.co.uk'
 const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? '';
 const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'no-reply@xdrivelogistics.co.uk';
 
-type SenderKind = 'confirmation' | 'pod' | 'invoices' | 'payments' | 'alerts' | 'technical';
+type SenderKind = 'confirmation' | 'pod' | 'invoices' | 'payments' | 'operations' | 'support' | 'alerts' | 'technical';
 
 const senderFor = (kind: SenderKind) => {
   const senders: Record<SenderKind, string> = {
@@ -43,6 +43,8 @@ const senderFor = (kind: SenderKind) => {
     pod: 'XDrive POD <pod@xdrivelogistics.co.uk>',
     invoices: 'XDrive Invoices <invoices@xdrivelogistics.co.uk>',
     payments: 'XDrive Payments <payments@xdrivelogistics.co.uk>',
+    operations: 'XDrive Operations <operations@xdrivelogistics.co.uk>',
+    support: 'XDrive Support <support@xdrivelogistics.co.uk>',
     alerts: 'XDrive Alerts <alerts@xdrivelogistics.co.uk>',
     technical: fromEmail,
   };
@@ -269,7 +271,7 @@ async function sendEmail(
   subject: string,
   html: string,
   idempotencyKey: string,
-  sender: SenderKind = 'alerts',
+  sender: SenderKind = 'technical',
 ): Promise<boolean> {
   const uuidPattern = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
   if (uuidPattern.test(subject) || uuidPattern.test(html)) {
@@ -362,7 +364,7 @@ async function emailCompanyOperators(
   subject: string,
   htmlFor: (safeName: string) => string,
   eventId: string,
-  sender: SenderKind = 'alerts',
+  sender: SenderKind = 'technical',
 ): Promise<boolean> {
   const { data: members, error } = await supabase
     .from('company_memberships')
@@ -408,6 +410,7 @@ async function handleJobAssigned(event: NotificationEvent) {
       'New Job Assigned - XDrive Logistics',
       `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl('/driver/jobs'))}">View job details</a></p><p>XDrive Logistics</p>`,
       notificationIdempotencyKey(event.id, userId),
+      'operations',
     ) : true,
     sendDriverPush(
       userId,
@@ -478,6 +481,7 @@ async function handleCommercialAmendment(event: NotificationEvent) {
           : 'Job change rejected - XDrive Logistics',
         `<h2>Job change ${accepted ? 'accepted' : 'rejected'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>Booking <strong>${escapeHtml(jobReference)}</strong> amendment version ${escapeHtml(version)} was <strong>${accepted ? 'accepted' : 'rejected'}</strong>.</p><p>${accepted ? 'The accepted version is now the active booking.' : 'The previously accepted booking remains active.'}</p><p><a href="${escapeHtml(buildAppUrl('/customer/jobs'))}">Open booking history</a></p><p>XDrive Logistics</p>`,
         notificationIdempotencyKey(event.id, userId),
+        'confirmation',
       );
     }
   }
@@ -581,6 +585,7 @@ async function handleLoadAlert(event: NotificationEvent) {
         'New load matches your alert - XDrive Logistics',
         `<h2>A new load matches your alert</h2><p>Hi ${escapeHtml(user.name)},</p><p><strong>${escapeHtml(routeSummary)}</strong></p>${vehicle ? `<p>Vehicle: <strong>${escapeHtml(vehicle)}</strong></p>` : ''}${budgetSummary ? `<p>Budget: <strong>£${escapeHtml(Number(budget).toFixed(2))}</strong></p>` : ''}<p>Exact addresses remain hidden before award. Open XDrive to review the public marketplace details and quote if suitable.</p><p><a href="${escapeHtml(buildAppUrl('/driver/loads'))}">Open Load Exchange</a></p><p>XDrive Logistics</p>`,
         notificationIdempotencyKey(event.id, userId),
+        'alerts',
       );
     }
   }
@@ -615,6 +620,7 @@ async function handleOperationalSmartAlert(event: NotificationEvent) {
     job_pod_submitted_alert: 'POD submitted',
   };
   const title = titles[event.event_type] ?? 'Booking update';
+  const sender: SenderKind = event.event_type === 'job_pod_submitted_alert' ? 'pod' : 'operations';
   const jobId = String(event.payload.job_id ?? event.entity_id);
   const message = String(event.payload.message ?? title);
   const emailEnabled = event.payload.email_enabled === true && await userEmailEnabled(userId, event.event_type);
@@ -632,6 +638,7 @@ async function handleOperationalSmartAlert(event: NotificationEvent) {
         `${title} - XDrive Logistics`,
         `<h2>${escapeHtml(title)}</h2><p>Hi ${escapeHtml(user.name)},</p><p>${escapeHtml(message)}</p><ul>${pickup}${delivery}</ul><p><a href="${escapeHtml(buildAppUrl('/'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
         notificationIdempotencyKey(event.id, userId),
+        sender,
       );
     }
   }
@@ -666,6 +673,7 @@ async function handleOnboardingInvite(event: NotificationEvent) {
     'Complete onboarding - XDrive Logistics',
     `<h2>Your XDrive onboarding is ready</h2><p>Hi ${escapeHtml(user.name)},</p><p>Continue onboarding to unlock your workspace.</p><p><strong>Account type:</strong> ${accountType}</p><p><a href="${escapeHtml(onboardingUrl)}">Start or resume onboarding</a></p><p>XDrive Logistics</p>`,
     notificationIdempotencyKey(event.id, userId),
+    'support',
   );
 }
 
@@ -702,6 +710,7 @@ async function handleComplianceDocumentReminder(event: NotificationEvent) {
       : 'Compliance documents required - XDrive Logistics',
     `<h2>${event.event_type === 'compliance_document_expiring' ? 'Document expiry approaching' : 'Compliance documents required'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>${escapeHtml(message)}</p>${list}<p><a href="${escapeHtml(actionUrl)}" style="display:inline-block;padding:11px 18px;background:#1d57d8;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Review documents</a></p><p>XDrive Logistics</p>`,
     notificationIdempotencyKey(event.id, userId),
+    'support',
   );
 }
 
@@ -737,6 +746,7 @@ async function handleOnboardingDocumentsRequired(event: NotificationEvent) {
       : 'Documents required to complete your XDrive onboarding',
     `<h2>${reminder ? 'Your onboarding is still incomplete' : 'Please complete your XDrive documents'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>${reminder ? 'The following required documents are still outstanding:' : 'To continue your XDrive onboarding, please upload or correct the following required documents:'}</p><ul>${list}</ul>${reason}<p><a href="${escapeHtml(onboardingUrl)}" style="display:inline-block;padding:11px 18px;background:#1d57d8;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Complete your documents</a></p><p>This request remains outstanding until the required documents are uploaded and approved.</p><p>XDrive Logistics</p>`,
     notificationIdempotencyKey(event.id, userId),
+    'support',
   );
 }
 
@@ -784,6 +794,7 @@ async function handleOnboardingCompletionRequired(event: NotificationEvent) {
       : 'Action required: complete your XDrive onboarding',
     `<h2>${reminder ? 'Your XDrive onboarding is still incomplete' : 'Please complete your XDrive onboarding'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your previous progress has been saved. XDrive now checks the current onboarding requirements and only asks you to complete the items that are still missing.</p>${fieldList}${documentList}${blockerList}${reason}<p><a href="${escapeHtml(onboardingUrl)}" style="display:inline-block;padding:11px 18px;background:#1d57d8;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Resume onboarding</a></p><p>You do not need to start again. Existing valid information and uploaded documents remain attached to your application.</p><p>XDrive Logistics</p>`,
     notificationIdempotencyKey(event.id, userId),
+    'support',
   );
 }
 
@@ -803,6 +814,7 @@ async function handleOnboardingSubmitted(event: NotificationEvent) {
     'Onboarding submitted - XDrive Logistics',
     `<h2>Onboarding submitted</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your ${accountType} onboarding has been submitted for review.</p>${referenceLine}<p>XDrive Logistics</p>`,
     notificationIdempotencyKey(event.id, userId),
+    'support',
   );
 }
 
@@ -817,6 +829,7 @@ async function handleOnboardingApproved(event: NotificationEvent) {
     'Onboarding approved - XDrive Logistics',
     `<h2>Your XDrive workspace is approved</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your onboarding has been approved. You can now sign in and use your workspace.</p><p><a href="${escapeHtml(buildAppUrl('/login'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
     notificationIdempotencyKey(event.id, userId),
+    'support',
   );
 }
 
@@ -843,6 +856,44 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
     (name) => `<h2>Invoice disputed</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceReference}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
     event.id,
     'invoices',
+  );
+}
+
+async function handlePaymentReceived(event: NotificationEvent) {
+  const invoiceReference = escapeHtml(await getPublicInvoiceReference(event));
+  const companyId = event.company_id ?? (event.payload.company_id as string | undefined);
+  const rawAmount = event.payload.amount_gbp ?? event.payload.amount ?? event.payload.payment_amount;
+  const amount = typeof rawAmount === 'number'
+    ? rawAmount
+    : typeof rawAmount === 'string' && rawAmount.trim() ? Number(rawAmount) : null;
+  const amountLine = typeof amount === 'number' && Number.isFinite(amount)
+    ? `<p><strong>Amount received:</strong> £${escapeHtml(amount.toFixed(2))}</p>`
+    : '';
+  const subject = `Payment received - Invoice ${invoiceReference}`;
+  const htmlFor = (name: string) =>
+    `<h2>Payment received</h2><p>Hi ${name},</p><p>Payment has been recorded against invoice <strong>${invoiceReference}</strong>.</p>${amountLine}<p><a href="${escapeHtml(buildAppUrl('/admin/finance/customer-invoices'))}">Open Finance</a></p><p>XDrive Logistics</p>`;
+
+  if (event.recipient_user_id) {
+    if (!await userEmailEnabled(event.recipient_user_id, event.event_type)) return true;
+    const user = await getUserEmail(event.recipient_user_id);
+    if (!user) return true;
+    return sendEmail(
+      user.email,
+      subject,
+      htmlFor(escapeHtml(user.name)),
+      notificationIdempotencyKey(event.id, event.recipient_user_id),
+      'payments',
+    );
+  }
+
+  if (!companyId) return true;
+  return emailCompanyOperators(
+    companyId,
+    event.event_type,
+    subject,
+    htmlFor,
+    event.id,
+    'payments',
   );
 }
 
@@ -902,6 +953,10 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       case 'onboarding_submitted': success = await handleOnboardingSubmitted(event); break;
       case 'onboarding_approved': success = await handleOnboardingApproved(event); break;
       case 'invoice_disputed': success = await handleInvoiceDisputed(event); break;
+      case 'invoice_paid':
+      case 'payment_received':
+        success = await handlePaymentReceived(event);
+        break;
       case 'invoice_created': success = await handleInvoiceCreated(event); break;
       default:
         console.log(`[notify] Unknown event type: ${event.event_type} - skipped`);

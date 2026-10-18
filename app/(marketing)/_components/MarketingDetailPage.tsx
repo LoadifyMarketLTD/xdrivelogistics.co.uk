@@ -1,6 +1,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { ArrowRight, CheckCircle2 } from 'lucide-react';
+import { COMPANY_CONFIG } from '../../config/company';
 import { SocialShareBar } from './SocialShareBar';
 
 export type DetailSection = { title: string; copy: string; points?: string[] };
@@ -257,6 +258,15 @@ export function MarketingDetailPage({
                 <p>Registered in England and Wales</p>
                 <p>Registered office: 101 Cornelian Street, Blackburn, England, BB1 9QL</p>
                 <p>VAT No. GB 375949535</p>
+                <div className="mt-4 border-t border-white/10 pt-4">
+                  <p><a href={`mailto:${COMPANY_CONFIG.emails.general}`} className="hover:text-white">General: {COMPANY_CONFIG.emails.general}</a></p>
+                  <p><a href={`mailto:${COMPANY_CONFIG.emails.operations}`} className="hover:text-white">Operations: {COMPANY_CONFIG.emails.operations}</a></p>
+                  <p><a href={`mailto:${COMPANY_CONFIG.emails.support}`} className="hover:text-white">Support: {COMPANY_CONFIG.emails.support}</a></p>
+                  <p><a href={`mailto:${COMPANY_CONFIG.emails.confirmations}`} className="hover:text-white">Confirmations: {COMPANY_CONFIG.emails.confirmations}</a></p>
+                  <p><a href={`mailto:${COMPANY_CONFIG.emails.pod}`} className="hover:text-white">POD: {COMPANY_CONFIG.emails.pod}</a></p>
+                  <p><a href={`mailto:${COMPANY_CONFIG.emails.invoices}`} className="hover:text-white">Invoices: {COMPANY_CONFIG.emails.invoices}</a></p>
+                  <p><a href={`mailto:${COMPANY_CONFIG.emails.payments}`} className="hover:text-white">Payments: {COMPANY_CONFIG.emails.payments}</a></p>
+                </div>
               </div>
             </div>
 

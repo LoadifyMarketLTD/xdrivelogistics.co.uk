@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, Mail, MapPin, Phone } from 'lucide-react';
+import { ArrowRight, FileText, Headphones, Mail, MapPin, Phone, ReceiptText, ShieldCheck, Truck } from 'lucide-react';
 import { COMPANY_CONFIG } from '../config/company';
 
 export const metadata: Metadata = {
@@ -11,10 +11,46 @@ export const metadata: Metadata = {
 
 const contactCards = [
   {
-    label: 'Email',
-    value: COMPANY_CONFIG.email,
-    href: `mailto:${COMPANY_CONFIG.email}`,
+    label: 'General enquiries',
+    value: COMPANY_CONFIG.emails.general,
+    href: `mailto:${COMPANY_CONFIG.emails.general}`,
     icon: Mail,
+  },
+  {
+    label: 'Operations',
+    value: COMPANY_CONFIG.emails.operations,
+    href: `mailto:${COMPANY_CONFIG.emails.operations}`,
+    icon: Truck,
+  },
+  {
+    label: 'Platform support',
+    value: COMPANY_CONFIG.emails.support,
+    href: `mailto:${COMPANY_CONFIG.emails.support}`,
+    icon: Headphones,
+  },
+  {
+    label: 'Booking confirmations',
+    value: COMPANY_CONFIG.emails.confirmations,
+    href: `mailto:${COMPANY_CONFIG.emails.confirmations}`,
+    icon: ShieldCheck,
+  },
+  {
+    label: 'POD',
+    value: COMPANY_CONFIG.emails.pod,
+    href: `mailto:${COMPANY_CONFIG.emails.pod}`,
+    icon: FileText,
+  },
+  {
+    label: 'Invoices',
+    value: COMPANY_CONFIG.emails.invoices,
+    href: `mailto:${COMPANY_CONFIG.emails.invoices}`,
+    icon: FileText,
+  },
+  {
+    label: 'Payments',
+    value: COMPANY_CONFIG.emails.payments,
+    href: `mailto:${COMPANY_CONFIG.emails.payments}`,
+    icon: ReceiptText,
   },
   {
     label: 'Phone',
