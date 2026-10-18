@@ -411,7 +411,7 @@ export default function WorkspaceShell({
                     padding: '0 10px',
                     marginBottom: '4px',
                     color: '#64748b',
-                    fontSize: '11px',
+                    fontSize: '14px',
                     fontWeight: 700,
                     lineHeight: '16px',
                     textTransform: 'uppercase',
@@ -500,7 +500,7 @@ export default function WorkspaceShell({
                         background: active ? '#eff6ff' : 'transparent',
                         color: active ? workspaceTheme.blue : workspaceTheme.text,
                         padding: '0 10px',
-                        fontSize: '13px',
+                        fontSize: '14px',
                         fontWeight: active ? 600 : 400,
                         textAlign: 'left',
                         cursor: 'pointer',
@@ -566,7 +566,7 @@ export default function WorkspaceShell({
           <div
             style={{
               color: workspaceTheme.muted,
-              fontSize: '11px',
+              fontSize: '14px',
               overflow: 'hidden',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -584,7 +584,7 @@ export default function WorkspaceShell({
                 background: '#fff',
                 color: workspaceTheme.text,
                 padding: '8px',
-                fontSize: '13px',
+                fontSize: '14px',
                 fontWeight: 600,
                 cursor: 'pointer',
               }}
@@ -599,7 +599,7 @@ export default function WorkspaceShell({
                 background: '#fff',
                 color: workspaceTheme.red,
                 padding: '8px',
-                fontSize: '13px',
+                fontSize: '14px',
                 fontWeight: 600,
                 cursor: 'pointer',
               }}
@@ -644,7 +644,7 @@ export default function WorkspaceShell({
                   borderRadius: '4px',
                   background: '#fff',
                   color: workspaceTheme.text,
-                  fontSize: '13px',
+                  fontSize: '14px',
                   fontWeight: 900,
                   cursor: 'pointer',
                 }}
@@ -653,12 +653,12 @@ export default function WorkspaceShell({
               </button>
             )}
             <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: '11px', color: workspaceTheme.muted, fontWeight: 600 }}>
+              <div style={{ fontSize: '14px', color: workspaceTheme.muted, fontWeight: 600 }}>
                 {definition.label}
               </div>
               <div
                 style={{
-                  fontSize: '13px',
+                  fontSize: '14px',
                   color: workspaceTheme.text,
                   fontWeight: 600,
                   whiteSpace: 'nowrap',
@@ -686,7 +686,7 @@ export default function WorkspaceShell({
                       borderRadius: '4px',
                       background: '#fff',
                       color: workspaceTheme.text,
-                      fontSize: '12px',
+                      fontSize: '14px',
                       fontWeight: 600,
                       padding: '0 0.55rem',
                       display: 'inline-flex',
@@ -712,7 +712,7 @@ export default function WorkspaceShell({
                   color: '#172033',
                   padding: '8px 14px',
                   borderRadius: '4px',
-                  fontSize: '13px',
+                  fontSize: '14px',
                   fontWeight: 600,
                   cursor: 'pointer',
                   boxShadow: 'none',
@@ -730,7 +730,7 @@ export default function WorkspaceShell({
                 background: '#fff',
                 color: workspaceTheme.text,
                 padding: '8px 14px',
-                fontSize: '13px',
+                fontSize: '14px',
                 fontWeight: 600,
                 cursor: 'pointer',
                 whiteSpace: 'nowrap',
@@ -751,7 +751,7 @@ export default function WorkspaceShell({
                 borderRadius: '4px',
                 background: '#fff',
                 cursor: 'pointer',
-                fontSize: '13px',
+                fontSize: '14px',
               }}
             >
               🔔

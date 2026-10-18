@@ -104,7 +104,7 @@ export default function BrokerLoadsPage() {
     if (deepJob || deepCustomer) router.push('/broker/loads');
   };
 
-  const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
+  const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 14px)' } as const;
 
   return (
     <PageFrame>

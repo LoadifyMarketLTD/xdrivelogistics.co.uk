@@ -14,7 +14,7 @@ const FleetPositionMapClient = dynamic(() => import('./FleetPositionMapClient'),
         borderRadius: '4px',
         background: '#f8fafc',
         color: '#64748b',
-        fontSize: '12px',
+        fontSize: '14px',
       }}
     >
       Loading live map…

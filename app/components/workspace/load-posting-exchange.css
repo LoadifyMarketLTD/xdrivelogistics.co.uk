@@ -5,7 +5,7 @@
   display:grid;
   grid-template-columns:minmax(0,1fr);
   gap:10px;
-  font-size:var(--ws-font-body,12px);
+  font-size:var(--ws-font-body, 14px);
   justify-self:stretch;
   align-self:stretch;
 }
@@ -30,20 +30,20 @@
   border-bottom-color:#c7d7e8 !important;
 }
 .xdrive-post-load-form>section>div:first-child h2{
-  font-size:var(--ws-font-panel-title,13px) !important;
-  line-height:18px !important;
+  font-size:var(--ws-font-panel-title,16px) !important;
+  line-height: 20px !important;
   font-weight:600 !important;
   color:#0b2f6b !important;
 }
 .xdrive-post-load-form>section>div:first-child p{
-  font-size:var(--ws-font-label,11px) !important;
-  line-height:14px !important;
+  font-size:var(--ws-font-label, 14px) !important;
+  line-height: 18px !important;
   color:#52667b !important;
 }
 .xdrive-post-load-form input,
 .xdrive-post-load-form select,
 .xdrive-post-load-form textarea{
-  font-size:var(--ws-font-body,12px) !important;
+  font-size:var(--ws-font-body, 14px) !important;
   color:#172033 !important;
 }
 .xdrive-post-load-form input,
@@ -54,11 +54,11 @@
   min-height:72px !important;
 }
 .xdrive-post-load-form label{
-  font-size:var(--ws-font-label,11px) !important;
-  line-height:14px !important;
+  font-size:var(--ws-font-label, 14px) !important;
+  line-height: 18px !important;
 }
 .xdrive-post-load-form button{
-  font-size:12px !important;
+  font-size: 14px !important;
 }
 .xdrive-postload-secondary-grid{
   display:grid;
@@ -85,7 +85,7 @@
   box-shadow:0 -6px 18px rgba(15,23,42,.08);
 }
 .xdrive-post-load-form [role="alert"]{
-  font-size:12px;
+  font-size: 14px;
 }
 @media(max-width:900px){
   .xdrive-postload-secondary-grid,

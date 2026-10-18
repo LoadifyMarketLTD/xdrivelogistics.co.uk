@@ -30,14 +30,14 @@
 
 | Element | Target |
 |---|---|
-| Eyebrow | `11px / 16px / 700 uppercase` |
-| Page title | `20px / 26px / 600` |
-| Page description | `12px / 16px / 400` |
-| Panel title | `13px / 18px / 600` |
-| Summary button label | `12px / 16px / 600` |
-| Current job route | `13px / 18px / 600` |
-| Current job meta | `11px / 14px / 400` |
-| Controls | `32px` height |
+| Eyebrow | `14px / 18px / 600 uppercase` |
+| Page title | `20px / 26px / 700` |
+| Page description | `14px / 18px / 400` |
+| Panel title | `16px / 20px / 700` |
+| Summary button label | `14px / 18px / 600` |
+| Current job route | `16px / 20px / 700` |
+| Current job meta | `14px / 18px / 400` |
+| Controls | `32px` height, `14px / 18px / 600` text |
 
 ## Layout notes
 

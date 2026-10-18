@@ -406,5 +406,5 @@ const modalControl: React.CSSProperties = {
   padding: '5px 8px',
   background: '#fff',
   color: '#172033',
-  fontSize: 'var(--ws-font-body, 12px)',
+  fontSize: 'var(--ws-font-body, 14px)',
 };

@@ -44,8 +44,8 @@
 
 .customer-attention-row__copy strong {
   overflow: hidden;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -54,8 +54,8 @@
 .customer-attention-row__copy span {
   overflow: hidden;
   color: #64748b;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -69,8 +69,8 @@
   border-radius: 999px;
   background: #eef4ff;
   color: #0b2f6b;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 800;
 }
 
@@ -108,8 +108,8 @@
 
 .customer-owner-report-row:last-child { border-bottom: 0; }
 .customer-owner-report-row span:first-child { min-width: 0; }
-.customer-owner-report-row strong { display: block; font-size: 12px; line-height: 16px; }
-.customer-owner-report-row small { display: block; color: #64748b; font-size: 11px; line-height: 14px; }
+.customer-owner-report-row strong { display: block; font-size: 14px; line-height: 18px; }
+.customer-owner-report-row small { display: block; color: #64748b; font-size: 14px; line-height: 18px; }
 .customer-owner-report-row > span:last-child { color: #1d57d8; font-weight: 800; }
 
 .customer-activity-filters {
@@ -129,7 +129,7 @@
   background: #fff;
   color: #1a1f2b;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .customer-activity-list {
@@ -161,8 +161,8 @@
 .customer-activity-times,
 .customer-activity-status {
   min-width: 0;
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .customer-activity-route > div {
@@ -211,7 +211,7 @@
   background: #0b2f6b;
   color: #fff;
   font-weight: 700;
-  font-size: 12px;
+  font-size: 14px;
   box-shadow: 0 2px 8px rgba(0,0,0,.18);
   cursor: pointer;
 }
@@ -234,8 +234,8 @@
 
 .customer-supplier-row:last-child { border-bottom: 0; }
 .customer-supplier-row span { min-width: 0; }
-.customer-supplier-row strong { display: block; color: #172033; font-size: 12px; line-height: 16px; }
-.customer-supplier-row small { display: block; color: #64748b; font-size: 11px; line-height: 14px; }
+.customer-supplier-row strong { display: block; color: #172033; font-size: 14px; line-height: 18px; }
+.customer-supplier-row small { display: block; color: #64748b; font-size: 14px; line-height: 18px; }
 .customer-supplier-row > span:last-child { text-align: right; }
 
 /* Customer operational pages follow the same CX-style vertical filter rail
@@ -302,8 +302,8 @@
   min-height: 28px !important;
   padding: 5px 8px !important;
   color: var(--ws-muted) !important;
-  font-size: 11px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-customer-workspace .xdrive-operational-card,

@@ -225,43 +225,43 @@ Scopul este densitate operațională fără efect de pagină randată la 80–85
 
 ### Workspace / page title
 - `20px`
-- line height aproximativ `26px`
-- weight `600–700`
+- line-height `26px`
+- weight `700`
 
 ### Section title
-- `14–16px`
-- line height aproximativ `20–22px`
-- weight `600–700`
+- `16px`
+- line-height `20px`
+- weight `700`
 
-### Panel title
-- `13px`
-- line height aproximativ `18px`
-- weight `600–700`
+### Panel / important operational title
+- `16px`
+- line-height `20px`
+- weight `700`
 
 ### Operational body / route / values
-- `12–13px`
-- **preferred default: `13px`** pentru informația operațională principală
-- line height aproximativ `17–18px`
+- **`14px` canonical minimum and default**
+- line-height `18px`
+- weight `400–600` according to hierarchy
 
 ### Labels
-- `11–12px`
-- preferred default: `11px` sau `12px`, în funcție de densitatea modulului
-- uppercase doar unde ajută scanarea
-- weight `600–700`
+- **`14px`**
+- line-height `18px`
+- weight `600`
+- uppercase only where it improves scanning
 
-### Metadata / secondary
-- `10–11px`
-- **preferred default: `11px`**
-- muted
+### Metadata / secondary / micro metadata
+- **`14px` minimum**
+- line-height `18px`
+- muted colour may distinguish secondary information; size must not shrink it
 
-### Micro metadata
-- `10px` doar pentru timezone, refs foarte secundare, counters sau informații auxiliare comparabile
+### Interactive controls, links, tabs and subtabs
+- **`14px / 18px / 600`**
+- active/selected state: `700`
 
-### Navigation
-- `13px` baseline
-- weight suficient pentru scanare rapidă
+### Navigation exception
+- top operational navbar remains `13px / 600` because it is a separately measured shell primitive
 
-Nu folosi `8–9px` pentru labels/body ca strategie de densitate. Agentul nu trebuie să introducă arbitrar heading-uri de `24–32px` în pagini operaționale, dar nici să miniaturizeze textul principal.
+**PROHIBITED:** operational `10px`, `11px`, `12px` or fractional equivalents. Density must come from geometry, spacing and information hierarchy, never by shrinking readable text.
 
 # 7. CONTROL CONTRACT
 
@@ -271,7 +271,7 @@ Standard general XDrive:
 - preferred default: `32px` pentru input/select/primary-secondary buttons;
 - radius: `4px`;
 - border: `1px`;
-- font: `11–13px`, în funcție de rolul controlului.
+- font: **`14px / 18px / 600`** pentru controale interactive.
 
 ### Primary
 XDrive Orange.
@@ -293,14 +293,14 @@ Pentru XDrive:
 
 - height: `27–30px`;
 - preferred default: `28px`;
-- text: `11–12px`;
+- text: **`14px / 18px / 600`**;
 - rectangular;
-- active state cu pale blue + blue underline/border.
+- active state: `700` cu pale blue + blue underline/border.
 
 ### Micro / footer actions
 
 - height: aproximativ `22–26px`;
-- text: `11px`;
+- text: **`14px / 18px / 600`**;
 - folosite pentru actions secundare de tip Order / Notes / History / Documents, nu pentru CTA principal.
 
 Pill styling este rezervat în primul rând statusurilor. Nu mări toate controalele doar pentru lizibilitate; mai întâi păstrează tipografia corectă.
@@ -1740,40 +1740,39 @@ Mobile:
 
 Workspace/page title:
 
-- `20 px`
-- line-height aproximativ `26 px`
-- `600–700`
+- `20 px / 26 px / 700`
 
 Section title:
 
-- `14–16 px`
-- `600–700`
+- `16 px / 20 px / 700`
 
-Panel title:
+Panel / important operational title:
 
-- `13 px`
-- `600–700`
+- `16 px / 20 px / 700`
 
 Operational body / route / values:
 
-- `12–13 px`
-- default `13 px`
+- **`14 px / 18 px` canonical minimum**
+- weight `400–600`
 
 Labels:
 
-- `11–12 px`
-- `600–700`
+- **`14 px / 18 px / 600`**
 
-Metadata / secondary:
+Metadata / secondary / micro metadata:
 
-- `10–11 px`
-- default `11 px`
+- **`14 px / 18 px` minimum**
+
+Interactive controls / links / tabs:
+
+- **`14 px / 18 px / 600`**
+- active/selected `700`
 
 Navigation:
 
-- `13 px`
+- `13 px / 600` only for the measured top navbar primitive
 
-Nu folosi `8–9 px` pentru body/labels ca strategie de densitate.
+Do not use operational `10–12 px` text. Density is achieved with spacing and geometry, not reduced type.
 
 ## C. Controale
 
@@ -1783,7 +1782,7 @@ Inputs / select / primary-secondary buttons:
 - preferred default: `32 px`
 - border radius: `4 px`
 - border: `1 px`
-- font: `11–13 px`
+- font: **`14 px / 18 px / 600`**
 - fără pill buttons decât pentru statusuri
 
 Primary action:

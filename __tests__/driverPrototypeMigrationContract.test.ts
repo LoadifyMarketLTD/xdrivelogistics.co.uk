@@ -139,12 +139,12 @@ describe('Driver prototype migration contract', () => {
     expect(css).not.toContain('.xdrive-driver-workspace .workspace-board-layout');
     expect(baseline).toContain('.xdrive-workspace-measured .workspace-board-layout');
     expect(baseline).toContain('--ws-filter-rail-w: 165px');
-    expect(baseline).toContain('--ws-font-body: 12px');
+    expect(baseline).toContain('--ws-font-body: 14px');
     expect(baseline).toContain('--ws-tab-h: 28px');
     expect(css).toContain('min-height: var(--ws-control-h, 32px);');
     expect(css).toContain('height: var(--ws-table-head-h, 40px);');
     expect(css).toContain('min-height: var(--ws-table-row-h, 42px);');
-    expect(css).toContain('font-size: var(--ws-font-body, 12px);');
+    expect(css).toContain('font-size: var(--ws-font-body, 14px);');
     expect(baseline).toContain('--ws-operational-row-min-h: 52px');
     expect(baseline).toContain('min-height: var(--ws-operational-row-min-h) !important;');
   });
@@ -189,10 +189,10 @@ describe('Driver prototype migration contract', () => {
     expect(duplicates).toEqual([]);
   });
 
-  it('keeps Diary record values at the compact PR675 Loads scale without oversized legacy bold type', () => {
+  it('keeps Diary record values on the canonical readable 14px operational scale', () => {
     const match = css.match(/\.xdrive-driver-workspace \.driver-diary-route \.driver-diary-entry \.driver-cell-primary \{([^}]*)\}/);
     expect(match, 'Diary needs its route-specific primary-value adapter').not.toBeNull();
-    expect(match?.[1]).toContain('font-size: 13px !important;');
+    expect(match?.[1]).toContain('font-size: 14px !important;');
     expect(match?.[1]).toContain('line-height: 18px !important;');
     expect(match?.[1]).toContain('font-weight: 600 !important;');
     expect(match?.[1]).not.toContain('13.5px');
@@ -202,7 +202,7 @@ describe('Driver prototype migration contract', () => {
     const returnsCss = read('app/driver/returns/returns-exchange.css');
     expect(returnsCss).toContain('grid-template-columns:var(--ws-filter-rail-w,165px) minmax(0,1fr)!important;');
     expect(returnsCss).toContain('min-height:var(--ws-control-h,32px)!important;');
-    expect(returnsCss).toContain('font-size:var(--ws-font-body,12px)!important;');
+    expect(returnsCss).toContain('font-size:var(--ws-font-body, 14px)!important;');
     expect(returnsCss).toContain('border-radius:var(--ws-radius,4px)!important;');
     expect(returnsCss).not.toContain('border-radius:2px!important;');
     // The shared measured layer owns Return Journeys rail width and sticky
@@ -293,7 +293,7 @@ describe('Driver prototype migration contract', () => {
     expect(strip).toContain('overflow-x:auto!important;');
     expect(strip).toContain('overflow-y:hidden!important;');
     expect(buttons).toContain('height:var(--ws-tab-h,28px)!important;');
-    expect(buttons).toContain('font-size:var(--ws-font-label,11px)!important;');
+    expect(buttons).toContain('font-size:var(--ws-font-label, 14px)!important;');
     expect(active).toContain('border-bottom-color:var(--ws-blue,#1d57d8)!important;');
   });
 });

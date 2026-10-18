@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback } from 'react';
 import ProtectedRoute from '../../components/ProtectedRoute';
@@ -311,16 +311,16 @@ function JobBidGroup({
       {/* Job header */}
       <div className="carrier-register-bid-group__header" data-awarded={isAwarded ? 'true' : 'false'}>
         <div>
-          <div style={{ fontWeight: 600, color: '#172033', fontSize: 'var(--ws-font-panel-title, 13px)', lineHeight: '18px' }}>
+          <div style={{ fontWeight: 600, color: '#172033', fontSize: 'var(--ws-font-panel-title, 16px)', lineHeight: '18px' }}>
             {group.jobPickup || '-'} to {group.jobDelivery || '-'}
           </div>
-          <div style={{ fontSize: 'var(--ws-font-label, 11px)', lineHeight: '14px', color: '#64748b', marginTop: 2 }}>
+          <div style={{ fontSize: 'var(--ws-font-label, 14px)', lineHeight: '14px', color: '#64748b', marginTop: 2 }}>
             {group.jobVehicle ? VEHICLE_LABEL[group.jobVehicle] ?? group.jobVehicle : 'Vehicle TBC'}
             {group.jobPickupDate ? `  Pickup: ${fmtDate(group.jobPickupDate)}` : ''}
             {'  '}
             <span style={{ textTransform: 'capitalize' }}>{group.exchangeVisibility}</span>
             {'  '}
-            <span style={{ fontFamily: 'monospace', fontSize: 'var(--ws-font-meta, 11px)' }}>{group.jobId.slice(0, 8)}...</span>
+            <span style={{ fontFamily: 'monospace', fontSize: 'var(--ws-font-meta, 14px)' }}>{group.jobId.slice(0, 8)}...</span>
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
@@ -380,7 +380,7 @@ function JobBidGroup({
         />
       </div>
       {group.bids.length > BIDS_PER_PAGE && (
-        <div style={{ minHeight: 'var(--ws-meta-h, 22px)', borderTop: '1px solid var(--ws-border-soft, #e2e7ed)', padding: '4px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--ws-font-meta, 11px)', color: '#64748b' }}>
+        <div style={{ minHeight: 'var(--ws-meta-h, 22px)', borderTop: '1px solid var(--ws-border-soft, #e2e7ed)', padding: '4px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--ws-font-meta, 14px)', color: '#64748b' }}>
           <span>
             Showing {safeGroupPage * BIDS_PER_PAGE + 1}-{Math.min((safeGroupPage + 1) * BIDS_PER_PAGE, group.bids.length)} of {group.bids.length}
           </span>

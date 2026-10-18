@@ -142,7 +142,7 @@
   border: 1px solid var(--ws-border, #cfd7e3);
   border-radius: var(--ws-radius, 4px);
   padding: 6px 8px;
-  font-size: 12px;
+  font-size: 14px;
   resize: vertical;
 }
 

@@ -43,14 +43,14 @@
 }
 
 .settings-exchange-nav strong {
-  font-size: var(--ws-font-body, 13px);
-  line-height: 17px;
+  font-size: var(--ws-font-body, 14px);
+  line-height: 18px;
 }
 
 .settings-exchange-nav span {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-micro, 10px);
-  line-height: 13px;
+  font-size: var(--ws-font-micro, 14px);
+  line-height: 18px;
 }
 
 .settings-exchange-main {
@@ -75,8 +75,8 @@
 
 .settings-form-grid label > span {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-label, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-label, 14px);
+  line-height: 18px;
   font-weight: 700;
 }
 
@@ -90,7 +90,7 @@
   border-radius: var(--ws-radius, 4px);
   background: #fff;
   color: var(--ws-text, #172033);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .settings-form-grid input[readonly] {
@@ -116,15 +116,15 @@
 .settings-account-summary span,
 .settings-contract-note span {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .settings-account-summary strong,
 .settings-contract-note strong {
   color: var(--ws-text, #172033);
-  font-size: var(--ws-font-body, 13px);
-  line-height: 17px;
+  font-size: var(--ws-font-body, 14px);
+  line-height: 18px;
 }
 
 .settings-contract-note {
@@ -160,14 +160,14 @@
 
 .settings-notification-row strong {
   color: var(--ws-text, #172033);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .settings-notification-row small {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .settings-notification-row input {
@@ -204,12 +204,12 @@
 
 .settings-link-list strong {
   color: var(--ws-blue, #1d57d8);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .settings-link-list span {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
+  font-size: var(--ws-font-meta, 14px);
 }
 
 .settings-contact-grid {
@@ -230,14 +230,14 @@
 
 .settings-contact-grid span {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-label, 11px);
+  font-size: var(--ws-font-label, 14px);
 }
 
 .settings-contact-grid strong {
   overflow-wrap: anywhere;
   color: var(--ws-text, #172033);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 @media (max-width: 1024px) {
@@ -301,8 +301,8 @@
 
 .settings-member-card span {
   color: #64748b;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   text-transform: capitalize;
 }
 
@@ -336,12 +336,12 @@
 
 .settings-identity-list span {
   color: #64748b;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .settings-identity-list strong {
   color: #172033;
-  font-size: 12px;
+  font-size: 14px;
   text-align: right;
   text-transform: none;
 }
@@ -359,8 +359,8 @@
 .settings-exchange-nav-group > span {
   padding: 8px 10px 5px;
   color: #64748b;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 800;
   letter-spacing: .06em;
   text-transform: uppercase;
@@ -372,8 +372,8 @@
 
 .settings-exchange-nav-group button small {
   color: #7b8a9a;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 500;
 }
 
@@ -393,13 +393,13 @@
 .settings-form-grid select {
   height: 36px;
   min-height: 36px;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .settings-form-grid label > span {
   color: #334155;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 800;
 }
 

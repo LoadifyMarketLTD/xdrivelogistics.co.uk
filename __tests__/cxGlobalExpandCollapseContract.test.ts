@@ -20,7 +20,7 @@ describe('CX global Expand all / Collapse all operational contract', () => {
     expect(shared).toContain("expanded ? 'Collapse all' : 'Expand all'");
     expect(css).toContain('height: var(--ws-micro-action-h, 24px);');
     expect(css).toContain('border-radius: var(--ws-radius, 4px);');
-    expect(css).toContain('font-size: var(--ws-font-meta, 11px);');
+    expect(css).toContain('font-size: var(--ws-font-meta, 14px);');
   });
 
   it('keeps Driver Jobs globally expandable for the visible filtered records', () => {

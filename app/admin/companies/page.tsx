@@ -201,7 +201,7 @@ export default function CompaniesPage() {
               />
             </div>
             {companies.length > COMPANIES_PER_PAGE && (
-              <div style={{ minHeight: 'var(--ws-meta-h, 22px)', borderTop: '1px solid var(--ws-border-soft, #e2e7ed)', padding: '4px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--ws-font-meta, 11px)', color: '#64748b' }}>
+              <div style={{ minHeight: 'var(--ws-meta-h, 22px)', borderTop: '1px solid var(--ws-border-soft, #e2e7ed)', padding: '4px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--ws-font-meta, 14px)', color: '#64748b' }}>
                 <span>Showing {safeCompanyPage * COMPANIES_PER_PAGE + 1}–{Math.min((safeCompanyPage + 1) * COMPANIES_PER_PAGE, companies.length)} of {companies.length}</span>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <ActionButton tone="secondary" onClick={() => setCompanyPage((prev) => Math.max(prev - 1, 0))} disabled={safeCompanyPage === 0}>Previous</ActionButton>

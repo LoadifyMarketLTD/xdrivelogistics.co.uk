@@ -25,7 +25,7 @@ const driverPages = pageFiles('app/driver').sort();
 
 describe('all operational workspace pages follow the Courier Exchange live reference contract', () => {
   it('audits every current Admin, Broker and Customer route page', () => {
-    expect(workspacePages).toHaveLength(128);
+    expect(workspacePages).toHaveLength(129);
     for (const file of workspacePages) {
       const source = read(file);
       const lines = source.split(/\r?\n/).length;
@@ -92,7 +92,7 @@ describe('all operational workspace pages follow the Courier Exchange live refer
       '--ws-panel-head-h: 36px',
       '--ws-table-head-h: 40px',
       '--ws-table-row-h: 42px',
-      '--ws-font-body: 12px',
+      '--ws-font-body: 14px',
       '--ws-radius: 4px',
       'font-family: "HK Nova", Arial, sans-serif',
     ]) expect(baseline).toContain(marker);

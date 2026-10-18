@@ -58,13 +58,13 @@
 .driver-diary-route .driver-diary-status-strip button {
   min-height: var(--ws-tab-h, 28px);
   padding: 0 10px;
-  font-size: var(--ws-font-body, 12px);
-  line-height: 16px;
+  font-size: var(--ws-font-body, 14px);
+  line-height: 18px;
   font-weight: 600;
 }
 
 .driver-diary-route .driver-diary-status-strip button span {
-  font-size: var(--ws-font-meta, 11px);
+  font-size: var(--ws-font-meta, 14px);
   font-weight: 600;
 }
 
@@ -72,8 +72,8 @@
 .driver-diary-route .driver-board-summary {
   min-height: 32px;
   padding: 4px 8px;
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .driver-diary-route .driver-diary-summary-actions {
@@ -104,7 +104,7 @@
   align-items: center;
   gap: 4px;
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
+  font-size: var(--ws-font-meta, 14px);
 }
 
 .driver-diary-route .driver-diary-summary-actions select {
@@ -115,7 +115,7 @@
   border-radius: var(--ws-radius, 4px);
   background: #fff;
   color: var(--ws-text, #172033);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .driver-diary-route .driver-diary-list {
@@ -149,19 +149,19 @@
 }
 
 .driver-diary-route .driver-diary-entry .driver-cell-label {
-  font-size: var(--ws-font-label, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-label, 14px);
+  line-height: 18px;
 }
 
 .driver-diary-route .driver-diary-entry .driver-cell-primary {
-  font-size: var(--ws-font-body, 13px);
+  font-size: var(--ws-font-body, 14px);
   line-height: 18px;
 }
 
 .driver-diary-route .driver-diary-entry .driver-cell-secondary,
 .driver-diary-route .driver-diary-entry .driver-load-row__meta {
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .driver-diary-route .driver-diary-entry .driver-load-row__meta {
@@ -188,8 +188,8 @@
   border-radius: 0;
   background: transparent;
   color: var(--ws-text, #172033);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
   font-weight: 650;
   white-space: nowrap;
   cursor: pointer;
@@ -227,8 +227,8 @@
   border-right: 1px solid var(--ws-border, #cfd7e3);
   background: transparent;
   color: var(--ws-text, #172033);
-  font-size: var(--ws-font-body, 12px);
-  line-height: 16px;
+  font-size: var(--ws-font-body, 14px);
+  line-height: 18px;
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
@@ -252,14 +252,14 @@
   border: 1px solid var(--ws-border-soft, #e2e7ed);
   background: #fff;
   color: var(--ws-text, #172033);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .driver-diary-route .driver-diary-text-block strong {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-label, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-label, 14px);
+  line-height: 18px;
   font-weight: 700;
 }
 
@@ -290,8 +290,8 @@
   gap: 8px;
   padding: 7px 8px;
   border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .driver-diary-route .driver-diary-feedback-row:last-child {
@@ -300,14 +300,14 @@
 
 .driver-diary-route .driver-diary-feedback-row strong {
   color: var(--ws-text, #172033);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .driver-diary-route .driver-diary-feedback-row span,
 .driver-diary-route .driver-diary-feedback-row small {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .driver-diary-route .driver-diary-history-row {
@@ -318,8 +318,8 @@
   gap: 8px;
   padding: 7px 8px;
   border-bottom: 1px solid var(--ws-border-soft, #e2e7ed);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .driver-diary-route .driver-diary-history-row:last-child {
@@ -328,12 +328,12 @@
 
 .driver-diary-route .driver-diary-history-row strong {
   color: var(--ws-text, #172033);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .driver-diary-route .driver-diary-history-row span {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
+  font-size: var(--ws-font-meta, 14px);
 }
 
 .driver-diary-route .driver-diary-document-row {
@@ -358,8 +358,8 @@
 
 .driver-diary-route .driver-diary-document-row strong {
   color: var(--ws-text, #172033);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -367,8 +367,8 @@
 
 .driver-diary-route .driver-diary-document-row small {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .driver-diary-route .driver-diary-document-row button {
@@ -378,7 +378,7 @@
   border-radius: var(--ws-radius, 4px);
   background: #fff;
   color: var(--ws-text, #172033);
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 650;
   cursor: pointer;
 }
@@ -470,7 +470,7 @@
   min-height:var(--ws-panel-head-h,36px)!important;
   height:var(--ws-panel-head-h,36px)!important;
   padding:0 9px!important;
-  font-size:11px!important;
+  font-size: 14px!important;
   font-weight:800!important;
 }
 .driver-diary-route .driver-filter-rail__body .filter,
@@ -480,8 +480,8 @@
 .driver-diary-route .driver-filter-rail label,
 .driver-diary-route .driver-diary-filter-rail .label{
   margin-bottom:4px!important;
-  font-size:10.5px!important;
-  line-height:13px!important;
+  font-size: 14px!important;
+  line-height: 18px!important;
   font-weight:700!important;
   letter-spacing:.02em!important;
 }
@@ -492,8 +492,8 @@
   height:var(--ws-control-h,32px)!important;
   min-height:var(--ws-control-h,32px)!important;
   padding:0 7px!important;
-  font-size:var(--ws-font-body,12px)!important;
-  line-height:14px!important;
+  font-size:var(--ws-font-body, 14px)!important;
+  line-height: 18px!important;
   font-weight:600!important;
 }
 .driver-diary-route .driver-diary-status-strip{
@@ -502,14 +502,14 @@
 .driver-diary-route .driver-diary-status-strip button{
   min-height:var(--ws-tab-h,28px)!important;
   padding:0 9px!important;
-  font-size:10.8px!important;
+  font-size: 14px!important;
   font-weight:650!important;
 }
 .driver-diary-route .driver-diary-toolbar,
 .driver-diary-route .driver-board-summary{
   min-height:40px!important;
   padding:4px 8px!important;
-  font-size:var(--ws-font-body,12px)!important;
+  font-size:var(--ws-font-body, 14px)!important;
 }
 .driver-diary-route .driver-diary-summary-actions{
   gap:5px!important;
@@ -518,7 +518,7 @@
   height:var(--ws-control-h,32px)!important;
   min-height:var(--ws-control-h,32px)!important;
   padding:0 20px 0 6px!important;
-  font-size:var(--ws-font-body,12px)!important;
+  font-size:var(--ws-font-body, 14px)!important;
   font-weight:650!important;
 }
 .driver-diary-route .driver-diary-list{
@@ -542,13 +542,13 @@
   border-right:0!important;
 }
 .driver-diary-route .driver-diary-entry .driver-cell-label{
-  font-size:var(--ws-font-meta,11px)!important;
-  line-height:15px!important;
+  font-size:var(--ws-font-meta, 14px)!important;
+  line-height: 18px!important;
   font-weight:600!important;
 }
 .driver-diary-route .driver-diary-entry .driver-cell-primary{
-  font-size:13px!important;
-  line-height:16px!important;
+  font-size: 14px!important;
+  line-height: 18px!important;
   font-weight:800!important;
 }
 .driver-diary-route .driver-diary-entry .driver-diary-route-cell{
@@ -570,8 +570,8 @@
   margin:0!important;
   text-align:left!important;
   text-transform:uppercase!important;
-  font-size:10.8px!important;
-  line-height:16px!important;
+  font-size: 14px!important;
+  line-height: 18px!important;
   font-weight:700!important;
   color:#5f7185!important;
 }
@@ -585,15 +585,15 @@
   overflow:hidden!important;
   text-overflow:ellipsis!important;
   text-transform:uppercase!important;
-  font-size:13px!important;
-  line-height:16px!important;
+  font-size: 14px!important;
+  line-height: 18px!important;
   font-weight:800!important;
   color:#1f344b!important;
 }
 .driver-diary-route .driver-diary-entry .driver-cell-secondary,
 .driver-diary-route .driver-diary-entry .driver-load-row__meta{
-  font-size:10.5px!important;
-  line-height:14px!important;
+  font-size: 14px!important;
+  line-height: 18px!important;
   font-weight:600!important;
 }
 .driver-diary-route .driver-diary-entry .driver-load-row__meta{
@@ -607,8 +607,8 @@
 .driver-diary-route .driver-diary-action-rail button{
   min-height:var(--ws-micro-action-h,24px)!important;
   padding:0 9px!important;
-  font-size:var(--ws-font-meta,11px)!important;
-  line-height:14px!important;
+  font-size:var(--ws-font-meta, 14px)!important;
+  line-height: 18px!important;
   font-weight:650!important;
 }
 .driver-diary-route .driver-diary-pagination{
@@ -628,8 +628,8 @@
   justify-content:center!important;
   padding:0 8px!important;
   border:1px solid var(--ws-border,#cfd7e3)!important;
-  font-size:var(--ws-font-label,11px)!important;
-  line-height:14px!important;
+  font-size:var(--ws-font-label, 14px)!important;
+  line-height: 18px!important;
   font-weight:800!important;
   text-align:center!important;
   background:#eef2f6!important;
@@ -661,8 +661,8 @@
 }
 .driver-diary-route .driver-diary-member-line{
   margin-top:2px!important;
-  font-size:var(--ws-font-meta,11px)!important;
-  line-height:14px!important;
+  font-size:var(--ws-font-meta, 14px)!important;
+  line-height: 18px!important;
   font-weight:600!important;
 }
 .driver-diary-route .driver-diary-load-link{
@@ -672,8 +672,8 @@
   border:0!important;
   background:transparent!important;
   color:var(--ws-text,#172033)!important;
-  font-size:var(--ws-font-meta,11px)!important;
-  line-height:14px!important;
+  font-size:var(--ws-font-meta, 14px)!important;
+  line-height: 18px!important;
   font-weight:600!important;
   text-decoration:none!important;
   cursor:pointer!important;
@@ -839,7 +839,7 @@
   border:0!important;
   border-bottom:2px solid transparent!important;
   border-radius:0!important;
-  font-size:var(--ws-font-label,11px)!important;
+  font-size:var(--ws-font-label, 14px)!important;
   font-weight:600!important;
   white-space:nowrap!important;
 }

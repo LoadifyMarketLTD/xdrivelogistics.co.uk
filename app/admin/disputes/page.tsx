@@ -179,7 +179,7 @@ export default function AdminDisputesPage() {
 
   const inputStyle: React.CSSProperties = {
     width: '100%', padding: '0.55rem 0.7rem', border: '1px solid #d1d5db',
-    borderRadius: '7px', fontSize: 'var(--ws-font-body, 12px)', boxSizing: 'border-box',
+    borderRadius: '7px', fontSize: 'var(--ws-font-body, 14px)', boxSizing: 'border-box',
   };
 
   return (
@@ -191,14 +191,14 @@ export default function AdminDisputesPage() {
             <p className="carrier-register-subtitle">Review and resolve disputes from the job_disputes queue.</p>
           </div>
           <div className="carrier-register-toolbar__actions">
-            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'all' | DisputeStatus)} style={{ padding: '0.5rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: 'var(--ws-font-body, 12px)' }}>
+            <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as 'all' | DisputeStatus)} style={{ padding: '0.5rem 0.65rem', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: 'var(--ws-font-body, 14px)' }}>
               <option value="all">All statuses</option>
               <option value="open">Open</option>
               <option value="investigating">Investigating</option>
               <option value="resolved">Resolved</option>
               <option value="closed">Closed</option>
             </select>
-            <button onClick={() => void loadDisputes()} style={{ padding: '0.5rem 0.75rem', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', cursor: 'pointer', fontSize: 'var(--ws-font-body, 12px)', fontWeight: 600 }}>
+            <button onClick={() => void loadDisputes()} style={{ padding: '0.5rem 0.75rem', border: '1px solid #cbd5e1', borderRadius: '6px', backgroundColor: '#fff', cursor: 'pointer', fontSize: 'var(--ws-font-body, 14px)', fontWeight: 600 }}>
               Refresh
             </button>
           </div>
@@ -222,7 +222,7 @@ export default function AdminDisputesPage() {
                   <thead>
                     <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                       {['Job', 'Status', 'Raised', 'Action'].map((h) => (
-                        <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
+                        <th key={h} style={{ padding: '0.75rem', textAlign: 'left', fontSize: 'var(--ws-font-label, 14px)', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
@@ -233,15 +233,15 @@ export default function AdminDisputesPage() {
                       return (
                         <tr key={dispute.id} style={{ borderBottom: index < paginatedDisputes.length - 1 ? '1px solid #f1f5f9' : 'none', background: active ? '#eff6ff' : '#fff' }}>
                           <td style={{ padding: '0.75rem' }}>
-                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 'var(--ws-font-body, 12px)' }}>{dispute.jobs?.pickup_location ?? '—'} → {dispute.jobs?.delivery_location ?? '—'}</div>
-                            <div style={{ marginTop: '0.15rem', color: '#94a3b8', fontSize: 'var(--ws-font-label, 11px)' }}>Job #{dispute.job_id.slice(0, 8)}</div>
+                            <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 'var(--ws-font-body, 14px)' }}>{dispute.jobs?.pickup_location ?? '—'} → {dispute.jobs?.delivery_location ?? '—'}</div>
+                            <div style={{ marginTop: '0.15rem', color: '#94a3b8', fontSize: 'var(--ws-font-label, 14px)' }}>Job #{dispute.job_id.slice(0, 8)}</div>
                           </td>
                           <td style={{ padding: '0.75rem' }}>
                             <span className="carrier-driver-card__status" style={{ background: style.bg, color: style.color }}>{dispute.status}</span>
                           </td>
-                          <td style={{ padding: '0.75rem', color: '#475569', fontSize: 'var(--ws-font-body, 12px)' }}>{new Date(dispute.created_at).toLocaleString('en-GB')}</td>
+                          <td style={{ padding: '0.75rem', color: '#475569', fontSize: 'var(--ws-font-body, 14px)' }}>{new Date(dispute.created_at).toLocaleString('en-GB')}</td>
                           <td style={{ padding: '0.75rem' }}>
-                            <button onClick={() => setSelectedDisputeId(dispute.id)} style={{ padding: '0.35rem 0.65rem', border: '1px solid #bfdbfe', borderRadius: '6px', background: '#eff6ff', color: '#1d4ed8', fontWeight: 600, fontSize: 'var(--ws-font-body, 12px)', cursor: 'pointer' }}>
+                            <button onClick={() => setSelectedDisputeId(dispute.id)} style={{ padding: '0.35rem 0.65rem', border: '1px solid #bfdbfe', borderRadius: '6px', background: '#eff6ff', color: '#1d4ed8', fontWeight: 600, fontSize: 'var(--ws-font-body, 14px)', cursor: 'pointer' }}>
                               View
                             </button>
                           </td>
@@ -252,7 +252,7 @@ export default function AdminDisputesPage() {
                 </table>
               </div>
               {filtered.length > DISPUTES_PER_PAGE && (
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', padding: '0.6rem 0.75rem', fontSize: 'var(--ws-font-meta, 11px)', color: '#64748b' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderTop: '1px solid #e2e8f0', padding: '0.6rem 0.75rem', fontSize: 'var(--ws-font-meta, 14px)', color: '#64748b' }}>
                   <span>
                     Showing {safeDisputePage * DISPUTES_PER_PAGE + 1}–{Math.min((safeDisputePage + 1) * DISPUTES_PER_PAGE, filtered.length)} of {filtered.length}
                   </span>
@@ -279,62 +279,62 @@ export default function AdminDisputesPage() {
             {selectedDispute && (
               <div className="carrier-register-results carrier-register-dispute-detail">
                 <div>
-                  <div style={{ fontSize: 'var(--ws-font-label, 11px)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Dispute ID</div>
-                  <div style={{ color: '#0f172a', fontSize: 'var(--ws-font-body, 12px)', fontWeight: 700 }}>{selectedDispute.id}</div>
+                  <div style={{ fontSize: 'var(--ws-font-label, 14px)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Dispute ID</div>
+                  <div style={{ color: '#0f172a', fontSize: 'var(--ws-font-body, 14px)', fontWeight: 700 }}>{selectedDispute.id}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 'var(--ws-font-label, 11px)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Company</div>
-                  <div style={{ color: '#0f172a', fontSize: 'var(--ws-font-body, 12px)', fontWeight: 600 }}>{selectedDispute.companies?.name ?? 'Unknown company'}</div>
+                  <div style={{ fontSize: 'var(--ws-font-label, 14px)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Company</div>
+                  <div style={{ color: '#0f172a', fontSize: 'var(--ws-font-body, 14px)', fontWeight: 600 }}>{selectedDispute.companies?.name ?? 'Unknown company'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 'var(--ws-font-label, 11px)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Job status</div>
-                  <div style={{ color: '#334155', fontSize: 'var(--ws-font-body, 12px)' }}>{selectedDispute.jobs?.status ?? '—'}</div>
+                  <div style={{ fontSize: 'var(--ws-font-label, 14px)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Job status</div>
+                  <div style={{ color: '#334155', fontSize: 'var(--ws-font-body, 14px)' }}>{selectedDispute.jobs?.status ?? '—'}</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 'var(--ws-font-label, 11px)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Pickup / Delivery</div>
-                  <div style={{ color: '#334155', fontSize: 'var(--ws-font-body, 12px)' }}>
+                  <div style={{ fontSize: 'var(--ws-font-label, 14px)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Pickup / Delivery</div>
+                  <div style={{ color: '#334155', fontSize: 'var(--ws-font-body, 14px)' }}>
                     {selectedDispute.jobs?.pickup_location ?? '—'} → {selectedDispute.jobs?.delivery_location ?? '—'}
                   </div>
-                  <div style={{ marginTop: '0.2rem', color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' }}>
+                  <div style={{ marginTop: '0.2rem', color: '#64748b', fontSize: 'var(--ws-font-meta, 14px)' }}>
                     {selectedDispute.jobs?.pickup_datetime ? `Pickup: ${new Date(selectedDispute.jobs.pickup_datetime).toLocaleString('en-GB')}` : 'Pickup: —'}
                   </div>
-                  <div style={{ color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' }}>
+                  <div style={{ color: '#64748b', fontSize: 'var(--ws-font-meta, 14px)' }}>
                     {selectedDispute.jobs?.delivery_datetime ? `Delivery: ${new Date(selectedDispute.jobs.delivery_datetime).toLocaleString('en-GB')}` : 'Delivery: —'}
                   </div>
                 </div>
                 <div>
-                  <div style={{ fontSize: 'var(--ws-font-label, 11px)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Description</div>
-                  <div style={{ marginTop: '0.25rem', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#334155', fontSize: 'var(--ws-font-body, 12px)', whiteSpace: 'pre-wrap' }}>
+                  <div style={{ fontSize: 'var(--ws-font-label, 14px)', color: '#94a3b8', fontWeight: 600, textTransform: 'uppercase' }}>Description</div>
+                  <div style={{ marginTop: '0.25rem', padding: '0.75rem', borderRadius: '8px', border: '1px solid #e2e8f0', background: '#f8fafc', color: '#334155', fontSize: 'var(--ws-font-body, 14px)', whiteSpace: 'pre-wrap' }}>
                     {selectedDispute.description}
                   </div>
                 </div>
                 {selectedDispute.resolved_at && (
-                  <div style={{ fontSize: 'var(--ws-font-meta, 11px)', color: '#64748b' }}>
+                  <div style={{ fontSize: 'var(--ws-font-meta, 14px)', color: '#64748b' }}>
                     Resolved at {new Date(selectedDispute.resolved_at).toLocaleString('en-GB')}
                   </div>
                 )}
-                <div style={{ fontSize: 'var(--ws-font-meta, 11px)', color: '#64748b' }}>
+                <div style={{ fontSize: 'var(--ws-font-meta, 14px)', color: '#64748b' }}>
                   Raised at {new Date(selectedDispute.created_at).toLocaleString('en-GB')}
                 </div>
 
                 {/* ── Resolution Panel ── */}
                 <div style={{ borderTop: '1px solid #e5e7eb', paddingTop: '0.9rem' }}>
-                  <div style={{ fontSize: 'var(--ws-font-panel-title, 13px)', fontWeight: 700, color: '#374151', marginBottom: '0.65rem' }}>⚖️ Update / Resolve Dispute</div>
+                  <div style={{ fontSize: 'var(--ws-font-panel-title, 16px)', fontWeight: 700, color: '#374151', marginBottom: '0.65rem' }}>⚖️ Update / Resolve Dispute</div>
 
                   {saveError && (
-                    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '7px', padding: '0.55rem 0.75rem', marginBottom: '0.65rem', color: '#dc2626', fontSize: 'var(--ws-font-body, 12px)' }}>
+                    <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '7px', padding: '0.55rem 0.75rem', marginBottom: '0.65rem', color: '#dc2626', fontSize: 'var(--ws-font-body, 14px)' }}>
                       {saveError}
                     </div>
                   )}
                   {saveSuccess && (
-                    <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '7px', padding: '0.55rem 0.75rem', marginBottom: '0.65rem', color: '#14532d', fontWeight: 600, fontSize: 'var(--ws-font-body, 12px)' }}>
+                    <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '7px', padding: '0.55rem 0.75rem', marginBottom: '0.65rem', color: '#14532d', fontWeight: 600, fontSize: 'var(--ws-font-body, 14px)' }}>
                       ✅ {saveSuccess}
                     </div>
                   )}
 
                   <div style={{ display: 'grid', gap: '0.65rem' }}>
                     <div>
-                      <label style={{ display: 'block', fontSize: 'var(--ws-font-label, 11px)', fontWeight: 600, color: '#374151', marginBottom: 'var(--ws-gap-micro, 4px)' }}>New Status</label>
+                      <label style={{ display: 'block', fontSize: 'var(--ws-font-label, 14px)', fontWeight: 600, color: '#374151', marginBottom: 'var(--ws-gap-micro, 4px)' }}>New Status</label>
                       <select
                         value={resolveStatus}
                         onChange={e => setResolveStatus(e.target.value as DisputeStatus)}
@@ -347,7 +347,7 @@ export default function AdminDisputesPage() {
                       </select>
                     </div>
                     <div>
-                      <label style={{ display: 'block', fontSize: 'var(--ws-font-label, 11px)', fontWeight: 600, color: '#374151', marginBottom: 'var(--ws-gap-micro, 4px)' }}>Resolution Note</label>
+                      <label style={{ display: 'block', fontSize: 'var(--ws-font-label, 14px)', fontWeight: 600, color: '#374151', marginBottom: 'var(--ws-gap-micro, 4px)' }}>Resolution Note</label>
                       <textarea
                         value={resolveNote}
                         onChange={e => setResolveNote(e.target.value)}
@@ -359,7 +359,7 @@ export default function AdminDisputesPage() {
                     <button
                       onClick={() => { void handleSaveResolution(); }}
                       disabled={saving}
-                      style={{ padding: '0.6rem', background: saving ? '#93c5fd' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: 'var(--ws-font-body, 12px)' }}
+                      style={{ padding: '0.6rem', background: saving ? '#93c5fd' : '#1d4ed8', color: '#fff', border: 'none', borderRadius: '7px', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', fontSize: 'var(--ws-font-body, 14px)' }}
                     >
                       {saving ? 'Saving…' : 'Save Resolution'}
                     </button>

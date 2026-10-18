@@ -18,8 +18,8 @@
   border-bottom:1px solid #dbe3ec;
   background:#f8fafc;
 }
-.role-settings-company strong{font-size:13px;color:#0b2f6b}
-.role-settings-company span{font-size:var(--ws-font-meta,11px);line-height:14px;color:#64748b;text-transform:capitalize}
+.role-settings-company strong{font-size: 14px;color:#0b2f6b}
+.role-settings-company span{font-size:var(--ws-font-meta, 14px);line-height: 18px;color:#64748b;text-transform:capitalize}
 .role-settings-nav button{
   min-height:34px;
   padding:0 10px;
@@ -29,8 +29,8 @@
   background:#fff;
   color:#1f3652;
   text-align:left;
-  font-size:12px;
-  line-height:16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight:750;
   cursor:pointer;
 }
@@ -71,8 +71,8 @@
   display:flex;justify-content:space-between;align-items:center;
   gap:var(--ws-gap-grid,8px);border-bottom:1px solid #e6ebf0;
 }
-.role-settings-kv span{font-size:var(--ws-font-meta,11px);line-height:14px;color:#64748b}
-.role-settings-kv strong{font-size:var(--ws-font-label,11px);color:#172033;text-align:right}
+.role-settings-kv span{font-size:var(--ws-font-meta, 14px);line-height: 18px;color:#64748b}
+.role-settings-kv strong{font-size:var(--ws-font-label, 14px);color:#172033;text-align:right}
 .role-settings-kv--identity{margin-top:14px;border-top:1px solid #dbe3ec}
 .role-settings-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
 .role-settings-links{display:grid}
@@ -87,8 +87,8 @@
   text-align:left;
   cursor:pointer;
 }
-.role-settings-links strong{font-size:var(--ws-font-label,11px);color:#1f3652}
-.role-settings-links span{font-size:var(--ws-font-meta,11px);line-height:14px;color:#708195}
+.role-settings-links strong{font-size:var(--ws-font-label, 14px);color:#1f3652}
+.role-settings-links span{font-size:var(--ws-font-meta, 14px);line-height: 18px;color:#708195}
 .role-settings-form{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
@@ -96,7 +96,7 @@
 }
 .role-settings-form label{
   display:grid;gap:4px;
-  color:#334155;font-size:var(--ws-font-label,11px);font-weight:800;
+  color:#334155;font-size:var(--ws-font-label, 14px);font-weight:800;
 }
 .role-settings-form input{
   min-height:var(--ws-control-h,32px);

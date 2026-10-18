@@ -293,7 +293,7 @@ export default function DispatchersPage() {
               />
             </div>
             {dispatchers.length > DISPATCHERS_PER_PAGE && (
-              <div style={{ minHeight: 'var(--ws-meta-h, 22px)', borderTop: '1px solid var(--ws-border-soft, #e2e7ed)', padding: '4px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--ws-font-meta, 11px)', color: '#64748b' }}>
+              <div style={{ minHeight: 'var(--ws-meta-h, 22px)', borderTop: '1px solid var(--ws-border-soft, #e2e7ed)', padding: '4px 8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 'var(--ws-font-meta, 14px)', color: '#64748b' }}>
                 <span>Showing {safeDispatcherPage * DISPATCHERS_PER_PAGE + 1}–{Math.min((safeDispatcherPage + 1) * DISPATCHERS_PER_PAGE, dispatchers.length)} of {dispatchers.length}</span>
                 <div style={{ display: 'flex', gap: 4 }}>
                   <ActionButton tone="secondary" onClick={() => setDispatcherPage((prev) => Math.max(prev - 1, 0))} disabled={safeDispatcherPage === 0}>Previous</ActionButton>

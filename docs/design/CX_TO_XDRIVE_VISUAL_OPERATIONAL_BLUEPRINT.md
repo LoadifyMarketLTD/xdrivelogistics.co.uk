@@ -136,23 +136,25 @@ No role may invent its own palette.
 
 ### 4.2 Typography
 
-Canonical desktop scale:
+Canonical operational scale:
 
-- workspace title: 24–30 px, 650–750 weight;
-- page title: 20–24 px, 650–700 weight;
-- section title: 15–18 px, 600–700 weight;
-- table header: 11–12 px, 650–700 weight, compact tracking;
-- primary row text: 13–14 px, 500–650 weight;
-- secondary row text: 11–12 px, 400–500 weight;
-- metadata/badge text: 10–11 px, 600–700 weight;
-- form controls: 13–14 px.
+- workspace/page title: **20 px / 26 px / 700**;
+- section title: **16 px / 20 px / 700**;
+- panel / important operational title: **16 px / 20 px / 700**;
+- operational body, route, table rows and values: **14 px / 18 px**;
+- labels: **14 px / 18 px / 600**;
+- metadata, badges and secondary copy: **14 px / 18 px minimum**;
+- form controls, links, tabs and subtabs: **14 px / 18 px / 600**;
+- active / selected interactive state: **700**;
+- top navbar only: **13 px / 600** as the measured shell exception.
 
 Prohibited:
 
-- oversized hero typography inside authenticated workspaces;
-- tiny unreadable metadata;
+- operational `10px`, `11px`, `12px` or fractional equivalents;
+- oversized marketing typography inside authenticated workspaces;
 - arbitrary font sizes per dashboard;
-- inconsistent line heights.
+- inconsistent line heights;
+- using smaller text to create density.
 
 ### 4.3 Spacing
 

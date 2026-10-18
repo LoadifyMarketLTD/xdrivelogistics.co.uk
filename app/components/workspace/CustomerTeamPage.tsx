@@ -223,7 +223,7 @@ export default function CustomerTeamPage() {
                 minHeight: '32px',
                 padding: '0 8px',
                 minWidth: '220px',
-                fontSize: '12px',
+                fontSize: '14px',
               }}
             />
             <select
@@ -234,7 +234,7 @@ export default function CustomerTeamPage() {
                 borderRadius: '4px',
                 height: '32px',
                 padding: '0 8px',
-                fontSize: '12px',
+                fontSize: '14px',
                 background: '#fff',
               }}
             >
@@ -246,7 +246,7 @@ export default function CustomerTeamPage() {
               value={inviteDepartmentId}
               onChange={(event) => setInviteDepartmentId(event.target.value)}
               aria-label="Invite department"
-              style={{ height: '32px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 8px', fontSize: '12px', background: '#fff' }}
+              style={{ height: '32px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 8px', fontSize: '14px', background: '#fff' }}
             >
               <option value="">No department</option>
               {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
@@ -282,7 +282,7 @@ export default function CustomerTeamPage() {
             member.phone ?? 'Not recorded',
             member.role.replace(/_/g, ' '),
             canManageTeam ? (
-              <select key="department" value={member.departmentId ?? ''} disabled={pendingActionId === member.id} onChange={(event) => { const departmentId = event.target.value || null; setPendingActionId(member.id); void runTeamAction({ membershipId: member.id, action: 'department', departmentId }, 'Department updated.').finally(() => setPendingActionId(null)); }} style={{ fontSize: '11px' }}>
+              <select key="department" value={member.departmentId ?? ''} disabled={pendingActionId === member.id} onChange={(event) => { const departmentId = event.target.value || null; setPendingActionId(member.id); void runTeamAction({ membershipId: member.id, action: 'department', departmentId }, 'Department updated.').finally(() => setPendingActionId(null)); }} style={{ fontSize: '14px' }}>
                 <option value="">No department</option>
                 {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
               </select>
@@ -309,7 +309,7 @@ export default function CustomerTeamPage() {
                       ).finally(() => setPendingActionId(null));
                     }}
                     disabled={pendingActionId === member.id}
-                    style={{ fontSize: '11px' }}
+                    style={{ fontSize: '14px' }}
                   >
                     {ROLE_OPTIONS.map((roleOption) => (
                       <option key={roleOption} value={roleOption}>
@@ -328,7 +328,7 @@ export default function CustomerTeamPage() {
                           'Member reactivated.'
                         ).finally(() => setPendingActionId(null));
                       }}
-                      style={{ fontSize: '11px' }}
+                      style={{ fontSize: '14px' }}
                     >
                       Reactivate
                     </button>
@@ -343,7 +343,7 @@ export default function CustomerTeamPage() {
                           'Member disabled.'
                         ).finally(() => setPendingActionId(null));
                       }}
-                      style={{ fontSize: '11px' }}
+                      style={{ fontSize: '14px' }}
                     >
                       Disable
                     </button>
@@ -360,13 +360,13 @@ export default function CustomerTeamPage() {
                       'Member removed.'
                     ).finally(() => setPendingActionId(null));
                   }}
-                  style={{ fontSize: '11px' }}
+                  style={{ fontSize: '14px' }}
                 >
                   Remove
                 </button>
               </div>
             ) : (
-              <span key="actions" style={{ color: '#64748b', fontSize: '11px' }}>
+              <span key="actions" style={{ color: '#64748b', fontSize: '14px' }}>
                 {canManageTeam ? 'Self-managed' : 'Read only'}
               </span>
             ),

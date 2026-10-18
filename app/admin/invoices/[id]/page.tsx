@@ -677,7 +677,7 @@ export default function InvoiceDetailPage() {
     padding: '6px 8px',
     border: '1px solid #cbd5e1',
     borderRadius: '3px',
-    fontSize: '12px',
+    fontSize: '14px',
     lineHeight: '16px',
     outline: 'none',
     transition: 'border-color 0.2s',
@@ -685,7 +685,7 @@ export default function InvoiceDetailPage() {
 
   const labelStyle: React.CSSProperties = {
     display: 'block',
-    fontSize: '11px',
+    fontSize: '14px',
     lineHeight: '14px',
     fontWeight: '700',
     color: '#475569',

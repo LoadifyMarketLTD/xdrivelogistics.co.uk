@@ -51,7 +51,7 @@ export default function ReturnJourneyMap({ journeys }: { journeys: ReturnJourney
         });
         const departure = journey.availableFrom ? new Date(journey.availableFrom).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Not set';
         L.marker([coordinates.lat, coordinates.lng], { icon }).addTo(map).bindPopup(
-          `<div style="font-family:Arial,sans-serif;min-width:190px;font-size:12px"><strong>${escapeHtml(journey.from)} → ${escapeHtml(journey.to || 'Go Anywhere')}</strong><br>${escapeHtml(journey.vehicleLabel)}<br>${escapeHtml(journey.memberName)}<br>Departs: ${escapeHtml(departure)}</div>`,
+          `<div style="font-family:Arial,sans-serif;min-width:190px;font-size: 14px"><strong>${escapeHtml(journey.from)} → ${escapeHtml(journey.to || 'Go Anywhere')}</strong><br>${escapeHtml(journey.vehicleLabel)}<br>${escapeHtml(journey.memberName)}<br>Departs: ${escapeHtml(departure)}</div>`,
         );
       }
 
@@ -69,7 +69,7 @@ export default function ReturnJourneyMap({ journeys }: { journeys: ReturnJourney
   }, [pins]);
 
   if (pins.length === 0) {
-    return <div style={{ padding: '28px', border: '1px solid #dbe2ea', background: '#f8fafc', color: '#64748b', fontSize: '12px', textAlign: 'center' }}>No journey start points could be located for this result set.</div>;
+    return <div style={{ padding: '28px', border: '1px solid #dbe2ea', background: '#f8fafc', color: '#64748b', fontSize: '14px', textAlign: 'center' }}>No journey start points could be located for this result set.</div>;
   }
 
   return <div ref={containerRef} style={{ height: 420, border: '1px solid #cbd5e1', borderRadius: 3, overflow: 'hidden' }} />;

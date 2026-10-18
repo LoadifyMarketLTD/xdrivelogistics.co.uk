@@ -43,8 +43,8 @@ body:has(.driver-inline-quote--marketplace)::before {
   border-bottom: 1px solid var(--ws-border, #cfd7e3);
   background: var(--ws-panel-head, #f2f4f7);
   color: var(--ws-text, #172033);
-  font-size: var(--ws-font-panel-title, 13px);
-  line-height: 18px;
+  font-size: var(--ws-font-panel-title, 16px);
+  line-height: 20px;
   font-weight: 750;
 }
 
@@ -59,7 +59,7 @@ body:has(.driver-inline-quote--marketplace)::before {
   border-radius: var(--ws-radius, 4px);
   background: #fff;
   color: var(--ws-text, #172033);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .driver-inline-quote--marketplace input {
@@ -93,7 +93,7 @@ body:has(.driver-inline-quote--marketplace)::before {
   border-radius: 0;
   background: transparent;
   color: var(--ws-muted, #64748b);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 650;
   cursor: pointer;
 }
@@ -121,8 +121,8 @@ body:has(.driver-inline-quote--marketplace)::before {
   border-radius: var(--ws-radius, 4px);
   background: #fff;
   color: var(--ws-muted, #64748b);
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .driver-radar-legend span {
@@ -166,8 +166,8 @@ body:has(.driver-inline-quote--marketplace)::before {
   padding: 8px 10px;
   background: #f8fafc;
   color: var(--ws-muted, #64748b);
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .driver-radar-empty {
@@ -218,7 +218,7 @@ body:has(.driver-inline-quote--marketplace)::before {
   border-bottom: 1px solid var(--ws-border, #cfd7e3);
   background: var(--ws-panel-head, #f2f4f7);
   color: var(--ws-text, #172033);
-  font-size: var(--ws-font-panel-title, 13px);
+  font-size: var(--ws-font-panel-title, 16px);
 }
 
 .driver-quote-modal__header button {
@@ -253,8 +253,8 @@ body:has(.driver-inline-quote--marketplace)::before {
 .driver-quote-modal__form label > span {
   display: block;
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-label, 11px);
-  line-height: 14px;
+  font-size: var(--ws-font-label, 14px);
+  line-height: 18px;
   font-weight: 650;
 }
 
@@ -266,15 +266,15 @@ body:has(.driver-inline-quote--marketplace)::before {
 .driver-quote-modal__context strong {
   margin-top: 2px;
   color: var(--ws-text, #172033);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .driver-quote-modal__context small {
   margin-top: 2px;
   color: var(--ws-muted, #64748b);
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .driver-quote-modal__form {
@@ -299,7 +299,7 @@ body:has(.driver-inline-quote--marketplace)::before {
   border-radius: var(--ws-radius, 4px) 0 0 var(--ws-radius, 4px);
   background: #f8fafc;
   color: var(--ws-text, #172033);
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .driver-quote-modal__money input,
@@ -308,7 +308,7 @@ body:has(.driver-inline-quote--marketplace)::before {
   border: 1px solid var(--ws-border, #cfd7e3);
   background: #fff;
   color: var(--ws-text, #172033);
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .driver-quote-modal__money input {
@@ -385,7 +385,7 @@ body:has(.driver-inline-quote--marketplace)::before {
   border-bottom: 1px solid var(--ws-border, #cfd7e3);
   background: #fff;
   color: var(--ws-text, #172033);
-  font-size: var(--ws-font-panel-title, 13px);
+  font-size: var(--ws-font-panel-title, 16px);
 }
 
 .driver-invoice-preview__body {
@@ -408,7 +408,7 @@ body:has(.driver-inline-quote--marketplace)::before {
   padding: 24px;
   background: #f8fafc;
   color: var(--ws-muted, #64748b);
-  font-size: 12px;
+  font-size: 14px;
   text-align: center;
 }
 

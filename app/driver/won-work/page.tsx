@@ -167,34 +167,34 @@ export default function WonWorkPage() {
           ].map((item) => (
             <div key={item.label} style={{ ...card, borderTop: `3px solid ${item.color}`, textAlign: 'center', padding: '0.6rem' }}>
               <div style={{ fontSize: '18px', lineHeight: '22px', fontWeight: 800, color: item.color }}>{loading ? '...' : item.value}</div>
-              <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>{item.label}</div>
+              <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, marginTop: '2px' }}>{item.label}</div>
             </div>
           ))}
         </div>
 
         {error && (
-          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '4px', padding: '8px 10px', fontSize: '12px', marginBottom: '0.75rem' }}>
+          <div style={{ backgroundColor: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '4px', padding: '8px 10px', fontSize: '14px', marginBottom: '0.75rem' }}>
             {error}
           </div>
         )}
 
         {!error && commercialRatePartial && (
-          <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', borderRadius: '4px', padding: '8px 10px', fontSize: '12px', marginBottom: '0.75rem' }}>
+          <div style={{ backgroundColor: '#fff7ed', border: '1px solid #fed7aa', color: '#9a3412', borderRadius: '4px', padding: '8px 10px', fontSize: '14px', marginBottom: '0.75rem' }}>
             Some agreed-rate records could not be verified. Unverified amounts are shown as TBC; customer budget is never used as a substitute.
           </div>
         )}
 
         {loading ? (
-          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center', fontSize: '13px' }}>Loading won work...</div>
+          <div style={{ color: '#64748b', padding: '2rem', textAlign: 'center', fontSize: '14px' }}>Loading won work...</div>
         ) : jobs.length === 0 ? (
           <div style={{ ...card, textAlign: 'center', padding: '2rem' }}>
-            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '13px' }}>No won work yet</div>
-            <div style={{ fontSize: '12px', color: '#64748b' }}>
+            <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: '4px', fontSize: '14px' }}>No won work yet</div>
+            <div style={{ fontSize: '14px', color: '#64748b' }}>
               Jobs will appear here after your quote is accepted and the work is assigned to you.
             </div>
             <button
               onClick={() => router.push('/driver/loads')}
-              style={{ marginTop: '12px', minHeight: '32px', padding: '0 12px', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}
+              style={{ marginTop: '12px', minHeight: '32px', padding: '0 12px', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}
             >
               Open Loads
             </button>
@@ -208,12 +208,12 @@ export default function WonWorkPage() {
                 <div key={job.id} style={{ ...card, borderLeft: `3px solid ${statusStyle.color}` }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
                     <div>
-                      <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '13px' }}>{job.reference}</span>
-                      <span style={{ marginLeft: '6px', fontSize: '11px', fontWeight: 700, backgroundColor: statusStyle.bg, color: statusStyle.color, padding: '2px 6px', borderRadius: '999px' }}>
+                      <span style={{ fontWeight: 800, color: '#0f172a', fontSize: '14px' }}>{job.reference}</span>
+                      <span style={{ marginLeft: '6px', fontSize: '14px', fontWeight: 700, backgroundColor: statusStyle.bg, color: statusStyle.color, padding: '2px 6px', borderRadius: '999px' }}>
                         {workspaceJobOperationalLabel({ current_status: job.canonicalStatus })}
                       </span>
                       {job.postingCompanyName && (
-                        <span style={{ marginLeft: '6px', fontSize: '11px', color: '#64748b' }}>· {job.postingCompanyName}</span>
+                        <span style={{ marginLeft: '6px', fontSize: '14px', color: '#64748b' }}>· {job.postingCompanyName}</span>
                       )}
                     </div>
                     <div style={{ textAlign: 'right' }}>
@@ -221,41 +221,41 @@ export default function WonWorkPage() {
                         {fmtRate(job.agreedRateAmount, job.currency)}
                       </div>
                       {job.agreedRateAmount != null && (
-                        <div style={{ fontSize: '10px', color: '#64748b', marginTop: '1px' }}>Accepted quote / agreed carrier rate</div>
+                        <div style={{ fontSize: '14px', color: '#64748b', marginTop: '1px' }}>Accepted quote / agreed carrier rate</div>
                       )}
                     </div>
                   </div>
 
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '8px', marginBottom: '8px' }}>
                     <div>
-                      <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Pickup</div>
-                      <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 600 }}>{job.pickupLocation ?? '-'}</div>
+                      <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Pickup</div>
+                      <div style={{ fontSize: '14px', color: '#0f172a', fontWeight: 600 }}>{job.pickupLocation ?? '-'}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Delivery</div>
-                      <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 600 }}>{job.deliveryLocation ?? '-'}</div>
+                      <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Delivery</div>
+                      <div style={{ fontSize: '14px', color: '#0f172a', fontWeight: 600 }}>{job.deliveryLocation ?? '-'}</div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Collection</div>
-                      <div style={{ fontSize: '13px', color: '#0f172a' }}>{fmtDate(job.pickupTime)}</div>
+                      <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Collection</div>
+                      <div style={{ fontSize: '14px', color: '#0f172a' }}>{fmtDate(job.pickupTime)}</div>
                     </div>
                     {job.vehicleType && (
                       <div>
-                        <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Vehicle</div>
-                        <div style={{ fontSize: '13px', color: '#0f172a' }}>{VEHICLE_LABELS[job.vehicleType] ?? job.vehicleType}</div>
+                        <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Vehicle</div>
+                        <div style={{ fontSize: '14px', color: '#0f172a' }}>{VEHICLE_LABELS[job.vehicleType] ?? job.vehicleType}</div>
                       </div>
                     )}
                     <div>
-                      <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>To Collection</div>
-                      <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 700 }}>
+                      <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>To Collection</div>
+                      <div style={{ fontSize: '14px', color: '#0f172a', fontWeight: 700 }}>
                         {job.distanceToPickupMiles != null
                           ? `${job.distanceToPickupMiles.toFixed(1)} mi${job.pickupEtaMinutes != null ? ` · ${Math.round(job.pickupEtaMinutes)} min` : ''}`
                           : 'Not available'}
                       </div>
                     </div>
                     <div>
-                      <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Job Distance</div>
-                      <div style={{ fontSize: '13px', color: '#0f172a', fontWeight: 700 }}>
+                      <div style={{ fontSize: '14px', color: '#64748b', fontWeight: 600, marginBottom: '2px' }}>Job Distance</div>
+                      <div style={{ fontSize: '14px', color: '#0f172a', fontWeight: 700 }}>
                         {job.jobDistanceMiles != null
                           ? `${job.jobDistanceMiles.toFixed(1)} mi${job.jobDistanceMinutes != null ? ` · ${Math.round(job.jobDistanceMinutes)} min` : ''}`
                           : 'Not available'}
@@ -267,14 +267,14 @@ export default function WonWorkPage() {
                     {canOpenExecution && (
                       <button
                         onClick={() => router.push(`/driver/jobs/${job.id}`)}
-                        style={{ minHeight: '32px', padding: '0 10px', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', fontSize: '12px' }}
+                        style={{ minHeight: '32px', padding: '0 10px', backgroundColor: '#1d4ed8', color: '#fff', border: 'none', borderRadius: '4px', fontWeight: 700, cursor: 'pointer', fontSize: '14px' }}
                       >
                         Open Job
                       </button>
                     )}
                     <button
                       onClick={() => router.push('/driver/jobs')}
-                      style={{ minHeight: '32px', padding: '0 10px', backgroundColor: '#fff', color: '#374151', border: '1px solid #d7e0ea', borderRadius: '4px', fontWeight: 600, cursor: 'pointer', fontSize: '12px' }}
+                      style={{ minHeight: '32px', padding: '0 10px', backgroundColor: '#fff', color: '#374151', border: '1px solid #d7e0ea', borderRadius: '4px', fontWeight: 600, cursor: 'pointer', fontSize: '14px' }}
                     >
                       Active Jobs
                     </button>

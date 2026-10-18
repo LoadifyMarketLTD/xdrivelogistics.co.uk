@@ -71,8 +71,8 @@ const VEHICLE_SIZE_OPTIONS = marketplaceVehicleSizeOptions();
 const DESCRIPTION_OPTIONS = [['any', 'Any timing'], ['same_day_timed', 'Same Day - Timed'], ['same_day_non_timed', 'Same Day - Non Timed'], ['next_day_timed', 'Next Day - Timed'], ['next_day_non_timed', 'Next Day - Non Timed'], ['3_5_days', '3 - 5 Days'], ['multi_drop', 'Multi-Drop'], ['other_notes', 'Other - Specified in Notes'], ['deliver_direct', 'Deliver Direct']] as const;
 const LOAD_TYPES = [['all', 'All Live'], ['on_demand', 'On Demand'], ['regular_load', 'Regular Load'], ['daily_hire', 'Daily Hire']] as const;
 const radiusOptions = ['10', '20', '30', '50', '100', '200', '300'];
-const fieldStyle = { height: 28, border: '1px solid #cbd5e1', borderRadius: 3, padding: '0 7px', background: '#fff', color: '#0f172a', fontSize: '11px', minWidth: 0 } as const;
-const labelStyle = { display: 'block', color: '#475569', fontSize: '11px', fontWeight: 500, lineHeight: '14px', marginBottom: 3 } as const;
+const fieldStyle = { height: 28, border: '1px solid #cbd5e1', borderRadius: 3, padding: '0 7px', background: '#fff', color: '#0f172a', fontSize: '14px', minWidth: 0 } as const;
+const labelStyle = { display: 'block', color: '#475569', fontSize: '14px', fontWeight: 500, lineHeight: '14px', marginBottom: 3 } as const;
 const money = (value: unknown, currency = 'GBP') => { const amount = Number(value); if (!Number.isFinite(amount)) return '—'; try { return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'GBP' }).format(amount); } catch { return `£${amount.toFixed(2)}`; } };
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' }) : 'Not set';
 const cxWhen = (value: string | null | undefined) => {

@@ -176,7 +176,7 @@ export default function DriverMarketplaceRadarMap({ loads }: { loads: RadarLoad[
           return `<div style="padding:6px 0;border-bottom:1px solid #e5e7eb"><strong>${escapeHtml(load.pickupLabel)} → ${escapeHtml(load.deliveryLabel)}</strong><br>${escapeHtml(load.vehicleLabel)} · ${escapeHtml(load.posterName)}<br>Pickup: ${escapeHtml(pickup)}<br><a href="/driver/loads/${encodeURIComponent(load.id)}" style="color:#1D57D8;font-weight:700">Open / quote</a></div>`;
         }).join('');
         const extra = cluster.loads.length > 8 ? `<div style="padding-top:6px;color:#64748b">+ ${cluster.loads.length - 8} more loads in this area</div>` : '';
-        marker.bindPopup(`<div style="min-width:260px;font-family:Arial,sans-serif;font-size:12px"><strong>${cluster.loads.length} load${cluster.loads.length === 1 ? '' : 's'} in this area</strong>${items}${extra}</div>`, { maxHeight: 320 });
+        marker.bindPopup(`<div style="min-width:260px;font-family:Arial,sans-serif;font-size: 14px"><strong>${cluster.loads.length} load${cluster.loads.length === 1 ? '' : 's'} in this area</strong>${items}${extra}</div>`, { maxHeight: 320 });
       }
 
       const boundsCoordinates = locatedLoads.flatMap((load) => [

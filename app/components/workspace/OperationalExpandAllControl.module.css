@@ -9,7 +9,7 @@
   border-radius: var(--ws-radius, 4px);
   background: #FFFFFF;
   color: var(--ws-blue, #1D57D8);
-  font-size: var(--ws-font-meta, 11px);
+  font-size: var(--ws-font-meta, 14px);
   line-height: 1;
   font-weight: 700;
   white-space: nowrap;

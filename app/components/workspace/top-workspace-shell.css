@@ -13,7 +13,7 @@
   min-width: 0;
   background: #f4f6f8;
   color: #172033;
-  font-size: var(--ws-font-body, 12px);
+  font-size: var(--ws-font-body, 14px);
   line-height: 1.35;
 }
 
@@ -70,8 +70,8 @@
 
 .xdrive-operational-top-workspace .top-workspace-shell__identity span {
   color: #667487 !important;
-  font-size: 10.5px !important;
-  line-height: 13px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 450 !important;
   white-space: nowrap;
 }
@@ -80,8 +80,8 @@
   max-width: 190px !important;
   overflow: hidden;
   color: #303842 !important;
-  font-size: var(--ws-font-body, 12px) !important;
-  line-height: 15px !important;
+  font-size: var(--ws-font-body, 14px) !important;
+  line-height: 18px !important;
   font-weight: 600 !important;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -102,7 +102,7 @@
   border-radius: 4px !important;
   background: #fff;
   color: #172033;
-  font-size: 12px !important;
+  font-size: 14px !important;
   font-weight: 700 !important;
   white-space: nowrap;
   cursor: pointer;
@@ -151,7 +151,7 @@
   border-radius: 999px;
   background: #dc2626;
   color: #fff;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 800;
 }
 
@@ -187,8 +187,8 @@
 }
 
 .top-workspace-context__menu label > span:first-child {
-  font-size: 11px !important;
-  line-height: 14px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 650 !important;
 }
 
@@ -198,7 +198,7 @@
   height: 32px !important;
   min-height: 32px !important;
   border-radius: 4px !important;
-  font-size: 12px !important;
+  font-size: 14px !important;
 }
 
 .top-workspace-context__menu [role="listbox"] {
@@ -209,23 +209,23 @@
 .top-workspace-context__menu [role="listbox"] button {
   min-height: 40px !important;
   border-radius: 0 !important;
-  font-size: 12px !important;
+  font-size: 14px !important;
 }
 
 .top-workspace-context__menu [role="listbox"] button > div:first-child {
-  font-size: 12px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .top-workspace-context__menu [role="listbox"] button > div:last-child {
-  font-size: 10px !important;
-  line-height: 13px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .top-workspace-context__menu [role="status"],
 .top-workspace-context__menu [role="alert"] {
-  font-size: 11px !important;
-  line-height: 14px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 /* Unified CX-inspired primary navigation row used across operational workspaces. */
@@ -311,7 +311,7 @@
 
 .top-workspace-nav__caret {
   color: #94a3b8;
-  font-size: 10px;
+  font-size: 14px;
   transform: translateY(-1px);
 }
 
@@ -352,7 +352,7 @@
   border-radius: var(--ws-radius, 4px) !important;
   background: #fff;
   color: #1a1f2b;
-  font-size: 12px !important;
+  font-size: 14px !important;
   font-weight: 600;
   text-align: left;
   cursor: pointer;
@@ -377,7 +377,7 @@
   border-radius: var(--ws-radius, 4px);
   background: #eef2f6;
   color: #475569;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -550,8 +550,8 @@
   border:1px solid #d8dee8;
   border-radius:4px!important;
   color:#5f6f81;
-  font-size:11px!important;
-  line-height:14px!important;
+  font-size: 14px!important;
+  line-height: 18px!important;
 }
 .xdrive-operational-top-workspace .workspace-list-controls__right{
   margin-left:auto;
@@ -565,7 +565,7 @@
   display:inline-flex;
   align-items:center;
   gap:4px;
-  font-size:11px!important;
+  font-size: 14px!important;
   font-weight:600;
   white-space:nowrap;
 }
@@ -576,7 +576,7 @@
   min-height:28px!important;
   padding:0 6px!important;
   border-radius:4px!important;
-  font-size:11px!important;
+  font-size: 14px!important;
 }
 .xdrive-operational-top-workspace .workspace-list-controls button{
   height:28px!important;
@@ -586,7 +586,7 @@
   border-radius:4px!important;
   background:#fff!important;
   color:#075ed3!important;
-  font-size:11px!important;
+  font-size: 14px!important;
   font-weight:700!important;
   cursor:pointer;
 }
@@ -603,13 +603,13 @@
   height:28px!important;
   min-height:28px!important;
   padding:0 6px!important;
-  font-size:11px!important;
+  font-size: 14px!important;
 }
 .xdrive-workspace-measured.xdrive-operational-top-workspace .workspace-list-controls button{
   height:28px!important;
   min-height:28px!important;
   padding:0 8px!important;
-  font-size:11px!important;
+  font-size: 14px!important;
 }
 
 .xdrive-operational-top-workspace .top-workspace-nav__menu-section {
@@ -617,8 +617,8 @@
   margin-top: 3px;
   border-top: 1px solid #e5e7eb;
   color: #64748b;
-  font-size: 10px;
-  line-height: 13px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 800;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -640,8 +640,8 @@
 .xdrive-operational-top-workspace .top-workspace-shell .top-workspace-nav__menu-section {
   padding: 7px 9px 4px;
   color: #526377;
-  font-size: 10px;
-  line-height: 13px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 800;
 }
 

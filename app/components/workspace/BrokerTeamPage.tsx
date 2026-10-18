@@ -192,18 +192,18 @@ export default function BrokerTeamPage() {
               value={inviteEmail}
               onChange={(event) => setInviteEmail(event.target.value)}
               placeholder="email@company.com"
-              style={{ minHeight: '32px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 8px', minWidth: '220px', fontSize: '12px' }}
+              style={{ minHeight: '32px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 8px', minWidth: '220px', fontSize: '14px' }}
             />
             <select
               value={inviteRole}
               onChange={(event) => setInviteRole(event.target.value as 'admin' | 'dispatcher' | 'viewer')}
-              style={{ height: '32px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 8px', fontSize: '12px', background: '#fff' }}
+              style={{ height: '32px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 8px', fontSize: '14px', background: '#fff' }}
             >
               <option value="viewer">viewer</option>
               <option value="dispatcher">dispatcher</option>
               <option value="admin">admin</option>
             </select>
-            <select value={inviteDepartmentId} onChange={(event) => setInviteDepartmentId(event.target.value)} aria-label="Invite department" style={{ height: '32px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 8px', fontSize: '12px', background: '#fff' }}>
+            <select value={inviteDepartmentId} onChange={(event) => setInviteDepartmentId(event.target.value)} aria-label="Invite department" style={{ height: '32px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 8px', fontSize: '14px', background: '#fff' }}>
               <option value="">No department</option>
               {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
             </select>
@@ -225,7 +225,7 @@ export default function BrokerTeamPage() {
             member.email ?? 'Not recorded',
             member.role.replace(/_/g, ' '),
             canManageTeam ? (
-              <select key="department" value={member.departmentId ?? ''} disabled={pendingActionId === member.id} onChange={(event) => { const departmentId = event.target.value || null; setPendingActionId(member.id); void runTeamAction({ membershipId: member.id, action: 'department', departmentId }, 'Department updated.').finally(() => setPendingActionId(null)); }} style={{ fontSize: '11px' }}>
+              <select key="department" value={member.departmentId ?? ''} disabled={pendingActionId === member.id} onChange={(event) => { const departmentId = event.target.value || null; setPendingActionId(member.id); void runTeamAction({ membershipId: member.id, action: 'department', departmentId }, 'Department updated.').finally(() => setPendingActionId(null)); }} style={{ fontSize: '14px' }}>
                 <option value="">No department</option>
                 {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
               </select>
@@ -252,7 +252,7 @@ export default function BrokerTeamPage() {
                       ).finally(() => setPendingActionId(null));
                     }}
                     disabled={pendingActionId === member.id}
-                    style={{ fontSize: '11px' }}
+                    style={{ fontSize: '14px' }}
                   >
                     {ROLE_OPTIONS.map((roleOption) => (
                       <option key={roleOption} value={roleOption}>{roleOption}</option>
@@ -269,7 +269,7 @@ export default function BrokerTeamPage() {
                           'Member reactivated.'
                         ).finally(() => setPendingActionId(null));
                       }}
-                      style={{ fontSize: '11px' }}
+                      style={{ fontSize: '14px' }}
                     >
                       Reactivate
                     </button>
@@ -284,7 +284,7 @@ export default function BrokerTeamPage() {
                           'Member disabled.'
                         ).finally(() => setPendingActionId(null));
                       }}
-                      style={{ fontSize: '11px' }}
+                      style={{ fontSize: '14px' }}
                     >
                       Disable
                     </button>
@@ -301,13 +301,13 @@ export default function BrokerTeamPage() {
                       'Member removed.'
                     ).finally(() => setPendingActionId(null));
                   }}
-                  style={{ fontSize: '11px' }}
+                  style={{ fontSize: '14px' }}
                 >
                   Remove
                 </button>
               </div>
             ) : (
-              <span key="actions" style={{ color: '#64748b', fontSize: '11px' }}>
+              <span key="actions" style={{ color: '#64748b', fontSize: '14px' }}>
                 {canManageTeam ? 'Self-managed' : 'Read only'}
               </span>
             ),

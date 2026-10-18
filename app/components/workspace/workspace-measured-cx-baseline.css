@@ -29,12 +29,12 @@
   --ws-operational-row-min-h: 52px;
   --ws-meta-h: 22px;
   --ws-font-page-title: 20px;
-  --ws-font-section-title: 14px;
-  --ws-font-panel-title: 13px;
-  --ws-font-body: 12px;
-  --ws-font-label: 11px;
-  --ws-font-meta: 11px;
-  --ws-font-micro: 10px;
+  --ws-font-section-title: 16px;
+  --ws-font-panel-title: 16px;
+  --ws-font-body: 14px;
+  --ws-font-label: 14px;
+  --ws-font-meta: 14px;
+  --ws-font-micro: 14px;
   --ws-radius: 4px;
   --ws-border: #cfd7e3;
   --ws-border-soft: #e2e7ed;
@@ -153,8 +153,8 @@
 .xdrive-workspace-measured .xdrive-owner-dashboard-grid .xdrive-operational-dashboard-signals > * > span:first-child,
 .xdrive-workspace-measured .xdrive-owner-dashboard-grid .customer-owner-stat-card > span {
   color: var(--ws-text) !important;
-  font-size: 12px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 700 !important;
 }
 
@@ -170,8 +170,8 @@
 .xdrive-workspace-measured .xdrive-owner-dashboard-grid .xdrive-operational-dashboard-signals > * > span:nth-child(3),
 .xdrive-workspace-measured .xdrive-owner-dashboard-grid .customer-owner-stat-card > small {
   color: var(--ws-muted) !important;
-  font-size: 11px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 400 !important;
 }
 
@@ -225,21 +225,21 @@
   margin-top: var(--ws-gap-micro) !important;
   gap: 6px !important;
   font-size: var(--ws-font-meta) !important;
-  line-height: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured h2 {
   margin: 0 !important;
   font-size: var(--ws-font-section-title) !important;
   line-height: 20px !important;
-  font-weight: 650 !important;
+  font-weight: 700 !important;
 }
 
 .xdrive-workspace-measured h3 {
   margin: 0 !important;
   font-size: var(--ws-font-panel-title) !important;
-  line-height: 18px !important;
-  font-weight: 650 !important;
+  line-height: 20px !important;
+  font-weight: 700 !important;
 }
 
 /* Controls. */
@@ -252,7 +252,7 @@
 .xdrive-workspace-measured :where(.top-workspace-shell__content) button:not(.driver-top-shell__logo-button) {
   min-height: var(--ws-control-h) !important;
   border-radius: var(--ws-radius) !important;
-  font-size: 12px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="color"], [type="hidden"], [type="image"], [type="button"], [type="submit"], [type="reset"]),
@@ -269,8 +269,8 @@
   padding: 8px 9px !important;
   border: 1px solid var(--ws-border) !important;
   border-radius: var(--ws-radius) !important;
-  font-size: 12px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured label,
@@ -596,7 +596,7 @@
   border-bottom: 0 !important;
   background: #d7ebfb !important;
   color: #475569 !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   line-height: 28px !important;
   font-weight: 600 !important;
 }
@@ -701,16 +701,16 @@
   border: 0 !important;
   background: transparent !important;
   color: var(--ws-blue) !important;
-  font-size: 11px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   text-decoration: underline !important;
   box-shadow: none !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-footer > a {
   color: #0f4fc4 !important;
-  font-size: 11px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 600 !important;
 }
 
@@ -752,7 +752,7 @@
   height: 22px !important;
   min-height: 22px !important;
   padding: 0 12px !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   line-height: 20px !important;
 }
 
@@ -766,8 +766,8 @@
   justify-content: space-between;
   gap: 6px;
   color: #475569;
-  font-size: 10px;
-  line-height: 12px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-vehicle-size-range__track {
@@ -839,7 +839,7 @@
   border-radius: 0 !important;
   background: #d7ebfb !important;
   color: #475569 !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   font-weight: 600 !important;
 }
 
@@ -881,8 +881,8 @@
   gap: 7px;
   margin: -4px 0 6px;
   color: #64748b;
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .cx-quote-pagination-row label {
@@ -898,8 +898,8 @@
   border: 0 !important;
   background: transparent !important;
   color: #1683f3 !important;
-  font-size: 11px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 600 !important;
   text-decoration: underline !important;
   box-shadow: none !important;
@@ -947,13 +947,13 @@
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__main span {
   color: #64748b;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__main strong {
   color: #111827;
-  font-size: 13px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
 }
 
@@ -963,19 +963,19 @@
   gap: 3px;
   min-width: 0;
   color: #475569 !important;
-  font-size: 11px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .cx-quote-datetime > strong {
   color: #111827 !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
   font-weight: 700 !important;
 }
 
 .xdrive-workspace-measured .cx-quote-datetime > span {
   color: #64748b !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   font-weight: 400 !important;
   white-space: nowrap;
 }
@@ -983,8 +983,8 @@
 .xdrive-workspace-measured .xdrive-cx-quote-card__meta {
   margin-top: 3px;
   color: #475569;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__band {
@@ -993,8 +993,8 @@
   background: #b8d9f5;
   color: #111827;
   text-align: center;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
 }
 
@@ -1005,15 +1005,15 @@
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__posted {
   color: #475569;
-  font-size: 10px;
-  line-height: 13px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__service {
   margin-top: 1px;
   color: #111827;
-  font-size: 12px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
 }
 
@@ -1023,12 +1023,12 @@
   gap: 8px;
   margin-top: 2px;
   color: #374151;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__status-meta strong {
-  font-size: 11px !important;
+  font-size: 14px !important;
   white-space: nowrap;
 }
 
@@ -1043,8 +1043,8 @@
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__vehicle > strong {
-  font-size: 11px;
-  line-height: 13px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -1101,7 +1101,7 @@
   height: 27px !important;
   padding: 0 14px !important;
   border-radius: 999px !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   line-height: 25px !important;
 }
 
@@ -1128,7 +1128,7 @@
   padding: 6px 10px;
   border-top: 1px solid #d7dce2;
   background: #f8fafc;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__expanded-cx {
@@ -1153,8 +1153,8 @@
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__freight span,
 .xdrive-workspace-measured .xdrive-cx-quote-card__freight strong {
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__freight span {
@@ -1172,8 +1172,8 @@
   border-top: 1px solid #d7dce2;
   background: #fff;
   color: #374151;
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__notes > span {
@@ -1196,7 +1196,7 @@
   min-height: 31px;
   background: #deecfa;
   color: #334155;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -1204,7 +1204,7 @@
   min-height: 41px;
   background: #f4f4f4;
   color: #475569;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-table__head span,
@@ -1219,7 +1219,7 @@
 
 .xdrive-workspace-measured .xdrive-cx-quote-table__row strong {
   color: #475569;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 600;
   text-decoration: underline;
 }
@@ -1244,7 +1244,7 @@
   border: 0 !important;
   background: transparent !important;
   color: #111827 !important;
-  font-size: 10px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__cancel {
@@ -1256,14 +1256,14 @@
   border-radius: 0 !important;
   background: #ef2a2a !important;
   color: #fff !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   line-height: 22px !important;
   font-weight: 800 !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__quote-state {
   color: #475569;
-  font-size: 11px;
+  font-size: 14px;
   line-height: 22px;
   font-weight: 500;
 }
@@ -1290,22 +1290,22 @@
   gap: 2px;
   min-width: 0;
   color: #374151;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   overflow: hidden;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__member strong,
 .xdrive-workspace-measured .xdrive-cx-quote-card__member a {
   color: #374151 !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   font-weight: 700 !important;
   text-decoration: underline !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-quote-card__member .xdrive-inline-link {
-  font-size: 11px !important;
-  line-height: 14px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 @media (max-width: 980px) {
@@ -1393,8 +1393,8 @@
 
 .xdrive-workspace-measured .driver-cell-secondary {
   color: #6f7985 !important;
-  font-size: 10px !important;
-  line-height: 14px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 400 !important;
 }
 
@@ -1408,8 +1408,8 @@
   padding: 3px 8px !important;
   background: #f4f7fb !important;
   color: #6f7985 !important;
-  font-size: 10px !important;
-  line-height: 14px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 400 !important;
   flex-wrap: wrap !important;
 }
@@ -1419,7 +1419,7 @@
   height: var(--ws-micro-action-h) !important;
   min-height: var(--ws-micro-action-h) !important;
   padding: 0 9px !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured .driver-row-details,
@@ -1502,7 +1502,7 @@
 .xdrive-workspace-measured table {
   width: 100% !important;
   border-collapse: collapse !important;
-  font-size: 12px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured thead th {
@@ -1543,13 +1543,13 @@
 }
 
 .xdrive-workspace-measured .xdrive-empty-state strong {
-  font-size: 13px !important;
+  font-size: 14px !important;
   line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-empty-state p {
-  font-size: 11px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 @media (max-width: 1024px) {
@@ -1880,8 +1880,8 @@
 .xdrive-workspace-measured .role-settings-nav button {
   min-height: 34px !important;
   padding: 0 10px !important;
-  font-size: 12px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .role-settings-overview {
@@ -2363,7 +2363,7 @@
   min-height: 28px !important;
   height: 28px !important;
   border-radius: 2px !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   line-height: 26px !important;
 }
 
@@ -2376,7 +2376,7 @@
   border: 1px solid #cf9e00;
   background: linear-gradient(#ffd84c, #f4bd13);
   color: #374151;
-  font-size: 12px !important;
+  font-size: 14px !important;
   font-weight: 700;
   text-align: left;
   cursor: pointer;
@@ -2386,7 +2386,7 @@
 .xdrive-workspace-measured .cx-diary-filter-rail details > summary {
   min-height: 20px;
   color: #1683f3;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 20px;
   font-weight: 600;
   cursor: pointer;
@@ -2409,7 +2409,7 @@
 .xdrive-workspace-measured .cx-diary-view-options legend {
   margin-bottom: 2px;
   color: #5e6874;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -2425,7 +2425,7 @@
   height: 27px !important;
   padding: 0 13px !important;
   border-radius: 999px !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured .cx-diary-toolbar {
@@ -2443,17 +2443,17 @@
   align-items: center;
   gap: 7px;
   color: #475569;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .cx-diary-toolbar__title strong {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
 }
 
 .xdrive-workspace-measured .cx-diary-toolbar__calendar {
   color: #4b5563;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .cx-diary-state-tabs {
@@ -2468,7 +2468,7 @@
 
 .xdrive-workspace-measured .cx-diary-state-tabs > button {
   padding: 0 11px !important;
-  font-size: 10px !important;
+  font-size: 14px !important;
   font-weight: 600 !important;
 }
 
@@ -2480,7 +2480,7 @@
   min-height: 28px;
   padding: 0 5px;
   color: #64748b;
-  font-size: 10px;
+  font-size: 14px;
   white-space: nowrap;
 }
 
@@ -2488,14 +2488,14 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured .cx-diary-pagination select {
   height: 23px !important;
   min-height: 23px !important;
   padding: 0 22px 0 7px !important;
-  font-size: 10px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured .cx-diary-pagination > button {
@@ -2570,8 +2570,8 @@
 .xdrive-workspace-measured .xdrive-cx-diary-card__route > div > span,
 .xdrive-workspace-measured .xdrive-cx-diary-card__times > div > span:first-child {
   color: #64748b;
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 400;
 }
 
@@ -2582,8 +2582,8 @@
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__route strong {
   color: #1f2937;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
 }
 
@@ -2596,15 +2596,15 @@
 
 .xdrive-workspace-measured .cx-diary-datetime > strong {
   color: #1f2937;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
 }
 
 .xdrive-workspace-measured .cx-diary-datetime > span {
   color: #64748b;
-  font-size: 10px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 400;
   white-space: nowrap;
 }
@@ -2616,8 +2616,8 @@
   background: #b8d9f5;
   color: #111827;
   text-align: center;
-  font-size: 12px;
-  line-height: 17px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
 }
 
@@ -2636,20 +2636,20 @@
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__status-line {
   color: #1f2937;
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__status-line strong {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__status-stamp {
   margin-top: 1px;
   color: #475569;
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__status-meta {
@@ -2659,8 +2659,8 @@
   gap: 8px;
   margin-top: 3px;
   color: #374151;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__vehicle {
@@ -2674,8 +2674,8 @@
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__vehicle > strong {
-  font-size: 10px;
-  line-height: 11px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
   white-space: nowrap;
 }
@@ -2719,7 +2719,7 @@
   border-radius: 0 !important;
   background: linear-gradient(#fff, #efefef) !important;
   color: #374151 !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   line-height: 22px !important;
   font-weight: 500 !important;
   box-shadow: none !important;
@@ -2756,24 +2756,24 @@
   min-width: 0;
   min-height: 18px;
   color: #475569;
-  font-size: 10px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta span {
   color: #52719a;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta strong {
   color: #374151;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 600;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta a {
   color: #1683f3;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
   text-decoration: underline;
 }
@@ -2791,13 +2791,13 @@
   border-top: 1px solid #d7dce2;
   background: #fff;
   color: #64748b;
-  font-size: 10px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__timeline-meta strong {
   color: #374151;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -2816,7 +2816,7 @@
 .xdrive-workspace-measured .xdrive-cx-diary-card__secondary-actions select {
   min-height: 24px !important;
   height: 24px !important;
-  font-size: 10px !important;
+  font-size: 14px !important;
   line-height: 22px !important;
 }
 
@@ -2875,7 +2875,7 @@
   gap: 10px;
   margin-left: 10px;
   color: #374151;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 400;
 }
 
@@ -2900,8 +2900,8 @@
   padding: 2px 8px;
   background: #e5f2ff;
   color: #334155;
-  font-size: 10px;
-  line-height: 17px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 500;
 }
 
@@ -2923,8 +2923,8 @@
   border: 0 !important;
   background: transparent !important;
   color: #1683f3 !important;
-  font-size: 10px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   text-decoration: underline !important;
   box-shadow: none !important;
 }
@@ -2956,17 +2956,17 @@
   gap: 7px;
   min-width: 0;
   color: #475569;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .cx-loads-toolbar__title strong {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
 }
 
 .xdrive-workspace-measured .cx-loads-toolbar__calendar {
   color: #4b5563;
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .cx-loads-view-toggle {
@@ -2975,7 +2975,7 @@
   gap: 10px;
   margin-left: 3px;
   color: #374151;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 400;
 }
 
@@ -2998,8 +2998,8 @@
   border-radius: 0 !important;
   background: transparent !important;
   color: #1683f3 !important;
-  font-size: 10px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 600 !important;
   text-decoration: underline !important;
   box-shadow: none !important;
@@ -3018,7 +3018,7 @@
   min-height: 28px !important;
   height: 28px !important;
   padding: 0 11px !important;
-  font-size: 10px !important;
+  font-size: 14px !important;
   line-height: 28px !important;
   font-weight: 600 !important;
 }
@@ -3033,7 +3033,7 @@
   border-radius: 3px;
   background: #fff;
   color: #374151;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .cx-loads-posted-within {
@@ -3042,7 +3042,7 @@
   gap: 4px;
   margin-left: 5px;
   color: #475569;
-  font-size: 10px;
+  font-size: 14px;
   white-space: nowrap;
 }
 
@@ -3054,7 +3054,7 @@
   border: 1px solid #bfc8d2;
   border-radius: 3px;
   background: #fff;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .cx-loads-pagination {
@@ -3064,7 +3064,7 @@
   margin-left: auto;
   padding: 0 4px;
   color: #64748b;
-  font-size: 10px;
+  font-size: 14px;
   white-space: nowrap;
 }
 
@@ -3079,7 +3079,7 @@
   height: 23px;
   min-height: 23px;
   padding: 0 16px 0 5px;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .cx-loads-pagination > button {
@@ -3135,15 +3135,15 @@
 .xdrive-workspace-measured .xdrive-cx-load-card__route span,
 .xdrive-workspace-measured .xdrive-cx-load-card__times > div > span:first-child {
   color: #64748b;
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__route strong,
 .xdrive-workspace-measured .cx-load-datetime > strong {
   color: #111827 !important;
-  font-size: 13px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700 !important;
 }
 
@@ -3156,8 +3156,8 @@
 
 .xdrive-workspace-measured .cx-load-datetime > span {
   color: #64748b !important;
-  font-size: 10px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 400 !important;
   white-space: nowrap;
 }
@@ -3166,7 +3166,7 @@
   display: inline-block;
   margin-top: 4px;
   color: #b45309 !important;
-  font-size: 10px !important;
+  font-size: 14px !important;
   font-weight: 600;
 }
 
@@ -3177,27 +3177,27 @@
   background: #b8d9f5;
   color: #111827;
   text-align: center;
-  font-size: 12px;
-  line-height: 17px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__posted {
   color: #374151;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__posted strong {
-  font-size: 12px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__posted-at {
   margin-top: 1px;
   color: #64748b;
-  font-size: 10px;
-  line-height: 13px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__status-meta {
@@ -3207,8 +3207,8 @@
   gap: 8px;
   margin-top: 2px;
   color: #374151;
-  font-size: 10px;
-  line-height: 13px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__vehicle {
@@ -3222,8 +3222,8 @@
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__vehicle strong {
-  font-size: 10px !important;
-  line-height: 11px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 700 !important;
   white-space: nowrap;
 }
@@ -3242,8 +3242,8 @@
   padding-top: 5px;
   border-top: 1px solid #d7dce2;
   color: #475569;
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__freight > div {
@@ -3263,15 +3263,15 @@
 .xdrive-workspace-measured .xdrive-cx-load-card__freight span,
 .xdrive-workspace-measured .xdrive-cx-load-card__commercial span {
   color: #52719a;
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__freight strong,
 .xdrive-workspace-measured .xdrive-cx-load-card__commercial strong {
   color: #374151 !important;
-  font-size: 11px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 500 !important;
 }
 
@@ -3280,8 +3280,8 @@
   padding-top: 4px;
   border-top: 1px solid #d7dce2;
   color: #475569;
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__notes {
@@ -3290,8 +3290,8 @@
   border-top: 1px solid #d7dce2;
   background: #fff;
   color: #475569;
-  font-size: 10px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__notes span {
@@ -3300,7 +3300,7 @@
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__notes strong {
-  font-size: 10px !important;
+  font-size: 14px !important;
   font-weight: 500 !important;
 }
 
@@ -3317,8 +3317,8 @@
 .xdrive-workspace-measured .xdrive-cx-load-card__secondary-actions a,
 .xdrive-workspace-measured .xdrive-cx-load-card__secondary-actions button {
   color: #0f4fc4 !important;
-  font-size: 10px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 600 !important;
   text-decoration: underline !important;
 }
@@ -3357,7 +3357,7 @@
   border-radius: 0 !important;
   background: #69b82c !important;
   color: #fff !important;
-  font-size: 11px !important;
+  font-size: 14px !important;
   line-height: 22px !important;
   font-weight: 800 !important;
 }
@@ -3371,16 +3371,16 @@
   padding-right: 6px;
   overflow: hidden;
   color: #475569;
-  font-size: 10px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
   white-space: nowrap;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-footer__member .xdrive-inline-link,
 .xdrive-workspace-measured .xdrive-cx-load-footer__member a {
   color: #0f4fc4 !important;
-  font-size: 10px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 600 !important;
   text-decoration: underline !important;
 }
@@ -3427,7 +3427,7 @@
 
 .xdrive-workspace-measured .cx-loads-beta-label {
   color: #e11d48;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -3514,8 +3514,8 @@
 .xdrive-workspace-measured .xdrive-quote-modal__member-copy > strong {
   overflow: hidden;
   color: #2f3742;
-  font-size: 13px;
-  line-height: 17px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3523,8 +3523,8 @@
 
 .xdrive-workspace-measured .xdrive-quote-modal__member-copy > span {
   color: #737b86;
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-quote-modal__member-copy b {
@@ -3560,7 +3560,7 @@
 
 .xdrive-workspace-measured .xdrive-quote-modal__route span {
   color: #5f6874;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
 }
 
@@ -3568,8 +3568,8 @@
   min-width: 0;
   overflow: hidden;
   color: #374151;
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 800;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -3577,8 +3577,8 @@
 
 .xdrive-workspace-measured .xdrive-quote-modal__route time {
   color: #8a929c;
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   text-align: right;
   white-space: nowrap;
 }
@@ -3605,21 +3605,21 @@
 
 .xdrive-workspace-measured .xdrive-quote-modal__field-row > label {
   color: #626b76;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 500;
 }
 
 .xdrive-workspace-measured .xdrive-quote-modal__field-row sup {
   color: #e3342f;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .xdrive-quote-modal__field-row label small {
   display: block;
   color: #626b76;
-  font-size: 10px;
-  line-height: 13px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 500;
 }
 
@@ -3633,7 +3633,7 @@
   border-radius: 4px;
   background: #fff;
   color: #253041;
-  font-size: 11px;
+  font-size: 14px;
   outline: none;
 }
 
@@ -3696,7 +3696,7 @@
   border-radius: 14px;
   background: #fff;
   color: #1683f3;
-  font-size: 10px;
+  font-size: 14px;
   line-height: 23px;
   font-weight: 600;
   cursor: pointer;
@@ -3732,7 +3732,7 @@
 }
 
 .xdrive-workspace-measured .xdrive-quote-modal__money--small > span {
-  font-size: 13px;
+  font-size: 14px;
 }
 
 .xdrive-workspace-measured .xdrive-quote-modal__extra-remove {
@@ -3781,8 +3781,8 @@
   justify-self: center;
   margin-top: 3px;
   color: #8a929c;
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-workspace-measured .xdrive-quote-modal__notes {
@@ -3793,7 +3793,7 @@
 
 .xdrive-workspace-measured .xdrive-quote-modal__notes > span {
   color: #626b76;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 500;
 }
 
@@ -3806,8 +3806,8 @@
   background: #fff;
   color: #253041;
   font: inherit;
-  font-size: 11px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   resize: vertical;
   outline: none;
 }
@@ -3854,46 +3854,46 @@
 .xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail fieldset,
 .xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail legend,
 .xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail div[role="group"] {
-  font-size: 12px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
 .xdrive-workspace-measured .xdrive-loads-workspace-layout .carrier-exchange-rail select {
   min-height: 27px !important;
   height: 27px !important;
-  font-size: 12px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .cx-loads-toolbar__title,
 .xdrive-workspace-measured .cx-loads-toolbar__title strong {
-  font-size: 12px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .cx-loads-view-toggle,
 .xdrive-workspace-measured .cx-loads-posted-within,
 .xdrive-workspace-measured .cx-loads-pagination {
-  font-size: 11px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .cx-loads-secondary-tabs > .carrier-exchange-tab {
-  font-size: 11px !important;
+  font-size: 14px !important;
   font-weight: 650 !important;
 }
 
 .xdrive-workspace-measured .cx-loads-quick-search,
 .xdrive-workspace-measured .cx-loads-posted-within select,
 .xdrive-workspace-measured .cx-loads-pagination select {
-  font-size: 11px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__route span,
 .xdrive-workspace-measured .xdrive-cx-load-card__times > div > span:first-child {
-  font-size: 12px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__route strong,
@@ -3904,42 +3904,42 @@
 }
 
 .xdrive-workspace-measured .cx-load-datetime > span {
-  font-size: 11px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__band {
   min-height: 22px !important;
-  font-size: 13px !important;
+  font-size: 14px !important;
   line-height: 18px !important;
   font-weight: 750 !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__posted {
-  font-size: 12px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__posted strong {
-  font-size: 13px !important;
-  line-height: 17px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 750 !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__posted-at,
 .xdrive-workspace-measured .xdrive-cx-load-card__status-meta {
-  font-size: 11px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__vehicle strong {
-  font-size: 11px !important;
-  line-height: 13px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__freight {
-  font-size: 12px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__freight > div {
@@ -3954,26 +3954,26 @@
 .xdrive-workspace-measured .xdrive-cx-load-card__commercial span,
 .xdrive-workspace-measured .xdrive-cx-load-card__freight strong,
 .xdrive-workspace-measured .xdrive-cx-load-card__commercial strong {
-  font-size: 12px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-card__notes,
 .xdrive-workspace-measured .xdrive-cx-load-card__notes strong {
-  font-size: 11px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-footer > button.xdrive-cx-load-footer__quote {
-  font-size: 12px !important;
+  font-size: 14px !important;
   line-height: 22px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-load-footer__member,
 .xdrive-workspace-measured .xdrive-cx-load-footer__member .xdrive-inline-link,
 .xdrive-workspace-measured .xdrive-cx-load-footer__member a {
-  font-size: 11px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 

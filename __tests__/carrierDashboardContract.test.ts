@@ -181,6 +181,6 @@ describe('carrier dashboard convergence contract', () => {
     expect(baseline).toContain('.xdrive-owner-dashboard-grid .xdrive-operational-dashboard-signals');
     expect(shellCss).toContain('.top-workspace-shell[data-workspace-role="carrier_admin"] aside[aria-label="Search and filters"]');
     expect(shellCss).toContain('top: calc(var(--ws-header-h, 50px) + var(--ws-nav-h, 42px)) !important;');
-    expect(shellCss).toContain('font-size: 12px !important;');
+    expect(shellCss).toContain('font-size: 14px !important;');
   });
 });

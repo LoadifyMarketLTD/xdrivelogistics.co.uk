@@ -49,13 +49,13 @@ const QUARTER_HOUR_SLOTS = Array.from({ length: 96 }, (_, index) => {
   return `${hours}:${minutes}`;
 });
 
-const fieldStyle = { width: '100%', minHeight: '32px', border: '1px solid #cfd7e3', borderRadius: '4px', padding: '0 8px', fontSize: '12px', boxSizing: 'border-box' as const, background: '#fff', color: '#172033' };
+const fieldStyle = { width: '100%', minHeight: '32px', border: '1px solid #cfd7e3', borderRadius: '4px', padding: '0 8px', fontSize: '14px', boxSizing: 'border-box' as const, background: '#fff', color: '#172033' };
 const textareaStyle = { ...fieldStyle, minHeight: '72px', padding: '7px 8px', resize: 'vertical' as const };
-const labelStyle = { display: 'grid', gap: '4px', color: '#334155', fontSize: '11px', lineHeight: '14px', fontWeight: 700 };
+const labelStyle = { display: 'grid', gap: '4px', color: '#334155', fontSize: '14px', lineHeight: '14px', fontWeight: 700 };
 const readOnlyStyle = { ...fieldStyle, display: 'flex', alignItems: 'center', background: '#f8fafc', color: '#334155' };
-const microButtonStyle = { minHeight: '26px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 7px', background: '#fff', color: '#334155', fontSize: '11px', fontWeight: 700, cursor: 'pointer' };
+const microButtonStyle = { minHeight: '26px', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '0 7px', background: '#fff', color: '#334155', fontSize: '14px', fontWeight: 700, cursor: 'pointer' };
 const invalidFieldStyle = { border: '1px solid #dc2626', background: '#fffafa', boxShadow: '0 0 0 1px rgba(220,38,38,0.12)' };
-const validationMessageStyle = { color: '#b91c1c', fontSize: '10px', lineHeight: '13px', fontWeight: 700 };
+const validationMessageStyle = { color: '#b91c1c', fontSize: '14px', lineHeight: '13px', fontWeight: 700 };
 
 const numberOrNull = (value: string) => {
   if (!value.trim()) return null;
@@ -769,7 +769,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
               <label style={labelStyle}>Visibility<div style={readOnlyStyle}>Direct invite only</div></label>
             </div>
           ) : (
-            <div style={{ color: '#64748b', fontSize: '11px' }}>Verifying selected carrier…</div>
+            <div style={{ color: '#64748b', fontSize: '14px' }}>Verifying selected carrier…</div>
           )}
         </Panel>
       )}
@@ -1000,8 +1000,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
         <div style={{ display: 'grid', gap: '8px', borderTop: '1px solid #e2e8f0', marginTop: '12px', paddingTop: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 800, color: '#172033' }}>Additional stops</div>
-              <div style={{ fontSize: '11px', lineHeight: '16px', color: '#64748b' }}>Optional collection or delivery stops are executed in this order between the main collection and final delivery. Exact stop details stay private before award.</div>
+              <div style={{ fontSize: '14px', fontWeight: 800, color: '#172033' }}>Additional stops</div>
+              <div style={{ fontSize: '14px', lineHeight: '16px', color: '#64748b' }}>Optional collection or delivery stops are executed in this order between the main collection and final delivery. Exact stop details stay private before award.</div>
             </div>
             <ActionButton tone="secondary" disabled={saving || additionalStops.length >= 8} onClick={addAdditionalStop}>
               {additionalStops.length >= 8 ? 'Maximum 8 stops' : 'Add stop'}
@@ -1009,7 +1009,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           </div>
 
           {additionalStops.length === 0 ? (
-            <div style={{ fontSize: '11px', color: '#64748b' }}>No additional stops. This booking remains a standard collection → delivery job.</div>
+            <div style={{ fontSize: '14px', color: '#64748b' }}>No additional stops. This booking remains a standard collection → delivery job.</div>
           ) : (
             <div style={{ display: 'grid', gap: '10px' }}>
               {additionalStops.map((stop, index) => {
@@ -1018,7 +1018,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                 return (
                   <div key={stop.id} style={{ display: 'grid', gap: '8px', border: `1px solid ${stopInvalid ? '#dc2626' : '#dbe3ee'}`, borderRadius: '4px', padding: '10px', background: stopInvalid ? '#fffafa' : '#fbfdff' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <div style={{ fontSize: '12px', fontWeight: 800, color: stopInvalid ? '#b91c1c' : '#172033' }}>Stop {index + 2}{stopInvalid ? ' · check required fields' : ''}</div>
+                      <div style={{ fontSize: '14px', fontWeight: 800, color: stopInvalid ? '#b91c1c' : '#172033' }}>Stop {index + 2}{stopInvalid ? ' · check required fields' : ''}</div>
                       <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
                         <button type="button" style={{ ...microButtonStyle, opacity: index === 0 ? 0.45 : 1 }} disabled={index === 0 || saving} onClick={() => moveAdditionalStop(stop.id, -1)}>Move up</button>
                         <button type="button" style={{ ...microButtonStyle, opacity: index === additionalStops.length - 1 ? 0.45 : 1 }} disabled={index === additionalStops.length - 1 || saving} onClick={() => moveAdditionalStop(stop.id, 1)}>Move down</button>
@@ -1058,7 +1058,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
                   </div>
                 );
               })}
-              <div style={{ fontSize: '11px', color: '#64748b' }}>Final delivery will be stop {additionalStops.length + 2}. Reorder the additional stops above to change the execution sequence.</div>
+              <div style={{ fontSize: '14px', color: '#64748b' }}>Final delivery will be stop {additionalStops.length + 2}. Reorder the additional stops above to change the execution sequence.</div>
             </div>
           )}
         </div>
@@ -1112,12 +1112,12 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             </select>
           </label>
         </div>
-        <div style={{ marginTop: '6px', fontSize: '11px', color: hasDimensionErrors && showValidation ? '#b91c1c' : '#64748b', fontWeight: hasDimensionErrors && showValidation ? 700 : 500 }}>
+        <div style={{ marginTop: '6px', fontSize: '14px', color: hasDimensionErrors && showValidation ? '#b91c1c' : '#64748b', fontWeight: hasDimensionErrors && showValidation ? 700 : 500 }}>
           {dimensionSummary}. Dimensions are entered and stored in centimetres (cm).
         </div>
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', marginTop: '8px' }}>
           {([['tailLift', 'Tail lift required'], ['forklift', 'Forklift available at collection'], ['handball', 'Handball required'], ['deliveryTailLift', 'Tail lift required at delivery'], ['deliveryForklift', 'Forklift available at delivery'], ['deliveryHandball', 'Handball required at delivery'], ['pumpTruck', 'Pump truck required'], ['twoPersonCrew', 'Two-person crew'], ['dedicatedVehicle', 'Dedicated vehicle / no co-loading'], ['adr', 'ADR load'], ['temperatureControlled', 'Temperature controlled'], ['fragile', 'Fragile goods']] as const).map(([key, label]) => (
-            <label key={key} style={{ display: 'flex', gap: '5px', alignItems: 'center', fontSize: '11px', fontWeight: 700 }}>
+            <label key={key} style={{ display: 'flex', gap: '5px', alignItems: 'center', fontSize: '14px', fontWeight: 700 }}>
               <input type="checkbox" checked={form[key]} onChange={(event) => set(key, event.target.checked)} />{label}
             </label>
           ))}
@@ -1133,7 +1133,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           <label style={labelStyle}>Payment terms<select style={fieldStyle} value={form.paymentTerms} onChange={(event) => set('paymentTerms', event.target.value as (typeof PAYMENT_TERMS)[number])}>{PAYMENT_TERMS.map((term) => <option key={term} value={term}>{term}</option>)}</select></label>
           {mode === 'broker' && <label style={labelStyle}>Target carrier cost (£)<input style={fieldStyle} type="number" min="0" value={form.targetCarrierCost} onChange={(event) => set('targetCarrierCost', event.target.value)} /></label>}
         </div>
-        <div style={{ marginTop: '6px', color: '#64748b', fontSize: '10px', lineHeight: '14px', fontWeight: 500 }}>
+        <div style={{ marginTop: '6px', color: '#64748b', fontSize: '14px', lineHeight: '14px', fontWeight: 500 }}>
           Customer booking reference is optional and remains an external/customer reference. XDrive generates its own load reference automatically. Payment terms are shown on every posted job and are limited to Pay now, 14 days or 30 days; 45, 60 and 90 day terms are not supported.
         </div>
       </Panel>
@@ -1249,7 +1249,7 @@ function StopFields({
 
   return (
     <div style={{ display: 'grid', gap: '8px' }}>
-      <h3 style={{ margin: 0, fontSize: '13px', lineHeight: '18px', fontWeight: 600, color: hasStopErrors(errors ?? {}) ? '#b91c1c' : undefined }}>{title}</h3>
+      <h3 style={{ margin: 0, fontSize: '14px', lineHeight: '18px', fontWeight: 600, color: hasStopErrors(errors ?? {}) ? '#b91c1c' : undefined }}>{title}</h3>
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <label style={labelStyle}>Date{requiredDate ? ' *' : ''}
           <input
@@ -1279,7 +1279,7 @@ function StopFields({
             {timeOptions.map((slot) => <option key={slot} value={slot}>{slot}</option>)}
           </select>
           {errors?.time ? <span style={validationMessageStyle}>{errors.time}</span> : null}
-          {!errors?.time && noSlotsLeftToday ? <span style={{ color: '#64748b', fontSize: '10px', lineHeight: '13px', fontWeight: 500 }}>No future times remain today — choose tomorrow.</span> : null}
+          {!errors?.time && noSlotsLeftToday ? <span style={{ color: '#64748b', fontSize: '14px', lineHeight: '13px', fontWeight: 500 }}>No future times remain today — choose tomorrow.</span> : null}
         </label>
       </div>
       <label style={labelStyle}>Postcode *

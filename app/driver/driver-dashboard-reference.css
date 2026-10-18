@@ -68,15 +68,15 @@
 .driver-reference-dashboard .driver-dashboard-section__header > span:first-child,
 .driver-reference-dashboard .driver-dashboard-section__header > strong:first-child {
   color: var(--ws-text, #172033);
-  font-size: var(--ws-font-panel-title, 13px);
-  line-height: 18px;
+  font-size: var(--ws-font-panel-title, 16px);
+  line-height: 20px;
   font-weight: 700;
 }
 
 .driver-reference-dashboard .driver-dashboard-section__header > span:last-child:not(:first-child) {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .driver-reference-dashboard .driver-dashboard-section__body {
@@ -98,8 +98,8 @@
 
 .driver-reference-dashboard .driver-dashboard-status-primary > span:first-child {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-label, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-label, 14px);
+  line-height: 18px;
   font-weight: 700;
 }
 
@@ -131,14 +131,14 @@
 
 .driver-reference-dashboard .driver-dashboard-facts dt {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .driver-reference-dashboard .driver-dashboard-facts dd {
   color: var(--ws-text, #172033);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
   text-align: right;
 }
@@ -172,15 +172,15 @@
 
 .driver-reference-dashboard .driver-dashboard-quick-row strong {
   color: var(--ws-text, #172033);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
 }
 
 .driver-reference-dashboard .driver-dashboard-quick-row span {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .driver-reference-dashboard .driver-dashboard-inline-warning {
@@ -189,8 +189,8 @@
   border-radius: var(--ws-radius, 4px);
   background: #fff9ed;
   color: #76520d;
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .driver-reference-dashboard .driver-dashboard-next-action {
@@ -205,8 +205,8 @@
   border-left: 3px solid var(--ws-green, #31a354);
   background: #f8fbff;
   color: var(--ws-muted, #64748b);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .driver-reference-dashboard .driver-dashboard-next-action strong {
@@ -262,23 +262,23 @@
 .driver-reference-dashboard .driver-dashboard-feedback-row strong,
 .driver-reference-dashboard .driver-dashboard-alert-row strong {
   color: var(--ws-text, #172033);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
 }
 
 .driver-reference-dashboard .driver-dashboard-feedback-row span,
 .driver-reference-dashboard .driver-dashboard-alert-row span {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
   overflow-wrap: anywhere;
 }
 
 .driver-reference-dashboard .driver-dashboard-feedback-row small {
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
   white-space: nowrap;
 }
 
@@ -291,8 +291,8 @@
   border: 1px solid var(--ws-border-soft, #e2e7ed);
   background: #fff;
   color: var(--ws-text, #172033);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .driver-reference-dashboard .driver-dashboard-alert-summary {
@@ -302,8 +302,8 @@
   padding: 6px 10px;
   background: #f8fafc;
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 /* Secondary content may share a row only after the required operational surfaces. */
@@ -330,8 +330,8 @@
   background: #edf2f8;
   border-bottom: 1px solid var(--ws-border, #cfd7e3);
   color: var(--ws-navy, #0b2f6b);
-  font-size: var(--ws-font-label, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-label, 14px);
+  line-height: 18px;
   font-weight: 700;
   text-transform: uppercase;
   text-align: left;
@@ -342,8 +342,8 @@
   padding: 8px 9px;
   border-top: 1px solid var(--ws-border-soft, #e2e7ed);
   color: var(--ws-text, #172033);
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .driver-reference-dashboard .driver-dashboard-table-wrap td:last-child {

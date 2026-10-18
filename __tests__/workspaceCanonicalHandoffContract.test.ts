@@ -30,9 +30,9 @@ describe('workspace canonical handoff geometry', () => {
     expect(liveSharedCss).not.toMatch(/--ws-nav-h\s*:\s*50px/);
   });
 
-  it('keeps 11px filter and operational labels owned by the shared typography token', () => {
+  it('keeps 14px filter and operational labels owned by the shared typography token', () => {
     const baseline = read('app/components/workspace/workspace-measured-cx-baseline.css');
-    expect(baseline).toContain('--ws-font-label: 11px;');
+    expect(baseline).toContain('--ws-font-label: 14px;');
     expect(baseline).toMatch(/\.xdrive-workspace-measured label,[\s\S]{0,220}font-size: var\(--ws-font-label\) !important;/);
     expect(baseline).toMatch(/\.xdrive-workspace-measured \.driver-cell-label,[\s\S]{0,220}font-size: var\(--ws-font-label\) !important;/);
     expect(baseline).toMatch(/\.xdrive-workspace-measured \.workspace-operational-cell>div:first-child\{\s*font-size:var\(--ws-font-label\)!important;/);
@@ -47,14 +47,14 @@ describe('workspace canonical handoff geometry', () => {
     expect(css).toContain('height: var(--ws-table-row-h) !important;');
     expect(css).toContain('font-size: var(--ws-font-body) !important;');
     const registerLabel = css.match(/\.xdrive-carrier-workspace \.carrier-register-page label \{([^}]*)\}/)?.[1];
-    expect(registerLabel).toContain('font-size: var(--ws-font-label, 11px) !important;');
+    expect(registerLabel).toContain('font-size: var(--ws-font-label, 14px) !important;');
     expect(registerLabel).not.toContain('--ws-font-body');
     expect(css.match(/\.xdrive-carrier-workspace \.carrier-register-page button \{/g)).toHaveLength(1);
     expect(css).toContain('min-height: var(--ws-control-h, 32px) !important;');
     expect(css).toContain('border-radius: var(--ws-radius, 4px) !important;');
     expect(baseline).toContain('--ws-table-head-h: 40px');
     expect(baseline).toContain('--ws-table-row-h: 42px');
-    expect(baseline).toContain('--ws-font-body: 12px');
+    expect(baseline).toContain('--ws-font-body: 14px');
   });
 
   it('keeps Broker dashboard compact on the shared Owner Driver control-desk geometry', () => {
@@ -95,7 +95,7 @@ describe('workspace canonical handoff geometry', () => {
     expect(baseline).toContain('--ws-filter-rail-w: 165px');
     expect(baseline).toContain('--ws-table-head-h: 40px');
     expect(baseline).toContain('--ws-table-row-h: 42px');
-    expect(baseline).toContain('--ws-font-body: 12px');
+    expect(baseline).toContain('--ws-font-body: 14px');
   });
 
   it('keeps every legacy Carrier page inside an approved page model', () => {
@@ -341,7 +341,7 @@ describe('workspace canonical handoff geometry', () => {
     const quotePage = read('app/admin/quotes/page.tsx');
     expect(quotePage).toContain('role="dialog" aria-modal="true" aria-labelledby="carrier-new-quote-title"');
     expect(quotePage).toContain('aria-label="Close quote editor"');
-    expect(quotePage).toContain("fontSize: 'var(--ws-font-body, 12px)'");
+    expect(quotePage).toContain("fontSize: 'var(--ws-font-body, 14px)'");
     expect(quotePage.match(/style=\{modalFieldPairStyle\}/g)).toHaveLength(2);
     expect(quotePage).toContain('repeat(auto-fit, minmax(min(100%, 180px), 1fr))');
     expect(quotePage).not.toContain("background: 'rgba(15,23,42,.38)'");

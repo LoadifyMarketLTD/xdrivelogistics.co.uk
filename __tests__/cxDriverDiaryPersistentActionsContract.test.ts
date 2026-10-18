@@ -40,7 +40,7 @@ describe('CX-close Driver Diary persistent action contract', () => {
   it('keeps the action rail on the measured micro-action contract', () => {
     expect(css).toContain('.driver-diary-action-rail');
     expect(css).toContain('var(--ws-micro-action-h, 24px)');
-    expect(css).toContain('var(--ws-font-meta, 11px)');
+    expect(css).toContain('var(--ws-font-meta, 14px)');
     expect(css).toContain('var(--ws-border, #cfd7e3)');
   });
 

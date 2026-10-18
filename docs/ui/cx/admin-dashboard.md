@@ -60,15 +60,15 @@ Not a table-primary page. Uses:
 
 | Element | Size / Line-height / Weight |
 |---|---|
-| Page title | `20px / 26px / 600` |
-| Page subtitle | `12px / 16px / 400` |
-| Section title | `14px / 20px / 600` |
-| Panel title | `13px / 18px / 600` |
-| Body | `13px / 18px / 400` |
-| Table | `12.5px / 17px / 400` |
-| Label | `12px / 16px / 600` |
-| Metadata | `11px / 14px / 400` |
-| KPI label | `11px / 14px / 700` |
+| Page title | `20px / 26px / 700` |
+| Page subtitle | `14px / 18px / 400` |
+| Section title | `16px / 20px / 700` |
+| Panel title | `16px / 20px / 700` |
+| Body | `14px / 18px / 400` |
+| Table | `14px / 18px / 400` |
+| Label | `14px / 18px / 600` |
+| Metadata | `14px / 18px / 400` |
+| KPI label | `14px / 18px / 700` |
 | KPI value | `22px / 26px / 700` |
 
 ### 9. XDrive colour mapping

@@ -67,12 +67,12 @@
 
 | Role | Value |
 |---|---|
-| Eyebrow | `11px / 700 / uppercase / 16px` |
-| Page title | `20px / 600 / 26px` |
-| Page description | `12px / 400 / 16px` |
-| Panel title | `13px / 600 / 18px` |
-| Metric / metadata | `11px–12px` |
-| Body text | `12px–12.5px` |
+| Eyebrow | `14px / 600 / uppercase / 18px` |
+| Page title | `20px / 700 / 26px` |
+| Page description | `14px / 400 / 18px` |
+| Panel title | `16px / 700 / 20px` |
+| Metric / metadata | `14px / 18px minimum` |
+| Body text | `14px / 18px` |
 
 ## XDrive colour mapping
 

@@ -33,14 +33,14 @@
 
 .xdrive-driver-workspace .driver-reference-availability .driver-availability-section__head strong,
 .xdrive-driver-workspace .driver-reference-availability .driver-availability-panel__head strong {
-  font-size: var(--ws-font-panel-title, 13px) !important;
-  line-height: 18px !important;
+  font-size: var(--ws-font-panel-title, 16px) !important;
+  line-height: 20px !important;
   font-weight: 650 !important;
 }
 
 .xdrive-driver-workspace .driver-reference-availability .driver-availability-panel__head span {
-  font-size: var(--ws-font-label, 11px) !important;
-  line-height: 14px !important;
+  font-size: var(--ws-font-label, 14px) !important;
+  line-height: 18px !important;
 }
 
 .xdrive-driver-workspace .driver-reference-availability .driver-availability-status {
@@ -49,19 +49,19 @@
 }
 
 .xdrive-driver-workspace .driver-reference-availability .driver-availability-status strong {
-  font-size: 13.5px !important;
+  font-size: 14px !important;
   font-weight: 800 !important;
 }
 
 .xdrive-driver-workspace .driver-reference-availability .driver-availability-status span,
 .xdrive-driver-workspace .driver-reference-availability .driver-availability-facts dt {
-  font-size: 11px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-driver-workspace .driver-reference-availability .driver-availability-facts dd {
-  font-size: var(--ws-font-body, 12px) !important;
-  line-height: 16px !important;
+  font-size: var(--ws-font-body, 14px) !important;
+  line-height: 18px !important;
 }
 
 /* Return Journeys prototype. */
@@ -73,7 +73,7 @@
 .xdrive-driver-workspace .driver-returns-exchange .driver-filter-field select {
   min-height: var(--ws-control-h, 32px) !important;
   height: var(--ws-control-h, 32px) !important;
-  font-size: var(--ws-font-body, 12px) !important;
+  font-size: var(--ws-font-body, 14px) !important;
 }
 
 /* Diary prototype: booking cards and action strip, real booking data only. */
@@ -84,8 +84,8 @@
 .xdrive-driver-workspace .driver-diary-route .driver-board-summary {
   min-height: 40px !important;
   padding: 5px 9px !important;
-  font-size: var(--ws-font-body, 12px) !important;
-  line-height: 16px !important;
+  font-size: var(--ws-font-body, 14px) !important;
+  line-height: 18px !important;
 }
 
 .xdrive-driver-workspace .driver-diary-route .driver-diary-entry__top {
@@ -94,21 +94,21 @@
 }
 
 .xdrive-driver-workspace .driver-diary-route .driver-diary-entry .driver-cell-label {
-  font-size: 11px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-driver-workspace .driver-diary-route .driver-diary-entry .driver-cell-primary {
   /* Match the compact PR675 Loads/Diary record value hierarchy, not legacy oversized bold cards. */
-  font-size: 13px !important;
+  font-size: 14px !important;
   line-height: 18px !important;
   font-weight: 600 !important;
 }
 
 .xdrive-driver-workspace .driver-diary-route .driver-diary-entry .driver-cell-secondary,
 .xdrive-driver-workspace .driver-diary-route .driver-diary-entry .driver-load-row__meta {
-  font-size: 11px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-driver-workspace .driver-diary-route .driver-diary-action-rail {
@@ -119,8 +119,8 @@
 .xdrive-driver-workspace .driver-diary-route .driver-diary-action-rail button {
   min-height: 31px !important;
   padding: 0 12px !important;
-  font-size: 11px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 650 !important;
 }
 
@@ -129,7 +129,7 @@
 /* Shared Post Load form already uses the prototype component; strengthen parity in Driver. */
 .xdrive-driver-workspace .xdrive-post-load-form {
   gap: var(--ws-gap-grid, 12px) !important;
-  font-size: var(--ws-font-body, 12px) !important;
+  font-size: var(--ws-font-body, 14px) !important;
 }
 
 .xdrive-driver-workspace .xdrive-post-load-form > section > div:first-child {
@@ -159,16 +159,16 @@
   min-height: var(--ws-panel-head-h, 36px) !important;
   padding: 0 10px !important;
   color: var(--ws-text, #213750) !important;
-  font-size: var(--ws-font-panel-title, 13px) !important;
-  line-height: 18px !important;
+  font-size: var(--ws-font-panel-title, 16px) !important;
+  line-height: 20px !important;
   font-weight: 700 !important;
 }
 
 .xdrive-driver-workspace .driver-account-section-nav__link {
   min-height: var(--ws-control-h, 32px) !important;
   padding: 0 9px !important;
-  font-size: var(--ws-font-body, 12px) !important;
-  line-height: 16px !important;
+  font-size: var(--ws-font-body, 14px) !important;
+  line-height: 18px !important;
   font-weight: 600 !important;
 }
 
@@ -184,21 +184,21 @@
 
 .xdrive-driver-workspace .driver-account-member-card span,
 .xdrive-driver-workspace .driver-account-edit label {
-  font-size: var(--ws-font-label, 11px) !important;
-  line-height: 14px !important;
+  font-size: var(--ws-font-label, 14px) !important;
+  line-height: 18px !important;
 }
 
 .xdrive-driver-workspace .driver-account-member-card strong,
 .xdrive-driver-workspace .driver-account-link strong,
 .xdrive-driver-workspace .driver-account-status strong {
-  font-size: var(--ws-font-body, 12px) !important;
-  line-height: 16px !important;
+  font-size: var(--ws-font-body, 14px) !important;
+  line-height: 18px !important;
 }
 
 .xdrive-driver-workspace .driver-account-edit input {
   height: var(--ws-control-h, 32px) !important;
   min-height: var(--ws-control-h, 32px) !important;
-  font-size: var(--ws-font-body, 12px) !important;
+  font-size: var(--ws-font-body, 14px) !important;
 }
 
 .xdrive-driver-workspace .driver-account-link {
@@ -244,23 +244,23 @@
 
 .xdrive-driver-workspace .driver-proto-next-action span {
   color: var(--ws-blue, #1d57d8);
-  font-size: var(--ws-font-micro, 10px);
-  line-height: 14px;
+  font-size: var(--ws-font-micro, 14px);
+  line-height: 18px;
   font-weight: 800;
   letter-spacing: .04em;
 }
 
 .xdrive-driver-workspace .driver-proto-next-action strong {
   color: var(--ws-text, #21384f);
-  font-size: var(--ws-font-panel-title, 13px);
-  line-height: 17px;
+  font-size: var(--ws-font-panel-title, 16px);
+  line-height: 20px;
   font-weight: 700;
 }
 
 .xdrive-driver-workspace .driver-proto-next-action small {
   color: var(--ws-muted, #627489);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 15px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .xdrive-driver-workspace .driver-prototype-dashboard .driver-load-row__top {
@@ -320,14 +320,14 @@
 }
 .xdrive-driver-workspace .driver-register-toolbar strong {
   color: #23384f;
-  font-size: 13px;
-  line-height: 17px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 800;
 }
 .xdrive-driver-workspace .driver-register-toolbar span {
   color: #647386;
-  font-size: 11px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .xdrive-driver-workspace .driver-compact-editor {
@@ -344,8 +344,8 @@
   flex-direction: column;
   gap: 4px;
   color: #58677a;
-  font-size: var(--ws-font-label, 11px);
-  line-height: 14px;
+  font-size: var(--ws-font-label, 14px);
+  line-height: 18px;
   font-weight: 700;
 }
 .xdrive-driver-workspace .driver-compact-editor input,
@@ -356,7 +356,7 @@
   background: #fff;
   padding: 0 8px;
   color: #21364d;
-  font-size: var(--ws-font-body, 12px);
+  font-size: var(--ws-font-body, 14px);
 }
 .xdrive-driver-workspace .driver-compact-editor__actions {
   display: flex;
@@ -384,8 +384,8 @@
   border-bottom: 1px solid #c7d1dc;
   background: #edf4fb;
   color: #4b6076;
-  font-size: var(--ws-font-label, 11px);
-  line-height: 14px;
+  font-size: var(--ws-font-label, 14px);
+  line-height: 18px;
   font-weight: 800;
   text-align: left;
   white-space: nowrap;
@@ -396,8 +396,8 @@
   border-right: 1px solid #e0e5eb;
   border-bottom: 1px solid #d5dce4;
   color: #304256;
-  font-size: var(--ws-font-body, 12px);
-  line-height: 16px;
+  font-size: var(--ws-font-body, 14px);
+  line-height: 18px;
   vertical-align: middle;
 }
 .xdrive-driver-workspace .driver-register-table tr:last-child td { border-bottom: 0; }
@@ -407,16 +407,16 @@
 .xdrive-driver-workspace .driver-register-table td > strong {
   display: block;
   color: #17314d;
-  font-size: var(--ws-font-body, 12px);
-  line-height: 16px;
+  font-size: var(--ws-font-body, 14px);
+  line-height: 18px;
   font-weight: 800;
 }
 .xdrive-driver-workspace .driver-register-table td > small {
   display: block;
   margin-top: 2px;
   color: #748194;
-  font-size: 10px;
-  line-height: 13px;
+  font-size: 14px;
+  line-height: 18px;
 }
 .xdrive-driver-workspace .driver-register-actions,
 .xdrive-driver-workspace .driver-register-statuses {
@@ -450,21 +450,21 @@
 }
 .driver-prototype-port .fleet-cx-toolbar strong {
   color: #2a3d52;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
 }
 .driver-prototype-port .fleet-cx-toolbar span {
   color: #69788b;
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 14px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 .driver-prototype-port .fleet-cx-toolbar__actions { display: flex; gap: 6px; align-items: center; }
 .driver-prototype-port .fleet-tablewrap--compact { margin-top: 6px; overflow-x: auto; }
 .driver-prototype-port .fleet-table--compact { min-width: 860px !important; width: 100%; table-layout: auto; }
-.driver-prototype-port .fleet-table--compact th { height: var(--ws-table-head-h, 40px); padding: 0 8px; font-size: var(--ws-font-label, 11px); }
-.driver-prototype-port .fleet-table--compact td { min-height: var(--ws-table-row-h, 42px); padding: 6px 8px; font-size: var(--ws-font-body, 12px); vertical-align: middle; }
-.driver-prototype-port .fleet-table--compact .fleet-name b { font-size: var(--ws-font-body, 12px); line-height: 16px; }
-.driver-prototype-port .fleet-table--compact .meta { font-size: var(--ws-font-meta, 11px); line-height: 14px; margin-top: 2px; display: block; }
+.driver-prototype-port .fleet-table--compact th { height: var(--ws-table-head-h, 40px); padding: 0 8px; font-size: var(--ws-font-label, 14px); }
+.driver-prototype-port .fleet-table--compact td { min-height: var(--ws-table-row-h, 42px); padding: 6px 8px; font-size: var(--ws-font-body, 14px); vertical-align: middle; }
+.driver-prototype-port .fleet-table--compact .fleet-name b { font-size: var(--ws-font-body, 14px); line-height: 18px; }
+.driver-prototype-port .fleet-table--compact .meta { font-size: var(--ws-font-meta, 14px); line-height: 18px; margin-top: 2px; display: block; }
 .driver-prototype-port .fleet-table--compact td:last-child { white-space: nowrap; }
 .driver-prototype-port .fleet-table--compact .rowbtn { margin-right: 4px; }
 
@@ -498,8 +498,8 @@
 .xdrive-driver-workspace .driver-dashboard-statusbar button:hover{border-color:#1d57d8;background:#f6f9fc}
 .xdrive-driver-workspace .driver-dashboard-statusbar span{
   color:var(--ws-text,#172033);
-  font-size:12px;
-  line-height:16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight:700;
   text-transform:none;
   letter-spacing:0;
@@ -516,8 +516,8 @@
 }
 .xdrive-driver-workspace .driver-dashboard-statusbar small{
   color:var(--ws-muted,#64748b);
-  font-size:11px;
-  line-height:15px;
+  font-size: 14px;
+  line-height: 18px;
   max-width:100%;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -548,14 +548,14 @@
 }
 .xdrive-driver-workspace .driver-dashboard-register__head strong{
   color:#23384f;
-  font-size:var(--ws-font-body,12px);
-  line-height:16px;
+  font-size:var(--ws-font-body, 14px);
+  line-height: 18px;
   font-weight:800;
 }
 .xdrive-driver-workspace .driver-dashboard-register__head span{
   color:#66768a;
-  font-size:10px;
-  line-height:13px;
+  font-size: 14px;
+  line-height: 18px;
 }
 .xdrive-driver-workspace .driver-dashboard-register__body{
   min-height:70px;
@@ -605,8 +605,8 @@
 }
 .xdrive-driver-workspace .driver-dashboard-readiness__grid strong{
   color:#0b2f6b;
-  font-size:13px;
-  line-height:17px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight:800;
 }
 .xdrive-driver-workspace .driver-dashboard-readiness__grid small{

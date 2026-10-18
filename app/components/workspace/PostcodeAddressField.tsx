@@ -9,7 +9,7 @@ const fieldStyle = {
   border: '1px solid #cfd7e3',
   borderRadius: '4px',
   padding: '7px 8px',
-  fontSize: '12px',
+  fontSize: '14px',
   boxSizing: 'border-box' as const,
   background: '#fff',
   color: '#172033',
@@ -19,7 +19,7 @@ const labelStyle = {
   display: 'grid',
   gap: '4px',
   color: '#334155',
-  fontSize: '11px',
+  fontSize: '14px',
   lineHeight: '14px',
   fontWeight: 700,
   position: 'relative' as const,
@@ -31,7 +31,7 @@ const invalidFieldStyle = {
 };
 const validationMessageStyle = {
   color: '#b91c1c',
-  fontSize: '10px',
+  fontSize: '14px',
   lineHeight: '13px',
   fontWeight: 700,
 };
@@ -180,7 +180,7 @@ export default function PostcodeAddressField({
                 background: '#fff',
                 color: '#172033',
                 textAlign: 'left',
-                fontSize: '12px',
+                fontSize: '14px',
                 cursor: 'pointer',
               }}
               onMouseDown={(event) => event.preventDefault()}

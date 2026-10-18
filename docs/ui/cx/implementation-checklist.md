@@ -80,12 +80,15 @@ Unit tests: `__tests__/cxPrimitives.test.tsx` — 21 tests, all passing.
 
 ## 2) Typography
 
-- [ ] Segoe UI / Arial stack active
-- [x] Title 28/600 — `PageHeader` h1
-- [x] Section title 16/600 — `Panel` h2
-- [x] Labels 12/600 — `OperationalFilterLabel`, table headers
-- [x] Body 13/400 — `OperationalTable` cells, filter inputs
-- [x] Metadata 11/400 — `OperationalCard` subtitle, `KpiCard` label
+- [ ] Segoe UI / Arial stack active where the shared workspace shell does not supply HK Nova
+- [x] Page title `20px / 26px / 700` — `PageHeader` h1
+- [x] Section / panel title `16px / 20px / 700` — operational h2/h3
+- [x] Labels `14px / 18px / 600` — `OperationalFilterLabel`, table headers
+- [x] Body / rows / values `14px / 18px` — `OperationalTable` cells, filter inputs
+- [x] Metadata / badges `14px / 18px minimum` — subtitles, KPI labels, refs
+- [x] Controls / links / tabs `14px / 18px / 600`, active `700`
+- [x] Top navbar exception `13px / 600`
+- [x] No operational `10–12px` text remains in active workspace source
 
 ## 3) Components
 

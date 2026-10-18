@@ -33,6 +33,6 @@ describe('Carrier settings and navbar consolidation contract', () => {
   it('keeps Settings readable and consistently spaced without duplicate shortcut density', () => {
     expect(settingsCss).toContain('grid-template-columns:210px minmax(0,1fr)');
     expect(settingsCss).toContain('min-height:34px');
-    expect(settingsCss).toContain('font-size:12px');
+    expect(settingsCss).toContain('font-size:14px');
   });
 });

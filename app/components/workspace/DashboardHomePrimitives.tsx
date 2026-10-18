@@ -34,7 +34,7 @@ export function DashboardHomeHeader({
           className="xdrive-dashboard-home-header__eyebrow"
           style={{
             color: workspaceTheme.blue,
-            fontSize: '11px',
+            fontSize: '14px',
             fontWeight: 700,
             letterSpacing: '0.08em',
             textTransform: 'uppercase',
@@ -64,7 +64,7 @@ export function DashboardHomeHeader({
                 borderRadius: '4px',
                 background: '#EEF4FF',
                 color: workspaceTheme.blue,
-                fontSize: '10px',
+                fontSize: '14px',
                 lineHeight: '14px',
                 fontWeight: 800,
                 letterSpacing: '0.04em',
@@ -81,7 +81,7 @@ export function DashboardHomeHeader({
             margin: '4px 0 0',
             maxWidth: '900px',
             color: workspaceTheme.muted,
-            fontSize: '12px',
+            fontSize: '14px',
             lineHeight: '16px',
           }}
         >

@@ -170,7 +170,7 @@ export default function DriverMessagesPage() {
           <aside className="driver-filter-rail" aria-label="Message conversations">
             <div className="driver-filter-rail__header">Messages</div>
             <div className="driver-filter-rail__body">
-              <div style={{ fontSize: '11px', color: '#64748b', lineHeight: '16px' }}>
+              <div style={{ fontSize: '14px', color: '#64748b', lineHeight: '16px' }}>
                 Existing participant conversations. New arbitrary recipients are not exposed by the verified messaging contract.
               </div>
               {threads.map((thread) => (
@@ -214,7 +214,7 @@ export default function DriverMessagesPage() {
               <section className="driver-row-details" aria-label={`Conversation with ${selected.counterpartName}`}>
                 <div className="driver-detail-tabs">
                   <strong>{selected.counterpartName}{selected.counterpartCompanyName ? ` · ${selected.counterpartCompanyName}` : ''}</strong>
-                  <span style={{ fontSize: '11px', color: '#64748b' }}>
+                  <span style={{ fontSize: '14px', color: '#64748b' }}>
                     {selected.conversationId ? `Conversation ${selected.conversationId.slice(0, 8).toUpperCase()}` : 'Legacy message record'}
                   </span>
                 </div>
@@ -225,7 +225,7 @@ export default function DriverMessagesPage() {
                       <StatusBadge value={selected.context.jobStatus ?? selected.context.status ?? 'Context linked'} tone="blue" />
                       {selectedJobHref ? <ActionButton tone="secondary" onClick={() => router.push(selectedJobHref)}>Open job</ActionButton> : null}
                     </div>
-                    <div style={{ paddingTop: '6px', fontSize: '12px', color: '#475569' }}>{selected.context.routeLabel}</div>
+                    <div style={{ paddingTop: '6px', fontSize: '14px', color: '#475569' }}>{selected.context.routeLabel}</div>
                   </div>
                 )}
 
@@ -242,7 +242,7 @@ export default function DriverMessagesPage() {
                         <span>{fmtDateTime(message.createdAt)}</span>
                         <StatusBadge value={message.direction === 'outbound' ? 'Sent' : 'Received'} tone={message.direction === 'outbound' ? 'blue' : 'green'} />
                       </div>
-                      <div style={{ padding: '8px 10px', fontSize: '13px', lineHeight: '19px', color: '#0f172a', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
+                      <div style={{ padding: '8px 10px', fontSize: '14px', lineHeight: '19px', color: '#0f172a', whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
                         {message.body}
                       </div>
                     </article>
@@ -262,7 +262,7 @@ export default function DriverMessagesPage() {
                       />
                     </label>
                     <div className="driver-row-actions" style={{ gridColumn: '1 / -1' }}>
-                      <span style={{ fontSize: '11px', color: '#64748b' }}>{reply.length}/4000 · messages cannot be edited after sending</span>
+                      <span style={{ fontSize: '14px', color: '#64748b' }}>{reply.length}/4000 · messages cannot be edited after sending</span>
                       <ActionButton tone="primary" disabled={sending || !reply.trim()} onClick={() => void sendReply()}>{sending ? 'Sending…' : 'Send Reply'}</ActionButton>
                     </div>
                   </div>

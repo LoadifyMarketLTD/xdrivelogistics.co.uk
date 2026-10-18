@@ -26,8 +26,8 @@
 .pageHeaderEyebrow {
   margin-bottom: 2px;
   color: var(--ws-blue, #1d57d8);
-  font-size: var(--ws-font-label, 11px);
-  line-height: 14px;
+  font-size: var(--ws-font-label, 14px);
+  line-height: 18px;
   font-weight: 600;
   letter-spacing: 0.02em;
   text-transform: uppercase;
@@ -45,8 +45,8 @@
   max-width: 860px;
   margin: 2px 0 0;
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-body, 12px);
-  line-height: 16px;
+  font-size: var(--ws-font-body, 14px);
+  line-height: 18px;
 }
 
 .pageHeaderMeta,
@@ -64,8 +64,8 @@
 
 .pageHeaderMeta {
   margin-top: var(--ws-gap-micro, 4px);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 14px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 @media (max-width: 760px) {
@@ -127,8 +127,8 @@
 
 .workspaceDialogTitle {
   display: block;
-  font-size: var(--ws-font-panel-title, 13px);
-  line-height: 18px;
+  font-size: var(--ws-font-panel-title, 16px);
+  line-height: 20px;
   font-weight: 600;
 }
 
@@ -136,8 +136,8 @@
   display: block;
   margin-top: 2px;
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-label, 11px);
-  line-height: 14px;
+  font-size: var(--ws-font-label, 14px);
+  line-height: 18px;
 }
 
 .workspaceDialogSubheader {
@@ -171,8 +171,8 @@
 .workspaceDialogFooterLeading {
   min-width: 0;
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
-  line-height: 14px;
+  font-size: var(--ws-font-meta, 14px);
+  line-height: 18px;
 }
 
 .workspaceDialogFooterActions {
@@ -236,7 +236,7 @@
   border: 1px solid color-mix(in srgb, var(--xdrive-finance-row-color, #1d57d8) 20%, #ffffff);
   border-radius: 4px;
   padding: 8px 10px;
-  font-size: 12px;
+  font-size: 14px;
   gap: 8px;
 }
 
@@ -248,7 +248,7 @@
 }
 
 .financialSummaryDetail {
-  font-size: 11px;
+  font-size: 14px;
   color: #64748b;
   font-weight: 400;
 }
@@ -259,7 +259,7 @@
 
 .complianceSummaryEmpty {
   color: #1a1f2b;
-  font-size: 13px;
+  font-size: 14px;
   padding: 8px 0;
 }
 
@@ -285,16 +285,16 @@
 
 .complianceSummaryLabel {
   flex: 1;
-  font-size: 12px;
+  font-size: 14px;
   color: #1a1f2b;
 }
 
 .complianceSummaryCount {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .complianceSummaryPct {
-  font-size: 11px;
+  font-size: 14px;
   color: #1a1f2b;
   min-width: 32px;
   text-align: right;
@@ -325,7 +325,7 @@
   padding: 6px 8px;
   background: #ffffff;
   color: #1a1f2b;
-  font-size: 12px;
+  font-size: 14px;
   cursor: pointer;
   min-height: 32px;
 }
@@ -349,7 +349,7 @@
 }
 
 .operationalMetricLabel {
-  font-size: 12px;
+  font-size: 14px;
   color: #1A1F2B;
 }
 
@@ -376,7 +376,7 @@
   color: #1A1F2B;
   padding: 6px 8px;
   text-align: left;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .operationalLinkRowCompact,
@@ -392,7 +392,7 @@
   color: #1A1F2B;
   padding: 7px 0;
   text-align: left;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .operationalLinkRowCompact:last-child,
@@ -428,7 +428,7 @@
 .operationalLinkMeta {
   min-width: 0;
   color: #64748B;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .operationalLinkValue {
@@ -437,7 +437,7 @@
 
 .operationalLinkArrow {
   color: #94a3b8;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .quickActionButton:hover {
@@ -473,7 +473,7 @@
   border: 1px solid #D8DEE8;
   border-radius: 4px;
   padding: 8px;
-  font-size: 13px;
+  font-size: 14px;
   background: #ffffff;
   color: #1a1f2b;
   min-height: 32px;
@@ -484,7 +484,7 @@
   align-items: center;
   gap: 8px;
   color: #1a1f2b;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -562,7 +562,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 12px;
+  font-size: 14px;
   color: #64748B;
   min-width: 90px;
   justify-content: flex-end;
@@ -583,7 +583,7 @@
   text-align: left;
   padding: 0 0 4px;
   color: #64748B;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .operationalTableMinWidth {
@@ -599,7 +599,7 @@
   height: var(--ws-table-head-h, 40px);
   padding: 0 8px;
   color: #1A1F2B;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -628,7 +628,7 @@
 
 /* Section 9: sort icon 12px */
 .operationalTableSortGlyph {
-  font-size: 12px;
+  font-size: 14px;
 }
 
 /* Section 15: hover row #F1F6FF */
@@ -644,8 +644,8 @@
 .operationalTableCell {
   padding: 6px 8px;
   color: #1A1F2B;
-  font-size: var(--ws-font-body, 12px);
-  line-height: 17px;
+  font-size: var(--ws-font-body, 14px);
+  line-height: 18px;
   border-bottom: 1px solid #E5E7EB;
   vertical-align: middle;
   height: var(--ws-table-row-h, 42px);
@@ -694,16 +694,16 @@
 
 .actionCentreItemTitle {
   color: #1a1f2b;
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 18px;
 }
 
 .actionCentreItemDescription {
   color: #1a1f2b;
-  font-size: 11px;
+  font-size: 14px;
   margin-top: 4px;
-  line-height: 14px;
+  line-height: 18px;
 }
 
 .actionCentreItemBadges {
@@ -717,8 +717,8 @@
   align-items: center;
   border-radius: 999px;
   padding: 2px 6px;
-  font-size: 10px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 800;
   white-space: nowrap;
   border: 1px solid var(--xdrive-action-badge-border, #f4f6f8);
@@ -735,14 +735,14 @@
 
 .actionCentreMetaValue {
   color: #1a1f2b;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .actionCentreDue {
   color: #f5a300;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 700;
 }
 
@@ -753,8 +753,8 @@
 .actionCentreLinkButton,
 .actionCentreLinkAnchor {
   color: #1d57d8;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   font-weight: 600;
   text-decoration: none;
   background: none;
@@ -819,7 +819,7 @@
 .operationalCardTitle {
   margin: 0;
   /* Mandatory panel-title token: 13px / 18px / 600 */
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 600;
   line-height: 18px;
   color: #1A1F2B;
@@ -828,10 +828,10 @@
 .operationalCardSubtitle {
   margin: 2px 0 0;
   /* Mandatory metadata token: 11px / 14px / 400 */
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 400;
   color: #64748B;
-  line-height: 14px;
+  line-height: 18px;
 }
 
 .operationalCardHeaderActions {
@@ -855,7 +855,7 @@
   border-top: 1px solid #D8DEE8;
   /* Soft background for footer — matches reference panel footer tones */
   background: #F4F6F8;
-  font-size: 12px;
+  font-size: 14px;
   color: #64748B;
 }
 
@@ -881,7 +881,7 @@
 
 .operationalFiltersTitle {
   margin: 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   color: #1A1F2B;
   letter-spacing: 0.02em;
@@ -909,7 +909,7 @@
   align-items: center;
   gap: 6px;
   padding: 4px 0;
-  font-size: 12px;
+  font-size: 14px;
   color: #64748B;
   cursor: pointer;
 }
@@ -927,7 +927,7 @@
   border-radius: 4px;
   background: #198754;
   color: #ffffff;
-  font-size: var(--ws-font-body, 12px);
+  font-size: var(--ws-font-body, 14px);
   font-weight: 600;
   cursor: pointer;
   display: flex;
@@ -952,7 +952,7 @@
   border-radius: 4px;
   background: #ffffff;
   color: #1A1F2B;
-  font-size: var(--ws-font-body, 12px);
+  font-size: var(--ws-font-body, 14px);
   font-weight: 400;
   cursor: pointer;
   display: flex;
@@ -975,10 +975,10 @@
 }
 
 .operationalFilterLabel {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   color: #1A1F2B;
-  line-height: 14px;
+  line-height: 18px;
 }
 
 .operationalFilterInput,
@@ -987,7 +987,7 @@
   border: 1px solid #D8DEE8;
   border-radius: 4px;
   padding: 0 8px;
-  font-size: var(--ws-font-body, 12px);
+  font-size: var(--ws-font-body, 14px);
   color: #1A1F2B;
   background: #ffffff;
   width: 100%;
@@ -1044,12 +1044,12 @@
   padding: 0 8px;
   border-top: 1px solid #D8DEE8;
   background: #F4F6F8;
-  font-size: 12px;
+  font-size: 14px;
   color: #64748B;
 }
 
 .operationalPaginationInfo {
-  font-size: 12px;
+  font-size: 14px;
   color: #64748B;
 }
 
@@ -1070,7 +1070,7 @@
   border-radius: 4px;
   background: #ffffff;
   color: #1A1F2B;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   padding: 0;
@@ -1104,8 +1104,8 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  line-height: 16px;
-  font-size: var(--ws-font-body, 12px);
+  line-height: 18px;
+  font-size: var(--ws-font-body, 14px);
 }
 
 .jobsRouteDest {
@@ -1116,14 +1116,14 @@
   /* Section 10: arrow/icon width 16px */
   flex-shrink: 0;
   width: 16px;
-  font-size: 10px;
+  font-size: 14px;
   color: #64748B;
 }
 
 /* Section 10: secondary postcode/time line 13px */
 .jobsRoutePostcode {
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   color: #64748B;
   white-space: nowrap;
   overflow: hidden;
@@ -1140,7 +1140,7 @@
   height: 22px;
   padding: 0 6px;
   border-radius: var(--ws-radius, 4px);
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
   border: 1px solid transparent;
@@ -1164,7 +1164,7 @@
   border-radius: 4px;
   background: #ffffff;
   color: #1A1F2B;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -1185,7 +1185,7 @@
   border-radius: var(--ws-radius, 4px);
   background: #F4F6F8;
   color: #64748B;
-  font-size: 10px;
+  font-size: 14px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
@@ -1220,13 +1220,13 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 18px;
   color: #1A1F2B;
 }
 
 .operationalJobDetailLabel {
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   color: #64748B;
   text-transform: uppercase;
@@ -1277,9 +1277,9 @@
 
 .jobsPageSubtitle {
   margin: 2px 0 0;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 400;
-  line-height: 16px;
+  line-height: 18px;
   color: #64748B;
 }
 
@@ -1298,7 +1298,7 @@
   color: #1A1F2B;
   border: none;
   border-radius: 4px;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   display: inline-flex;
@@ -1325,8 +1325,8 @@
   padding: 6px 10px;
   border-radius: 4px;
   border: 1px solid;
-  font-size: 12px;
-  line-height: 16px;
+  font-size: 14px;
+  line-height: 18px;
   margin-bottom: 8px;
 }
 .jobsAlertBannerWarning {
@@ -1351,7 +1351,7 @@
   border-radius: var(--ws-radius, 4px);
   background: transparent;
   color: inherit;
-  font-size: 11px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   flex-shrink: 0;
@@ -1408,7 +1408,7 @@
   border-radius: 0;
   background: transparent;
   color: #334155;
-  font-size: var(--ws-font-body, 12px);
+  font-size: var(--ws-font-body, 14px);
   font-weight: 600;
   line-height: 1.15;
   letter-spacing: 0.005em;
@@ -1435,7 +1435,7 @@
   border: 1px solid #D8DEE8;
   border-radius: 4px;
   padding: 0 8px;
-  font-size: var(--ws-font-body, 12px);
+  font-size: var(--ws-font-body, 14px);
   color: #1A1F2B;
   background: #ffffff;
   box-sizing: border-box;
@@ -1454,7 +1454,7 @@
 .jobsToolbarSpacer { flex: 1 1 0; }
 
 .jobsToolbarCount {
-  font-size: 12px;
+  font-size: 14px;
   color: #64748B;
   white-space: nowrap;
   min-width: 90px;
@@ -1494,7 +1494,7 @@
   text-align: center;
   height: 64px;
   color: #64748B;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .jobsOperationalRow {
@@ -1502,31 +1502,31 @@
 }
 
 .jobsStatusMeta {
-  font-size: 10px;
+  font-size: 14px;
   color: #64748B;
   margin-top: 2px;
 }
 
 .jobsRefValue {
-  font-size: var(--ws-font-body, 12px);
+  font-size: var(--ws-font-body, 14px);
   font-weight: 600;
   color: #1D57D8;
 }
 
 .jobsSubMeta {
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   color: #64748B;
 }
 
 .jobsPrimaryDate {
-  font-size: var(--ws-font-body, 12px);
-  line-height: 17px;
+  font-size: var(--ws-font-body, 14px);
+  line-height: 18px;
 }
 
 .jobsAsapMeta {
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
   color: #B76E00;
   font-weight: 600;
 }
@@ -1547,24 +1547,24 @@
 }
 
 .jobsVehicleCell {
-  font-size: 12px;
+  font-size: 14px;
   color: #64748B;
   text-transform: capitalize;
 }
 
 .jobsVehicleMeta {
-  font-size: 11px;
+  font-size: 14px;
   color: #94A3B8;
 }
 
 .jobsCustomerCell {
-  font-size: var(--ws-font-body, 12px);
+  font-size: var(--ws-font-body, 14px);
   overflow: hidden;
   max-width: 150px;
 }
 
 .jobsDistanceCell {
-  font-size: 12px;
+  font-size: 14px;
   color: #64748B;
 }
 
@@ -1586,7 +1586,7 @@
 
 .jobsMonospaceMeta {
   font-family: monospace;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .jobsCapitalizeText {
@@ -1598,7 +1598,7 @@
 }
 
 .operationalPaginationCurrent {
-  font-size: 12px;
+  font-size: 14px;
   color: #1A1F2B;
   padding: 0 4px;
 }
@@ -1607,7 +1607,7 @@
   padding: 24px 12px;
   text-align: center;
   color: #64748B;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .jobsMobileRoutePostcode {
@@ -1618,7 +1618,7 @@
 
 .jobsMobileRouteArrow {
   color: #64748B;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .jobsMobileRouteMetaPostcode {
@@ -1669,7 +1669,7 @@
   .jobsStatusTab {
     min-height: 35px;
     padding: 0 10px 6px;
-    font-size: 13px;
+    font-size: 14px;
     flex: 0 0 auto;
   }
   .jobsToolbarSearch { width: 160px; }
@@ -1721,7 +1721,7 @@
   }
 
   .jobsMobileCardRef {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 700;
     color: #1D57D8;
     flex: 1 1 0;
@@ -1749,7 +1749,7 @@
   }
 
   .jobsMobileCardRouteOrigin {
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: #1A1F2B;
     overflow: hidden;
@@ -1758,7 +1758,7 @@
   }
 
   .jobsMobileCardRouteDest {
-    font-size: 12px;
+    font-size: 14px;
     color: #64748B;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -1773,14 +1773,14 @@
     display: flex;
     align-items: baseline;
     gap: 6px;
-    font-size: 12px;
+    font-size: 14px;
     line-height: 18px;
     color: #1A1F2B;
     min-height: 18px;
   }
 
   .jobsMobileCardLabel {
-    font-size: 11px;
+    font-size: 14px;
     font-weight: 600;
     color: #64748B;
     text-transform: uppercase;

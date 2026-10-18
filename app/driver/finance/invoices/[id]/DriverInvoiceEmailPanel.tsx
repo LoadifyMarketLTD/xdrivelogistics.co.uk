@@ -35,7 +35,7 @@ const primaryButton: CSSProperties = {
   borderRadius: '4px',
   minHeight: '30px',
   padding: '0 11px',
-  fontSize: '11px',
+  fontSize: '14px',
   fontWeight: 700,
   cursor: 'pointer',
 };

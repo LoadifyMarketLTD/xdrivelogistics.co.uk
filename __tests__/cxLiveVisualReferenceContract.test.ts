@@ -26,7 +26,7 @@ describe('Courier Exchange live canonical visual reference', () => {
     expect(shellCss).not.toContain('CANONICAL DRIVER WORKSPACE SHELL');
     expect(baselineCss).toContain('--ws-nav-h: 42px');
     expect(baselineCss).toContain('--ws-filter-rail-w: 165px');
-    expect(baselineCss).toContain('--ws-font-body: 12px');
+    expect(baselineCss).toContain('--ws-font-body: 14px');
     expect(baselineCss).toContain('font-family: "HK Nova", Arial, sans-serif');
     expect(shellCss).toContain('height: 42px !important;');
     expect(shellCss).toContain('padding: 0 13px !important;');

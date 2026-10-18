@@ -251,7 +251,7 @@ export function WorkflowStageStrip({ activeStage, counts, marginBottom = '8px' }
         marginBottom,
       }}
     >
-      <div style={{ fontSize: '11px', lineHeight: '14px', fontWeight: 700, color: '#64748b', marginBottom: '6px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+      <div style={{ fontSize: '14px', lineHeight: '14px', fontWeight: 700, color: '#64748b', marginBottom: '6px', letterSpacing: '0.04em', textTransform: 'uppercase' }}>
         Business flow
       </div>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(135px, 1fr))', gap: '8px' }}>
@@ -272,10 +272,10 @@ export function WorkflowStageStrip({ activeStage, counts, marginBottom = '8px' }
                 minHeight: '64px',
               }}
             >
-              <div style={{ fontSize: '11px', lineHeight: '14px', color: isActive ? '#1d4ed8' : '#64748b', fontWeight: 700, marginBottom: '3px' }}>
+              <div style={{ fontSize: '14px', lineHeight: '14px', color: isActive ? '#1d4ed8' : '#64748b', fontWeight: 700, marginBottom: '3px' }}>
                 {stage.label}
               </div>
-              <div style={{ fontSize: '12px', lineHeight: '16px', color: '#0f172a', fontWeight: 700 }}>{typeof count === 'number' ? count : 'Open'}</div>
+              <div style={{ fontSize: '14px', lineHeight: '16px', color: '#0f172a', fontWeight: 700 }}>{typeof count === 'number' ? count : 'Open'}</div>
             </button>
           );
         })}

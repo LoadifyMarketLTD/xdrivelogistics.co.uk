@@ -138,8 +138,8 @@ export default function BrokerPublicEnquiries() {
     { id: 'archived', label: 'Archived', count: counts.archived },
   ];
 
-  const labelStyle = { fontSize: 'var(--ws-font-label, 11px)', color: '#64748b', fontWeight: 700 } as const;
-  const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
+  const labelStyle = { fontSize: 'var(--ws-font-label, 14px)', color: '#64748b', fontWeight: 700 } as const;
+  const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 14px)' } as const;
 
   return (
     <PageFrame>

@@ -165,7 +165,7 @@ export function ActionButton({ children, onClick, tone = 'primary', disabled = f
     danger: { bg: '#fff', color: workspaceTheme.red, border: '#fecaca' },
     secondary: { bg: '#fff', color: workspaceTheme.text, border: workspaceTheme.borderStrong },
   }[tone];
-  return <button className="owner-ref-hook-action-button" title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '4px', padding: '0 12px', height: '32px', fontSize: '12px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}>{children}</button>;
+  return <button className="owner-ref-hook-action-button" title={title} type={type} disabled={disabled} onClick={onClick} style={{ border: `1px solid ${palette.border}`, background: disabled ? '#e2e8f0' : palette.bg, color: disabled ? '#64748b' : palette.color, borderRadius: '4px', padding: '0 12px', height: '32px', fontSize: '14px', fontWeight: 600, cursor: disabled ? 'not-allowed' : 'pointer', boxShadow: tone === 'secondary' || tone === 'danger' ? 'none' : compactShadow, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', whiteSpace: 'nowrap' }}>{children}</button>;
 }
 
 export function KpiGrid({ children }: { children: ReactNode }) {
@@ -286,13 +286,13 @@ export function KpiCard({
   const computedAriaLabel = ariaLabel ?? label;
   const content = (
     <>
-      <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 600, lineHeight: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+      <div style={{ color: workspaceTheme.muted, fontSize: '14px', fontWeight: 600, lineHeight: '14px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
         <span>{label}</span>
-        {icon && <span aria-hidden="true" style={{ color, fontSize: '12px', flexShrink: 0 }}>{icon}</span>}
+        {icon && <span aria-hidden="true" style={{ color, fontSize: '14px', flexShrink: 0 }}>{icon}</span>}
       </div>
       <div style={{ color: workspaceTheme.text, fontSize: '22px', fontWeight: 700, lineHeight: '26px', whiteSpace: 'nowrap' }}>{value}</div>
       {(detail || trend) && (
-        <div style={{ fontSize: '11px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', alignItems: 'center', gap: '4px' }}>
+        <div style={{ fontSize: '14px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', alignItems: 'center', gap: '4px' }}>
           {trend && (
             <>
               <span aria-hidden="true" style={{ color: SENTIMENT_COLORS[trend.sentiment ?? 'neutral'], fontWeight: 900 }}>{TREND_ARROWS[trend.direction]}</span>
@@ -331,18 +331,18 @@ export function ActionCard({
   const computedAriaLabel = ariaLabel ?? label;
   const content = (
     <>
-      <div style={{ color: workspaceTheme.muted, fontSize: '11px', fontWeight: 600, lineHeight: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
+      <div style={{ color: workspaceTheme.muted, fontSize: '14px', fontWeight: 600, lineHeight: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '4px' }}>
         <span style={{ minWidth: 0, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{label}</span>
-        {icon && <span aria-hidden="true" style={{ color, fontSize: '12px', flexShrink: 0 }}>{icon}</span>}
+        {icon && <span aria-hidden="true" style={{ color, fontSize: '14px', flexShrink: 0 }}>{icon}</span>}
       </div>
       <div style={{ color: workspaceTheme.text, fontSize: '22px', fontWeight: 700, lineHeight: '26px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{actionLabel}</div>
       {description ? (
-        <div style={{ fontSize: '11px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
+        <div style={{ fontSize: '14px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4px' }}>
           <span style={{ minWidth: 0 }}>{description}</span>
           <span aria-hidden="true" style={{ color, fontSize: '14px', fontWeight: 700, flexShrink: 0 }}>→</span>
         </div>
       ) : (
-        <div style={{ fontSize: '11px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', justifyContent: 'flex-end' }}>
+        <div style={{ fontSize: '14px', lineHeight: '14px', color: workspaceTheme.muted, display: 'flex', justifyContent: 'flex-end' }}>
           <span aria-hidden="true" style={{ color, fontSize: '14px', fontWeight: 700, flexShrink: 0 }}>→</span>
         </div>
       )}
@@ -355,7 +355,7 @@ export function ActionCard({
 export function Panel({ title, description, actions, children, style, flush = false }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; style?: CSSProperties; flush?: boolean }) {
   return (
     <section className="xdrive-panel" style={{ background: workspaceTheme.surface, border: `1px solid ${workspaceTheme.border}`, borderRadius: '4px', boxShadow: compactShadow, overflow: 'hidden', ...style }}>
-      {(title || description || actions) && <div className="xdrive-panel__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap', background: workspaceTheme.surfaceMuted }}><div>{title && <h2 className="xdrive-panel__title" style={{ margin: 0, color: workspaceTheme.text, fontSize: '13px', fontWeight: 600, lineHeight: '18px' }}>{title}</h2>}{description && <p className="xdrive-panel__description" style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '11px', lineHeight: '14px' }}>{description}</p>}</div>{actions && <div className="xdrive-panel__actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
+      {(title || description || actions) && <div className="xdrive-panel__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '8px', padding: '8px 10px', minHeight: '36px', borderBottom: `1px solid ${workspaceTheme.border}`, flexWrap: 'wrap', background: workspaceTheme.surfaceMuted }}><div>{title && <h2 className="xdrive-panel__title" style={{ margin: 0, color: workspaceTheme.text, fontSize: '14px', fontWeight: 600, lineHeight: '18px' }}>{title}</h2>}{description && <p className="xdrive-panel__description" style={{ margin: '2px 0 0', color: workspaceTheme.muted, fontSize: '14px', lineHeight: '14px' }}>{description}</p>}</div>{actions && <div className="xdrive-panel__actions" style={{ display: 'flex', gap: '8px', alignItems: 'center', flexWrap: 'wrap' }}>{actions}</div>}</div>}
       <div className={`xdrive-panel__body${flush ? ' xdrive-panel__body--flush' : ''}`} style={{ padding: flush ? 0 : '10px' }}>{children}</div>
     </section>
   );
@@ -966,13 +966,13 @@ export function EmptyState({ title, description, action, icon, compact = false }
   const defaultIcon = <div className="owner-ref-hook-empty-state__icon" style={{ width: '38px', height: '38px', borderRadius: '10px', background: '#eff6ff', color: workspaceTheme.blue, display: 'grid', placeItems: 'center', margin: '0 auto 0.58rem', fontWeight: 900 }}>X</div>;
   if (compact) {
     return (
-      <div className="owner-ref-hook-empty-state owner-ref-hook-empty-state--compact" data-compact="true" style={{ padding: '10px', color: workspaceTheme.muted, fontSize: '12px' }}>
+      <div className="owner-ref-hook-empty-state owner-ref-hook-empty-state--compact" data-compact="true" style={{ padding: '10px', color: workspaceTheme.muted, fontSize: '14px' }}>
         <div className="xdrive-empty-state__content" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <span aria-hidden="true">—</span>
           <span className="owner-ref-hook-empty-state__title" style={{ fontWeight: 600, color: workspaceTheme.text }}>{title}</span>
           {action && <span className="owner-ref-hook-empty-state__action" style={{ marginLeft: '4px' }}>{action}</span>}
         </div>
-        {description && <p className="xdrive-empty-state__description" style={{ margin: '4px 0 0 16px', fontSize: '11px', color: workspaceTheme.muted, lineHeight: 1.4 }}>{description}</p>}
+        {description && <p className="xdrive-empty-state__description" style={{ margin: '4px 0 0 16px', fontSize: '14px', color: workspaceTheme.muted, lineHeight: 1.4 }}>{description}</p>}
       </div>
     );
   }

@@ -38,7 +38,7 @@ export default function CompanyTeamRolesPage() {
             description="Manages fleet capacity, vehicles, drivers, assignments, positions, maintenance and operational readiness."
           >
             <div style={{ display: 'grid', gap: '0.65rem' }}>
-              <div style={{ fontSize: '12px', color: '#475569', lineHeight: 1.55 }}>
+              <div style={{ fontSize: '14px', color: '#475569', lineHeight: 1.55 }}>
                 Assign this function to a company team member who is responsible for fleet operations. The membership is stored as <strong>fleet_manager</strong> and opens the Fleet Workspace.
               </div>
               <ActionButton tone="primary" disabled={!canManageRoles} onClick={() => router.push('/admin/fleet/managers')}>
@@ -52,7 +52,7 @@ export default function CompanyTeamRolesPage() {
             description="Coordinates daily jobs, allocations, collections, deliveries, live positions and operational exceptions."
           >
             <div style={{ display: 'grid', gap: '0.65rem' }}>
-              <div style={{ fontSize: '12px', color: '#475569', lineHeight: 1.55 }}>
+              <div style={{ fontSize: '14px', color: '#475569', lineHeight: 1.55 }}>
                 Assign this function to a company team member who coordinates transport execution. The membership is stored as <strong>dispatcher</strong> and opens the Operations Workspace.
               </div>
               <ActionButton tone="primary" disabled={!canManageRoles} onClick={() => router.push('/admin/dispatchers')}>

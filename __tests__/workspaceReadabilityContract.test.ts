@@ -19,7 +19,7 @@ describe('workspace readability contract', () => {
   it('spreads Jobs status tabs across the desktop row with the canonical compact typography', () => {
     expect(workspaceCss).toContain('grid-template-columns: repeat(8, minmax(84px, 1fr));');
     expect(workspaceCss).toContain('min-height: var(--ws-tab-h, 28px);');
-    expect(workspaceCss).toContain('font-size: var(--ws-font-body, 12px);');
+    expect(workspaceCss).toContain('font-size: var(--ws-font-body, 14px);');
     expect(workspaceCss).toContain('font-weight: 600;');
     expect(workspaceCss).toContain('border-bottom: 2px solid transparent;');
   });

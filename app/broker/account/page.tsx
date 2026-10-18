@@ -71,7 +71,7 @@ export default function BrokerAccountPage() {
                     background: selected ? '#eaf3ff' : '#fff',
                     color: selected ? '#0b3f9c' : '#172033',
                     textAlign: 'left',
-                    fontSize: 'var(--ws-font-label, 11px)',
+                    fontSize: 'var(--ws-font-label, 14px)',
                     lineHeight: '15px',
                     fontWeight: selected ? 800 : 700,
                     cursor: 'pointer',
@@ -89,13 +89,13 @@ export default function BrokerAccountPage() {
             <div className="workspace-panel__header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
               <div>
                 <strong>{active.label}</strong>
-                <div style={{ color: '#64748b', marginTop: 2, fontSize: 'var(--ws-font-meta, 11px)', lineHeight: '15px' }}>{active.description}</div>
+                <div style={{ color: '#64748b', marginTop: 2, fontSize: 'var(--ws-font-meta, 14px)', lineHeight: '15px' }}>{active.description}</div>
               </div>
               <ActionButton tone="primary" onClick={openSection}>
                 Open {section === 'settings' ? 'settings' : section === 'team' ? 'team' : 'Legal & Agreements'}
               </ActionButton>
             </div>
-            <div style={{ padding: 8, color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)', lineHeight: '15px' }}>
+            <div style={{ padding: 8, color: '#64748b', fontSize: 'var(--ws-font-meta, 14px)', lineHeight: '15px' }}>
               {section === 'settings'
                 ? 'The existing Settings module remains the source of truth for broker company configuration. No settings are duplicated in this account hub.'
                 : section === 'team'

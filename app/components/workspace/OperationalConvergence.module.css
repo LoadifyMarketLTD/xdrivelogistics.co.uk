@@ -61,9 +61,9 @@
   min-width: 0;
   overflow: hidden;
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-label, 11px);
+  font-size: var(--ws-font-label, 14px);
   font-weight: 650;
-  line-height: 14px;
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -82,8 +82,8 @@
   min-width: 0;
   overflow: hidden;
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-micro, 10px);
-  line-height: 12px;
+  font-size: var(--ws-font-micro, 14px);
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -144,22 +144,22 @@
 .attentionTitle {
   margin: 0;
   color: var(--ws-text, #172033);
-  font-size: var(--ws-font-panel-title, 13px);
+  font-size: var(--ws-font-panel-title, 16px);
   font-weight: 700;
-  line-height: 18px;
+  line-height: 20px;
 }
 
 .attentionSubtitle {
   margin: 1px 0 0;
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-micro, 10px);
-  line-height: 13px;
+  font-size: var(--ws-font-micro, 14px);
+  line-height: 18px;
 }
 
 .attentionMeta {
   flex: 0 0 auto;
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-meta, 11px);
+  font-size: var(--ws-font-meta, 14px);
   font-weight: 700;
 }
 
@@ -221,8 +221,8 @@
   min-width: 0;
   overflow: hidden;
   color: var(--ws-text, #172033);
-  font-size: 12px;
-  line-height: 15px;
+  font-size: 14px;
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -231,8 +231,8 @@
   min-width: 0;
   overflow: hidden;
   color: var(--ws-muted, #64748b);
-  font-size: var(--ws-font-micro, 10px);
-  line-height: 13px;
+  font-size: var(--ws-font-micro, 14px);
+  line-height: 18px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -268,7 +268,7 @@
   padding: 8px 10px;
   border-right: 1px solid var(--ws-border-soft, #e2e7ed);
   color: var(--ws-text, #172033);
-  font-size: var(--ws-font-body, 13px);
+  font-size: var(--ws-font-body, 14px);
 }
 
 .recordCell:last-child {
@@ -284,7 +284,7 @@
   border-top: 1px solid var(--ws-border-soft, #e2e7ed);
   background: #f8fafc;
   color: var(--ws-text, #172033);
-  font-size: var(--ws-font-body, 13px);
+  font-size: var(--ws-font-body, 14px);
 }
 
 .record[data-expanded='false'] .recordDetail {

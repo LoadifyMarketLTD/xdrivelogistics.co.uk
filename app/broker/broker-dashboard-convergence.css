@@ -41,8 +41,8 @@
 .broker-clean-commercial span {
   display: block;
   color: #64748b;
-  font-size: var(--ws-font-label, 11px);
-  line-height: 14px;
+  font-size: var(--ws-font-label, 14px);
+  line-height: 18px;
   font-weight: 700;
 }
 
@@ -58,8 +58,8 @@
   display: block;
   margin-top: 2px;
   color: #64748b;
-  font-size: 11px;
-  line-height: 14px;
+  font-size: 14px;
+  line-height: 18px;
 }
 
 .broker-clean-attention {
@@ -84,12 +84,12 @@
 
 .broker-clean-attention button strong {
   color: #1a1f2b;
-  font-size: 12px;
+  font-size: 14px;
 }
 
 .broker-clean-attention button small {
   color: #64748b;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .broker-clean-attention button b {
@@ -139,7 +139,7 @@
   background: transparent;
   color: #334155;
   font: inherit;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 700;
   text-align: left;
   cursor: pointer;

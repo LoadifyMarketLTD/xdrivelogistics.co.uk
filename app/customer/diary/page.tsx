@@ -137,7 +137,7 @@ export default function CustomerDiaryPage() {
 
   const tabs = CUSTOMER_DIARY_TABS;
   const clear = () => { setReference(''); setPickup(''); setDelivery(''); setCarrier(''); setDate(''); };
-  const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 11px)' } as const;
+  const metaStyle = { color: '#64748b', fontSize: 'var(--ws-font-meta, 14px)' } as const;
 
   return (
     <PageFrame>
