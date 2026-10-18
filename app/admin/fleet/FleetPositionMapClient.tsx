@@ -149,7 +149,7 @@ export default function FleetPositionMapClient({
       <MapContainer
         center={centre}
         zoom={8}
-        scrollWheelZoom={false}
+        scrollWheelZoom
         style={{ height: '100%', width: '100%' }}
       >
         <TileLayer
