@@ -3977,10 +3977,10 @@
 }
 
 
-/* Diary readability pass — measured against CX live at the same 1920x1080 viewport. */
+/* Shared Diary readability. Card geometry stays at the approved baseline. */
 .xdrive-workspace-measured .cx-diary-filter-rail {
-  --cx-diary-text: 12px;
-  --cx-diary-meta: 11px;
+  --cx-diary-text: 14px;
+  --cx-diary-meta: 14px;
 }
 
 .xdrive-workspace-measured .cx-diary-filter-rail .workspace-filter-rail__header {
@@ -3999,7 +3999,7 @@
 .xdrive-workspace-measured .cx-diary-filter-rail :where(label, legend) {
   color: #3f4a57 !important;
   font-size: var(--cx-diary-text) !important;
-  line-height: 16px !important;
+  line-height: 18px !important;
   font-weight: 500 !important;
 }
 
@@ -4008,7 +4008,7 @@
   height: 30px !important;
   padding: 0 8px !important;
   color: #202936 !important;
-  font-size: 12px !important;
+  font-size: 14px !important;
   line-height: 28px !important;
   font-weight: 500 !important;
 }
@@ -4023,7 +4023,7 @@
 .xdrive-workspace-measured .cx-diary-rail-nav > button {
   min-height: 31px !important;
   height: 31px !important;
-  font-size: 12px !important;
+  font-size: 14px !important;
   line-height: 29px !important;
   font-weight: 700 !important;
 }
@@ -4031,13 +4031,13 @@
 .xdrive-workspace-measured .cx-diary-filter-rail details > summary,
 .xdrive-workspace-measured .cx-diary-advanced-search > summary,
 .xdrive-workspace-measured .cx-diary-groups-box__title {
-  font-size: 11.5px !important;
+  font-size: 14px !important;
   line-height: 20px !important;
 }
 
 .xdrive-workspace-measured .cx-diary-groups-box__body > button,
 .xdrive-workspace-measured .cx-diary-filter-rail .workspace-filter-actions > button {
-  font-size: 12px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured .cx-diary-toolbar {
@@ -4049,7 +4049,7 @@
 .xdrive-workspace-measured .cx-diary-toolbar__title,
 .xdrive-workspace-measured .cx-diary-toolbar__title strong,
 .xdrive-workspace-measured .cx-diary-view-toggle {
-  font-size: 12px !important;
+  font-size: 14px !important;
   line-height: 18px !important;
 }
 
@@ -4061,7 +4061,7 @@
   min-height: 30px !important;
   height: 30px !important;
   padding: 0 12px !important;
-  font-size: 11.5px !important;
+  font-size: 14px !important;
   line-height: 30px !important;
   font-weight: 650 !important;
 }
@@ -4069,7 +4069,7 @@
 .xdrive-workspace-measured .cx-diary-pagination,
 .xdrive-workspace-measured .cx-diary-pagination label,
 .xdrive-workspace-measured .cx-diary-pagination select {
-  font-size: 11px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__main {
@@ -4089,47 +4089,47 @@
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__route > div > span,
 .xdrive-workspace-measured .xdrive-cx-diary-card__times > div > span:first-child {
-  font-size: 12px !important;
-  line-height: 17px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 500 !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__route strong,
 .xdrive-workspace-measured .cx-diary-datetime > strong {
   color: #141a22 !important;
-  font-size: 14px !important;
-  line-height: 18px !important;
+  font-size: 16px !important;
+  line-height: 20px !important;
   font-weight: 750 !important;
 }
 
 .xdrive-workspace-measured .cx-diary-datetime > span {
-  font-size: 11px !important;
-  line-height: 17px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__band {
   min-height: 24px !important;
   padding: 2px 8px !important;
-  font-size: 13px !important;
+  font-size: 16px !important;
   line-height: 20px !important;
   font-weight: 750 !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__status-line,
 .xdrive-workspace-measured .xdrive-cx-diary-card__status-line strong {
-  font-size: 12.5px !important;
-  line-height: 17px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__status-stamp {
-  font-size: 11px !important;
-  line-height: 15px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__status-meta {
   margin-top: 5px !important;
-  font-size: 11.5px !important;
-  line-height: 16px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__vehicle {
@@ -4138,8 +4138,8 @@
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__vehicle > strong {
-  font-size: 10px !important;
-  line-height: 11px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 700 !important;
 }
 
@@ -4160,7 +4160,7 @@
   min-height: 25px !important;
   height: 25px !important;
   padding: 0 11px !important;
-  font-size: 12px !important;
+  font-size: 14px !important;
   line-height: 25px !important;
   font-weight: 550 !important;
 }
@@ -4168,12 +4168,12 @@
 .xdrive-workspace-measured .xdrive-cx-diary-card__footer > .xdrive-cx-diary-card__expander {
   width: 25px !important;
   min-width: 25px !important;
-  font-size: 10px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__footer > .xdrive-cx-diary-card__feedback {
   min-width: 124px !important;
-  font-size: 12px !important;
+  font-size: 14px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta {
@@ -4183,28 +4183,28 @@
 .xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta > div {
   min-height: 20px !important;
   gap: 6px !important;
-  font-size: 11.5px !important;
-  line-height: 17px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta span,
 .xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta strong,
 .xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta a {
-  font-size: 11.5px !important;
-  line-height: 17px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__timeline-meta {
   gap: 12px !important;
   min-height: 34px !important;
   padding: 7px 11px !important;
-  font-size: 11.5px !important;
-  line-height: 17px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__timeline-meta strong {
-  font-size: 11.5px !important;
-  line-height: 17px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__secondary-actions {
@@ -4217,7 +4217,7 @@
 .xdrive-workspace-measured .xdrive-cx-diary-card__secondary-actions select {
   min-height: 27px !important;
   height: 27px !important;
-  font-size: 11.5px !important;
+  font-size: 14px !important;
   line-height: 25px !important;
 }
 
@@ -4234,8 +4234,8 @@
 }
 
 .xdrive-workspace-measured .xdrive-cx-diary-card__vehicle strong {
-  font-size: 11px !important;
-  line-height: 13px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
   font-weight: 700 !important;
   white-space: nowrap !important;
 }
@@ -4250,29 +4250,100 @@
 }
 
 
-/* Keep Diary vehicle presentation identical to the approved Loads vehicle presentation. */
-.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle {
-  display: inline-flex !important;
-  flex-direction: column !important;
-  align-items: center !important;
-  gap: 1px !important;
-  margin-left: auto !important;
-  margin-right: 16px !important;
-  min-width: 48px !important;
+/* Readability is shared by every Diary route. Keep the approved card geometry,
+   vehicle artwork size and role permissions; allow long real values to wrap. */
+.xdrive-workspace-measured .xdrive-cx-diary-card {
+  --ws-font-body: 16px;
+  --ws-font-label: 14px;
+  --ws-font-meta: 14px;
+  font-size: 16px;
 }
 
-.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle > strong {
-  font-size: 11px !important;
-  line-height: 13px !important;
-  font-weight: 700 !important;
-  white-space: nowrap !important;
+.xdrive-workspace-measured .xdrive-cx-diary-card :is(.workspace-record-meta, .driver-detail-item, .driver-detail-item > span, .driver-detail-item > small, .driver-detail-item > strong, td, th) {
+  font-size: 14px !important;
+  line-height: 20px !important;
 }
 
-.xdrive-workspace-measured .xdrive-cx-diary-card__vehicle-image {
-  display: block !important;
-  width: 46px !important;
-  height: 20px !important;
-  object-fit: contain !important;
-  object-position: center !important;
-  flex: 0 0 auto !important;
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta :is(strong, a),
+.xdrive-workspace-measured .xdrive-cx-diary-card__timeline-meta > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__expanded-meta strong,
+.xdrive-workspace-measured .xdrive-cx-diary-card__status-line strong {
+  color: #202936 !important;
+  font-size: 16px !important;
+  line-height: 20px !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card__timeline-meta,
+.xdrive-workspace-measured .xdrive-cx-diary-card__timeline-meta strong {
+  color: #334155 !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card .workspace-detail-item :where(strong, div, small),
+.xdrive-workspace-measured .xdrive-cx-diary-card .workspace-record-details :where(label, span, p, button, input, select, textarea),
+.xdrive-workspace-measured .xdrive-cx-diary-card .driver-diary-details :where(span, small, strong, button) {
+  font-size: 14px !important;
+  line-height: 20px !important;
+}
+
+/* Role styles must not reduce Diary controls below the shared readable size. */
+.xdrive-workspace-measured .cx-diary-filter-rail .workspace-filter-rail__body :is(label, legend, input, select, button),
+.xdrive-workspace-measured .cx-diary-toolbar :is(label, button),
+.xdrive-workspace-measured .cx-diary-pagination :is(label, select, button) {
+  font-size: 14px !important;
+}
+
+.xdrive-workspace-measured .workspace-board-main:has(.xdrive-cx-diary-card) {
+  grid-template-columns: minmax(0, 1fr) !important;
+}
+
+.xdrive-workspace-measured .xdrive-cx-diary-card,
+.xdrive-workspace-measured .xdrive-cx-diary-card__main > section {
+  min-width: 0;
+  max-width: 100%;
+}
+
+@media (max-width: 720px) {
+  .xdrive-workspace-measured .cx-diary-toolbar {
+    height: auto !important;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .xdrive-workspace-measured .cx-diary-toolbar__title,
+  .xdrive-workspace-measured .cx-diary-datetime {
+    flex-wrap: wrap;
+  }
+  .xdrive-workspace-measured .cx-diary-state-tabs {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .xdrive-workspace-measured .xdrive-cx-diary-card__route strong {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* The final identity layer consumes this token instead of shrinking Diary
+   controls back to Loads/Quotes typography. */
+.xdrive-workspace-measured :is(.workspace-board-layout, .driver-diary-board):has(.cx-diary-filter-rail) {
+  --cx-diary-text: 14px;
+}
+
+.xdrive-workspace-measured .cx-diary-filter-rail :is(label, legend, .label),
+.xdrive-workspace-measured .cx-diary-filter-rail .diary-filter-body :is(input, select, button) {
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+.xdrive-workspace-measured .xdrive-page-frame:has(.cx-diary-filter-rail) {
+  --ws-font-body: 14px;
+  --ws-font-label: 14px;
+  --ws-font-meta: 14px;
+}
+
+.xdrive-workspace-measured :is(.workspace-board-layout, .driver-diary-board):has(.cx-diary-filter-rail) :is(.owner-ref-hook-empty-state__title, .xdrive-empty-state__description) {
+  font-size: 14px !important;
+  line-height: 20px !important;
 }

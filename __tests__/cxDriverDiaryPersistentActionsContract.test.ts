@@ -9,7 +9,7 @@ describe('CX-close Driver Diary persistent action contract', () => {
   const preview = read('app/driver/_components/DriverInvoicePreviewModal.tsx');
 
   it('keeps operational actions visible before the expanded detail panel', () => {
-    const railIndex = diary.indexOf('driver-diary-action-rail');
+    const railIndex = diary.indexOf('footer={<CxDiaryActions');
     const companyExpandedIndex = diary.indexOf('{expanded && !isOwnAssignedJob && (', railIndex);
     const ownExpandedIndex = diary.indexOf('{expanded && isOwnAssignedJob && (', railIndex);
     expect(railIndex).toBeGreaterThan(0);
@@ -24,7 +24,7 @@ describe('CX-close Driver Diary persistent action contract', () => {
   });
 
   it('uses the persistent rail to open the existing detail content instead of duplicating business logic', () => {
-    expect(diary).toContain('openDetail(job.id, detailItem.id)');
+    expect(diary).toContain('openDetail(job.id, tab)');
     expect(diary).toContain("if (tab === 'order' || tab === 'notes' || tab === 'invoice') void fetchOrderSheet(jobId)");
     expect(diary).toContain('View feedback');
   });

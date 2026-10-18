@@ -30,9 +30,10 @@ describe('CX-density carrier Diary contract', () => {
   });
 
   it('opens the existing authorised job-sheet tabs from the CX footer and expanded operational actions', () => {
-    for (const tabId of ['pod', 'agreement', 'progress', 'event-log', 'evidence', 'invoice', 'exception', 'payment', 'dispute']) {
+    for (const tabId of ['exception', 'payment', 'dispute']) {
       expect(diary).toContain(`openJobTab(job.id, '${tabId}')`);
     }
+    expect(diary).toContain('openJobTab(job.id, DIARY_JOB_SHEET_TABS[tab])');
     expect(sheet).toContain('initialTab?: JobSheetTab');
     expect(sheet).toContain('setTab(normalizeTab(initialTab))');
   });

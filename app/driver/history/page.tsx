@@ -20,6 +20,7 @@ import workspaceStyles from '../../components/workspace/WorkspaceUI.module.css';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import CxDiaryActions from '../../components/workspace/CxDiaryActions';
 
 type CompanyRelation = { name: string } | Array<{ name: string }> | null;
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
@@ -658,7 +659,6 @@ export default function JobHistoryPage() {
                   return (
                     <CxDiaryCard
                       key={job.id}
-                      className="diary-booking driver-diary-entry"
                       from={formatExecutionAddress(job.pickup_location, job.pickup_postcode)}
                       to={formatExecutionAddress(job.delivery_location, job.delivery_postcode)}
                       pickup={pickupWhen}
@@ -671,43 +671,27 @@ export default function JobHistoryPage() {
                       state={expired ? 'expired' : currentStatus}
                       stage={expired ? 'expired' : stage}
                       expanded={expanded}
-                      footer={<div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
-                        <button type="button" className="xdrive-cx-diary-card__expander" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }} aria-label={expanded ? 'Collapse booking' : 'Expand booking'}>{expanded ? '▴' : '▾'}</button>
-                        {canManageFeedback && <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => setFeedbackJobId(job.id)}>{feedbackReceived ? 'Edit Feedback' : 'Leave Feedback'}</button>}
+                      footerRole="toolbar"
+                      footerAriaLabel={`Booking ${job.id} actions`}
+                      footer={<CxDiaryActions
+                        expanded={expanded}
+                        onToggle={() => { const willExpand = !expanded; setExpandedIds(previous => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }}
+                        visibleTabs={isOwnAssignedJob ? DETAIL_TABS.filter(item => item.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices)).map(item => item.id) : []}
+                        disabledTabs={invoiceCreatingJobId === job.id ? ['invoice'] : []}
+                        activeTab={detailTab}
+                        labels={{ documents: documents.length ? `Documents ${documents.length}` : 'Documents', invoice: invoice?.id ? 'View invoice (£)' : hasPod ? (invoiceCreatingJobId === job.id ? 'Creating Invoice…' : 'Create Invoice') : 'View invoice (£)' }}
+                        onOpenTab={(tab) => {
+                          if (tab === 'invoice' && invoice?.id) { setInvoicePreview({ id: invoice.id, number: invoice.number }); return; }
+                          if (tab === 'invoice' && hasPod) { void createInvoiceForJob(job); return; }
+                          openDetail(job.id, tab);
+                        }}
+                        feedback={canManageFeedback ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => setFeedbackJobId(job.id)}>{feedbackReceived ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
+                      >
                         {isOwnAssignedJob && currentStatus === 'delivered' && !hasPod ? <button type="button" data-operation="primary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Complete POD</button> : null}
                         {canRequestCancellation ? <button type="button" data-operation="cancel" disabled={cancellingJobId === job.id} onClick={() => void requestDiaryCancellation(job)}>{cancellingJobId === job.id ? 'Sending…' : cancellationLabel}</button> : null}
-                        {isOwnAssignedJob && DETAIL_TABS
-                          .filter((detailItem) => detailItem.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices))
-                          .map((detailItem) => (
-                            <button
-                              key={detailItem.id}
-                              type="button"
-                              data-active={expanded && detailTab === detailItem.id ? 'true' : 'false'}
-                              disabled={invoiceCreatingJobId === job.id && detailItem.id === 'invoice'}
-                              onClick={() => {
-                                if (detailItem.id === 'invoice' && invoice?.id) {
-                                  setInvoicePreview({ id: invoice.id, number: invoice.number });
-                                  return;
-                                }
-                                if (detailItem.id === 'invoice' && hasPod) {
-                                  void createInvoiceForJob(job);
-                                  return;
-                                }
-                                openDetail(job.id, detailItem.id);
-                              }}
-                            >
-                              {detailItem.id === 'documents' && documents.length > 0
-                                ? `${detailItem.label} ${documents.length}`
-                                : detailItem.id === 'invoice' && invoice?.id
-                                  ? 'View invoice (£)'
-                                  : detailItem.id === 'invoice' && hasPod
-                                    ? (invoiceCreatingJobId === job.id ? 'Creating Invoice…' : 'Create Invoice')
-                                    : detailItem.label}
-                            </button>
-                          ))}
-                        {isOwnAssignedJob && <button type="button" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</button>}
-                        {feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
-                      </div>}
+                        {isOwnAssignedJob && <button type="button" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open booking</button>}
+                        {feedbackReceived && <button type="button" onClick={() => setExpandedIds(current => new Set(current).add(job.id))}>View feedback</button>}
+                      </CxDiaryActions>}
                       expandedContent={<>
                       {expanded && !isOwnAssignedJob && (
                         <div className="driver-row-details driver-diary-details"><CompanyJobSheetPanel jobId={job.id} mode="carrier" /></div>

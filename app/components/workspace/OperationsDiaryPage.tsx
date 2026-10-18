@@ -11,6 +11,7 @@ import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../l
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
 import CxDiaryCard from './CxDiaryCard';
+import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from './CxDiaryActions';
 import {
   ActionButton,
   AlertBanner,
@@ -867,16 +868,12 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
                     state={status}
                     stage={stage}
                     expanded={open}
-                    footer={<>
-                      <button type="button" className="xdrive-cx-diary-card__expander" onClick={() => toggleJob(job.id)} aria-label={open ? 'Collapse booking' : 'Expand booking'}>{open ? '▴' : '▾'}</button>
-                      {showFeedbackAction && <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{reviewsByJob[job.id]?.length ? 'Edit Feedback' : 'Leave Feedback'}</button>}
-                      <button type="button" onClick={() => openJobTab(job.id, 'pod')}>POD</button>
-                      <button type="button" onClick={() => openJobTab(job.id, 'agreement')}>Order</button>
-                      <button type="button" onClick={() => openJobTab(job.id, 'progress')}>Notes</button>
-                      <button type="button" onClick={() => openJobTab(job.id, 'event-log')}>History</button>
-                      <button type="button" onClick={() => openJobTab(job.id, 'evidence')}>Documents</button>
-                      <button type="button" onClick={() => openJobTab(job.id, 'invoice')}>View invoice (£)</button>
-                    </>}
+                    footer={<CxDiaryActions
+                      expanded={open}
+                      onToggle={() => toggleJob(job.id)}
+                      onOpenTab={(tab) => openJobTab(job.id, DIARY_JOB_SHEET_TABS[tab])}
+                      feedback={showFeedbackAction ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{reviewsByJob[job.id]?.length ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
+                    />}
                     expandedMeta={<>
                       <div><span>Dist:</span><strong>{distance ?? 'Not Supplied'}</strong></div>
                       <div><span>Weight:</span><strong>{weight ?? 'Not Supplied'}</strong></div>

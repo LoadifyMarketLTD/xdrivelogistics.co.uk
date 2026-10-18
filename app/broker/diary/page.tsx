@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
-import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
+import { CompanyJobSheetPanel, type JobSheetTab } from '../../components/workspace/CompanyJobSheetPanel';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
 import { brokerDiaryStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
@@ -55,6 +56,7 @@ export default function BrokerDiaryPage() {
   const [delivery, setDelivery] = useState('');
   const [date, setDate] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [detailTabs, setDetailTabs] = useState<Record<string, JobSheetTab>>({});
   const [expandAll, setExpandAll] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -278,19 +280,22 @@ export default function BrokerDiaryPage() {
                     state={normalizedJobStatus(job)}
                     stage={stage}
                     expanded={open}
-                    footer={<>
-                      <button type="button" className="xdrive-cx-diary-card__expander" onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }} aria-label={open ? 'Collapse booking' : 'Expand booking'}>{open ? '▴' : '▾'}</button>
-                      {canLeaveCompanyFeedback && feedbackAvailable && <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button>}
-                      <button type="button" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Open job</button>
-                      <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>History</button>
-                    </>}
+                    footer={<CxDiaryActions
+                      expanded={open}
+                      onToggle={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}
+                      onOpenTab={(tab) => { setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: DIARY_JOB_SHEET_TABS[tab] })); }}
+                      feedback={canLeaveCompanyFeedback && feedbackAvailable ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
+                    >
+                      <button type="button" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Open booking</button>
+                      <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</button>
+                    </CxDiaryActions>}
                     expandedMeta={<>
                       {job.booking_reference && <div><span>Booking:</span><strong>{job.booking_reference}</strong></div>}
                       {job.customer_reference && <div><span>Customer ref:</span><strong>{job.customer_reference}</strong></div>}
                       <div><span>Delivery photo:</span><strong>{deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</strong></div>
                       {review ? <div><span>Feedback:</span><strong>{review.rating ?? '—'}/5 · {when(review.created_at)}</strong></div> : feedbackAvailable ? <div><span>Feedback:</span><strong>Awaiting</strong></div> : null}
                     </>}
-                    expandedContent={<CompanyJobSheetPanel jobId={job.id} mode="broker" />}
+                    expandedContent={<CompanyJobSheetPanel jobId={job.id} mode="broker" initialTab={detailTabs[job.id] ?? 'agreement'} />}
                   />
                 );
               })}
