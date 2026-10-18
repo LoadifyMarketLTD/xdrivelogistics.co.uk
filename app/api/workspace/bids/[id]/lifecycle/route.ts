@@ -143,12 +143,12 @@ export async function POST(request: NextRequest, { params }: Params) {
 
   const { error: auditError } = await supabaseAdmin.from('job_tracking_events').insert({
     job_id: bid.job_id,
-    event_type: eventType,
+    event_type: 'note',
     event_time: now,
     user_id: auth.user.id,
     created_by: auth.user.id,
     message: eventType.replaceAll('_', ' '),
-    meta: { bid_id: bidId, action },
+    meta: { bid_id: bidId, action, lifecycle_event: eventType },
   });
 
   return respond(200, {

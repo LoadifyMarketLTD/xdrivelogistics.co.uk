@@ -44,6 +44,8 @@ describe('cross-workspace quote lifecycle wiring', () => {
     expect(lifecycle).toContain("String(bid.bidder_user_id ?? '') === auth.user.id");
     expect(lifecycle).toContain(".from('company_memberships')");
     expect(lifecycle).toContain(".from('job_tracking_events').insert");
+    expect(lifecycle).toContain("event_type: 'note'");
+    expect(lifecycle).toContain('lifecycle_event: eventType');
     expect(lifecycle).toContain('quote_shortlisted');
     expect(lifecycle).toContain('quote_archived_by_bidder');
   });
