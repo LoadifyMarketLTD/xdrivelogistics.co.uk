@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const migration = readFileSync(resolve(process.cwd(), 'supabase/migrations/20260826103000_driver_availability_presence.sql'), 'utf8');
 const driverApi = readFileSync(resolve(process.cwd(), 'app/api/driver/availability-presence/route.ts'), 'utf8');
 const nearbyApi = readFileSync(resolve(process.cwd(), 'app/api/availability/nearby/route.ts'), 'utf8');
-const page = readFileSync(resolve(process.cwd(), 'app/driver/availability/live/page.tsx'), 'utf8');
+const page = readFileSync(resolve(process.cwd(), 'app/driver/availability/live/DriverAvailabilityLiveWorkspace.tsx'), 'utf8');
 
 describe('opt-in availability tracking contract', () => {
   it('keeps availability location separate from job tracking and server-only', () => {

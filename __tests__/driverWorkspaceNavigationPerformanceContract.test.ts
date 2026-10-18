@@ -22,7 +22,7 @@ describe('Driver workspace navigation performance contract', () => {
       'app/components/workspace/PendingBookingOffers.tsx',
       'app/driver/page.tsx',
       'app/driver/action-centre/page.tsx',
-      'app/driver/availability/live/page.tsx',
+      'app/driver/availability/live/DriverAvailabilityLiveWorkspace.tsx',
       'app/driver/availability/page.tsx',
       'app/driver/vehicles/page.tsx',
       'app/driver/returns/page.tsx',

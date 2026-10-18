@@ -16,7 +16,7 @@ describe('Private Groups operational visibility completion', () => {
   const driverSearch = read('app/api/driver/search-loads/route.ts');
   const nearbyApi = read('app/api/availability/nearby/route.ts');
   const adminAvailability = read('app/admin/live-availability/page.tsx');
-  const driverAvailability = read('app/driver/availability/live/page.tsx');
+  const driverAvailability = read('app/driver/availability/live/DriverAvailabilityLiveWorkspace.tsx');
   const driverNearby = read('app/driver/nearby/page.tsx');
 
   it('adds Private Groups without replacing the existing Saved Network bookmark feature', () => {

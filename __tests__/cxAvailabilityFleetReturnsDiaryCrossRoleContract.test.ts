@@ -7,7 +7,7 @@ describe('Courier Exchange live availability, fleet, return journeys and diary p
   const adminAvailability = read('app/admin/live-availability/page.tsx');
   const adminFleet = read('app/admin/fleet/vehicles/page.tsx');
   const adminReturns = read('app/admin/fleet/returns/page.tsx');
-  const driverAvailability = read('app/driver/availability/live/page.tsx');
+  const driverAvailability = read('app/driver/availability/live/DriverAvailabilityLiveWorkspace.tsx');
   const driverFleet = read('app/driver/fleet/page.tsx');
   const driverReturns = read('app/driver/returns/page.tsx');
   const diary = read('lib/diary/canonicalDiary.ts');

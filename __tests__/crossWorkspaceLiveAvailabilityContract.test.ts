@@ -7,7 +7,7 @@ const read=(relative:string)=>fs.readFileSync(path.join(process.cwd(),relative),
 describe('cross-workspace Live Availability contract',()=>{
   const api=read('app/api/availability/nearby/route.ts');
   const admin=read('app/admin/live-availability/page.tsx');
-  const live=read('app/driver/availability/live/page.tsx');
+  const live=read('app/driver/availability/live/DriverAvailabilityLiveWorkspace.tsx');
   const nearby=read('app/driver/nearby/page.tsx');
   const data=read('app/components/workspace/useCompanyWorkspaceData.ts');
 

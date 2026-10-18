@@ -1,0 +1,65 @@
+/* Diary's approved type scale, shared by every operational route and role.
+ * Imported after legacy role styles. The measured wrapper excludes Super Admin
+ * and the public site. Typography may grow rows; never shrink text to fit them. */
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-operational-top-workspace {
+  --ws-font-body: 14px;
+  --ws-font-label: 14px;
+  --ws-font-meta: 14px;
+  --ws-font-micro: 14px;
+  --ws-font-panel-title: 16px;
+  --ws-font-section-title: 16px;
+  --cx-diary-text: 14px;
+  font-family: "HK Nova", Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+/* Repeat the measured scope to outrank legacy role-specific !important rules.
+ * Keep one font family through cards, nested controls, menus and dialogs. */
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace :where(*) {
+  font-family: inherit !important;
+}
+
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
+  :is(p, span, small, label, legend, dt, dd, li, td, th, input, select, textarea, option, a, button, summary, [role="button"], [role="tab"], [role="menuitem"]) {
+  font-size: 14px !important;
+  line-height: var(--ws-interactive-line-height, 18px) !important;
+}
+
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
+  :is(button, a, summary, [role="button"], [role="tab"], [role="menuitem"]) {
+  font-weight: var(--ws-interactive-font-weight, 600) !important;
+}
+
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
+  :is(button, a, summary, [role="button"], [role="tab"], [role="menuitem"]) :where(div, span, small, strong, b, em, label) {
+  font-size: 14px !important;
+  line-height: var(--ws-interactive-line-height, 18px) !important;
+}
+
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
+  :is(.xdrive-cx-load-card__route strong, .xdrive-cx-quote-card__route strong, .xdrive-cx-diary-card__route strong,
+      .cx-load-datetime > strong, .cx-quote-datetime > strong, .cx-diary-datetime > strong,
+      .xdrive-cx-load-card__band, .xdrive-cx-quote-card__band, .xdrive-cx-diary-card__band) {
+  font-size: 16px !important;
+  line-height: 20px !important;
+}
+
+/* KPI values are deliberately larger than button captions. */
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
+  .xdrive-owner-dashboard-grid :is([data-workspace-kpi-card] > div:nth-child(2), .xdrive-operational-dashboard-signals > * > strong, .customer-owner-stat-card > strong) {
+  font-size: 22px !important;
+  line-height: 26px !important;
+}
+
+/* Fixed-height header controls retain space for the readable text. */
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
+  .top-workspace-shell__identity :is(span, strong) {
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
+  :is(button, a[href], [role="button"], [role="tab"], [role="menuitem"]):is([aria-current="page"], [aria-selected="true"], [aria-pressed="true"], .active, .is-active, .selected) {
+  font-weight: 700 !important;
+}

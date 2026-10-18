@@ -1,4 +1,4 @@
-import { DriverAvailabilityLiveWorkspace } from '../availability/live/page';
+import { DriverAvailabilityLiveWorkspace } from '../availability/live/DriverAvailabilityLiveWorkspace';
 
 export default function DriverFleetPage() {
   return <DriverAvailabilityLiveWorkspace mode="fleet" />;
