@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { ArrowRight, FileText, Headphones, Mail, MapPin, Phone, ReceiptText, ShieldCheck, Truck } from 'lucide-react';
+import { ArrowRight, Headphones, Mail, MapPin, Phone, ReceiptText, Truck } from 'lucide-react';
 import { COMPANY_CONFIG } from '../config/company';
 
 export const metadata: Metadata = {
@@ -28,42 +28,6 @@ const contactCards = [
     href: `mailto:${COMPANY_CONFIG.emails.support}`,
     icon: Headphones,
   },
-  {
-    label: 'Booking confirmations',
-    value: COMPANY_CONFIG.emails.confirmations,
-    href: `mailto:${COMPANY_CONFIG.emails.confirmations}`,
-    icon: ShieldCheck,
-  },
-  {
-    label: 'POD',
-    value: COMPANY_CONFIG.emails.pod,
-    href: `mailto:${COMPANY_CONFIG.emails.pod}`,
-    icon: FileText,
-  },
-  {
-    label: 'Invoices',
-    value: COMPANY_CONFIG.emails.invoices,
-    href: `mailto:${COMPANY_CONFIG.emails.invoices}`,
-    icon: FileText,
-  },
-  {
-    label: 'Payments',
-    value: COMPANY_CONFIG.emails.payments,
-    href: `mailto:${COMPANY_CONFIG.emails.payments}`,
-    icon: ReceiptText,
-  },
-  {
-    label: 'Phone',
-    value: COMPANY_CONFIG.phoneDisplay,
-    href: `tel:${COMPANY_CONFIG.phone}`,
-    icon: Phone,
-  },
-  {
-    label: 'Registered Office',
-    value: COMPANY_CONFIG.address.full,
-    href: null,
-    icon: MapPin,
-  },
 ] as const;
 
 export default function ContactPage() {
@@ -87,25 +51,57 @@ export default function ContactPage() {
       </section>
 
       <section className="px-5 py-14 sm:px-8 lg:py-20">
-        <div className="mx-auto grid max-w-[1120px] gap-5 lg:grid-cols-3">
-          {contactCards.map((card) => {
-            const Icon = card.icon;
-            const body = (
-              <div className="min-h-[210px] border border-[#D7E6FA] bg-white p-7 shadow-[0_18px_50px_rgba(0,43,108,0.06)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(0,43,108,0.1)]">
-                <Icon className="h-8 w-8 text-[#FDB913]" />
-                <p className="mt-8 text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]/70">{card.label}</p>
-                <p className="mt-3 text-xl font-black leading-7 text-[#002B6C]">{card.value}</p>
-              </div>
-            );
+        <div className="mx-auto max-w-[1120px]">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {contactCards.map((card) => {
+              const Icon = card.icon;
+              return (
+                <a key={card.label} href={card.href} className="block min-w-0">
+                  <div className="h-full min-h-[180px] min-w-0 border border-[#D7E6FA] bg-white p-7 shadow-[0_18px_50px_rgba(0,43,108,0.06)] transition hover:-translate-y-1 hover:shadow-[0_24px_70px_rgba(0,43,108,0.1)]">
+                    <Icon className="h-8 w-8 text-[#FDB913]" />
+                    <p className="mt-8 text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]/70">{card.label}</p>
+                    <p className="mt-3 break-all text-base font-black leading-6 text-[#002B6C] sm:text-[1.05rem]">{card.value}</p>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
 
-            return card.href ? (
-              <a key={card.label} href={card.href} className="block">
-                {body}
-              </a>
-            ) : (
-              <div key={card.label}>{body}</div>
-            );
-          })}
+          <div className="mt-5 grid gap-5 xl:grid-cols-[1.25fr_0.75fr]">
+            <div className="min-w-0 border border-[#D7E6FA] bg-white p-7 shadow-[0_18px_50px_rgba(0,43,108,0.05)]">
+              <ReceiptText className="h-8 w-8 text-[#FDB913]" />
+              <p className="mt-6 text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]/70">Finance</p>
+              <div className="mt-4 grid min-w-0 gap-4 lg:grid-cols-2">
+                <a href={`mailto:${COMPANY_CONFIG.emails.invoices}`} className="min-w-0 break-all text-[0.98rem] font-black leading-6 text-[#002B6C] hover:text-[#003B8F]">
+                  <span className="block text-xs uppercase tracking-[0.12em] text-[#003B8F]/60">Invoices</span>
+                  {COMPANY_CONFIG.emails.invoices}
+                </a>
+                <a href={`mailto:${COMPANY_CONFIG.emails.payments}`} className="min-w-0 break-all text-[0.98rem] font-black leading-6 text-[#002B6C] hover:text-[#003B8F]">
+                  <span className="block text-xs uppercase tracking-[0.12em] text-[#003B8F]/60">Payments</span>
+                  {COMPANY_CONFIG.emails.payments}
+                </a>
+              </div>
+            </div>
+
+            <div className="border border-[#D7E6FA] bg-white p-7 shadow-[0_18px_50px_rgba(0,43,108,0.05)]">
+              <div className="grid gap-5">
+                <a href={`tel:${COMPANY_CONFIG.phone}`} className="flex items-start gap-4">
+                  <Phone className="mt-1 h-6 w-6 shrink-0 text-[#FDB913]" />
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]/70">Phone</p>
+                    <p className="mt-1 font-black text-[#002B6C]">{COMPANY_CONFIG.phoneDisplay}</p>
+                  </div>
+                </a>
+                <div className="flex items-start gap-4">
+                  <MapPin className="mt-1 h-6 w-6 shrink-0 text-[#FDB913]" />
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-[#003B8F]/70">Registered office</p>
+                    <p className="mt-1 font-black leading-6 text-[#002B6C]">{COMPANY_CONFIG.address.full}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
