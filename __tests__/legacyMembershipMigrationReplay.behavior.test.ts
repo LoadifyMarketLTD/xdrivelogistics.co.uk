@@ -47,6 +47,33 @@ async function setup(legacy = false) {
 }
 
 describe('September membership migrations execute against canonical and hosted legacy schemas', () => {
+  it('executes the booking acceptance migration and records both allocation and acceptance', async () => {
+    const db = new PGlite();
+    try {
+      const booking = migration('20261005180709_booking_acceptance_records_accepted_event.sql');
+      const fragments = [...booking.matchAll(/\$old\$([\s\S]*?)\$old\$/g)].map(match => match[1]);
+      await db.exec(`CREATE ROLE anon; CREATE ROLE authenticated; CREATE ROLE service_role;
+        CREATE TABLE job_tracking_events(job_id uuid,event_type text,created_by uuid,message text,meta jsonb,created_at timestamptz);
+        CREATE TABLE jobs(id uuid,status_history jsonb,updated_at timestamptz);
+        CREATE TABLE job_booking_offers(job_id uuid,id uuid,bidder_driver_id uuid,responded_by uuid,responded_at timestamptz,status text);
+        CREATE FUNCTION accept_job_booking_offer_atomic(uuid,uuid) RETURNS jsonb LANGUAGE plpgsql AS $fn$
+        DECLARE v_offer record; v_job record; v_vehicle_id uuid := $1; v_actor uuid := $2; history jsonb; unused boolean;
+        BEGIN
+          SELECT $1 AS bidder_driver_id,$2 AS id INTO v_offer;
+          SELECT $1 AS id INTO v_job;
+          SELECT '[]'::jsonb ${fragments[0]} true INTO history,unused;
+          ${fragments[1]}
+          RETURN history;
+        END; $fn$;`);
+      await db.exec(booking);
+      const { rows } = await db.query<{ history: { status: string }[] }>(`SELECT accept_job_booking_offer_atomic('${company}','${actor}') AS history`);
+      expect(rows[0].history.map(item => item.status)).toEqual(['allocated','accepted']);
+      expect((await db.query(`SELECT event_type FROM job_tracking_events ORDER BY event_type`)).rows).toEqual([
+        { event_type: 'accepted' }, { event_type: 'allocated' },
+      ]);
+    } finally { await db.close(); }
+  });
+
   it('replays legacy POD reconciliation without a hosted delivery_status column and remains idempotent', async () => {
     const db = new PGlite();
     try {

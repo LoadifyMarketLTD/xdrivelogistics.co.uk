@@ -39,7 +39,7 @@ BEGIN
       ||CASE WHEN v_offer.bidder_driver_id IS NOT NULL THEN jsonb_build_array(jsonb_build_object('status','accepted','timestamp',to_char(now() AT TIME ZONE 'UTC','YYYY-MM-DD"T"HH24:MI:SS"Z"'),'driver_accepted_by',v_actor,'booking_offer_id',v_offer.id)) ELSE '[]'::jsonb END,$new$
   );
 
-  IF v_def = v_original OR position("'status','accepted'" in v_def)=0 THEN
+  IF v_def = v_original OR position($needle$'status','accepted'$needle$ in v_def)=0 THEN
     RAISE EXCEPTION 'accepted status_history patch failed';
   END IF;
 
@@ -53,7 +53,7 @@ BEGIN
   END IF;$new$
   );
 
-  IF v_def = v_original OR position("'accepted',v_actor,'Named bidder driver accepted" in v_def)=0 THEN
+  IF v_def = v_original OR position($needle$'accepted',v_actor,'Named bidder driver accepted$needle$ in v_def)=0 THEN
     RAISE EXCEPTION 'accepted tracking-event patch failed';
   END IF;
 
