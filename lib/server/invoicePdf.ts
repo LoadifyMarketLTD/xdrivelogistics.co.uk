@@ -44,6 +44,7 @@ type InvoicePdfInput = {
   paypalEmail?: string | null;
   logoBytes?: Uint8Array | null;
   evidenceImages?: InvoiceEvidenceImage[];
+  signatureAttestation?: string | null;
   netAmount: number;
   vatAmount: number;
   vatRate: number;
@@ -367,7 +368,9 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   // ---------------------------------------------------------------------------
   // POD / evidence strip. Only real evidence is drawn; no stock/fake imagery.
   // ---------------------------------------------------------------------------
-  const evidence = (input.evidenceImages ?? []).slice(0, 4);
+  const isPdfEvidence = (item: InvoiceEvidenceImage) => String.fromCharCode(...item.bytes.slice(0, 5)) === '%PDF-';
+  const imageEvidence = (input.evidenceImages ?? []).filter(item => !isPdfEvidence(item));
+  const evidence = imageEvidence.slice(0, 4);
   const evidenceY = 318;
   const evidenceH = 102;
   if (evidence.length > 0) {
@@ -377,7 +380,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
       const boxX = margin + index * (boxW + gap);
       page.drawRectangle({ x: boxX, y: evidenceY, width: boxW, height: evidenceH, color: soft, borderColor: line, borderWidth: 0.55 });
       const image = await embedImage(pdf, evidence[index].bytes);
-      if (!image) continue;
+      if (!image) throw new Error('POD image is not a valid PNG or JPEG.');
       const pad = 2;
       const labelH = evidence[index].label ? 12 : 0;
       const maxW = boxW - pad * 2;
@@ -493,5 +496,25 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     page.drawText(contactParts, { x: margin, y: 16, size: contactSize, font: regular, color: white });
   }
 
+  if (input.signatureAttestation) {
+    const attestation = pdf.addPage([595.28, 841.89]);
+    attestation.drawText('Recipient attestation', { x: 32, y: 800, font: bold, size: 14 });
+    wrapText(input.signatureAttestation, 95).forEach((text, index) => {
+      attestation.drawText(text, { x: 32, y: 770 - index * 14, font: regular, size: 9 });
+    });
+  }
+  for (const item of imageEvidence.slice(4)) {
+    const image = await embedImage(pdf, item.bytes);
+    if (!image) throw new Error('POD image is not a valid PNG or JPEG.');
+    const appendix = pdf.addPage([595.28, 841.89]);
+    appendix.drawText(pdfText(item.label, 'POD evidence'), { x: 32, y: 800, font: bold, size: 12 });
+    const scale = Math.min(530 / image.width, 730 / image.height);
+    appendix.drawImage(image, { x: 32, y: 40, width: image.width * scale, height: image.height * scale });
+  }
+  for (const item of (input.evidenceImages ?? []).filter(isPdfEvidence)) {
+    const document = await PDFDocument.load(item.bytes);
+    const pages = await pdf.copyPages(document, document.getPageIndices());
+    for (const evidencePage of pages) pdf.addPage(evidencePage);
+  }
   return pdf.save();
 }

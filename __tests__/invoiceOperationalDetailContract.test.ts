@@ -6,7 +6,7 @@ const read = (file: string) => fs.readFileSync(path.join(process.cwd(), file), '
 describe('XDrive invoice operational detail contract', () => {
   const pdf = read('lib/server/invoicePdf.ts');
   const preview = read('app/api/driver/finance/invoices/[id]/preview/route.ts');
-  const submit = read('app/api/driver/finance/invoices/[id]/submit/route.ts');
+  const submit = read('lib/server/invoiceDelivery.ts');
   const webTemplate = read('app/components/InvoiceTemplate.tsx');
 
   it('keeps the XDrive invoice structure while exposing identity and reference details', () => {

@@ -13,7 +13,7 @@ const previewRoute = readFileSync(
 );
 
 const submitRoute = readFileSync(
-  resolve(process.cwd(), 'app/api/driver/finance/invoices/[id]/submit/route.ts'),
+  resolve(process.cwd(), 'lib/server/invoiceDelivery.ts'),
   'utf8',
 );
 

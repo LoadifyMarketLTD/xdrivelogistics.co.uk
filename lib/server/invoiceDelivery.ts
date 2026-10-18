@@ -1,0 +1,562 @@
+import { Buffer } from 'node:buffer';
+import { NextRequest, NextResponse } from 'next/server';
+import { buildInvoicePdf } from './invoicePdf';
+import { loadInvoicePdfContext } from './invoicePdfContext';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../app/api/_lib/supabaseAdmin';
+import { requireDriverFinanceAccess } from '../../app/api/driver/finance/_lib/financeAccess';
+import { toCanonicalInvoiceStatus, toLegacyInvoiceStatusForDb } from '../invoiceStatus';
+import { DEFAULT_INVOICE_EMAIL_MESSAGE, DEFAULT_INVOICE_EMAIL_SUBJECT } from '../invoiceEmailTemplate';
+import {
+  normalizeInvoiceVatTreatment,
+  validateInvoiceVatTotals,
+} from '../invoiceVat';
+
+
+
+const respond = (status: number, payload: Record<string, unknown>) =>
+  NextResponse.json(payload, { status });
+
+const escapeHtml = (value: unknown) =>
+  String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+
+const cleanFileName = (value: string) =>
+  value.replace(/[^a-zA-Z0-9._-]/g, '_').replace(/_+/g, '_').slice(0, 120) || 'invoice';
+
+const cleanHeader = (value: unknown) =>
+  String(value ?? '').replace(/[\r\n]+/g, ' ').trim().slice(0, 160);
+
+const validEmail = (value: string) =>
+  value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+const cleanTemplateText = (value: unknown, maxLength: number) =>
+  typeof value === 'string'
+    ? value.replaceAll('\u0000', '').trim().slice(0, maxLength)
+    : '';
+
+const replaceTemplateTokens = (
+  template: string,
+  values: Record<string, string>,
+) => Object.entries(values).reduce(
+  (output, [token, value]) => output.replaceAll(`[[${token}]]`, value),
+  template,
+);
+
+const currencySymbol = (code: string) => {
+  try {
+    return new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: code,
+      currencyDisplay: 'narrowSymbol',
+    }).formatToParts(0).find((part) => part.type === 'currency')?.value ?? `${code} `;
+  } catch {
+    return `${code} `;
+  }
+};
+
+const displayDate = (value: unknown) => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return 'Not set';
+  const parsed = new Date(`${raw.slice(0, 10)}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return raw;
+  return parsed.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'UTC',
+  });
+};
+
+const cleanServiceDescription = (value: unknown) => {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) return 'Transport service';
+  if (!raw.startsWith('{') && !raw.startsWith('[')) return raw.slice(0, 500);
+
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    const vehicle = typeof parsed.vehicle === 'string' ? parsed.vehicle.trim() : '';
+    const cargo = typeof parsed.cargo === 'string' ? parsed.cargo.trim() : '';
+    const parts = ['Transport service', vehicle, cargo].filter(Boolean);
+    return parts.join(' · ').slice(0, 500);
+  } catch {
+    return 'Transport service';
+  }
+};
+
+const messageToHtml = (message: string) =>
+  message
+    .split(/\n{2,}/)
+    .map((paragraph) => `<p>${escapeHtml(paragraph).replaceAll('\n', '<br />')}</p>`)
+    .join('\n');
+
+const isMissingDeliverySchema = (
+  error: { code?: string | null; message?: string | null } | null | undefined
+) => {
+  if (!error) return false;
+  const code = String(error.code ?? '');
+  const message = String(error.message ?? '').toLowerCase();
+  return (
+    code === '42703' ||
+    code === 'PGRST204' ||
+    (message.includes('delivery_') && (message.includes('column') || message.includes('schema cache')))
+  );
+};
+
+type InvoiceSenderContext = {
+  userId: string;
+  companyId: string;
+};
+
+async function resolveInvoiceSender(request: NextRequest, invoiceId: string): Promise<InvoiceSenderContext | NextResponse> {
+  const access = await requireDriverFinanceAccess(request);
+  if (!access.ok) return access.response;
+
+  const { data: invoice, error: invoiceError } = await supabaseAdmin!
+    .from('invoices')
+    .select('id, company_id')
+    .eq('id', invoiceId)
+    .eq('company_id', access.context.companyId)
+    .maybeSingle();
+  if (invoiceError) return respond(500, { error: invoiceError.message });
+  if (!invoice || typeof invoice.company_id !== 'string') return respond(404, { error: 'Invoice not found.' });
+
+  return {
+    userId: access.context.userId,
+    companyId: access.context.companyId,
+  };
+}
+
+export async function submitInvoice(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+  trustedSender?: InvoiceSenderContext,
+) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) {
+    return respond(503, { error: 'Server auth is not configured.' });
+  }
+
+  const resendApiKey = process.env.RESEND_API_KEY?.trim() ?? '';
+  const fromEmail = process.env.FROM_EMAIL?.trim()
+    || 'XDrive Logistics <no-reply@xdrivelogistics.co.uk>';
+  if (!resendApiKey) {
+    return respond(503, {
+      error: 'Invoice delivery is not configured. RESEND_API_KEY is missing.',
+    });
+  }
+
+  let requestBody: Record<string, unknown> = {};
+  try {
+    const rawBody = await request.text();
+    if (rawBody.trim()) requestBody = JSON.parse(rawBody) as Record<string, unknown>;
+  } catch {
+    return respond(400, { error: 'Invalid invoice email template payload.' });
+  }
+
+  if (!requestBody || typeof requestBody !== 'object' || Array.isArray(requestBody)) return respond(400, { error: 'A JSON object is required.' });
+
+  const requestedSubject = cleanTemplateText(requestBody.subject, 500);
+  const requestedMessage = cleanTemplateText(requestBody.message, 10_000);
+  if (requestBody.subject !== undefined && !requestedSubject) {
+    return respond(422, { error: 'Invoice email subject cannot be empty.' });
+  }
+  if (requestBody.message !== undefined && !requestedMessage) {
+    return respond(422, { error: 'Invoice email message cannot be empty.' });
+  }
+
+  const { id } = await params;
+  const sender = trustedSender ?? await resolveInvoiceSender(request, id);
+  if (sender instanceof NextResponse) return sender;
+
+  const { data: invoice, error: fetchError } = await supabaseAdmin
+    .from('invoices')
+    .select('*')
+    .eq('id', id)
+    .eq('company_id', sender.companyId)
+    .maybeSingle();
+  if (fetchError) return respond(500, { error: fetchError.message });
+  if (!invoice) return respond(404, { error: 'Invoice not found.' });
+
+  if (typeof invoice.delivery_state !== 'string') {
+    return respond(503, {
+      error: 'Invoice delivery is not enabled in the database yet. The invoice remains Draft.',
+    });
+  }
+
+  const { error: queueError } = await supabaseAdmin.from('invoice_delivery_outbox').upsert({ invoice_id: id }, { onConflict: 'invoice_id', ignoreDuplicates: true });
+  if (queueError) return respond(503, { error: 'Invoice delivery queue is unavailable.' });
+  const { data: delivery, error: deliveryError } = await supabaseAdmin.from('invoice_delivery_outbox').select('*').eq('invoice_id', id).single();
+  if (deliveryError || !delivery) return respond(503, { error: 'Invoice delivery state could not be loaded.' });
+  if (invoice.delivery_state === 'sending' && Date.parse(invoice.delivery_attempted_at ?? '') < Date.now() - 5 * 60_000) {
+    const { data: recovered } = await supabaseAdmin.from('invoices').update({ delivery_state: 'failed' }).eq('id', id).eq('delivery_state', 'sending').eq('delivery_attempted_at', invoice.delivery_attempted_at).select('*').maybeSingle();
+    if (recovered) Object.assign(invoice, recovered);
+  }
+  const currentStatus = toCanonicalInvoiceStatus(invoice.status);
+  if (invoice.delivery_state === 'sent' && invoice.delivery_message_id) {
+    await supabaseAdmin.from('invoice_delivery_outbox').update({ completed_at: new Date().toISOString(), last_error: null }).eq('invoice_id', id);
+    return respond(200, {
+      invoice: {
+        id: invoice.id,
+        status: currentStatus,
+        submitted_at: invoice.submitted_at,
+        delivery_message_id: invoice.delivery_message_id,
+      },
+      replayed: true,
+    });
+  }
+  if (invoice.delivery_state === 'sending') {
+    return respond(409, {
+      error: 'This invoice is already being delivered. Do not resend until the current attempt is verified.',
+    });
+  }
+  if (currentStatus !== 'Draft') {
+    return respond(409, {
+      error: `Invoice cannot be sent from status "${currentStatus}". Only Draft invoices can be sent.`,
+    });
+  }
+
+  const recipientEmail = typeof invoice.client_email === 'string'
+    ? invoice.client_email.trim().toLowerCase()
+    : '';
+  if (!validEmail(recipientEmail)) {
+    return respond(422, {
+      error: 'A valid client email address is required before sending the invoice.',
+    });
+  }
+
+  const claimTime = new Date().toISOString();
+  const { data: claimedInvoice, error: claimError } = await supabaseAdmin
+    .from('invoices')
+    .update({
+      delivery_state: 'sending',
+      delivery_attempted_at: claimTime,
+      delivery_recipient_email: recipientEmail,
+      delivery_error: null,
+      updated_at: claimTime,
+    })
+    .eq('id', invoice.id)
+    .eq('company_id', sender.companyId)
+    .eq('status', invoice.status)
+    .in('delivery_state', ['idle', 'failed'])
+    .select('*')
+    .maybeSingle();
+
+  if (claimError) {
+    if (isMissingDeliverySchema(claimError)) {
+      return respond(503, {
+        error: 'Invoice delivery is not enabled in the database yet. The invoice remains Draft.',
+      });
+    }
+    return respond(500, { error: claimError.message });
+  }
+  if (!claimedInvoice) {
+    return respond(409, {
+      error: 'Invoice delivery was claimed by another request. Refresh before retrying.',
+    });
+  }
+
+  const failDelivery = async (status: number, message: string) => {
+    await supabaseAdmin!.from('invoice_delivery_outbox').update({ last_error: message.slice(0, 2000), next_attempt_at: new Date(Date.now() + 5 * 60_000).toISOString() }).eq('invoice_id', id);
+    await supabaseAdmin!
+      .from('invoices')
+      .update({
+        delivery_state: 'failed',
+        delivery_error: message.slice(0, 2000),
+        delivery_attempted_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', claimedInvoice.id)
+      .eq('company_id', sender.companyId)
+      .eq('delivery_state', 'sending');
+    return respond(status, { error: message, invoiceStatus: 'Draft' });
+  };
+
+  let emailBody = delivery.payload as Record<string, unknown> | null;
+  if (!emailBody) {
+  const invoiceNumber = cleanHeader(claimedInvoice.invoice_number);
+  const jobReference = cleanHeader(claimedInvoice.job_ref);
+  const clientName = cleanHeader(claimedInvoice.client_name);
+  const currencyCode = cleanHeader(claimedInvoice.currency ?? 'GBP') || 'GBP';
+  const netAmount = Number(claimedInvoice.net_amount);
+  const vatAmount = Number(claimedInvoice.vat_amount);
+  const vatRate = Number(claimedInvoice.vat_rate);
+  const totalAmount = Number(claimedInvoice.amount);
+  const vatTreatment = normalizeInvoiceVatTreatment(claimedInvoice.vat_treatment);
+
+  if (!invoiceNumber) return failDelivery(422, 'Invoice number is missing. The invoice was not sent.');
+  if (!jobReference) return failDelivery(422, 'Job reference is missing. The invoice was not sent.');
+  if (!clientName) return failDelivery(422, 'Customer company name is missing. The invoice was not sent.');
+  if (!currencyCode || currencyCode.length > 3) {
+    return failDelivery(422, 'Invoice currency is invalid. The invoice was not sent.');
+  }
+  if (!vatTreatment || !validateInvoiceVatTotals({
+    netAmount,
+    vatAmount,
+    vatRate,
+    totalAmount,
+    treatment: vatTreatment,
+  })) {
+    return failDelivery(422, 'Invoice VAT treatment/totals are invalid. The invoice was not sent.');
+  }
+
+  const claimedRecipientEmail = typeof claimedInvoice.client_email === 'string'
+    ? claimedInvoice.client_email.trim().toLowerCase()
+    : '';
+  if (claimedRecipientEmail !== recipientEmail) {
+    return failDelivery(409, 'The customer email changed while delivery was being prepared. Refresh and retry.');
+  }
+
+  const { data: company, error: companyError } = await supabaseAdmin
+    .from('companies')
+    .select('name, address_line1, address_line2, city, postcode, company_number, vat_number, xd_id')
+    .eq('id', sender.companyId)
+    .maybeSingle();
+  if (companyError) return failDelivery(500, companyError.message);
+  if (!company) return failDelivery(422, 'Invoice issuer company details are missing.');
+
+  const companyName = cleanHeader(company.name);
+  if (!companyName) return failDelivery(422, 'Invoice issuer company name is missing.');
+
+  const { data: companyEmailSettings, error: companyEmailSettingsError } = await supabaseAdmin
+    .from('company_settings')
+    .select('invoice_email_subject_template,invoice_email_message_template')
+    .eq('company_id', sender.companyId)
+    .maybeSingle();
+  if (companyEmailSettingsError) return failDelivery(500, 'Company invoice email defaults could not be loaded.');
+  const companySubjectTemplate = cleanTemplateText(companyEmailSettings?.invoice_email_subject_template, 500);
+  const companyMessageTemplate = cleanTemplateText(companyEmailSettings?.invoice_email_message_template, 10_000);
+
+  const issuerVatNumber = cleanHeader(claimedInvoice.issuer_vat_number_snapshot)
+    || cleanHeader(company.vat_number);
+  const customerVatNumber = cleanHeader(claimedInvoice.customer_vat_number_snapshot);
+  if (vatTreatment !== 'not_registered' && !issuerVatNumber) {
+    return failDelivery(422, 'This VAT treatment requires the issuer VAT registration number.');
+  }
+  if (vatTreatment === 'reverse_charge' && claimedInvoice.buyer_company_id && !customerVatNumber) {
+    return failDelivery(422, 'Reverse-charge invoice requires the buyer VAT registration number.');
+  }
+
+  const issuerAddress = [
+    company.address_line1,
+    company.address_line2,
+    company.city,
+    company.postcode,
+  ]
+    .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+    .join(', ');
+
+  const templateValues = {
+    'My company': companyName,
+    'Customer company': clientName,
+    'Invoice number': invoiceNumber,
+    'Invoice date': displayDate(claimedInvoice.invoice_date),
+    'Currency symbol': currencySymbol(currencyCode),
+    'Gross total': totalAmount.toFixed(2),
+    'Load ID': jobReference,
+  };
+  const resolvedSubject = cleanHeader(replaceTemplateTokens(
+    requestedSubject || companySubjectTemplate || DEFAULT_INVOICE_EMAIL_SUBJECT,
+    templateValues,
+  ));
+  const resolvedMessage = replaceTemplateTokens(
+    requestedMessage || companyMessageTemplate || DEFAULT_INVOICE_EMAIL_MESSAGE,
+    templateValues,
+  ).trim();
+
+  if (!resolvedSubject) return failDelivery(422, 'Invoice email subject resolved to an empty value.');
+  if (!resolvedMessage) return failDelivery(422, 'Invoice email message resolved to an empty value.');
+
+  let pdfContext: Awaited<ReturnType<typeof loadInvoicePdfContext>>;
+  try {
+    pdfContext = await loadInvoicePdfContext({
+    supabase: supabaseAdmin,
+    companyId: sender.companyId,
+    jobId: typeof claimedInvoice.job_id === 'string' ? claimedInvoice.job_id : null,
+    origin: request.nextUrl.origin,
+    requirePod: Boolean(claimedInvoice.job_id),
+    });
+  } catch (reason) {
+    return failDelivery(409, reason instanceof Error ? reason.message : 'POD could not be verified.');
+  }
+
+  let pdfBytes: Uint8Array;
+  try {
+    pdfBytes = await buildInvoicePdf({
+      invoiceNumber,
+      jobReference,
+      invoiceDate: String(claimedInvoice.invoice_date ?? new Date().toISOString().slice(0, 10)),
+      dueDate: String(claimedInvoice.due_date ?? new Date().toISOString().slice(0, 10)),
+      issuerName: companyName,
+      issuerAddress,
+      issuerCompanyNumber: cleanHeader(claimedInvoice.issuer_company_number_snapshot) || company.company_number as string | null,
+      issuerVatNumber: issuerVatNumber || null,
+      issuerXdId: cleanHeader(claimedInvoice.issuer_xd_id_snapshot) || cleanHeader(company.xd_id) || null,
+      issuerEmail: pdfContext.issuerEmail,
+      issuerPhone: pdfContext.issuerPhone,
+      issuerWebsite: 'www.xdrivelogistics.co.uk',
+      clientName,
+      clientAddress: claimedInvoice.client_address as string | null,
+      clientEmail: recipientEmail,
+      customerCompanyNumber: cleanHeader(claimedInvoice.customer_company_number_snapshot) || null,
+      customerVatNumber: customerVatNumber || null,
+      customerXdId: cleanHeader(claimedInvoice.customer_xd_id_snapshot) || null,
+      customerReference: cleanHeader(claimedInvoice.customer_ref) || null,
+      loadId: cleanHeader(claimedInvoice.load_id) || null,
+      orderedAt: cleanHeader(claimedInvoice.ordered_at) || null,
+      leftAt: cleanHeader(claimedInvoice.left_at) || null,
+      deliveryNotes: cleanTemplateText(claimedInvoice.delivery_notes, 500) || null,
+      pickupLocation: claimedInvoice.pickup_location as string | null,
+      pickupDateTime: pdfContext.pickupDateTime ?? claimedInvoice.pickup_datetime as string | null,
+      deliveryLocation: claimedInvoice.delivery_location as string | null,
+      deliveryDateTime: pdfContext.deliveryDateTime || cleanHeader(claimedInvoice.delivered_at) || cleanHeader(claimedInvoice.delivery_datetime) || null,
+      recipientName: pdfContext.recipientName || cleanHeader(claimedInvoice.delivery_recipient) || cleanHeader(claimedInvoice.recipient_name) || null,
+      cargoDescription: pdfContext.cargoDescription || cleanHeader(claimedInvoice.cargo_summary) || null,
+      vehicleDescription: pdfContext.vehicleDescription || ([cleanHeader(claimedInvoice.vehicle_type), cleanHeader(claimedInvoice.vehicle_registration)].filter(Boolean).join(' · ') || null),
+      serviceDescription: cleanServiceDescription(claimedInvoice.service_description),
+      bankAccountName: pdfContext.bankAccountName,
+      bankSortCode: pdfContext.bankSortCode,
+      bankAccountNumber: pdfContext.bankAccountNumber,
+      paypalEmail: pdfContext.paypalEmail,
+      logoBytes: pdfContext.logoBytes,
+      evidenceImages: pdfContext.evidenceImages,
+      signatureAttestation: pdfContext.signatureAttestation,
+      netAmount,
+      vatAmount,
+      vatRate,
+      vatTreatment,
+      totalAmount,
+      currency: currencyCode,
+      paymentTerms: claimedInvoice.payment_terms as string | null,
+    });
+  } catch (reason) {
+    return failDelivery(
+      500,
+      reason instanceof Error ? reason.message : 'Invoice PDF generation failed.'
+    );
+  }
+
+  if (!pdfBytes.byteLength || pdfBytes.byteLength > 10 * 1024 * 1024) {
+    return failDelivery(500, 'Generated invoice PDF is empty or exceeds the 10 MB limit.');
+  }
+
+  const fileName = `${cleanFileName(invoiceNumber)}.pdf`;
+  const storagePath = `${sender.companyId}/${claimedInvoice.id}/${fileName}`;
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from('invoice-docs')
+    .upload(storagePath, pdfBytes, {
+      contentType: 'application/pdf',
+      upsert: true,
+      cacheControl: '3600',
+    });
+  if (uploadError) {
+    return failDelivery(500, `Invoice PDF storage failed: ${uploadError.message}`);
+  }
+
+  const { data: existingDocument, error: existingDocumentError } = await supabaseAdmin
+    .from('invoice_documents')
+    .select('id')
+    .eq('invoice_id', claimedInvoice.id)
+    .eq('doc_type', 'invoice_pdf')
+    .maybeSingle();
+  if (existingDocumentError) return failDelivery(500, existingDocumentError.message);
+
+  const documentValues = {
+    file_url: storagePath,
+    file_name: fileName,
+    file_size_bytes: pdfBytes.byteLength,
+    uploaded_by: sender.userId,
+  };
+  if (existingDocument) {
+    const { error } = await supabaseAdmin
+      .from('invoice_documents')
+      .update(documentValues)
+      .eq('id', existingDocument.id)
+      .eq('company_id', sender.companyId);
+    if (error) return failDelivery(500, error.message);
+  } else {
+    const { error } = await supabaseAdmin
+      .from('invoice_documents')
+      .insert({
+        invoice_id: claimedInvoice.id,
+        company_id: sender.companyId,
+        doc_type: 'invoice_pdf',
+        ...documentValues,
+      });
+    if (error) return failDelivery(500, error.message);
+  }
+
+    emailBody = {
+      tags: [{ name: 'xdrive_invoice', value: id }],
+      from: fromEmail, to: [recipientEmail], subject: resolvedSubject, text: resolvedMessage,
+      html: messageToHtml(resolvedMessage),
+      attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }],
+    };
+    const { error: snapshotError } = await supabaseAdmin.from('invoice_delivery_outbox').update({ payload: emailBody }).eq('invoice_id', id).is('payload', null);
+    if (snapshotError) return failDelivery(503, 'Invoice delivery snapshot could not be persisted.');
+  }
+  const attemptedAt = new Date().toISOString();
+
+  let messageId = delivery.provider_message_id as string | null;
+  if (!messageId) {
+    if (delivery.first_provider_attempt_at && Date.parse(delivery.first_provider_attempt_at) < Date.now() - 23 * 60 * 60_000) {
+      return failDelivery(409, 'Email outcome is unknown beyond the provider idempotency window. Finance reconciliation is required before resending.');
+    }
+    const { error: attemptError } = await supabaseAdmin.from('invoice_delivery_outbox').update({ first_provider_attempt_at: delivery.first_provider_attempt_at ?? attemptedAt }).eq('invoice_id', id);
+    if (attemptError) return failDelivery(503, 'Email attempt could not be persisted.');
+    let emailResponse: Response;
+    try {
+      emailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST', headers: { Authorization: `Bearer ${resendApiKey}`, 'Content-Type': 'application/json', 'Idempotency-Key': `invoice-send/${id}` },
+        signal: AbortSignal.timeout(20_000), body: JSON.stringify(emailBody),
+      });
+    } catch {
+      return failDelivery(502, 'Email provider outcome is unknown. The same frozen delivery will be retried safely.');
+    }
+    const emailPayload = await emailResponse.json().catch(() => null) as { id?: string; message?: string } | null;
+    if (!emailResponse.ok || !emailPayload?.id) return failDelivery(502, emailPayload?.message ?? `Email provider returned ${emailResponse.status}.`);
+    messageId = emailPayload.id;
+    const { error: acceptedError } = await supabaseAdmin.from('invoice_delivery_outbox').update({ provider_message_id: messageId, provider_status: 'accepted' }).eq('invoice_id', id);
+    if (acceptedError) return failDelivery(503, 'Provider accepted the email; confirmation will be recovered using the same delivery key.');
+  }
+
+  const { data: updated, error: updateError } = await supabaseAdmin
+    .from('invoices')
+    .update({
+      status: toLegacyInvoiceStatusForDb('Sent'),
+      submitted_at: attemptedAt,
+      submitted_by: sender.userId,
+      delivery_state: 'sent',
+      delivery_provider: 'resend',
+      delivery_message_id: messageId,
+      delivery_recipient_email: recipientEmail,
+      delivery_attempted_at: attemptedAt,
+      delivery_error: null,
+      updated_at: attemptedAt,
+    })
+    .eq('id', claimedInvoice.id)
+    .eq('company_id', sender.companyId)
+    .eq('delivery_state', 'sending')
+    .select(
+      'id, status, submitted_at, delivery_state, delivery_message_id, delivery_recipient_email'
+    )
+    .maybeSingle();
+
+  if (updateError || !updated) {
+    return respond(500, {
+      error: 'The provider accepted the invoice, but XDrive could not finalise the delivery record. Do not resend until support verifies the provider message.',
+      deliveryMessageId: messageId,
+    });
+  }
+
+  await supabaseAdmin.from('invoice_delivery_outbox').update({ completed_at: attemptedAt, last_error: null }).eq('invoice_id', id);
+  return respond(200, {
+    invoice: {
+      ...updated,
+      status: toCanonicalInvoiceStatus(updated.status),
+    },
+    replayed: false,
+  });
+}
