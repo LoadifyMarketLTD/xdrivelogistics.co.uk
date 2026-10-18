@@ -9,6 +9,7 @@ import {
 import { isCustomerVisibleWorkspaceInvoice, useCompanyWorkspaceData, type WorkspaceInvoice } from './useCompanyWorkspaceData';
 import { classifyAccountsDirection } from '../../../lib/finance/accounts';
 import { invoiceSignedGrossAmount } from '../../../lib/brokerFinance';
+import { classifyWorkspaceJobStage } from '../../../lib/jobs/workspaceJobStage';
 import {
   ActionButton,
   AlertBanner,
@@ -38,7 +39,7 @@ type InvoiceRegisterFilter =
   | 'payment:disputed'
   | 'payment:refunded';
 
-type AccountsReceivableView = 'all' | 'awaiting' | 'paid' | 'customers' | 'archive';
+type AccountsReceivableView = 'all' | 'ready' | 'awaiting' | 'paid' | 'customers' | 'archive';
 
 const money = (value: number | null | undefined) =>
   value == null
@@ -134,18 +135,52 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
   }), [mode, workspace.companyId, workspace.invoices]);
 
   const customerRows = useMemo(() => {
-    const map = new Map<string, { name: string; invoices: number; invoiced: number; outstanding: number }>();
+    const map = new Map<string, {
+      name: string;
+      invoices: number;
+      invoicedNet: number;
+      invoicedGross: number;
+      paidInvoices: number;
+      paidNet: number;
+      paidGross: number;
+      outstanding: number;
+    }>();
     for (const invoice of allScoped) {
       const name = invoice.client_name?.trim() || 'Customer';
-      const current = map.get(name) ?? { name, invoices: 0, invoiced: 0, outstanding: 0 };
-      const amount = invoiceSignedGrossAmount(invoice);
+      const current = map.get(name) ?? {
+        name,
+        invoices: 0,
+        invoicedNet: 0,
+        invoicedGross: 0,
+        paidInvoices: 0,
+        paidNet: 0,
+        paidGross: 0,
+        outstanding: 0,
+      };
+      const gross = invoiceSignedGrossAmount(invoice);
+      const net = Number(invoice.net_amount ?? invoice.amount ?? 0);
       current.invoices += 1;
-      current.invoiced += amount;
-      if (!['paid', 'refunded'].includes(paymentState(invoice))) current.outstanding += amount;
+      current.invoicedNet += net;
+      current.invoicedGross += gross;
+      if (paymentState(invoice) === 'paid') {
+        current.paidInvoices += 1;
+        current.paidNet += net;
+        current.paidGross += gross;
+      } else if (paymentState(invoice) !== 'refunded') {
+        current.outstanding += gross;
+      }
       map.set(name, current);
     }
     return [...map.values()].sort((a, b) => b.outstanding - a.outstanding || a.name.localeCompare(b.name));
   }, [allScoped]);
+
+  const readyToInvoice = useMemo(() => {
+    if (mode !== 'finance-customer') return [];
+    const invoicedJobs = new Set(allScoped.map((invoice) => invoice.job_id).filter((jobId): jobId is string => Boolean(jobId)));
+    return workspace.jobs
+      .filter((job) => classifyWorkspaceJobStage(job) === 'completed' && job.pod_generated === true && !invoicedJobs.has(job.id))
+      .sort((a, b) => String(b.updated_at).localeCompare(String(a.updated_at)));
+  }, [allScoped, mode, workspace.jobs]);
 
   const total = allScoped.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0);
   const unpaid = allScoped.filter((invoice) => invoice.document_type !== 'credit_note' && !['paid', 'cancelled', 'refunded'].includes(String(invoice.payment_status ?? invoice.status).toLowerCase()));
@@ -165,7 +200,7 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
         <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #dbe3ec', paddingBottom: 6 }}>
           <ActionButton tone="secondary" onClick={() => router.push('/admin/finance')}>Dashboard</ActionButton>
           <ActionButton tone={accountsReceivableView === 'all' ? 'primary' : 'secondary'} onClick={() => { setAccountsReceivableView('all'); setFilter('all'); }}>All</ActionButton>
-          <ActionButton tone="secondary" onClick={() => router.push('/admin/finance')}>Ready To Invoice</ActionButton>
+          <ActionButton tone={accountsReceivableView === 'ready' ? 'primary' : 'secondary'} onClick={() => { setAccountsReceivableView('ready'); setFilter('all'); }}>Ready To Invoice</ActionButton>
           <ActionButton tone={accountsReceivableView === 'awaiting' ? 'primary' : 'secondary'} onClick={() => { setAccountsReceivableView('awaiting'); setFilter('all'); }}>Awaiting Payment</ActionButton>
           <ActionButton tone={accountsReceivableView === 'paid' ? 'primary' : 'secondary'} onClick={() => { setAccountsReceivableView('paid'); setFilter('all'); }}>Paid</ActionButton>
           <ActionButton tone={accountsReceivableView === 'customers' ? 'primary' : 'secondary'} onClick={() => { setAccountsReceivableView('customers'); setFilter('all'); }}>Customers</ActionButton>
@@ -209,10 +244,31 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
           </span>
         }
       >
-        {mode === 'finance-customer' && accountsReceivableView === 'customers' ? (
+        {mode === 'finance-customer' && accountsReceivableView === 'ready' ? (
           <DataTable
-            columns={['Customer', 'Invoices', 'Invoiced', 'Outstanding']}
-            rows={customerRows.map((customer) => [customer.name, customer.invoices, money(customer.invoiced), money(customer.outstanding)])}
+            columns={['Job', 'Customer', 'Route', 'Completed', 'Action']}
+            rows={readyToInvoice.map((job) => [
+              xdriveReference(job.id),
+              job.client_name ?? 'Customer',
+              `${job.pickup_location ?? 'Collection'} → ${job.delivery_location ?? 'Delivery'}`,
+              date(job.updated_at),
+              <ActionButton key="job" tone="secondary" onClick={() => router.push(`/admin/jobs/${job.id}`)}>Open job</ActionButton>,
+            ])}
+            empty={<EmptyState title={workspace.loading ? 'Loading invoice readiness…' : 'No completed jobs waiting for an invoice'} />}
+          />
+        ) : mode === 'finance-customer' && accountsReceivableView === 'customers' ? (
+          <DataTable
+            columns={['Customer (ID)', 'Invoices', 'Invoiced net', 'Invoiced gross', 'Payments', 'Paid net', 'Paid gross', 'Outstanding']}
+            rows={customerRows.map((customer) => [
+              customer.name,
+              customer.invoices,
+              money(customer.invoicedNet),
+              money(customer.invoicedGross),
+              customer.paidInvoices,
+              money(customer.paidNet),
+              money(customer.paidGross),
+              money(customer.outstanding),
+            ])}
             empty={<EmptyState title={workspace.loading ? 'Loading customers…' : 'No customer invoice activity'} />}
           />
         ) : (

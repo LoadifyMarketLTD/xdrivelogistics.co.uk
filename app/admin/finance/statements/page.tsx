@@ -27,6 +27,8 @@ const normalizedStatus = (status: string | null | undefined, paymentStatus: stri
 
 export default function FinanceStatementsPage() {
   const data = useCompanyWorkspaceData();
+  const [statementType, setStatementType] = useState<'income'>('income');
+  const [dateFilter, setDateFilter] = useState<'invoice_date' | 'due_date'>('invoice_date');
   const [counterparty, setCounterparty] = useState('all');
   const [fromDate, setFromDate] = useState('');
   const [toDate, setToDate] = useState('');
@@ -42,12 +44,18 @@ export default function FinanceStatementsPage() {
     return data.invoices
       .filter((invoice) => counterparty === 'all' || (invoice.client_name?.trim() || 'Counterparty') === counterparty)
       .filter((invoice) => {
-        const rawDate = invoice.invoice_date ?? invoice.created_at;
-        const timestamp = new Date(rawDate).getTime();
+        const rawDate = dateFilter === 'due_date'
+          ? invoice.due_date
+          : invoice.invoice_date ?? invoice.created_at;
+        const timestamp = rawDate ? new Date(rawDate).getTime() : Number.NaN;
         return Number.isFinite(timestamp) && timestamp >= from && timestamp <= to;
       })
-      .sort((a, b) => String(a.invoice_date ?? a.created_at).localeCompare(String(b.invoice_date ?? b.created_at)));
-  }, [counterparty, data.invoices, fromDate, toDate]);
+      .sort((a, b) => {
+        const aDate = dateFilter === 'due_date' ? a.due_date : a.invoice_date ?? a.created_at;
+        const bDate = dateFilter === 'due_date' ? b.due_date : b.invoice_date ?? b.created_at;
+        return String(aDate ?? '').localeCompare(String(bDate ?? ''));
+      });
+  }, [counterparty, data.invoices, dateFilter, fromDate, toDate]);
 
   const totals = useMemo(() => {
     const invoiced = rows.reduce((sum, invoice) => sum + Number(invoice.amount ?? 0), 0);
@@ -120,8 +128,21 @@ export default function FinanceStatementsPage() {
         description="Create a company-scoped invoice statement by counterparty and date range from the verified invoice register."
       />
 
-      <Panel title="Statement filters" description="Choose a counterparty and optional invoice-date window.">
+      <Panel title="Statements" description="Generate an income statement from the verified Accounts Receivable register.">
         <div className="workspace-filter-fields workspace-filter-fields--even">
+          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+            STATEMENT TYPE
+            <select value={statementType} onChange={(event) => setStatementType(event.target.value as 'income')} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }}>
+              <option value="income">Income Statement</option>
+            </select>
+          </label>
+          <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
+            DATE FILTER
+            <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value as 'invoice_date' | 'due_date')} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }}>
+              <option value="invoice_date">Invoice date</option>
+              <option value="due_date">Due date</option>
+            </select>
+          </label>
           <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
             COUNTERPARTY
             <select value={counterparty} onChange={(event) => setCounterparty(event.target.value)} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }}>
@@ -137,8 +158,8 @@ export default function FinanceStatementsPage() {
             TO
             <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }} />
           </label>
-          <ActionButton tone="secondary" onClick={() => { setCounterparty('all'); setFromDate(''); setToDate(''); }}>Clear</ActionButton>
-          <ActionButton tone="secondary" disabled={rows.length === 0} onClick={() => void exportStatement()}>Export Statement XLSX</ActionButton>
+          <ActionButton tone="secondary" onClick={() => { setStatementType('income'); setDateFilter('invoice_date'); setCounterparty('all'); setFromDate(''); setToDate(''); }}>Clear</ActionButton>
+          <ActionButton tone="primary" disabled={rows.length === 0} onClick={() => void exportStatement()}>Generate</ActionButton>
         </div>
       </Panel>
 
