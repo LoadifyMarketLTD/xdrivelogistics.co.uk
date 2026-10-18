@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.can_manage_company_members(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -37,6 +39,11 @@ WITH CHECK (
   OR created_by = auth.uid()
 );
 
+-- Optional hosted legacy tables are not part of the canonical fresh schema.
+DO $migration$
+BEGIN
+  IF to_regclass('public.invites') IS NOT NULL THEN
+    EXECUTE $ddl$
 DROP POLICY IF EXISTS invites_insert_company_admin ON public.invites;
 CREATE POLICY invites_insert_company_admin
 ON public.invites
@@ -70,6 +77,10 @@ WITH CHECK (
   OR COALESCE(public.active_company_membership_role(company_id, auth.uid()) IN ('owner','admin'), false)
 );
 
+    $ddl$;
+  END IF;
+  IF to_regclass('public.workspace_switch_audit') IS NOT NULL THEN
+    EXECUTE $ddl$
 DROP POLICY IF EXISTS workspace_audit_select_company_member ON public.workspace_switch_audit;
 CREATE POLICY workspace_audit_select_company_member
 ON public.workspace_switch_audit
@@ -79,3 +90,9 @@ USING (
   target_company_id IS NULL
   OR public.active_company_membership_role(target_company_id, auth.uid()) IS NOT NULL
 );
+    $ddl$;
+  END IF;
+END;
+$migration$;
+
+COMMIT;
