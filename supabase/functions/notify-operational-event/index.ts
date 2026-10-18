@@ -34,6 +34,20 @@ const secretApiKeys = (() => {
 const siteUrl = (Deno.env.get('SITE_URL') ?? 'https://www.xdrivelogistics.co.uk').trim().replace(/\/$/, '');
 const resendApiKey = Deno.env.get('RESEND_API_KEY') ?? '';
 const fromEmail = Deno.env.get('FROM_EMAIL') ?? 'no-reply@xdrivelogistics.co.uk';
+
+type SenderKind = 'confirmation' | 'pod' | 'invoices' | 'payments' | 'alerts' | 'technical';
+
+const senderFor = (kind: SenderKind) => {
+  const senders: Record<SenderKind, string> = {
+    confirmation: 'XDrive Confirmations <confirmation@xdrivelogistics.co.uk>',
+    pod: 'XDrive POD <pod@xdrivelogistics.co.uk>',
+    invoices: 'XDrive Invoices <invoices@xdrivelogistics.co.uk>',
+    payments: 'XDrive Payments <payments@xdrivelogistics.co.uk>',
+    alerts: 'XDrive Alerts <alerts@xdrivelogistics.co.uk>',
+    technical: fromEmail,
+  };
+  return senders[kind];
+};
 const webhookSecret = Deno.env.get('XDRIVE_NOTIFICATION_WEBHOOK_SECRET') ?? '';
 const firebaseServiceAccount = parseFirebaseServiceAccount(Deno.env.get('FIREBASE_SERVICE_ACCOUNT_JSON') ?? '');
 
@@ -255,6 +269,7 @@ async function sendEmail(
   subject: string,
   html: string,
   idempotencyKey: string,
+  sender: SenderKind = 'alerts',
 ): Promise<boolean> {
   const uuidPattern = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
   if (uuidPattern.test(subject) || uuidPattern.test(html)) {
@@ -274,7 +289,7 @@ async function sendEmail(
       Authorization: `Bearer ${resendApiKey}`,
       'Idempotency-Key': idempotencyKey,
     },
-    body: JSON.stringify({ from: fromEmail, to, subject, html }),
+    body: JSON.stringify({ from: senderFor(sender), to, subject, html }),
   });
 
   if (!response.ok) {
@@ -347,6 +362,7 @@ async function emailCompanyOperators(
   subject: string,
   htmlFor: (safeName: string) => string,
   eventId: string,
+  sender: SenderKind = 'alerts',
 ): Promise<boolean> {
   const { data: members, error } = await supabase
     .from('company_memberships')
@@ -369,6 +385,7 @@ async function emailCompanyOperators(
           subject,
           htmlFor(escapeHtml(user.name)),
           notificationIdempotencyKey(eventId, member.user_id),
+          sender,
         )
         : true;
     }),
@@ -429,6 +446,7 @@ async function handleCommercialAmendment(event: NotificationEvent) {
           (name) =>
             `<h2>Job change requires acceptance</h2><p>Hi ${name},</p><p>Booking <strong>${escapeHtml(jobReference)}</strong> has a proposed change (version ${escapeHtml(version)}).</p><p><strong>Reason:</strong> ${escapeHtml(reason)}</p><p>The original booking remains active until your company or the assigned driver accepts the change in XDrive.</p><p><a href="${escapeHtml(buildAppUrl('/carrier/diary'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
           event.id,
+          'confirmation',
         )
         : true,
       userId
@@ -473,6 +491,7 @@ async function handleCommercialAmendment(event: NotificationEvent) {
       (name) =>
         `<h2>Job change ${accepted ? 'accepted' : 'rejected'}</h2><p>Hi ${name},</p><p>Booking <strong>${escapeHtml(jobReference)}</strong> amendment version ${escapeHtml(version)} was <strong>${accepted ? 'accepted' : 'rejected'}</strong>.</p><p>XDrive Logistics</p>`,
       event.id,
+      'confirmation',
     )
     : true;
 }
@@ -490,6 +509,7 @@ async function handleBidAccepted(event: NotificationEvent) {
     'Bid Accepted - XDrive Logistics',
     `<h2>Your bid has been accepted</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your bid of <strong>£${amount}</strong> on booking <strong>${escapeHtml(job.reference)}</strong> has been accepted.</p><p><strong>Collection:</strong> ${escapeHtml(job.pickup)}<br><strong>Delivery:</strong> ${escapeHtml(job.delivery)}</p><p><a href="${escapeHtml(buildAppUrl('/admin/bids'))}">Open the bids workspace</a></p><p>XDrive Logistics</p>`,
     notificationIdempotencyKey(event.id, userId),
+    'confirmation',
   );
 }
 
@@ -525,6 +545,7 @@ async function handlePodUploaded(event: NotificationEvent) {
         <p>XDrive Logistics</p>
       </div>`,
     event.id,
+    'pod',
   );
 }
 
@@ -811,6 +832,7 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
       'Invoice disputed - XDrive Logistics',
       `<h2>Invoice disputed</h2><p>Hi ${escapeHtml(user.name)},</p><p>Invoice <strong>${invoiceReference}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
       notificationIdempotencyKey(event.id, event.recipient_user_id),
+      'invoices',
     );
   }
   if (!companyId) return true;
@@ -820,6 +842,7 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
     'Invoice disputed - XDrive Logistics',
     (name) => `<h2>Invoice disputed</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceReference}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
     event.id,
+    'invoices',
   );
 }
 

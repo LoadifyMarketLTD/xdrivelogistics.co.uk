@@ -141,8 +141,8 @@ export async function submitInvoice(
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim() ?? '';
-  const configuredFrom = process.env.FROM_EMAIL?.trim()
-    || 'no-reply@xdrivelogistics.co.uk';
+  const configuredFrom = process.env.INVOICE_FROM_EMAIL?.trim()
+    || 'invoices@xdrivelogistics.co.uk';
   const fromAddressMatch = configuredFrom.match(/<([^>]+)>\s*$/);
   const fromAddress = (fromAddressMatch?.[1] ?? configuredFrom).trim();
   if (!resendApiKey) {
