@@ -6,6 +6,13 @@ SET LOCAL statement_timeout = '120s';
 -- has_capability() is used by the companies UPDATE RLS policy. Keep the
 -- existing role/override model, but bind authority to an active actor profile,
 -- active legacy member row and active company.
+-- This legacy RPC is absent on canonical fresh installs. Match the guarded
+-- 20260827074500 migration: harden an existing legacy schema, never recreate
+-- parallel authority tables merely to preserve a retired RPC.
+DO $migration$
+BEGIN
+  IF to_regclass('public.company_members') IS NOT NULL THEN
+    EXECUTE $ddl$
 CREATE OR REPLACE FUNCTION public.has_capability(
   _company_id uuid,
   _capability text
@@ -57,6 +64,12 @@ REVOKE ALL ON FUNCTION public.has_capability(uuid, text)
 FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.has_capability(uuid, text)
 TO authenticated, service_role;
+    $ddl$;
+  ELSE
+    RAISE NOTICE 'Skipping retired legacy capability RPC: canonical membership schema.';
+  END IF;
+END;
+$migration$;
 
 COMMIT;
 

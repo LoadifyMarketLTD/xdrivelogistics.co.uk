@@ -81,7 +81,8 @@ TO authenticated, service_role;
 
 -- The company-members helper participates directly in RLS. Do not let a
 -- suspended company, inactive Platform Owner, or stale creator relationship
--- retain member-management authority.
+-- retain member-management authority. Use canonical memberships, as in the
+-- later 20260929195813 migration; fresh replay has no retired company_members.
 CREATE OR REPLACE FUNCTION public.can_manage_company_members(_company_id uuid)
 RETURNS boolean
 LANGUAGE sql
@@ -93,17 +94,7 @@ AS $function$
     _company_id IS NOT NULL
     AND auth.uid() IS NOT NULL
     AND (
-      EXISTS (
-        SELECT 1
-        FROM public.company_members cm
-        JOIN public.companies c ON c.id = cm.company_id
-        WHERE cm.company_id = _company_id
-          AND cm.user_id = auth.uid()
-          AND COALESCE(cm.is_active, true) = true
-          AND COALESCE(cm.company_role, cm.member_role::text)
-              IN ('owner','admin','broker_admin','carrier_admin')
-          AND COALESCE(c.status::text, '') = 'active'
-      )
+      COALESCE(public.active_company_membership_role(_company_id, auth.uid()) IN ('owner','admin'), false)
       OR EXISTS (
         SELECT 1
         FROM public.companies c

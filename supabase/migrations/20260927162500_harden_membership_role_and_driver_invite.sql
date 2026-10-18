@@ -44,6 +44,13 @@ TO authenticated, service_role;
 
 -- Accepting an old invite into a suspended/inactive company must fail closed.
 -- Identity binding, token expiry and invite status checks remain unchanged.
+-- This legacy RPC is absent on canonical fresh installs. Match the guarded
+-- 20260827074500 migration: harden an existing legacy schema, never recreate
+-- parallel authority tables merely to preserve a retired RPC.
+DO $migration$
+BEGIN
+  IF to_regclass('public.company_members') IS NOT NULL THEN
+    EXECUTE $ddl$
 CREATE OR REPLACE FUNCTION public.accept_driver_invite(
   p_token text,
   p_full_name text DEFAULT NULL::text,
@@ -155,6 +162,12 @@ REVOKE ALL ON FUNCTION public.accept_driver_invite(text, text, text)
 FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.accept_driver_invite(text, text, text)
 TO authenticated, service_role;
+    $ddl$;
+  ELSE
+    RAISE NOTICE 'Skipping retired legacy invite RPC: canonical membership schema.';
+  END IF;
+END;
+$migration$;
 
 COMMIT;
 
