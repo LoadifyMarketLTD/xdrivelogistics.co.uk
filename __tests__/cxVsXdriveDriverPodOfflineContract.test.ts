@@ -4,19 +4,24 @@ import path from 'node:path';
 describe('CX vs XDrive Driver POD server consolidation contract', () => {
   const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), relative), 'utf8');
   const evidence = read('app/api/driver/mobile/jobs/[id]/evidence/route.ts');
+  const webEvidence = read('app/api/driver/web/jobs/[id]/evidence/route.ts');
   const lifecycle = read('app/api/driver/mobile/jobs/[id]/[action]/route.ts');
   const detail = read('app/api/driver/mobile/jobs/[id]/route.ts');
   const damageMigration = read('supabase/migrations/20260830004958_port_driver_pod_damage_evidence.sql');
 
-  it('stages delivery evidence under company/job/category and only links collection evidence during upload', () => {
-    expect(evidence).toContain("type EvidenceCategory = 'photos' | 'damage' | 'documents'");
-    expect(evidence).toContain('driver.companyId');
-    expect(evidence).toContain('category');
-    expect(evidence).toContain('objectName');
-    expect(evidence).toContain("if (kind === 'collection')");
-    expect(evidence).not.toContain('delivery_photos: Array.from');
-    expect(evidence).not.toContain('damage_photos: Array.from');
-    expect(evidence).not.toContain('pod_photos: Array.from');
+  it('links job-level delivery evidence after upload while keeping stop evidence staged', () => {
+    for (const source of [evidence, webEvidence]) {
+      expect(source).toContain("type EvidenceCategory = 'photos' | 'damage' | 'documents'");
+      expect(source).toContain('driver.companyId');
+      expect(source).toContain('category');
+      expect(source).toContain('objectName');
+      expect(source).toContain("if (kind === 'collection' && !stopId && category === 'photos')");
+      expect(source).toContain("if (kind === 'delivery' && !stopId)");
+      expect(source).toContain('delivery_photos: [...new Set([...existingDeliveryPhotos, storagePath])]');
+      expect(source).toContain('damage_photos: [...new Set([...existingDamagePhotos, storagePath])]');
+      expect(source).toContain('pod_photos: [...new Set([...existingPodDocuments, storagePath])]');
+      expect(source).toContain('if (stopId)');
+    }
   });
 
   it('makes lifecycle transitions consume persisted server evidence while preserving the multi-drop final gate', () => {

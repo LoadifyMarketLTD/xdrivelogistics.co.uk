@@ -67,7 +67,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
   const { data: job, error: loadError } = await supabaseAdmin
     .from('jobs')
-    .select('id,assigned_driver_id,pickup_photos')
+    .select('id,assigned_driver_id,pickup_photos,delivery_photos,damage_photos,pod_photos')
     .eq('id', id)
     .eq('assigned_driver_id', driver.driverId)
     .maybeSingle();
@@ -77,8 +77,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   const existingCollectionPhotos = Array.isArray(job.pickup_photos)
     ? job.pickup_photos.filter((value): value is string => typeof value === 'string' && value.length > 0)
     : [];
+  const existingDeliveryPhotos = Array.isArray(job.delivery_photos)
+    ? job.delivery_photos.filter((value): value is string => typeof value === 'string' && value.length > 0)
+    : [];
+  const existingDamagePhotos = Array.isArray(job.damage_photos)
+    ? job.damage_photos.filter((value): value is string => typeof value === 'string' && value.length > 0)
+    : [];
+  const existingPodDocuments = Array.isArray(job.pod_photos)
+    ? job.pod_photos.filter((value): value is string => typeof value === 'string' && value.length > 0)
+    : [];
   if (kind === 'collection' && !stopId && category === 'photos' && existingCollectionPhotos.length >= 10) {
     return respond(409, { error: 'A maximum of 10 collection photos can be attached to one job.' });
+  }
+  if (kind === 'delivery' && !stopId && (category === 'photos' || category === 'damage') && existingDeliveryPhotos.length + existingDamagePhotos.length >= 10) {
+    return respond(409, { error: 'A maximum of 10 delivery and damage photos can be attached to one job.' });
+  }
+  if (kind === 'delivery' && !stopId && category === 'documents' && existingPodDocuments.length >= 10) {
+    return respond(409, { error: 'A maximum of 10 POD documents can be attached to one job.' });
   }
 
   if (stopId) {
@@ -117,9 +132,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!duplicate) return respond(500, { error: upload.error.message });
   }
 
-  // Job-level collection photos gate Loaded and are linked immediately.
-  // Collection documents and stop-specific evidence remain staged until the
-  // handover snapshot is persisted and validated by its server endpoint.
+  // Job-level evidence gates the next physical lifecycle transition and is
+  // linked immediately after storage verification. Stop-specific evidence and
+  // collection documents remain staged for their dedicated stop/handover flow.
   if (kind === 'collection' && !stopId && category === 'photos') {
     const { data: updated, error } = await supabaseAdmin
       .from('jobs')
@@ -134,6 +149,23 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       .maybeSingle();
     if (error) return respond(500, { error: error.message });
     if (!updated) return respond(409, { error: 'Collection evidence could not be linked to this assignment.' });
+  }
+
+  if (kind === 'delivery' && !stopId) {
+    const update = category === 'photos'
+      ? { delivery_photos: [...new Set([...existingDeliveryPhotos, storagePath])], updated_at: new Date().toISOString() }
+      : category === 'damage'
+        ? { damage_photos: [...new Set([...existingDamagePhotos, storagePath])], updated_at: new Date().toISOString() }
+        : { pod_photos: [...new Set([...existingPodDocuments, storagePath])], updated_at: new Date().toISOString() };
+    const { data: updated, error } = await supabaseAdmin
+      .from('jobs')
+      .update(update)
+      .eq('id', id)
+      .eq('assigned_driver_id', driver.driverId)
+      .select('id')
+      .maybeSingle();
+    if (error) return respond(500, { error: error.message });
+    if (!updated) return respond(409, { error: 'Delivery evidence could not be linked to this assignment.' });
   }
 
   return respond(200, { ok: true, storagePath });
