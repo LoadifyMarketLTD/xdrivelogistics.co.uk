@@ -74,6 +74,12 @@ Require-Contains $typography '--ws-font-panel-title:\s*16px' 'Operational panel 
 $baselineTypography = 'app\components\workspace\workspace-measured-cx-baseline.css'
 Require-Contains $baselineTypography '--ws-font-page-title:\s*20px' 'Operational page title typography is no longer 20px.'
 
+# Global postcode/outcode area autodetect.
+$postcodeResolver = 'app\components\workspace\OperationalPostcodeAreaResolver.tsx'
+Require-Contains $postcodeResolver '/api/location/postcode-area\?q=' 'Global postcode/outcode area resolver was removed.'
+Require-Contains 'app\components\workspace\TopWorkspaceShell.tsx' '<OperationalPostcodeAreaResolver />' 'Global postcode resolver is no longer mounted in the operational shell.'
+Require-Contains 'app\api\location\postcode-area\route.ts' 'api\.postcodes\.io/outcodes/' 'UK outcode area resolution was removed.'
+
 if ($failures.Count -gt 0) {
     Write-Host ''
     Write-Host 'XDRIVE PROTECTED INVARIANT GATE: FAIL' -ForegroundColor Red
@@ -88,4 +94,5 @@ Write-Host ' - GitHub Actions remain disabled'
 Write-Host ' - Live Availability map interaction protected'
 Write-Host ' - Directory shared implementation and Saved Network protected'
 Write-Host ' - Operational typography protected'
+Write-Host ' - Global postcode/outcode area autodetect protected'
 exit 0

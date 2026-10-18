@@ -1,6 +1,7 @@
 'use client';
 
 import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
+import OperationalPostcodeAreaResolver from './OperationalPostcodeAreaResolver';
 
 import Image from 'next/image';
 import Link from 'next/link';
@@ -1155,6 +1156,7 @@ export default function TopWorkspaceShell({
       </nav>
 
       <WorkspaceRestrictionBanner role={role} />
+      <OperationalPostcodeAreaResolver />
 
       <main className={`top-workspace-shell__content${driverPrototypeScope ? ' app driver-prototype-app' : ''}`}>{children}</main>
     </div>

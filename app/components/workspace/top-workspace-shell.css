@@ -679,3 +679,21 @@
     max-height: calc(100vh - 104px);
   }
 }
+
+
+/* Global postcode/outcode area resolution. Any operational text/search input
+ * labelled as postcode/outcode receives a compact CX-style area confirmation. */
+.xdrive-postcode-area-hint {
+  display: block;
+  margin-top: 3px;
+  color: #31506f;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.xdrive-postcode-area-hint[data-state='loading'] {
+  color: #66778a;
+  font-weight: 500;
+}
