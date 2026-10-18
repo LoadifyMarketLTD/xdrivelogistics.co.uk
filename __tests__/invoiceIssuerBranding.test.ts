@@ -11,6 +11,9 @@ describe('invoice issuer branding contract', () => {
     expect(pdf).not.toContain("page.drawText('XDrive'");
     expect(context).toContain("select('email, phone, website, logo_url')");
     expect(context).toContain('loadCompanyLogo(supabase, company?.logo_url)');
+    expect(context).toContain("host === 'xdrivelogistics.co.uk'");
+    expect(context).toContain("host === 'app.xdrivelogistics.co.uk'");
+    expect(pdf).not.toContain('XDrive ID');
   });
 
   it('uses issuer website and issuer email rather than platform branding', () => {

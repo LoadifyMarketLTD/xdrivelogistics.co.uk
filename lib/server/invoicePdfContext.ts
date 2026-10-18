@@ -28,6 +28,19 @@ type InvoicePdfContext = {
 const clean = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim() : null;
 
+const cleanIssuerWebsite = (value: unknown) => {
+  const raw = clean(value);
+  if (!raw) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    const host = url.hostname.toLowerCase().replace(/^www\./, '');
+    if (host === 'xdrivelogistics.co.uk' || host === 'app.xdrivelogistics.co.uk') return null;
+    return raw;
+  } catch {
+    return raw;
+  }
+};
+
 const labelise = (value: unknown) => {
   const raw = clean(value);
   if (!raw) return null;
@@ -204,7 +217,7 @@ export async function loadInvoicePdfContext({
   return {
     issuerEmail: clean(company?.email),
     issuerPhone: clean(company?.phone),
-    issuerWebsite: clean(company?.website),
+    issuerWebsite: cleanIssuerWebsite(company?.website),
     bankAccountName: clean(settings?.bank_account_name),
     bankSortCode: clean(settings?.bank_sort_code),
     bankAccountNumber: clean(settings?.bank_account_number),
