@@ -63,3 +63,21 @@
   :is(button, a[href], [role="button"], [role="tab"], [role="menuitem"]):is([aria-current="page"], [aria-selected="true"], [aria-pressed="true"], .active, .is-active, .selected) {
   font-weight: 700 !important;
 }
+
+
+/* Live Availability has a few generic containers with legacy inline 11/12px values
+ * (map loading/attribution and privacy helper copy). Keep the same Diary-readable
+ * 14px floor across the whole module, including those non-semantic wrappers. */
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
+  :is(.xdrive-live-availability-page, .driver-live-availability-canonical) * {
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
+  .xdrive-live-availability-page :is(.workspace-panel__title, .xdrive-panel__title, td strong),
+.xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
+  .driver-live-availability-canonical :is(.driver-more-rail__title, td b) {
+  font-size: 16px !important;
+  line-height: 20px !important;
+}

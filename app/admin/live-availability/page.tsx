@@ -319,6 +319,7 @@ export default function LiveAvailabilityPage() {
 
   return (
     <PageFrame>
+      <div className="xdrive-live-availability-page">
       <PageHeader
         eyebrow="Fleet resources"
         title="Live Availability"
@@ -419,6 +420,7 @@ export default function LiveAvailabilityPage() {
           </Panel>
         </TwoColumn>
       )}
+      </div>
     </PageFrame>
   );
 }
