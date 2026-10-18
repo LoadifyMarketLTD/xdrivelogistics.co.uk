@@ -5,7 +5,7 @@ Branch: `fix/pod-invoice-payment-integrity`.
 
 ## Result and scope
 
-The changes implement the corrections identified in the audit. They have been tested locally; they are not a live E2E certification. No live payment, real email, production migration, or GitHub Actions execution was performed during remediation. Do not merge/deploy until the migration and application rollout are coordinated and the Stripe sandbox checklist below is satisfied.
+The changes implement the corrections identified in the audit. They have been tested locally and against the disposable Supabase preview; they are not a live E2E certification. No live payment, real email, production migration, or GitHub Actions execution was performed during remediation. Do not merge or deploy to production until the migration and application rollout are coordinated and the Stripe sandbox checklist below is satisfied.
 
 | Finding | Implementation |
 | --- | --- |
@@ -50,6 +50,40 @@ PGlite serializes local queries: these tests do not prove multi-connection race 
 The actual renderer was used to create and inspect a temporary three-page invoice with typed attestation and overflow evidence. A separate test appends an uploaded POD PDF. Corrupt images are rejected. The temporary sample uses synthetic test fixtures, never production documents.
 
 ## Coordinated rollout
+
+### Follow-up verification: historical replay repaired
+
+Code/test head verified on Windows: `b34d60f669e283c874b73e145c384ff9246a008c`. Subsequent checkpoint/test-script commits do not change application code.
+
+The following historical replay failures were reproduced and corrected on this branch:
+
+- September 27 member-management authority now uses the canonical membership helper, matching the later September 29 definition. It no longer depends on retired `company_members`.
+- September 27 capability and driver-invite hardening is conditional on the legacy membership schema, following the existing August 27 precedent. No retired tables are recreated.
+- September 29 policies for hosted-only `invites` and `workspace_switch_audit` are conditional on those tables; canonical company policies still apply. The migration is transactional.
+- October 3 contact backfill captures the nullable hosted `companies.website` column before use and runs transactionally.
+- October 5 historical POD backfill captures nullable `jobs.delivery_status` before use.
+- October 5 booking acceptance migration uses SQL string literals instead of identifier quotes in its two patch assertions.
+
+`legacyMembershipMigrationReplay.behavior.test.ts` executes all these paths through PostgreSQL/PGlite, including canonical and legacy membership schemas, revoked anonymous access, active company/actor decisions, invitation identity checks and RLS, idempotent contact/POD backfills, and allocation plus acceptance events. **7/7 new tests passed on Windows.**
+
+The complete focused Windows run passed **206/206 tests in 38 files**, TypeScript exited **0**, migration validation found **480 unique versions**, and whitespace checks passed. The broader case-insensitive test selection includes more existing files than the original 30-file run. Isolated checkout: `D:\XDrive-POD-680-Final-20261018`. Evidence: `D:\XDrive-POD-680-Final-tests.json`, `D:\XDrive-POD-680-Final-tests.log`, `D:\XDrive-POD-680-Final-tsc.log`, `D:\XDrive-POD-680-Migration-Replay-tests.log`. The prior full Windows production build exited **0**; application code has not changed since that build. Netlify preview for the code/test head succeeded. GitHub's workflow-run lookup returned no runs for that head.
+
+Existing Supabase PR preview: `wumqoppqqlxkaphhgzks` (parent production `jqxlauexhkonixtjvljw`). All **480** migration versions are present, including `20261018083904_invoice_payment_integrity.sql`; branch status recovered to **FUNCTIONS_DEPLOYED**, with services **ACTIVE_HEALTHY**. The initial and intermediate `MIGRATIONS_FAILED` state is resolved. Production was not modified.
+
+`supabase/tests/invoice_payment_integrity_staging.sql` was executed on that preview with actual public tables, constraints and triggers. **14 behavioral checks passed**: transactional outbox insertion, approval refusal, outstanding balance/reservation reuse, outsider refusal, active-Checkout external-payment/cancellation exclusion, unpaid async completion, account-mismatch rollback, async settlement, event/economic deduplication, stale expiry, refund/late-success handling, bounce ordering, and denied public privileges. These are database tests with explicit synthetic prerequisites/events, not actual provider acceptance or document delivery. All fixtures were rolled back. Rechecked counts: **0 companies, 0 invoices, 0 auth users**.
+
+Security advisors were inspected. New private financial tables intentionally report [RLS enabled without client policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy): anon/authenticated grants are revoked and only service-role access is allowed. Existing warnings concerning other mutable-search-path and exposed SECURITY DEFINER helpers remain outside this remediation; this is not a whole-project security PASS.
+
+### Explicitly blocked verification
+
+Automatic approval rejected both actions below; neither was executed:
+
+1. Provisioning a separate Stripe sandbox through the CLI with Git name/email: it would create an external resource and transmit identity data. The available Stripe connector exposes only live account `acct_1SonBwCtRXhBaKqR`; no live financial operation was attempted. Explicit approval is required to provision the separate sandbox, or an authorized test-mode connection must be supplied.
+2. Applying `docs/ops/PR680_CONCURRENCY_SETUP_PENDING.sql` to create a temporary private schema/fixtures between two database sessions: it would commit test state beyond the rollback-only checks. `docs/ops/PR680_CONCURRENCY_PENDING.md` contains the concrete five race scenarios and cleanup. The setup is prepared but unexecuted; no concurrency PASS is claimed. Rechecked `to_regnamespace('audit_pr680_concurrency')`: NULL.
+
+The earlier credential-file read was not retried. Supabase connector access allowed actual schema tests without exposing those files. No full Stripe/Resend sandbox or browser E2E PASS is claimed, and PR #680 remains draft/unmerged pending these checks.
+
+### Production rollout checklist
 
 1. Apply `supabase/migrations/20261018083904_invoice_payment_integrity.sql` in staging first. Application routes fail closed if the new queue/RPC schema is absent. No historical drafts are automatically backfilled into the outbox by this migration.
 2. Deploy this branch to a preview/staging environment with the expected Supabase project and Stripe sandbox credentials. The pg_net dispatcher URL in the migration intentionally points to the established production origin; adapt it to staging before enabling a staging schedule. Disable the staging schedule until its target is explicitly configured.
