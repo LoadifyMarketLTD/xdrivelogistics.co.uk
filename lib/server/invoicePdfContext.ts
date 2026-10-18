@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { hasCompletePodEvidence } from '../jobs/podCompletion';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 type EvidenceImage = {
@@ -20,6 +21,7 @@ type InvoicePdfContext = {
   vehicleDescription: string | null;
   logoBytes: Uint8Array | null;
   evidenceImages: EvidenceImage[];
+  signatureAttestation: string | null;
 };
 
 const clean = (value: unknown) =>
@@ -75,11 +77,13 @@ export async function loadInvoicePdfContext({
   companyId,
   jobId,
   origin,
+  requirePod = false,
 }: {
   supabase: SupabaseClient;
   companyId: string;
   jobId: string | null;
   origin: string;
+  requirePod?: boolean;
 }): Promise<InvoicePdfContext> {
   const [companyResult, settingsResult, logoBytes] = await Promise.all([
     supabase
@@ -109,14 +113,16 @@ export async function loadInvoicePdfContext({
   let cargoDescription: string | null = null;
   let vehicleDescription: string | null = null;
   const evidenceImages: EvidenceImage[] = [];
+  let signatureAttestation: string | null = null;
 
   if (jobId) {
-    const { data: job } = await supabase
+    const { data: job, error: jobError } = await supabase
       .from('jobs')
-      .select('pickup_datetime, delivery_datetime, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name')
+      .select('id, pod_generated, pod_photos, pickup_datetime, delivery_datetime, pallets, boxes, bags, items, weight_kg, cargo_type, vehicle_type, collection_photo_url, delivery_photos, delivery_signature_data, client_signature_name')
       .eq('id', jobId)
       .maybeSingle();
 
+    if (requirePod && (jobError || !job || !hasCompletePodEvidence(job))) throw new Error('Complete POD is required before sending this invoice.');
     if (job) {
       pickupDateTime = clean(job.pickup_datetime);
       deliveryDateTime = clean(job.delivery_datetime);
@@ -143,21 +149,38 @@ export async function loadInvoicePdfContext({
       const imagePaths: Array<{ path: string; label: string }> = [];
       const collectionPath = clean(job.collection_photo_url);
       if (collectionPath) imagePaths.push({ path: collectionPath, label: 'Collection' });
-      if (Array.isArray(job.delivery_photos)) {
-        for (const path of job.delivery_photos) {
+      for (const [paths, label] of [[job.delivery_photos, 'Delivery'], [job.pod_photos, 'POD']] as const) {
+        if (Array.isArray(paths)) for (const path of paths) {
           const cleaned = clean(path);
-          if (cleaned) imagePaths.push({ path: cleaned, label: 'Delivery' });
-          if (imagePaths.length >= 3) break;
+          if (cleaned && !imagePaths.some(image => image.path === cleaned)) imagePaths.push({ path: cleaned, label });
         }
       }
-
       for (const image of imagePaths) {
+        if (!image.path.startsWith(`${companyId}/${jobId}/`) || image.path.includes('..') || image.path.includes('://') || image.path.includes('\\')) {
+          if (requirePod) throw new Error('POD evidence does not belong to this job and supplier.');
+          continue;
+        }
         const bytes = await downloadPodImage(supabase, image.path);
         if (bytes) evidenceImages.push({ bytes, label: image.label });
+        else if (requirePod) throw new Error('POD evidence could not be downloaded. Retry before sending.');
       }
-
-      const signature = dataUrlBytes(job.delivery_signature_data);
+      const raw = job.delivery_signature_data;
+      const record = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw as Record<string, unknown> : null;
+      const value = record?.value ?? raw;
+      const signature = dataUrlBytes(value);
       if (signature) evidenceImages.push({ bytes: signature, label: 'Signature' });
+      else if (record?.type === 'recipient_typed_name_attestation') {
+        if (requirePod && (record.job_id !== jobId || record.recipient_name !== job.client_signature_name
+          || !imagePaths.some(image => image.path === record.evidence_path))) throw new Error('Recipient attestation does not match the job evidence.');
+        signatureAttestation = `Recipient typed-name attestation: ${clean(record.recipient_name) ?? 'Unknown'}. Confirmed: ${clean(record.confirmed_at) ?? 'Unknown'}. Evidence: ${clean(record.evidence_path) ?? 'Unknown'}`;
+      } else {
+        const path = clean(value);
+        if (path?.startsWith(`${companyId}/${jobId}/`) && !path.includes('..') && !path.includes('://')) {
+          const bytes = await downloadPodImage(supabase, path);
+          if (bytes) evidenceImages.push({ bytes, label: 'Signature' });
+          else if (requirePod) throw new Error('Recipient signature could not be downloaded.');
+        } else if (requirePod) throw new Error('Recipient signature format is unsupported.');
+      }
     }
   }
 
@@ -174,6 +197,7 @@ export async function loadInvoicePdfContext({
     cargoDescription,
     vehicleDescription,
     logoBytes,
-    evidenceImages: evidenceImages.slice(0, 4),
+    evidenceImages,
+    signatureAttestation,
   };
 }

@@ -81,7 +81,7 @@ export async function GET(
     .eq('user_id', authData.user.id)
     .eq('status', 'active');
   if (membershipError) return respond(500, { error: membershipError.message });
-  const companyIds = new Set((memberships ?? []).map((membership) => membership.company_id as string));
+  const companyIds = new Set((memberships ?? []).filter(membership => { const role = resolveMembershipRole(membership.role_in_company); return role && (membershipHasCapability(role, 'invoices.carrier.manage') || membershipHasCapability(role, 'invoices.customer.manage')); }).map(membership => membership.company_id as string));
 
   const { id } = await params;
   const { data: invoice, error } = await supabaseAdmin
@@ -104,12 +104,11 @@ export async function GET(
   }
 
   const issuerAuthorised =
-    invoice.created_by === authData.user.id ||
     companyIds.has(invoice.company_id as string) ||
     companyIds.has(invoice.supplier_company_id as string);
   const buyerAuthorised =
     companyIds.has(invoice.buyer_company_id as string) ||
-    (jobOwnerCompanyId ? companyIds.has(jobOwnerCompanyId) : false);
+    (!invoice.buyer_company_id && jobOwnerCompanyId ? companyIds.has(jobOwnerCompanyId) : false);
 
   if (!issuerAuthorised && !buyerAuthorised) {
     return respond(403, { error: 'This invoice is outside your company workspace.' });

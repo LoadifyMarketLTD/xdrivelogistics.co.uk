@@ -1,3 +1,5 @@
+import { membershipHasCapability, resolveMembershipRole } from '../../../../lib/membershipRole';
+import { isInvoiceDocumentPath } from '../../../../lib/server/invoiceDocumentPath';
 import { NextRequest, NextResponse } from 'next/server';
 import {
   getBearerToken,
@@ -54,7 +56,7 @@ export async function GET(request: NextRequest) {
       .maybeSingle(),
     supabaseAdmin
       .from('company_memberships')
-      .select('company_id')
+      .select('company_id, role_in_company')
       .eq('user_id', authData.user.id)
       .eq('status', 'active'),
   ]);
@@ -74,15 +76,14 @@ export async function GET(request: NextRequest) {
     jobOwnerCompanyId = typeof job?.company_id === 'string' ? job.company_id : null;
   }
 
-  const companyIds = new Set((memberships ?? []).map((row) => row.company_id as string));
+  const companyIds = new Set((memberships ?? []).filter(row => { const role = resolveMembershipRole(row.role_in_company); return role && (membershipHasCapability(role, 'invoices.carrier.manage') || membershipHasCapability(role, 'invoices.customer.manage')); }).map(row => row.company_id as string));
   const issuerAuthorised =
-    invoice.created_by === authData.user.id ||
     companyIds.has(invoice.company_id as string) ||
     companyIds.has(invoice.supplier_company_id as string) ||
     companyIds.has(document.company_id as string);
   const buyerAuthorised =
     companyIds.has(invoice.buyer_company_id as string) ||
-    (jobOwnerCompanyId ? companyIds.has(jobOwnerCompanyId) : false);
+    (!invoice.buyer_company_id && jobOwnerCompanyId ? companyIds.has(jobOwnerCompanyId) : false);
 
   if (!issuerAuthorised && !buyerAuthorised) {
     return respond(403, { error: 'This invoice document is outside your company workspace.' });
@@ -95,18 +96,8 @@ export async function GET(request: NextRequest) {
   const fileUrl = String(document.file_url ?? '').trim();
   if (!fileUrl) return respond(404, { error: 'Invoice document path is missing.' });
 
-  if (/^https:\/\//i.test(fileUrl)) {
-    try {
-      const external = new URL(fileUrl);
-      if (external.protocol !== 'https:') throw new Error('Unsafe protocol');
-      return respond(200, { signedUrl: external.toString(), expiresIn: null, external: true });
-    } catch {
-      return respond(400, { error: 'Invoice document URL is invalid.' });
-    }
-  }
-
-  if (fileUrl.includes('://') || fileUrl.startsWith('/') || fileUrl.includes('..')) {
-    return respond(400, { error: 'Invoice document path is invalid.' });
+  if (!isInvoiceDocumentPath(fileUrl, String(invoice.company_id), String(invoice.id)) || document.company_id !== invoice.company_id) {
+    return respond(403, { error: 'Invoice document does not belong to this issuer and invoice.' });
   }
 
   const { data: signed, error: signedError } = await supabaseAdmin.storage
