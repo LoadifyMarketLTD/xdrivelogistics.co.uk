@@ -161,7 +161,6 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const grey = rgb(75 / 255, 85 / 255, 99 / 255);
   const muted = rgb(100 / 255, 116 / 255, 139 / 255);
   const line = rgb(218 / 255, 224 / 255, 232 / 255);
-  const soft = rgb(248 / 255, 250 / 255, 252 / 255);
   const softHeader = rgb(244 / 255, 246 / 255, 248 / 255);
   const white = rgb(1, 1, 1);
 
