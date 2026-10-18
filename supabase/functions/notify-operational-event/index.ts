@@ -125,11 +125,111 @@ const notificationIdempotencyKey = (eventId: string, recipientId: string) =>
 async function getUserEmail(userId: string): Promise<{ email: string; name: string } | null> {
   const { data, error } = await supabase.auth.admin.getUserById(userId);
   if (error || !data?.user?.email) return null;
+
   const metadata = (data.user.user_metadata ?? {}) as { full_name?: string; name?: string };
+  const metadataName = String(metadata.full_name ?? metadata.name ?? '').trim();
+  if (metadataName) return { email: data.user.email, name: metadataName };
+
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, company_id')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  const profileName = typeof profile?.full_name === 'string' ? profile.full_name.trim() : '';
+  if (profileName) return { email: data.user.email, name: profileName };
+
+  const companyId = typeof profile?.company_id === 'string' ? profile.company_id : null;
+  if (companyId) {
+    const { data: company } = await supabase
+      .from('companies')
+      .select('name')
+      .eq('id', companyId)
+      .maybeSingle();
+    const companyName = typeof company?.name === 'string' ? company.name.trim() : '';
+    if (companyName) return { email: data.user.email, name: companyName };
+  }
+
+  return { email: data.user.email, name: 'there' };
+}
+
+type PublicJobContext = {
+  id: string;
+  reference: string;
+  pickup: string;
+  delivery: string;
+  deliveredAt: string;
+};
+
+const humanJobReference = (row: Record<string, unknown> | null, payload: Record<string, unknown>) => {
+  const candidates = [
+    payload.booking_reference,
+    payload.customer_reference,
+    payload.load_id,
+    payload.job_reference,
+    row?.booking_reference,
+    row?.customer_reference,
+    row?.load_id,
+  ];
+  for (const value of candidates) {
+    if (typeof value !== 'string') continue;
+    const trimmed = value.trim();
+    if (trimmed && !isUuid(trimmed)) return trimmed;
+  }
+  return 'your booking';
+};
+
+async function getPublicJobContext(event: NotificationEvent): Promise<PublicJobContext> {
+  const rawJobId = String(event.payload.job_id ?? event.entity_id ?? '').trim();
+  let row: Record<string, unknown> | null = null;
+
+  if (isUuid(rawJobId)) {
+    const { data } = await supabase
+      .from('jobs')
+      .select('id, load_id, customer_reference, booking_reference, pickup_location, delivery_location, delivered_at, completed_at')
+      .eq('id', rawJobId)
+      .maybeSingle();
+    row = (data as Record<string, unknown> | null) ?? null;
+  }
+
   return {
-    email: data.user.email,
-    name: metadata.full_name ?? metadata.name ?? data.user.email.split('@')[0],
+    id: rawJobId,
+    reference: humanJobReference(row, event.payload),
+    pickup: String(event.payload.pickup_location ?? row?.pickup_location ?? 'Collection details available in XDrive'),
+    delivery: String(event.payload.delivery_location ?? row?.delivery_location ?? 'Delivery details available in XDrive'),
+    deliveredAt: String(event.payload.delivered_at ?? row?.delivered_at ?? row?.completed_at ?? ''),
   };
+}
+
+const formatEmailDateTime = (value: string) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return new Intl.DateTimeFormat('en-GB', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+    timeZone: 'Europe/London',
+  }).format(parsed);
+};
+
+async function getPublicInvoiceReference(event: NotificationEvent) {
+  const payloadNumber = typeof event.payload.invoice_number === 'string'
+    ? event.payload.invoice_number.trim()
+    : '';
+  if (payloadNumber && !isUuid(payloadNumber)) return payloadNumber;
+
+  const rawInvoiceId = String(event.payload.invoice_id ?? event.entity_id ?? '').trim();
+  if (isUuid(rawInvoiceId)) {
+    const { data } = await supabase
+      .from('invoices')
+      .select('invoice_number')
+      .eq('id', rawInvoiceId)
+      .maybeSingle();
+    const invoiceNumber = typeof data?.invoice_number === 'string' ? data.invoice_number.trim() : '';
+    if (invoiceNumber && !isUuid(invoiceNumber)) return invoiceNumber;
+  }
+
+  return rawInvoiceId && !isUuid(rawInvoiceId) ? rawInvoiceId : 'your invoice';
 }
 
 const notificationEventClass = (eventType: string) => {
@@ -156,6 +256,12 @@ async function sendEmail(
   html: string,
   idempotencyKey: string,
 ): Promise<boolean> {
+  const uuidPattern = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
+  if (uuidPattern.test(subject) || uuidPattern.test(html)) {
+    console.error('[notify] External email blocked because it contains an internal UUID.');
+    return false;
+  }
+
   if (!resendApiKey) {
     console.error(`[notify] RESEND_API_KEY is not configured; email not sent: ${subject}`);
     return false;
@@ -283,7 +389,7 @@ async function handleJobAssigned(event: NotificationEvent) {
     emailEnabled ? sendEmail(
       user.email,
       'New Job Assigned - XDrive Logistics',
-      `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl(`/driver/jobs/${encodeURIComponent(jobIdRaw)}`))}">View job details</a></p><p>XDrive Logistics</p>`,
+      `<h2>You have a new job assigned</h2><p>Hi ${escapeHtml(user.name)},</p><p>A new job has been assigned to you.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p><a href="${escapeHtml(buildAppUrl('/driver/jobs'))}">View job details</a></p><p>XDrive Logistics</p>`,
       notificationIdempotencyKey(event.id, userId),
     ) : true,
     sendDriverPush(
@@ -301,7 +407,9 @@ async function handleJobAssigned(event: NotificationEvent) {
 }
 
 async function handleCommercialAmendment(event: NotificationEvent) {
-  const jobId = String(event.payload.job_id ?? event.entity_id);
+  const job = await getPublicJobContext(event);
+  const jobId = job.id;
+  const jobReference = job.reference;
   const amendmentId = String(event.payload.amendment_id ?? '');
   const version = String(event.payload.version_number ?? '?');
   const reason = String(event.payload.reason ?? 'Booking details changed.').trim();
@@ -319,7 +427,7 @@ async function handleCommercialAmendment(event: NotificationEvent) {
           event.event_type,
           'Job change requires acceptance - XDrive Logistics',
           (name) =>
-            `<h2>Job change requires acceptance</h2><p>Hi ${name},</p><p>Booking <strong>${escapeHtml(jobId)}</strong> has a proposed change (version ${escapeHtml(version)}).</p><p><strong>Reason:</strong> ${escapeHtml(reason)}</p><p>The original booking remains active until your company or the assigned driver accepts the change in XDrive.</p><p><a href="${escapeHtml(buildAppUrl('/carrier/diary'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
+            `<h2>Job change requires acceptance</h2><p>Hi ${name},</p><p>Booking <strong>${escapeHtml(jobReference)}</strong> has a proposed change (version ${escapeHtml(version)}).</p><p><strong>Reason:</strong> ${escapeHtml(reason)}</p><p>The original booking remains active until your company or the assigned driver accepts the change in XDrive.</p><p><a href="${escapeHtml(buildAppUrl('/carrier/diary'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
           event.id,
         )
         : true,
@@ -327,7 +435,7 @@ async function handleCommercialAmendment(event: NotificationEvent) {
         ? sendDriverPush(
           userId,
           'Job Change Requires Acceptance',
-          `Booking ${jobId} has changed. Open XDrive to review OLD → NEW details and accept or reject.`,
+          `Booking ${jobReference} has changed. Open XDrive to review OLD → NEW details and accept or reject.`,
           {
             event_type: 'commercial_amendment_proposed',
             job_id: jobId,
@@ -350,7 +458,7 @@ async function handleCommercialAmendment(event: NotificationEvent) {
         accepted
           ? 'Job change accepted - XDrive Logistics'
           : 'Job change rejected - XDrive Logistics',
-        `<h2>Job change ${accepted ? 'accepted' : 'rejected'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>Booking <strong>${escapeHtml(jobId)}</strong> amendment version ${escapeHtml(version)} was <strong>${accepted ? 'accepted' : 'rejected'}</strong>.</p><p>${accepted ? 'The accepted version is now the active booking.' : 'The previously accepted booking remains active.'}</p><p><a href="${escapeHtml(buildAppUrl('/customer/jobs/' + encodeURIComponent(jobId)))}">Open booking history</a></p><p>XDrive Logistics</p>`,
+        `<h2>Job change ${accepted ? 'accepted' : 'rejected'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>Booking <strong>${escapeHtml(jobReference)}</strong> amendment version ${escapeHtml(version)} was <strong>${accepted ? 'accepted' : 'rejected'}</strong>.</p><p>${accepted ? 'The accepted version is now the active booking.' : 'The previously accepted booking remains active.'}</p><p><a href="${escapeHtml(buildAppUrl('/customer/jobs'))}">Open booking history</a></p><p>XDrive Logistics</p>`,
         notificationIdempotencyKey(event.id, userId),
       );
     }
@@ -363,7 +471,7 @@ async function handleCommercialAmendment(event: NotificationEvent) {
       event.event_type,
       accepted ? 'Job change accepted - XDrive Logistics' : 'Job change rejected - XDrive Logistics',
       (name) =>
-        `<h2>Job change ${accepted ? 'accepted' : 'rejected'}</h2><p>Hi ${name},</p><p>Booking <strong>${escapeHtml(jobId)}</strong> amendment version ${escapeHtml(version)} was <strong>${accepted ? 'accepted' : 'rejected'}</strong>.</p><p>XDrive Logistics</p>`,
+        `<h2>Job change ${accepted ? 'accepted' : 'rejected'}</h2><p>Hi ${name},</p><p>Booking <strong>${escapeHtml(jobReference)}</strong> amendment version ${escapeHtml(version)} was <strong>${accepted ? 'accepted' : 'rejected'}</strong>.</p><p>XDrive Logistics</p>`,
       event.id,
     )
     : true;
@@ -376,11 +484,11 @@ async function handleBidAccepted(event: NotificationEvent) {
   const user = await getUserEmail(userId);
   if (!user) return true;
   const amount = escapeHtml(event.payload.bid_price_gbp ?? event.payload.amount ?? event.payload.bid_amount ?? 'N/A');
-  const jobId = escapeHtml(event.payload.job_id ?? event.entity_id);
+  const job = await getPublicJobContext(event);
   return sendEmail(
     user.email,
     'Bid Accepted - XDrive Logistics',
-    `<h2>Your bid has been accepted</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your bid of <strong>£${amount}</strong> on job <strong>${jobId}</strong> has been accepted.</p><p><a href="${escapeHtml(buildAppUrl('/admin/bids'))}">Open the bids workspace</a></p><p>XDrive Logistics</p>`,
+    `<h2>Your bid has been accepted</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your bid of <strong>£${amount}</strong> on booking <strong>${escapeHtml(job.reference)}</strong> has been accepted.</p><p><strong>Collection:</strong> ${escapeHtml(job.pickup)}<br><strong>Delivery:</strong> ${escapeHtml(job.delivery)}</p><p><a href="${escapeHtml(buildAppUrl('/admin/bids'))}">Open the bids workspace</a></p><p>XDrive Logistics</p>`,
     notificationIdempotencyKey(event.id, userId),
   );
 }
@@ -390,14 +498,32 @@ async function handlePodUploaded(event: NotificationEvent) {
     ? event.payload.company_id
     : event.company_id;
   if (!companyId) return true;
-  const jobId = escapeHtml(event.payload.job_id ?? event.entity_id);
-  const pickup = escapeHtml(event.payload.pickup_location ?? 'N/A');
-  const delivery = escapeHtml(event.payload.delivery_location ?? 'N/A');
+
+  const job = await getPublicJobContext(event);
+  const delivered = formatEmailDateTime(job.deliveredAt);
+  const podStatus = event.payload.pod_status === 'pending' ? 'Pending review' : 'Available';
+  const subject = `Job delivered - POD available - Ref: ${job.reference}`;
+
   return emailCompanyOperators(
     companyId,
     event.event_type,
-    'Job Delivered - POD Ready',
-    (name) => `<h2>Job delivered - POD available</h2><p>Hi ${name},</p><p>Job <strong>${jobId}</strong> has been marked delivered.</p><ul><li><strong>Pickup:</strong> ${pickup}</li><li><strong>Delivery:</strong> ${delivery}</li></ul><p>Sign in to review the proof of delivery.</p><p>XDrive Logistics</p>`,
+    subject,
+    (name) => `
+      <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#1f2937;line-height:1.55">
+        <h2 style="margin:0 0 18px">Job delivered - POD available</h2>
+        <p>Hi ${name},</p>
+        <p>Your job <strong>${escapeHtml(job.reference)}</strong> has been delivered successfully.</p>
+        <table style="border-collapse:collapse;width:100%;margin:18px 0">
+          <tr><td style="padding:7px 0;font-weight:700;width:120px">Job ref</td><td style="padding:7px 0">${escapeHtml(job.reference)}</td></tr>
+          <tr><td style="padding:7px 0;font-weight:700">Collection</td><td style="padding:7px 0">${escapeHtml(job.pickup)}</td></tr>
+          <tr><td style="padding:7px 0;font-weight:700">Delivery</td><td style="padding:7px 0">${escapeHtml(job.delivery)}</td></tr>
+          ${delivered ? `<tr><td style="padding:7px 0;font-weight:700">Delivered</td><td style="padding:7px 0">${escapeHtml(delivered)}</td></tr>` : ''}
+          <tr><td style="padding:7px 0;font-weight:700">POD</td><td style="padding:7px 0">${escapeHtml(podStatus)}</td></tr>
+        </table>
+        <p><a href="${escapeHtml(buildAppUrl('/'))}" style="display:inline-block;padding:11px 18px;background:#1f2937;color:#fff;border-radius:7px;text-decoration:none;font-weight:700">View POD</a></p>
+        <p style="color:#64748b">You can also review the full job details in your XDrive workspace.</p>
+        <p>XDrive Logistics</p>
+      </div>`,
     event.id,
   );
 }
@@ -647,11 +773,14 @@ async function handleOnboardingSubmitted(event: NotificationEvent) {
   const user = await getUserEmail(userId);
   if (!user) return true;
   const accountType = escapeHtml(String(event.payload.account_type ?? 'account').replaceAll('_', ' '));
-  const reference = escapeHtml(event.payload.onboarding_application_id ?? event.entity_id);
+  const rawReference = String(event.payload.onboarding_application_id ?? '').trim();
+  const referenceLine = rawReference && !isUuid(rawReference)
+    ? `<p>Reference: <strong>${escapeHtml(rawReference)}</strong></p>`
+    : '';
   return sendEmail(
     user.email,
     'Onboarding submitted - XDrive Logistics',
-    `<h2>Onboarding submitted</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your ${accountType} onboarding has been submitted for review.</p><p>Reference: <strong>${reference}</strong></p><p>XDrive Logistics</p>`,
+    `<h2>Onboarding submitted</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your ${accountType} onboarding has been submitted for review.</p>${referenceLine}<p>XDrive Logistics</p>`,
     notificationIdempotencyKey(event.id, userId),
   );
 }
@@ -671,7 +800,7 @@ async function handleOnboardingApproved(event: NotificationEvent) {
 }
 
 async function handleInvoiceDisputed(event: NotificationEvent) {
-  const invoiceId = escapeHtml(event.payload.invoice_id ?? event.entity_id);
+  const invoiceReference = escapeHtml(await getPublicInvoiceReference(event));
   const companyId = event.company_id ?? (event.payload.company_id as string | undefined);
   if (event.recipient_user_id) {
     if (!await userEmailEnabled(event.recipient_user_id, event.event_type)) return true;
@@ -680,7 +809,7 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
     return sendEmail(
       user.email,
       'Invoice disputed - XDrive Logistics',
-      `<h2>Invoice disputed</h2><p>Hi ${escapeHtml(user.name)},</p><p>Invoice <strong>${invoiceId}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+      `<h2>Invoice disputed</h2><p>Hi ${escapeHtml(user.name)},</p><p>Invoice <strong>${invoiceReference}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
       notificationIdempotencyKey(event.id, event.recipient_user_id),
     );
   }
@@ -689,7 +818,7 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
     companyId,
     event.event_type,
     'Invoice disputed - XDrive Logistics',
-    (name) => `<h2>Invoice disputed</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceId}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
+    (name) => `<h2>Invoice disputed</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceReference}</strong> has been disputed.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
     event.id,
   );
 }
