@@ -78,6 +78,9 @@ export type WorkspaceInvoice = {
   status: string;
   payment_status?: string | null;
   delivery_state?: string | null;
+  submitted_at?: string | null;
+  approved_at?: string | null;
+  approved_by?: string | null;
   amount: number | null;
   net_amount?: number | null;
   vat_amount?: number | null;
@@ -850,7 +853,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         case 'customer': {
           const buyerInvoicesRes = await supabase
             .from('invoices')
-            .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name, document_type, parent_invoice_id, adjustment_reason')
+            .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, submitted_at, approved_at, approved_by, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name, document_type, parent_invoice_id, adjustment_reason')
             .eq('buyer_company_id', companyId)
             .order('created_at', { ascending: false })
             .limit(500);
@@ -876,7 +879,7 @@ export function useCompanyWorkspaceData(): WorkspaceDataState {
         default: {
           const invoicesRes = await supabase
             .from('invoices')
-            .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name, document_type, parent_invoice_id, adjustment_reason')
+            .select('id, company_id, buyer_company_id, supplier_company_id, commercial_agreement_id, job_id, invoice_number, status, payment_status, delivery_state, submitted_at, approved_at, approved_by, amount, net_amount, vat_amount, vat_rate, currency, due_date, invoice_date, created_at, client_name, document_type, parent_invoice_id, adjustment_reason')
             .or(`company_id.eq.${companyId},buyer_company_id.eq.${companyId},supplier_company_id.eq.${companyId}`)
             .order('created_at', { ascending: false })
             .limit(500);

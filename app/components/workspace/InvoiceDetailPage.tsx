@@ -41,6 +41,11 @@ type Invoice = {
   delivery_location: string | null;
   service_description: string | null;
   payment_terms: string | null;
+  buyer_company_id: string | null;
+  supplier_company_id: string | null;
+  submitted_at: string | null;
+  approved_at: string | null;
+  approved_by: string | null;
   document_type: 'invoice' | 'supplementary' | 'credit_note';
   parent_invoice_id: string | null;
   adjustment_reason: string | null;
@@ -50,6 +55,12 @@ type History = { id: string; from_status: string | null; to_status: string; note
 type Payment = { id: string; amount: number; currency: string; paid_at: string; settlement_method: string; external_reference: string | null };
 type Dispute = { id: string; reason: string; details: string | null; status: string; resolution_note: string | null; created_at: string };
 type Document = { id: string; doc_type: string; file_url: string; file_name: string | null; file_size_bytes: number | null; created_at: string };
+type ViewerContext = {
+  isIssuer: boolean;
+  isBuyer: boolean;
+  buyerCompanyId: string | null;
+  canManageBuyerPayments: boolean;
+};
 
 const currency = (value: number | null | undefined, code = 'GBP') =>
   new Intl.NumberFormat('en-GB', { style: 'currency', currency: code }).format(Number(value ?? 0));
@@ -79,6 +90,11 @@ export default function InvoiceDetailPage({
   const [payments, setPayments] = useState<Payment[]>([]);
   const [disputes, setDisputes] = useState<Dispute[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [viewerContext, setViewerContext] = useState<ViewerContext | null>(null);
+  const [financeBusy, setFinanceBusy] = useState<'approve' | 'stripe' | 'external' | null>(null);
+  const [financeNotice, setFinanceNotice] = useState('');
+  const [externalPaymentMethod, setExternalPaymentMethod] = useState('bank_transfer');
+  const [externalPaymentReference, setExternalPaymentReference] = useState('');
   const [loading, setLoading] = useState(true);
   const [openingDocumentId, setOpeningDocumentId] = useState<string | null>(null);
   const [error, setError] = useState('');
@@ -104,6 +120,7 @@ export default function InvoiceDetailPage({
         payments?: Payment[];
         disputes?: Dispute[];
         documents?: Document[];
+        viewerContext?: ViewerContext;
       } | null;
       if (!response.ok || !payload?.invoice) throw new Error(payload?.error ?? 'Invoice could not be loaded.');
       setInvoice(payload.invoice);
@@ -111,6 +128,7 @@ export default function InvoiceDetailPage({
       setPayments(payload.payments ?? []);
       setDisputes(payload.disputes ?? []);
       setDocuments(payload.documents ?? []);
+      setViewerContext(payload.viewerContext ?? null);
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Invoice could not be loaded.');
     } finally {
@@ -152,6 +170,89 @@ export default function InvoiceDetailPage({
     }
   };
 
+  const getAccessToken = async () => {
+    const { data } = await supabase.auth.getSession();
+    const token = data.session?.access_token;
+    if (!token) throw new Error('Your session has expired. Please sign in again.');
+    return token;
+  };
+
+  const approveInvoice = async () => {
+    setFinanceBusy('approve');
+    setFinanceNotice('');
+    setError('');
+    try {
+      const token = await getAccessToken();
+      const response = await fetch(`/api/admin/invoices/${invoiceId}/approve`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? 'Invoice could not be approved.');
+      setFinanceNotice('Invoice approved. It is ready to pay.');
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Invoice could not be approved.');
+    } finally {
+      setFinanceBusy(null);
+    }
+  };
+
+  const payWithStripe = async () => {
+    setFinanceBusy('stripe');
+    setFinanceNotice('');
+    setError('');
+    try {
+      const token = await getAccessToken();
+      const response = await fetch('/api/payments/jobs/checkout', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ invoiceId, returnPath: window.location.pathname }),
+      });
+      const payload = (await response.json().catch(() => null)) as { checkoutUrl?: string; error?: string } | null;
+      if (!response.ok || !payload?.checkoutUrl) throw new Error(payload?.error ?? 'Stripe Checkout could not be started.');
+      window.location.assign(payload.checkoutUrl);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Stripe Checkout could not be started.');
+      setFinanceBusy(null);
+    }
+  };
+
+  const recordExternalPayment = async () => {
+    if (!invoice) return;
+    setFinanceBusy('external');
+    setFinanceNotice('');
+    setError('');
+    try {
+      const token = await getAccessToken();
+      const alreadyPaid = payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0);
+      const amount = Math.max(0, Number(invoice.amount ?? 0) - alreadyPaid);
+      if (amount <= 0) throw new Error('This invoice has no outstanding balance.');
+      const response = await fetch(`/api/admin/invoices/${invoiceId}/payment-history`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          amount,
+          currency: invoice.currency ?? 'GBP',
+          paid_at: new Date().toISOString(),
+          settlement_method: externalPaymentMethod,
+          external_reference: externalPaymentReference.trim() || null,
+          note: 'External payment recorded by the buyer company.',
+          idempotency_key: crypto.randomUUID(),
+        }),
+      });
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (!response.ok) throw new Error(payload?.error ?? 'External payment could not be recorded.');
+      setExternalPaymentReference('');
+      setFinanceNotice('External payment recorded.');
+      await load();
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'External payment could not be recorded.');
+    } finally {
+      setFinanceBusy(null);
+    }
+  };
+
   const paid = useMemo(() => payments.reduce((sum, payment) => sum + Number(payment.amount ?? 0), 0), [payments]);
   const code = invoice?.currency ?? 'GBP';
   const signedAmount = invoice ? invoiceSignedGrossAmount(invoice) : 0;
@@ -169,6 +270,7 @@ export default function InvoiceDetailPage({
       />
 
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+      {financeNotice && <AlertBanner tone="success">{financeNotice}</AlertBanner>}
       {!invoice ? <Panel><EmptyState title="Invoice not available" /></Panel> : (
         <>
           <KpiGrid>
@@ -178,6 +280,55 @@ export default function InvoiceDetailPage({
             <KpiCard label="Invoice state" value={<StatusBadge value={invoiceState(invoice)} />} tone="blue" />
             <KpiCard label="Payment state" value={<StatusBadge value={paymentState(invoice).replace(/_/g, ' ')} />} tone={paymentState(invoice) === 'paid' ? 'green' : 'orange'} />
           </KpiGrid>
+
+          {viewerContext?.isBuyer && viewerContext.canManageBuyerPayments && invoice.document_type !== 'credit_note' && outstanding > 0 && (
+            <Panel
+              title="Buyer payment"
+              description="Approve the supplier invoice, then pay it through Stripe Connect. XDrive does not custody transport funds. External payments can be recorded separately."
+            >
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+                  {!invoice.approved_at ? (
+                    <ActionButton tone="primary" disabled={financeBusy !== null} onClick={() => void approveInvoice()}>
+                      {financeBusy === 'approve' ? 'Approving…' : 'Approve Invoice'}
+                    </ActionButton>
+                  ) : (
+                    <ActionButton tone="primary" disabled={financeBusy !== null} onClick={() => void payWithStripe()}>
+                      {financeBusy === 'stripe' ? 'Opening Stripe…' : 'Pay with Stripe'}
+                    </ActionButton>
+                  )}
+                  <StatusBadge value={invoice.approved_at ? 'Ready to Pay' : 'Awaiting Approval'} tone={invoice.approved_at ? 'green' : 'orange'} />
+                  <strong>{currency(outstanding, code)} outstanding</strong>
+                </div>
+
+                {invoice.approved_at && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'minmax(150px, 0.8fr) minmax(220px, 1.4fr) auto', gap: 8, alignItems: 'end' }}>
+                    <label style={{ display: 'grid', gap: 4, fontSize: '0.78rem', fontWeight: 750 }}>
+                      External payment method
+                      <select value={externalPaymentMethod} onChange={(event) => setExternalPaymentMethod(event.target.value)} style={{ minHeight: 36, border: '1px solid #d7e0ea', borderRadius: 8, padding: '0 0.65rem', background: '#fff' }}>
+                        <option value="bank_transfer">Bank transfer</option>
+                        <option value="faster_payments">Faster Payments</option>
+                        <option value="bacs">BACS</option>
+                        <option value="chaps">CHAPS</option>
+                        <option value="cash">Cash</option>
+                        <option value="cheque">Cheque</option>
+                        <option value="card">Card outside XDrive</option>
+                        <option value="paypal">PayPal</option>
+                        <option value="other">Other</option>
+                      </select>
+                    </label>
+                    <label style={{ display: 'grid', gap: 4, fontSize: '0.78rem', fontWeight: 750 }}>
+                      Payment reference
+                      <input value={externalPaymentReference} onChange={(event) => setExternalPaymentReference(event.target.value)} placeholder="Bank/payment reference" style={{ minHeight: 36, border: '1px solid #d7e0ea', borderRadius: 8, padding: '0 0.65rem' }} />
+                    </label>
+                    <ActionButton tone="secondary" disabled={financeBusy !== null} onClick={() => void recordExternalPayment()}>
+                      {financeBusy === 'external' ? 'Recording…' : 'Record External Payment'}
+                    </ActionButton>
+                  </div>
+                )}
+              </div>
+            </Panel>
+          )}
 
           <TwoColumn>
             <div style={{ display: 'grid', gap: '0.9rem' }}>

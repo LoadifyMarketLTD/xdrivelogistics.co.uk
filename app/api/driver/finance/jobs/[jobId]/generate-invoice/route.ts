@@ -187,15 +187,25 @@ export async function POST(
       });
     }
 
-    const { data: buyer, error: buyerError } = await supabaseAdmin
-      .from('companies')
-      .select('name, email, address_line1, address_line2, city, postcode')
-      .eq('id', buyerCompanyId)
-      .maybeSingle();
+    const [{ data: buyer, error: buyerError }, { data: buyerSettings, error: buyerSettingsError }] = await Promise.all([
+      supabaseAdmin
+        .from('companies')
+        .select('name, email, address_line1, address_line2, city, postcode')
+        .eq('id', buyerCompanyId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('company_settings')
+        .select('finance_email')
+        .eq('company_id', buyerCompanyId)
+        .maybeSingle(),
+    ]);
     if (buyerError) return respond(500, { error: buyerError.message });
+    if (buyerSettingsError) return respond(500, { error: buyerSettingsError.message });
 
     buyerName = cleanText(buyer?.name);
-    buyerEmail = cleanText(buyer?.email)?.toLowerCase() ?? null;
+    const financeEmail = cleanText(buyerSettings?.finance_email)?.toLowerCase() ?? null;
+    const companyEmail = cleanText(buyer?.email)?.toLowerCase() ?? null;
+    buyerEmail = validEmail(financeEmail) ? financeEmail : companyEmail;
     buyerAddress = [buyer?.address_line1, buyer?.address_line2, buyer?.city, buyer?.postcode]
       .map(cleanText)
       .filter((value): value is string => Boolean(value))

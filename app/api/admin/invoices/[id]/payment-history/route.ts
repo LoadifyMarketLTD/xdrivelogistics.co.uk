@@ -43,18 +43,22 @@ export async function POST(
 
   const { data: invoice, error: invoiceError } = await supabaseAdmin
     .from('invoices')
-    .select('id, company_id, amount, payment_status')
+    .select('id, company_id, buyer_company_id, amount, payment_status')
     .eq('id', id)
     .maybeSingle();
 
   if (invoiceError) return respond(500, { error: invoiceError.message });
   if (!invoice) return respond(404, { error: 'Invoice not found.' });
 
+  const payerCompanyId = typeof invoice.buyer_company_id === 'string' && invoice.buyer_company_id
+    ? invoice.buyer_company_id
+    : invoice.company_id as string;
+
   const { data: membership, error: membershipError } = await supabaseAdmin
     .from('company_memberships')
     .select('role_in_company')
     .eq('user_id', authData.user.id)
-    .eq('company_id', invoice.company_id as string)
+    .eq('company_id', payerCompanyId)
     .eq('status', 'active')
     .maybeSingle();
 

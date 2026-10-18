@@ -1,7 +1,6 @@
 const PAYMENT_RECORDING_ROLE_VALUES = [
   'owner',
   'admin',
-  'dispatcher',
   'finance',
 ] as const;
 

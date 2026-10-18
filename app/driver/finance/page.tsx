@@ -7,6 +7,7 @@ import { useAuth } from '../../components/AuthContext';
 import DriverWorkspaceShell from '../_components/DriverWorkspaceShell';
 import { isSupabaseConfigured } from '../../../lib/supabaseClient';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
+import { sendGeneratedInvoice } from '../../../lib/client/invoiceDelivery';
 import {
   toCanonicalInvoiceStatusWithDueDate,
   toCanonicalPaymentStatus,
@@ -224,6 +225,7 @@ export default function DriverFinancePage() {
       });
       const payload = (await response.json().catch(() => null)) as { invoice?: { id: string }; error?: string } | null;
       if (!response.ok || !payload?.invoice?.id) throw new Error(payload?.error ?? 'Invoice could not be generated.');
+      await sendGeneratedInvoice(payload.invoice.id, token);
       router.push(`/driver/finance/invoices/${payload.invoice.id}`);
     } catch (reason) {
       setGenerateError(reason instanceof Error ? reason.message : 'Invoice could not be generated.');

@@ -94,6 +94,7 @@ export const MEMBERSHIP_ROLE_CAPABILITIES: Record<MembershipRole, readonly Works
     'vehicles.manage',
     'documents.company.manage',
     'invoices.carrier.manage',
+    'payments.manage',
     'incidents.manage',
     'settings.manage',
   ],

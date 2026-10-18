@@ -86,7 +86,7 @@ const config: Record<Mode, { eyebrow: string; title: string; description: string
     eyebrow: 'Finance workspace',
     title: 'Accounts Payable',
     description: 'Carrier or supplier invoices payable by this company. This is the Accounts Payable register.',
-    detailBase: '/admin/invoices',
+    detailBase: '/admin/finance/carrier-invoices',
   },
 };
 

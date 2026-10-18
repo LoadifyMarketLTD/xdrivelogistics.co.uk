@@ -7,8 +7,18 @@ import { getCanonicalSiteOrigin } from '../../../../../lib/siteUrl';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
 import { isStripeServerConfigured, stripeRequest } from '../../../_lib/stripeServer';
 
-const requestSchema = z.object({ invoiceId: z.string().uuid() });
+const requestSchema = z.object({
+  invoiceId: z.string().uuid(),
+  returnPath: z.string().trim().max(500).optional(),
+});
 const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
+
+const safePaymentReturnPath = (value: string | undefined, invoiceId: string) => {
+  const fallback = `/admin/finance/carrier-invoices/${invoiceId}`;
+  if (!value || !value.startsWith('/') || value.startsWith('//')) return fallback;
+  const allowedPrefixes = ['/admin/finance/carrier-invoices/', '/broker/carrier-costs/', '/customer/invoices/'];
+  return allowedPrefixes.some((prefix) => value.startsWith(prefix)) ? value : fallback;
+};
 
 type CheckoutSession = { id: string; url: string | null; payment_status?: string };
 
@@ -33,7 +43,7 @@ export async function POST(request: NextRequest) {
 
   const { data: invoice, error: invoiceError } = await supabaseAdmin
     .from('invoices')
-    .select('id, invoice_number, job_id, buyer_company_id, supplier_company_id, client_email, amount, currency, status, payment_status')
+    .select('id, invoice_number, job_id, buyer_company_id, supplier_company_id, client_email, amount, currency, status, payment_status, approved_at')
     .eq('id', parsed.data.invoiceId)
     .maybeSingle();
   if (invoiceError) return json(500, { error: invoiceError.message });
@@ -43,6 +53,9 @@ export async function POST(request: NextRequest) {
   }
   if (String(invoice.payment_status ?? '').toLowerCase() === 'paid') {
     return json(409, { error: 'Invoice is already paid.' });
+  }
+  if (!invoice.approved_at) {
+    return json(409, { error: 'Invoice must be approved by the buyer before Stripe payment can start.' });
   }
 
   const { data: buyerMembership, error: membershipError } = await supabaseAdmin
@@ -88,13 +101,14 @@ export async function POST(request: NextRequest) {
   if (!/^[a-z]{3}$/.test(currency)) return json(409, { error: 'Invoice currency is invalid.' });
 
   const origin = getCanonicalSiteOrigin();
+  const returnPath = safePaymentReturnPath(parsed.data.returnPath, invoice.id);
   const session = await stripeRequest<CheckoutSession>('/checkout/sessions', {
     connectedAccount: supplierIsPlatform ? null : stripeAccountId,
     idempotencyKey: `xdrive-job-payment:${invoice.id}`,
     params: {
       mode: 'payment',
-      success_url: `${origin}/finance/invoices/${invoice.id}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}/finance/invoices/${invoice.id}?payment=cancelled`,
+      success_url: `${origin}${returnPath}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}${returnPath}?payment=cancelled`,
       customer_email: typeof invoice.client_email === 'string' ? invoice.client_email : authData.user.email ?? undefined,
       'line_items[0][quantity]': 1,
       'line_items[0][price_data][currency]': currency,
