@@ -47,6 +47,24 @@ async function setup(legacy = false) {
 }
 
 describe('September membership migrations execute against canonical and hosted legacy schemas', () => {
+  it('replays the contact backfill without a hosted website column and only copies approved values', async () => {
+    const db = new PGlite();
+    try {
+      await db.exec(`CREATE TABLE companies(id uuid PRIMARY KEY,email text);
+        CREATE TABLE onboarding_applications(company_id uuid,payload jsonb,status text,created_at timestamptz);
+        INSERT INTO companies VALUES ('${company}',null);
+        INSERT INTO onboarding_applications VALUES
+          ('${company}','{"website":"https://approved.example.test","contact_email":"approved@example.test"}','approved','2026-10-01'),
+          ('${company}','{"website":"https://pending.example.test","contact_email":"pending@example.test"}','pending','2026-10-02');`);
+      const backfill = migration('20261003222500_backfill_existing_company_contact_from_onboarding.sql');
+      await db.exec(backfill);
+      await db.exec(backfill);
+      expect((await db.query(`SELECT email,website FROM companies`)).rows[0]).toEqual({
+        email: 'approved@example.test', website: 'https://approved.example.test',
+      });
+    } finally { await db.close(); }
+  });
+
   it('replays all three migrations without creating retired tables or RPCs on a canonical schema', async () => {
     const db = await setup();
     try {

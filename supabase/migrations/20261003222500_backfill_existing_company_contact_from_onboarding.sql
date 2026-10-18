@@ -2,6 +2,12 @@
 -- Uses the most recent approved non-empty value per company and field.
 -- Idempotent: only updates when the onboarding value differs from companies.
 
+BEGIN;
+
+-- Hosted has this nullable text column, but the canonical chain never added it.
+-- Capture that dependency before the backfill so a fresh branch can replay it.
+ALTER TABLE public.companies ADD COLUMN IF NOT EXISTS website text;
+
 with ranked_email as (
   select
     company_id,
@@ -41,3 +47,5 @@ from ranked_website rw
 where rw.company_id = c.id
   and rw.rn = 1
   and rw.onboarding_website is distinct from c.website;
+
+COMMIT;
