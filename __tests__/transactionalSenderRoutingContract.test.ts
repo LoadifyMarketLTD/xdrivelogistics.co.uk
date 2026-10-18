@@ -55,12 +55,13 @@ describe('transactional sender routing contract', () => {
     ]) expect(companySource).toContain(address);
   });
 
-  it('surfaces the functional contact channels in the marketing footer', () => {
+  it('keeps the public footer focused on human contact channels', () => {
+    expect(marketingSource).toContain('COMPANY_CONFIG.emails.general');
     expect(marketingSource).toContain('COMPANY_CONFIG.emails.operations');
     expect(marketingSource).toContain('COMPANY_CONFIG.emails.support');
-    expect(marketingSource).toContain('COMPANY_CONFIG.emails.confirmations');
-    expect(marketingSource).toContain('COMPANY_CONFIG.emails.pod');
-    expect(marketingSource).toContain('COMPANY_CONFIG.emails.invoices');
-    expect(marketingSource).toContain('COMPANY_CONFIG.emails.payments');
+    expect(marketingSource).not.toContain('COMPANY_CONFIG.emails.confirmations');
+    expect(marketingSource).not.toContain('COMPANY_CONFIG.emails.pod');
+    expect(marketingSource).not.toContain('COMPANY_CONFIG.emails.invoices');
+    expect(marketingSource).not.toContain('COMPANY_CONFIG.emails.payments');
   });
 });

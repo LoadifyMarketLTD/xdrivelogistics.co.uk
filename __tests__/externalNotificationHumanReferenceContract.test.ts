@@ -28,12 +28,14 @@ describe('external notification human-reference contract', () => {
       source.indexOf('async function handlePodUploaded'),
       source.indexOf('async function handleLoadAlert'),
     );
-    expect(handler).toContain('getPublicJobContext(event)');
-    expect(handler).toContain('Job delivered - POD available - Ref:');
-    expect(handler).toContain('Collection');
-    expect(handler).toContain('Delivery');
-    expect(handler).toContain('Delivered');
-    expect(handler).toContain('View POD');
+    expect(handler).toContain('loadPodEmailBundle(event)');
+    expect(handler).toContain('POD - ');
+    expect(handler).toContain('Booking ref');
+    expect(handler).toContain('Received by');
+    expect(handler).toContain('Left at');
+    expect(handler).toContain('Delivery status');
+    expect(handler).toContain('bundle.attachments');
+    expect(handler).toContain('View POD in XDrive');
     expect(handler).not.toContain('event.payload.job_id ?? event.entity_id');
   });
 

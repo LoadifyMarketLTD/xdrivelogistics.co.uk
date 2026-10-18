@@ -18,6 +18,7 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { parseFirebaseServiceAccount, sendFcmMessage } from './fcm.ts';
+import { binaryToBase64, buildBookingAttachments, buildPodSummaryAttachment, type EmailAttachment } from './documentPdf.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -228,6 +229,258 @@ const formatEmailDateTime = (value: string) => {
   }).format(parsed);
 };
 
+type BookingEmailContext = {
+  reference: string;
+  statusLabel: string;
+  buyerName: string;
+  carrierName: string;
+  pickup: string;
+  pickupDateTime: string;
+  delivery: string;
+  deliveryDateTime: string;
+  customerReference: string;
+  purchaseOrderNumber: string;
+  vehicle: string;
+  cargo: string;
+  distanceMiles: number | null;
+  agreedRate: number | null;
+  currency: string;
+  paymentTerms: string;
+  notes: string;
+  hardCopyPod: string;
+  carrierCompanyId: string | null;
+};
+
+const numberOrNull = (value: unknown) => {
+  const parsed = typeof value === 'number' ? value : typeof value === 'string' && value.trim() ? Number(value) : NaN;
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+async function getBookingEmailContext(
+  event: NotificationEvent,
+  statusLabel = 'Booking Confirmation',
+): Promise<BookingEmailContext> {
+  const rawJobId = String(event.payload.job_id ?? event.entity_id ?? '').trim();
+  let job: Record<string, unknown> = {};
+  if (isUuid(rawJobId)) {
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('id,company_id,awarded_carrier_company_id,assigned_company_id,booking_reference,customer_reference,purchase_order_number,pickup_location,pickup_postcode,pickup_datetime,delivery_location,delivery_postcode,delivery_datetime,requested_vehicle_label,requested_vehicle_type,vehicle_type,requested_cargo_label,cargo_type,job_distance_miles,load_details,special_requirements,hard_copy_pod')
+      .eq('id', rawJobId)
+      .maybeSingle();
+    if (error) throw error;
+    job = (data as Record<string, unknown> | null) ?? {};
+  }
+
+  const buyerCompanyId = typeof job.company_id === 'string' ? job.company_id : null;
+  const carrierCompanyId = typeof job.awarded_carrier_company_id === 'string'
+    ? job.awarded_carrier_company_id
+    : typeof job.assigned_company_id === 'string'
+      ? job.assigned_company_id
+      : event.company_id;
+
+  const companyIds = [buyerCompanyId, carrierCompanyId].filter((value): value is string => Boolean(value));
+  const names = new Map<string, string>();
+  if (companyIds.length > 0) {
+    const { data, error } = await supabase.from('companies').select('id,name').in('id', companyIds);
+    if (error) throw error;
+    for (const row of (data ?? []) as Array<{ id?: string; name?: string }>) {
+      if (row.id && row.name) names.set(row.id, row.name);
+    }
+  }
+
+  let agreement: Record<string, unknown> = {};
+  if (isUuid(rawJobId)) {
+    const { data } = await supabase
+      .from('job_commercial_agreements_effective')
+      .select('*')
+      .eq('job_id', rawJobId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    agreement = (data as Record<string, unknown> | null) ?? {};
+  }
+
+  let bid: Record<string, unknown> = {};
+  const rawBidId = String(event.payload.bid_id ?? (event.entity_type === 'bid' ? event.entity_id : '') ?? '').trim();
+  if (isUuid(rawBidId)) {
+    const { data } = await supabase
+      .from('job_bids')
+      .select('bid_price_gbp,amount,currency')
+      .eq('id', rawBidId)
+      .maybeSingle();
+    bid = (data as Record<string, unknown> | null) ?? {};
+  }
+
+  const reference = humanJobReference(job, event.payload);
+  const pickupLocation = [job.pickup_location, job.pickup_postcode]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .join(', ');
+  const deliveryLocation = [job.delivery_location, job.delivery_postcode]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .join(', ');
+  const requestedVehicle = String(
+    job.requested_vehicle_label ?? job.requested_vehicle_type ?? job.vehicle_type ?? '',
+  ).trim();
+  const cargo = String(job.requested_cargo_label ?? job.cargo_type ?? '').trim();
+  const agreedRate = numberOrNull(agreement.agreed_amount)
+    ?? numberOrNull(event.payload.bid_price_gbp)
+    ?? numberOrNull(event.payload.amount)
+    ?? numberOrNull(bid.bid_price_gbp)
+    ?? numberOrNull(bid.amount);
+  const currency = String(agreement.currency ?? bid.currency ?? event.payload.currency ?? 'GBP').trim() || 'GBP';
+  const paymentTerms = String(agreement.payment_terms ?? event.payload.payment_terms ?? '').trim();
+  const notes = [job.load_details, job.special_requirements]
+    .filter((value) => typeof value === 'string' && value.trim())
+    .join(' | ');
+
+  return {
+    reference,
+    statusLabel,
+    buyerName: buyerCompanyId ? (names.get(buyerCompanyId) ?? 'Booking company') : 'Booking company',
+    carrierName: carrierCompanyId ? (names.get(carrierCompanyId) ?? 'Carrier') : 'Carrier',
+    pickup: pickupLocation || String(event.payload.pickup_location ?? ''),
+    pickupDateTime: formatEmailDateTime(String(job.pickup_datetime ?? event.payload.pickup_datetime ?? '')),
+    delivery: deliveryLocation || String(event.payload.delivery_location ?? ''),
+    deliveryDateTime: formatEmailDateTime(String(job.delivery_datetime ?? event.payload.delivery_datetime ?? '')),
+    customerReference: String(job.customer_reference ?? event.payload.customer_reference ?? '').trim(),
+    purchaseOrderNumber: String(job.purchase_order_number ?? '').trim(),
+    vehicle: requestedVehicle,
+    cargo,
+    distanceMiles: numberOrNull(job.job_distance_miles),
+    agreedRate,
+    currency,
+    paymentTerms,
+    notes,
+    hardCopyPod: String(job.hard_copy_pod ?? '').trim(),
+    carrierCompanyId,
+  };
+}
+
+const safePodStoragePath = (jobId: string, value: unknown): value is string => {
+  if (!isUuid(jobId) || typeof value !== 'string') return false;
+  const path = value.trim();
+  if (!path || path.length > 1024 || path.includes('://') || path.includes('..') || path.includes('\\') || path.startsWith('/')) return false;
+  const segments = path.split('/');
+  return segments.length >= 3 && segments[1] === jobId && Boolean(segments[0]) && Boolean(segments.at(-1));
+};
+
+const signatureEvidencePath = (value: unknown) => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return '';
+  const candidate = (value as Record<string, unknown>).evidence_path;
+  return typeof candidate === 'string' ? candidate.trim() : '';
+};
+
+const attachmentContentType = (path: string, fallback = 'application/octet-stream') => {
+  const lower = path.toLowerCase();
+  if (lower.endsWith('.pdf')) return 'application/pdf';
+  if (lower.endsWith('.png')) return 'image/png';
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+  if (lower.endsWith('.webp')) return 'image/webp';
+  return fallback;
+};
+
+async function loadPodEmailBundle(event: NotificationEvent) {
+  const job = await getPublicJobContext(event);
+  if (!isUuid(job.id)) {
+    return {
+      job,
+      receivedBy: '',
+      leftAt: '',
+      deliveryStatus: '',
+      itemCount: null as number | null,
+      deliveryNotes: '',
+      deliveredOn: job.deliveredAt,
+      attachments: [] as EmailAttachment[],
+    };
+  }
+
+  const [{ data: jobRow, error: jobError }, { data: proofRow, error: proofError }] = await Promise.all([
+    supabase
+      .from('jobs')
+      .select('id,delivery_photos,damage_photos,pod_photos,delivery_signature_data,client_signature_name')
+      .eq('id', job.id)
+      .maybeSingle(),
+    supabase
+      .from('proof_of_delivery')
+      .select('delivered_on,received_by,left_at,no_of_items,delivery_status,delivery_notes,photo_urls,created_at')
+      .eq('job_id', job.id)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (jobError) throw jobError;
+  if (proofError) throw proofError;
+
+  const row = (jobRow as Record<string, unknown> | null) ?? {};
+  const proof = (proofRow as Record<string, unknown> | null) ?? {};
+  const receivedBy = String(proof.received_by ?? row.client_signature_name ?? '').trim();
+  const leftAt = String(proof.left_at ?? '').trim();
+  const deliveryStatus = String(proof.delivery_status ?? '').trim();
+  const deliveryNotes = String(proof.delivery_notes ?? '').trim();
+  const deliveredOnRaw = String(proof.delivered_on ?? job.deliveredAt ?? '').trim();
+  const deliveredOn = formatEmailDateTime(deliveredOnRaw) || deliveredOnRaw;
+  const itemCount = numberOrNull(proof.no_of_items);
+
+  const candidatePaths: string[] = [];
+  const pushPaths = (value: unknown) => {
+    if (!Array.isArray(value)) return;
+    for (const entry of value) {
+      if (safePodStoragePath(job.id, entry)) candidatePaths.push(entry);
+    }
+  };
+  pushPaths(row.delivery_photos);
+  pushPaths(row.damage_photos);
+  pushPaths(row.pod_photos);
+  pushPaths(proof.photo_urls);
+  const signaturePath = signatureEvidencePath(row.delivery_signature_data);
+  if (safePodStoragePath(job.id, signaturePath)) candidatePaths.push(signaturePath);
+
+  const uniquePaths = [...new Set(candidatePaths)].slice(0, 8);
+  const evidenceAttachments: EmailAttachment[] = [];
+  let totalBytes = 0;
+  for (const storagePath of uniquePaths) {
+    if (totalBytes >= 18 * 1024 * 1024) break;
+    const { data, error } = await supabase.storage.from('pod-photos').download(storagePath);
+    if (error || !data) {
+      console.error(`[notify] Could not attach POD evidence ${storagePath}: ${error?.message ?? 'not found'}`);
+      continue;
+    }
+    const bytes = new Uint8Array(await data.arrayBuffer());
+    if (bytes.length === 0 || bytes.length > 7 * 1024 * 1024 || totalBytes + bytes.length > 18 * 1024 * 1024) continue;
+    totalBytes += bytes.length;
+    const filename = storagePath.split('/').at(-1) || 'pod-evidence';
+    evidenceAttachments.push({
+      filename,
+      content: binaryToBase64(bytes),
+      content_type: attachmentContentType(filename, data.type || 'application/octet-stream'),
+    });
+  }
+
+  const summary = buildPodSummaryAttachment({
+    reference: job.reference,
+    pickup: job.pickup,
+    delivery: job.delivery,
+    deliveredOn,
+    receivedBy,
+    leftAt,
+    deliveryStatus,
+    itemCount,
+    deliveryNotes,
+  });
+
+  return {
+    job,
+    receivedBy,
+    leftAt,
+    deliveryStatus,
+    itemCount,
+    deliveryNotes,
+    deliveredOn,
+    attachments: [summary, ...evidenceAttachments],
+  };
+}
+
 async function getPublicInvoiceReference(event: NotificationEvent) {
   const payloadNumber = typeof event.payload.invoice_number === 'string'
     ? event.payload.invoice_number.trim()
@@ -272,6 +525,7 @@ async function sendEmail(
   html: string,
   idempotencyKey: string,
   sender: SenderKind = 'technical',
+  attachments: EmailAttachment[] = [],
 ): Promise<boolean> {
   const uuidPattern = /\b[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\b/i;
   if (uuidPattern.test(subject) || uuidPattern.test(html)) {
@@ -291,7 +545,13 @@ async function sendEmail(
       Authorization: `Bearer ${resendApiKey}`,
       'Idempotency-Key': idempotencyKey,
     },
-    body: JSON.stringify({ from: senderFor(sender), to, subject, html }),
+    body: JSON.stringify({
+      from: senderFor(sender),
+      to,
+      subject,
+      html,
+      ...(attachments.length > 0 ? { attachments } : {}),
+    }),
   });
 
   if (!response.ok) {
@@ -365,6 +625,7 @@ async function emailCompanyOperators(
   htmlFor: (safeName: string) => string,
   eventId: string,
   sender: SenderKind = 'technical',
+  attachments: EmailAttachment[] = [],
 ): Promise<boolean> {
   const { data: members, error } = await supabase
     .from('company_memberships')
@@ -388,6 +649,7 @@ async function emailCompanyOperators(
           htmlFor(escapeHtml(user.name)),
           notificationIdempotencyKey(eventId, member.user_id),
           sender,
+          attachments,
         )
         : true;
     }),
@@ -470,51 +732,104 @@ async function handleCommercialAmendment(event: NotificationEvent) {
   }
 
   const accepted = event.event_type === 'commercial_amendment_accepted';
+  const bookingContext = accepted
+    ? await getBookingEmailContext(event, 'Edited Booking Confirmation')
+    : null;
+  const attachments = bookingContext ? buildBookingAttachments(bookingContext) : [];
+  const subject = accepted
+    ? `EDITED Booking Confirmation - Ref: ${jobReference}`
+    : `Job change rejected - Ref: ${jobReference}`;
+  const htmlFor = (name: string) => accepted
+    ? `<h2>Booking updated</h2><p>Hi ${name},</p><p>Booking <strong>${escapeHtml(jobReference)}</strong> amendment version ${escapeHtml(version)} was <strong>accepted</strong>.</p><p>The accepted version is now the active booking. Updated Booking Confirmation and Delivery Note are attached.</p><p><a href="${escapeHtml(buildAppUrl('/customer/jobs'))}">Open booking history</a></p><p>XDrive Logistics</p>`
+    : `<h2>Job change rejected</h2><p>Hi ${name},</p><p>Booking <strong>${escapeHtml(jobReference)}</strong> amendment version ${escapeHtml(version)} was <strong>rejected</strong>.</p><p>The previously accepted booking remains active.</p><p><a href="${escapeHtml(buildAppUrl('/customer/jobs'))}">Open booking history</a></p><p>XDrive Logistics</p>`;
+
+  const results: boolean[] = [];
   const userId = event.recipient_user_id;
   if (userId && await userEmailEnabled(userId, event.event_type)) {
     const user = await getUserEmail(userId);
     if (user) {
-      return sendEmail(
+      results.push(await sendEmail(
         user.email,
-        accepted
-          ? 'Job change accepted - XDrive Logistics'
-          : 'Job change rejected - XDrive Logistics',
-        `<h2>Job change ${accepted ? 'accepted' : 'rejected'}</h2><p>Hi ${escapeHtml(user.name)},</p><p>Booking <strong>${escapeHtml(jobReference)}</strong> amendment version ${escapeHtml(version)} was <strong>${accepted ? 'accepted' : 'rejected'}</strong>.</p><p>${accepted ? 'The accepted version is now the active booking.' : 'The previously accepted booking remains active.'}</p><p><a href="${escapeHtml(buildAppUrl('/customer/jobs'))}">Open booking history</a></p><p>XDrive Logistics</p>`,
+        subject,
+        htmlFor(escapeHtml(user.name)),
         notificationIdempotencyKey(event.id, userId),
         'confirmation',
-      );
+        attachments,
+      ));
     }
   }
 
   const companyId = event.company_id;
-  return companyId
-    ? emailCompanyOperators(
+  if (companyId) {
+    results.push(await emailCompanyOperators(
       companyId,
       event.event_type,
-      accepted ? 'Job change accepted - XDrive Logistics' : 'Job change rejected - XDrive Logistics',
-      (name) =>
-        `<h2>Job change ${accepted ? 'accepted' : 'rejected'}</h2><p>Hi ${name},</p><p>Booking <strong>${escapeHtml(jobReference)}</strong> amendment version ${escapeHtml(version)} was <strong>${accepted ? 'accepted' : 'rejected'}</strong>.</p><p>XDrive Logistics</p>`,
+      subject,
+      htmlFor,
       event.id,
       'confirmation',
-    )
-    : true;
+      attachments,
+    ));
+  }
+  return results.length === 0 ? true : results.every(Boolean);
 }
 
 async function handleBidAccepted(event: NotificationEvent) {
+  const context = await getBookingEmailContext(event, 'Booking Confirmation');
+  const attachments = buildBookingAttachments(context);
   const userId = typeof event.payload.bidder_user_id === 'string' ? event.payload.bidder_user_id : null;
-  if (!userId) return true;
-  if (!await userEmailEnabled(userId, event.event_type)) return true;
-  const user = await getUserEmail(userId);
-  if (!user) return true;
-  const amount = escapeHtml(event.payload.bid_price_gbp ?? event.payload.amount ?? event.payload.bid_amount ?? 'N/A');
-  const job = await getPublicJobContext(event);
-  return sendEmail(
-    user.email,
-    'Bid Accepted - XDrive Logistics',
-    `<h2>Your bid has been accepted</h2><p>Hi ${escapeHtml(user.name)},</p><p>Your bid of <strong>£${amount}</strong> on booking <strong>${escapeHtml(job.reference)}</strong> has been accepted.</p><p><strong>Collection:</strong> ${escapeHtml(job.pickup)}<br><strong>Delivery:</strong> ${escapeHtml(job.delivery)}</p><p><a href="${escapeHtml(buildAppUrl('/admin/bids'))}">Open the bids workspace</a></p><p>XDrive Logistics</p>`,
-    notificationIdempotencyKey(event.id, userId),
-    'confirmation',
-  );
+  const companyId = context.carrierCompanyId ?? event.company_id;
+  const rate = typeof context.agreedRate === 'number'
+    ? `${escapeHtml(context.currency)} ${escapeHtml(context.agreedRate.toFixed(2))}`
+    : '';
+  const subject = `Booking Confirmation - Ref: ${context.reference}`;
+  const htmlFor = (name: string) => `
+    <div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#1f2937;line-height:1.55">
+      <h2 style="margin:0 0 18px">Booking confirmed</h2>
+      <p>Hi ${name},</p>
+      <p>The booking <strong>${escapeHtml(context.reference)}</strong> is now confirmed.</p>
+      <table style="border-collapse:collapse;width:100%;margin:18px 0">
+        <tr><td style="padding:7px 0;font-weight:700;width:150px">Booking ref</td><td style="padding:7px 0">${escapeHtml(context.reference)}</td></tr>
+        <tr><td style="padding:7px 0;font-weight:700">Collection</td><td style="padding:7px 0">${escapeHtml(context.pickupDateTime || '')}${context.pickupDateTime && context.pickup ? '<br>' : ''}${escapeHtml(context.pickup)}</td></tr>
+        <tr><td style="padding:7px 0;font-weight:700">Delivery</td><td style="padding:7px 0">${escapeHtml(context.deliveryDateTime || '')}${context.deliveryDateTime && context.delivery ? '<br>' : ''}${escapeHtml(context.delivery)}</td></tr>
+        ${context.vehicle ? `<tr><td style="padding:7px 0;font-weight:700">Vehicle</td><td style="padding:7px 0">${escapeHtml(context.vehicle)}</td></tr>` : ''}
+        ${rate ? `<tr><td style="padding:7px 0;font-weight:700">Agreed rate</td><td style="padding:7px 0">${rate}</td></tr>` : ''}
+        ${context.paymentTerms ? `<tr><td style="padding:7px 0;font-weight:700">Payment terms</td><td style="padding:7px 0">${escapeHtml(context.paymentTerms)}</td></tr>` : ''}
+      </table>
+      <p><strong>Attached:</strong> Booking Confirmation and Delivery Note.</p>
+      <p><a href="${escapeHtml(buildAppUrl('/'))}" style="display:inline-block;padding:11px 18px;background:#1f2937;color:#fff;border-radius:7px;text-decoration:none;font-weight:700">Open XDrive</a></p>
+      <p style="color:#64748b">Keep the attached documents with the booking record. If the commercial booking is amended and accepted, XDrive will issue an updated confirmation.</p>
+      <p>XDrive Logistics</p>
+    </div>`;
+
+  const results: boolean[] = [];
+  if (userId && await userEmailEnabled(userId, event.event_type)) {
+    const user = await getUserEmail(userId);
+    if (user) {
+      results.push(await sendEmail(
+        user.email,
+        subject,
+        htmlFor(escapeHtml(user.name)),
+        notificationIdempotencyKey(event.id, userId),
+        'confirmation',
+        attachments,
+      ));
+    }
+  }
+
+  if (companyId) {
+    results.push(await emailCompanyOperators(
+      companyId,
+      event.event_type,
+      subject,
+      htmlFor,
+      event.id,
+      'confirmation',
+      attachments,
+    ));
+  }
+
+  return results.length === 0 ? true : results.every(Boolean);
 }
 
 async function handlePodUploaded(event: NotificationEvent) {
@@ -523,33 +838,38 @@ async function handlePodUploaded(event: NotificationEvent) {
     : event.company_id;
   if (!companyId) return true;
 
-  const job = await getPublicJobContext(event);
-  const delivered = formatEmailDateTime(job.deliveredAt);
-  const podStatus = event.payload.pod_status === 'pending' ? 'Pending review' : 'Available';
-  const subject = `Job delivered - POD available - Ref: ${job.reference}`;
+  const bundle = await loadPodEmailBundle(event);
+  const podStatus = bundle.deliveryStatus || (event.payload.pod_status === 'pending' ? 'Pending review' : 'Available');
+  const subject = `POD - ${bundle.job.pickup} to ${bundle.job.delivery} - Ref: ${bundle.job.reference}`;
 
   return emailCompanyOperators(
     companyId,
     event.event_type,
     subject,
     (name) => `
-      <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#1f2937;line-height:1.55">
-        <h2 style="margin:0 0 18px">Job delivered - POD available</h2>
+      <div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#1f2937;line-height:1.55">
+        <h2 style="margin:0 0 18px">Proof of Delivery</h2>
         <p>Hi ${name},</p>
-        <p>Your job <strong>${escapeHtml(job.reference)}</strong> has been delivered successfully.</p>
+        <p>The POD for booking <strong>${escapeHtml(bundle.job.reference)}</strong> is now available.</p>
         <table style="border-collapse:collapse;width:100%;margin:18px 0">
-          <tr><td style="padding:7px 0;font-weight:700;width:120px">Job ref</td><td style="padding:7px 0">${escapeHtml(job.reference)}</td></tr>
-          <tr><td style="padding:7px 0;font-weight:700">Collection</td><td style="padding:7px 0">${escapeHtml(job.pickup)}</td></tr>
-          <tr><td style="padding:7px 0;font-weight:700">Delivery</td><td style="padding:7px 0">${escapeHtml(job.delivery)}</td></tr>
-          ${delivered ? `<tr><td style="padding:7px 0;font-weight:700">Delivered</td><td style="padding:7px 0">${escapeHtml(delivered)}</td></tr>` : ''}
-          <tr><td style="padding:7px 0;font-weight:700">POD</td><td style="padding:7px 0">${escapeHtml(podStatus)}</td></tr>
+          <tr><td style="padding:7px 0;font-weight:700;width:145px">Booking ref</td><td style="padding:7px 0">${escapeHtml(bundle.job.reference)}</td></tr>
+          <tr><td style="padding:7px 0;font-weight:700">From</td><td style="padding:7px 0">${escapeHtml(bundle.job.pickup)}</td></tr>
+          <tr><td style="padding:7px 0;font-weight:700">To</td><td style="padding:7px 0">${escapeHtml(bundle.job.delivery)}</td></tr>
+          ${bundle.deliveredOn ? `<tr><td style="padding:7px 0;font-weight:700">Delivered on</td><td style="padding:7px 0">${escapeHtml(bundle.deliveredOn)}</td></tr>` : ''}
+          ${bundle.receivedBy ? `<tr><td style="padding:7px 0;font-weight:700">Received by</td><td style="padding:7px 0">${escapeHtml(bundle.receivedBy)}</td></tr>` : ''}
+          ${bundle.leftAt ? `<tr><td style="padding:7px 0;font-weight:700">Left at</td><td style="padding:7px 0">${escapeHtml(bundle.leftAt)}</td></tr>` : ''}
+          ${typeof bundle.itemCount === 'number' ? `<tr><td style="padding:7px 0;font-weight:700">Items</td><td style="padding:7px 0">${escapeHtml(bundle.itemCount)}</td></tr>` : ''}
+          <tr><td style="padding:7px 0;font-weight:700">Delivery status</td><td style="padding:7px 0">${escapeHtml(podStatus)}</td></tr>
+          ${bundle.deliveryNotes ? `<tr><td style="padding:7px 0;font-weight:700">Delivery notes</td><td style="padding:7px 0">${escapeHtml(bundle.deliveryNotes)}</td></tr>` : ''}
         </table>
-        <p><a href="${escapeHtml(buildAppUrl('/'))}" style="display:inline-block;padding:11px 18px;background:#1f2937;color:#fff;border-radius:7px;text-decoration:none;font-weight:700">View POD</a></p>
-        <p style="color:#64748b">You can also review the full job details in your XDrive workspace.</p>
+        <p><strong>Attached:</strong> POD summary${bundle.attachments.length > 1 ? ' and supporting delivery evidence' : ''}.</p>
+        <p><a href="${escapeHtml(buildAppUrl('/'))}" style="display:inline-block;padding:11px 18px;background:#1f2937;color:#fff;border-radius:7px;text-decoration:none;font-weight:700">View POD in XDrive</a></p>
+        <p style="color:#64748b">The attached evidence forms part of the delivery record retained in XDrive.</p>
         <p>XDrive Logistics</p>
       </div>`,
     event.id,
     'pod',
+    bundle.attachments,
   );
 }
 
