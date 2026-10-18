@@ -314,11 +314,11 @@ export async function GET(request: NextRequest) {
   if (actorIds.length) {
     const { data: profiles } = await supabaseAdmin
       .from('profiles')
-      .select('id,full_name,email')
-      .in('id', actorIds.slice(0, 500));
-    const actorById = new Map((profiles ?? []).map((profile) => [String(profile.id), {
+      .select('user_id,full_name')
+      .in('user_id', actorIds.slice(0, 500));
+    const actorById = new Map((profiles ?? []).map((profile) => [String(profile.user_id), {
       name: text(profile.full_name),
-      email: text(profile.email),
+      email: null,
     }]));
     events = events.map((event) => {
       const actorId = text(event.payload.actor_user_id);

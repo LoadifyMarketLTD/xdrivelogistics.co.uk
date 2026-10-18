@@ -25,8 +25,11 @@ describe('workspace Event Log completion', () => {
     expect(api).toContain(".in('target_company_id', companyIds)");
   });
 
-  it('enriches verified actor identities without fabricating login/logout events', () => {
+  it('enriches verified actor identities through profiles.user_id without querying a nonexistent email column', () => {
     expect(api).toContain("from('profiles')");
+    expect(api).toContain(".select('user_id,full_name')");
+    expect(api).toContain(".in('user_id', actorIds");
+    expect(api).not.toContain(".select('id,full_name,email')");
     expect(api).toContain('actor_name');
     expect(api).toContain('actor_email');
     expect(api).toContain('Login/logout events are not fabricated');

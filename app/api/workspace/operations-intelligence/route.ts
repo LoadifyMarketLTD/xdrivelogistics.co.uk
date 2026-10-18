@@ -158,7 +158,7 @@ export async function GET(request: NextRequest) {
       ? supabaseAdmin.from('vehicles').select('id,reg_plate').in('id', vehicleIds)
       : Promise.resolve({ data: [], error: null }),
     creatorUserIds.length
-      ? supabaseAdmin.from('profiles').select('id,full_name,email').in('id', creatorUserIds)
+      ? supabaseAdmin.from('profiles').select('user_id,full_name').in('user_id', creatorUserIds)
       : Promise.resolve({ data: [], error: null }),
   ]);
 
@@ -225,8 +225,8 @@ export async function GET(request: NextRequest) {
   const profileById = new Map<string, Record<string, unknown>>();
   if (!profileResult.error) {
     for (const row of (profileResult.data ?? []) as Array<Record<string, unknown>>) {
-      const id = text(row.id);
-      if (id) profileById.set(id, row);
+      const userId = text(row.user_id);
+      if (userId) profileById.set(userId, row);
     }
   }
 
@@ -276,7 +276,7 @@ export async function GET(request: NextRequest) {
       itemCount: numberValue(job.no_of_items) ?? numberValue(job.items_count),
       createdByUserId,
       createdByName: text(creatorProfile?.full_name),
-      createdByEmail: text(creatorProfile?.email),
+      createdByEmail: null,
     };
   });
 
