@@ -1,4 +1,5 @@
 import { Buffer } from 'node:buffer';
+import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { buildInvoicePdf } from './invoicePdf';
 import { loadInvoicePdfContext } from './invoicePdfContext';
@@ -463,10 +464,12 @@ export async function submitInvoice(
     .maybeSingle();
   if (existingDocumentError) return failDelivery(500, existingDocumentError.message);
 
+  const pdfSha256 = createHash('sha256').update(pdfBytes).digest('hex');
   const documentValues = {
     file_url: storagePath,
     file_name: fileName,
     file_size_bytes: pdfBytes.byteLength,
+    content_sha256: pdfSha256,
     uploaded_by: sender.userId,
   };
   if (existingDocument) {

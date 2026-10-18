@@ -11,6 +11,7 @@ const execution = read('app/components/workspace/DriverJobExecutionPage.tsx');
 const diary = read('app/driver/history/page.tsx');
 const finance = read('app/driver/finance/page.tsx');
 const pdfContext = read('lib/server/invoicePdfContext.ts');
+const dispatchMigration = read('supabase/migrations/20261018141100_invoice_delivery_dispatch_config.sql');
 
 describe('automatic POD + invoice delivery after invoice creation', () => {
   it('targets the buyer finance email first and falls back to the company email', () => {
@@ -43,10 +44,22 @@ describe('automatic POD + invoice delivery after invoice creation', () => {
     expect(pdfContext.toLowerCase()).toContain('recipient');
   });
 
+  it('persists a SHA-256 fingerprint for the exact generated PDF attachment', () => {
+    expect(sender).toContain("createHash('sha256').update(pdfBytes).digest('hex')");
+    expect(sender).toContain('content_sha256: pdfSha256');
+    expect(sender).toContain("attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }]");
+  });
+
   it('marks delivery sent only after the email provider accepts the invoice', () => {
     expect(sender).toContain("delivery_state: 'sent'");
     expect(sender).toContain("delivery_provider: 'resend'");
     expect(sender).toContain('delivery_message_id: messageId');
     expect(sender).toContain("return failDelivery(502");
+  });
+
+  it('does not hard-code production as the pg_cron delivery target', () => {
+    expect(dispatchMigration).toContain("key = 'invoice_delivery_dispatch_url'");
+    expect(dispatchMigration).toContain("key = 'supabase_service_role_key'");
+    expect(dispatchMigration).not.toContain("url := 'https://www.xdrivelogistics.co.uk/api/internal/invoice-deliveries'");
   });
 });
