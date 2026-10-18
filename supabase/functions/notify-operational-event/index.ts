@@ -694,28 +694,12 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
   );
 }
 
-async function handleInvoiceCreated(event: NotificationEvent) {
-  const invoiceNumber = escapeHtml(event.payload.invoice_number ?? event.payload.invoice_id ?? event.entity_id);
-  const companyId = event.company_id ?? (event.payload.company_id as string | undefined);
-  if (event.recipient_user_id) {
-    if (!await userEmailEnabled(event.recipient_user_id, event.event_type)) return true;
-    const user = await getUserEmail(event.recipient_user_id);
-    if (!user) return true;
-    return sendEmail(
-      user.email,
-      'Invoice created - XDrive Logistics',
-      `<h2>Invoice created</h2><p>Hi ${escapeHtml(user.name)},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
-      notificationIdempotencyKey(event.id, event.recipient_user_id),
-    );
-  }
-  if (!companyId) return true;
-  return emailCompanyOperators(
-    companyId,
-    event.event_type,
-    'Invoice created - XDrive Logistics',
-    (name) => `<h2>Invoice created</h2><p>Hi ${name},</p><p>Invoice <strong>${invoiceNumber}</strong> has been created.</p><p>Please review it in your finance workspace.</p><p>XDrive Logistics</p>`,
-    event.id,
-  );
+async function handleInvoiceCreated(_event: NotificationEvent) {
+  // Invoice creation is an internal workspace event. Do not send a second
+  // email that can be mistaken for the commercial invoice itself.
+  // The actual invoice email, with the issuer-branded PDF attached, is sent
+  // only by the invoice delivery worker after POD/PDF validation succeeds.
+  return true;
 }
 
 async function processEvent(event: NotificationEvent): Promise<void> {

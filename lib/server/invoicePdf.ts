@@ -154,9 +154,9 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  // Official XDrive palette. The PDF keeps the approved invoice mock-up geometry,
-  // while using the current platform brand colours and logo asset supplied by context.
-  const navy = rgb(11 / 255, 47 / 255, 107 / 255);
+  // Neutral invoice palette. The commercial document belongs to the issuer,
+  // not to the XDrive platform. Issuer branding is supplied only by issuer data/logo.
+  const navy = rgb(31 / 255, 41 / 255, 55 / 255);
   const dark = rgb(26 / 255, 31 / 255, 43 / 255);
   const grey = rgb(75 / 255, 85 / 255, 99 / 255);
   const muted = rgb(100 / 255, 116 / 255, 139 / 255);
@@ -178,7 +178,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   };
 
   // ---------------------------------------------------------------------------
-  // Header: current XDrive logo and issuer details on the left.
+  // Header: issuer logo when available; otherwise issuer name only.
   // ---------------------------------------------------------------------------
   let logoDrawn = false;
   if (input.logoBytes?.byteLength) {
@@ -197,12 +197,14 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     }
   }
   if (!logoDrawn) {
-    page.drawText('XDrive', { x: margin, y: 792, size: 25, font: bold, color: navy });
-    page.drawText('LOGISTICS', { x: margin + 61, y: 779, size: 8.8, font: bold, color: navy });
+    const headerSize = fitText(bold, issuerName.slice(0, 70), 220, 21, 12);
+    page.drawText(issuerName.slice(0, 70), { x: margin, y: 786, size: headerSize, font: bold, color: navy });
   }
 
-  page.drawText(issuerName.slice(0, 70), { x: margin, y: 735, size: 13.5, font: bold, color: dark });
-  let issuerY = 717;
+  if (logoDrawn) {
+    page.drawText(issuerName.slice(0, 70), { x: margin, y: 735, size: 13.5, font: bold, color: dark });
+  }
+  let issuerY = logoDrawn ? 717 : 758;
   const issuerAddressLines = wrapText(pdfText(input.issuerAddress, ''), 48).filter(Boolean).slice(0, 3);
   for (const addressLine of issuerAddressLines) {
     page.drawText(addressLine, { x: margin, y: issuerY, size: 8.7, font: regular, color: grey });
