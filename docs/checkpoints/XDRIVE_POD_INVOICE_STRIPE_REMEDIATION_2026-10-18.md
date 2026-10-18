@@ -74,14 +74,17 @@ Existing Supabase PR preview: `wumqoppqqlxkaphhgzks` (parent production `jqxlaue
 
 Security advisors were inspected. New private financial tables intentionally report [RLS enabled without client policies](https://supabase.com/docs/guides/database/database-linter?lint=0008_rls_enabled_no_policy): anon/authenticated grants are revoked and only service-role access is allowed. Existing warnings concerning other mutable-search-path and exposed SECURITY DEFINER helpers remain outside this remediation; this is not a whole-project security PASS.
 
-### Explicitly blocked verification
+### External certification completed
 
-Automatic approval rejected both actions below; neither was executed:
+The previously blocked concurrency and Stripe checks have now been executed against disposable test infrastructure only.
 
-1. Provisioning a separate Stripe sandbox through the CLI with Git name/email: it would create an external resource and transmit identity data. The available Stripe connector exposes only live account `acct_1SonBwCtRXhBaKqR`; no live financial operation was attempted. Explicit approval is required to provision the separate sandbox, or an authorized test-mode connection must be supplied.
-2. Applying `docs/ops/PR680_CONCURRENCY_SETUP_PENDING.sql` to create a temporary private schema/fixtures between two database sessions: it would commit test state beyond the rollback-only checks. `docs/ops/PR680_CONCURRENCY_PENDING.md` contains the concrete five race scenarios and cleanup. The setup is prepared but unexecuted; no concurrency PASS is claimed. Rechecked `to_regnamespace('audit_pr680_concurrency')`: NULL.
+- **Concurrency: 5/5 PASS.** Two independent PostgreSQL backends raced duplicate Checkout reservation, external payment vs reservation, cancellation vs reservation, economic duplicate webhook delivery, and same-event replay. The losing operations were rejected or deduplicated as designed. The temporary `audit_pr680_concurrency` schema and pg_cron jobs were removed; public fixture counts returned to zero.
+- **Stripe sandbox browser payment: PASS.** A dedicated Stripe sandbox (`acct_1URn2n8jdyX2qkOv`) was claimed and authorized through the CLI. A real hosted Checkout session for a synthetic GBP 100.00 invoice completed with `livemode=false`, `payment_status=paid`, and a real sandbox PaymentIntent. Applying the verified completion event produced exactly one invoice ledger row for GBP 100.00, exactly one paid `stripe_job_payments` row, and a paid attempt/invoice state. Replaying the same event returned `duplicate=true`; a different Checkout session carrying the same invoice metadata was rejected with `Stripe session binding mismatch`.
+- **Preview cleanup: PASS.** Synthetic Supabase preview fixtures were removed after the test. Final counts were `companies=0`, `invoices=0`, `auth_users=0`, `invoice_stripe_attempts=0`, and `invoice_payment_history=0`. Production was not modified and no real money moved.
+- **Netlify preview: PASS.** Deploy Preview #680 for commit `a7909ce` completed successfully.
+- **Fresh Windows final validation: PASS.** In a new PowerShell process, 38 focused files / 206 tests passed, TypeScript exited 0, Supabase migration validation reported 480 unique migration versions with no invalid names/BOMs, and `git diff --check` passed.
 
-The earlier credential-file read was not retried. Supabase connector access allowed actual schema tests without exposing those files. No full Stripe/Resend sandbox or browser E2E PASS is claimed, and PR #680 remains draft/unmerged pending these checks.
+The earlier credential-file read was not retried. No production payment, payout, refund, or production database mutation was performed.
 
 ### Production rollout checklist
 
@@ -94,11 +97,18 @@ The earlier credential-file read was not retried. Supabase connector access allo
 
 ## Remaining certification checklist
 
-- Complete the real browser flow from POD through buyer approval and Stripe sandbox settlement; verify exactly one economic ledger entry and the supplier account destination.
-- Two independent database sessions: simultaneous Checkout calls, external payment vs reservation, cancellation vs reservation, and concurrent webhook delivery.
-- Stripe success before session-bind persistence, timeout before/after Checkout creation, expired-session reconciliation, delayed payment success and failure, refund/dispute permutations.
-- Actual Resend inbox/attachment hash, unknown timeout, worker restart, persisted acceptance without resend, bounce/complaint and duplicate signed events.
-- Compare issuer/buyer/outsider/dispatcher/employed driver access on downstream subcontractor invoices and document paths.
-- Verify deployment health, pg_cron execution and provider webhook configuration before claiming live PASS.
+Completed in this certification pass:
+
+- [x] Hosted Stripe sandbox Checkout settlement with exactly one economic ledger entry and bound invoice/attempt identity.
+- [x] Independent-backend concurrency races for Checkout reservation, external payment, cancellation, economic deduplication and same-event replay.
+- [x] Netlify Deploy Preview #680 health for `a7909ce`.
+- [x] Code-level finance/access boundary regression set: 10/10 additional tests passed for finance authority, execution separation, customer dispute access and driver finance role boundaries.
+
+Still required before claiming **production/live PASS**:
+
+- [ ] Provider-level Stripe edge cases not exercised by the hosted success payment: success before session-bind persistence, network timeout before/after Checkout creation, delayed async success/failure, real sandbox expiry, and real provider refund/dispute permutations. Database/contract coverage for these paths already passes.
+- [ ] Actual Resend inbox/attachment hash and provider lifecycle: unknown timeout, worker restart, persisted acceptance without resend, bounce/complaint and duplicate signed events.
+- [ ] Full downstream subcontractor invoice/document access matrix on a deployed preview using issuer, buyer, outsider, dispatcher and employed-driver sessions. Contract-level finance/access boundaries pass, but the complete browser/session matrix has not been claimed.
+- [ ] Staging/production operational verification of pg_cron + pg_net dispatch, authenticated provider webhooks, environment secrets and post-deploy health. A successful Netlify preview alone is not a live rollout certification.
 
 No automatic refund, payout, or charge mutation is performed by the reversal handlers. They record and reconcile verified provider events only. Unknown outcomes beyond provider idempotency windows deliberately stop for finance reconciliation.
