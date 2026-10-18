@@ -4347,3 +4347,60 @@
   font-size: 14px !important;
   line-height: 20px !important;
 }
+
+
+/* Global interactive typography — promotes the approved Diary readability to every
+ * measured XDrive workspace. Super Admin remains out of scope because it does not
+ * use the .xdrive-workspace-measured shell. Geometry, colours and permissions stay unchanged. */
+.xdrive-workspace-measured {
+  --ws-interactive-font-size: 14px;
+  --ws-interactive-line-height: 18px;
+  --ws-interactive-font-weight: 600;
+}
+
+.xdrive-workspace-measured :is(
+  button,
+  a[href],
+  summary,
+  select,
+  option,
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"],
+  [role="option"],
+  input[type="button"],
+  input[type="submit"],
+  input[type="reset"]
+) {
+  font-family: inherit !important;
+  font-size: var(--ws-interactive-font-size) !important;
+  line-height: var(--ws-interactive-line-height) !important;
+  font-weight: var(--ws-interactive-font-weight) !important;
+}
+
+.xdrive-workspace-measured label[for],
+.xdrive-workspace-measured label:has(input[type="checkbox"]),
+.xdrive-workspace-measured label:has(input[type="radio"]) {
+  font-size: var(--ws-interactive-font-size) !important;
+  line-height: var(--ws-interactive-line-height) !important;
+  font-weight: var(--ws-interactive-font-weight) !important;
+}
+
+/* Keep the approved Diary emphasis hierarchy: primary/selected actions are heavier,
+ * without changing dimensions or introducing a new visual language. */
+.xdrive-workspace-measured :is(
+  button,
+  a[href],
+  [role="button"],
+  [role="tab"],
+  [role="menuitem"]
+):is(
+  [aria-current="page"],
+  [aria-selected="true"],
+  [aria-pressed="true"],
+  .active,
+  .is-active,
+  .selected
+) {
+  font-weight: 700 !important;
+}
