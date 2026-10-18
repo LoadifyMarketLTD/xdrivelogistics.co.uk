@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function POST() {
-  if (process.env.CONTEXT !== 'deploy-preview') {
+export async function POST(request: NextRequest) {
+  const hostname = new URL(request.url).hostname.toLowerCase();
+  if (hostname !== 'deploy-preview-680--xdrivelogistics.netlify.app') {
     return NextResponse.json({ error: 'Not found.' }, { status: 404 });
   }
 
