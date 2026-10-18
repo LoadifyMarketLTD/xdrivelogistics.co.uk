@@ -220,13 +220,48 @@ async function getPublicJobContext(event: NotificationEvent): Promise<PublicJobC
 
 const formatEmailDateTime = (value: string) => {
   if (!value) return '';
-  const parsed = new Date(value);
+  const trimmed = value.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const [year, month, day] = trimmed.split('-').map(Number);
+    const parsedDate = new Date(Date.UTC(year, month - 1, day));
+    return new Intl.DateTimeFormat('en-GB', {
+      dateStyle: 'medium',
+      timeZone: 'UTC',
+    }).format(parsedDate);
+  }
+  const parsed = new Date(trimmed);
   if (Number.isNaN(parsed.getTime())) return '';
   return new Intl.DateTimeFormat('en-GB', {
     dateStyle: 'medium',
     timeStyle: 'short',
     timeZone: 'Europe/London',
   }).format(parsed);
+};
+
+const combineAddressAndPostcode = (location: unknown, postcode: unknown) => {
+  const address = String(location ?? '').trim();
+  const code = String(postcode ?? '').trim();
+  if (!code) return address;
+  if (!address) return code;
+  const compactAddress = address.replace(/\s+/g, '').toLowerCase();
+  const compactCode = code.replace(/\s+/g, '').toLowerCase();
+  return compactAddress.includes(compactCode) ? address : `${address}, ${code}`;
+};
+
+const bookingNotesFromLoadDetails = (value: unknown) => {
+  if (typeof value !== 'string' || !value.trim()) return '';
+  const raw = value.trim();
+  if (!raw.startsWith('{')) return raw;
+  try {
+    const parsed = JSON.parse(raw) as Record<string, unknown>;
+    for (const key of ['executionInstructions', 'notes', 'publicQuoteNotes']) {
+      const candidate = parsed[key];
+      if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+    }
+    return '';
+  } catch {
+    return raw;
+  }
 };
 
 type BookingEmailContext = {
@@ -313,12 +348,8 @@ async function getBookingEmailContext(
   }
 
   const reference = humanJobReference(job, event.payload);
-  const pickupLocation = [job.pickup_location, job.pickup_postcode]
-    .filter((value) => typeof value === 'string' && value.trim())
-    .join(', ');
-  const deliveryLocation = [job.delivery_location, job.delivery_postcode]
-    .filter((value) => typeof value === 'string' && value.trim())
-    .join(', ');
+  const pickupLocation = combineAddressAndPostcode(job.pickup_location, job.pickup_postcode);
+  const deliveryLocation = combineAddressAndPostcode(job.delivery_location, job.delivery_postcode);
   const requestedVehicle = String(
     job.requested_vehicle_label ?? job.requested_vehicle_type ?? job.vehicle_type ?? '',
   ).trim();
@@ -330,7 +361,7 @@ async function getBookingEmailContext(
     ?? numberOrNull(bid.amount);
   const currency = String(agreement.currency ?? bid.currency ?? event.payload.currency ?? 'GBP').trim() || 'GBP';
   const paymentTerms = String(agreement.payment_terms ?? event.payload.payment_terms ?? '').trim();
-  const notes = [job.load_details, job.special_requirements]
+  const notes = [bookingNotesFromLoadDetails(job.load_details), job.special_requirements]
     .filter((value) => typeof value === 'string' && value.trim())
     .join(' | ');
 
