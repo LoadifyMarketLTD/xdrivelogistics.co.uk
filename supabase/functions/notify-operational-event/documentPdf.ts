@@ -242,6 +242,41 @@ export function buildPodSummaryAttachment(context: PodDocumentContext): EmailAtt
   };
 }
 
+export type RemittanceDocumentContext = {
+  invoiceNumber: string;
+  supplierName?: string;
+  customerName?: string;
+  paymentDate?: string;
+  amount?: number | null;
+  currency?: string;
+  paymentReference?: string;
+  settlementMethod?: string;
+};
+
+export function buildRemittanceAdviceAttachment(context: RemittanceDocumentContext): EmailAttachment {
+  const currency = ascii(context.currency || 'GBP') || 'GBP';
+  const amount = typeof context.amount === 'number' && Number.isFinite(context.amount)
+    ? `${currency} ${context.amount.toFixed(2)}`
+    : '';
+  const lines: PdfLine[] = [
+    ...field('Invoice', context.invoiceNumber),
+    ...field('Supplier', context.supplierName),
+    ...field('Customer', context.customerName),
+    ...field('Payment date', context.paymentDate),
+    ...field('Amount received', amount),
+    ...field('Payment reference', context.paymentReference),
+    ...field('Settlement method', context.settlementMethod),
+    { text: 'This remittance advice confirms that XDrive recorded the payment against the invoice shown above.', size: 9, gapBefore: 18 },
+  ];
+  const bytes = buildPdfBytes('Remittance Advice', `Invoice ${ascii(context.invoiceNumber)}`, lines);
+  const safeRef = ascii(context.invoiceNumber).replace(/[^A-Za-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '') || 'invoice';
+  return {
+    filename: `${safeRef}_remittance.pdf`,
+    content: bytesToBase64(bytes),
+    content_type: 'application/pdf',
+  };
+}
+
 export function binaryToBase64(bytes: Uint8Array) {
   return bytesToBase64(bytes);
 }

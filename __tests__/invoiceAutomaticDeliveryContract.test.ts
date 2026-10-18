@@ -49,6 +49,12 @@ describe('automatic POD + invoice delivery after invoice creation', () => {
     expect(sender).toContain("attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }]");
   });
 
+  it('keeps a private issuer copy of the exact delivered invoice', () => {
+    expect(sender).toContain('const issuerCopyEmail');
+    expect(sender).toContain('bcc: [issuerCopyEmail]');
+    expect(sender).toContain("issuerCopyEmail ? { bcc: [issuerCopyEmail] } : {}");
+  });
+
   it('marks delivery sent only after the email provider accepts the invoice', () => {
     expect(sender).toContain("delivery_state: 'sent'");
     expect(sender).toContain("delivery_provider: 'resend'");

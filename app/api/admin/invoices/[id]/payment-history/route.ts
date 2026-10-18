@@ -124,5 +124,27 @@ export async function POST(
     return respond(500, { error: insertError.message });
   }
 
+  const { error: notificationError } = await supabaseAdmin
+    .from('notification_events')
+    .insert({
+      event_type: 'payment_received',
+      entity_type: 'invoice',
+      entity_id: id,
+      company_id: invoice.company_id,
+      recipient_user_id: null,
+      payload: {
+        invoice_id: id,
+        company_id: invoice.company_id,
+        amount: inserted.amount,
+        currency: inserted.currency,
+        paid_at: inserted.paid_at,
+        settlement_method: inserted.settlement_method,
+        external_reference: inserted.external_reference,
+      },
+    });
+  if (notificationError) {
+    console.error('[admin payment-history] Could not enqueue payment receipt notification', notificationError.message);
+  }
+
   return respond(201, { payment: inserted });
 }

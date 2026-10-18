@@ -154,6 +154,28 @@ export async function POST(request: NextRequest) {
       });
       if (historyError && historyError.code !== '23505') throw historyError;
 
+      if (!historyError) {
+        const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
+          event_type: 'payment_received',
+          entity_type: 'invoice',
+          entity_id: invoiceId,
+          company_id: invoice.company_id,
+          recipient_user_id: null,
+          payload: {
+            invoice_id: invoiceId,
+            company_id: invoice.company_id,
+            amount: amountTotal / 100,
+            currency,
+            paid_at: new Date().toISOString(),
+            settlement_method: 'card',
+            external_reference: paymentIntent ?? checkoutSessionId,
+          },
+        });
+        if (notificationError) {
+          console.error('[stripe-connect] Could not enqueue payment receipt notification', notificationError.message);
+        }
+      }
+
       await markEvent(event.id, 'processed');
       return json(200, { received: true });
     }

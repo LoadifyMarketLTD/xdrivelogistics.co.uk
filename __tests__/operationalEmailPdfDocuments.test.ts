@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildBookingAttachments,
   buildPodSummaryAttachment,
+  buildRemittanceAdviceAttachment,
 } from '../supabase/functions/notify-operational-event/documentPdf';
 
 const decodeBase64 = (value: string) => Uint8Array.from(Buffer.from(value, 'base64'));
@@ -42,6 +43,23 @@ describe('operational email PDF documents', () => {
       const pdf = await PDFDocument.load(bytes);
       expect(pdf.getPageCount()).toBe(1);
     }
+  });
+
+  it('creates a valid remittance advice PDF', async () => {
+    const attachment = buildRemittanceAdviceAttachment({
+      invoiceNumber: 'INV-2026-001847',
+      supplierName: 'XDrive Logistics Ltd',
+      customerName: 'Controlled Customer',
+      paymentDate: '18 Oct 2026, 23:30',
+      amount: 84,
+      currency: 'GBP',
+      paymentReference: 'PAY-TEST-847',
+      settlementMethod: 'bank transfer',
+    });
+    expect(attachment.filename).toBe('INV-2026-001847_remittance.pdf');
+    const bytes = decodeBase64(attachment.content);
+    const pdf = await PDFDocument.load(bytes);
+    expect(pdf.getPageCount()).toBe(1);
   });
 
   it('creates a valid POD summary PDF', async () => {

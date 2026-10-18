@@ -18,7 +18,7 @@
  */
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { parseFirebaseServiceAccount, sendFcmMessage } from './fcm.ts';
-import { binaryToBase64, buildBookingAttachments, buildPodSummaryAttachment, type EmailAttachment } from './documentPdf.ts';
+import { binaryToBase64, buildBookingAttachments, buildPodSummaryAttachment, buildRemittanceAdviceAttachment, type EmailAttachment } from './documentPdf.ts';
 
 const supabaseUrl = Deno.env.get('SUPABASE_URL') ?? '';
 const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '';
@@ -1211,18 +1211,62 @@ async function handleInvoiceDisputed(event: NotificationEvent) {
 }
 
 async function handlePaymentReceived(event: NotificationEvent) {
-  const invoiceReference = escapeHtml(await getPublicInvoiceReference(event));
-  const companyId = event.company_id ?? (event.payload.company_id as string | undefined);
+  const invoiceReferenceRaw = await getPublicInvoiceReference(event);
+  const invoiceReference = escapeHtml(invoiceReferenceRaw);
+  const rawInvoiceId = String(event.payload.invoice_id ?? event.entity_id ?? '').trim();
+  let invoice: Record<string, unknown> = {};
+  if (isUuid(rawInvoiceId)) {
+    const { data, error } = await supabase
+      .from('invoices')
+      .select('id,company_id,buyer_company_id,invoice_number,currency')
+      .eq('id', rawInvoiceId)
+      .maybeSingle();
+    if (error) throw error;
+    invoice = (data as Record<string, unknown> | null) ?? {};
+  }
+
+  const companyId = event.company_id
+    ?? (typeof invoice.company_id === 'string' ? invoice.company_id : null)
+    ?? (event.payload.company_id as string | undefined);
+  const buyerCompanyId = typeof invoice.buyer_company_id === 'string' ? invoice.buyer_company_id : null;
+  const companyIds = [companyId, buyerCompanyId].filter((value): value is string => Boolean(value));
+  const names = new Map<string, string>();
+  if (companyIds.length > 0) {
+    const { data, error } = await supabase.from('companies').select('id,name').in('id', companyIds);
+    if (error) throw error;
+    for (const row of (data ?? []) as Array<{ id?: string; name?: string }>) {
+      if (row.id && row.name) names.set(row.id, row.name);
+    }
+  }
+
   const rawAmount = event.payload.amount_gbp ?? event.payload.amount ?? event.payload.payment_amount;
-  const amount = typeof rawAmount === 'number'
-    ? rawAmount
-    : typeof rawAmount === 'string' && rawAmount.trim() ? Number(rawAmount) : null;
-  const amountLine = typeof amount === 'number' && Number.isFinite(amount)
-    ? `<p><strong>Amount received:</strong> £${escapeHtml(amount.toFixed(2))}</p>`
+  const amount = numberOrNull(rawAmount);
+  const currency = String(event.payload.currency ?? invoice.currency ?? 'GBP').trim().toUpperCase() || 'GBP';
+  const paymentDate = formatEmailDateTime(String(event.payload.paid_at ?? event.payload.payment_date ?? ''));
+  const paymentReference = String(event.payload.external_reference ?? event.payload.payment_reference ?? '').trim();
+  const settlementMethod = String(event.payload.settlement_method ?? '').trim().replaceAll('_', ' ');
+  const amountLine = typeof amount === 'number'
+    ? `<p><strong>Amount received:</strong> ${escapeHtml(currency)} ${escapeHtml(amount.toFixed(2))}</p>`
     : '';
-  const subject = `Payment received - Invoice ${invoiceReference}`;
+  const referenceLine = paymentReference
+    ? `<p><strong>Payment reference:</strong> ${escapeHtml(paymentReference)}</p>`
+    : '';
+  const dateLine = paymentDate
+    ? `<p><strong>Payment date:</strong> ${escapeHtml(paymentDate)}</p>`
+    : '';
+  const subject = `You've been paid - Remittance advice - Invoice ${invoiceReference}`;
+  const attachment = buildRemittanceAdviceAttachment({
+    invoiceNumber: invoiceReferenceRaw,
+    supplierName: companyId ? names.get(companyId) : '',
+    customerName: buyerCompanyId ? names.get(buyerCompanyId) : '',
+    paymentDate,
+    amount,
+    currency,
+    paymentReference,
+    settlementMethod,
+  });
   const htmlFor = (name: string) =>
-    `<h2>Payment received</h2><p>Hi ${name},</p><p>Payment has been recorded against invoice <strong>${invoiceReference}</strong>.</p>${amountLine}<p><a href="${escapeHtml(buildAppUrl('/admin/finance/customer-invoices'))}">Open Finance</a></p><p>XDrive Logistics</p>`;
+    `<h2>You've been paid</h2><p>Hi ${name},</p><p>Payment has been recorded against invoice <strong>${invoiceReference}</strong>.</p>${amountLine}${dateLine}${referenceLine}<p><strong>Customers:</strong> 1</p><p>Your remittance advice is attached for your records.</p><p><a href="${escapeHtml(buildAppUrl('/admin/finance/customer-invoices'))}">Open Finance</a></p><p>XDrive Logistics</p>`;
 
   if (event.recipient_user_id) {
     if (!await userEmailEnabled(event.recipient_user_id, event.event_type)) return true;
@@ -1234,6 +1278,7 @@ async function handlePaymentReceived(event: NotificationEvent) {
       htmlFor(escapeHtml(user.name)),
       notificationIdempotencyKey(event.id, event.recipient_user_id),
       'payments',
+      [attachment],
     );
   }
 
@@ -1245,6 +1290,7 @@ async function handlePaymentReceived(event: NotificationEvent) {
     htmlFor,
     event.id,
     'payments',
+    [attachment],
   );
 }
 

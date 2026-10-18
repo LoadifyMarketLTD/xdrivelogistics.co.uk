@@ -493,10 +493,16 @@ export async function submitInvoice(
   }
 
     const senderDisplayName = companyName.replace(/["<>]/g, '').trim() || 'Invoice issuer';
+    const issuerCopyEmail = typeof pdfContext.issuerEmail === 'string'
+      && validEmail(pdfContext.issuerEmail.trim().toLowerCase())
+      && pdfContext.issuerEmail.trim().toLowerCase() !== recipientEmail
+        ? pdfContext.issuerEmail.trim().toLowerCase()
+        : null;
     emailBody = {
       tags: [{ name: 'xdrive_invoice', value: id }],
       from: `${senderDisplayName} <${fromAddress}>`,
       to: [recipientEmail],
+      ...(issuerCopyEmail ? { bcc: [issuerCopyEmail] } : {}),
       reply_to: pdfContext.issuerEmail || undefined,
       subject: resolvedSubject,
       text: resolvedMessage,
