@@ -38,6 +38,8 @@ type InvoiceRegisterFilter =
   | 'payment:disputed'
   | 'payment:refunded';
 
+type AccountsReceivableView = 'all' | 'awaiting' | 'paid' | 'customers' | 'archive';
+
 const money = (value: number | null | undefined) =>
   value == null
     ? 'Not supplied'
@@ -94,6 +96,7 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
   const router = useRouter();
   const workspace = useCompanyWorkspaceData();
   const [filter, setFilter] = useState<InvoiceRegisterFilter>('all');
+  const [accountsReceivableView, setAccountsReceivableView] = useState<AccountsReceivableView>('all');
   const page = config[mode];
 
   const invoices = useMemo(() => {
@@ -104,14 +107,23 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
       if (isOutgoingMode(mode)) return classifyAccountsDirection(invoice, workspace.companyId) === 'receivable';
       return classifyAccountsDirection(invoice, workspace.companyId) === 'payable';
     });
-    if (filter === 'all') return scoped;
+    const arScoped = mode !== 'finance-customer'
+      ? scoped
+      : accountsReceivableView === 'awaiting'
+        ? scoped.filter((invoice) => !['paid', 'refunded'].includes(paymentState(invoice)) && !['cancelled', 'void'].includes(String(invoice.status ?? '').toLowerCase()))
+        : accountsReceivableView === 'paid'
+          ? scoped.filter((invoice) => paymentState(invoice) === 'paid')
+          : accountsReceivableView === 'archive'
+            ? scoped.filter((invoice) => ['cancelled', 'void'].includes(String(invoice.status ?? '').toLowerCase()) || paymentState(invoice) === 'refunded')
+            : scoped;
+    if (filter === 'all') return arScoped;
     const [dimension, value] = filter.split(':') as ['invoice' | 'payment', string];
-    return scoped.filter((invoice) => (
+    return arScoped.filter((invoice) => (
       dimension === 'invoice'
         ? invoiceState(invoice).toLowerCase() === value
         : paymentState(invoice) === value
     ));
-  }, [filter, mode, workspace.companyId, workspace.invoices]);
+  }, [accountsReceivableView, filter, mode, workspace.companyId, workspace.invoices]);
 
   const allScoped = useMemo(() => workspace.invoices.filter((invoice) => {
     if (mode === 'customer') {
@@ -120,6 +132,20 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
     if (isOutgoingMode(mode)) return classifyAccountsDirection(invoice, workspace.companyId) === 'receivable';
     return classifyAccountsDirection(invoice, workspace.companyId) === 'payable';
   }), [mode, workspace.companyId, workspace.invoices]);
+
+  const customerRows = useMemo(() => {
+    const map = new Map<string, { name: string; invoices: number; invoiced: number; outstanding: number }>();
+    for (const invoice of allScoped) {
+      const name = invoice.client_name?.trim() || 'Customer';
+      const current = map.get(name) ?? { name, invoices: 0, invoiced: 0, outstanding: 0 };
+      const amount = invoiceSignedGrossAmount(invoice);
+      current.invoices += 1;
+      current.invoiced += amount;
+      if (!['paid', 'refunded'].includes(paymentState(invoice))) current.outstanding += amount;
+      map.set(name, current);
+    }
+    return [...map.values()].sort((a, b) => b.outstanding - a.outstanding || a.name.localeCompare(b.name));
+  }, [allScoped]);
 
   const total = allScoped.reduce((sum, invoice) => sum + invoiceSignedGrossAmount(invoice), 0);
   const unpaid = allScoped.filter((invoice) => invoice.document_type !== 'credit_note' && !['paid', 'cancelled', 'refunded'].includes(String(invoice.payment_status ?? invoice.status).toLowerCase()));
@@ -135,6 +161,18 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
         description={page.description}
       />
       {workspace.error && <AlertBanner tone="danger">{workspace.error}</AlertBanner>}
+      {mode === 'finance-customer' ? (
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #dbe3ec', paddingBottom: 6 }}>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/finance')}>Dashboard</ActionButton>
+          <ActionButton tone={accountsReceivableView === 'all' ? 'primary' : 'secondary'} onClick={() => { setAccountsReceivableView('all'); setFilter('all'); }}>All</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/finance')}>Ready To Invoice</ActionButton>
+          <ActionButton tone={accountsReceivableView === 'awaiting' ? 'primary' : 'secondary'} onClick={() => { setAccountsReceivableView('awaiting'); setFilter('all'); }}>Awaiting Payment</ActionButton>
+          <ActionButton tone={accountsReceivableView === 'paid' ? 'primary' : 'secondary'} onClick={() => { setAccountsReceivableView('paid'); setFilter('all'); }}>Paid</ActionButton>
+          <ActionButton tone={accountsReceivableView === 'customers' ? 'primary' : 'secondary'} onClick={() => { setAccountsReceivableView('customers'); setFilter('all'); }}>Customers</ActionButton>
+          <ActionButton tone={accountsReceivableView === 'archive' ? 'primary' : 'secondary'} onClick={() => { setAccountsReceivableView('archive'); setFilter('all'); }}>Archive</ActionButton>
+          <ActionButton tone="secondary" onClick={() => router.push('/admin/finance/statements')}>Statements</ActionButton>
+        </div>
+      ) : null}
       <KpiGrid>
         <KpiCard label="Invoices" value={allScoped.length} tone="navy" />
         <KpiCard label="Total value" value={money(total)} tone="blue" />
@@ -171,21 +209,29 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
           </span>
         }
       >
-        <DataTable
-          columns={['Document', 'Invoice', 'XDrive job', 'Counterparty', 'Amount', 'Due', 'Invoice state', 'Payment', 'Action']}
-          rows={invoices.map((invoice) => [
-            <StatusBadge key="document" value={invoice.document_type === 'credit_note' ? 'Credit note' : invoice.document_type === 'supplementary' ? 'Supplementary' : 'Invoice'} tone={invoice.document_type === 'credit_note' ? 'purple' : invoice.document_type === 'supplementary' ? 'orange' : 'blue'} />,
-            <button key="number" type="button" onClick={() => openInvoice(invoice)} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d4ed8', fontWeight: 850, cursor: 'pointer' }}>{invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}</button>,
-            xdriveReference(invoice.job_id),
-            invoice.client_name ?? (isIncomingCarrierMode(mode) ? 'Carrier' : 'Customer'),
-            money(invoiceSignedGrossAmount(invoice)),
-            date(invoice.due_date),
-            <StatusBadge key="invoice-state" value={invoiceState(invoice)} />,
-            <StatusBadge key="payment-state" value={paymentState(invoice).replace(/_/g, ' ')} />,
-            <ActionButton key="action" tone="secondary" onClick={() => openInvoice(invoice)}>Open</ActionButton>,
-          ])}
-          empty={<EmptyState title={workspace.loading ? 'Loading invoices…' : 'No invoices found'} />}
-        />
+        {mode === 'finance-customer' && accountsReceivableView === 'customers' ? (
+          <DataTable
+            columns={['Customer', 'Invoices', 'Invoiced', 'Outstanding']}
+            rows={customerRows.map((customer) => [customer.name, customer.invoices, money(customer.invoiced), money(customer.outstanding)])}
+            empty={<EmptyState title={workspace.loading ? 'Loading customers…' : 'No customer invoice activity'} />}
+          />
+        ) : (
+          <DataTable
+            columns={['Document', 'Invoice', 'XDrive job', 'Counterparty', 'Amount', 'Due', 'Invoice state', 'Payment', 'Action']}
+            rows={invoices.map((invoice) => [
+              <StatusBadge key="document" value={invoice.document_type === 'credit_note' ? 'Credit note' : invoice.document_type === 'supplementary' ? 'Supplementary' : 'Invoice'} tone={invoice.document_type === 'credit_note' ? 'purple' : invoice.document_type === 'supplementary' ? 'orange' : 'blue'} />,
+              <button key="number" type="button" onClick={() => openInvoice(invoice)} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d4ed8', fontWeight: 850, cursor: 'pointer' }}>{invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}</button>,
+              xdriveReference(invoice.job_id),
+              invoice.client_name ?? (isIncomingCarrierMode(mode) ? 'Carrier' : 'Customer'),
+              money(invoiceSignedGrossAmount(invoice)),
+              date(invoice.due_date),
+              <StatusBadge key="invoice-state" value={invoiceState(invoice)} />,
+              <StatusBadge key="payment-state" value={paymentState(invoice).replace(/_/g, ' ')} />,
+              <ActionButton key="action" tone="secondary" onClick={() => openInvoice(invoice)}>Open</ActionButton>,
+            ])}
+            empty={<EmptyState title={workspace.loading ? 'Loading invoices…' : 'No invoices found'} />}
+          />
+        )}
       </Panel>
     </PageFrame>
   );

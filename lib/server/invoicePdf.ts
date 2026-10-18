@@ -366,48 +366,26 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   });
 
   // ---------------------------------------------------------------------------
-  // POD / evidence strip. Only real evidence is drawn; no stock/fake imagery.
+  // POD / evidence summary.
+  // Keep the commercial invoice compact: evidence lives in appendices instead of
+  // consuming the invoice body. This mirrors the dense finance-document pattern
+  // while retaining XDrive's POD audit trail.
   // ---------------------------------------------------------------------------
   const isPdfEvidence = (item: InvoiceEvidenceImage) => String.fromCharCode(...item.bytes.slice(0, 5)) === '%PDF-';
   const imageEvidence = (input.evidenceImages ?? []).filter(item => !isPdfEvidence(item));
-  const evidence = imageEvidence.slice(0, 4);
-  const evidenceY = 318;
-  const evidenceH = 102;
-  if (evidence.length > 0) {
-    const gap = 5;
-    const boxW = (contentWidth - gap * (evidence.length - 1)) / evidence.length;
-    for (let index = 0; index < evidence.length; index += 1) {
-      const boxX = margin + index * (boxW + gap);
-      page.drawRectangle({ x: boxX, y: evidenceY, width: boxW, height: evidenceH, color: soft, borderColor: line, borderWidth: 0.55 });
-      const image = await embedImage(pdf, evidence[index].bytes);
-      if (!image) throw new Error('POD image is not a valid PNG or JPEG.');
-      const pad = 2;
-      const labelH = evidence[index].label ? 12 : 0;
-      const maxW = boxW - pad * 2;
-      const maxH = evidenceH - pad * 2 - labelH;
-      const scale = Math.min(maxW / image.width, maxH / image.height);
-      const drawW = image.width * scale;
-      const drawH = image.height * scale;
-      page.drawImage(image, {
-        x: boxX + (boxW - drawW) / 2,
-        y: evidenceY + labelH + (maxH - drawH) / 2,
-        width: drawW,
-        height: drawH,
-      });
-      if (evidence[index].label) {
-        const labelText = pdfText(evidence[index].label, '').slice(0, 24);
-        page.drawText(labelText, { x: boxX + 4, y: evidenceY + 3, size: 6.2, font: bold, color: navy });
-      }
-    }
-  } else {
-    page.drawRectangle({ x: margin, y: evidenceY + 36, width: contentWidth, height: 40, color: soft, borderColor: line, borderWidth: 0.55 });
-    page.drawText('No POD / delivery images attached to this invoice yet.', { x: margin + 14, y: evidenceY + 52, size: 8.4, font: regular, color: muted });
-  }
+  const pdfEvidence = (input.evidenceImages ?? []).filter(isPdfEvidence);
+  const evidenceCount = imageEvidence.length + pdfEvidence.length;
+  const evidenceSummary = evidenceCount
+    ? `POD evidence attached: ${evidenceCount} item${evidenceCount === 1 ? '' : 's'}${input.signatureAttestation ? ' + recipient attestation' : ''}.`
+    : input.signatureAttestation
+      ? 'Recipient attestation attached.'
+      : 'POD evidence: not attached to this invoice.';
+  page.drawText(evidenceSummary, { x: margin, y: 409, size: 7.4, font: regular, color: evidenceCount || input.signatureAttestation ? dark : muted });
 
   // ---------------------------------------------------------------------------
   // Delivery confirmation + PAYABLE. Total is the only dominant financial value.
   // ---------------------------------------------------------------------------
-  const payableY = 270;
+  const payableY = 358;
   const payableH = 38;
   page.drawRectangle({ x: margin, y: payableY, width: contentWidth, height: payableH, color: softHeader, borderColor: line, borderWidth: 0.55 });
   page.drawText('Delivery by', { x: margin + 13, y: payableY + 22, size: 6.7, font: regular, color: muted });
@@ -421,7 +399,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   // ---------------------------------------------------------------------------
   // Payment details table.
   // ---------------------------------------------------------------------------
-  const payBoxY = 104;
+  const payBoxY = 190;
   const payBoxH = 153;
   page.drawRectangle({ x: margin, y: payBoxY, width: contentWidth, height: payBoxH, color: white, borderColor: line, borderWidth: 0.65 });
   page.drawRectangle({ x: margin, y: payBoxY + payBoxH - 25, width: contentWidth, height: 25, color: softHeader });
@@ -461,8 +439,8 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   drawRight(money(finiteMoney(input.vatAmount), input.currency), margin + contentWidth - 12, payBoxY + 17, 8.2, regular);
 
   const terms = pdfText(input.paymentTerms, '14 days');
-  page.drawText(`Payment terms: ${terms}. Due date: ${formatDate(input.dueDate)}.`.slice(0, 112), { x: margin + 12, y: 84, size: 7.5, font: regular, color: dark });
-  page.drawText('Late payments may incur administrative charges.', { x: margin + 12, y: 72, size: 7.5, font: regular, color: dark });
+  page.drawText(`Payment terms: ${terms}. Due date: ${formatDate(input.dueDate)}.`.slice(0, 112), { x: margin + 12, y: 170, size: 7.5, font: regular, color: dark });
+  page.drawText('Late payments may incur administrative charges.', { x: margin + 12, y: 158, size: 7.5, font: regular, color: dark });
 
   const vatDisclosure = vatTreatment === 'reverse_charge'
     ? `Reverse charge: customer accounts for VAT; VAT is excluded from PAYABLE.${input.customerVatNumber ? ` Customer VAT: ${pdfText(input.customerVatNumber, '')}.` : ''}`
@@ -473,7 +451,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
         : '';
   if (vatDisclosure) {
     const disclosureSize = fitText(regular, pdfText(vatDisclosure, ''), contentWidth, 6.7, 5.8);
-    page.drawText(pdfText(vatDisclosure, '').slice(0, 160), { x: margin + 12, y: 62, size: disclosureSize, font: regular, color: dark });
+    page.drawText(pdfText(vatDisclosure, '').slice(0, 160), { x: margin + 12, y: 148, size: disclosureSize, font: regular, color: dark });
   }
 
   // ---------------------------------------------------------------------------
@@ -503,7 +481,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
       attestation.drawText(text, { x: 32, y: 770 - index * 14, font: regular, size: 9 });
     });
   }
-  for (const item of imageEvidence.slice(4)) {
+  for (const item of imageEvidence) {
     const image = await embedImage(pdf, item.bytes);
     if (!image) throw new Error('POD image is not a valid PNG or JPEG.');
     const appendix = pdf.addPage([595.28, 841.89]);
@@ -511,7 +489,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     const scale = Math.min(530 / image.width, 730 / image.height);
     appendix.drawImage(image, { x: 32, y: 40, width: image.width * scale, height: image.height * scale });
   }
-  for (const item of (input.evidenceImages ?? []).filter(isPdfEvidence)) {
+  for (const item of pdfEvidence) {
     const document = await PDFDocument.load(item.bytes);
     const pages = await pdf.copyPages(document, document.getPageIndices());
     for (const evidencePage of pages) pdf.addPage(evidencePage);
