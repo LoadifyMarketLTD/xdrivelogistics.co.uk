@@ -273,8 +273,22 @@ export default function InvoiceRegisterPage({ mode }: { mode: Mode }) {
           />
         ) : (
           <DataTable
-            columns={['Document', 'Invoice', 'XDrive job', 'Counterparty', 'Amount', 'Due', 'Invoice state', 'Payment', 'Action']}
-            rows={invoices.map((invoice) => [
+            columns={mode === 'finance-customer'
+              ? ['Customer', 'Invoice no.', 'Invoice date', 'XDrive job', 'Due date', 'Net total', 'VAT', 'Gross total', 'Status', 'Payment', 'Action']
+              : ['Document', 'Invoice', 'XDrive job', 'Counterparty', 'Amount', 'Due', 'Invoice state', 'Payment', 'Action']}
+            rows={invoices.map((invoice) => mode === 'finance-customer' ? [
+              invoice.client_name ?? 'Customer',
+              <button key="number" type="button" onClick={() => openInvoice(invoice)} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d4ed8', fontWeight: 850, cursor: 'pointer' }}>{invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}</button>,
+              date(invoice.invoice_date ?? invoice.created_at),
+              xdriveReference(invoice.job_id),
+              date(invoice.due_date),
+              money(Number(invoice.net_amount ?? invoice.amount ?? 0)),
+              money(Number(invoice.vat_amount ?? 0)),
+              money(invoiceSignedGrossAmount(invoice)),
+              <StatusBadge key="invoice-state" value={invoiceState(invoice)} />,
+              <StatusBadge key="payment-state" value={paymentState(invoice).replace(/_/g, ' ')} />,
+              <ActionButton key="action" tone="secondary" onClick={() => openInvoice(invoice)}>Open</ActionButton>,
+            ] : [
               <StatusBadge key="document" value={invoice.document_type === 'credit_note' ? 'Credit note' : invoice.document_type === 'supplementary' ? 'Supplementary' : 'Invoice'} tone={invoice.document_type === 'credit_note' ? 'purple' : invoice.document_type === 'supplementary' ? 'orange' : 'blue'} />,
               <button key="number" type="button" onClick={() => openInvoice(invoice)} style={{ border: 0, background: 'transparent', padding: 0, color: '#1d4ed8', fontWeight: 850, cursor: 'pointer' }}>{invoice.invoice_number ?? invoice.id.slice(0, 8).toUpperCase()}</button>,
               xdriveReference(invoice.job_id),
