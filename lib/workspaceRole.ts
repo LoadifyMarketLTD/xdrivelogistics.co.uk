@@ -169,6 +169,7 @@ const DRIVER_EXECUTION_NAV: WorkspaceNavGroup[] = [
   { id: 'home', label: 'Driver', items: [
     { id: 'today', label: 'Today', href: '/driver', icon: 'HOME' },
     { id: 'action-centre', label: 'Action Centre', href: '/driver/action-centre', icon: '!' },
+    { id: 'directory', label: 'Directory', href: '/driver/directory', icon: '⊕' },
   ] },
   { id: 'operations', label: 'My Work', items: [
     { id: 'jobs', label: 'My Jobs', href: '/driver/jobs', icon: '▣' },
@@ -301,6 +302,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     role: 'customer', label: 'Customer Workspace', subtitle: 'Post, award and track your transport', homeHref: '/customer', primaryAction: { label: 'Post Load', href: '/customer/post-load', capability: 'loads.create' },
     nav: [
       { id: 'customer-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/customer', icon: '⌂' }] },
+      { id: 'customer-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/customer/network/directory', icon: '⊕' }] },
       { id: 'customer-loads', label: 'Loads', items: [
         { id: 'loads', label: 'Loads', href: '/customer/loads', icon: '▦', capability: 'loads.view.own' },
         { id: 'bulk-import', label: 'Bulk Import', href: '/customer/bulk-import', icon: '⇩', capability: 'loads.create' },
@@ -314,7 +316,6 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
       { id: 'customer-notifications', label: 'Notifications', items: [{ id: 'notifications', label: 'Notifications', href: '/customer/notifications', icon: '◫' }] },
       { id: 'customer-messages', label: 'Messages', items: [{ id: 'messages', label: 'Messages', href: '/customer/messages', icon: '◫' }] },
       { id: 'customer-event-log', label: 'Event Log', items: [{ id: 'event-log', label: 'Event Log', href: '/customer/event-log', icon: '≡', capability: 'jobs.view' }] },
-      { id: 'customer-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/customer/network', icon: '◌' }] },
       { id: 'customer-disputes', label: 'Disputes', items: [{ id: 'disputes', label: 'Disputes', href: '/customer/disputes', icon: '!', capability: 'jobs.view' }] },
       { id: 'customer-billing', label: 'Membership & Billing', items: [{ id: 'billing', label: 'Membership & Billing', href: '/customer/settings/billing', icon: '£', capability: 'billing.manage' }] },
       { id: 'customer-account', label: 'Account', items: [{ id: 'account', label: 'Account', href: '/customer/account', icon: '⚙', capability: 'settings.manage' }] },
@@ -324,6 +325,7 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
     role: 'fleet_manager', label: 'Fleet Workspace', subtitle: 'Capacity, assignments, compliance and live operations', homeHref: '/admin/fleet',
     nav: [
       { id: 'fleet-dashboard', label: 'Dashboard', items: [{ id: 'dashboard', label: 'Dashboard', href: '/admin/fleet', icon: '⌂' }] },
+      { id: 'fleet-directory', label: 'Directory', items: [{ id: 'directory', label: 'Directory', href: '/admin/marketplace/directory', icon: '⊕' }] },
       { id: 'fleet-live-availability', label: 'Live Availability', items: [{ id: 'live-availability', label: 'Live Availability', href: '/admin/live-availability', icon: '◷', capability: 'fleet.positions.view' }] },
       { id: 'fleet-resources', label: 'Drivers & Vehicles', items: [{ id: 'resources', label: 'Drivers & Vehicles', href: '/admin/fleet/resources', icon: '◉', capability: 'fleet.positions.view' }] },
       { id: 'fleet-jobs', label: 'Jobs', items: [{ id: 'jobs', label: 'Jobs', href: '/admin/fleet/jobs', icon: '▣', capability: 'jobs.view' }] },
@@ -348,7 +350,10 @@ export const WORKSPACE_DEFINITIONS: Record<WorkspaceRole, WorkspaceDefinition> =
   dispatcher: {
     role: 'dispatcher', label: 'Operations Workspace', subtitle: 'Allocate, monitor and recover daily jobs', homeHref: '/admin',
     nav: [
-      { id: 'home', label: 'Operations', items: [{ id: 'dashboard', label: 'Dispatcher Dashboard', href: '/admin', icon: '⌂' }] },
+      { id: 'home', label: 'Operations', items: [
+        { id: 'dashboard', label: 'Dispatcher Dashboard', href: '/admin', icon: '⌂' },
+        { id: 'directory', label: 'Directory', href: '/admin/marketplace/directory', icon: '⊕' },
+      ] },
       { id: 'work', label: 'Daily Work', items: [
         { id: 'diary', label: 'Diary', href: '/admin/diary', icon: '□' },
         { id: 'bulk-import', label: 'Bulk Import', href: '/admin/bulk-import', icon: '⇩', capability: 'loads.create' },

@@ -252,8 +252,6 @@ const isDriverCommercialRoute = (pathname: string) => {
     clean.startsWith('/driver/finance/') ||
     clean === '/driver/returns' ||
     clean.startsWith('/driver/returns/') ||
-    clean === '/driver/directory' ||
-    clean.startsWith('/driver/directory/') ||
     clean === '/driver/nearby' ||
     clean.startsWith('/driver/nearby/')
   );
@@ -306,6 +304,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/admin/fleet/maintenance', workspace: 'carrier_fleet', anyOf: ['fleet.maintenance.manage'] },
   { prefix: '/admin/fleet', workspace: 'carrier_fleet', anyOf: ['fleet.positions.view'] },
   { prefix: '/admin/operations-centre', workspace: 'carrier_fleet', anyOf: ['jobs.dispatch'] },
+  { prefix: '/admin/marketplace/directory', workspace: 'carrier_fleet', roles: ['platform_owner', 'company_owner', 'company_admin', 'carrier_admin', 'fleet_manager', 'dispatcher'] },
   { prefix: '/admin/marketplace', workspace: 'carrier_fleet', anyOf: ['loads.view.marketplace'] },
   { prefix: '/admin/won-work', workspace: 'carrier_fleet', anyOf: ['jobs.view'] },
   { prefix: '/admin/exchange', workspace: 'carrier_fleet', anyOf: ['quotes.submit'] },
@@ -403,7 +402,7 @@ const ROUTE_REQUIREMENTS: RouteRequirement[] = [
   { prefix: '/driver/settings', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
   { prefix: '/driver/change-password', workspace: 'owner_operator' },
   { prefix: '/driver/load-alerts', workspace: 'owner_operator', roles: ['owner_driver'] },
-  { prefix: '/driver/directory', workspace: 'owner_operator' },
+  { prefix: '/driver/directory', workspace: 'owner_operator', roles: ['driver', 'owner_driver'] },
   { prefix: '/driver/network', workspace: 'owner_operator' },
   { prefix: '/driver/loads/directory', workspace: 'owner_operator' },
   { prefix: '/driver/nearby', workspace: 'owner_operator' },

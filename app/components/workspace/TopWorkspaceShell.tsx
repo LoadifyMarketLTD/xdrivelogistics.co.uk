@@ -146,6 +146,7 @@ export function composeFleetPrimaryNav(groups: WorkspaceNavGroup[]) {
   const items = uniqueNavItems(groups);
   const direct: Array<[string, string, string]> = [
     ['fleet-dashboard', 'Dashboard', '/admin/fleet'],
+    ['fleet-directory', 'Directory', '/admin/marketplace/directory'],
     ['fleet-live-availability', 'Live Availability', '/admin/live-availability'],
     ['fleet-my-fleet', 'My Fleet', '/admin/fleet/vehicles'],
     ['fleet-return-journeys', 'Return Journeys', '/admin/fleet/returns'],
@@ -230,14 +231,15 @@ export function composeCustomerPrimaryNav(groups: WorkspaceNavGroup[]) {
   return composeRolePrimaryNav(groups, [
     ['customer-dashboard-primary', 'Dashboard', '/customer'],
     ['customer-action-centre-primary', 'Action Centre', '/customer/action-centre'],
+    ['customer-directory-primary', 'Directory', '/customer/network/directory'],
     ['customer-loads-primary', 'Loads', '/customer/loads'],
     ['customer-quotes-primary', 'Quotes', '/customer/quotes'],
     ['customer-bookings-primary', 'Bookings', '/customer/bookings'],
     ['customer-diary-primary', 'Diary', '/customer/diary'],
     ['customer-tracking-primary', 'Tracking', '/customer/tracking'],
-    ['customer-network-primary', 'Network', '/customer/network'],
     ['customer-settings-primary', 'Settings', '/customer/settings'],
   ], 'customer-more', 'More', [
+    '/customer/network',
     '/customer/bulk-import',
     '/customer/deliveries',
     '/customer/documents',
@@ -282,6 +284,7 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
     return composeRolePrimaryNav(groups, [
       ['driver-dashboard-primary', 'Dashboard', '/driver'],
       ['driver-action-centre-primary', 'Action Centre', '/driver/action-centre'],
+      ['driver-directory-primary', 'Directory', '/driver/directory'],
       ['driver-jobs-primary', 'My Jobs', '/driver/jobs'],
       ['driver-diary-primary', 'Diary', '/driver/history'],
       ['driver-availability-primary', 'Availability', '/driver/availability'],
@@ -320,6 +323,7 @@ export function composeDriverPrimaryNav(groups: WorkspaceNavGroup[], ownerDriver
 export function composeDispatcherPrimaryNav(groups: WorkspaceNavGroup[]) {
   const composed = composeRolePrimaryNav(groups, [
     ['dispatcher-dashboard-primary', 'Dashboard', '/admin'],
+    ['dispatcher-directory-primary', 'Directory', '/admin/marketplace/directory'],
     ['dispatcher-diary-primary', 'Diary', '/admin/diary'],
     ['dispatcher-unallocated-primary', 'Unallocated', '/admin/fleet/assignments'],
     ['dispatcher-active-jobs-primary', 'Active Jobs', '/admin/fleet/active-jobs'],

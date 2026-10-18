@@ -4474,3 +4474,181 @@
   font-size: 14px !important;
   line-height: 18px !important;
 }
+
+
+/* Directory CX parity: one shared presentation for every operational workspace.
+ * Directory is a dense member register, not a page-header-driven marketing surface. */
+.xdrive-workspace-measured .xdrive-directory-page {
+  display: grid !important;
+  gap: 8px !important;
+  padding: 0 10px 12px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-layout {
+  grid-template-columns: 165px minmax(0, 1fr) !important;
+  gap: 10px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail {
+  width: 165px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail__header {
+  min-height: 30px !important;
+  padding: 6px 8px !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail__body {
+  gap: 5px !important;
+  padding: 7px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail label,
+.xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail input,
+.xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail select,
+.xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail button,
+.xdrive-workspace-measured .xdrive-directory-page .workspace-record-meta,
+.xdrive-workspace-measured .xdrive-directory-page .workspace-operational-cell,
+.xdrive-workspace-measured .xdrive-directory-page .driver-cell-label,
+.xdrive-workspace-measured .xdrive-directory-page .driver-cell-secondary,
+.xdrive-workspace-measured .xdrive-directory-page .owner-ref-hook-action-button {
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail label,
+.xdrive-workspace-measured .xdrive-directory-page .owner-ref-hook-action-button,
+.xdrive-workspace-measured .xdrive-directory-page .driver-cell-label {
+  font-weight: 600 !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail input,
+.xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail select,
+.xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail button {
+  min-height: 30px !important;
+  height: 30px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-vehicle-match {
+  display: flex !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-vehicle-match label,
+.xdrive-workspace-measured .xdrive-directory-check {
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 4px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-filter-actions {
+  display: grid !important;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important;
+  gap: 6px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-helper-copy {
+  color: #64748b !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-toolbar {
+  min-height: 36px !important;
+  padding: 4px 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  flex-wrap: wrap !important;
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-toolbar label,
+.xdrive-workspace-measured .xdrive-directory-toolbar select,
+.xdrive-workspace-measured .xdrive-directory-toolbar button {
+  font-size: 14px !important;
+  line-height: 18px !important;
+  font-weight: 600 !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-toolbar__note {
+  color: var(--ws-muted) !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page-size {
+  margin-left: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  gap: 5px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page .workspace-operational-row__top {
+  grid-template-columns: minmax(220px, 1.2fr) minmax(210px, 1fr) minmax(230px, 1.1fr) minmax(250px, 1.15fr) minmax(220px, .95fr) !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page .workspace-operational-cell {
+  min-width: 0 !important;
+  padding: 7px 9px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page .workspace-operational-cell > strong,
+.xdrive-workspace-measured .xdrive-directory-page .workspace-operational-cell > strong a {
+  font-size: 16px !important;
+  line-height: 20px !important;
+  font-weight: 700 !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page .driver-cell-secondary {
+  margin-top: 2px !important;
+  color: #64748b !important;
+  overflow-wrap: anywhere !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-pagination {
+  justify-content: flex-end !important;
+  min-height: 34px !important;
+}
+
+.xdrive-workspace-measured .xdrive-directory-page + .workspace-panel,
+.xdrive-workspace-measured .xdrive-directory-page > .workspace-panel {
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+@media (max-width: 1200px) {
+  .xdrive-workspace-measured .xdrive-directory-page .workspace-operational-row__top {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 760px) {
+  .xdrive-workspace-measured .xdrive-directory-layout {
+    grid-template-columns: 1fr !important;
+  }
+
+  .xdrive-workspace-measured .xdrive-directory-page .workspace-filter-rail {
+    width: 100% !important;
+    position: static !important;
+  }
+
+  .xdrive-workspace-measured .xdrive-directory-page .workspace-operational-row__top {
+    grid-template-columns: 1fr !important;
+  }
+
+  .xdrive-workspace-measured .xdrive-directory-page-size {
+    margin-left: 0 !important;
+  }
+}
+
+
+.xdrive-workspace-measured .xdrive-directory-page :is(input, select, textarea, button, a[href]) {
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
