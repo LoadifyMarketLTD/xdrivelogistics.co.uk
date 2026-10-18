@@ -6,7 +6,7 @@ const migration = fs.readFileSync(
   'utf8',
 );
 const emailMigration = fs.readFileSync(
-  'supabase/migrations/20261018134100_invoice_email_event_security_definer.sql',
+  'supabase/migrations/20261018134107_invoice_email_event_security_definer.sql',
   'utf8',
 );
 

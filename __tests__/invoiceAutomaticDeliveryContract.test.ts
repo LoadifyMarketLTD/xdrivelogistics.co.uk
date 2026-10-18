@@ -11,7 +11,9 @@ const execution = read('app/components/workspace/DriverJobExecutionPage.tsx');
 const diary = read('app/driver/history/page.tsx');
 const finance = read('app/driver/finance/page.tsx');
 const pdfContext = read('lib/server/invoicePdfContext.ts');
-const dispatchMigration = read('supabase/migrations/20261018141100_invoice_delivery_dispatch_config.sql');
+const dispatchMigration = read('supabase/migrations/20261018140703_invoice_delivery_dispatch_config.sql');
+const deliveryGrantMigration = read('supabase/migrations/20261018142637_invoice_delivery_service_role_grants.sql');
+const internalWorker = read('app/api/internal/invoice-deliveries/route.ts');
 
 describe('automatic POD + invoice delivery after invoice creation', () => {
   it('targets the buyer finance email first and falls back to the company email', () => {
@@ -61,5 +63,17 @@ describe('automatic POD + invoice delivery after invoice creation', () => {
     expect(dispatchMigration).toContain("key = 'invoice_delivery_dispatch_url'");
     expect(dispatchMigration).toContain("key = 'supabase_service_role_key'");
     expect(dispatchMigration).not.toContain("url := 'https://www.xdrivelogistics.co.uk/api/internal/invoice-deliveries'");
+  });
+
+  it('declares the minimum service-role grants used by the delivery worker', () => {
+    expect(deliveryGrantMigration).toContain('public.invoices TO service_role');
+    expect(deliveryGrantMigration).toContain('public.companies TO service_role');
+    expect(deliveryGrantMigration).toContain('public.company_settings TO service_role');
+  });
+
+  it('fails closed when the internal worker cannot load a pending invoice', () => {
+    expect(internalWorker).toContain('error: invoiceError');
+    expect(internalWorker).toContain('Invoice delivery worker could not load the pending invoice.');
+    expect(internalWorker).toContain("Pending invoice is missing its creator identity.");
   });
 });

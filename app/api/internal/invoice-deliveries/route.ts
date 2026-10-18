@@ -14,8 +14,17 @@ export async function POST(request: NextRequest) {
   if (error) return NextResponse.json({ error: error.message }, { status: 503 });
   const results = [];
   for (const item of pending ?? []) {
-    const { data: invoice } = await supabaseAdmin.from('invoices').select('company_id,created_by').eq('id', item.invoice_id).single();
-    if (!invoice?.created_by) continue;
+    const { data: invoice, error: invoiceError } = await supabaseAdmin
+      .from('invoices')
+      .select('company_id,created_by')
+      .eq('id', item.invoice_id)
+      .single();
+    if (invoiceError) {
+      return NextResponse.json({ error: 'Invoice delivery worker could not load the pending invoice.' }, { status: 503 });
+    }
+    if (!invoice?.created_by) {
+      return NextResponse.json({ error: 'Pending invoice is missing its creator identity.' }, { status: 409 });
+    }
     const response = await submitInvoice(new NextRequest(`${getCanonicalSiteOrigin()}/api/internal/invoice-deliveries`, { method: 'POST', body: '{}' }), { params: Promise.resolve({ id: item.invoice_id }) }, { userId: invoice.created_by, companyId: invoice.company_id });
     results.push({ invoiceId: item.invoice_id, status: response.status });
   }
