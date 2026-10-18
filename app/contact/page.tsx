@@ -58,7 +58,7 @@ export default function ContactPage() {
           <div className="mt-10 grid gap-10 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
             <div>
               <p className="text-sm font-black uppercase tracking-[0.16em] text-[#FDB913]">Contact</p>
-              <h1 className="mt-4 text-5xl font-black leading-[0.98] text-[#002B6C] sm:text-7xl">Talk to XDrive Logistics.</h1>
+              <h1 className="mt-4 max-w-[620px] text-4xl font-black leading-[1.02] text-[#002B6C] sm:text-5xl lg:text-[3.5rem]">Talk to XDrive Logistics.</h1>
             </div>
             <p className="max-w-2xl text-lg font-semibold leading-8 text-[#49607F]">
               For platform access, rollout questions, courier and freight exchange enquiries, or account support, contact the XDrive Logistics team directly.
