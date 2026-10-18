@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { resolveWorkspaceRole } from '../../../lib/workspaceRole';
 import { useAuth } from '../AuthContext';
-import { MemberIdentityLink, MemberProfileOverlay } from './MemberProfile';
+import { MemberIdentityLink } from './MemberProfile';
 import { ActionButton, AlertBanner, EmptyState, StatusBadge } from './WorkspaceUI';
 import { usePrivateNetworkGroups } from './usePrivateNetworkGroups';
 
@@ -166,7 +166,6 @@ export function MemberDirectoryPage(_props: {
   const [privateGroupEditName, setPrivateGroupEditName] = useState('');
   const [privateGroupWorking, setPrivateGroupWorking] = useState(false);
   const [privateGroupActionError, setPrivateGroupActionError] = useState('');
-  const [profileTarget, setProfileTarget] = useState<{ companyId?: string; driverId?: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -544,6 +543,7 @@ export function MemberDirectoryPage(_props: {
   return (
     <div className="xdrive-directory-page">
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
+      {savedNetworkError && <AlertBanner tone="danger">{savedNetworkError}</AlertBanner>}
       {partial && <AlertBanner tone="warning">{capMessage}</AlertBanner>}
 
       <div className="workspace-board-layout xdrive-directory-layout">
@@ -600,7 +600,7 @@ export function MemberDirectoryPage(_props: {
                     <div className="workspace-operational-cell"><div className="driver-cell-label">LOCATION</div><strong>{[company.city, company.postcode].filter(Boolean).join(', ') || 'Not supplied'}</strong><div className="driver-cell-secondary">{company.country ?? 'Country not supplied'}{company.distanceMiles != null ? ` · ${company.distanceMiles.toFixed(1)} mi from search` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">TYPE / CAPABILITY</div><strong>{company.memberType}</strong><div className="driver-cell-secondary">{company.vehicleTypes?.length ? company.vehicleTypes.map((value) => value.replace(/_/g, ' ')).join(', ') : 'Fleet capability not supplied'}{company.specialistServices?.length ? ` · ${company.specialistServices.join(', ')}` : ''}{company.maxPallets != null ? ` · up to ${company.maxPallets} pallets` : ''}</div></div>
                     <div className="workspace-operational-cell"><div className="driver-cell-label">DELIVERY / PAYMENT RELIABILITY</div><strong>Delivery {company.deliveryReliability.score == null ? 'Not enough evidence' : `${company.deliveryReliability.score}%`}</strong><div className="driver-cell-secondary">{company.deliveryReliability.evidenceCount} timed delivery record(s) · Payment {company.paymentReliability.score == null ? 'Not enough evidence' : `${company.paymentReliability.score}%`} from {company.paymentReliability.evidenceCount} due/settlement record(s){company.paymentReliability.overdueOpen ? ` · ${company.paymentReliability.overdueOpen} overdue open` : ''}</div></div>
-                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId)}>Messages</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}{privateGroups.canManage && selectedPrivateGroupId && company.companyId !== user?.companyId && !selectedPrivateGroup?.members.some((member) => member.companyId === company.companyId) ? <ActionButton tone="secondary" disabled={privateGroupWorking} onClick={() => void updatePrivateGroupMember(selectedPrivateGroupId, company.companyId)}>Add to Group</ActionButton> : null}</div></div>
+                    <div className="workspace-operational-cell"><div className="driver-cell-label">ACTION</div><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><ActionButton tone="secondary" onClick={() => { if (company.businessPhone) window.location.href = `tel:${company.businessPhone}`; }} disabled={!company.businessPhone}>Call member</ActionButton>{messagesRoute ? <ActionButton tone="secondary" onClick={() => openMemberMessages(company.companyId)}>Messages</ActionButton> : null}{ownerDriver ? <ActionButton tone="secondary" onClick={() => void toggleSavedCompany(company.companyId)}>{savedCompanyIds.has(company.companyId) ? 'Remove Saved' : 'Save Network'}</ActionButton> : null}{canBookCompany(company) ? <ActionButton tone="success" onClick={() => openDirectBooking(company.companyId)}>Book Direct</ActionButton> : null}{privateGroups.canManage && selectedPrivateGroupId && company.companyId !== user?.companyId && !selectedPrivateGroup?.members.some((member) => member.companyId === company.companyId) ? <ActionButton tone="secondary" disabled={privateGroupWorking} onClick={() => void updatePrivateGroupMember(selectedPrivateGroupId, company.companyId)}>Add to Group</ActionButton> : null}</div></div>
                   </div>
                 </article>
               ))}

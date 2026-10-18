@@ -44,3 +44,11 @@ Windows TypeScript discovered a pre-existing invalid named export from `app/driv
 Integrated concurrent Directory commit `97623758`, preserving its changes. In a broader 16-suite run, 86 of 87 tests passed. The remaining Directory contract expects the text `Save Network`, absent already in `97623758`'s MemberDirectoryPage; its assertion was retained, not weakened. Availability privacy/authorization assertions passed separately. This is not recorded as a fully green repository suite.
 
 The final production sweep remains required after publishing the reinforcement layer. Existing local API/content availability is not a certification of business operations or payments.
+
+## Production build blocker and correction
+
+Netlify deploys for `9762375`, `9c4f6b6` and `21e0061` failed in the build's ESLint stage. The failed deploy log for `9c4f6b6` (`6ad51eeb6bfc20fb52953108`) reported five unused declarations in MemberDirectoryPage: MemberProfileOverlay, savedNetworkError, profileTarget, setProfileTarget and toggleSavedCompany. These came from the earlier Directory refactor, not the typography CSS. The last published application at this point was `8009763`.
+
+Restored the existing Owner Driver-only Save Network/Remove Saved action next to the other member actions, using the unchanged canonical toggleSavedCompany handler. Restored visible Saved Network error feedback. Removed the unused duplicate profile overlay import/state; MemberIdentityLink still handles profiles. No ESLint/build checks were disabled. The previously failing Save Network source contract now passes without changing its assertion.
+
+Focused ESLint and TypeScript both pass. The combined release selection passes 19 suites and 98 tests, including the previously failing Directory contract. A new Netlify deployment and live typography sweep are still required; failed old-style production checks are retained as evidence and are not PASS.
