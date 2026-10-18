@@ -110,6 +110,7 @@ Completed in this certification pass:
 - [x] Preview pg_cron/pg_net mechanics: both extensions enabled; `invoice-delivery-outbox` active every five minutes and recent executions succeeded.
 - [x] Netlify Deploy Preview #680 health.
 - [x] Code-level finance/access boundary regression set: 10/10 additional tests passed for finance authority, execution separation, customer dispute access and driver finance role boundaries.
+- [x] Focused downstream invoice/document handler matrix: 9/9 PASS across issuer owner, buyer owner, outsider, dispatcher, owner-driver and employed-driver roles, including customer-visibility gating and tenant-bound document signing.
 
 Still required before claiming **production/live PASS**:
 
