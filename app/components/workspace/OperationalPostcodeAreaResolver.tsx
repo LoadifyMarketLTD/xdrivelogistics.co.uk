@@ -27,6 +27,14 @@ function isPostcodeField(input: HTMLInputElement) {
 }
 
 function hintFor(input: HTMLInputElement) {
+  const dedicated = input.parentElement?.querySelector<HTMLElement>(
+    ':scope > .workspace-postcode-area, :scope > .driver-live-postcode-area',
+  );
+  if (dedicated) {
+    input.parentElement?.querySelector<HTMLElement>(':scope > [data-xdrive-postcode-area-for]')?.remove();
+    return dedicated;
+  }
+
   const existing = input.parentElement?.querySelector<HTMLElement>(
     ':scope > [data-xdrive-postcode-area-for]',
   );
@@ -49,6 +57,13 @@ export default function OperationalPostcodeAreaResolver() {
 
     const resolve = (input: HTMLInputElement, immediate = false) => {
       if (!isPostcodeField(input)) return;
+      const dedicated = input.parentElement?.querySelector<HTMLElement>(
+        ':scope > .workspace-postcode-area, :scope > .driver-live-postcode-area',
+      );
+      if (dedicated) {
+        input.parentElement?.querySelector<HTMLElement>(':scope > [data-xdrive-postcode-area-for]')?.remove();
+        return;
+      }
 
       const hint = hintFor(input);
       const value = compact(input.value);

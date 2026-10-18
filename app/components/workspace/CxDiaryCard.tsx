@@ -1,7 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { workspaceVehicleImageSrc } from './vehiclePresentation';
+import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
 
 export type CxDiaryDateParts = { primary: ReactNode; meta?: ReactNode };
 
@@ -72,7 +72,7 @@ export default function CxDiaryCard({
           <div className="xdrive-cx-diary-card__status-meta">
             <span>Load ID: {loadId}</span>
             <span className="xdrive-cx-load-card__vehicle xdrive-cx-diary-card__vehicle">
-              <img className="xdrive-cx-load-card__vehicle-image xdrive-cx-diary-card__vehicle-image" src={workspaceVehicleImageSrc(vehicle)} alt="" aria-hidden="true" />
+              <img className="xdrive-cx-load-card__vehicle-image xdrive-cx-diary-card__vehicle-image" src={workspaceVehicleImageSrc(vehicle)} onError={(event) => recoverWorkspaceVehicleImage(event.currentTarget)} alt="" aria-hidden="true" />
               <strong>{vehicle}</strong>
             </span>
           </div>

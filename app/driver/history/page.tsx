@@ -20,6 +20,7 @@ import workspaceStyles from '../../components/workspace/WorkspaceUI.module.css';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import { operationalLocationLabel } from '../../components/workspace/locationPresentation';
 import CxDiaryActions from '../../components/workspace/CxDiaryActions';
 
 type CompanyRelation = { name: string } | Array<{ name: string }> | null;
@@ -221,13 +222,8 @@ function transportSchedule(dateTime: string | null, slot: string | null) {
   }
   return `${fmtDate(dateTime)} · ${cleanSlot}`;
 }
-function normalizeComparable(value: string | null | undefined) { return (value ?? '').trim().replace(/[,.]+$/g, '').replace(/\s+/g, ' ').toUpperCase(); }
 function formatExecutionAddress(address: string | null, postcode: string | null) {
-  const cleanAddress = address?.trim() || '';
-  const cleanPostcode = postcode?.trim() || '';
-  if (!cleanAddress) return cleanPostcode || 'Not supplied';
-  if (!cleanPostcode) return cleanAddress;
-  return normalizeComparable(cleanAddress).includes(normalizeComparable(cleanPostcode)) ? cleanAddress : `${cleanAddress}, ${cleanPostcode}`;
+  return operationalLocationLabel(address, postcode, 'Not supplied');
 }
 function money(value: number, currency = 'GBP') { return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value); }
 function human(value: string | null | undefined) { return value ? value.replace(/_/g, ' ') : 'Not supplied'; }

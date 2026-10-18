@@ -11,6 +11,7 @@ import { canLeaveCompanyFeedback as isCompanyFeedbackEligible } from '../../../l
 import { CompanyJobSheetPanel, type JobSheetTab } from './CompanyJobSheetPanel';
 import { useOperationsIntelligence, type OperationsTrackingEvent } from './useOperationsIntelligence';
 import CxDiaryCard from './CxDiaryCard';
+import { operationalLocationLabel } from './locationPresentation';
 import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from './CxDiaryActions';
 import {
   ActionButton,
@@ -856,8 +857,8 @@ export default function OperationsDiaryPage({ fixtureData }: { fixtureData?: { c
                 return (
                   <CxDiaryCard
                     key={job.id}
-                    from={<>{job.pickup_location ?? job.pickup_postcode ?? 'Collection not supplied'}{job.pickup_postcode && job.pickup_location && !job.pickup_location.includes(job.pickup_postcode) ? `, ${job.pickup_postcode}` : ''}</>}
-                    to={<>{job.delivery_location ?? job.delivery_postcode ?? 'Delivery not supplied'}{job.delivery_postcode && job.delivery_location && !job.delivery_location.includes(job.delivery_postcode) ? `, ${job.delivery_postcode}` : ''}</>}
+                    from={operationalLocationLabel(job.pickup_location, job.pickup_postcode, 'Collection not supplied')}
+                    to={operationalLocationLabel(job.delivery_location, job.delivery_postcode, 'Delivery not supplied')}
                     pickup={pickupWhen}
                     delivery={deliveryWhen}
                     band={cxBandLabel}

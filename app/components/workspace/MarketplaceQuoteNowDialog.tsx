@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 
 import { ActionButton, WorkspaceDialog } from './WorkspaceUI';
-import { workspaceVehicleImageSrc } from './vehiclePresentation';
+import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
 
 export type MarketplaceQuoteNowTarget = {
   id: string;
@@ -134,6 +134,7 @@ export default function MarketplaceQuoteNowDialog({
           <img
             className="xdrive-quote-modal__requested-vehicle"
             src={workspaceVehicleImageSrc(target.requestedVehicle)}
+            onError={(event) => recoverWorkspaceVehicleImage(event.currentTarget)}
             alt=""
             aria-hidden="true"
           />
@@ -161,7 +162,7 @@ export default function MarketplaceQuoteNowDialog({
                   <option key={option.value} value={option.value}>{option.label}</option>
                 ))}
               </select>
-              {selectedVehicleImageSrc ? <img src={selectedVehicleImageSrc} alt="" aria-hidden="true" /> : null}
+              {selectedVehicleImageSrc ? <img src={selectedVehicleImageSrc} onError={(event) => recoverWorkspaceVehicleImage(event.currentTarget)} alt="" aria-hidden="true" /> : null}
             </div>
           </div>
 
