@@ -52,3 +52,33 @@ Netlify deploys for `9762375`, `9c4f6b6` and `21e0061` failed in the build's ESL
 Restored the existing Owner Driver-only Save Network/Remove Saved action next to the other member actions, using the unchanged canonical toggleSavedCompany handler. Restored visible Saved Network error feedback. Removed the unused duplicate profile overlay import/state; MemberIdentityLink still handles profiles. No ESLint/build checks were disabled. The previously failing Save Network source contract now passes without changing its assertion.
 
 Focused ESLint and TypeScript both pass. The combined release selection passes 19 suites and 98 tests, including the previously failing Directory contract. A new Netlify deployment and live typography sweep are still required; failed old-style production checks are retained as evidence and are not PASS.
+
+## Final production result — confirmed
+
+Netlify published application commit `cd8add6cd7185f87217cc5a76fa399f96d5e8200`, deploy `6ad5221efdc53a3f9749fb92`. It includes global typography `9c4f6b6`, the concurrent Live Availability typography refinement `21e0061`, and the Directory build correction. The authenticated deployment probe detected the actual new CSS on the public site and passed Broker dashboard geometry at 1920/1680/1024/390px.
+
+The final authenticated production typography suite passed all 7 tests in 2.4 minutes against `https://www.xdrivelogistics.co.uk`. Every exposed navigation route was checked at 1680, 1024 and 390px. These are role/route combinations, not 111 distinct URLs.
+
+| Role | Routes in that role | Viewport measurements | Result |
+| --- | ---: | ---: | --- |
+| Customer | 19 | 57 | Passed |
+| Broker | 10 | 30 | Passed |
+| Carrier/Admin | 20 | 60 | Passed |
+| Fleet Manager | 18 | 54 | Passed |
+| Dispatcher | 16 | 48 | Passed |
+| Owner Driver | 17 | 51 | Passed |
+| Company Driver | 11 | 33 | Passed |
+| Total | 111 | 333 | All seven roles passed |
+
+No tested visible control or its inspected nested text was below 14px; the font family matched the shared Diary stack. Successful production reports recorded no session redirects. Source-contract maintenance was not used as the sole evidence for this result.
+
+Final checks: 19 selected unit/contract suites and 98 tests passed. Focused ESLint and TypeScript passed on Linux. The new visible PowerShell verification reported lint exit 0 and TypeScript exit 0 at 20:48:44 BST. Netlify published successfully after fixing the actual five Directory lint errors; lint/build gates were never disabled.
+
+Evidence on the authorized Windows device:
+- `D:/XDrive-Readable-Production-Final.log`
+- `D:/XDrive-Readable-Production-20261018/*-typography.json` and authenticated dashboard screenshots
+- `D:/XDrive-Readable-Deployment-Final.log` and its four-width geometry output
+- `D:/XDrive-Readable-Build-Final.json`
+- `D:/XDrive-Global-Readable-Published-9c4f6b6.patch`
+
+Scope: this certifies the measured typography, navigation rendering and Broker gap correction. It does not certify every business action, POD/invoice/payment lifecycle or the restored Saved Network POST/DELETE interaction. No real payments or fabricated transport/invoice records were used. The earlier separate hard-reload My Fleet smoke returned to login on its second route and was not counted as a pass; the extracted implementation was preserved unchanged and passed generated-route TypeScript checking.
