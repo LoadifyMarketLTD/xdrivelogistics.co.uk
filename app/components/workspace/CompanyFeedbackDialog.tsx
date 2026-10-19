@@ -8,6 +8,9 @@ import { ActionButton, AlertBanner, WorkspaceDialog } from './WorkspaceUI';
 export type CompanyFeedbackDraft = {
   rating: number | null;
   comment: string | null;
+  would_use_again?: boolean | null;
+  delivered_promptly?: boolean | null;
+  courteous?: boolean | null;
 };
 
 export function CompanyFeedbackDialog({
@@ -27,12 +30,18 @@ export function CompanyFeedbackDialog({
 }) {
   const [rating, setRating] = useState(existing?.rating ?? 5);
   const [comment, setComment] = useState(existing?.comment ?? '');
+  const [wouldUseAgain, setWouldUseAgain] = useState(existing?.would_use_again ?? true);
+  const [deliveredPromptly, setDeliveredPromptly] = useState(existing?.delivered_promptly ?? true);
+  const [courteous, setCourteous] = useState(existing?.courteous ?? true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
     setRating(existing?.rating ?? 5);
     setComment(existing?.comment ?? '');
+    setWouldUseAgain(existing?.would_use_again ?? true);
+    setDeliveredPromptly(existing?.delivered_promptly ?? true);
+    setCourteous(existing?.courteous ?? true);
     setError('');
   }, [existing, jobId]);
 
@@ -46,7 +55,14 @@ export function CompanyFeedbackDialog({
       const response = await fetch(`/api/admin/jobs/${encodeURIComponent(jobId)}/feedback`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, rating, comment }),
+        body: JSON.stringify({
+          companyId,
+          rating,
+          comment,
+          wouldUseAgain,
+          deliveredPromptly,
+          courteous,
+        }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string };
       if (!response.ok) throw new Error(payload.error || 'Company feedback could not be saved.');
@@ -76,6 +92,11 @@ export function CompanyFeedbackDialog({
     >
       {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
       <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#64748b' }}>RATING<select value={rating} onChange={(event) => setRating(Number(event.target.value))}>{[5,4,3,2,1].map((value) => <option key={value} value={value}>{value} / 5</option>)}</select></label>
+      <div style={{ display: 'grid', gap: 8 }}>
+        <label style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', fontSize: 12, fontWeight: 700, color: '#334155' }}><span>Would use again</span><input type="checkbox" checked={wouldUseAgain} onChange={(event) => setWouldUseAgain(event.target.checked)} /></label>
+        <label style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', fontSize: 12, fontWeight: 700, color: '#334155' }}><span>Delivered promptly</span><input type="checkbox" checked={deliveredPromptly} onChange={(event) => setDeliveredPromptly(event.target.checked)} /></label>
+        <label style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', fontSize: 12, fontWeight: 700, color: '#334155' }}><span>Courteous / professional</span><input type="checkbox" checked={courteous} onChange={(event) => setCourteous(event.target.checked)} /></label>
+      </div>
       <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#64748b' }}>COMMENT<textarea value={comment} maxLength={2000} rows={5} onChange={(event) => setComment(event.target.value)} placeholder="Optional operational feedback" /></label>
     </WorkspaceDialog>
   );

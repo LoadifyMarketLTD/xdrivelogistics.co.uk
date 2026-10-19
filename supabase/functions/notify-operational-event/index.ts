@@ -957,17 +957,128 @@ async function handleLoadAlert(event: NotificationEvent) {
   return emailOk && pushOk;
 }
 
+type SmartAlertEmailContext = {
+  reference: string;
+  pickup: string;
+  delivery: string;
+  pickupDateTime: string;
+  deliveryDateTime: string;
+  vehicle: string;
+  distanceMiles: number | null;
+  etaText: string;
+  locationUrl: string;
+  locationRecordedAt: string;
+  speedMph: number | null;
+};
+
+async function getSmartAlertEmailContext(event: NotificationEvent): Promise<SmartAlertEmailContext> {
+  const rawJobId = String(event.payload.job_id ?? event.entity_id ?? '').trim();
+  const publicJob = await getPublicJobContext(event);
+  let job: Record<string, unknown> = {};
+  if (isUuid(rawJobId)) {
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('id,booking_reference,customer_reference,load_id,pickup_location,pickup_postcode,pickup_datetime,delivery_location,delivery_postcode,delivery_datetime,vehicle_id,requested_vehicle_label,requested_vehicle_type,vehicle_type')
+      .eq('id', rawJobId)
+      .maybeSingle();
+    if (error) throw error;
+    job = (data as Record<string, unknown> | null) ?? {};
+  }
+
+  let vehicle = String(
+    job.requested_vehicle_label ?? job.requested_vehicle_type ?? job.vehicle_type ?? event.payload.vehicle_type ?? '',
+  ).trim();
+  const vehicleId = typeof job.vehicle_id === 'string' ? job.vehicle_id : null;
+  if (vehicleId) {
+    const { data } = await supabase
+      .from('vehicles')
+      .select('type,reg_plate,make,model')
+      .eq('id', vehicleId)
+      .maybeSingle();
+    if (data) {
+      const details = [data.type, data.make, data.model, data.reg_plate]
+        .filter((value) => typeof value === 'string' && value.trim())
+        .join(' · ');
+      if (details) vehicle = details;
+    }
+  }
+
+  let locationUrl = '';
+  let locationRecordedAt = '';
+  let speedMph: number | null = null;
+  if (isUuid(rawJobId)) {
+    const { data } = await supabase
+      .from('driver_locations')
+      .select('lat,lng,speed_mph,recorded_at')
+      .eq('job_id', rawJobId)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const lat = numberOrNull(data?.lat);
+    const lng = numberOrNull(data?.lng);
+    const recordedAt = typeof data?.recorded_at === 'string' ? data.recorded_at : '';
+    const recordedDate = recordedAt ? new Date(recordedAt) : null;
+    const fresh = recordedDate && !Number.isNaN(recordedDate.getTime())
+      && Date.now() - recordedDate.getTime() <= 15 * 60_000;
+    if (fresh && lat !== null && lng !== null) {
+      locationUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lat},${lng}`)}`;
+      locationRecordedAt = formatEmailDateTime(recordedAt);
+      speedMph = numberOrNull(data?.speed_mph);
+    }
+  }
+
+  const rawEta = [
+    event.payload.estimated_arrival_at,
+    event.payload.eta_at,
+    event.payload.eta,
+  ].find((value) => typeof value === 'string' && value.trim());
+  const etaMinutes = numberOrNull(event.payload.eta_minutes);
+  const etaText = typeof rawEta === 'string'
+    ? (formatEmailDateTime(rawEta) || rawEta.trim())
+    : etaMinutes !== null
+      ? `${Math.max(0, Math.round(etaMinutes))} minutes`
+      : '';
+
+  return {
+    reference: humanJobReference(job, event.payload) || publicJob.reference,
+    pickup: combineAddressAndPostcode(job.pickup_location ?? publicJob.pickup, job.pickup_postcode),
+    delivery: combineAddressAndPostcode(job.delivery_location ?? publicJob.delivery, job.delivery_postcode),
+    pickupDateTime: formatEmailDateTime(String(job.pickup_datetime ?? '')),
+    deliveryDateTime: formatEmailDateTime(String(job.delivery_datetime ?? '')),
+    vehicle,
+    distanceMiles: numberOrNull(event.payload.distance_miles),
+    etaText,
+    locationUrl,
+    locationRecordedAt,
+    speedMph,
+  };
+}
+
+const smartAlertSubject = (eventType: string, reference: string) => {
+  const labels: Record<string, string> = {
+    pickup_proximity_alert: 'Vehicle approaching collection',
+    delivery_proximity_alert: 'Vehicle approaching delivery',
+    tracking_eta_alert: 'Vehicle ETA update',
+    job_on_site_pickup_alert: 'Vehicle on site at collection',
+    job_loaded_alert: 'Load collected - vehicle en route',
+    job_on_site_delivery_alert: 'Vehicle on site at delivery',
+    job_pod_submitted_alert: 'POD submitted',
+  };
+  return `${labels[eventType] ?? 'Booking update'} - Ref: ${reference}`;
+}
+
 async function handleOperationalSmartAlert(event: NotificationEvent) {
   const userId = event.recipient_user_id;
   if (!userId) return true;
 
   const titles: Record<string, string> = {
-    pickup_proximity_alert: 'Driver near pickup',
-    delivery_proximity_alert: 'Driver near delivery',
-    tracking_eta_alert: 'Delivery ETA alert',
-    job_on_site_pickup_alert: 'Driver on site at pickup',
-    job_loaded_alert: 'Load collected',
-    job_on_site_delivery_alert: 'Driver on site at delivery',
+    pickup_proximity_alert: 'Vehicle approaching collection',
+    delivery_proximity_alert: 'Vehicle approaching delivery',
+    tracking_eta_alert: 'Vehicle ETA update',
+    job_on_site_pickup_alert: 'Vehicle on site at collection',
+    job_loaded_alert: 'Load collected - vehicle en route',
+    job_on_site_delivery_alert: 'Vehicle on site at delivery',
     job_pod_submitted_alert: 'POD submitted',
   };
   const title = titles[event.event_type] ?? 'Booking update';
@@ -978,27 +1089,64 @@ async function handleOperationalSmartAlert(event: NotificationEvent) {
   const pushEnabled = event.payload.push_enabled === true;
   if (!emailEnabled && !pushEnabled) return true;
 
+  const context = await getSmartAlertEmailContext(event);
+
   let emailOk = true;
   if (emailEnabled) {
     const user = await getUserEmail(userId);
     if (user) {
-      const pickup = event.payload.pickup_outcode ? `<li><strong>Pickup area:</strong> ${escapeHtml(event.payload.pickup_outcode)}</li>` : '';
-      const delivery = event.payload.delivery_outcode ? `<li><strong>Delivery area:</strong> ${escapeHtml(event.payload.delivery_outcode)}</li>` : '';
+      const distanceLine = typeof context.distanceMiles === 'number'
+        ? `<tr><td style="padding:7px 0;font-weight:700">Distance</td><td style="padding:7px 0">${escapeHtml(context.distanceMiles.toFixed(1))} miles</td></tr>`
+        : '';
+      const etaLine = context.etaText
+        ? `<tr><td style="padding:7px 0;font-weight:700">ETA</td><td style="padding:7px 0">${escapeHtml(context.etaText)}</td></tr>`
+        : '';
+      const vehicleLine = context.vehicle
+        ? `<tr><td style="padding:7px 0;font-weight:700">Vehicle</td><td style="padding:7px 0">${escapeHtml(context.vehicle)}</td></tr>`
+        : '';
+      const pickupTimeLine = context.pickupDateTime
+        ? `<br><span style="color:#64748b">${escapeHtml(context.pickupDateTime)}</span>`
+        : '';
+      const deliveryTimeLine = context.deliveryDateTime
+        ? `<br><span style="color:#64748b">${escapeHtml(context.deliveryDateTime)}</span>`
+        : '';
+      const mapBlock = context.locationUrl
+        ? `<p><a href="${escapeHtml(context.locationUrl)}" style="display:inline-block;padding:11px 18px;background:#1d57d8;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">View current vehicle location</a></p><p style="color:#64748b;font-size:13px">Location recorded ${escapeHtml(context.locationRecordedAt)}${typeof context.speedMph === 'number' ? ` · Speed ${escapeHtml(context.speedMph.toFixed(0))} mph` : ''}. Location links are included only when a recent tracking point is available.</p>`
+        : '';
+
       emailOk = await sendEmail(
         user.email,
-        `${title} - XDrive Logistics`,
-        `<h2>${escapeHtml(title)}</h2><p>Hi ${escapeHtml(user.name)},</p><p>${escapeHtml(message)}</p><ul>${pickup}${delivery}</ul><p><a href="${escapeHtml(buildAppUrl('/'))}">Open XDrive</a></p><p>XDrive Logistics</p>`,
+        smartAlertSubject(event.event_type, context.reference),
+        `<div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#1f2937;line-height:1.55">
+          <h2 style="margin:0 0 18px">${escapeHtml(title)}</h2>
+          <p>Hi ${escapeHtml(user.name)},</p>
+          <p>${escapeHtml(message)}</p>
+          <table style="border-collapse:collapse;width:100%;margin:18px 0">
+            <tr><td style="padding:7px 0;font-weight:700;width:145px">Booking ref</td><td style="padding:7px 0">${escapeHtml(context.reference)}</td></tr>
+            <tr><td style="padding:7px 0;font-weight:700">Collection</td><td style="padding:7px 0">${escapeHtml(context.pickup)}${pickupTimeLine}</td></tr>
+            <tr><td style="padding:7px 0;font-weight:700">Delivery</td><td style="padding:7px 0">${escapeHtml(context.delivery)}${deliveryTimeLine}</td></tr>
+            ${vehicleLine}
+            ${distanceLine}
+            ${etaLine}
+          </table>
+          ${mapBlock}
+          <p><a href="${escapeHtml(buildAppUrl('/'))}" style="display:inline-block;padding:11px 18px;background:#1f2937;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Open XDrive</a></p>
+          <p>XDrive Logistics</p>
+        </div>`,
         notificationIdempotencyKey(event.id, userId),
         sender,
       );
     }
   }
 
+  const pushSummary = [message, context.reference, context.etaText ? `ETA ${context.etaText}` : '']
+    .filter(Boolean)
+    .join(' · ');
   const pushOk = pushEnabled
     ? await sendDriverPush(
       userId,
       title,
-      message,
+      pushSummary,
       {
         event_type: event.event_type,
         job_id: jobId,

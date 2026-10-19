@@ -16,7 +16,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 
 type DiaryTab = CanonicalDiaryBucket;
-type ReviewRow = { id: string; job_id: string | null; reviewer_company_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
+type ReviewRow = { id: string; job_id: string | null; reviewer_company_id: string | null; rating: number | null; comment: string | null; would_use_again: boolean | null; delivered_promptly: boolean | null; courteous: boolean | null; created_at: string | null };
 const CUSTOMER_DIARY_TABS = getCanonicalDiaryTabs('customer');
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 const cxTimeParts = (value: string | null | undefined) => {
@@ -71,7 +71,7 @@ export default function CustomerDiaryPage() {
     }
     const { data: reviews, error } = await supabase
       .from('reviews')
-      .select('id, job_id, reviewer_company_id, rating, comment, created_at')
+      .select('id, job_id, reviewer_company_id, rating, comment, would_use_again, delivered_promptly, courteous, created_at')
       .eq('reviewer_company_id', companyId)
       .in('job_id', jobIds)
       .order('created_at', { ascending: false });
@@ -245,7 +245,7 @@ export default function CustomerDiaryPage() {
         const quoteInfo = job ? quoteInfoByJob.get(job.id) : null;
         const counterpartyLabel = quoteInfo?.acceptedCompanyName ?? (job?.awarded_carrier_company_id ? 'Awarded carrier' : 'Executing carrier');
         const existing = reviewsByJob[feedbackJobId]?.[0] ?? null;
-        return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={companyId} existing={existing ? { rating: existing.rating, comment: existing.comment } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={loadReviews} />;
+        return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={companyId} existing={existing ? { rating: existing.rating, comment: existing.comment, would_use_again: existing.would_use_again, delivered_promptly: existing.delivered_promptly, courteous: existing.courteous } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={loadReviews} />;
       })() : null}
     </PageFrame>
   );

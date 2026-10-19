@@ -15,7 +15,12 @@ type FeedbackBody = {
   companyId?: unknown;
   rating?: unknown;
   comment?: unknown;
+  wouldUseAgain?: unknown;
+  deliveredPromptly?: unknown;
+  courteous?: unknown;
 };
+
+const optionalBoolean = (value: unknown) => typeof value === 'boolean' ? value : null;
 
 export async function POST(
   request: NextRequest,
@@ -74,13 +79,16 @@ export async function POST(
     reviewed_user_id: null,
     rating,
     comment: normalizeComment(body.comment) || null,
+    would_use_again: optionalBoolean(body.wouldUseAgain),
+    delivered_promptly: optionalBoolean(body.deliveredPromptly),
+    courteous: optionalBoolean(body.courteous),
   };
 
   const mutation = existing?.id
     ? supabaseAdmin.from('reviews').update(payload).eq('id', existing.id)
     : supabaseAdmin.from('reviews').insert(payload);
   const { data: review, error: reviewError } = await mutation
-    .select('id, company_id, reviewer_company_id, job_id, reviewer_user_id, rating, comment, created_at')
+    .select('id, company_id, reviewer_company_id, job_id, reviewer_user_id, rating, comment, would_use_again, delivered_promptly, courteous, created_at')
     .single();
   if (reviewError || !review) return json(500, { error: 'We could not save company feedback.' });
 

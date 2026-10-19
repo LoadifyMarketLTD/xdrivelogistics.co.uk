@@ -170,7 +170,7 @@ type OrderSheet = {
   unavailable: { bodyType: string; extras: string; bookingFooter: string };
 };
 
-type ReviewRow = { id: string; job_id: string | null; reviewer_company_id?: string | null; rating: number | null; comment: string | null; created_at: string | null };
+type ReviewRow = { id: string; job_id: string | null; reviewer_company_id?: string | null; rating: number | null; comment: string | null; would_use_again: boolean | null; delivered_promptly: boolean | null; courteous: boolean | null; created_at: string | null };
 type DocumentRow = { id: string; job_id: string | null; file_name: string | null; file_type: string | null; file_url: string | null; uploaded_at: string | null };
 type TrackingEventRow = { id: string; job_id: string | null; event_type: string | null; event_time: string | null; user_name: string | null; notes: string | null; message: string | null };
 type DiaryMemberRow = { jobId: string; companyId: string | null; name: string | null };
@@ -444,7 +444,7 @@ export default function JobHistoryPage() {
     const [reviewsRes, documentsRes, eventsRes] = await Promise.all([
       companyReviews !== null
         ? Promise.resolve({ data: companyReviews, error: null })
-        : supabase.from('reviews').select('id, job_id, rating, comment, created_at').in('job_id', jobIds).order('created_at', { ascending: false }),
+        : supabase.from('reviews').select('id, job_id, rating, comment, would_use_again, delivered_promptly, courteous, created_at').in('job_id', jobIds).order('created_at', { ascending: false }),
       supabase.from('job_documents').select('id, job_id, file_name, file_type, file_url, uploaded_at').in('job_id', jobIds).order('uploaded_at', { ascending: false }),
       supabase.from('job_tracking_events').select('id, job_id, event_type, event_time, user_name, notes, message').in('job_id', jobIds).order('event_time', { ascending: false }),
     ]);
@@ -756,7 +756,7 @@ export default function JobHistoryPage() {
           const existing = reviewsByJob[feedbackJobId]?.[0] ?? null;
           if (!job) return null;
           const counterpartyLabel = job.company_id === feedbackReviewerCompanyId ? 'Executing carrier' : (job.companies?.name ?? 'Posting company');
-          return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={feedbackReviewerCompanyId} existing={existing ? { rating: existing.rating, comment: existing.comment } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={fetchHistory} />;
+          return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={feedbackReviewerCompanyId} existing={existing ? { rating: existing.rating, comment: existing.comment, would_use_again: existing.would_use_again, delivered_promptly: existing.delivered_promptly, courteous: existing.courteous } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={fetchHistory} />;
         })() : null}
         <DriverInvoicePreviewModal invoiceId={invoicePreview?.id ?? null} invoiceNumber={invoicePreview?.number ?? null} onClose={() => setInvoicePreview(null)} />
       </DriverWorkspaceShell>
