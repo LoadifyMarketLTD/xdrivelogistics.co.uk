@@ -8,6 +8,7 @@ describe('CX Live Availability readable parity', () => {
   const typography = read('app/components/workspace/workspace-readable-typography.css');
   const admin = read('app/admin/live-availability/page.tsx');
   const driver = read('app/driver/availability/live/DriverAvailabilityLiveWorkspace.tsx');
+  const driverCss = read('app/driver/driver-live-availability.css');
 
   it('uses the approved Diary-readable global operational type scale', () => {
     for (const token of [
@@ -23,8 +24,17 @@ describe('CX Live Availability readable parity', () => {
   it('adds an explicit Live Availability scope for generic legacy wrappers', () => {
     expect(admin).toContain('xdrive-live-availability-page');
     expect(driver).toContain('driver-live-availability-canonical');
+    expect(driver).toContain('<DriverWorkspaceShell hideHeader>');
     expect(typography).toContain(':is(.xdrive-live-availability-page, .driver-live-availability-canonical) *');
     expect(typography).toContain('font-size: 14px !important;');
+  });
+
+  it('uses the same global geometry in Driver and company Live Availability', () => {
+    expect(driverCss).toContain('grid-template-columns:var(--ws-filter-rail-w,196px) minmax(0,1fr);');
+    expect(driverCss).toContain('gap:var(--ws-gap-grid,14px);');
+    expect(driverCss).toContain('width:calc(100% + (2 * var(--ws-page-x,16px)));');
+    expect(driverCss).toContain('min-height: var(--ws-panel-head-h, 40px);');
+    expect(driverCss).not.toContain('gap:10px;');
   });
 
   it('preserves the current CX live controls without the removed dashboard clutter', () => {

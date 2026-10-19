@@ -3,9 +3,16 @@
   max-width:none;
   min-width:0;
   display:grid;
-  grid-template-columns:var(--ws-filter-rail-w,165px) minmax(0,1fr);
-  gap:10px;
+  grid-template-columns:var(--ws-filter-rail-w,196px) minmax(0,1fr);
+  gap:var(--ws-gap-grid,14px);
   align-items:start;
+}
+@media(min-width:981px){
+  .xdrive-driver-workspace .driver-live-availability-canonical{
+    width:calc(100% + (2 * var(--ws-page-x,16px)));
+    margin-left:calc(-1 * var(--ws-page-x,16px));
+    margin-right:calc(-1 * var(--ws-page-x,16px));
+  }
 }
 .xdrive-driver-workspace .driver-live-availability-canonical .driver-more-button,
 .xdrive-driver-workspace .driver-live-command-button{
@@ -29,7 +36,7 @@
 .xdrive-driver-workspace .driver-live-availability-canonical .driver-more-button--compact{min-height:28px;padding:0 8px;font-size:11px}
 .xdrive-driver-workspace .driver-live-availability-canonical .driver-more-link-button{border:0;background:transparent;color:#1d57d8;font-size:11px;font-weight:800;cursor:pointer;padding:5px 0}
 .xdrive-driver-workspace .driver-live-availability-canonical .driver-more-rail{min-width:0;background:#fff;border:1px solid #ccd6e1}
-.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-rail__title{min-height:var(--ws-panel-head-h,36px);display:flex;align-items:center;padding:0 10px;background:#f1f4f7;border-bottom:1px solid #d8e0e8;color:#20364f;font-size:13px;font-weight:800}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-rail__title{min-height:var(--ws-panel-head-h,40px);display:flex;align-items:center;padding:0 10px;background:#f1f4f7;border-bottom:1px solid #d8e0e8;color:#20364f;font-size:13px;font-weight:800}
 .xdrive-driver-workspace .driver-live-availability-canonical .driver-more-filter{display:flex;flex-direction:column;gap:5px;padding:9px 10px;border-bottom:1px solid #e3e8ee;color:#31445a}
 .xdrive-driver-workspace .driver-live-availability-canonical .driver-more-filter>span:first-child{font-size:10px;line-height:13px;text-transform:uppercase;letter-spacing:.04em;color:#68788a;font-weight:800}
 .xdrive-driver-workspace .driver-live-availability-canonical .driver-more-filter input,
@@ -85,7 +92,7 @@
 .xdrive-driver-workspace .driver-live-command-button:active:not(:disabled){background:#e4edfb!important;border-color:#1d57d8!important;color:#0b2f6b!important}
 .xdrive-driver-workspace .driver-live-command-button:disabled{background:#f8fafc!important;border-color:#cbd5e1!important;color:#64748b!important;opacity:1!important;cursor:not-allowed!important}
 @media(max-width:1180px){
-  .xdrive-driver-workspace .driver-live-availability-canonical{grid-template-columns:var(--ws-filter-rail-w,165px) minmax(0,1fr)}
+  .xdrive-driver-workspace .driver-live-availability-canonical{grid-template-columns:var(--ws-filter-rail-w,196px) minmax(0,1fr)}
   .driver-live-map-panel,.driver-live-map-panel .driver-nearby-map-shell,.driver-live-map-panel .driver-nearby-map-canvas,.driver-live-map-panel .leaflet-container{min-height:330px!important;height:330px!important}
 }
 @media(max-width:980px){
@@ -119,7 +126,7 @@
   padding: 6px 8px;
 }
 .xdrive-driver-workspace .driver-live-availability-canonical .driver-more-rail__title {
-  min-height: 34px;
+  min-height: var(--ws-panel-head-h, 40px);
   padding: 0 8px;
 }
 .xdrive-driver-workspace .driver-live-availability-canonical .driver-live-mode {

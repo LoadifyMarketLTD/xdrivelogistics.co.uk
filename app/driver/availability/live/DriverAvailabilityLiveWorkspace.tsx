@@ -242,9 +242,7 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <DriverWorkspaceShell
-        subtitle={mode === 'fleet' ? 'Manage live and future fleet capacity with privacy-scoped Exchange availability in the Courier Exchange operating layout.' : 'Publish your own availability when you want work and discover privacy-scoped Exchange vehicle capacity in the same operational workspace.'}
-      >
+      <DriverWorkspaceShell hideHeader>
         {mode === 'fleet' ? <DriverFleetIntegratedNav /> : null}
         <div className="driver-live-availability-canonical">
           <aside className="driver-more-rail driver-live-filter-rail">
