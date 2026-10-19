@@ -5,6 +5,7 @@ import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 
 const POSTCODE_OR_OUTCODE = /^(?:GIR0AA|[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}|[A-Z]{1,2}\d[A-Z\d]?)$/;
 const FULL_POSTCODE = /^(?:GIR0AA|[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2})$/;
+const LOCATION_QUERY = /^[A-Z0-9][A-Z0-9 .,'&()/-]{1,79}$/i;
 
 function compact(value: string) {
   return value.trim().toUpperCase().replace(/\s+/g, '');
@@ -181,7 +182,10 @@ export default function OperationalPostcodeAreaResolver() {
         dropdown.replaceChildren();
         dropdown.style.display = 'none';
       }
-      if (!value || !POSTCODE_OR_OUTCODE.test(value)) {
+      const validLookup = postcodeField
+        ? Boolean(value && POSTCODE_OR_OUTCODE.test(value))
+        : Boolean(rawValue.length >= 2 && LOCATION_QUERY.test(rawValue));
+      if (!validLookup) {
         hint.textContent = '';
         hint.hidden = true;
         hint.removeAttribute('data-state');
