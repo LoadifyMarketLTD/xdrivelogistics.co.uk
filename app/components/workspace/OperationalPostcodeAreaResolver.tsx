@@ -6,6 +6,92 @@ import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 const POSTCODE_OR_OUTCODE = /^(?:GIR0AA|[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}|[A-Z]{1,2}\d[A-Z\d]?)$/;
 const FULL_POSTCODE = /^(?:GIR0AA|[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2})$/;
 const LOCATION_QUERY = /^[A-Z0-9][A-Z0-9 .,'&()/-]{1,79}$/i;
+const GOOGLE_MAPS_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY?.trim() ?? '';
+
+type GooglePrediction = { description?: string | null };
+type GoogleAutocompleteService = {
+  getPlacePredictions: (
+    request: {
+      input: string;
+      componentRestrictions?: { country: string };
+      types?: string[];
+    },
+    callback: (predictions: GooglePrediction[] | null, status: string) => void,
+  ) => void;
+};
+type GoogleMapsWindow = Window & typeof globalThis & {
+  google?: {
+    maps?: {
+      places?: {
+        AutocompleteService: new () => GoogleAutocompleteService;
+        PlacesServiceStatus?: { OK?: string };
+      };
+    };
+  };
+};
+
+let googlePlacesPromise: Promise<GoogleAutocompleteService | null> | null = null;
+
+function googlePlacesService() {
+  if (!GOOGLE_MAPS_KEY || typeof window === 'undefined') return Promise.resolve<GoogleAutocompleteService | null>(null);
+  const googleWindow = window as GoogleMapsWindow;
+  const existing = googleWindow.google?.maps?.places?.AutocompleteService;
+  if (existing) return Promise.resolve(new existing());
+  if (googlePlacesPromise) return googlePlacesPromise;
+
+  googlePlacesPromise = new Promise<GoogleAutocompleteService | null>((resolve) => {
+    const finish = () => {
+      const Service = (window as GoogleMapsWindow).google?.maps?.places?.AutocompleteService;
+      resolve(Service ? new Service() : null);
+    };
+
+    const existingScript = document.querySelector<HTMLScriptElement>('script[data-xdrive-google-places]');
+    if (existingScript) {
+      existingScript.addEventListener('load', finish, { once: true });
+      existingScript.addEventListener('error', () => resolve(null), { once: true });
+      return;
+    }
+
+    const script = document.createElement('script');
+    script.dataset.xdriveGooglePlaces = 'true';
+    script.async = true;
+    script.defer = true;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_KEY)}&libraries=places&v=weekly`;
+    script.addEventListener('load', finish, { once: true });
+    script.addEventListener('error', () => resolve(null), { once: true });
+    document.head.appendChild(script);
+  });
+  return googlePlacesPromise;
+}
+
+async function lookupGooglePlaces(query: string) {
+  const service = await googlePlacesService();
+  if (!service) return [] as string[];
+  return new Promise<string[]>((resolve) => {
+    service.getPlacePredictions(
+      {
+        input: query,
+        componentRestrictions: { country: 'gb' },
+        types: ['address'],
+      },
+      (predictions, status) => {
+        if (!predictions?.length || status !== 'OK') {
+          resolve([]);
+          return;
+        }
+        const seen = new Set<string>();
+        const suggestions = predictions
+          .map((prediction) => prediction.description?.trim() ?? '')
+          .filter((value) => {
+            if (!value || seen.has(value.toLocaleLowerCase('en-GB'))) return false;
+            seen.add(value.toLocaleLowerCase('en-GB'));
+            return true;
+          });
+        resolve(suggestions);
+      },
+    );
+  });
+}
 
 function compact(value: string) {
   return value.trim().toUpperCase().replace(/\s+/g, '');
@@ -217,9 +303,12 @@ export default function OperationalPostcodeAreaResolver() {
                   signal: controller.signal,
                 });
                 const payload = await response.json().catch(() => ({})) as { suggestions?: unknown };
-                const suggestions = Array.isArray(payload.suggestions)
+                let suggestions = Array.isArray(payload.suggestions)
                   ? payload.suggestions.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
                   : [];
+                if (!suggestions.length && !controller.signal.aborted) {
+                  suggestions = await lookupGooglePlaces(rawValue);
+                }
                 if (!controller.signal.aborted && suggestions.length) {
                   addressCache.set(cacheKey, suggestions);
                   renderSuggestions(input, suggestions, value);

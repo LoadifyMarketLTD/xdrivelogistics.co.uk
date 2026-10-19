@@ -31,6 +31,9 @@ describe('global operational postcode autocomplete', () => {
     expect(resolver).toContain('rawValue.length >= 2');
     expect(resolver).toContain('const hint = postcodeField ? hintFor(input) : null');
     expect(resolver).toContain('if (locationField) return');
+    expect(resolver).toContain('lookupGooglePlaces(rawValue)');
+    expect(resolver).toContain("libraries=places&v=weekly");
+    expect(resolver).toContain("componentRestrictions: { country: 'gb' }");
     expect(resolver).toContain('data-xdrive-location-suggestions');
     expect(resolver).toContain('setReactInputValue');
   });
