@@ -6,7 +6,7 @@ const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), 'utf8');
 
 describe('Admin Marketplace global visual identity contract', () => {
-  it('loads the Admin Marketplace identity layer last in every white operational layout', () => {
+  it('loads the shared identity and readable baseline after role-specific workspace CSS', () => {
     for (const file of [
       'app/admin/layout.tsx',
       'app/customer/layout.tsx',
@@ -14,9 +14,12 @@ describe('Admin Marketplace global visual identity contract', () => {
       'app/driver/layout.tsx',
     ]) {
       const source = read(file);
-      expect(source).toContain("admin-marketplace-identity.css");
-      const identityIndex = source.indexOf("admin-marketplace-identity.css");
-      expect(identityIndex).toBeGreaterThan(source.indexOf("dashboard-compact-global.css"));
+      expect(source).toContain('admin-marketplace-identity.css');
+      expect(source).toContain('workspace-readable-typography.css');
+      const identityIndex = source.indexOf('admin-marketplace-identity.css');
+      const readableIndex = source.indexOf('workspace-readable-typography.css');
+      expect(identityIndex).toBeGreaterThan(source.indexOf('dashboard-compact-global.css'));
+      expect(readableIndex).toBeGreaterThan(identityIndex);
     }
   });
 
@@ -39,20 +42,24 @@ describe('Admin Marketplace global visual identity contract', () => {
     }
   });
 
-  it('pins the measured Admin Marketplace geometry as the shared page contract', () => {
+  it('uses the approved global readable geometry as the shared page contract', () => {
     const css = read('app/components/workspace/admin-marketplace-identity.css');
-    expect(css).toContain('gap: 10px !important');
-    expect(css).toContain('var(--ws-filter-rail-w, 165px)');
-    expect(css).toContain('min-height: 27px !important');
-    expect(css).toContain('height: 27px !important');
-    expect(css).toContain('min-height: 32px !important');
-    expect(css).toContain('min-height: 29px !important');
+    expect(css).toContain('gap: var(--ws-gap-grid, 14px) !important');
+    expect(css).toContain('var(--ws-filter-rail-w, 196px)');
+    expect(css).toContain('min-height: var(--ws-control-h, 32px) !important');
+    expect(css).toContain('height: var(--ws-control-h, 32px) !important');
+    expect(css).toContain('min-height: var(--ws-panel-head-h, 40px) !important');
+    expect(css).toContain('min-height: var(--ws-tab-h, 32px) !important');
     expect(css).toContain('gap: 8px !important');
+    expect(css).not.toContain('min-height: 27px !important');
+    expect(css).not.toContain('height: 27px !important');
   });
 
-  it('keeps Admin Marketplace Loads and Quotes on the same 10px rail-to-main gap', () => {
+  it('keeps Loads and Quotes on the same global rail-to-main geometry', () => {
     const exchange = read('app/components/workspace/CompanyMarketplaceExchange.tsx');
-    expect(exchange).toContain("xdrive-loads-workspace-layout xdrive-admin-marketplace-identity");
-    expect(exchange).toContain("tab === 'bids' && <div className=\"xdrive-exchange-workspace-layout xdrive-admin-marketplace-identity\" style={{ display: 'flex', alignItems: 'flex-start', gap: 10");
+    expect(exchange).toContain('xdrive-loads-workspace-layout xdrive-admin-marketplace-identity');
+    expect(exchange).toContain('xdrive-exchange-workspace-layout xdrive-admin-marketplace-identity');
+    expect(exchange).toContain('var(--ws-filter-rail-w, 196px)');
+    expect(exchange).not.toContain("alignItems: 'flex-start', gap: 10");
   });
 });

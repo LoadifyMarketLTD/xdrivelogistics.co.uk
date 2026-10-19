@@ -13,6 +13,7 @@ describe('Courier Exchange live availability, fleet, return journeys and diary p
   const diary = read('lib/diary/canonicalDiary.ts');
   const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
   const roles = read('lib/workspaceRole.ts');
+  const access = read('lib/roleCapabilities.ts');
 
   it('uses the exact CX live audience tabs in company availability and My Fleet', () => {
     for (const source of [adminAvailability, adminFleet]) {
@@ -30,6 +31,7 @@ describe('Courier Exchange live availability, fleet, return journeys and diary p
     expect(driverFleet).toContain('DriverAvailabilityLiveWorkspace mode="fleet"');
     expect(driverAvailability).toContain("explicitMode ?? (pathname.startsWith('/driver/fleet') ? 'fleet' : 'availability')");
     expect(roles).toContain("label: 'My Fleet', href: '/driver/fleet'");
+    expect(access).toContain("{ prefix: '/driver/fleet', workspace: 'owner_operator', roles: ['owner_driver'] }");
   });
 
   it('uses the exact CX live return journey type tabs and top actions', () => {

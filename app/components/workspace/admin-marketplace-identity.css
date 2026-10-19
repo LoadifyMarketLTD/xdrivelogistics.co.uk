@@ -1,8 +1,8 @@
 /* Admin Marketplace visual identity contract.
  * Baseline measured on main /admin/marketplace at 1680x900 on 2026-10-17:
- * 165px rail + 10px gap, 32px toolbar, 29px secondary nav, 8px list gap,
- * 27px filter controls and the shared CX cards.
- * This file is loaded last in all white operational layouts so role CSS cannot
+ * Shared readable geometry: 196px rail + 14px gap, 32px controls/tabs, 40px panel heads,
+ * with the shared CX cards and typography tokens applied across every operational workspace.
+ * This shared identity layer is followed only by the readable typography baseline, so role CSS cannot
  * drift Loads / Quotes / Diary away from the Admin Marketplace identity. */
 
 .xdrive-workspace-measured .xdrive-admin-marketplace-identity.workspace-board-layout,
@@ -10,7 +10,7 @@
 .xdrive-workspace-measured .xdrive-admin-marketplace-identity.xdrive-exchange-workspace-layout {
   display: flex !important;
   align-items: flex-start !important;
-  gap: 10px !important;
+  gap: var(--ws-gap-grid, 14px) !important;
   flex-wrap: wrap !important;
   width: 100% !important;
   min-width: 0 !important;
@@ -19,8 +19,8 @@
 .xdrive-workspace-measured .xdrive-admin-marketplace-identity.workspace-board-layout > .workspace-filter-rail,
 .xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-diary-board > .driver-filter-rail,
 .xdrive-workspace-measured .xdrive-admin-marketplace-identity.xdrive-exchange-workspace-layout > .carrier-exchange-rail {
-  flex: 0 0 var(--ws-filter-rail-w, 165px) !important;
-  width: var(--ws-filter-rail-w, 165px) !important;
+  flex: 0 0 var(--ws-filter-rail-w, 196px) !important;
+  width: var(--ws-filter-rail-w, 196px) !important;
   min-width: 0 !important;
   align-self: flex-start !important;
 }
@@ -37,7 +37,7 @@
 .xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-quotes-prototype > .pagebody {
   display: flex !important;
   align-items: flex-start !important;
-  gap: 10px !important;
+  gap: var(--ws-gap-grid, 14px) !important;
   flex-wrap: wrap !important;
   width: 100% !important;
   min-width: 0 !important;
@@ -45,8 +45,8 @@
 
 .xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-loads-prototype > .pagebody > .left,
 .xdrive-workspace-measured .xdrive-admin-marketplace-identity.driver-quotes-prototype > .pagebody > .left {
-  flex: 0 0 var(--ws-filter-rail-w, 165px) !important;
-  width: var(--ws-filter-rail-w, 165px) !important;
+  flex: 0 0 var(--ws-filter-rail-w, 196px) !important;
+  width: var(--ws-filter-rail-w, 196px) !important;
   min-width: 0 !important;
   align-self: flex-start !important;
 }
@@ -75,8 +75,8 @@
 
 .xdrive-workspace-measured .xdrive-admin-marketplace-identity .workspace-filter-rail__header,
 .xdrive-workspace-measured .xdrive-admin-marketplace-identity .left-title {
-  min-height: 36px !important;
-  height: 36px !important;
+  min-height: var(--ws-panel-head-h, 40px) !important;
+  height: var(--ws-panel-head-h, 40px) !important;
   display: flex !important;
   align-items: center !important;
   padding: 8px 10px !important;
@@ -134,8 +134,8 @@
   .left input:not([type="checkbox"]):not([type="radio"]),
   .left select
 ) {
-  min-height: 27px !important;
-  height: 27px !important;
+  min-height: var(--ws-control-h, 32px) !important;
+  height: var(--ws-control-h, 32px) !important;
   padding: 0 9px !important;
   border: 1px solid var(--ws-border, #d8dee8) !important;
   border-radius: 4px !important;
@@ -179,14 +179,14 @@
   font-weight: 700 !important;
 }
 
-/* Admin Marketplace secondary navigation: 29px high with 9px separation to list. */
+/* Shared secondary navigation: global 32px tab height with 9px separation to list. */
 .xdrive-workspace-measured .xdrive-admin-marketplace-identity :where(
   .workspace-tab-strip,
   .load-nav-unified,
   .cx-diary-state-tabs,
   .cx-quote-state-tabs
 ) {
-  min-height: 29px !important;
+  min-height: var(--ws-tab-h, 32px) !important;
   height: auto !important;
   display: flex !important;
   align-items: stretch !important;
@@ -205,12 +205,12 @@
   .cx-diary-state-tabs > button,
   .cx-quote-state-tabs > button
 ) {
-  min-height: 29px !important;
-  height: 29px !important;
+  min-height: var(--ws-tab-h, 32px) !important;
+  height: var(--ws-tab-h, 32px) !important;
   padding: 0 10px !important;
   border-radius: 0 !important;
   font-size: var(--cx-diary-text, 11px) !important;
-  line-height: 27px !important;
+  line-height: 30px !important;
   font-weight: 650 !important;
 }
 
@@ -301,8 +301,8 @@
 .xdrive-workspace-visual.xdrive-workspace-measured
   .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
   .left select {
-  min-height: 27px !important;
-  height: 27px !important;
+  min-height: var(--ws-control-h, 32px) !important;
+  height: var(--ws-control-h, 32px) !important;
   padding: 0 9px !important;
   font-size: var(--cx-diary-text, 12px) !important;
   line-height: 16px !important;
@@ -315,8 +315,8 @@
 .xdrive-workspace-visual.xdrive-workspace-measured
   .xdrive-admin-marketplace-identity.xdrive-admin-marketplace-identity
   .carrier-exchange-rail select {
-  min-height: 27px !important;
-  height: 27px !important;
+  min-height: var(--ws-control-h, 32px) !important;
+  height: var(--ws-control-h, 32px) !important;
   padding: 0 9px !important;
   font-size: var(--cx-diary-text, 12px) !important;
   line-height: 16px !important;
@@ -328,14 +328,14 @@
 .xdrive-workspace-visual.xdrive-workspace-measured
   .xdrive-admin-marketplace-identity.driver-loads-prototype {
   box-sizing: border-box !important;
-  padding-left: 12px !important;
-  padding-right: 12px !important;
+  padding-left: var(--ws-page-x, 16px) !important;
+  padding-right: var(--ws-page-x, 16px) !important;
 }
 
 .xdrive-workspace-visual.xdrive-workspace-measured
   .xdrive-admin-marketplace-identity.driver-diary-board {
-  width: calc(100% + 24px) !important;
+  width: calc(100% + (2 * var(--ws-page-x, 16px))) !important;
   max-width: none !important;
-  margin-left: -12px !important;
-  margin-right: -12px !important;
+  margin-left: calc(-1 * var(--ws-page-x, 16px)) !important;
+  margin-right: calc(-1 * var(--ws-page-x, 16px)) !important;
 }
