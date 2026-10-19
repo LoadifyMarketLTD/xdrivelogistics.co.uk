@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { downloadXlsx, spreadsheetDate } from '../../../../lib/spreadsheetExport';
 import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import {
@@ -26,6 +27,7 @@ const normalizedStatus = (status: string | null | undefined, paymentStatus: stri
   String(paymentStatus || status || 'unknown').trim().toLowerCase();
 
 export default function FinanceStatementsPage() {
+  const router = useRouter();
   const data = useCompanyWorkspaceData();
   const [statementType, setStatementType] = useState<'income'>('income');
   const [dateFilter, setDateFilter] = useState<'invoice_date' | 'due_date'>('invoice_date');
@@ -128,7 +130,28 @@ export default function FinanceStatementsPage() {
         description="Create a company-scoped invoice statement by counterparty and date range from the verified invoice register."
       />
 
-      <Panel title="Statements" description="Generate an income statement from the verified Accounts Receivable register.">
+      <div role="tablist" aria-label="Accounts Receivable" style={{ display: 'flex', gap: 0, alignItems: 'stretch', borderBottom: '1px solid #d1d5db', marginBottom: 16, overflowX: 'auto' }}>
+        {[
+          ['Dashboard', 'dashboard'],
+          ['All', 'all'],
+          ['Ready To Invoice', 'ready'],
+          ['Awaiting Payment', 'awaiting'],
+          ['Paid', 'paid'],
+          ['Customers', 'customers'],
+          ['Archive', 'archive'],
+        ].map(([label, view]) => (
+          <button key={view} type="button" role="tab" aria-selected={false} onClick={() => router.push('/admin/finance/customer-invoices?view=' + view)} style={{
+            border: 0, borderBottom: '2px solid transparent', background: 'transparent', color: '#4b5563',
+            padding: '10px 16px 9px', fontSize: 12, fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+          }}>{label}</button>
+        ))}
+        <button type="button" role="tab" aria-selected={true} style={{
+          border: 0, borderBottom: '2px solid #111827', background: 'transparent', color: '#111827',
+          padding: '10px 16px 9px', fontSize: 12, fontWeight: 750, cursor: 'default', whiteSpace: 'nowrap',
+        }}>Statements</button>
+      </div>
+
+      <Panel title="Statements" description="Please select a statement type">
         <div className="workspace-filter-fields workspace-filter-fields--even">
           <label style={{ display: 'grid', gap: 4, fontSize: 11, fontWeight: 700, color: '#475569' }}>
             STATEMENT TYPE
@@ -159,7 +182,7 @@ export default function FinanceStatementsPage() {
             <input type="date" value={toDate} onChange={(event) => setToDate(event.target.value)} style={{ minHeight: 32, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 8px' }} />
           </label>
           <ActionButton tone="secondary" onClick={() => { setStatementType('income'); setDateFilter('invoice_date'); setCounterparty('all'); setFromDate(''); setToDate(''); }}>Clear</ActionButton>
-          <ActionButton tone="primary" disabled={rows.length === 0} onClick={() => void exportStatement()}>Generate</ActionButton>
+          <span aria-label="Export Statement XLSX"><ActionButton tone="primary" disabled={rows.length === 0} onClick={() => void exportStatement()}>Generate</ActionButton></span>
         </div>
       </Panel>
 
