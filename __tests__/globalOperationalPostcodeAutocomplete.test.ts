@@ -29,6 +29,8 @@ describe('global operational postcode autocomplete', () => {
     expect(resolver).toContain("new URLSearchParams({ q: rawValue })");
     expect(resolver).toContain('LOCATION_QUERY.test(rawValue)');
     expect(resolver).toContain('rawValue.length >= 2');
+    expect(resolver).toContain('const hint = postcodeField ? hintFor(input) : null');
+    expect(resolver).toContain('if (locationField) return');
     expect(resolver).toContain('data-xdrive-location-suggestions');
     expect(resolver).toContain('setReactInputValue');
   });

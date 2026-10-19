@@ -170,7 +170,7 @@ export default function OperationalPostcodeAreaResolver() {
         return;
       }
 
-      const hint = hintFor(input);
+      const hint = postcodeField ? hintFor(input) : null;
       const rawValue = input.value.trim();
       const value = compact(rawValue);
       const previousTimer = timers.get(input);
@@ -186,9 +186,11 @@ export default function OperationalPostcodeAreaResolver() {
         ? Boolean(value && POSTCODE_OR_OUTCODE.test(value))
         : Boolean(rawValue.length >= 2 && LOCATION_QUERY.test(rawValue));
       if (!validLookup) {
-        hint.textContent = '';
-        hint.hidden = true;
-        hint.removeAttribute('data-state');
+        if (hint) {
+          hint.textContent = '';
+          hint.hidden = true;
+          hint.removeAttribute('data-state');
+        }
         if (dropdown) dropdown.style.display = 'none';
         return;
       }
@@ -232,12 +234,8 @@ export default function OperationalPostcodeAreaResolver() {
           }
         }
 
-        if (locationField) {
-          hint.textContent = '';
-          hint.hidden = true;
-          hint.removeAttribute('data-state');
-          return;
-        }
+        if (locationField) return;
+        if (!hint) return;
 
         const cachedArea = areaCache.get(value);
         if (cachedArea) {
