@@ -27,7 +27,7 @@ describe('CX-close feedback and disputes parity', () => {
   });
 
   it('keeps employed Driver feedback read-only while allowing authorised Owner Driver company feedback', () => {
-    expect(driverDiary).toContain("supabase.from('reviews').select('id, job_id, rating, comment, created_at')");
+    expect(driverDiary).toContain("supabase.from('reviews').select('id, job_id, rating, comment, would_use_again, delivered_promptly, courteous, created_at')");
     expect(driverDiary).toContain('View feedback');
     expect(driverDiary).toContain('Awaiting feedback');
     expect(driverDiary).toContain("const feedbackReviewerCompanyId = canViewCompanyDiary && diaryScope === 'company' ? companyId : null");

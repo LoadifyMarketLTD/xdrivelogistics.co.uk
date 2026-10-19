@@ -48,9 +48,13 @@ describe('cross-workspace feedback standardization', () => {
     expect(diary).toContain("stage === 'completed' && feedbackEligible && !hasFeedback");
   });
 
-  it('uses one reusable company feedback dialog for rating and comment mutation', () => {
+  it('uses one reusable company feedback dialog for rating, comment and structured service feedback mutation', () => {
     expect(dialog).toContain('One company review is stored per booking and reviewer company.');
     expect(dialog).toContain("method: 'POST'");
-    expect(dialog).toContain('rating, comment');
+    expect(dialog).toContain('rating,');
+    expect(dialog).toContain('comment,');
+    expect(dialog).toContain('wouldUseAgain,');
+    expect(dialog).toContain('deliveredPromptly,');
+    expect(dialog).toContain('courteous,');
   });
 });
