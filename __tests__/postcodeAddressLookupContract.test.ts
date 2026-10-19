@@ -31,8 +31,10 @@ describe('postcode address lookup contract', () => {
     expect(route).toContain('api.getAddress.io/find/');
     expect(route).toContain('api.mapbox.com/search/geocode/v6/forward');
     expect(route).toContain("provider: 'mapbox-geocoding-autocomplete'");
-    expect(route).toContain('api.postcodes.io/postcodes/');
+    expect(route).not.toContain('api.postcodes.io/postcodes/');
     expect(field).not.toContain('api.postcodes.io');
+    expect(route).toContain("'Cache-Control': 'private, no-store, max-age=0, must-revalidate'");
+    expect(route).toContain("'Netlify-CDN-Cache-Control': 'no-store'");
   });
 
   it('formats structured address rows returned for the exact postcode', () => {

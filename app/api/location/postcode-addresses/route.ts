@@ -4,6 +4,15 @@ import {
   supabaseValidator,
 } from '../../_lib/supabaseAdmin';
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
+const NO_STORE_HEADERS = {
+  'Cache-Control': 'private, no-store, max-age=0, must-revalidate',
+  'CDN-Cache-Control': 'no-store',
+  'Netlify-CDN-Cache-Control': 'no-store',
+} as const;
+
 const normalizePostcode = (value: string) => {
   const compact = value.toUpperCase().replace(/\s+/g, '').trim();
   return compact.length > 3 ? `${compact.slice(0, -3)} ${compact.slice(-3)}` : compact;
@@ -126,25 +135,6 @@ async function lookupMapboxAutocomplete(query: string, accessToken: string) {
   }
 }
 
-async function lookupPublicPostcodeAutocomplete(query: string) {
-  const compactQuery = query.toUpperCase().replace(/\s+/g, '');
-  if (!/^[A-Z]{1,2}\d[A-Z\d]?\d?[A-Z]{0,2}$/.test(compactQuery)) return [] as string[];
-
-  try {
-    const response = await fetch(
-      `https://api.postcodes.io/postcodes/${encodeURIComponent(compactQuery)}/autocomplete?limit=12`,
-      { signal: AbortSignal.timeout(5_000), cache: 'no-store' },
-    );
-    if (!response.ok) return [] as string[];
-    const payload = await response.json() as { result?: unknown };
-    return Array.isArray(payload.result)
-      ? dedupe(payload.result.filter((item): item is string => typeof item === 'string' && item.trim().length > 0))
-      : [];
-  } catch {
-    return [] as string[];
-  }
-}
-
 async function lookupIdealAutocomplete(query: string, apiKey: string) {
   const url = new URL('https://api.ideal-postcodes.co.uk/v1/autocomplete/addresses');
   url.searchParams.set('api_key', apiKey);
@@ -230,13 +220,13 @@ async function lookupGetAddress(postcode: string, apiKey: string) {
 
 export async function GET(request: NextRequest) {
   if (!supabaseValidator) {
-    return NextResponse.json({ error: 'Address lookup is temporarily unavailable.' }, { status: 503 });
+    return NextResponse.json({ error: 'Address lookup is temporarily unavailable.' }, { status: 503, headers: NO_STORE_HEADERS });
   }
 
   const token = getBearerToken(request);
-  if (!token) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  if (!token) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401, headers: NO_STORE_HEADERS });
   const { data: authData, error: authError } = await supabaseValidator.auth.getUser(token);
-  if (authError || !authData.user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
+  if (authError || !authData.user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401, headers: NO_STORE_HEADERS });
 
   const rawQuery = clean(request.nextUrl.searchParams.get('q') ?? '');
   const postcode = normalizePostcode(request.nextUrl.searchParams.get('postcode') ?? '');
@@ -244,7 +234,7 @@ export async function GET(request: NextRequest) {
   const exactPostcode = isFullUkPostcode(postcode);
 
   if (!autocompleteQuery || autocompleteQuery.length < 2) {
-    return NextResponse.json({ error: 'Enter at least 2 characters.' }, { status: 400 });
+    return NextResponse.json({ error: 'Enter at least 2 characters.' }, { status: 400, headers: NO_STORE_HEADERS });
   }
 
   const idealKey = process.env.IDEAL_POSTCODES_API_KEY?.trim();
@@ -258,7 +248,7 @@ export async function GET(request: NextRequest) {
         suggestions,
         configured: true,
         provider: 'ideal-postcodes-autocomplete',
-      }, { headers: { 'Cache-Control': 'private, max-age=60' } });
+      }, { headers: NO_STORE_HEADERS });
     }
   }
 
@@ -269,7 +259,7 @@ export async function GET(request: NextRequest) {
         suggestions,
         configured: true,
         provider: 'getaddress-autocomplete',
-      }, { headers: { 'Cache-Control': 'private, max-age=60' } });
+      }, { headers: NO_STORE_HEADERS });
     }
   }
 
@@ -280,18 +270,7 @@ export async function GET(request: NextRequest) {
         suggestions,
         configured: true,
         provider: 'mapbox-geocoding-autocomplete',
-      }, { headers: { 'Cache-Control': 'no-store' } });
-    }
-  }
-
-  if (!exactPostcode) {
-    const suggestions = await lookupPublicPostcodeAutocomplete(autocompleteQuery);
-    if (suggestions.length) {
-      return NextResponse.json({
-        suggestions,
-        configured: Boolean(idealKey || getAddressKey || mapboxToken),
-        provider: 'postcodes-io-autocomplete',
-      }, { headers: { 'Cache-Control': 'public, max-age=300' } });
+      }, { headers: NO_STORE_HEADERS });
     }
   }
 
@@ -303,7 +282,7 @@ export async function GET(request: NextRequest) {
         configured: true,
         provider: 'ideal-postcodes',
         postcodeFound: !result.notFound,
-      }, { headers: { 'Cache-Control': 'no-store' } });
+      }, { headers: NO_STORE_HEADERS });
     }
   }
 
@@ -315,7 +294,7 @@ export async function GET(request: NextRequest) {
         configured: true,
         provider: 'getaddress',
         postcodeFound: !result.notFound,
-      }, { headers: { 'Cache-Control': 'no-store' } });
+      }, { headers: NO_STORE_HEADERS });
     }
   }
 
@@ -323,5 +302,5 @@ export async function GET(request: NextRequest) {
     suggestions: [],
     configured: true,
     provider: idealKey ? 'ideal-postcodes-autocomplete' : getAddressKey ? 'getaddress' : mapboxToken ? 'mapbox-geocoding-autocomplete' : null,
-  }, { headers: { 'Cache-Control': 'private, max-age=30' } });
+  }, { headers: NO_STORE_HEADERS });
 }

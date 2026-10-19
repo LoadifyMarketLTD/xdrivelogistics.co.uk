@@ -38,8 +38,15 @@ describe('global operational postcode autocomplete', () => {
     expect(route).toContain("provider: 'ideal-postcodes-autocomplete'");
     expect(route).toContain("provider: 'getaddress-autocomplete'");
     expect(route).toContain("provider: 'mapbox-geocoding-autocomplete'");
-    expect(route).toContain("provider: 'postcodes-io-autocomplete'");
-    expect(route).toContain('/autocomplete?limit=12');
+    expect(route).not.toContain("provider: 'postcodes-io-autocomplete'");
+    expect(route).not.toContain('/autocomplete?limit=12');
+    expect(route).toContain("'Netlify-CDN-Cache-Control': 'no-store'");
+  });
+
+  it('clears stale postcode-only results before every new location lookup', () => {
+    const resolver = read('app/components/workspace/OperationalPostcodeAreaResolver.tsx');
+    expect(resolver).toContain('dropdown.replaceChildren()');
+    expect(resolver).toContain("dropdown.style.display = 'none'");
   });
 
   it('keeps the shared resolver mounted in the common workspace shell', () => {

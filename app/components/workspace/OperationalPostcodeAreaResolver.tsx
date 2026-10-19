@@ -177,6 +177,10 @@ export default function OperationalPostcodeAreaResolver() {
       controllers.get(input)?.abort();
 
       const dropdown = input.parentElement?.querySelector<HTMLElement>(':scope > [data-xdrive-location-suggestions]');
+      if (dropdown) {
+        dropdown.replaceChildren();
+        dropdown.style.display = 'none';
+      }
       if (!value || !POSTCODE_OR_OUTCODE.test(value)) {
         hint.textContent = '';
         hint.hidden = true;
