@@ -51,6 +51,7 @@ describe('global operational postcode autocomplete', () => {
     expect(route).toContain("provider: 'photon-openstreetmap'");
     expect(route).toContain("https://photon.komoot.io/api/");
     expect(route).toContain("https://photon.komoot.io/reverse");
+    expect(route).toContain("alternate.searchParams.set('q', `${postcodeQuery.slice(0, -1)} ${postcodeQuery.slice(-1)}`)");
     expect(route).not.toContain("provider: 'postcodes-io-autocomplete'");
     expect(route).not.toContain('/autocomplete?limit=12');
     expect(route).toContain("'Netlify-CDN-Cache-Control': 'no-store'");

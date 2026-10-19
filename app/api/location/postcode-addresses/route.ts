@@ -158,11 +158,26 @@ async function lookupPhotonAutocomplete(query: string) {
   url.searchParams.set('q', trimmed);
   url.searchParams.set('limit', '12');
   url.searchParams.set('lang', 'en');
-  const forward = await photonFeatures(url);
+  let forward = await photonFeatures(url);
   const postcodeQuery = postcodeFragment(trimmed);
   const looksLikePostcode = /^[A-Z]{1,2}\d[A-Z\d]?\d?[A-Z]{0,2}$/.test(postcodeQuery);
 
-  if (looksLikePostcode && postcodeQuery.length >= 5) {
+  if (looksLikePostcode && /^[A-Z]{2}\d{2}$/.test(postcodeQuery)) {
+    const hasMatchingGbPostcode = forward.some((feature) => {
+      const props = feature.properties ?? {};
+      const candidate = postcodeFragment(clean(props.name) || clean(props.postcode));
+      return clean(props.countrycode).toUpperCase() === 'GB' && candidate.startsWith(postcodeQuery);
+    });
+    if (!hasMatchingGbPostcode) {
+      const alternate = new URL('https://photon.komoot.io/api/');
+      alternate.searchParams.set('q', `${postcodeQuery.slice(0, -1)} ${postcodeQuery.slice(-1)}`);
+      alternate.searchParams.set('limit', '12');
+      alternate.searchParams.set('lang', 'en');
+      forward = [...forward, ...await photonFeatures(alternate)];
+    }
+  }
+
+  if (looksLikePostcode && postcodeQuery.length >= 4) {
     const postcodeFeatures = forward.filter((feature) => {
       const props = feature.properties ?? {};
       if (clean(props.countrycode).toUpperCase() !== 'GB') return false;
