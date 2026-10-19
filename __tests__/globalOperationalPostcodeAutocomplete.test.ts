@@ -28,6 +28,9 @@ describe('global operational postcode autocomplete', () => {
     expect(resolver).toContain('/api/location/postcode-addresses?');
     expect(resolver).toContain("new URLSearchParams({ q: rawValue })");
     expect(resolver).toContain('LOCATION_QUERY.test(rawValue)');
+    expect(resolver).toContain("context.includes('town / postcode')");
+    expect(resolver).toContain("context.includes('location / postcode')");
+    expect(resolver).toContain('if (isMixedLocationContext(context)) return false');
     expect(resolver).toContain('rawValue.length >= 2');
     expect(resolver).toContain('const hint = postcodeField ? hintFor(input) : null');
     expect(resolver).toContain('if (locationField) return');

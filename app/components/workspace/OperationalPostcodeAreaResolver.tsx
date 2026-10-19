@@ -29,11 +29,20 @@ function fieldContext(input: HTMLInputElement) {
   ].join(' ').toLowerCase();
 }
 
+function isMixedLocationContext(context: string) {
+  if (context.includes('enter location')) return true;
+  if (context.includes('town / postcode') || context.includes('town/postcode')) return true;
+  if (context.includes('postcode / area') || context.includes('postcode / anywhere')) return true;
+  if (context.includes('location / postcode') || context.includes('location/postcode')) return true;
+  return /(^|\s)(from:|to:|pickup|delivery)(\s|$)/.test(context);
+}
+
 function isPostcodeField(input: HTMLInputElement) {
   const type = (input.type || 'text').toLowerCase();
   if (!['text', 'search'].includes(type) || input.disabled || input.readOnly) return false;
   if (input.dataset.postcodeLookup === 'off') return false;
   const context = fieldContext(input);
+  if (isMixedLocationContext(context)) return false;
   return context.includes('postcode') || context.includes('outcode');
 }
 
@@ -41,11 +50,7 @@ function isOperationalLocationField(input: HTMLInputElement) {
   const type = (input.type || 'text').toLowerCase();
   if (!['text', 'search'].includes(type) || input.disabled || input.readOnly) return false;
   if (input.dataset.postcodeLookup === 'off') return false;
-  const context = fieldContext(input);
-  if (context.includes('postcode') || context.includes('outcode')) return false;
-  if (context.includes('enter location') || context.includes('town / postcode') || context.includes('town/postcode')) return true;
-  if (context.includes('postcode / area') || context.includes('postcode / anywhere')) return true;
-  return /(^|\s)(from:|to:|pickup|delivery)(\s|$)/.test(context);
+  return isMixedLocationContext(fieldContext(input));
 }
 
 function hintFor(input: HTMLInputElement) {
