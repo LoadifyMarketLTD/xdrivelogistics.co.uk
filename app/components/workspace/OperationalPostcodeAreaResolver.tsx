@@ -36,6 +36,7 @@ function isMixedLocationContext(context: string) {
   if (context.includes('postcode / area') || context.includes('postcode / anywhere')) return true;
   if (context.includes('location / postcode') || context.includes('location/postcode')) return true;
   if (context.includes('enter destination')) return true;
+  if (context.includes('future location')) return true;
   return /(^|\s)(from|to|pickup|delivery)(?:\s*[:/]|\s|$)/.test(context);
 }
 
