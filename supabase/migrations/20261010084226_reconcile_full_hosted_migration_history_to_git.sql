@@ -1,0 +1,2 @@
+-- Production-only migration-history reconciliation marker.
+-- Fresh environments already use canonical Git migration versions, so no metadata rewrite is required.
