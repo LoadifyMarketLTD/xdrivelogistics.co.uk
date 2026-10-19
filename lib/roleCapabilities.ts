@@ -112,6 +112,18 @@ const CUSTOMER_BROKER_VIEWER_CAPABILITIES = new Set<WorkspaceCapability>([
   'jobs.track',
 ]);
 
+const CUSTOMER_MEMBER_CAPABILITIES = new Set<WorkspaceCapability>([
+  ...CUSTOMER_BROKER_VIEWER_CAPABILITIES,
+  'invoices.customer.manage',
+]);
+
+const BROKER_MEMBER_CAPABILITIES = new Set<WorkspaceCapability>([
+  ...CUSTOMER_BROKER_VIEWER_CAPABILITIES,
+  'invoices.customer.manage',
+  'invoices.carrier.manage',
+  'margins.view',
+]);
+
 export const hasWorkspaceCapabilityForContext = (
   workspaceRole: WorkspaceRole,
   capability: WorkspaceCapability,
@@ -143,7 +155,14 @@ export const hasWorkspaceCapabilityForContext = (
     return allowed.has(capability) && hasWorkspaceCapability(workspaceRole, capability);
   }
 
-  if (membershipRole === 'viewer' || membershipRole === 'member') {
+  if (membershipRole === 'member') {
+    const allowed = workspaceRole === 'customer'
+      ? CUSTOMER_MEMBER_CAPABILITIES
+      : BROKER_MEMBER_CAPABILITIES;
+    return allowed.has(capability) && hasWorkspaceCapability(workspaceRole, capability);
+  }
+
+  if (membershipRole === 'viewer') {
     return CUSTOMER_BROKER_VIEWER_CAPABILITIES.has(capability)
       && hasWorkspaceCapability(workspaceRole, capability);
   }
@@ -252,6 +271,8 @@ const isDriverCommercialRoute = (pathname: string) => {
     clean.startsWith('/driver/finance/') ||
     clean === '/driver/returns' ||
     clean.startsWith('/driver/returns/') ||
+    clean === '/driver/directory' ||
+    clean.startsWith('/driver/directory/') ||
     clean === '/driver/nearby' ||
     clean.startsWith('/driver/nearby/')
   );

@@ -256,6 +256,15 @@
   font-weight: 700 !important;
 }
 
+/* Driver Diary uses the legacy .left-title hook instead of the shared
+ * workspace-filter-rail__header element. Keep its Search Panel heading on the
+ * same 16px readable scale as Customer/Broker/Carrier Diary. */
+.xdrive-workspace-measured .cx-diary-filter-rail .left-title {
+  font-size: 16px !important;
+  line-height: 20px !important;
+  font-weight: 700 !important;
+}
+
 .xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
   :is(.workspace-filter-rail__body, .driver-filter-rail__body) {
   gap: 8px !important;

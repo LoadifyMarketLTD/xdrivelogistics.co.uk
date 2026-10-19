@@ -7,9 +7,9 @@ export default function FinanceWorkspacePage() {
   return (
     <PageFrame>
       <PageHeader
-        eyebrow="Finance workspace"
-        title="Finance Control"
-        description="Canonical AR/AP, invoice lifecycle, statements and finance reporting for the active company."
+        eyebrow="Finance"
+        title="Accounts Receivable"
+        description="Invoice readiness, customer receivables, payment progress and statements for the active company."
       />
       <WorkspaceFinanceControl role="carrier" />
     </PageFrame>
