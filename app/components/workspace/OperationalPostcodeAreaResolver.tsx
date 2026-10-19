@@ -116,7 +116,9 @@ function renderSuggestions(input: HTMLInputElement, suggestions: string[], postc
 
   const normalizedPostcode = formattedPostcode(postcode);
   for (const suggestion of suggestions.slice(0, 12)) {
-    const label = [suggestion, normalizedPostcode, 'GB']
+    const suggestionHasPostcode = /\b[A-Z]{1,2}\d[A-Z\d]?\s*\d?[A-Z]{0,2}\b/i.test(suggestion);
+    const parts = suggestionHasPostcode ? [suggestion, 'GB'] : [suggestion, normalizedPostcode, 'GB'];
+    const label = parts
       .filter(Boolean)
       .filter((value, index, all) => all.findIndex((candidate) => candidate.toUpperCase() === value.toUpperCase()) === index)
       .join(', ');
@@ -168,7 +170,8 @@ export default function OperationalPostcodeAreaResolver() {
       }
 
       const hint = hintFor(input);
-      const value = compact(input.value);
+      const rawValue = input.value.trim();
+      const value = compact(rawValue);
       const previousTimer = timers.get(input);
       if (previousTimer) window.clearTimeout(previousTimer);
       controllers.get(input)?.abort();
@@ -186,8 +189,9 @@ export default function OperationalPostcodeAreaResolver() {
         const controller = new AbortController();
         controllers.set(input, controller);
 
-        if (locationField && FULL_POSTCODE.test(value) && isSupabaseConfigured) {
-          const cachedAddresses = addressCache.get(value);
+        if (locationField && value.length >= 2 && isSupabaseConfigured) {
+          const cacheKey = rawValue.toLocaleLowerCase('en-GB');
+          const cachedAddresses = addressCache.get(cacheKey);
           if (cachedAddresses?.length) {
             renderSuggestions(input, cachedAddresses, value);
           } else {
@@ -195,7 +199,9 @@ export default function OperationalPostcodeAreaResolver() {
               const { data } = await supabase.auth.getSession();
               const token = data.session?.access_token;
               if (token) {
-                const params = new URLSearchParams({ postcode: formattedPostcode(value) });
+                const params = FULL_POSTCODE.test(value)
+                  ? new URLSearchParams({ postcode: formattedPostcode(value) })
+                  : new URLSearchParams({ q: rawValue });
                 const response = await fetch(`/api/location/postcode-addresses?${params.toString()}`, {
                   headers: { Authorization: `Bearer ${token}` },
                   cache: 'no-store',
@@ -206,7 +212,7 @@ export default function OperationalPostcodeAreaResolver() {
                   ? payload.suggestions.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
                   : [];
                 if (!controller.signal.aborted && suggestions.length) {
-                  addressCache.set(value, suggestions);
+                  addressCache.set(cacheKey, suggestions);
                   renderSuggestions(input, suggestions, value);
                 }
               }
@@ -217,6 +223,13 @@ export default function OperationalPostcodeAreaResolver() {
               }
             }
           }
+        }
+
+        if (locationField) {
+          hint.textContent = '';
+          hint.hidden = true;
+          hint.removeAttribute('data-state');
+          return;
         }
 
         const cachedArea = areaCache.get(value);
@@ -282,8 +295,9 @@ export default function OperationalPostcodeAreaResolver() {
     const onFocus = (event: FocusEvent) => {
       const input = event.target;
       if (!(input instanceof HTMLInputElement) || !isOperationalLocationField(input)) return;
-      const value = compact(input.value);
-      const suggestions = addressCache.get(value);
+      const rawValue = input.value.trim();
+      const value = compact(rawValue);
+      const suggestions = addressCache.get(rawValue.toLocaleLowerCase('en-GB'));
       if (suggestions?.length) renderSuggestions(input, suggestions, value);
     };
 

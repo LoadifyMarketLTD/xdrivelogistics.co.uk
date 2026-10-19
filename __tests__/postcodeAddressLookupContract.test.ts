@@ -47,7 +47,7 @@ describe('postcode address lookup contract', () => {
   });
 
   it('clears stale suggestions when postcode or provider state changes', () => {
-    expect(field).toContain('const normalized = normalizePostcode(postcode);\n    setSuggestions([]);\n    setOpen(false);');
+    expect(field).toContain('const normalized = normalizeOperationalPostcode(postcode);\n    setSuggestions([]);\n    setOpen(false);');
     expect(field).toContain('if (!response.ok) return;');
     expect(field).toContain('if (payload.configured === false) return;');
   });

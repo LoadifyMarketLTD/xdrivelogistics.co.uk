@@ -27,6 +27,10 @@ const formatAddress = (parts: unknown[]) => dedupe(
   parts.map(clean).filter(Boolean),
 ).join(', ');
 
+type IdealAutocompleteHit = {
+  suggestion?: string | null;
+};
+
 type IdealAddress = {
   line_1?: string | null;
   line_2?: string | null;
@@ -46,6 +50,27 @@ type GetAddressAddress = {
   town_or_city?: string | null;
   county?: string | null;
 };
+
+async function lookupIdealAutocomplete(query: string, apiKey: string) {
+  const url = new URL('https://api.ideal-postcodes.co.uk/v1/autocomplete/addresses');
+  url.searchParams.set('api_key', apiKey);
+  url.searchParams.set('query', query);
+  url.searchParams.set('context', 'GBR');
+  url.searchParams.set('limit', '12');
+
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(6_000),
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const payload = await response.json() as { result?: { hits?: IdealAutocompleteHit[] } };
+    const hits = Array.isArray(payload.result?.hits) ? payload.result?.hits : [];
+    return dedupe(hits.map((hit) => clean(hit.suggestion)).filter(Boolean));
+  } catch {
+    return null;
+  }
+}
 
 async function lookupIdealPostcodes(postcode: string, apiKey: string) {
   const url = new URL(`https://api.ideal-postcodes.co.uk/v1/postcodes/${encodeURIComponent(postcode)}`);
@@ -119,9 +144,13 @@ export async function GET(request: NextRequest) {
   const { data: authData, error: authError } = await supabaseValidator.auth.getUser(token);
   if (authError || !authData.user) return NextResponse.json({ error: 'Unauthorized.' }, { status: 401 });
 
+  const rawQuery = clean(request.nextUrl.searchParams.get('q') ?? '');
   const postcode = normalizePostcode(request.nextUrl.searchParams.get('postcode') ?? '');
-  if (!isFullUkPostcode(postcode)) {
-    return NextResponse.json({ error: 'Enter a full UK postcode.' }, { status: 400 });
+  const autocompleteQuery = rawQuery || postcode;
+  const exactPostcode = isFullUkPostcode(postcode);
+
+  if (!autocompleteQuery || autocompleteQuery.length < 2) {
+    return NextResponse.json({ error: 'Enter at least 2 characters.' }, { status: 400 });
   }
 
   const idealKey = process.env.IDEAL_POSTCODES_API_KEY?.trim();
@@ -133,7 +162,18 @@ export async function GET(request: NextRequest) {
     });
   }
 
-  if (idealKey) {
+  if (idealKey && !exactPostcode) {
+    const suggestions = await lookupIdealAutocomplete(autocompleteQuery, idealKey);
+    if (suggestions) {
+      return NextResponse.json({
+        suggestions,
+        configured: true,
+        provider: 'ideal-postcodes-autocomplete',
+      }, { headers: { 'Cache-Control': 'private, max-age=60' } });
+    }
+  }
+
+  if (idealKey && exactPostcode) {
     const result = await lookupIdealPostcodes(postcode, idealKey);
     if (result) {
       return NextResponse.json({
@@ -145,7 +185,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (getAddressKey) {
+  if (getAddressKey && exactPostcode) {
     const result = await lookupGetAddress(postcode, getAddressKey);
     if (result) {
       return NextResponse.json({
@@ -158,8 +198,8 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json({
-    error: 'The postcode address provider is temporarily unavailable.',
     suggestions: [],
     configured: true,
-  }, { status: 502, headers: { 'Cache-Control': 'no-store' } });
+    provider: idealKey ? 'ideal-postcodes-autocomplete' : getAddressKey ? 'getaddress' : null,
+  }, { headers: { 'Cache-Control': 'private, max-age=30' } });
 }
