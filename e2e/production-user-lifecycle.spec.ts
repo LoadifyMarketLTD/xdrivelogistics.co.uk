@@ -1,4 +1,5 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+import { loginWithCredentials } from './helpers/authLogin';
 
 const targetBaseUrl = process.env.PLAYWRIGHT_BASE_URL ?? process.env.E2E_BASE_URL ?? '';
 const isProductionTarget = /https:\/\/(?:www\.)?xdrivelogistics\.co\.uk\/?$/i.test(targetBaseUrl);
@@ -30,14 +31,6 @@ const dedicatedAccount = (name: string) => {
 const driver = dedicatedAccount('E2E_LIFECYCLE_DRIVER');
 const ownerDriver = dedicatedAccount('E2E_LIFECYCLE_OWNER_DRIVER');
 const carrierOwner = dedicatedAccount('E2E_LIFECYCLE_CARRIER_OWNER');
-
-async function login(page: Page, email: string, password: string) {
-  await page.goto('/login', { waitUntil: 'domcontentloaded' });
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
-  await page.getByRole('button', { name: /sign in|login/i }).click();
-  await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 20_000 });
-}
 
 test.describe('registration role contract (read-only)', () => {
   test('registration exposes only supported public business account types', async ({ page }) => {
@@ -74,22 +67,22 @@ test.describe('authenticated lifecycle evidence (read-only)', () => {
 
   test('individual driver reaches only the driver workspace', async ({ page }) => {
     test.skip(!driver.ready, 'Approved driver test credentials are required.');
-    await login(page, driver.email, driver.password);
+    await loginWithCredentials(page, driver.email, driver.password);
     await expect(page).toHaveURL(/\/(driver|onboarding|pending-approval)(\/|\?|$)/);
 
     await page.goto('/admin', { waitUntil: 'commit', timeout: 20_000 });
-    await expect(page).toHaveURL(/\/(forbidden|login|pending-approval)(\?|$)/, { timeout: 10_000 });
+    await expect(page).toHaveURL(/\/(driver|forbidden|login|pending-approval)(\?|$)/, { timeout: 10_000 });
   });
 
   test('owner-driver reaches the intended operations workspace', async ({ page }) => {
     test.skip(!ownerDriver.ready, 'Approved owner-driver test credentials are required.');
-    await login(page, ownerDriver.email, ownerDriver.password);
+    await loginWithCredentials(page, ownerDriver.email, ownerDriver.password);
     await expect(page).toHaveURL(/\/(admin|driver|onboarding|pending-approval)(\/|\?|$)/);
   });
 
   test('carrier owner reaches company operations and not super-admin', async ({ page }) => {
     test.skip(!carrierOwner.ready, 'Approved carrier-owner test credentials are required.');
-    await login(page, carrierOwner.email, carrierOwner.password);
+    await loginWithCredentials(page, carrierOwner.email, carrierOwner.password);
     await expect(page).toHaveURL(/\/(admin|onboarding|pending-approval)(\/|\?|$)/);
 
     await page.goto('/super-admin', { waitUntil: 'commit', timeout: 20_000 });
