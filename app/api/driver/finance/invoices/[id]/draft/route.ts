@@ -90,6 +90,10 @@ export async function PATCH(
     return respond(400, { error: 'Invalid invoice draft payload.' });
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return respond(400, { error: 'A JSON object is required.' });
+  }
+
   const clientName = cleanText(body.client_name, 180);
   const clientEmail = cleanText(body.client_email, 254).toLowerCase();
   const clientAddress = cleanText(body.client_address, 800);
@@ -101,6 +105,10 @@ export async function PATCH(
   if (!invoiceDate || !validDate(invoiceDate)) return respond(422, { error: 'A valid invoice date is required.' });
 
   const marketplace = String(editor.invoice.invoice_origin ?? '').toLowerCase() === 'marketplace';
+  if (marketplace && clientEmail !== String(editor.invoice.client_email ?? '').trim().toLowerCase()) {
+    return respond(409, { error: 'Marketplace invoice recipient is fixed to the buyer finance contact.' });
+  }
+
   const update: Record<string, unknown> = {
     client_name: clientName,
     client_email: clientEmail,

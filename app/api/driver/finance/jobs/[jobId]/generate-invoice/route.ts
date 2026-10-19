@@ -106,6 +106,8 @@ export async function POST(
     return respond(400, { error: 'Invalid JSON body.' });
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return respond(400, { error: 'A JSON object is required.' });
+
   const idempotencyKey = cleanText(body.idempotency_key);
   if (!idempotencyKey) return respond(400, { error: 'idempotency_key is required.' });
 
@@ -400,7 +402,7 @@ export async function POST(
       created_by: actor.userId,
       invoice_number: invoiceNumber,
       status: toLegacyInvoiceStatusForDb('Draft'),
-      invoice_generation_idempotency_key: marketplace ? idempotencyKey : null,
+      invoice_generation_idempotency_key: idempotencyKey,
       ...snapshot,
     })
     .select('id, invoice_number, status')

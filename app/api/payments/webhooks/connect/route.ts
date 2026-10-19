@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
-import { verifyStripeWebhookSignature } from '../../../_lib/stripeServer';
+import { verifyStripeWebhookSignature, stripeRequest } from '../../../_lib/stripeServer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -29,7 +29,7 @@ async function markEvent(eventId: string, status: 'processed' | 'ignored' | 'fai
     processing_status: status,
     error_message: errorMessage ?? null,
     processed_at: new Date().toISOString(),
-  }).eq('stripe_event_id', eventId);
+  }).eq('stripe_event_id', eventId).in('processing_status', ['processing', 'failed']);
 }
 
 export async function POST(request: NextRequest) {
@@ -51,6 +51,8 @@ export async function POST(request: NextRequest) {
   if (!event.id?.startsWith('evt_') || !event.type || !event.data?.object) {
     return json(400, { error: 'Malformed Stripe event.' });
   }
+
+  if (typeof event.livemode !== 'boolean' || event.livemode !== /^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY ?? '')) return json(400, { error: 'Stripe event mode does not match this environment.' });
 
   const { error: eventInsertError } = await supabaseAdmin.from('stripe_webhook_events').insert({
     stripe_event_id: event.id,
@@ -99,131 +101,76 @@ export async function POST(request: NextRequest) {
       return json(200, { received: true });
     }
 
-    if (event.type === 'checkout.session.completed') {
-      const invoiceId = metadataValue(object, 'xdrive_invoice_id');
-      if (!invoiceId) {
+    const paymentEvents = ['checkout.session.completed', 'checkout.session.async_payment_succeeded', 'checkout.session.async_payment_failed', 'checkout.session.expired', 'payment_intent.payment_failed', 'charge.dispute.created', 'charge.dispute.closed', 'charge.refunded'];
+    if (paymentEvents.includes(event.type)) {
+      if ((event.type.startsWith('checkout.session.') || event.type.startsWith('payment_intent.')) && !metadataValue(object, 'xdrive_invoice_id')) {
         await markEvent(event.id, 'ignored');
         return json(200, { received: true, ignored: true });
       }
-      if (String(object.payment_status ?? '') !== 'paid') {
-        const { error } = await supabaseAdmin.from('stripe_job_payments').update({
-          status: 'processing', last_stripe_event_id: event.id, updated_at: new Date().toISOString(),
-        }).eq('invoice_id', invoiceId);
-        if (error) throw error;
-        await markEvent(event.id, 'processed');
-        return json(200, { received: true });
+      if (event.type.startsWith('charge.')) {
+        const paymentIntentId = typeof object.payment_intent === 'string' ? object.payment_intent : null;
+        if (!paymentIntentId) { await markEvent(event.id, 'ignored'); return json(200, { received: true, ignored: true }); }
+        const intent = await stripeRequest<{ metadata?: Record<string, string> }>(`/payment_intents/${encodeURIComponent(paymentIntentId)}`, { method: 'GET', connectedAccount: event.account ?? null });
+        if (!intent.metadata?.xdrive_invoice_id) { await markEvent(event.id, 'ignored'); return json(200, { received: true, ignored: true }); }
       }
-
-      const amountTotal = Number(object.amount_total ?? 0);
-      if (!Number.isFinite(amountTotal) || amountTotal <= 0) throw new Error('Stripe amount_total is invalid.');
-      const currency = String(object.currency ?? 'gbp').toUpperCase();
-      const paymentIntent = typeof object.payment_intent === 'string' ? object.payment_intent : null;
-      const checkoutSessionId = typeof object.id === 'string' ? object.id : null;
-
-      const { data: invoice, error: invoiceError } = await supabaseAdmin.from('invoices')
-        .select('id, company_id, amount, currency')
-        .eq('id', invoiceId)
-        .maybeSingle();
-      if (invoiceError) throw invoiceError;
-      if (!invoice) throw new Error('XDrive invoice referenced by Stripe does not exist.');
-      const invoiceMinor = Math.round(Number(invoice.amount) * 100);
-      if (invoiceMinor !== Math.round(amountTotal)) throw new Error('Stripe payment amount does not match the canonical invoice amount.');
-      if (String(invoice.currency ?? 'GBP').toUpperCase() !== currency) throw new Error('Stripe payment currency does not match the canonical invoice currency.');
-
-      const { error: paymentUpdateError } = await supabaseAdmin.from('stripe_job_payments').update({
-        stripe_checkout_session_id: checkoutSessionId,
-        stripe_payment_intent_id: paymentIntent,
-        status: 'paid',
-        paid_at: new Date().toISOString(),
-        last_stripe_event_id: event.id,
-        updated_at: new Date().toISOString(),
-      }).eq('invoice_id', invoiceId);
-      if (paymentUpdateError) throw paymentUpdateError;
-
-      const { error: historyError } = await supabaseAdmin.from('invoice_payment_history').insert({
-        invoice_id: invoiceId,
-        company_id: invoice.company_id,
-        recorded_by: null,
-        amount: amountTotal / 100,
-        currency,
-        paid_at: new Date().toISOString(),
-        settlement_method: 'card',
-        external_reference: paymentIntent ?? checkoutSessionId,
-        note: 'Verified Stripe Connect direct charge. Funds settled to the supplier connected account; XDrive did not custody transport funds.',
-        idempotency_key: event.id,
+      let verifiedPlatformAccount: string | undefined;
+      if (!event.account) {
+        const account = await stripeRequest<{ id: string }>('/account', { method: 'GET' });
+        verifiedPlatformAccount = account.id;
+      }
+      const { data, error } = await supabaseAdmin.rpc('apply_invoice_stripe_event', {
+        p_event: { ...event, xdrive_verified_platform_account: verifiedPlatformAccount },
+        p_expected_live: /^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY ?? ''),
       });
-      if (historyError && historyError.code !== '23505') throw historyError;
+      if (error) throw new Error(error.message);
 
-      if (!historyError) {
-        const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
-          event_type: 'payment_received',
-          entity_type: 'invoice',
-          entity_id: invoiceId,
-          company_id: invoice.company_id,
-          recipient_user_id: null,
-          payload: {
-            invoice_id: invoiceId,
-            company_id: invoice.company_id,
-            amount: amountTotal / 100,
-            currency,
-            paid_at: new Date().toISOString(),
-            settlement_method: 'card',
-            external_reference: paymentIntent ?? checkoutSessionId,
-          },
-        });
-        if (notificationError) {
-          console.error('[stripe-connect] Could not enqueue payment receipt notification', notificationError.message);
+      const rpcResult = data && typeof data === 'object' ? data as Record<string, unknown> : {};
+      const successfulCheckout = ['checkout.session.completed', 'checkout.session.async_payment_succeeded'].includes(event.type)
+        && String(object.payment_status ?? '') === 'paid'
+        && rpcResult.duplicate_payment !== true;
+      if (successfulCheckout) {
+        const invoiceId = metadataValue(object, 'xdrive_invoice_id');
+        const amountTotal = Number(object.amount_total ?? 0);
+        const currency = String(object.currency ?? 'gbp').toUpperCase();
+        const externalReference = typeof object.payment_intent === 'string'
+          ? object.payment_intent
+          : typeof object.id === 'string'
+            ? object.id
+            : null;
+        if (invoiceId && Number.isFinite(amountTotal) && amountTotal > 0) {
+          const { data: invoice, error: invoiceError } = await supabaseAdmin
+            .from('invoices')
+            .select('id, company_id')
+            .eq('id', invoiceId)
+            .maybeSingle();
+          if (invoiceError) throw invoiceError;
+          if (invoice?.company_id) {
+            const paidAt = new Date().toISOString();
+            const { error: notificationError } = await supabaseAdmin.from('notification_events').insert({
+              event_type: 'payment_received',
+              entity_type: 'invoice',
+              entity_id: invoiceId,
+              company_id: invoice.company_id,
+              recipient_user_id: null,
+              idempotency_key: `payment_received:stripe:${externalReference ?? event.id}`,
+              payload: {
+                invoice_id: invoiceId,
+                company_id: invoice.company_id,
+                amount: amountTotal / 100,
+                currency,
+                paid_at: paidAt,
+                settlement_method: 'card',
+                external_reference: externalReference,
+              },
+            });
+            if (notificationError && notificationError.code !== '23505') {
+              console.error('[stripe-connect] Could not enqueue payment receipt notification', notificationError.message);
+            }
+          }
         }
       }
 
-      await markEvent(event.id, 'processed');
-      return json(200, { received: true });
-    }
-
-    if (event.type === 'checkout.session.expired') {
-      const invoiceId = metadataValue(object, 'xdrive_invoice_id');
-      if (invoiceId) {
-        const { error } = await supabaseAdmin.from('stripe_job_payments').update({
-          status: 'cancelled', last_stripe_event_id: event.id, updated_at: new Date().toISOString(),
-        }).eq('invoice_id', invoiceId);
-        if (error) throw error;
-      }
-      await markEvent(event.id, 'processed');
-      return json(200, { received: true });
-    }
-
-    if (event.type === 'payment_intent.payment_failed') {
-      const invoiceId = metadataValue(object, 'xdrive_invoice_id');
-      if (invoiceId) {
-        const lastError = object.last_payment_error as Record<string, unknown> | undefined;
-        const { error } = await supabaseAdmin.from('stripe_job_payments').update({
-          status: 'failed',
-          failure_code: typeof lastError?.code === 'string' ? lastError.code : null,
-          failure_message: typeof lastError?.message === 'string' ? lastError.message : null,
-          last_stripe_event_id: event.id,
-          updated_at: new Date().toISOString(),
-        }).eq('invoice_id', invoiceId);
-        if (error) throw error;
-      }
-      await markEvent(event.id, 'processed');
-      return json(200, { received: true });
-    }
-
-    if (event.type === 'charge.dispute.created' || event.type === 'charge.refunded') {
-      const paymentIntent = typeof object.payment_intent === 'string' ? object.payment_intent : null;
-      if (paymentIntent) {
-        const status = event.type === 'charge.dispute.created' ? 'disputed' : 'refunded';
-        const timestampField = event.type === 'charge.dispute.created' ? { disputed_at: new Date().toISOString() } : { refunded_at: new Date().toISOString() };
-        const { error } = await supabaseAdmin.from('stripe_job_payments').update({
-          status,
-          ...timestampField,
-          last_stripe_event_id: event.id,
-          updated_at: new Date().toISOString(),
-        }).eq('stripe_payment_intent_id', paymentIntent);
-        if (error) throw error;
-      }
-      await markEvent(event.id, 'processed');
-      return json(200, { received: true });
+      return json(200, data ?? { received: true });
     }
 
     await markEvent(event.id, 'ignored');

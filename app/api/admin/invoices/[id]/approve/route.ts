@@ -56,6 +56,11 @@ export async function POST(
     return json(409, { error: 'Invoice is already paid.' });
   }
 
+  const status = String(invoice.status ?? '').trim().toLowerCase();
+  if (!['sent', 'submitted', 'approved', 'overdue'].includes(status)) {
+    return json(409, { error: 'Only an issued invoice can be approved for payment.' });
+  }
+
   if (invoice.approved_at) {
     return json(200, {
       replayed: true,
@@ -66,11 +71,6 @@ export async function POST(
         approvedBy: invoice.approved_by,
       },
     });
-  }
-
-  const status = String(invoice.status ?? '').trim().toLowerCase();
-  if (!['sent', 'submitted', 'approved', 'overdue'].includes(status)) {
-    return json(409, { error: 'Only an issued invoice can be approved for payment.' });
   }
 
   const approvedAt = new Date().toISOString();
@@ -85,6 +85,7 @@ export async function POST(
     .eq('id', invoice.id)
     .eq('buyer_company_id', invoice.buyer_company_id)
     .is('approved_at', null)
+    .eq('status', invoice.status)
     .select('id, status, approved_at, approved_by')
     .maybeSingle();
 

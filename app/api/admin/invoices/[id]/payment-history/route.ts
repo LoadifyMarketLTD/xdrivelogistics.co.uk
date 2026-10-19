@@ -43,12 +43,18 @@ export async function POST(
 
   const { data: invoice, error: invoiceError } = await supabaseAdmin
     .from('invoices')
-    .select('id, company_id, buyer_company_id, amount, payment_status')
+    .select('id, company_id, buyer_company_id, amount, currency, status, approved_at, document_type, payment_status')
     .eq('id', id)
     .maybeSingle();
 
   if (invoiceError) return respond(500, { error: invoiceError.message });
   if (!invoice) return respond(404, { error: 'Invoice not found.' });
+  if (invoice.document_type === 'credit_note') {
+    return respond(409, { error: 'Credit notes cannot receive invoice payments.' });
+  }
+  if ((invoice.buyer_company_id && !invoice.approved_at) || !['approved', 'submitted', 'sent', 'overdue'].includes(String(invoice.status ?? '').toLowerCase())) {
+    return respond(409, { error: 'Approve an issued invoice before recording payment.' });
+  }
 
   const payerCompanyId = typeof invoice.buyer_company_id === 'string' && invoice.buyer_company_id
     ? invoice.buyer_company_id
@@ -76,11 +82,18 @@ export async function POST(
   } catch {
     return respond(400, { error: 'Invalid JSON body.' });
   }
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return respond(400, { error: 'A JSON object is required.' });
+  }
 
   const { amount, currency, paid_at, settlement_method, external_reference, note, idempotency_key } = body;
 
-  if (!amount || Number(amount) <= 0) {
-    return respond(400, { error: 'amount must be a positive number.' });
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0 || Math.abs(Math.round(amount * 100) - amount * 100) > 0.000001) {
+    return respond(400, { error: 'amount must be a positive number with at most two decimal places.' });
+  }
+
+  if (currency !== undefined && String(currency).toUpperCase() !== String(invoice.currency ?? 'GBP').toUpperCase()) {
+    return respond(422, { error: 'Payment currency must match the invoice.' });
   }
 
   if (typeof idempotency_key !== 'string' || !idempotency_key.trim()) {
@@ -101,13 +114,13 @@ export async function POST(
       invoice_id: id,
       company_id: invoice.company_id,
       recorded_by: authData.user.id,
-      amount: Number(amount),
-      currency: typeof currency === 'string' ? currency : 'GBP',
+      amount,
+      currency: String(invoice.currency ?? 'GBP').toUpperCase(),
       paid_at: typeof paid_at === 'string' ? paid_at : new Date().toISOString(),
       settlement_method: resolvedMethod,
       external_reference: typeof external_reference === 'string' ? external_reference : null,
       note: typeof note === 'string' ? note : null,
-      idempotency_key: idempotency_key.trim(),
+      idempotency_key: `external:${idempotency_key.trim()}`,
     })
     .select('id, amount, currency, paid_at, settlement_method, external_reference, note, idempotency_key')
     .single();
@@ -121,7 +134,7 @@ export async function POST(
     if (insertError.code === 'P0001' && insertError.message.includes('Overpayment')) {
       return respond(422, { error: 'Payment amount exceeds the outstanding invoice balance.' });
     }
-    return respond(500, { error: insertError.message });
+    return respond(insertError.code === '23514' ? 409 : 500, { error: insertError.message });
   }
 
   const { error: notificationError } = await supabaseAdmin

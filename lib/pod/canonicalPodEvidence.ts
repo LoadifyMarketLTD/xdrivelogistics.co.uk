@@ -1,3 +1,4 @@
+import { hasStoredSignature } from '../jobs/podCompletion';
 export type CanonicalPodState =
   | 'not_required'
   | 'missing'
@@ -22,19 +23,14 @@ const nonEmptyStrings = (value: unknown) =>
     ? value.filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     : [];
 
-const hasSignature = (value: unknown) => {
-  if (typeof value === 'string') return value.trim().length > 0;
-  return Boolean(value && typeof value === 'object');
-};
-
 export function canonicalPodEvidence(record: CanonicalPodRecord) {
   const required = record.pod_required !== false;
   const deliveryPhotos = nonEmptyStrings(record.delivery_photos);
   const documents = nonEmptyStrings(record.pod_photos);
-  const signatureRecorded = hasSignature(record.delivery_signature_data);
+  const signatureRecorded = hasStoredSignature(record.delivery_signature_data);
   const recipientRecorded = Boolean(record.client_signature_name?.trim());
   const generated = record.pod_generated === true;
-  const evidenceReady = deliveryPhotos.length > 0 && signatureRecorded && recipientRecorded;
+  const evidenceReady = (deliveryPhotos.length > 0 || documents.length > 0) && signatureRecorded && recipientRecorded;
   const complete = generated && evidenceReady;
   const hasAnyEvidence = generated || deliveryPhotos.length > 0 || documents.length > 0 || signatureRecorded || recipientRecorded;
 
