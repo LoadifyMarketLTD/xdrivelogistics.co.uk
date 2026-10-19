@@ -35,7 +35,9 @@ describe('XDrive Stripe Connect direct-charge contract', () => {
     const webhook = source('app/api/payments/webhooks/connect/route.ts');
     expect(webhook).toContain('STRIPE_CONNECT_WEBHOOK_SECRET');
     expect(webhook).toContain('verifyStripeWebhookSignature');
-    expect(webhook).toContain("event.type === 'charge.dispute.created' || event.type === 'charge.refunded'");
+    expect(webhook).toContain("'charge.dispute.created'");
+    expect(webhook).toContain("'charge.refunded'");
+    expect(webhook).toContain("rpc('apply_invoice_stripe_event'");
     expect(webhook).not.toContain("'/refunds'");
     expect(webhook).not.toContain("'/payouts'");
   });

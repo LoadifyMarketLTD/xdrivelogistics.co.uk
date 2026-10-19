@@ -37,7 +37,7 @@ const extensionRoute = readFileSync(
   'utf8',
 );
 const submitRoute = readFileSync(
-  resolve(process.cwd(), 'app/api/driver/finance/invoices/[id]/submit/route.ts'),
+  resolve(process.cwd(), 'lib/server/invoiceDelivery.ts'),
   'utf8',
 );
 const invoiceEmailTemplate = readFileSync(

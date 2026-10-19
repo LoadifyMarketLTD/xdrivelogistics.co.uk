@@ -22,13 +22,8 @@ const safePaymentReturnPath = (value: string | undefined, invoiceId: string) => 
 
 type CheckoutSession = { id: string; url: string | null; payment_status?: string };
 
-const toMinorUnits = (amount: unknown) => {
-  const value = Number(amount);
-  if (!Number.isFinite(value) || value <= 0) return null;
-  return Math.round(value * 100);
-};
-
 export async function POST(request: NextRequest) {
+  try {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) return json(503, { error: 'Server auth is not configured.' });
   if (!isStripeServerConfigured) return json(503, { error: 'Stripe is not configured.' });
 
@@ -71,6 +66,8 @@ export async function POST(request: NextRequest) {
     return json(403, { error: 'Payments authority is required for this buyer company.' });
   }
 
+  if (!['approved', 'submitted', 'sent', 'overdue'].includes(String(invoice.status).toLowerCase())) return json(409, { error: 'Invoice is not payable in its current state.' });
+
   const supplierIsPlatform = invoice.supplier_company_id === XDRIVE_LOGISTICS_COMPANY_ID;
   let stripeAccountId: string | null = null;
   if (supplierIsPlatform) {
@@ -82,38 +79,48 @@ export async function POST(request: NextRequest) {
   } else {
     const { data: connected, error: connectedError } = await supabaseAdmin
       .from('stripe_connected_accounts')
-      .select('stripe_account_id, charges_enabled, payouts_enabled')
+      .select('stripe_account_id, charges_enabled, payouts_enabled, details_submitted')
       .eq('company_id', invoice.supplier_company_id)
       .maybeSingle();
     if (connectedError && ['PGRST205', '42P01'].includes(connectedError.code ?? '')) {
       return json(503, { error: 'Stripe Connect schema is not available yet.', migrationRequired: true });
     }
     if (connectedError) return json(500, { error: connectedError.message });
-    if (!connected?.stripe_account_id || !connected.charges_enabled || !connected.payouts_enabled) {
+    if (!connected?.stripe_account_id || !connected.charges_enabled || !connected.payouts_enabled || !connected.details_submitted) {
       return json(409, { error: 'The carrier has not completed Stripe payment and payout onboarding.' });
     }
     stripeAccountId = connected.stripe_account_id;
   }
 
-  const amountPence = toMinorUnits(invoice.amount);
-  if (!amountPence) return json(409, { error: 'Invoice amount is invalid.' });
-  const currency = String(invoice.currency ?? 'GBP').toLowerCase();
-  if (!/^[a-z]{3}$/.test(currency)) return json(409, { error: 'Invoice currency is invalid.' });
-
   const origin = getCanonicalSiteOrigin();
   const returnPath = safePaymentReturnPath(parsed.data.returnPath, invoice.id);
+  const { data: attempt, error: reserveError } = await supabaseAdmin.rpc('prepare_invoice_stripe_attempt', {
+    p_invoice: invoice.id, p_user: authData.user.id, p_account: stripeAccountId,
+    p_live: /^(sk|rk)_live_/.test(process.env.STRIPE_SECRET_KEY ?? ''), p_return_path: returnPath,
+  });
+  if (reserveError || !attempt?.id) return json(409, { error: reserveError?.message ?? 'Payment reservation failed.' });
+  if (attempt.status === 'processing') return json(409, { error: 'A payment is still processing. Wait for confirmation.' });
+  if (attempt.session_id) {
+    const existing = await stripeRequest<CheckoutSession & { status?: string }>(`/checkout/sessions/${encodeURIComponent(attempt.session_id)}`, { method: 'GET', connectedAccount: supplierIsPlatform ? null : stripeAccountId });
+    if (existing.status === 'open' && existing.url) return json(200, { checkoutUrl: existing.url, checkoutSessionId: existing.id, replayed: true });
+    return json(409, { error: 'The existing Checkout requires webhook reconciliation before another payment.' });
+  }
+  const amountPence = Number(attempt.amount_minor);
+  const currency = String(attempt.currency);
   const session = await stripeRequest<CheckoutSession>('/checkout/sessions', {
     connectedAccount: supplierIsPlatform ? null : stripeAccountId,
-    idempotencyKey: `xdrive-job-payment:${invoice.id}`,
+    idempotencyKey: `xdrive-job-payment:${attempt.id}`,
     params: {
       mode: 'payment',
-      success_url: `${origin}${returnPath}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${origin}${returnPath}?payment=cancelled`,
-      customer_email: typeof invoice.client_email === 'string' ? invoice.client_email : authData.user.email ?? undefined,
+      success_url: `${origin}${attempt.return_path}?payment=success&session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${origin}${attempt.return_path}?payment=cancelled`,
+      customer_email: attempt.customer_email ?? undefined,
       'line_items[0][quantity]': 1,
       'line_items[0][price_data][currency]': currency,
       'line_items[0][price_data][unit_amount]': amountPence,
       'line_items[0][price_data][product_data][name]': `XDrive transport invoice ${invoice.invoice_number ?? invoice.id}`,
+      'metadata[xdrive_attempt_id]': attempt.id,
+      'payment_intent_data[metadata][xdrive_attempt_id]': attempt.id,
       'metadata[xdrive_invoice_id]': invoice.id,
       'metadata[xdrive_job_id]': invoice.job_id ?? '',
       'metadata[xdrive_buyer_company_id]': invoice.buyer_company_id,
@@ -127,19 +134,10 @@ export async function POST(request: NextRequest) {
 
   if (!session.url) return json(502, { error: 'Stripe did not return a Checkout URL.' });
 
-  const { error: recordError } = await supabaseAdmin.from('stripe_job_payments').upsert({
-    invoice_id: invoice.id,
-    job_id: invoice.job_id,
-    buyer_company_id: invoice.buyer_company_id,
-    supplier_company_id: invoice.supplier_company_id,
-    stripe_connected_account_id: stripeAccountId,
-    stripe_checkout_session_id: session.id,
-    amount_minor: amountPence,
-    currency,
-    status: 'checkout_created',
-    updated_at: new Date().toISOString(),
-  }, { onConflict: 'invoice_id' });
-  if (recordError) return json(500, { error: recordError.message });
+  const { error: recordError } = await supabaseAdmin.rpc('bind_invoice_stripe_session', {
+    p_attempt: attempt.id, p_session: session.id, p_url: session.url,
+  });
+  if (recordError) return json(503, { error: 'Checkout exists but could not be recorded. Retry safely; do not create another payment.' });
 
   return json(200, {
     checkoutUrl: session.url,
@@ -148,4 +146,7 @@ export async function POST(request: NextRequest) {
     platformCustodiesFunds: false,
     xdriveApplicationFee: 0,
   });
+  } catch (reason) {
+    return json(502, { error: reason instanceof Error ? reason.message : 'Stripe request failed. Retry the same payment attempt.' });
+  }
 }

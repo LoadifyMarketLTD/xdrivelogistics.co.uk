@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const submit = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/finance/invoices/[id]/submit/route.ts'), 'utf8');
+const submit = fs.readFileSync(path.join(process.cwd(), 'lib/server/invoiceDelivery.ts'), 'utf8');
 const defaultsApi = fs.readFileSync(path.join(process.cwd(), 'app/api/driver/finance/invoices/[id]/email-defaults/route.ts'), 'utf8');
 const panel = fs.readFileSync(path.join(process.cwd(), 'app/driver/finance/invoices/[id]/DriverInvoiceEmailPanel.tsx'), 'utf8');
 const template = fs.readFileSync(path.join(process.cwd(), 'lib/invoiceEmailTemplate.ts'), 'utf8');

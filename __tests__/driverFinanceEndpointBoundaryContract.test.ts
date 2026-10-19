@@ -24,7 +24,7 @@ describe('Driver finance endpoint role boundary', () => {
       'app/api/driver/finance/invoices/[id]/payment-history/route.ts',
       'app/api/driver/finance/invoices/[id]/draft/route.ts',
       'app/api/driver/finance/invoices/[id]/email-defaults/route.ts',
-      'app/api/driver/finance/invoices/[id]/submit/route.ts',
+      'lib/server/invoiceDelivery.ts',
     ];
     for (const route of routes) {
       const source = read(route);
