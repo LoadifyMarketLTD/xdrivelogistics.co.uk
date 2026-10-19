@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 
 const fieldStyle = {
   width: '100%',
@@ -77,7 +77,7 @@ export default function PostcodeAddressField({
     setSuggestions([]);
     setOpen(false);
 
-    if (!isSupabaseConfigured || !isFullUkPostcode(normalized)) {
+    if (!isFullUkPostcode(normalized)) {
       setLoading(false);
       return;
     }
@@ -86,8 +86,7 @@ export default function PostcodeAddressField({
     const timer = window.setTimeout(async () => {
       setLoading(true);
       try {
-        const { data } = await supabase.auth.getSession();
-        const token = data.session?.access_token;
+        const token = readRouteAuthAccessToken();
         if (!token) return;
 
         const params = new URLSearchParams({ postcode: normalized });

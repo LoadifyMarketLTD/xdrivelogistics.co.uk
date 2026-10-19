@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { isSupabaseConfigured, supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 
 const POSTCODE_OR_OUTCODE = /^(?:GIR0AA|[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2}|[A-Z]{1,2}\d[A-Z\d]?)$/;
 const FULL_POSTCODE = /^(?:GIR0AA|[A-Z]{1,2}\d[A-Z\d]?\d[A-Z]{2})$/;
@@ -189,15 +189,14 @@ export default function OperationalPostcodeAreaResolver() {
         const controller = new AbortController();
         controllers.set(input, controller);
 
-        if (locationField && value.length >= 2 && isSupabaseConfigured) {
+        if (locationField && value.length >= 2) {
           const cacheKey = rawValue.toLocaleLowerCase('en-GB');
           const cachedAddresses = addressCache.get(cacheKey);
           if (cachedAddresses?.length) {
             renderSuggestions(input, cachedAddresses, value);
           } else {
             try {
-              const { data } = await supabase.auth.getSession();
-              const token = data.session?.access_token;
+              const token = readRouteAuthAccessToken();
               if (token) {
                 const params = FULL_POSTCODE.test(value)
                   ? new URLSearchParams({ postcode: formattedPostcode(value) })
