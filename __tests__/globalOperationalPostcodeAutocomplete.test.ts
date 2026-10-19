@@ -26,8 +26,19 @@ describe('global operational postcode autocomplete', () => {
     expect(resolver).toContain("context.includes('town / postcode')");
     expect(resolver).toContain("context.includes('postcode / area')");
     expect(resolver).toContain('/api/location/postcode-addresses?');
+    expect(resolver).toContain("new URLSearchParams({ q: rawValue })");
     expect(resolver).toContain('data-xdrive-location-suggestions');
     expect(resolver).toContain('setReactInputValue');
+  });
+
+  it('uses provider-backed partial address autocomplete for CX-style postcode typing', () => {
+    const route = read('app/api/location/postcode-addresses/route.ts');
+    expect(route).toContain("https://api.ideal-postcodes.co.uk/v1/autocomplete/addresses");
+    expect(route).toContain("url.searchParams.set('query', query)");
+    expect(route).toContain("provider: 'ideal-postcodes-autocomplete'");
+    expect(route).toContain("provider: 'getaddress-autocomplete'");
+    expect(route).toContain("provider: 'postcodes-io-autocomplete'");
+    expect(route).toContain('/autocomplete?limit=12');
   });
 
   it('keeps the shared resolver mounted in the common workspace shell', () => {

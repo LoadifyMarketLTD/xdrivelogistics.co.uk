@@ -127,6 +127,61 @@ const fitText = (font: PDFFont, value: string, maxWidth: number, size: number, m
   return current;
 };
 
+const wrapTextToWidth = (
+  font: PDFFont,
+  value: string,
+  maxWidth: number,
+  size: number,
+  maxLines = Number.POSITIVE_INFINITY,
+) => {
+  const words = pdfText(value).split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let current = '';
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (font.widthOfTextAtSize(next, size) <= maxWidth) {
+      current = next;
+      continue;
+    }
+
+    if (current) {
+      lines.push(current);
+      if (lines.length >= maxLines) break;
+      current = word;
+    } else {
+      let chunk = '';
+      for (const character of word) {
+        const candidate = chunk + character;
+        if (font.widthOfTextAtSize(candidate, size) > maxWidth && chunk) {
+          lines.push(chunk);
+          if (lines.length >= maxLines) break;
+          chunk = character;
+        } else {
+          chunk = candidate;
+        }
+      }
+      if (lines.length >= maxLines) break;
+      current = chunk;
+    }
+  }
+
+  if (current && lines.length < maxLines) lines.push(current);
+
+  if (lines.length === maxLines) {
+    const consumed = lines.join(' ').split(/\s+/).filter(Boolean).length;
+    if (consumed < words.length) {
+      let last = lines.at(-1) ?? '';
+      while (last && font.widthOfTextAtSize(`${last}...`, size) > maxWidth) {
+        last = last.slice(0, -1).trimEnd();
+      }
+      lines[lines.length - 1] = `${last}...`;
+    }
+  }
+
+  return lines;
+};
+
 const embedImage = async (pdf: PDFDocument, bytes: Uint8Array): Promise<PDFImage | null> => {
   try {
     return await pdf.embedPng(bytes);
@@ -330,7 +385,23 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   page.drawText('1', { x: xQty + 14, y: tableTop - 48, size: 10, font: regular, color: ink });
 
   const serviceTitle = pdfText(input.serviceDescription || 'Transport service');
-  page.drawText(serviceTitle, { x: xDesc + 11, y: tableTop - 46, size: 10, font: bold, color: ink });
+  const serviceTitleSize = 9.5;
+  const serviceTitleLines = wrapTextToWidth(
+    bold,
+    serviceTitle,
+    descW - 22,
+    serviceTitleSize,
+    3,
+  );
+  serviceTitleLines.forEach((line, index) => {
+    page.drawText(line, {
+      x: xDesc + 11,
+      y: tableTop - 46 - index * 12,
+      size: serviceTitleSize,
+      font: bold,
+      color: ink,
+    });
+  });
 
   const descriptionLines: string[] = [];
   if (input.pickupLocation && input.deliveryLocation) {
@@ -347,7 +418,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   if (input.recipientName) descriptionLines.push(`Received by: ${pdfText(input.recipientName)}`);
   if (input.deliveryNotes) descriptionLines.push(`Delivery notes: ${pdfText(input.deliveryNotes)}`);
 
-  let descY = tableTop - 63;
+  let descY = tableTop - 46 - serviceTitleLines.length * 12 - 5;
   for (const detail of descriptionLines.slice(0, 6)) {
     const wrapped = wrapText(detail, 58).slice(0, 2);
     wrapped.forEach((line, index) => {

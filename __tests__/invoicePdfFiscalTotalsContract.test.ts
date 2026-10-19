@@ -13,6 +13,11 @@ const previewRoute = readFileSync(
 );
 
 const submitRoute = readFileSync(
+  resolve(process.cwd(), 'app/api/driver/finance/invoices/[id]/submit/route.ts'),
+  'utf8',
+);
+
+const invoiceDelivery = readFileSync(
   resolve(process.cwd(), 'lib/server/invoiceDelivery.ts'),
   'utf8',
 );
@@ -24,23 +29,24 @@ const invoiceVat = readFileSync(
 
 describe('Invoice PDF fiscal totals contract', () => {
   it('renders the issuer company number when supplied', () => {
-    expect(source).toContain('if (input.issuerCompanyNumber)');
-    expect(source).toContain('Company No. ${pdfText(input.issuerCompanyNumber');
+    expect(source).toContain('input.issuerCompanyNumber ?');
+    expect(source).toContain('Company No. ${pdfText(input.issuerCompanyNumber)');
     expect(previewRoute).toContain('issuerCompanyNumber: cleanText(invoice.issuer_company_number_snapshot) || company.company_number');
   });
 
-  it('renders net, VAT rate/amount and the existing payable total from canonical numeric fields', () => {
-    expect(source).toContain("page.drawText('Net:'");
+  it('renders subtotal, VAT treatment and payable total from canonical numeric fields', () => {
+    expect(source).toContain("amountRow('Subtotal'");
     expect(source).toContain('money(finiteMoney(input.netAmount), input.currency)');
-    expect(source).toContain('VAT ${finiteMoney(input.vatRate)}%:');
+    expect(source).toContain("const vatLabel = vatTreatment === 'not_registered'");
     expect(source).toContain('money(finiteMoney(input.vatAmount), input.currency)');
+    expect(source).toContain("amountRow('TOTAL DUE', totalValue");
     expect(source).toContain('money(finiteMoney(input.totalAmount), input.currency)');
   });
 
-  it('renders the calculated due date and keeps the late-payment notice separate', () => {
+  it('renders the canonical due date without injecting unrelated platform notices', () => {
     expect(source).toContain('Due date: ${formatDate(input.dueDate)}');
-    expect(source).toContain("page.drawText('Late payments may incur administrative charges.'");
     expect(previewRoute).toContain('dueDate: cleanText(invoice.due_date');
+    expect(source).not.toContain('Late payments may incur administrative charges.');
   });
 
   it('keeps the approved middle-dot separator representable instead of replacing it with question marks', () => {
@@ -48,25 +54,32 @@ describe('Invoice PDF fiscal totals contract', () => {
     expect(source).toContain('\\u00A3\\u00B7\\u20AC');
   });
 
-  it('keeps preview and submit validation delegated to the canonical VAT-treatment totals contract', () => {
-    for (const route of [previewRoute, submitRoute]) {
-      expect(route).toContain('validateInvoiceVatTotals({');
-      expect(route).toContain('netAmount,');
-      expect(route).toContain('vatAmount,');
-      expect(route).toContain('vatRate,');
-      expect(route).toContain('totalAmount,');
-      expect(route).toContain('treatment: vatTreatment');
+  it('keeps preview and canonical delivery validation delegated to the VAT-treatment totals contract', () => {
+    for (const implementation of [previewRoute, invoiceDelivery]) {
+      expect(implementation).toContain('validateInvoiceVatTotals({');
+      expect(implementation).toContain('netAmount,');
+      expect(implementation).toContain('vatAmount,');
+      expect(implementation).toContain('vatRate,');
+      expect(implementation).toContain('totalAmount,');
+      expect(implementation).toContain('treatment: vatTreatment');
     }
 
-    expect(submitRoute).not.toContain('Math.abs(totalAmount - (netAmount + vatAmount)) > 0.01');
-    expect(submitRoute).toContain('vatTreatment,');
-    expect(submitRoute).toContain('customerVatNumber: customerVatNumber || null');
-    expect(submitRoute).toContain('issuerVatNumber: issuerVatNumber || null');
+    expect(submitRoute).toContain('submitInvoice(request, context)');
+    expect(invoiceDelivery).not.toContain('Math.abs(totalAmount - (netAmount + vatAmount)) > 0.01');
+    expect(invoiceDelivery).toContain('vatTreatment,');
+    expect(invoiceDelivery).toContain('customerVatNumber: customerVatNumber || null');
+    expect(invoiceDelivery).toContain('issuerVatNumber: issuerVatNumber || null');
 
-    // The canonical helper validates both ordinary VAT invoices and reverse-charge
-    // invoices, where VAT is disclosed but is not added to the amount payable.
     expect(invoiceVat).toContain('if (Math.abs(vatAmount - expectedVat) > 0.01) return false;');
     expect(invoiceVat).toContain("const expectedTotal = treatment === 'reverse_charge'");
     expect(invoiceVat).toContain('return Math.abs(totalAmount - expectedTotal) <= 0.01;');
+  });
+
+  it('wraps long service descriptions by measured PDF width before the price columns', () => {
+    expect(source).toContain('const wrapTextToWidth = (');
+    expect(source).toContain('font.widthOfTextAtSize(next, size) <= maxWidth');
+    expect(source).toContain('const serviceTitleLines = wrapTextToWidth(');
+    expect(source).toContain('descW - 22');
+    expect(source).toContain('let descY = tableTop - 46 - serviceTitleLines.length * 12 - 5');
   });
 });

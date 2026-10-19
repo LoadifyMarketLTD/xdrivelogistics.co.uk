@@ -1157,6 +1157,52 @@ async function handleOperationalSmartAlert(event: NotificationEvent) {
 
   return emailOk && pushOk;
 }
+async function handleFeedbackRequested(event: NotificationEvent) {
+  const userId = event.recipient_user_id;
+  if (!userId) return true;
+  if (!await userEmailEnabled(userId, event.event_type)) return true;
+
+  const user = await getUserEmail(userId);
+  if (!user) return true;
+
+  const job = await getPublicJobContext(event);
+  const counterpartyCompanyId = typeof event.payload.counterparty_company_id === 'string'
+    ? event.payload.counterparty_company_id
+    : '';
+  let counterpartyName = 'the other company on this booking';
+  if (isUuid(counterpartyCompanyId)) {
+    const { data } = await supabase
+      .from('companies')
+      .select('name')
+      .eq('id', counterpartyCompanyId)
+      .maybeSingle();
+    const resolvedName = typeof data?.name === 'string' ? data.name.trim() : '';
+    if (resolvedName) counterpartyName = resolvedName;
+  }
+
+  const subject = `Feedback requested - Ref: ${job.reference}`;
+  return sendEmail(
+    user.email,
+    subject,
+    `<div style="font-family:Arial,Helvetica,sans-serif;max-width:680px;margin:0 auto;color:#1f2937;line-height:1.55">
+      <h2 style="margin:0 0 18px">How did this booking go?</h2>
+      <p>Hi ${escapeHtml(user.name)},</p>
+      <p>Booking <strong>${escapeHtml(job.reference)}</strong> is complete. You can now leave verified company feedback for <strong>${escapeHtml(counterpartyName)}</strong>.</p>
+      <table style="border-collapse:collapse;width:100%;margin:18px 0">
+        <tr><td style="padding:7px 0;font-weight:700;width:145px">Booking ref</td><td style="padding:7px 0">${escapeHtml(job.reference)}</td></tr>
+        <tr><td style="padding:7px 0;font-weight:700">Collection</td><td style="padding:7px 0">${escapeHtml(job.pickup)}</td></tr>
+        <tr><td style="padding:7px 0;font-weight:700">Delivery</td><td style="padding:7px 0">${escapeHtml(job.delivery)}</td></tr>
+      </table>
+      <p>Your feedback contributes to the verified XDrive reputation record for completed work.</p>
+      <p><a href="${escapeHtml(buildAppUrl('/'))}" style="display:inline-block;padding:11px 18px;background:#1d57d8;color:#fff;border-radius:8px;text-decoration:none;font-weight:700">Leave feedback in XDrive</a></p>
+      <p style="color:#64748b">Open Diary and choose Awaiting Feedback. Feedback is available only to authorised company operators involved in this booking.</p>
+      <p>XDrive Logistics</p>
+    </div>`,
+    notificationIdempotencyKey(event.id, userId),
+    'operations',
+  );
+}
+
 async function handleOnboardingInvite(event: NotificationEvent) {
   const userId = typeof event.payload.recipient_user_id === 'string'
     ? event.payload.recipient_user_id
@@ -1479,6 +1525,7 @@ async function processEvent(event: NotificationEvent): Promise<void> {
       case 'job_pod_submitted_alert':
         success = await handleOperationalSmartAlert(event);
         break;
+      case 'feedback_requested': success = await handleFeedbackRequested(event); break;
       case 'onboarding_invite':
       case 'onboarding_invite_resent':
         success = await handleOnboardingInvite(event);

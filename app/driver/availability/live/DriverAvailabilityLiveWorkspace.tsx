@@ -291,8 +291,8 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
             </div>
 
             <label className="driver-more-filter">
-              <span>Near postcode / outcode</span>
-              <input data-postcode-lookup="off" value={postcode} onChange={(event) => setPostcode(event.target.value)} placeholder="e.g. BB1" />
+              <span>Location</span>
+              <input value={postcode} onChange={(event) => setPostcode(event.target.value)} placeholder="Enter Location" />
               {postcodeArea && <span className="driver-live-postcode-area">{postcodeArea}</span>}
             </label>
 
