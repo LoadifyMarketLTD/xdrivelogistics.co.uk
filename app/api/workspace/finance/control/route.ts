@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { invoiceAgingBucket, type AgingBucket } from '../../../../../lib/finance/accounts';
+import { hasWorkspaceCapability, resolveWorkspaceRole } from '../../../../../lib/workspaceRole';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -90,15 +91,28 @@ export async function GET(request: NextRequest) {
     .eq('status', 'active');
   if (membershipResult.error) return json(500, { error: 'Finance scope could not be verified.' });
 
-  const financeMemberships = (membershipResult.data ?? []).filter((row) =>
-    ['owner', 'admin', 'finance'].includes(String(row.role_in_company ?? '').trim().toLowerCase()),
-  );
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('role')
+    .eq('user_id', authData.user.id)
+    .maybeSingle();
+  const profileRole = text(profile?.role);
+  const financeMemberships = (membershipResult.data ?? []).filter((row) => {
+    const membershipRole = text(row.role_in_company);
+    const workspaceRole = resolveWorkspaceRole({
+      role: profileRole,
+      rawRole: profileRole,
+      membershipRole,
+    });
+    return hasWorkspaceCapability(workspaceRole, 'invoices.customer.manage')
+      || hasWorkspaceCapability(workspaceRole, 'invoices.carrier.manage');
+  });
   const companyIds = [...new Set(financeMemberships
     .map((row) => text(row.company_id))
     .filter((value): value is string => Boolean(value)))];
   if (!companyIds.length) {
     if ((membershipResult.data ?? []).length > 0) {
-      return json(403, { error: 'Finance access requires an owner, admin or finance company role.' });
+      return json(403, { error: 'Finance access is not available for this workspace role.' });
     }
     return json(200, {
       invoices: [], readyToInvoice: [], counterparties: [],

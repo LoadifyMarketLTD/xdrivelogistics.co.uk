@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { hasWorkspaceCapability, resolveWorkspaceRole } from '../lib/workspaceRole';
 
 const ui = readFileSync(resolve(process.cwd(), 'app/components/workspace/WorkspaceFinanceControl.tsx'), 'utf8');
 const route = readFileSync(resolve(process.cwd(), 'app/api/workspace/finance/control/route.ts'), 'utf8');
@@ -55,9 +56,28 @@ describe('CX Accounts Receivable parity contract', () => {
     expect(statements).toContain('Generate');
   });
 
-  it('restricts company finance control to owner, admin and finance memberships', () => {
-    expect(route).toContain("['owner', 'admin', 'finance'].includes");
-    expect(route).toContain('Finance access requires an owner, admin or finance company role.');
-    expect(route).not.toContain("['owner', 'admin', 'dispatcher'].includes");
+  it('uses canonical finance capabilities so legitimate broker/customer finance remains available while operational roles stay blocked', () => {
+    expect(route).toContain('resolveWorkspaceRole');
+    expect(route).toContain("hasWorkspaceCapability(workspaceRole, 'invoices.customer.manage')");
+    expect(route).toContain("hasWorkspaceCapability(workspaceRole, 'invoices.carrier.manage')");
+    expect(route).toContain('Finance access is not available for this workspace role.');
+
+    const financeCases = [
+      { input: { role: 'company_admin', membershipRole: 'owner' }, allowed: true },
+      { input: { role: 'company_admin', membershipRole: 'admin' }, allowed: true },
+      { input: { role: 'company_staff', membershipRole: 'finance' }, allowed: true },
+      { input: { role: 'broker', membershipRole: 'member' }, allowed: true },
+      { input: { role: 'customer', membershipRole: 'member' }, allowed: true },
+      { input: { role: 'company_admin', membershipRole: 'dispatcher' }, allowed: false },
+      { input: { role: 'driver', membershipRole: 'member' }, allowed: false },
+      { input: { role: 'company_staff', membershipRole: 'viewer' }, allowed: false },
+    ] as const;
+
+    for (const testCase of financeCases) {
+      const workspaceRole = resolveWorkspaceRole(testCase.input);
+      const allowed = hasWorkspaceCapability(workspaceRole, 'invoices.customer.manage')
+        || hasWorkspaceCapability(workspaceRole, 'invoices.carrier.manage');
+      expect(allowed).toBe(testCase.allowed);
+    }
   });
 });
