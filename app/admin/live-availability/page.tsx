@@ -337,6 +337,33 @@ export default function LiveAvailabilityPage() {
     }];
   }), [filteredNearby]);
 
+  const fleetTableRows = useMemo(() => filtered.map(({ driver, vehicle, currentJob, nextJob, location, timestamp }) => [
+    <div key="member"><strong style={{ display: 'block' }}>{driver.display_name ?? driver.email ?? 'Driver'}</strong><span style={{ color: '#64748b' }}>{driver.id.slice(0, 8).toUpperCase()}</span></div>,
+    driver.phone ?? 'Not recorded',
+    vehicle?.type?.replaceAll('_', ' ') ?? vehicle?.reg_plate ?? 'Not assigned',
+    location ? <button key="location" type="button" onClick={() => setSelectedDriverId(driver.id)} style={{ border: 0, padding: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer' }}>{location.lat.toFixed(3)}, {location.lng.toFixed(3)}</button> : 'Not tracked',
+    'Not recorded',
+    when(timestamp),
+    currentJob
+      ? `${currentJob.pickup_location ?? 'Pickup'} → ${currentJob.delivery_location ?? 'Delivery'}`
+      : nextJob
+        ? `Next: ${nextJob.pickup_location ?? 'Pickup'} → ${nextJob.delivery_location ?? 'Delivery'}`
+        : 'No journey',
+  ]), [filtered]);
+
+  const nearbyTableRows = useMemo(() => filteredNearby.map((position, index) => {
+    const pointId = nearbyPointKey(position, index);
+    return [
+      <button key="member" type="button" onClick={() => setSelectedDriverId(pointId)} style={{ border: 0, padding: 0, background: 'transparent', textAlign: 'left', font: 'inherit', cursor: 'pointer' }}><strong>{position.member_name ?? 'Exchange member'}</strong>{position.member_code ? ` (${position.member_code})` : ''}</button>,
+      'Not published',
+      (position.vehicle_type ?? 'Vehicle not published').replaceAll('_', ' '),
+      position.distance_miles != null ? `Within ${position.distance_miles.toFixed(1)} mi` : 'Exchange area',
+      'Not published',
+      when(position.recorded_at),
+      'Exchange availability',
+    ];
+  }), [filteredNearby]);
+
   const availabilityValues = useMemo(() => [...new Set(data.drivers.map((driver) => String(driver.availability_status ?? 'offline').toLowerCase()))].sort(), [data.drivers]);
   const nearbyVehicleTypes = useMemo(() => marketplaceVehicleSizeOptions(), []);
   const nearbyBodyTypes = useMemo(() => AVAILABILITY_BODY_TYPE_OPTIONS, []);
@@ -448,7 +475,7 @@ export default function LiveAvailabilityPage() {
 
             {tab === 'all' || tab === 'live' ? (
               <>
-                <FleetPositionMap points={livePoints} selectedDriverId={selectedDriverId} height={300} />
+                <FleetPositionMap points={tab === 'all' ? [...livePoints, ...nearbyPoints] : livePoints} selectedDriverId={selectedDriverId} height={300} />
                 <div style={{ display: 'flex', gap: 16, alignItems: 'center', minHeight: 34, padding: '6px 4px', fontSize: 12 }}>
                   <span>● Available</span>
                   <span>● Maybe Available</span>
@@ -458,19 +485,7 @@ export default function LiveAvailabilityPage() {
                 </div>
                 <DataTable
                   columns={['Member (ID)', 'Phone', 'Vehicle Size', 'Current Location', 'Home Location', 'Location Received', 'Journeys']}
-                  rows={filtered.map(({ driver, vehicle, currentJob, nextJob, location, timestamp }) => [
-                    <div key="member"><strong style={{ display: 'block' }}>{driver.display_name ?? driver.email ?? 'Driver'}</strong><span style={{ color: '#64748b' }}>{driver.id.slice(0, 8).toUpperCase()}</span></div>,
-                    driver.phone ?? 'Not recorded',
-                    vehicle?.type?.replaceAll('_', ' ') ?? vehicle?.reg_plate ?? 'Not assigned',
-                    location ? <button key="location" type="button" onClick={() => setSelectedDriverId(driver.id)} style={{ border: 0, padding: 0, background: 'transparent', color: '#1d57d8', fontWeight: 800, cursor: 'pointer' }}>{location.lat.toFixed(3)}, {location.lng.toFixed(3)}</button> : 'Not tracked',
-                    'Not recorded',
-                    when(timestamp),
-                    currentJob
-                      ? `${currentJob.pickup_location ?? 'Pickup'} → ${currentJob.delivery_location ?? 'Delivery'}`
-                      : nextJob
-                        ? `Next: ${nextJob.pickup_location ?? 'Pickup'} → ${nextJob.delivery_location ?? 'Delivery'}`
-                        : 'No journey',
-                  ])}
+                  rows={tab === 'all' ? [...fleetTableRows, ...nearbyTableRows] : fleetTableRows}
                   empty={<EmptyState title="No drivers match these availability filters" />}
                 />
               </>
@@ -486,18 +501,7 @@ export default function LiveAvailabilityPage() {
                 </div>
                 <DataTable
                   columns={['Member (ID)', 'Phone', 'Vehicle Size', 'Current Location', 'Home Location', 'Location Received', 'Journeys']}
-                  rows={filteredNearby.map((position, index) => {
-                    const pointId = nearbyPointKey(position, index);
-                    return [
-                      <button key="member" type="button" onClick={() => setSelectedDriverId(pointId)} style={{ border: 0, padding: 0, background: 'transparent', textAlign: 'left', font: 'inherit', cursor: 'pointer' }}><strong>{position.member_name ?? 'Exchange member'}</strong>{position.member_code ? ` (${position.member_code})` : ''}</button>,
-                      'Not published',
-                      (position.vehicle_type ?? 'Vehicle not published').replaceAll('_', ' '),
-                      position.distance_miles != null ? `Within ${position.distance_miles.toFixed(1)} mi` : 'Exchange area',
-                      'Not published',
-                      when(position.recorded_at),
-                      'Exchange availability',
-                    ];
-                  })}
+                  rows={nearbyTableRows}
                   empty={<EmptyState title={nearbyLoading ? 'Loading nearby Exchange availability…' : nearbyError ? 'Nearby Exchange availability unavailable' : 'No nearby Exchange vehicles'} />}
                 />
               </>

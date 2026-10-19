@@ -28,6 +28,8 @@ describe('CX-close Live Availability composition', () => {
     expect(source).toContain('>Drivers &amp; Sub-contractors</button>');
     expect(source).toContain('>Other Drivers <span');
     expect(source).toContain('aria-label="Quick Search"');
+    expect(source).toContain("tab === 'all' ? [...livePoints, ...nearbyPoints] : livePoints");
+    expect(source).toContain("tab === 'all' ? [...fleetTableRows, ...nearbyTableRows] : fleetTableRows");
     const tabs = source.indexOf('aria-label="Availability views"');
     const map = source.indexOf('<FleetPositionMap', tabs);
     expect(tabs).toBeGreaterThan(0);
