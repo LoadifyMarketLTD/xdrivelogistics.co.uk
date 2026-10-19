@@ -37,6 +37,7 @@ describe('global operational postcode autocomplete', () => {
     expect(route).toContain("url.searchParams.set('query', query)");
     expect(route).toContain("provider: 'ideal-postcodes-autocomplete'");
     expect(route).toContain("provider: 'getaddress-autocomplete'");
+    expect(route).toContain("provider: 'mapbox-geocoding-autocomplete'");
     expect(route).toContain("provider: 'postcodes-io-autocomplete'");
     expect(route).toContain('/autocomplete?limit=12');
   });

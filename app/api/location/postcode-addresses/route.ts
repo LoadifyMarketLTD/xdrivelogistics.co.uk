@@ -86,6 +86,46 @@ async function lookupGetAddressAutocomplete(query: string, apiKey: string) {
   return [] as string[];
 }
 
+
+type MapboxFeature = {
+  properties?: {
+    full_address?: string | null;
+    name?: string | null;
+    name_preferred?: string | null;
+    place_formatted?: string | null;
+  };
+};
+
+async function lookupMapboxAutocomplete(query: string, accessToken: string) {
+  if (query.trim().length < 3) return [] as string[];
+
+  const url = new URL('https://api.mapbox.com/search/geocode/v6/forward');
+  url.searchParams.set('q', query);
+  url.searchParams.set('access_token', accessToken);
+  url.searchParams.set('country', 'gb');
+  url.searchParams.set('language', 'en');
+  url.searchParams.set('autocomplete', 'true');
+  url.searchParams.set('types', 'address,street,postcode,place,locality');
+  url.searchParams.set('limit', '10');
+
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(6_000),
+      cache: 'no-store',
+    });
+    if (!response.ok) return [] as string[];
+    const payload = await response.json() as { features?: MapboxFeature[] };
+    const features = Array.isArray(payload.features) ? payload.features : [];
+    return dedupe(features.map((feature) => {
+      const props = feature.properties ?? {};
+      return clean(props.full_address)
+        || formatAddress([props.name_preferred || props.name, props.place_formatted]);
+    }).filter(Boolean));
+  } catch {
+    return [] as string[];
+  }
+}
+
 async function lookupPublicPostcodeAutocomplete(query: string) {
   const compactQuery = query.toUpperCase().replace(/\s+/g, '');
   if (!/^[A-Z]{1,2}\d[A-Z\d]?\d?[A-Z]{0,2}$/.test(compactQuery)) return [] as string[];
@@ -209,6 +249,7 @@ export async function GET(request: NextRequest) {
 
   const idealKey = process.env.IDEAL_POSTCODES_API_KEY?.trim();
   const getAddressKey = process.env.GETADDRESS_API_KEY?.trim();
+  const mapboxToken = process.env.MAPBOX_ACCESS_TOKEN?.trim();
 
   if (idealKey && !exactPostcode) {
     const suggestions = await lookupIdealAutocomplete(autocompleteQuery, idealKey);
@@ -232,12 +273,23 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  if (mapboxToken && !exactPostcode) {
+    const suggestions = await lookupMapboxAutocomplete(autocompleteQuery, mapboxToken);
+    if (suggestions.length) {
+      return NextResponse.json({
+        suggestions,
+        configured: true,
+        provider: 'mapbox-geocoding-autocomplete',
+      }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+  }
+
   if (!exactPostcode) {
     const suggestions = await lookupPublicPostcodeAutocomplete(autocompleteQuery);
     if (suggestions.length) {
       return NextResponse.json({
         suggestions,
-        configured: Boolean(idealKey || getAddressKey),
+        configured: Boolean(idealKey || getAddressKey || mapboxToken),
         provider: 'postcodes-io-autocomplete',
       }, { headers: { 'Cache-Control': 'public, max-age=300' } });
     }
@@ -270,6 +322,6 @@ export async function GET(request: NextRequest) {
   return NextResponse.json({
     suggestions: [],
     configured: true,
-    provider: idealKey ? 'ideal-postcodes-autocomplete' : getAddressKey ? 'getaddress' : null,
+    provider: idealKey ? 'ideal-postcodes-autocomplete' : getAddressKey ? 'getaddress' : mapboxToken ? 'mapbox-geocoding-autocomplete' : null,
   }, { headers: { 'Cache-Control': 'private, max-age=30' } });
 }

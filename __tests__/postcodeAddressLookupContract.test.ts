@@ -18,7 +18,8 @@ describe('postcode address lookup contract', () => {
     expect(route).toContain('supabaseValidator.auth.getUser(token)');
     expect(route).toContain('process.env.IDEAL_POSTCODES_API_KEY');
     expect(route).toContain('process.env.GETADDRESS_API_KEY');
-    expect(route).not.toContain('MAPBOX_ACCESS_TOKEN');
+    expect(route).toContain('MAPBOX_ACCESS_TOKEN');
+    expect(field).not.toContain('MAPBOX_ACCESS_TOKEN');
     expect(route).not.toContain('SUPABASE_SERVICE_ROLE_KEY');
     expect(field).not.toContain('IDEAL_POSTCODES_API_KEY');
     expect(field).not.toContain('GETADDRESS_API_KEY');
@@ -28,7 +29,8 @@ describe('postcode address lookup contract', () => {
     expect(field).toContain('isFullUkPostcode(normalized)');
     expect(route).toContain('api.ideal-postcodes.co.uk/v1/postcodes/');
     expect(route).toContain('api.getAddress.io/find/');
-    expect(route).not.toContain('api.mapbox.com');
+    expect(route).toContain('api.mapbox.com/search/geocode/v6/forward');
+    expect(route).toContain("provider: 'mapbox-geocoding-autocomplete'");
     expect(route).toContain('api.postcodes.io/postcodes/');
     expect(field).not.toContain('api.postcodes.io');
   });
