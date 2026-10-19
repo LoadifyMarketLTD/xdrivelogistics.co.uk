@@ -8,7 +8,7 @@ import { useOperationsIntelligence } from '../../components/workspace/useOperati
 import { usePrivateNetworkGroups } from '../../components/workspace/usePrivateNetworkGroups';
 import { supabase } from '../../../lib/supabaseClient';
 import { AVAILABILITY_BODY_TYPE_OPTIONS, matchesAvailabilityFilters, type AvailabilityTab } from '../../../lib/availability/canonicalAvailability';
-import { marketplaceVehicleSizeOptions } from '../../../lib/vehicleSizeRange';
+import { marketplaceVehicleSizeOptions, vehicleMatchesMarketplaceSizeRange } from '../../../lib/vehicleSizeRange';
 import {
   ActionButton,
   AlertBanner,
@@ -26,6 +26,12 @@ import {
 type Tab = Exclude<AvailabilityTab, 'future'> | 'all';
 
 const LIVE_AVAILABILITY_DEFAULTS_KEY = 'xdrive:carrier:live-availability:defaults';
+const LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS = (() => {
+  const options = marketplaceVehicleSizeOptions();
+  const upper = options.findIndex((option) => option.value === 'truck_7_5t');
+  return upper >= 0 ? options.slice(0, upper + 1) : options;
+})();
+const isUkCoordinate = (lat: number, lng: number) => lat >= 49.8 && lat <= 60.9 && lng >= -8.7 && lng <= 1.9;
 
 type NearbyAvailabilityPosition = {
   driver_id?: string | null;
@@ -78,6 +84,10 @@ export default function LiveAvailabilityPage() {
   const [tab, setTab] = useState<Tab>('all');
   const [search, setSearch] = useState('');
   const [availability, setAvailability] = useState('all');
+  const [region, setRegion] = useState<'uk-euro' | 'euro'>('uk-euro');
+  const [vehicleDropdownMode, setVehicleDropdownMode] = useState(false);
+  const [vehicleMinIndex, setVehicleMinIndex] = useState(0);
+  const [vehicleMaxIndex, setVehicleMaxIndex] = useState(Math.max(0, LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS.length - 1));
   const [nearbyVehicle, setNearbyVehicle] = useState('all');
   const [nearbyBody, setNearbyBody] = useState('all');
   const [nearbyGroupId, setNearbyGroupId] = useState('');
@@ -171,6 +181,10 @@ export default function LiveAvailabilityPage() {
   const clearFilters = () => {
     setSearch('');
     setAvailability('all');
+    setRegion('uk-euro');
+    setVehicleDropdownMode(false);
+    setVehicleMinIndex(0);
+    setVehicleMaxIndex(Math.max(0, LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS.length - 1));
     setNearbyVehicle('all');
     setNearbyBody('all');
     setNearbyGroupId('');
@@ -186,6 +200,10 @@ export default function LiveAvailabilityPage() {
     window.localStorage.setItem(LIVE_AVAILABILITY_DEFAULTS_KEY, JSON.stringify({
       tab,
       availability,
+      region,
+      vehicleDropdownMode,
+      vehicleMinIndex,
+      vehicleMaxIndex,
       nearbyVehicle,
       nearbyBody,
       nearbyGroupId,
@@ -195,7 +213,7 @@ export default function LiveAvailabilityPage() {
     setFilterNotice('Availability filter defaults saved on this device.');
   };
 
-  const loadDefaults = () => {
+  const loadDefaults = useCallback(() => {
     if (typeof window === 'undefined') return;
     try {
       const raw = window.localStorage.getItem(LIVE_AVAILABILITY_DEFAULTS_KEY);
@@ -203,9 +221,14 @@ export default function LiveAvailabilityPage() {
         setFilterNotice('No saved availability defaults are available on this device.');
         return;
       }
-      const parsed = JSON.parse(raw) as Partial<{ tab: Tab; availability: string; nearbyVehicle: string; nearbyBody: string; nearbyGroupId: string; nearbyPostcode: string; nearbyRadius: string }>;
+      const parsed = JSON.parse(raw) as Partial<{ tab: Tab; availability: string; region: 'uk-euro' | 'euro'; vehicleDropdownMode: boolean; vehicleMinIndex: number; vehicleMaxIndex: number; nearbyVehicle: string; nearbyBody: string; nearbyGroupId: string; nearbyPostcode: string; nearbyRadius: string }>;
       if (parsed.tab === 'all' || parsed.tab === 'live' || parsed.tab === 'nearby') setTab(parsed.tab);
       if (typeof parsed.availability === 'string') setAvailability(parsed.availability);
+      if (parsed.region === 'uk-euro' || parsed.region === 'euro') setRegion(parsed.region);
+      const savedDropdownMode = parsed.vehicleDropdownMode === true;
+      setVehicleDropdownMode(savedDropdownMode);
+      if (Number.isInteger(parsed.vehicleMinIndex)) setVehicleMinIndex(Math.max(0, Math.min(LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS.length - 1, Number(parsed.vehicleMinIndex))));
+      if (Number.isInteger(parsed.vehicleMaxIndex)) setVehicleMaxIndex(Math.max(0, Math.min(LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS.length - 1, Number(parsed.vehicleMaxIndex))));
       const savedVehicle = typeof parsed.nearbyVehicle === 'string' ? parsed.nearbyVehicle : 'all';
       const savedBody = typeof parsed.nearbyBody === 'string' ? parsed.nearbyBody : 'all';
       const savedGroupId = typeof parsed.nearbyGroupId === 'string' ? parsed.nearbyGroupId : '';
@@ -216,12 +239,16 @@ export default function LiveAvailabilityPage() {
       const savedRadius = typeof parsed.nearbyRadius === 'string' ? parsed.nearbyRadius : '100';
       setNearbyPostcode(savedPostcode);
       setNearbyRadius(savedRadius);
-      setNearbyQuery({ postcode: savedPostcode, radius: savedRadius, vehicle: savedVehicle, body: savedBody, groupId: savedGroupId });
+      setNearbyQuery({ postcode: savedPostcode, radius: savedRadius, vehicle: savedDropdownMode ? savedVehicle : 'all', body: savedBody, groupId: savedGroupId });
       setFilterNotice('Saved availability defaults loaded.');
     } catch {
       setFilterNotice('Saved availability defaults could not be read.');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadDefaults();
+  }, [loadDefaults]);
 
   const latestLocations = useMemo(() => {
     const map = new Map<string, WorkspaceLocation>();
@@ -254,27 +281,36 @@ export default function LiveAvailabilityPage() {
     return { driver, location, timestamp, stale, vehicle, currentJob, nextJob, future, returnJourney };
   }), [data.drivers, data.jobs, data.vehicles, intelligence.futureByDriver, intelligence.journeyByDriver, latestLocations]);
 
+  const minVehicleValue = LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS[vehicleMinIndex]?.value ?? null;
+  const maxVehicleValue = LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS[vehicleMaxIndex]?.value ?? null;
+
   const filtered = useMemo(() => {
     const needle = search.trim().toLowerCase();
     return driverRows.filter(({ driver, vehicle, currentJob, nextJob, future, returnJourney }) => {
       const text = `${driver.display_name ?? ''} ${driver.email ?? ''} ${driver.phone ?? ''} ${vehicle?.reg_plate ?? ''} ${vehicle?.type ?? ''} ${currentJob?.pickup_location ?? ''} ${currentJob?.delivery_location ?? ''} ${nextJob?.pickup_location ?? ''} ${future?.futurePosition ?? ''} ${returnJourney?.fromPostcode ?? ''} ${returnJourney?.toPostcode ?? ''}`.toLowerCase();
       if (needle && !text.includes(needle)) return false;
       if (availability !== 'all' && String(driver.availability_status ?? 'offline').toLowerCase() !== availability) return false;
-      if (nearbyVehicle !== 'all' && String(vehicle?.type ?? '').toLowerCase() !== nearbyVehicle.toLowerCase()) return false;
+      if (vehicleDropdownMode) {
+        if (nearbyVehicle !== 'all' && String(vehicle?.type ?? '').toLowerCase() !== nearbyVehicle.toLowerCase()) return false;
+      } else if (!vehicleMatchesMarketplaceSizeRange(vehicle?.type, minVehicleValue, maxVehicleValue)) return false;
       if (nearbyBody !== 'all' && String(vehicle?.body_type ?? '').toLowerCase() !== nearbyBody.toLowerCase()) return false;
       return true;
     });
-  }, [availability, driverRows, nearbyBody, nearbyVehicle, search]);
+  }, [availability, driverRows, maxVehicleValue, minVehicleValue, nearbyBody, nearbyVehicle, search, vehicleDropdownMode]);
 
-  const filteredNearby = useMemo(() => nearbyPositions.filter((position) => matchesAvailabilityFilters(position, {
-    search,
-    scope: 'exchange',
-    vehicleType: nearbyVehicle,
-    bodyType: nearbyBody,
-    minPayloadKg: null,
-    minPallets: null,
-    tailLiftOnly: false,
-  })), [nearbyBody, nearbyPositions, nearbyVehicle, search]);
+  const filteredNearby = useMemo(() => nearbyPositions.filter((position) => {
+    if (region === 'euro' && isUkCoordinate(Number(position.lat), Number(position.lng))) return false;
+    if (!matchesAvailabilityFilters(position, {
+      search,
+      scope: 'exchange',
+      vehicleType: vehicleDropdownMode ? nearbyVehicle : 'all',
+      bodyType: nearbyBody,
+      minPayloadKg: null,
+      minPallets: null,
+      tailLiftOnly: false,
+    })) return false;
+    return vehicleDropdownMode || vehicleMatchesMarketplaceSizeRange(position.vehicle_type, minVehicleValue, maxVehicleValue);
+  }), [maxVehicleValue, minVehicleValue, nearbyBody, nearbyPositions, nearbyVehicle, region, search, vehicleDropdownMode]);
 
   const livePoints = useMemo<FleetMapPoint[]>(() => filtered.flatMap(({ driver, location, stale }) => {
     if (!location || !Number.isFinite(location.lat) || !Number.isFinite(location.lng)) return [];
@@ -325,22 +361,18 @@ export default function LiveAvailabilityPage() {
                 setNearbyQuery({
                   postcode: nearbyPostcode.trim(),
                   radius: nearbyRadius,
-                  vehicle: nearbyVehicle,
+                  vehicle: vehicleDropdownMode ? nearbyVehicle : 'all',
                   body: nearbyBody,
                   groupId: nearbyGroupId,
                 });
                 if (saveAsDefault) saveDefaults();
               }}
               onClear={clearFilters}
-              footer={
-                <div style={{ display: 'grid', gap: 5 }}>
-                  <ActionButton tone="secondary" onClick={loadDefaults}>Load Default</ActionButton>
-                  <ActionButton tone="secondary" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading || nearbyLoading}>
-                    {data.loading || intelligence.loading || nearbyLoading ? 'Refreshing…' : 'Refresh'}
-                  </ActionButton>
-                </div>
-              }
             >
+              <div role="radiogroup" aria-label="Availability region" style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
+                <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><input type="radio" name="availability-region" checked={region === 'uk-euro'} onChange={() => setRegion('uk-euro')} /> UK &amp; Euro</label>
+                <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><input type="radio" name="availability-region" checked={region === 'euro'} onChange={() => setRegion('euro')} /> Euro</label>
+              </div>
               <OperationalFilterField label="Location">
                 <OperationalFilterInput value={nearbyPostcode} onChange={setNearbyPostcode} onClear={() => setNearbyPostcode('')} placeholder="Enter Location" />
                 {nearbyPostcodeArea && <span className="workspace-postcode-area">{nearbyPostcodeArea}</span>}
@@ -355,21 +387,36 @@ export default function LiveAvailabilityPage() {
                 <OperationalFilterInput value={search} onChange={setSearch} onClear={() => setSearch('')} placeholder="Member or driver" />
               </OperationalFilterField>
               <OperationalFilterField label="Vehicle Size">
-                <OperationalFilterSelect value={nearbyVehicle} onChange={setNearbyVehicle} options={[{ value: 'all', label: 'Any vehicle' }, ...nearbyVehicleTypes]} />
+                {vehicleDropdownMode ? (
+                  <OperationalFilterSelect value={nearbyVehicle} onChange={setNearbyVehicle} options={[{ value: 'all', label: 'Any vehicle' }, ...nearbyVehicleTypes]} />
+                ) : (
+                  <div className="xdrive-vehicle-size-range">
+                    <div className="xdrive-vehicle-size-range__track">
+                      <input className="xdrive-vehicle-size-range__input xdrive-vehicle-size-range__input--min" aria-label="Minimum vehicle size" type="range" min="0" max={Math.max(0, LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS.length - 1)} value={vehicleMinIndex} onChange={(event) => { const next = Number(event.target.value); setVehicleMinIndex(Math.min(next, vehicleMaxIndex)); }} />
+                      <input className="xdrive-vehicle-size-range__input xdrive-vehicle-size-range__input--max" aria-label="Maximum vehicle size" type="range" min="0" max={Math.max(0, LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS.length - 1)} value={vehicleMaxIndex} onChange={(event) => { const next = Number(event.target.value); setVehicleMaxIndex(Math.max(next, vehicleMinIndex)); }} />
+                    </div>
+                    <div className="xdrive-vehicle-size-range__labels"><span>{(LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS[vehicleMinIndex]?.label ?? 'Motorbike').replace('Motorbike', 'Motorcycle')} - {LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS[vehicleMaxIndex]?.label ?? '7.5T'}</span></div>
+                  </div>
+                )}
+                <button type="button" onClick={() => setVehicleDropdownMode((current) => !current)} style={{ border: 0, background: 'transparent', color: '#1d57d8', padding: '3px 0 0', fontSize: 11, textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>{vehicleDropdownMode ? 'Display range version' : 'Display dropdown version'}</button>
               </OperationalFilterField>
               <OperationalFilterField label="Body Type">
                 <OperationalFilterSelect value={nearbyBody} onChange={setNearbyBody} options={[{ value: 'all', label: 'Any body' }, ...nearbyBodyTypes]} />
               </OperationalFilterField>
-              <OperationalFilterField label="Groups">
-                <OperationalFilterSelect
-                  value={nearbyGroupId}
-                  onChange={setNearbyGroupId}
-                  options={[
-                    { value: '', label: 'All Exchange members' },
-                    ...privateGroups.groups.filter((group) => group.allowAvailabilityVisibility).map((group) => ({ value: group.id, label: group.name })),
-                  ]}
-                />
-              </OperationalFilterField>
+              <div style={{ border: '1px solid #d8dee8', background: '#fff' }}>
+                <div style={{ padding: '5px 7px', borderBottom: '1px solid #d8dee8', background: '#f4f6f8', fontSize: 11, fontWeight: 700 }}>Groups</div>
+                <div style={{ display: 'grid', gap: 5, padding: 7 }}>
+                  <OperationalFilterSelect
+                    value={nearbyGroupId}
+                    onChange={setNearbyGroupId}
+                    options={[
+                      { value: '', label: 'All Exchange members' },
+                      ...privateGroups.groups.filter((group) => group.allowAvailabilityVisibility).map((group) => ({ value: group.id, label: group.name })),
+                    ]}
+                  />
+                  <button type="button" onClick={() => router.push('/admin/marketplace/directory')} disabled={!privateGroups.canManage} style={{ border: 0, background: 'transparent', color: '#1d57d8', padding: 0, fontSize: 11, textDecoration: 'underline', cursor: privateGroups.canManage ? 'pointer' : 'default', textAlign: 'left' }}>Add / Edit Groups</button>
+                </div>
+              </div>
               <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
                 <input type="checkbox" checked={tab === 'live'} onChange={(event) => setTab(event.target.checked ? 'live' : 'all')} />
                 My Sub-contractors

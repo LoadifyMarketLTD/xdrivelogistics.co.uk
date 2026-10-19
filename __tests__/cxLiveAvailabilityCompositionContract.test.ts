@@ -15,9 +15,10 @@ describe('CX-close Live Availability composition', () => {
   });
 
   it('keeps the CX left rail controls and availability period switch', () => {
-    for (const label of ['Add Future Position', 'Live', 'Future', 'Search Panel', 'Location', 'Radius Search', 'Availability Status', 'Member / Driver', 'Vehicle Size', 'Body Type', 'My Sub-contractors', 'Groups']) {
+    for (const label of ['Add Future Position', 'Live', 'Future', 'Search Panel', 'Location', 'Radius Search', 'Availability Status', 'Member / Driver', 'Vehicle Size', 'Body Type', 'My Sub-contractors', 'Groups', 'UK &amp; Euro', 'Euro', 'Display dropdown version', 'Add / Edit Groups']) {
       expect(source).toContain(label);
     }
+    expect(source).toContain('xdrive-vehicle-size-range');
     expect(source).toContain('saveAsDefault={saveAsDefault}');
     expect(source).toContain('onClear={clearFilters}');
   });
@@ -44,8 +45,9 @@ describe('CX-close Live Availability composition', () => {
   it('supports CX-style saved availability defaults without inventing server preferences', () => {
     expect(source).toContain('LIVE_AVAILABILITY_DEFAULTS_KEY');
     expect(source).toContain('window.localStorage.setItem');
-    expect(source).toContain('Load Default');
+    expect(source).toContain('loadDefaults();');
     expect(source).toContain('Clear');
+    expect(source).not.toContain('>Load Default<');
   });
 
   it('preserves privacy-scoped Exchange discovery and postcode area lookup', () => {
