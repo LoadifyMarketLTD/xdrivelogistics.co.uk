@@ -41,6 +41,25 @@ export const AVAILABILITY_TABS_BY_ROLE: Record<AvailabilityWorkspaceRole, Availa
   driver: ['live', 'future', 'nearby'],
 };
 
+export const AVAILABILITY_BODY_TYPE_OPTIONS = [
+  { value: 'box', label: 'Box' },
+  { value: 'curtain_side', label: 'Curtain Side' },
+  { value: 'double_deck', label: 'Double Deck' },
+  { value: 'dropside', label: 'Dropside' },
+  { value: 'flatbed', label: 'Flatbed' },
+  { value: 'high_roof', label: 'High Roof' },
+  { value: 'low_loader', label: 'Low Loader' },
+  { value: 'panel', label: 'Panel' },
+  { value: 'refrigerated', label: 'Refrigerated' },
+  { value: 'side_loader', label: 'Side Loader' },
+  { value: 'tanker', label: 'Tanker' },
+  { value: 'temperature_controlled', label: 'Temperature Controlled' },
+  { value: 'tilt', label: 'Tilt' },
+  { value: 'tipper', label: 'Tipper' },
+  { value: 'trailer', label: 'Trailer' },
+  { value: 'vehicle_transporter', label: 'Vehicle Transporter' },
+] as const;
+
 export const DEFAULT_AVAILABILITY_FILTERS: AvailabilityFilters = {
   search: '',
   scope: 'all',
@@ -51,20 +70,23 @@ export const DEFAULT_AVAILABILITY_FILTERS: AvailabilityFilters = {
   tailLiftOnly: false,
 };
 
-const normalise = (value: unknown) => String(value ?? '').trim().toLowerCase();
+export const normaliseAvailabilityFilterValue = (value: unknown) => String(value ?? '')
+  .trim()
+  .toLowerCase()
+  .replace(/[^a-z0-9]+/g, '');
 
 export function matchesAvailabilityFilters(
   position: CanonicalAvailabilityPosition,
   filters: AvailabilityFilters,
 ) {
   if (filters.scope !== 'all' && position.scope !== filters.scope) return false;
-  if (filters.vehicleType !== 'all' && normalise(position.vehicle_type) !== normalise(filters.vehicleType)) return false;
-  if (filters.bodyType !== 'all' && normalise(position.body_type) !== normalise(filters.bodyType)) return false;
+  if (filters.vehicleType !== 'all' && normaliseAvailabilityFilterValue(position.vehicle_type) !== normaliseAvailabilityFilterValue(filters.vehicleType)) return false;
+  if (filters.bodyType !== 'all' && normaliseAvailabilityFilterValue(position.body_type) !== normaliseAvailabilityFilterValue(filters.bodyType)) return false;
   if (filters.minPayloadKg != null && Number(position.payload_kg ?? 0) < filters.minPayloadKg) return false;
   if (filters.minPallets != null && Number(position.pallets_capacity ?? 0) < filters.minPallets) return false;
   if (filters.tailLiftOnly && position.has_tail_lift !== true) return false;
 
-  const needle = normalise(filters.search);
+  const needle = normaliseAvailabilityFilterValue(filters.search);
   if (!needle) return true;
 
   return [
@@ -73,7 +95,7 @@ export function matchesAvailabilityFilters(
     position.member_type,
     position.vehicle_type,
     position.body_type,
-  ].some((value) => normalise(value).includes(needle));
+  ].some((value) => normaliseAvailabilityFilterValue(value).includes(needle));
 }
 
 export function availabilityFreshness(

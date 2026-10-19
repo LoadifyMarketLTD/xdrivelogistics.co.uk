@@ -271,6 +271,9 @@
 
 .xdrive-operational-top-workspace .top-workspace-nav__item {
   position: relative;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
   height: 29px !important;
   min-height: 29px !important;
   padding: 0 13px !important;
@@ -337,6 +340,7 @@
 
 .xdrive-operational-top-workspace .top-workspace-nav__menu-item {
   width: 100%;
+  text-decoration: none;
   min-height: 32px !important;
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr);
@@ -674,4 +678,22 @@
     width: auto !important;
     max-height: calc(100vh - 104px);
   }
+}
+
+
+/* Global postcode/outcode area resolution. Any operational text/search input
+ * labelled as postcode/outcode receives a compact CX-style area confirmation. */
+.xdrive-postcode-area-hint {
+  display: block;
+  margin-top: 3px;
+  color: #31506f;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.xdrive-postcode-area-hint[data-state='loading'] {
+  color: #66778a;
+  font-weight: 500;
 }

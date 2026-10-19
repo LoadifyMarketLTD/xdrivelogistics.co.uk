@@ -118,7 +118,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       .order('capability_code'),
     supabaseAdmin
       .from('reviews')
-      .select('id,rating,comment,created_at,reviewer_company_id')
+      .select('id,rating,comment,would_use_again,delivered_promptly,courteous,created_at,reviewer_company_id')
       .eq('company_id', companyId)
       .gte('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString())
       .order('created_at', { ascending: false })
@@ -166,11 +166,29 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const reviews = reviewsResult.data ?? [];
   const ratings = reviews.map((review) => Number(review.rating)).filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
   const averageRating = ratings.length ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) * 10) / 10 : null;
+  const structured = reviews.filter((review) =>
+    typeof review.would_use_again === 'boolean'
+    || typeof review.delivered_promptly === 'boolean'
+    || typeof review.courteous === 'boolean'
+  );
+  const percentage = (key: 'would_use_again' | 'delivered_promptly' | 'courteous') => {
+    const answered = structured.filter((review) => typeof review[key] === 'boolean');
+    if (!answered.length) return null;
+    return Math.round((answered.filter((review) => review[key] === true).length / answered.length) * 100);
+  };
+  const wouldUseAgainPercent = percentage('would_use_again');
+  const deliveredPromptlyPercent = percentage('delivered_promptly');
+  const courteousPercent = percentage('courteous');
   const feedbackItems = reviews.slice(0, 20).map((review) => {
     const rating = Number.isFinite(Number(review.rating)) ? `${Number(review.rating)}/5` : 'Feedback';
     const comment = String(review.comment ?? '').trim() || 'No written comment supplied.';
     const date = review.created_at ? new Date(review.created_at).toLocaleDateString('en-GB') : 'Date unavailable';
-    return `${rating} · ${date} · ${comment}`;
+    const signals = [
+      typeof review.would_use_again === 'boolean' ? `Would use again: ${review.would_use_again ? 'Yes' : 'No'}` : null,
+      typeof review.delivered_promptly === 'boolean' ? `Prompt delivery: ${review.delivered_promptly ? 'Yes' : 'No'}` : null,
+      typeof review.courteous === 'boolean' ? `Courteous: ${review.courteous ? 'Yes' : 'No'}` : null,
+    ].filter((value): value is string => Boolean(value));
+    return [rating, date, ...signals, comment].join(' · ');
   });
 
   // This endpoint is intentionally conservative. It exposes only the member's
@@ -202,6 +220,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       feedbackLast90Days: {
         count: ratings.length,
         averageRating,
+        wouldUseAgainPercent,
+        deliveredPromptlyPercent,
+        courteousPercent,
       },
       memberType: publicMemberType(company.company_type),
       memberSince: company.created_at ?? null,

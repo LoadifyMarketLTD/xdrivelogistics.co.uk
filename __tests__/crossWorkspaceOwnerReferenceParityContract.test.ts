@@ -30,8 +30,9 @@ describe('Owner-reference shell and dashboard convergence', () => {
     expect(shell).toContain("'/broker/carrier-network/directory'");
   });
 
-  it('keeps Customer on the shared PR675 two-column control-desk geometry without changing the frozen Owner Driver source', () => {
-    expect(owner).toContain('gridTemplateColumns: "minmax(360px, .84fr) minmax(0, 1.16fr)"');
+  it('keeps Customer and Owner Driver on the shared two-column control-desk geometry', () => {
+    expect(owner).toContain('driver-owner-parity-grid xdrive-owner-dashboard-grid');
+    expect(owner).toContain('xdrive-owner-dashboard-column');
     expect(customer).toContain('customer-owner-parity-grid xdrive-owner-dashboard-grid');
     expect(customer).toContain('xdrive-owner-dashboard-column');
     expect(customer).toContain('xdrive-owner-dashboard-subgrid');

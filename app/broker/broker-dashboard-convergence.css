@@ -3,26 +3,8 @@
   min-width: 0;
 }
 
-.broker-owner-reports-card {
-  grid-column: 1;
-  grid-row: 1;
-}
-
-.broker-owner-subgrid {
-  grid-column: 1;
-  grid-row: 2;
-}
-
-.broker-owner-attention {
-  grid-column: 2;
-  grid-row: 2;
-}
-
-.broker-owner-activity {
-  grid-column: 2;
-  grid-row: 1;
-}
-
+/* Each shared dashboard column flows independently, so a tall activity table
+ * cannot push the commercial/report panels below an empty left-hand row. */
 .broker-owner-commercial,
 .broker-owner-reports-links {
   min-width: 0;
@@ -153,14 +135,4 @@
 .broker-clean-commercial button:hover,
 .broker-clean-attention button:hover {
   border-color: #1d57d8;
-}
-
-@media (max-width: 1024px) {
-  .broker-owner-reports-card,
-  .broker-owner-subgrid,
-  .broker-owner-activity,
-  .broker-owner-attention {
-    grid-column: 1;
-    grid-row: auto;
-  }
 }

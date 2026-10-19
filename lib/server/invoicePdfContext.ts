@@ -10,6 +10,7 @@ type EvidenceImage = {
 type InvoicePdfContext = {
   issuerEmail: string | null;
   issuerPhone: string | null;
+  issuerWebsite: string | null;
   bankAccountName: string | null;
   bankSortCode: string | null;
   bankAccountNumber: string | null;
@@ -26,6 +27,19 @@ type InvoicePdfContext = {
 
 const clean = (value: unknown) =>
   typeof value === 'string' && value.trim() ? value.trim() : null;
+
+const cleanIssuerWebsite = (value: unknown) => {
+  const raw = clean(value);
+  if (!raw) return null;
+  try {
+    const url = new URL(/^https?:\/\//i.test(raw) ? raw : `https://${raw}`);
+    const host = url.hostname.toLowerCase().replace(/^www\./, '');
+    if (host === 'xdrivelogistics.co.uk' || host === 'app.xdrivelogistics.co.uk') return null;
+    return raw;
+  } catch {
+    return raw;
+  }
+};
 
 const labelise = (value: unknown) => {
   const raw = clean(value);
@@ -59,13 +73,26 @@ const downloadPodImage = async (supabase: SupabaseClient, path: string) => {
   return bytes.byteLength ? bytes : null;
 };
 
-const loadLogo = async (origin: string) => {
+const loadCompanyLogo = async (supabase: SupabaseClient, value: unknown) => {
+  const raw = clean(value);
+  if (!raw) return null;
+
+  const inline = dataUrlBytes(raw);
+  if (inline?.byteLength) return inline;
+
   try {
-    const response = await fetch(`${origin.replace(/\/$/, '')}/xdrive-logo-primary.png`, {
-      signal: AbortSignal.timeout(5000),
-    });
-    if (!response.ok) return null;
-    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (/^https:\/\//i.test(raw)) {
+      const response = await fetch(raw, { signal: AbortSignal.timeout(5000) });
+      if (!response.ok) return null;
+      const bytes = new Uint8Array(await response.arrayBuffer());
+      return bytes.byteLength ? bytes : null;
+    }
+
+    const storagePath = raw.replace(/^company-docs\//, '').replace(/^\/+/, '');
+    if (!storagePath || storagePath.includes('..') || storagePath.includes('://')) return null;
+    const { data, error } = await supabase.storage.from('company-docs').download(storagePath);
+    if (error || !data) return null;
+    const bytes = new Uint8Array(await data.arrayBuffer());
     return bytes.byteLength ? bytes : null;
   } catch {
     return null;
@@ -76,19 +103,17 @@ export async function loadInvoicePdfContext({
   supabase,
   companyId,
   jobId,
-  origin,
   requirePod = false,
 }: {
   supabase: SupabaseClient;
   companyId: string;
   jobId: string | null;
-  origin: string;
   requirePod?: boolean;
 }): Promise<InvoicePdfContext> {
-  const [companyResult, settingsResult, logoBytes] = await Promise.all([
+  const [companyResult, settingsResult] = await Promise.all([
     supabase
       .from('companies')
-      .select('email, phone')
+      .select('email, phone, website, logo_url')
       .eq('id', companyId)
       .maybeSingle(),
     supabase
@@ -96,10 +121,15 @@ export async function loadInvoicePdfContext({
       .select('bank_account_name, bank_sort_code, bank_account_number, paypal_email')
       .eq('company_id', companyId)
       .maybeSingle(),
-    loadLogo(origin),
   ]);
 
-  const company = companyResult.data as { email?: string | null; phone?: string | null } | null;
+  const company = companyResult.data as {
+    email?: string | null;
+    phone?: string | null;
+    website?: string | null;
+    logo_url?: string | null;
+  } | null;
+  const logoBytes = await loadCompanyLogo(supabase, company?.logo_url);
   const settings = settingsResult.data as {
     bank_account_name?: string | null;
     bank_sort_code?: string | null;
@@ -187,6 +217,7 @@ export async function loadInvoicePdfContext({
   return {
     issuerEmail: clean(company?.email),
     issuerPhone: clean(company?.phone),
+    issuerWebsite: cleanIssuerWebsite(company?.website),
     bankAccountName: clean(settings?.bank_account_name),
     bankSortCode: clean(settings?.bank_sort_code),
     bankAccountNumber: clean(settings?.bank_account_number),

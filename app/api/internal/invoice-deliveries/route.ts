@@ -6,10 +6,20 @@ import { getCanonicalSiteOrigin } from '../../../../lib/siteUrl';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 export async function POST(request: NextRequest) {
-  const secret = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
-  const supplied = request.headers.get('authorization')?.replace(/^Bearer /, '') ?? '';
-  if (!secret || Buffer.byteLength(supplied) !== Buffer.byteLength(secret) || !timingSafeEqual(Buffer.from(supplied), Buffer.from(secret))) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   if (!supabaseAdmin) return NextResponse.json({ error: 'Database unavailable' }, { status: 503 });
+
+  const supplied = request.headers.get('authorization')?.replace(/^Bearer /, '') ?? '';
+  const { data: workerSecretRow, error: workerSecretError } = await supabaseAdmin
+    .from('app_settings')
+    .select('value')
+    .eq('key', 'invoice_delivery_worker_secret')
+    .maybeSingle();
+  if (workerSecretError) return NextResponse.json({ error: 'Worker authentication unavailable' }, { status: 503 });
+
+  const secret = typeof workerSecretRow?.value === 'string' ? workerSecretRow.value.trim() : '';
+  if (!secret || Buffer.byteLength(supplied) !== Buffer.byteLength(secret) || !timingSafeEqual(Buffer.from(supplied), Buffer.from(secret))) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
   const { data: pending, error } = await supabaseAdmin.from('invoice_delivery_outbox').select('invoice_id').is('completed_at', null).lte('next_attempt_at', new Date().toISOString()).order('next_attempt_at').limit(1);
   if (error) return NextResponse.json({ error: error.message }, { status: 503 });
   const results = [];

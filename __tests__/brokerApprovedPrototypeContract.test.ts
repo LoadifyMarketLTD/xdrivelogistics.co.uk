@@ -16,6 +16,8 @@ describe('Broker cleaned workspace contract', () => {
     expect(shell).not.toContain("id: 'broker-post-load'");
     expect(shell).toContain("if (role === 'broker') {");
     expect(shell).toContain('filterWorkspaceNavByAccess(composeBrokerPrototypeNav(), role, user)');
+    expect(shell).toContain('const accessibleBase = filterWorkspaceNavByAccess(base, role, user)');
+    expect(shell).toContain('composeBrokerPrimaryNav(mergeCanonicalNavFallback(preferred, accessibleBase))');
   });
 
   it('keeps only two CX-sized primary Broker signals on the dashboard', () => {

@@ -19,7 +19,7 @@ describe('CX-informed Directory and Direct Booking contract', () => {
     expect(directoryApi).not.toContain('exact_lng');
   });
   it('adds CX-useful business filters without fabricating unavailable radius data', () => {
-    for (const label of ['COUNTRY', 'VEHICLE TYPE', 'SPECIALIST SERVICE', 'TAIL LIFT CAPABILITY']) {
+    for (const label of ['COUNTRY', 'VEHICLE SIZE / TYPE', 'SPECIALIST SERVICE', 'Tail Lift']) {
       expect(directoryUi).toContain(label);
     }
     expect(directoryUi).toContain('specialistService');

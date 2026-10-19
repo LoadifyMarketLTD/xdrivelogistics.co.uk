@@ -14,6 +14,12 @@ describe('CX Diary commercial density and execution milestone parity', () => {
     expect(intelligenceApi).toContain(".in('job_id', scopedJobIds)");
   });
 
+  it('joins creator profiles by auth user_id without selecting a nonexistent profiles.email column', () => {
+    expect(intelligenceApi).toContain("from('profiles').select('user_id,full_name').in('user_id', creatorUserIds)");
+    expect(intelligenceApi).not.toContain("from('profiles').select('id,full_name,email')");
+    expect(intelligenceApi).toContain('createdByEmail: null');
+  });
+
   it('does not expose commercial rates to ordinary company members/drivers', () => {
     expect(intelligenceApi).toContain("const canViewCommercial = ['owner', 'admin', 'dispatcher'].includes");
     expect(intelligenceApi).toContain('const commercialVisible = canViewCommercial');

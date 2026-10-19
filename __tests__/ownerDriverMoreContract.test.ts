@@ -17,8 +17,6 @@ const ownerContext = {
 };
 
 const SECONDARY_ROUTES = [
-  '/driver/jobs',
-  '/driver/won-work',
   '/driver/availability',
   '/driver/load-alerts',
   '/driver/nearby',
@@ -26,7 +24,6 @@ const SECONDARY_ROUTES = [
   '/driver/finance',
   '/driver/messages',
   '/driver/event-log',
-  '/driver/settings',
 ] as const;
 
 describe('Owner Driver integrated secondary navigation contract', () => {
@@ -36,23 +33,33 @@ describe('Owner Driver integrated secondary navigation contract', () => {
     shell.indexOf('export function composeDispatcherPrimaryNav'),
   );
 
-  it('keeps core work primary and secondary destinations in Owner Driver More', () => {
+  it('keeps frequent work primary and More limited to secondary destinations', () => {
     for (const href of SECONDARY_ROUTES) expect(owner).toContain(`'${href}'`);
-    expect(owner).toContain("['owner-driver-diary-primary', 'Diary', '/driver/history']");
-    expect(owner).toContain("['owner-driver-freight-vision-primary', 'Freight Vision', '/driver/freight-vision']");
-    expect(owner).toContain("['owner-driver-drivers-vehicles-primary', 'Drivers & Vehicles', '/driver/drivers-vehicles']");
-    expect(owner).toContain("], 'owner-driver-more', 'More', [");
-    expect(owner).not.toContain("return ownerNav.filter((group) => group.id !== 'owner-driver-more')");
+    for (const primary of [
+      "['owner-driver-action-centre-primary', 'Action Centre', '/driver/action-centre']",
+      "['owner-driver-directory-primary', 'Directory', '/driver/directory']",
+      "['owner-driver-live-availability-primary', 'Live Availability', '/driver/availability/live']",
+      "['owner-driver-my-fleet-primary', 'My Fleet', '/driver/fleet']",
+      "['owner-driver-returns-primary', 'Return Journeys', '/driver/returns']",
+      "['owner-driver-loads-primary', 'Loads', '/driver/loads']",
+      "['owner-driver-quotes-primary', 'Quotes', '/driver/quotes']",
+      "['owner-driver-jobs-primary', 'My Jobs', '/driver/jobs']",
+      "['owner-driver-diary-primary', 'Diary', '/driver/history']",
+      "['owner-driver-settings-primary', 'Settings', '/driver/settings']",
+    ]) expect(owner).toContain(primary);
+    expect(owner).not.toContain("'/driver/won-work'");
+    expect(owner).not.toContain("['owner-driver-freight-vision-primary'");
+    expect(owner).not.toContain("['owner-driver-drivers-vehicles-primary'");
   });
 
-  it('keeps Live Availability primary while schedule and matching tools remain distinct in More', () => {
+  it('keeps Live Availability primary while schedule and matching tools remain secondary', () => {
     expect(owner).toContain("['owner-driver-live-availability-primary', 'Live Availability', '/driver/availability/live']");
     expect(owner).toContain("'/driver/availability'");
     expect(owner).toContain("'/driver/load-alerts'");
     expect(owner).toContain("'/driver/nearby'");
   });
 
-  it('keeps every integrated route real and permitted', () => {
+  it('keeps every retained secondary route real and permitted', () => {
     for (const href of SECONDARY_ROUTES) {
       const routePath = path.join(process.cwd(), 'app', ...href.split('/').filter(Boolean), 'page.tsx');
       expect(fs.existsSync(routePath), href).toBe(true);

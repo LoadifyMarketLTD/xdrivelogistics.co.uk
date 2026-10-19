@@ -20,6 +20,8 @@ import workspaceStyles from '../../components/workspace/WorkspaceUI.module.css';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 import { useVisibleRefresh } from '../../components/workspace/useVisibleRefresh';
 import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import { operationalLocationLabel } from '../../components/workspace/locationPresentation';
+import CxDiaryActions from '../../components/workspace/CxDiaryActions';
 
 type CompanyRelation = { name: string } | Array<{ name: string }> | null;
 type TimeWindow = 'any' | '2' | '4' | '8' | '24';
@@ -168,7 +170,7 @@ type OrderSheet = {
   unavailable: { bodyType: string; extras: string; bookingFooter: string };
 };
 
-type ReviewRow = { id: string; job_id: string | null; reviewer_company_id?: string | null; rating: number | null; comment: string | null; created_at: string | null };
+type ReviewRow = { id: string; job_id: string | null; reviewer_company_id?: string | null; rating: number | null; comment: string | null; would_use_again: boolean | null; delivered_promptly: boolean | null; courteous: boolean | null; created_at: string | null };
 type DocumentRow = { id: string; job_id: string | null; file_name: string | null; file_type: string | null; file_url: string | null; uploaded_at: string | null };
 type TrackingEventRow = { id: string; job_id: string | null; event_type: string | null; event_time: string | null; user_name: string | null; notes: string | null; message: string | null };
 type DiaryMemberRow = { jobId: string; companyId: string | null; name: string | null };
@@ -220,13 +222,8 @@ function transportSchedule(dateTime: string | null, slot: string | null) {
   }
   return `${fmtDate(dateTime)} · ${cleanSlot}`;
 }
-function normalizeComparable(value: string | null | undefined) { return (value ?? '').trim().replace(/[,.]+$/g, '').replace(/\s+/g, ' ').toUpperCase(); }
 function formatExecutionAddress(address: string | null, postcode: string | null) {
-  const cleanAddress = address?.trim() || '';
-  const cleanPostcode = postcode?.trim() || '';
-  if (!cleanAddress) return cleanPostcode || 'Not supplied';
-  if (!cleanPostcode) return cleanAddress;
-  return normalizeComparable(cleanAddress).includes(normalizeComparable(cleanPostcode)) ? cleanAddress : `${cleanAddress}, ${cleanPostcode}`;
+  return operationalLocationLabel(address, postcode, 'Not supplied');
 }
 function money(value: number, currency = 'GBP') { return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(value); }
 function human(value: string | null | undefined) { return value ? value.replace(/_/g, ' ') : 'Not supplied'; }
@@ -447,7 +444,7 @@ export default function JobHistoryPage() {
     const [reviewsRes, documentsRes, eventsRes] = await Promise.all([
       companyReviews !== null
         ? Promise.resolve({ data: companyReviews, error: null })
-        : supabase.from('reviews').select('id, job_id, rating, comment, created_at').in('job_id', jobIds).order('created_at', { ascending: false }),
+        : supabase.from('reviews').select('id, job_id, rating, comment, would_use_again, delivered_promptly, courteous, created_at').in('job_id', jobIds).order('created_at', { ascending: false }),
       supabase.from('job_documents').select('id, job_id, file_name, file_type, file_url, uploaded_at').in('job_id', jobIds).order('uploaded_at', { ascending: false }),
       supabase.from('job_tracking_events').select('id, job_id, event_type, event_time, user_name, notes, message').in('job_id', jobIds).order('event_time', { ascending: false }),
     ]);
@@ -658,7 +655,6 @@ export default function JobHistoryPage() {
                   return (
                     <CxDiaryCard
                       key={job.id}
-                      className="diary-booking driver-diary-entry"
                       from={formatExecutionAddress(job.pickup_location, job.pickup_postcode)}
                       to={formatExecutionAddress(job.delivery_location, job.delivery_postcode)}
                       pickup={pickupWhen}
@@ -671,43 +667,27 @@ export default function JobHistoryPage() {
                       state={expired ? 'expired' : currentStatus}
                       stage={expired ? 'expired' : stage}
                       expanded={expanded}
-                      footer={<div className="driver-diary-action-rail" role="toolbar" aria-label={`Booking ${job.id} actions`}>
-                        <button type="button" className="xdrive-cx-diary-card__expander" onClick={() => { const willExpand = !expanded; setExpandedIds((previous) => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }} aria-label={expanded ? 'Collapse booking' : 'Expand booking'}>{expanded ? '▴' : '▾'}</button>
-                        {canManageFeedback && <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => setFeedbackJobId(job.id)}>{feedbackReceived ? 'Edit Feedback' : 'Leave Feedback'}</button>}
+                      footerRole="toolbar"
+                      footerAriaLabel={`Booking ${job.id} actions`}
+                      footer={<CxDiaryActions
+                        expanded={expanded}
+                        onToggle={() => { const willExpand = !expanded; setExpandedIds(previous => { const next = new Set(previous); if (next.has(job.id)) next.delete(job.id); else next.add(job.id); return next; }); if (willExpand && isOwnAssignedJob) void fetchOrderSheet(job.id); }}
+                        visibleTabs={isOwnAssignedJob ? DETAIL_TABS.filter(item => item.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices)).map(item => item.id) : []}
+                        disabledTabs={invoiceCreatingJobId === job.id ? ['invoice'] : []}
+                        activeTab={detailTab}
+                        labels={{ documents: documents.length ? `Documents ${documents.length}` : 'Documents', invoice: invoice?.id ? 'View invoice (£)' : hasPod ? (invoiceCreatingJobId === job.id ? 'Creating Invoice…' : 'Create Invoice') : 'View invoice (£)' }}
+                        onOpenTab={(tab) => {
+                          if (tab === 'invoice' && invoice?.id) { setInvoicePreview({ id: invoice.id, number: invoice.number }); return; }
+                          if (tab === 'invoice' && hasPod) { void createInvoiceForJob(job); return; }
+                          openDetail(job.id, tab);
+                        }}
+                        feedback={canManageFeedback ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => setFeedbackJobId(job.id)}>{feedbackReceived ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
+                      >
                         {isOwnAssignedJob && currentStatus === 'delivered' && !hasPod ? <button type="button" data-operation="primary" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Complete POD</button> : null}
                         {canRequestCancellation ? <button type="button" data-operation="cancel" disabled={cancellingJobId === job.id} onClick={() => void requestDiaryCancellation(job)}>{cancellingJobId === job.id ? 'Sending…' : cancellationLabel}</button> : null}
-                        {isOwnAssignedJob && DETAIL_TABS
-                          .filter((detailItem) => detailItem.id !== 'invoice' || Boolean(invoice?.id) || (hasPod && canGenerateInvoices))
-                          .map((detailItem) => (
-                            <button
-                              key={detailItem.id}
-                              type="button"
-                              data-active={expanded && detailTab === detailItem.id ? 'true' : 'false'}
-                              disabled={invoiceCreatingJobId === job.id && detailItem.id === 'invoice'}
-                              onClick={() => {
-                                if (detailItem.id === 'invoice' && invoice?.id) {
-                                  setInvoicePreview({ id: invoice.id, number: invoice.number });
-                                  return;
-                                }
-                                if (detailItem.id === 'invoice' && hasPod) {
-                                  void createInvoiceForJob(job);
-                                  return;
-                                }
-                                openDetail(job.id, detailItem.id);
-                              }}
-                            >
-                              {detailItem.id === 'documents' && documents.length > 0
-                                ? `${detailItem.label} ${documents.length}`
-                                : detailItem.id === 'invoice' && invoice?.id
-                                  ? 'View invoice (£)'
-                                  : detailItem.id === 'invoice' && hasPod
-                                    ? (invoiceCreatingJobId === job.id ? 'Creating Invoice…' : 'Create Invoice')
-                                    : detailItem.label}
-                            </button>
-                          ))}
-                        {isOwnAssignedJob && <button type="button" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open job</button>}
-                        {feedbackReceived && <button type="button" onClick={() => setExpandedIds((current) => new Set(current).add(job.id))}>View feedback</button>}
-                      </div>}
+                        {isOwnAssignedJob && <button type="button" onClick={() => router.push(`/driver/jobs/${job.id}`)}>Open booking</button>}
+                        {feedbackReceived && <button type="button" onClick={() => setExpandedIds(current => new Set(current).add(job.id))}>View feedback</button>}
+                      </CxDiaryActions>}
                       expandedContent={<>
                       {expanded && !isOwnAssignedJob && (
                         <div className="driver-row-details driver-diary-details"><CompanyJobSheetPanel jobId={job.id} mode="carrier" /></div>
@@ -776,7 +756,7 @@ export default function JobHistoryPage() {
           const existing = reviewsByJob[feedbackJobId]?.[0] ?? null;
           if (!job) return null;
           const counterpartyLabel = job.company_id === feedbackReviewerCompanyId ? 'Executing carrier' : (job.companies?.name ?? 'Posting company');
-          return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={feedbackReviewerCompanyId} existing={existing ? { rating: existing.rating, comment: existing.comment } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={fetchHistory} />;
+          return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={feedbackReviewerCompanyId} existing={existing ? { rating: existing.rating, comment: existing.comment, would_use_again: existing.would_use_again, delivered_promptly: existing.delivered_promptly, courteous: existing.courteous } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={fetchHistory} />;
         })() : null}
         <DriverInvoicePreviewModal invoiceId={invoicePreview?.id ?? null} invoiceNumber={invoicePreview?.number ?? null} onClose={() => setInvoicePreview(null)} />
       </DriverWorkspaceShell>

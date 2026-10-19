@@ -7,7 +7,7 @@ const read = (relative: string) => fs.readFileSync(path.join(process.cwd(), rela
 describe('Driver workspace navigation performance contract', () => {
   it('prefetches only the route the user is approaching instead of bulk-prefetching the navbar', () => {
     const shell = read('app/components/workspace/TopWorkspaceShell.tsx');
-    expect(shell).toContain('router.prefetch(href)');
+    expect(shell).toContain('router.prefetch(targetHref)');
     expect(shell).toContain('onPointerEnter={() => prefetchRoute(item.href)}');
     expect(shell).toContain('onFocus={() => prefetchRoute(item.href)}');
     expect(shell).not.toContain('primaryPrefetchHrefs');
@@ -22,7 +22,7 @@ describe('Driver workspace navigation performance contract', () => {
       'app/components/workspace/PendingBookingOffers.tsx',
       'app/driver/page.tsx',
       'app/driver/action-centre/page.tsx',
-      'app/driver/availability/live/page.tsx',
+      'app/driver/availability/live/DriverAvailabilityLiveWorkspace.tsx',
       'app/driver/availability/page.tsx',
       'app/driver/vehicles/page.tsx',
       'app/driver/returns/page.tsx',

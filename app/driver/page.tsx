@@ -464,19 +464,8 @@ export default function DriverDashboard() {
     <div className="driver-reference-dashboard driver-prototype-dashboard driver-exact-prototype">
       <DriverWorkspaceShell
         personaLabel={ownerDriver ? 'Owner-driver workspace' : 'Driver workspace'}
-        hideHeader={ownerDriver}
+        hideHeader
         driverName="Today"
-        subtitle={ownerDriver ? undefined : 'Your current job, next action and next booking.'}
-        headerActions={ownerDriver ? undefined : (
-          <button
-            type="button"
-            className="btn primary"
-            onClick={() => void refreshDashboard()}
-            disabled={data.loading || contextLoading}
-          >
-            Refresh
-          </button>
-        )}
       >
         {data.error ? <AlertBanner tone="danger">{data.error}</AlertBanner> : null}
         {contextError ? <AlertBanner tone="warning">{contextError}</AlertBanner> : null}
@@ -488,6 +477,15 @@ export default function DriverDashboard() {
           title="Reports & Statistics"
           subtitle="Execution status and readiness."
           className="driver-reports-card"
+          actions={(
+            <ActionButton
+              tone="secondary"
+              disabled={data.loading || contextLoading}
+              onClick={() => void refreshDashboard()}
+            >
+              Refresh
+            </ActionButton>
+          )}
         >
         <section className="driver-dashboard-statusbar" aria-label="Driver status">
           <button type="button" onClick={() => router.push('/driver/availability')}>
@@ -636,8 +634,8 @@ export default function DriverDashboard() {
           <>
             {commercialSummaryError ? <AlertBanner tone="warning">{commercialSummaryError}</AlertBanner> : null}
 
-            <div style={{ display: "grid", gridTemplateColumns: "minmax(360px, .84fr) minmax(0, 1.16fr)", gap: 12, alignItems: "start" }}>
-              <div style={{ display: "grid", gap: 12 }}>
+            <div className="driver-owner-parity-grid xdrive-owner-dashboard-grid">
+              <div className="xdrive-owner-dashboard-column">
                 <OperationalCard
                   title="Reports & Statistics"
                   actions={(
@@ -657,18 +655,18 @@ export default function DriverDashboard() {
                 >
                   {commercialPeriod === "custom" ? (
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, marginBottom: 8 }}>
-                      <label style={{ fontSize: 10, color: workspaceTheme.muted }}>From<input type="date" value={commercialFrom} onChange={(event) => setCommercialFrom(event.target.value)} style={{ display: "block", width: "100%", height: 30, marginTop: 3, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} /></label>
-                      <label style={{ fontSize: 10, color: workspaceTheme.muted }}>To<input type="date" value={commercialTo} onChange={(event) => setCommercialTo(event.target.value)} style={{ display: "block", width: "100%", height: 30, marginTop: 3, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} /></label>
+                      <label style={{ fontSize: 14, color: workspaceTheme.muted }}>From<input type="date" value={commercialFrom} onChange={(event) => setCommercialFrom(event.target.value)} style={{ display: "block", width: "100%", height: 30, marginTop: 3, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} /></label>
+                      <label style={{ fontSize: 14, color: workspaceTheme.muted }}>To<input type="date" value={commercialTo} onChange={(event) => setCommercialTo(event.target.value)} style={{ display: "block", width: "100%", height: 30, marginTop: 3, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4 }} /></label>
                     </div>
                   ) : null}
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     <button type="button" onClick={() => router.push("/driver/finance")} style={{ minHeight: 122, padding: 12, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: "#EFF6FF", textAlign: "left", cursor: "pointer" }}>
-                      <span style={{ display: "block", fontWeight: 700, fontSize: 12 }}>Gross Margin</span>
+                      <span style={{ display: "block", fontWeight: 700, fontSize: 14 }}>Gross Margin</span>
                       <strong style={{ display: "block", marginTop: 24, color: workspaceTheme.navy, fontSize: 22 }}>{commercialSummaryLoading ? "Loading..." : commercialSummary ? money(commercialSummary.recordedGrossMargin) : "Unavailable"}</strong>
                       <small style={{ display: "block", marginTop: 8, color: workspaceTheme.muted }}>Recorded margin for the selected period</small>
                     </button>
                     <button type="button" onClick={() => router.push("/driver/finance")} style={{ minHeight: 122, padding: 12, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: "#EFF6FF", textAlign: "left", cursor: "pointer" }}>
-                      <span style={{ display: "block", fontWeight: 700, fontSize: 12 }}>Sub-contract Spend</span>
+                      <span style={{ display: "block", fontWeight: 700, fontSize: 14 }}>Sub-contract Spend</span>
                       <strong style={{ display: "block", marginTop: 24, color: workspaceTheme.navy, fontSize: 22 }}>{commercialSummaryLoading ? "Loading..." : commercialSummary ? money(commercialSummary.subcontractSpend) : "Unavailable"}</strong>
                       <small style={{ display: "block", marginTop: 8, color: workspaceTheme.muted }}>Agreed cost of work passed to subcontractors</small>
                     </button>
@@ -685,7 +683,7 @@ export default function DriverDashboard() {
                         ["Monthly Totals", commercialSummary ? money(commercialSummary.accountsPayable.totalGross) : "Unavailable"],
                       ].map(([label, value]) => (
                         <button key={label} type="button" onClick={() => router.push("/driver/finance")} style={{ minHeight: 42, padding: "8px 10px", border: `1px solid ${workspaceTheme.border}`, borderRadius: 3, background: workspaceTheme.surfaceMuted, textAlign: "left", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8 }}>
-                          <span style={{ fontSize: 11 }}>{label}</span>
+                          <span style={{ fontSize: 14 }}>{label}</span>
                           <strong style={{ color: workspaceTheme.navy }}>{commercialSummaryLoading ? "..." : String(value)}</strong>
                         </button>
                       ))}
@@ -701,7 +699,7 @@ export default function DriverDashboard() {
                         ["Return Journeys", profile?.future_position ? 1 : 0, "/driver/returns"],
                       ].map(([label, value, href]) => (
                         <button key={label} type="button" onClick={() => router.push(String(href))} style={{ minHeight: 42, padding: "8px 10px", border: `1px solid ${workspaceTheme.border}`, borderRadius: 3, background: workspaceTheme.surfaceMuted, textAlign: "left", cursor: "pointer", display: "flex", justifyContent: "space-between", gap: 8 }}>
-                          <span style={{ fontSize: 11 }}>{label}</span>
+                          <span style={{ fontSize: 14 }}>{label}</span>
                           <strong style={{ color: workspaceTheme.navy }}>{String(value)}</strong>
                         </button>
                       ))}
@@ -712,18 +710,18 @@ export default function DriverDashboard() {
                 <OperationalCard title="Feedback in Last 90 Days">
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     <div style={{ minHeight: 92, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surface }}>
-                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>Feedback Received</span>
+                      <span style={{ color: workspaceTheme.muted, fontSize: 14 }}>Feedback Received</span>
                       <strong style={{ display: "block", marginTop: 16, fontSize: 20, color: workspaceTheme.navy }}>{commercialSummaryLoading ? "..." : commercialSummary ? commercialSummary.feedback90Days.received : 0}</strong>
                     </div>
                     <div style={{ minHeight: 92, padding: 10, border: `1px solid ${workspaceTheme.border}`, borderRadius: 4, background: workspaceTheme.surface }}>
-                      <span style={{ color: workspaceTheme.muted, fontSize: 11 }}>Average Rating</span>
+                      <span style={{ color: workspaceTheme.muted, fontSize: 14 }}>Average Rating</span>
                       <strong style={{ display: "block", marginTop: 16, fontSize: 20, color: workspaceTheme.navy }}>{commercialSummaryLoading ? "..." : commercialSummary?.feedback90Days.receivedRatingAverage == null ? "No rating" : `${commercialSummary.feedback90Days.receivedRatingAverage.toFixed(1)}/5`}</strong>
                     </div>
                   </div>
                 </OperationalCard>
               </div>
 
-              <div style={{ display: "grid", gap: 12 }}>
+              <div className="xdrive-owner-dashboard-column">
                 <OperationalCard
                   title="Activity at a glance"
                   subtitle="Your latest bookings, statuses and POD actions."
@@ -731,7 +729,7 @@ export default function DriverDashboard() {
                   flush
                 >
                   <div style={{ padding: 8, display: "grid", gap: 7 }}>
-                    <strong style={{ fontSize: 12 }}>Latest Bookings</strong>
+                    <strong style={{ fontSize: 14 }}>Latest Bookings</strong>
                     {latestBookings.length === 0 ? (
                       <EmptyState compact title="No bookings yet" description="Won and assigned work will appear here." />
                     ) : latestBookings.map((job) => {
@@ -740,15 +738,15 @@ export default function DriverDashboard() {
                       return (
                         <article key={job.id} style={{ border: `1px solid ${group === "completed" ? "#79c58a" : workspaceTheme.border}`, background: workspaceTheme.surface, borderRadius: 4, overflow: "hidden" }}>
                           <div style={{ display: "grid", gridTemplateColumns: "1.35fr .9fr .85fr", gap: 10, padding: "8px 10px" }}>
-                            <div style={{ minWidth: 0, fontSize: 11 }}>
+                            <div style={{ minWidth: 0, fontSize: 14 }}>
                               <div><span style={{ color: workspaceTheme.muted }}>From: </span><strong>{job.pickup_location ?? job.pickup_postcode ?? "Collection"}</strong></div>
                               <div style={{ marginTop: 3 }}><span style={{ color: workspaceTheme.muted }}>To: </span><strong>{job.delivery_location ?? job.delivery_postcode ?? "Delivery"}</strong></div>
                             </div>
-                            <div style={{ minWidth: 0, fontSize: 11 }}>
+                            <div style={{ minWidth: 0, fontSize: 14 }}>
                               <div><span style={{ color: workspaceTheme.muted }}>Pickup: </span><strong>{formatDate(job.pickup_datetime)}</strong></div>
                               <div style={{ marginTop: 3 }}><span style={{ color: workspaceTheme.muted }}>Veh: </span>{vehicleLabel(job.vehicle_type)}</div>
                             </div>
-                            <div style={{ minWidth: 0, fontSize: 11 }}>
+                            <div style={{ minWidth: 0, fontSize: 14 }}>
                               <StatusBadge value={humanize(lifecycleStatus)} tone={group === "completed" ? "green" : group === "active" ? "blue" : group === "cancelled" ? "grey" : "orange"} />
                               <div style={{ marginTop: 5, color: workspaceTheme.muted }}>{memberNameByJob[job.id] ?? job.client_name ?? "Member not supplied"}</div>
                             </div>

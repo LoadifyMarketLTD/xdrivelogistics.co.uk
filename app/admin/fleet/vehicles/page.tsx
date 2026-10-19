@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../../lib/supabaseClient';
-import { useCompanyWorkspaceData, type WorkspaceDocument } from '../../../components/workspace/useCompanyWorkspaceData';
+import { useCompanyWorkspaceData } from '../../../components/workspace/useCompanyWorkspaceData';
 import { useFleetAvailabilityPresence } from '../../../components/workspace/useFleetAvailabilityPresence';
 import FleetPositionMap, { type FleetMapPoint } from '../FleetPositionMap';
 import {
@@ -36,9 +36,6 @@ type ExchangePosition = {
 };
 
 const normalise = (value: string | null | undefined) => String(value ?? '').trim().toLowerCase();
-const daysUntil = (value: string | null | undefined) => value
-  ? Math.ceil((new Date(value).getTime() - Date.now()) / 86_400_000)
-  : null;
 const when = (value: string | null | undefined) => {
   if (!value) return 'Not published';
   const parsed = new Date(value);
@@ -60,17 +57,6 @@ export default function FleetVehiclesPage() {
   const [exchangeError, setExchangeError] = useState('');
 
   const driverById = useMemo(() => new Map(data.drivers.map((driver) => [driver.id, driver])), [data.drivers]);
-
-  const documentsByVehicle = useMemo(() => {
-    const map = new Map<string, WorkspaceDocument[]>();
-    for (const document of data.vehicleDocuments) {
-      if (!document.vehicle_id) continue;
-      const rows = map.get(document.vehicle_id) ?? [];
-      rows.push(document);
-      map.set(document.vehicle_id, rows);
-    }
-    return map;
-  }, [data.vehicleDocuments]);
 
   const loadExchange = useCallback(async () => {
     setExchangeLoading(true);
@@ -96,23 +82,6 @@ export default function FleetVehiclesPage() {
   }, [data.companyId]);
 
   useEffect(() => { void loadExchange(); }, [loadExchange]);
-
-  const documentOfType = (vehicleId: string, needle: string) =>
-    (documentsByVehicle.get(vehicleId) ?? []).find((document) => normalise(document.doc_type).includes(needle));
-
-  const documentSignal = (documents: WorkspaceDocument[]) => {
-    if (!documents.length) return { label: 'documents missing', tone: 'red' as const };
-    if (documents.some((document) => {
-      const days = daysUntil(document.expiry_date);
-      return ['rejected', 'expired'].includes(normalise(document.status)) || (days !== null && days < 0);
-    })) return { label: 'document attention', tone: 'red' as const };
-    if (documents.some((document) => {
-      const status = normalise(document.status);
-      const days = daysUntil(document.expiry_date);
-      return ['pending', 'under_review'].includes(status) || (days !== null && days <= 30);
-    })) return { label: 'review required', tone: 'orange' as const };
-    return { label: 'documents recorded', tone: 'blue' as const };
-  };
 
   const ownPoints = useMemo<FleetMapPoint[]>(() => presence.points.map((point) => {
     const driver = driverById.get(point.driverId);
@@ -176,7 +145,6 @@ export default function FleetVehiclesPage() {
       <PageHeader
         eyebrow="Fleet capacity"
         title="My Fleet"
-        description="Live and future fleet capacity using the same Courier Exchange operational layout: search rail, audience tabs, map and results register."
       />
       {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
       {exchangeError && <AlertBanner tone="warning">{exchangeError}</AlertBanner>}
@@ -204,12 +172,12 @@ export default function FleetVehiclesPage() {
             <button type="button" role="tab" aria-selected={audience === 'other-drivers'} data-active={audience === 'other-drivers' ? 'true' : 'false'} onClick={() => setAudience('other-drivers')}>Other Drivers</button>
           </div>
 
-          <Panel title={`Live Availability (${mapPoints.length} vehicles)`} description="Live positions are shown only when the source supplies a real privacy-authorised coordinate." style={{ marginBottom: 10 }}>
-            {mapPoints.length ? <FleetPositionMap points={mapPoints} selectedDriverId={selectedDriverId} /> : <EmptyState title="No live availability matches this view" />}
+          <Panel title={`Live Availability (${mapPoints.length} vehicles)`} style={{ marginBottom: 10 }}>
+            <FleetPositionMap points={mapPoints} selectedDriverId={selectedDriverId} />
           </Panel>
 
           {audience === 'other-drivers' ? (
-            <Panel title="Other Drivers" description={`${visibleExchange.length} privacy-scoped Exchange resource(s) in the current view.`}>
+            <Panel title={`Other Drivers (${visibleExchange.length})`}>
               <DataTable
                 columns={['Member', 'Vehicle', 'Payload', 'Pallets', 'Tail lift', 'Available until', 'Position']}
                 rows={visibleExchange.map((position, index) => {
@@ -228,42 +196,37 @@ export default function FleetVehiclesPage() {
               />
             </Panel>
           ) : (
-            <Panel title="Fleet resource register" description="Vehicle identity, driver assignment, document status and live published fleet availability.">
+            <Panel title="Fleet availability">
               <DataTable
-                columns={['Vehicle', 'Type', 'Registration', 'Driver', 'Document signal', 'MOT', 'Insurance', 'Operational availability']}
+                columns={['Driver', 'Phone', 'Vehicle Size', 'Vehicle', 'Current Position', 'Location Received', 'Availability']}
                 rows={filteredVehicles.map((vehicle) => {
-                  const documents = documentsByVehicle.get(vehicle.id) ?? [];
                   const driver = vehicle.assigned_driver_id ? driverById.get(vehicle.assigned_driver_id) : undefined;
                   const publishedPresence = vehicle.assigned_driver_id ? presence.byDriverId.get(vehicle.assigned_driver_id) : undefined;
                   const driverAvailable = normalise(driver?.status) === 'active' && normalise(driver?.availability_status) === 'available';
                   const availableNow = Boolean(driverAvailable && publishedPresence);
-                  const mot = documentOfType(vehicle.id, 'mot');
-                  const insurance = documentOfType(vehicle.id, 'insurance');
-                  const signal = documentSignal(documents);
-                  const docValue = (document: WorkspaceDocument | undefined) => {
-                    if (!document) return 'Not recorded';
-                    const days = daysUntil(document.expiry_date);
-                    return `${document.status ?? 'status unavailable'}${document.expiry_date ? ` · ${document.expiry_date}${days !== null ? ` (${days}d)` : ''}` : ''}`;
-                  };
                   const availabilityLabel = availableNow
-                    ? 'available now'
+                    ? 'Available'
                     : !driver
-                      ? 'unassigned'
+                      ? 'Unassigned'
                       : driverAvailable
-                        ? 'available · location not published'
-                        : `driver ${driver.availability_status ?? 'offline'}`;
+                        ? 'Available · no live position'
+                        : driver.availability_status ?? 'Offline';
+                  const positionLabel = publishedPresence
+                    ? `${publishedPresence.lat.toFixed(4)}, ${publishedPresence.lng.toFixed(4)}`
+                    : 'Not published';
                   return [
-                    <strong key="vehicle">{[vehicle.make, vehicle.model].filter(Boolean).join(' ') || (vehicle.type ?? 'Vehicle').replace(/_/g, ' ')}</strong>,
-                    (vehicle.type ?? 'Not specified').replace(/_/g, ' '),
-                    vehicle.reg_plate ?? 'Not recorded',
-                    driver?.display_name ?? driver?.email ?? 'Unassigned',
-                    <StatusBadge key="status" value={signal.label} tone={signal.tone} />,
-                    docValue(mot),
-                    docValue(insurance),
-                    <button key="availability" type="button" style={{ border: 0, background: 'transparent', padding: 0, cursor: publishedPresence ? 'pointer' : 'default' }} onClick={() => publishedPresence && setSelectedDriverId(vehicle.assigned_driver_id ?? null)}><StatusBadge value={availabilityLabel} tone={availableNow ? 'green' : driverAvailable ? 'orange' : 'grey'} /></button>,
+                    <strong key="driver">{driver?.display_name ?? driver?.email ?? 'Unassigned'}</strong>,
+                    driver?.phone ?? 'Not recorded',
+                    (publishedPresence?.vehicleType ?? vehicle.type ?? 'Not specified').replace(/_/g, ' '),
+                    vehicle.reg_plate ?? ([vehicle.make, vehicle.model].filter(Boolean).join(' ') || 'Not recorded'),
+                    publishedPresence
+                      ? <button key="position" type="button" style={{ border: 0, background: 'transparent', padding: 0, cursor: 'pointer', font: 'inherit', color: 'inherit', textDecoration: 'underline' }} onClick={() => setSelectedDriverId(vehicle.assigned_driver_id ?? null)}>{positionLabel}</button>
+                      : positionLabel,
+                    publishedPresence?.recordedAt ? when(publishedPresence.recordedAt) : 'Not published',
+                    <StatusBadge key="availability" value={availabilityLabel} tone={availableNow ? 'green' : driverAvailable ? 'orange' : 'grey'} />,
                   ];
                 })}
-                empty={<EmptyState title="No vehicles in the Fleet" />}
+                empty={<EmptyState title="No fleet availability matches the current filters" />}
               />
             </Panel>
           )}

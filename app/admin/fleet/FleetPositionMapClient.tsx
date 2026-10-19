@@ -64,10 +64,12 @@ export default function FleetPositionMapClient({
   points,
   selectedDriverId,
   mode = 'live',
+  height = 440,
 }: {
   points: FleetMapPoint[];
   selectedDriverId: string | null;
   mode?: FleetMapMode;
+  height?: number;
 }) {
   const [providerError, setProviderError] = useState(false);
   const validPoints = useMemo(() => points.filter(hasValidCoordinates), [points]);
@@ -88,7 +90,7 @@ export default function FleetPositionMapClient({
       data-testid="fleet-map-ready"
       style={{
         position: 'relative',
-        height: '440px',
+        height: `${height}px`,
         width: '100%',
         overflow: 'hidden',
         borderRadius: '9px',
@@ -149,7 +151,7 @@ export default function FleetPositionMapClient({
       <MapContainer
         center={centre}
         zoom={8}
-        scrollWheelZoom={false}
+        scrollWheelZoom
         style={{ height: '100%', width: '100%' }}
       >
         <TileLayer

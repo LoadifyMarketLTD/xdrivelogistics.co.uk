@@ -7,7 +7,7 @@ describe('Courier Exchange live availability, fleet, return journeys and diary p
   const adminAvailability = read('app/admin/live-availability/page.tsx');
   const adminFleet = read('app/admin/fleet/vehicles/page.tsx');
   const adminReturns = read('app/admin/fleet/returns/page.tsx');
-  const driverAvailability = read('app/driver/availability/live/page.tsx');
+  const driverAvailability = read('app/driver/availability/live/DriverAvailabilityLiveWorkspace.tsx');
   const driverFleet = read('app/driver/fleet/page.tsx');
   const driverReturns = read('app/driver/returns/page.tsx');
   const diary = read('lib/diary/canonicalDiary.ts');
@@ -57,9 +57,9 @@ describe('Courier Exchange live availability, fleet, return journeys and diary p
       "fleet-live-availability', 'Live Availability', '/admin/live-availability'",
       "fleet-my-fleet', 'My Fleet', '/admin/fleet/vehicles'",
       "fleet-return-journeys', 'Return Journeys', '/admin/fleet/returns'",
-      "dispatcher-live-availability-primary', 'Live Availability', '/admin/live-availability'",
-      "dispatcher-my-fleet-primary', 'My Fleet', '/admin/fleet/vehicles'",
-      "dispatcher-return-journeys-primary', 'Return Journeys', '/admin/fleet/returns'",
+      "dispatcher-unallocated-primary', 'Unallocated', '/admin/fleet/assignments'",
+      "dispatcher-active-jobs-primary', 'Active Jobs', '/admin/fleet/active-jobs'",
+      "dispatcher-positions-primary', 'Live Positions', '/admin/fleet/positions'",
       "owner-driver-live-availability-primary', 'Live Availability', '/driver/availability/live'",
       "owner-driver-my-fleet-primary', 'My Fleet', '/driver/fleet'",
       "owner-driver-returns-primary', 'Return Journeys', '/driver/returns'",

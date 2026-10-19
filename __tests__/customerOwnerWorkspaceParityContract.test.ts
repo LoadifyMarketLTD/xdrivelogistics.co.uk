@@ -15,11 +15,14 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     const customer = shell.slice(shell.indexOf('function composeCustomerPrimaryNav'), shell.indexOf('function composeBrokerPrimaryNav'));
     for (const primary of [
       "['customer-dashboard-primary', 'Dashboard', '/customer']",
-      "['customer-directory-primary', 'Directory', '/customer/network']",
+      "['customer-action-centre-primary', 'Action Centre', '/customer/action-centre']",
       "['customer-loads-primary', 'Loads', '/customer/loads']",
       "['customer-quotes-primary', 'Quotes', '/customer/quotes']",
+      "['customer-bookings-primary', 'Bookings', '/customer/bookings']",
       "['customer-diary-primary', 'Diary', '/customer/diary']",
-      "['customer-freight-vision-primary', 'Freight Vision', '/customer/tracking']",
+      "['customer-tracking-primary', 'Tracking', '/customer/tracking']",
+      "['customer-network-primary', 'Network', '/customer/network']",
+      "['customer-settings-primary', 'Settings', '/customer/settings']",
     ]) expect(customer).toContain(primary);
 
     expect(customer).toContain("], 'customer-more', 'More', [");
@@ -32,8 +35,11 @@ describe('Customer and Owner Driver workspace structure parity', () => {
       '/customer/event-log',
       '/customer/invoices',
       '/customer/team',
-      '/customer/settings',
     ]) expect(shell).toContain(`href: '${href}'`);
+    const customerMore = customer.slice(customer.indexOf("], 'customer-more', 'More', ["));
+    expect(customerMore).not.toContain("'/customer/settings'");
+    expect(customerMore).not.toContain("'/customer/action-centre'");
+    expect(customerMore).not.toContain("'/customer/bookings'");
   });
 
   it('promotes the core Customer lifecycle and keeps secondary functions under More', () => {
@@ -104,12 +110,11 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(baseline).toContain('.xdrive-workspace-measured .workspace-detail-item > dd');
   });
 
-  it('does not disturb the Owner Driver More workflow while applying the shared CX-live shell', () => {
-    expect(shell).toContain("'/driver/won-work': 'Work'");
+  it('keeps Owner Driver More secondary while frequent work stays primary', () => {
     expect(shell).toContain("'/driver/availability': 'Matching & Availability'");
     expect(shell).toContain("'/driver/finance': 'Business'");
     expect(shell).toContain("'/driver/event-log': 'Operations'");
-    expect(shell).toContain("'/driver/settings': 'Administration'");
+    expect(shell).not.toContain("'/driver/won-work': 'Work'");
     expect(shell).toContain('<OwnerDriverMoreIcon item={item} />');
   });
 });

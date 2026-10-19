@@ -141,8 +141,10 @@ export async function submitInvoice(
   }
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim() ?? '';
-  const fromEmail = process.env.FROM_EMAIL?.trim()
-    || 'XDrive Logistics <no-reply@xdrivelogistics.co.uk>';
+  const configuredFrom = process.env.INVOICE_FROM_EMAIL?.trim()
+    || 'invoices@xdrivelogistics.co.uk';
+  const fromAddressMatch = configuredFrom.match(/<([^>]+)>\s*$/);
+  const fromAddress = (fromAddressMatch?.[1] ?? configuredFrom).trim();
   if (!resendApiKey) {
     return respond(503, {
       error: 'Invoice delivery is not configured. RESEND_API_KEY is missing.',
@@ -373,11 +375,10 @@ export async function submitInvoice(
   let pdfContext: Awaited<ReturnType<typeof loadInvoicePdfContext>>;
   try {
     pdfContext = await loadInvoicePdfContext({
-    supabase: supabaseAdmin,
-    companyId: sender.companyId,
-    jobId: typeof claimedInvoice.job_id === 'string' ? claimedInvoice.job_id : null,
-    origin: request.nextUrl.origin,
-    requirePod: Boolean(claimedInvoice.job_id),
+      supabase: supabaseAdmin,
+      companyId: sender.companyId,
+      jobId: typeof claimedInvoice.job_id === 'string' ? claimedInvoice.job_id : null,
+      requirePod: Boolean(claimedInvoice.job_id),
     });
   } catch (reason) {
     return failDelivery(409, reason instanceof Error ? reason.message : 'POD could not be verified.');
@@ -397,7 +398,7 @@ export async function submitInvoice(
       issuerXdId: cleanHeader(claimedInvoice.issuer_xd_id_snapshot) || cleanHeader(company.xd_id) || null,
       issuerEmail: pdfContext.issuerEmail,
       issuerPhone: pdfContext.issuerPhone,
-      issuerWebsite: 'www.xdrivelogistics.co.uk',
+      issuerWebsite: pdfContext.issuerWebsite,
       clientName,
       clientAddress: claimedInvoice.client_address as string | null,
       clientEmail: recipientEmail,
@@ -491,9 +492,20 @@ export async function submitInvoice(
     if (error) return failDelivery(500, error.message);
   }
 
+    const senderDisplayName = companyName.replace(/["<>]/g, '').trim() || 'Invoice issuer';
+    const issuerCopyEmail = typeof pdfContext.issuerEmail === 'string'
+      && validEmail(pdfContext.issuerEmail.trim().toLowerCase())
+      && pdfContext.issuerEmail.trim().toLowerCase() !== recipientEmail
+        ? pdfContext.issuerEmail.trim().toLowerCase()
+        : null;
     emailBody = {
       tags: [{ name: 'xdrive_invoice', value: id }],
-      from: fromEmail, to: [recipientEmail], subject: resolvedSubject, text: resolvedMessage,
+      from: `${senderDisplayName} <${fromAddress}>`,
+      to: [recipientEmail],
+      ...(issuerCopyEmail ? { bcc: [issuerCopyEmail] } : {}),
+      reply_to: pdfContext.issuerEmail || undefined,
+      subject: resolvedSubject,
+      text: resolvedMessage,
       html: messageToHtml(resolvedMessage),
       attachments: [{ filename: fileName, content: Buffer.from(pdfBytes).toString('base64') }],
     };

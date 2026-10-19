@@ -102,3 +102,52 @@
   .driver-live-topbar .driver-more-segment{overflow-x:auto}
   .driver-live-map-panel,.driver-live-map-panel .driver-nearby-map-shell,.driver-live-map-panel .driver-nearby-map-canvas,.driver-live-map-panel .leaflet-container{min-height:300px!important;height:300px!important}
 }
+
+/* CX-aligned compact availability filters: controls first, explanatory prose only
+ * when it is a live value (for example the resolved postcode area). */
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-filter {
+  gap: 3px;
+  padding: 6px 8px;
+}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-live-share-card {
+  gap: 3px;
+  padding: 6px 8px;
+}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-live-share-actions,
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-live-search-actions {
+  gap: 4px;
+  padding: 6px 8px;
+}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-more-rail__title {
+  min-height: 34px;
+  padding: 0 8px;
+}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-live-mode {
+  padding: 5px;
+}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-live-postcode-area,
+.driver-live-availability-prototype .driver-live-postcode-area {
+  display: block;
+  margin-top: 2px;
+  color: #31506f;
+  font-size: 14px;
+  line-height: 18px;
+  font-weight: 600;
+}
+.driver-live-availability-prototype .left .filter {
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-live-topbar-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 0;
+}
+.xdrive-driver-workspace .driver-live-availability-canonical .driver-live-topbar-actions .driver-live-count {
+  margin-left: 2px;
+}

@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
+import { CompanyJobSheetPanel, type JobSheetTab } from '../../components/workspace/CompanyJobSheetPanel';
 import { CompanyFeedbackDialog } from '../../components/workspace/CompanyFeedbackDialog';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useAuth } from '../../components/AuthContext';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
 import { ActionButton, AlertBanner, EmptyState, PageFrame } from '../../components/workspace/WorkspaceUI';
 import { classifyWorkspaceJobStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { getCanonicalDiaryTabs, matchesCanonicalDiaryBucket, type CanonicalDiaryBucket } from '../../../lib/diary/canonicalDiary';
@@ -15,7 +16,7 @@ import { supabase } from '../../../lib/supabaseClient';
 import { canLeaveCompanyFeedback } from '../../../lib/feedback/canonicalFeedback';
 
 type DiaryTab = CanonicalDiaryBucket;
-type ReviewRow = { id: string; job_id: string | null; reviewer_company_id: string | null; rating: number | null; comment: string | null; created_at: string | null };
+type ReviewRow = { id: string; job_id: string | null; reviewer_company_id: string | null; rating: number | null; comment: string | null; would_use_again: boolean | null; delivered_promptly: boolean | null; courteous: boolean | null; created_at: string | null };
 const CUSTOMER_DIARY_TABS = getCanonicalDiaryTabs('customer');
 const when = (value: string | null | undefined) => value ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'Not set';
 const cxTimeParts = (value: string | null | undefined) => {
@@ -52,6 +53,7 @@ export default function CustomerDiaryPage() {
   const [carrier, setCarrier] = useState('');
   const [date, setDate] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [detailTabs, setDetailTabs] = useState<Record<string, JobSheetTab>>({});
   const [expandAll, setExpandAll] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -69,7 +71,7 @@ export default function CustomerDiaryPage() {
     }
     const { data: reviews, error } = await supabase
       .from('reviews')
-      .select('id, job_id, reviewer_company_id, rating, comment, created_at')
+      .select('id, job_id, reviewer_company_id, rating, comment, would_use_again, delivered_promptly, courteous, created_at')
       .eq('reviewer_company_id', companyId)
       .in('job_id', jobIds)
       .order('created_at', { ascending: false });
@@ -212,12 +214,15 @@ export default function CustomerDiaryPage() {
                     state={normalizedJobStatus(job)}
                     stage={stage}
                     expanded={open}
-                    footer={<>
-                      <button type="button" className="xdrive-cx-diary-card__expander" onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }} aria-label={open ? 'Collapse booking' : 'Expand booking'}>{open ? '▴' : '▾'}</button>
-                      {canManageFeedback && feedbackAvailable ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => setFeedbackJobId(job.id)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
+                    footer={<CxDiaryActions
+                      expanded={open}
+                      onToggle={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}
+                      onOpenTab={(tab) => { setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: DIARY_JOB_SHEET_TABS[tab] })); }}
+                      feedback={canManageFeedback && feedbackAvailable ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => setFeedbackJobId(job.id)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
+                    >
                       {stage !== 'open' ? <button type="button" onClick={() => router.push(`/customer/jobs/${job.id}`)}>Open booking</button> : null}
-                      <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>History</button>
-                    </>}
+                      <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</button>
+                    </CxDiaryActions>}
                     expandedMeta={<>
                       {job.booking_reference && <div><span>Booking:</span><strong>{job.booking_reference}</strong></div>}
                       {job.customer_reference && <div><span>Customer ref:</span><strong>{job.customer_reference}</strong></div>}
@@ -225,7 +230,7 @@ export default function CustomerDiaryPage() {
                       <div><span>Delivery photo:</span><strong>{deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</strong></div>
                       <div><span>Updated:</span><strong>{when(job.updated_at)}</strong></div>
                     </>}
-                    expandedContent={<CompanyJobSheetPanel jobId={job.id} mode="customer" />}
+                    expandedContent={<CompanyJobSheetPanel jobId={job.id} mode="customer" initialTab={detailTabs[job.id] ?? 'agreement'} />}
                   />
                 );
               })}
@@ -240,7 +245,7 @@ export default function CustomerDiaryPage() {
         const quoteInfo = job ? quoteInfoByJob.get(job.id) : null;
         const counterpartyLabel = quoteInfo?.acceptedCompanyName ?? (job?.awarded_carrier_company_id ? 'Awarded carrier' : 'Executing carrier');
         const existing = reviewsByJob[feedbackJobId]?.[0] ?? null;
-        return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={companyId} existing={existing ? { rating: existing.rating, comment: existing.comment } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={loadReviews} />;
+        return <CompanyFeedbackDialog jobId={feedbackJobId} companyId={companyId} existing={existing ? { rating: existing.rating, comment: existing.comment, would_use_again: existing.would_use_again, delivered_promptly: existing.delivered_promptly, courteous: existing.courteous } : null} counterpartyLabel={counterpartyLabel} onClose={() => setFeedbackJobId(null)} onSaved={loadReviews} />;
       })() : null}
     </PageFrame>
   );

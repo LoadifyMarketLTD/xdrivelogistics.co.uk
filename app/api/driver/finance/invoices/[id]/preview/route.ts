@@ -121,7 +121,6 @@ export async function GET(
     supabase: supabaseAdmin,
     companyId: previewer.companyId,
     jobId: typeof invoice.job_id === 'string' ? invoice.job_id : null,
-    origin: request.nextUrl.origin,
   });
 
   let pdfBytes: Uint8Array;
@@ -138,7 +137,7 @@ export async function GET(
       issuerXdId: cleanText(invoice.issuer_xd_id_snapshot) || cleanText(company.xd_id) || null,
       issuerEmail: pdfContext.issuerEmail,
       issuerPhone: pdfContext.issuerPhone,
-      issuerWebsite: 'www.xdrivelogistics.co.uk',
+      issuerWebsite: pdfContext.issuerWebsite,
       clientName: cleanText(invoice.client_name, 'Customer'),
       clientAddress: invoice.client_address as string | null,
       clientEmail: invoice.client_email as string | null,

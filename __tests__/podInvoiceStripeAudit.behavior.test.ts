@@ -148,7 +148,7 @@ describe('audit: PDF evidence adapter', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
     h.tables.jobs = [{ id: 'job', pod_photos: ['supplier/job/photos/pod.png'], delivery_photos: [], client_signature_name: 'Recipient', delivery_signature_data: { type: 'recipient_typed_name_attestation', recipient_name: 'Recipient', confirmed_at: '2026-10-18', evidence_path: 'supplier/job/photos/pod.png' } }];
     const download = vi.fn().mockResolvedValue({ data: new Blob(['image']), error: null });
-    const context = await loadInvoicePdfContext({ supabase: { from, storage: { from: () => ({ download }) } } as any, companyId: 'supplier', jobId: 'job', origin: 'https://example.test' });
+    const context = await loadInvoicePdfContext({ supabase: { from, storage: { from: () => ({ download }) } } as any, companyId: 'supplier', jobId: 'job' });
     vi.unstubAllGlobals();
     expect(context.evidenceImages.length).toBeGreaterThan(0);
   });

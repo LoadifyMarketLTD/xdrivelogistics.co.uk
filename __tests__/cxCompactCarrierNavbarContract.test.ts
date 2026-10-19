@@ -29,7 +29,7 @@ describe('compact carrier navbar contract', () => {
     expect(shell).toContain("'/admin/fleet/drivers'");
     expect(shell).toContain("'/admin/fleet/vehicles'");
     expect(shell).toContain("'/admin/settings/billing'");
-    expect(shell).toContain('...carrierHubOwnedHrefs');
+    expect(shell).not.toContain('...carrierHubOwnedHrefs');
     expect(roles).toContain("href: '/admin/settings/billing'");
     expect(shell).not.toContain("'/settings/billing'");
   });

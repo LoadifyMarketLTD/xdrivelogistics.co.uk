@@ -154,9 +154,9 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  // Official XDrive palette. The PDF keeps the approved invoice mock-up geometry,
-  // while using the current platform brand colours and logo asset supplied by context.
-  const navy = rgb(11 / 255, 47 / 255, 107 / 255);
+  // Neutral invoice palette. The commercial document belongs to the issuer,
+  // not to the XDrive platform. Issuer branding is supplied only by issuer data/logo.
+  const navy = rgb(31 / 255, 41 / 255, 55 / 255);
   const dark = rgb(26 / 255, 31 / 255, 43 / 255);
   const grey = rgb(75 / 255, 85 / 255, 99 / 255);
   const muted = rgb(100 / 255, 116 / 255, 139 / 255);
@@ -178,7 +178,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   };
 
   // ---------------------------------------------------------------------------
-  // Header: current XDrive logo and issuer details on the left.
+  // Header: issuer logo when available; otherwise issuer name only.
   // ---------------------------------------------------------------------------
   let logoDrawn = false;
   if (input.logoBytes?.byteLength) {
@@ -197,12 +197,14 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     }
   }
   if (!logoDrawn) {
-    page.drawText('XDrive', { x: margin, y: 792, size: 25, font: bold, color: navy });
-    page.drawText('LOGISTICS', { x: margin + 61, y: 779, size: 8.8, font: bold, color: navy });
+    const headerSize = fitText(bold, issuerName.slice(0, 70), 220, 21, 12);
+    page.drawText(issuerName.slice(0, 70), { x: margin, y: 786, size: headerSize, font: bold, color: navy });
   }
 
-  page.drawText(issuerName.slice(0, 70), { x: margin, y: 735, size: 13.5, font: bold, color: dark });
-  let issuerY = 717;
+  if (logoDrawn) {
+    page.drawText(issuerName.slice(0, 70), { x: margin, y: 735, size: 13.5, font: bold, color: dark });
+  }
+  let issuerY = logoDrawn ? 717 : 758;
   const issuerAddressLines = wrapText(pdfText(input.issuerAddress, ''), 48).filter(Boolean).slice(0, 3);
   for (const addressLine of issuerAddressLines) {
     page.drawText(addressLine, { x: margin, y: issuerY, size: 8.7, font: regular, color: grey });
@@ -215,10 +217,6 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   if (input.issuerVatNumber && vatTreatment !== 'not_registered') {
     page.drawText(`UK VAT # ${pdfText(input.issuerVatNumber, '')}`.slice(0, 70), { x: margin, y: issuerY, size: 8.7, font: regular, color: dark });
     issuerY -= 12;
-  }
-  if (input.issuerXdId) {
-    page.drawText(`XDrive ID ${pdfText(input.issuerXdId, '')}`.slice(0, 70), { x: margin, y: issuerY, size: 8.7, font: regular, color: dark });
-    issuerY -= 17;
   }
   if (input.issuerEmail) {
     page.drawText('Email:', { x: margin, y: issuerY, size: 8.5, font: bold, color: dark });
@@ -233,10 +231,10 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   // ---------------------------------------------------------------------------
   // Right-side metadata and billing cards.
   // ---------------------------------------------------------------------------
-  const metaX = 405;
-  const metaY = 747;
-  const metaW = 154;
-  const metaH = 73;
+  const metaX = 348;
+  const metaY = 738;
+  const metaW = 211;
+  const metaH = 82;
   page.drawRectangle({ x: metaX, y: metaY, width: metaW, height: metaH, color: softHeader, borderColor: line, borderWidth: 0.55 });
   const referenceValue = [
     pdfText(input.jobReference, ''),
@@ -247,13 +245,18 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     ['JOB / LOAD REF', referenceValue],
     ['INVOICE#', pdfText(input.invoiceNumber, 'Invoice')],
   ];
+  const metaRowHeight = metaH / metaRows.length;
   metaRows.forEach(([label, value], index) => {
-    const rowY = 798 - index * 22;
+    const rowTop = metaY + metaH - index * metaRowHeight;
+    const rowBottom = rowTop - metaRowHeight;
     if (index > 0) {
-      page.drawLine({ start: { x: metaX + 12, y: rowY + 15 }, end: { x: metaX + metaW - 12, y: rowY + 15 }, thickness: 0.45, color: line });
+      page.drawLine({ start: { x: metaX + 10, y: rowTop }, end: { x: metaX + metaW - 10, y: rowTop }, thickness: 0.45, color: line });
     }
-    page.drawText(label, { x: metaX + 12, y: rowY, size: 8.2, font: bold, color: grey });
-    drawRight(value.slice(0, 32), metaX + metaW - 12, rowY, 9.1, index === 1 || index === 2 ? bold : regular);
+    page.drawText(label, { x: metaX + 12, y: rowTop - 10, size: 6.8, font: bold, color: grey });
+    const safeValue = pdfText(value, '').slice(0, 56);
+    const valueFont = index === 1 || index === 2 ? bold : regular;
+    const valueSize = fitText(valueFont, safeValue, metaW - 24, 8.7, 6.1);
+    page.drawText(safeValue, { x: metaX + 12, y: rowBottom + 5.5, size: valueSize, font: valueFont, color: dark });
   });
 
   const billX = 315;
@@ -273,7 +276,6 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     billTextY -= 10;
   }
   const customerIdentity = [
-    input.customerXdId ? `XDrive ID ${pdfText(input.customerXdId, '')}` : '',
     input.customerCompanyNumber ? `Co. ${pdfText(input.customerCompanyNumber, '')}` : '',
     input.customerVatNumber ? `VAT ${pdfText(input.customerVatNumber, '')}` : '',
   ].filter(Boolean).join(' · ');
@@ -330,8 +332,23 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
       page.drawText(lineValue, { x: tableX1 + 11, y: row1Y + 1 - index * 10, size: 8.4, font: regular, color: dark });
     });
     page.drawText(pdfText(secondValue, 'Not provided').slice(0, 58), { x: tableX1 + 11, y: row2Y, size: 8.4, font: regular, color: dark });
-    page.drawText(pdfText(firstRight, '').slice(0, 30), { x: tableX2 + 11, y: row1Y, size: 8.4, font: regular, color: dark });
-    page.drawText(pdfText(secondRight, '').slice(0, 30), { x: tableX2 + 11, y: row2Y, size: 8.4, font: regular, color: dark });
+    const rightColumnWidth = margin + contentWidth - tableX2 - 22;
+    const firstRightText = pdfText(firstRight, '').slice(0, 44);
+    const secondRightText = pdfText(secondRight, '').slice(0, 44);
+    page.drawText(firstRightText, {
+      x: tableX2 + 11,
+      y: row1Y,
+      size: fitText(regular, firstRightText, rightColumnWidth, 8.4, 6.2),
+      font: regular,
+      color: dark,
+    });
+    page.drawText(secondRightText, {
+      x: tableX2 + 11,
+      y: row2Y,
+      size: fitText(regular, secondRightText, rightColumnWidth, 8.4, 6.2),
+      font: regular,
+      color: dark,
+    });
   };
 
   // PICKUP is intentionally a light section header in the approved model.

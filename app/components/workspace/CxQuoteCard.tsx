@@ -2,7 +2,7 @@
 
 import type { ReactNode } from 'react';
 import type { CxDateParts } from './CxLoadCard';
-import { workspaceVehicleImageSrc } from './vehiclePresentation';
+import { recoverWorkspaceVehicleImage, workspaceVehicleImageSrc } from './vehiclePresentation';
 
 export default function CxQuoteCard({
   routeFrom,
@@ -53,7 +53,7 @@ export default function CxQuoteCard({
           <div className="xdrive-cx-quote-card__status-meta">
             <span>Load ID: {loadId}</span>
             <span className="xdrive-cx-quote-card__vehicle">
-              <img className="xdrive-cx-quote-card__vehicle-image" src={workspaceVehicleImageSrc(vehicle)} alt="" aria-hidden="true" />
+              <img className="xdrive-cx-quote-card__vehicle-image" src={workspaceVehicleImageSrc(vehicle)} onError={(event) => recoverWorkspaceVehicleImage(event.currentTarget)} alt="" aria-hidden="true" />
               <strong>{vehicle}</strong>
             </span>
           </div>

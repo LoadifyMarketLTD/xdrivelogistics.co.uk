@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
-import { CompanyJobSheetPanel } from '../../components/workspace/CompanyJobSheetPanel';
+import { CompanyJobSheetPanel, type JobSheetTab } from '../../components/workspace/CompanyJobSheetPanel';
 import { MemberIdentityLink } from '../../components/workspace/MemberProfile';
 import { useCompanyWorkspaceData, type WorkspaceJob } from '../../components/workspace/useCompanyWorkspaceData';
 import CxDiaryCard from '../../components/workspace/CxDiaryCard';
+import CxDiaryActions, { DIARY_JOB_SHEET_TABS } from '../../components/workspace/CxDiaryActions';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, WorkspaceDialog } from '../../components/workspace/WorkspaceUI';
 import { brokerDiaryStage, normalizedJobStatus, workspaceJobOperationalLabel } from '../../../lib/jobs/workspaceJobStage';
 import { supabase } from '../../../lib/supabaseClient';
@@ -19,6 +20,9 @@ type ReviewRow = {
   reviewer_company_id: string | null;
   rating: number | null;
   comment: string | null;
+  would_use_again: boolean | null;
+  delivered_promptly: boolean | null;
+  courteous: boolean | null;
   created_at: string | null;
 };
 
@@ -55,6 +59,7 @@ export default function BrokerDiaryPage() {
   const [delivery, setDelivery] = useState('');
   const [date, setDate] = useState('');
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [detailTabs, setDetailTabs] = useState<Record<string, JobSheetTab>>({});
   const [expandAll, setExpandAll] = useState(false);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -65,6 +70,9 @@ export default function BrokerDiaryPage() {
   const [feedbackJobId, setFeedbackJobId] = useState<string | null>(null);
   const [feedbackRating, setFeedbackRating] = useState(5);
   const [feedbackComment, setFeedbackComment] = useState('');
+  const [feedbackWouldUseAgain, setFeedbackWouldUseAgain] = useState(true);
+  const [feedbackDeliveredPromptly, setFeedbackDeliveredPromptly] = useState(true);
+  const [feedbackCourteous, setFeedbackCourteous] = useState(true);
   const [feedbackSaving, setFeedbackSaving] = useState(false);
   const [diaryClock, setDiaryClock] = useState('');
 
@@ -90,7 +98,7 @@ export default function BrokerDiaryPage() {
     setFeedbackError('');
     const { data: reviewRows, error } = await supabase
       .from('reviews')
-      .select('id,job_id,reviewer_company_id,rating,comment,created_at')
+      .select('id,job_id,reviewer_company_id,rating,comment,would_use_again,delivered_promptly,courteous,created_at')
       .eq('reviewer_company_id', companyId)
       .order('created_at', { ascending: false });
     if (error) {
@@ -167,6 +175,9 @@ export default function BrokerDiaryPage() {
     setFeedbackJobId(job.id);
     setFeedbackRating(existing?.rating ?? 5);
     setFeedbackComment(existing?.comment ?? '');
+    setFeedbackWouldUseAgain(existing?.would_use_again ?? true);
+    setFeedbackDeliveredPromptly(existing?.delivered_promptly ?? true);
+    setFeedbackCourteous(existing?.courteous ?? true);
     setFeedbackError('');
     setNotice('');
   };
@@ -183,7 +194,14 @@ export default function BrokerDiaryPage() {
       const response = await fetch(`/api/admin/jobs/${encodeURIComponent(feedbackJobId)}/feedback`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId, rating: feedbackRating, comment: feedbackComment }),
+        body: JSON.stringify({
+          companyId,
+          rating: feedbackRating,
+          comment: feedbackComment,
+          wouldUseAgain: feedbackWouldUseAgain,
+          deliveredPromptly: feedbackDeliveredPromptly,
+          courteous: feedbackCourteous,
+        }),
       });
       const payload = await response.json().catch(() => ({})) as { error?: string; updated?: boolean };
       if (!response.ok) throw new Error(payload.error || 'Company feedback could not be saved.');
@@ -278,19 +296,22 @@ export default function BrokerDiaryPage() {
                     state={normalizedJobStatus(job)}
                     stage={stage}
                     expanded={open}
-                    footer={<>
-                      <button type="button" className="xdrive-cx-diary-card__expander" onClick={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }} aria-label={open ? 'Collapse booking' : 'Expand booking'}>{open ? '▴' : '▾'}</button>
-                      {canLeaveCompanyFeedback && feedbackAvailable && <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button>}
-                      <button type="button" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Open job</button>
-                      <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>History</button>
-                    </>}
+                    footer={<CxDiaryActions
+                      expanded={open}
+                      onToggle={() => { if (expandAll) { setExpandAll(false); setExpanded(null); } else setExpanded(open ? null : job.id); }}
+                      onOpenTab={(tab) => { setExpanded(job.id); setDetailTabs(current => ({ ...current, [job.id]: DIARY_JOB_SHEET_TABS[tab] })); }}
+                      feedback={canLeaveCompanyFeedback && feedbackAvailable ? <button type="button" className="xdrive-cx-diary-card__feedback" onClick={() => openFeedback(job)}>{review ? 'Edit Feedback' : 'Leave Feedback'}</button> : null}
+                    >
+                      <button type="button" onClick={() => router.push(`/broker/jobs?job=${job.id}`)}>Open booking</button>
+                      <button type="button" onClick={() => router.push(`/job-replay/${job.id}`)}>Replay</button>
+                    </CxDiaryActions>}
                     expandedMeta={<>
                       {job.booking_reference && <div><span>Booking:</span><strong>{job.booking_reference}</strong></div>}
                       {job.customer_reference && <div><span>Customer ref:</span><strong>{job.customer_reference}</strong></div>}
                       <div><span>Delivery photo:</span><strong>{deliveryPhotoAvailable ? 'Available' : 'Not recorded'}</strong></div>
                       {review ? <div><span>Feedback:</span><strong>{review.rating ?? '—'}/5 · {when(review.created_at)}</strong></div> : feedbackAvailable ? <div><span>Feedback:</span><strong>Awaiting</strong></div> : null}
                     </>}
-                    expandedContent={<CompanyJobSheetPanel jobId={job.id} mode="broker" />}
+                    expandedContent={<CompanyJobSheetPanel jobId={job.id} mode="broker" initialTab={detailTabs[job.id] ?? 'agreement'} />}
                   />
                 );
               })}
@@ -309,6 +330,11 @@ export default function BrokerDiaryPage() {
         actions={<><ActionButton tone="secondary" disabled={feedbackSaving} onClick={() => setFeedbackJobId(null)}>Cancel</ActionButton><ActionButton tone="success" disabled={feedbackSaving} onClick={() => void saveFeedback()}>{feedbackSaving ? 'Saving...' : 'Save Feedback'}</ActionButton></>}
       >
         <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: '#334155' }}>RATING<select value={feedbackRating} onChange={(event) => setFeedbackRating(Number(event.target.value))}>{[5, 4, 3, 2, 1].map((rating) => <option key={rating} value={rating}>{rating} / 5</option>)}</select></label>
+        <div style={{ display: 'grid', gap: 8 }}>
+          <label style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', fontSize: 12, fontWeight: 700, color: '#334155' }}><span>Would use again</span><input type="checkbox" checked={feedbackWouldUseAgain} onChange={(event) => setFeedbackWouldUseAgain(event.target.checked)} /></label>
+          <label style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', fontSize: 12, fontWeight: 700, color: '#334155' }}><span>Delivered promptly</span><input type="checkbox" checked={feedbackDeliveredPromptly} onChange={(event) => setFeedbackDeliveredPromptly(event.target.checked)} /></label>
+          <label style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'center', fontSize: 12, fontWeight: 700, color: '#334155' }}><span>Courteous / professional</span><input type="checkbox" checked={feedbackCourteous} onChange={(event) => setFeedbackCourteous(event.target.checked)} /></label>
+        </div>
         <label style={{ display: 'grid', gap: 5, fontSize: 11, fontWeight: 700, color: '#334155' }}>COMMENT<textarea value={feedbackComment} onChange={(event) => setFeedbackComment(event.target.value.slice(0, 2000))} rows={5} placeholder="Operational feedback about this booking" /></label>
       </WorkspaceDialog>}
     </PageFrame>

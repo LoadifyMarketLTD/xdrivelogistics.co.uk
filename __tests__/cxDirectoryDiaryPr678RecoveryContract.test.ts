@@ -15,8 +15,8 @@ describe('CX Directory sorting and Diary safety recovery from PR 678', () => {
     expect(directory).toContain("if (sort === 'Payment Reliability')");
     expect(directory).toContain('a.distanceMiles ?? Number.POSITIVE_INFINITY');
     expect(directory).toContain('value={directorySort}');
-    expect(directory).toContain('{sortedCompanies.map((company) => (');
-    expect(directory).toContain('{sortedDrivers.map((driver) => (');
+    expect(directory).toContain('{displayedCompanies.map((company) => (');
+    expect(directory).toContain('{displayedDrivers.map((driver) => (');
   });
 
   it('resets Directory sorting to Distance when filters are cleared', () => {

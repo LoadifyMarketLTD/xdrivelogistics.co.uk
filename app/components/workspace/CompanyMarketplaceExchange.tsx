@@ -15,6 +15,7 @@ import MarketplaceLoadMap from './MarketplaceLoadMap';
 import CxLoadCard from './CxLoadCard';
 import CxQuoteCard from './CxQuoteCard';
 import MarketplaceQuoteNowDialog from './MarketplaceQuoteNowDialog';
+import { operationalLocationLabel } from './locationPresentation';
 import { MemberProfileOverlay } from './MemberProfile';
 import {
   ActionButton,
@@ -140,7 +141,7 @@ const vehicleImageSrc = (label: string) => {
   if (family === 'small') return '/assets/vehicles/small-van.png';
   return '/assets/vehicles/swb.png';
 };
-const routeLabel = (location: string | null | undefined, postcode: string | null | undefined) => { const loc = String(location ?? '').trim(); const pc = String(postcode ?? '').trim(); if (loc && pc && !loc.toUpperCase().includes(pc.toUpperCase())) return `${loc}, ${pc}`; return loc || pc || 'Not set'; };
+const routeLabel = (location: string | null | undefined, postcode: string | null | undefined) => operationalLocationLabel(location, postcode);
 const bidAmount = (bid: Pick<BidRow, 'bid_price_gbp' | 'amount'>) => { const preferred = Number(bid.bid_price_gbp); if (Number.isFinite(preferred)) return preferred; const legacy = Number(bid.amount); return Number.isFinite(legacy) ? legacy : null; };
 const bidStage = (bid: BidRow) => canonicalQuoteStage(bid, 'bidder', { jobExpired: ['expired', 'cancelled'].includes(String(bid.job?.current_status ?? bid.job?.status ?? '').toLowerCase()) });
 const loadTypeLabel = (value: string) => LOAD_TYPES.find(([id]) => id === value)?.[1] ?? value.replace(/_/g, ' ');
