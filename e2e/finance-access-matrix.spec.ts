@@ -20,7 +20,7 @@ const cases: Case[] = [
   { name: 'broker', emailKey: 'E2E_BROKER_EMAIL', passwordKey: 'E2E_BROKER_PASSWORD', route: '/broker/finance', apiPath: '/api/workspace/finance/control', expectedStatus: 200 },
   { name: 'customer', emailKey: 'E2E_CUSTOMER_EMAIL', passwordKey: 'E2E_CUSTOMER_PASSWORD', route: '/customer/invoices', apiPath: '/api/workspace/finance/control', expectedStatus: 200 },
   { name: 'owner-driver', emailKey: 'E2E_OWNER_DRIVER_EMAIL', passwordKey: 'E2E_OWNER_DRIVER_PASSWORD', fallbackEmailKey: 'E2E_LIFECYCLE_OWNER_DRIVER_EMAIL', fallbackPasswordKey: 'E2E_LIFECYCLE_OWNER_DRIVER_PASSWORD', route: '/driver/finance', apiPath: '/api/driver/finance/invoices', expectedStatus: 200 },
-  { name: 'company-driver', emailKey: 'E2E_COMPANY_DRIVER_EMAIL', passwordKey: 'E2E_COMPANY_DRIVER_PASSWORD', fallbackEmailKey: 'E2E_LIFECYCLE_DRIVER_EMAIL', fallbackPasswordKey: 'E2E_LIFECYCLE_DRIVER_PASSWORD', route: '/driver/finance', apiPath: '/api/driver/finance/invoices', expectedStatus: 403 },
+  { name: 'company-driver', emailKey: 'E2E_COMPANY_DRIVER_EMAIL', passwordKey: 'E2E_COMPANY_DRIVER_PASSWORD', fallbackEmailKey: 'E2E_LIFECYCLE_DRIVER_EMAIL', fallbackPasswordKey: 'E2E_LIFECYCLE_DRIVER_PASSWORD', route: '/driver/finance', blockedPath: '/driver' },
 ];
 
 for (const item of cases) {
