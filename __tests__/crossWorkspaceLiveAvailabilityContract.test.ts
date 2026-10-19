@@ -20,17 +20,21 @@ describe('cross-workspace Live Availability contract',()=>{
     expect(api).toContain('body_type');
   });
 
-  it('gives company workspaces the CX live All/Drivers & Sub-contractors/Other Drivers views plus vehicle capability filters and Book Direct',()=>{
+  it('gives company workspaces the current CX live audience views and compact search rail',()=>{
     expect(admin).toContain("tab === 'all'");
     expect(admin).toContain("tab === 'live'");
     expect(admin).toContain("tab === 'nearby'");
     expect(admin).not.toContain("tab === 'future'");
-    expect(admin).toContain('Body type');
-    expect(admin).toContain('Min payload (kg)');
-    expect(admin).toContain('Min pallets');
-    expect(admin).toContain('Tail lift required');
-    expect(admin).toContain('Book Direct');
+    for (const label of ['Search Panel','Location','Radius Search','Availability Status','Member / Driver','Vehicle Size','Body Type','My Sub-contractors','Groups']) expect(admin).toContain(label);
     expect(admin).toContain('matchesAvailabilityFilters');
+    expect(admin).toContain('OperationalPageLayout');
+    expect(admin).not.toContain('<TwoColumn');
+  });
+
+  it('keeps deeper capacity filters available server-side even when the CX rail stays compact',()=>{
+    expect(api).toContain('minPayloadKg');
+    expect(api).toContain('minPallets');
+    expect(api).toContain('tailLift');
   });
 
   it('gives Driver/Owner Driver the same discovery filter vocabulary without leaking commercial actions to employed drivers',()=>{

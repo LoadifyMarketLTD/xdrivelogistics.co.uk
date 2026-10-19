@@ -28,10 +28,12 @@ export default function FleetPositionMap({
   points,
   selectedDriverId,
   mode = 'live',
+  height,
 }: {
   points: FleetMapPoint[];
   selectedDriverId: string | null;
   mode?: FleetMapMode;
+  height?: number;
 }) {
-  return <FleetPositionMapClient points={points} selectedDriverId={selectedDriverId} mode={mode} />;
+  return <FleetPositionMapClient points={points} selectedDriverId={selectedDriverId} mode={mode} height={height} />;
 }

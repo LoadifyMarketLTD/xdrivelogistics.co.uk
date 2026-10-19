@@ -30,7 +30,7 @@ describe('Live Availability CX filter refinement', () => {
     }
     expect(driver).toContain('option.label');
     expect(nearby).toContain('option.label');
-    expect(admin).toContain('option.label');
+    expect(admin).toContain('...nearbyVehicleTypes');
     for (const source of [driver, nearby, admin]) {
       expect(source).toContain('AVAILABILITY_BODY_TYPE_OPTIONS');
       expect(source).toContain('Any body');

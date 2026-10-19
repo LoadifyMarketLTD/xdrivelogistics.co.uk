@@ -13,11 +13,11 @@ const exactLabels = (source: string, labels: string[]) => {
 };
 
 describe('Courier Exchange live operational subtab contract', () => {
-  it('locks shared Live Availability to the exact CX audience tabs', () => {
+  it('locks shared Live Availability to the current CX audience tabs and Live/Future period switch', () => {
     const admin = read('app/admin/live-availability/page.tsx');
     const driver = read('app/driver/availability/live/DriverAvailabilityLiveWorkspace.tsx');
     for (const source of [admin, driver]) exactLabels(source, ['All', 'Drivers & Sub-contractors', 'Other Drivers']);
-    expect(admin).not.toContain('>Future</button>');
+    exactLabels(admin, ['Add Future Position', 'Live', 'Future', 'Search Panel', 'Quick Search']);
   });
 
   it('locks My Fleet to Live/Future, audience tabs, search rail and map-backed capacity', () => {

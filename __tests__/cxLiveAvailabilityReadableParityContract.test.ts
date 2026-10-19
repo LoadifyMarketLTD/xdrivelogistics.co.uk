@@ -27,11 +27,10 @@ describe('CX Live Availability readable parity', () => {
     expect(typography).toContain('font-size: 14px !important;');
   });
 
-  it('preserves the CX live audience controls and actions', () => {
-    for (const label of ['All</button>', 'Drivers &amp; Sub-contractors</button>', 'Other Drivers']) expect(admin).toContain(label);
+  it('preserves the current CX live controls without the removed dashboard clutter', () => {
+    for (const label of ['All</button>', 'Drivers &amp; Sub-contractors</button>', 'Other Drivers', 'Add Future Position', 'Search Panel', 'Register your vehicles', 'Quick Search']) expect(admin).toContain(label);
     for (const label of ['All</button>', 'Drivers & Sub-contractors</button>', 'Other Drivers</button>']) expect(driver).toContain(label);
-    expect(admin).toContain('Find Nearest');
-    expect(admin).toContain('Book Direct');
-    expect(driver).toContain('Find Nearest');
+    expect(admin).not.toContain('OperationalSignalStrip');
+    expect(admin).not.toContain('Availability conflicts');
   });
 });
