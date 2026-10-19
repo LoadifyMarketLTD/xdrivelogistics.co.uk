@@ -577,8 +577,8 @@ function generateNonce(): string {
 function buildCspHeader(nonce: string, allowNetlifyPreviewFrame = false): string {
   const isDev = process.env.NODE_ENV === 'development';
   const scriptSrc = isDev
-    ? `'self' 'nonce-${nonce}' 'unsafe-eval' https://*.supabase.co https://*.netlify.app`
-    : `'self' 'nonce-${nonce}' https://*.supabase.co https://*.netlify.app`;
+    ? `'self' 'nonce-${nonce}' 'unsafe-eval' https://*.supabase.co https://*.netlify.app https://maps.googleapis.com https://maps.gstatic.com`
+    : `'self' 'nonce-${nonce}' https://*.supabase.co https://*.netlify.app https://maps.googleapis.com https://maps.gstatic.com`;
   // The current UI still relies on React style attributes in several public and
   // authenticated surfaces. Blocking inline styles makes the rendered page unusable.
   // Keep script execution nonce-protected, but allow inline CSS until those style
@@ -589,8 +589,8 @@ function buildCspHeader(nonce: string, allowNetlifyPreviewFrame = false): string
     `script-src ${scriptSrc}`,
     `style-src ${styleSrc}`,
     "img-src 'self' data: blob: https:",
-    "font-src 'self' data:",
-    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+    "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.resend.com https://maps.googleapis.com https://mapsresources-pa.googleapis.com https://maps.gstatic.com",
     allowNetlifyPreviewFrame ? "frame-src 'self' https://app.netlify.com" : "frame-src 'self'",
     "frame-ancestors 'self'",
     "base-uri 'self'",

@@ -33,6 +33,7 @@ describe('global operational postcode autocomplete', () => {
     expect(resolver).toContain('if (locationField) return');
     expect(resolver).toContain('lookupGooglePlaces(rawValue)');
     expect(resolver).toContain("libraries=places&v=weekly");
+    expect(resolver).toContain("script[nonce]");
     expect(resolver).toContain("componentRestrictions: { country: 'gb' }");
     expect(resolver).toContain('data-xdrive-location-suggestions');
     expect(resolver).toContain('setReactInputValue');

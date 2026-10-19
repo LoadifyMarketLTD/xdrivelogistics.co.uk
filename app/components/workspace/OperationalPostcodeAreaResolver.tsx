@@ -56,6 +56,8 @@ function googlePlacesService() {
     script.dataset.xdriveGooglePlaces = 'true';
     script.async = true;
     script.defer = true;
+    const nonce = document.querySelector<HTMLScriptElement>('script[nonce]')?.nonce;
+    if (nonce) script.nonce = nonce;
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(GOOGLE_MAPS_KEY)}&libraries=places&v=weekly`;
     script.addEventListener('load', finish, { once: true });
     script.addEventListener('error', () => resolve(null), { once: true });
