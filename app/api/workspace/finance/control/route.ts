@@ -1,6 +1,7 @@
 ﻿import { NextRequest, NextResponse } from 'next/server';
 import { invoiceAgingBucket, type AgingBucket } from '../../../../../lib/finance/accounts';
-import { hasWorkspaceCapability, resolveWorkspaceRole } from '../../../../../lib/workspaceRole';
+import { resolveWorkspaceRole } from '../../../../../lib/workspaceRole';
+import { hasWorkspaceCapabilityForContext } from '../../../../../lib/roleCapabilities';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -104,8 +105,8 @@ export async function GET(request: NextRequest) {
       rawRole: profileRole,
       membershipRole,
     });
-    return hasWorkspaceCapability(workspaceRole, 'invoices.customer.manage')
-      || hasWorkspaceCapability(workspaceRole, 'invoices.carrier.manage');
+    return hasWorkspaceCapabilityForContext(workspaceRole, 'invoices.customer.manage', { membershipRole })
+      || hasWorkspaceCapabilityForContext(workspaceRole, 'invoices.carrier.manage', { membershipRole });
   });
   const companyIds = [...new Set(financeMemberships
     .map((row) => text(row.company_id))

@@ -1,7 +1,8 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { hasWorkspaceCapability, resolveWorkspaceRole } from '../lib/workspaceRole';
+import { resolveWorkspaceRole } from '../lib/workspaceRole';
+import { hasWorkspaceCapabilityForContext } from '../lib/roleCapabilities';
 
 const ui = readFileSync(resolve(process.cwd(), 'app/components/workspace/WorkspaceFinanceControl.tsx'), 'utf8');
 const route = readFileSync(resolve(process.cwd(), 'app/api/workspace/finance/control/route.ts'), 'utf8');
@@ -58,8 +59,8 @@ describe('CX Accounts Receivable parity contract', () => {
 
   it('uses canonical finance capabilities so legitimate broker/customer finance remains available while operational roles stay blocked', () => {
     expect(route).toContain('resolveWorkspaceRole');
-    expect(route).toContain("hasWorkspaceCapability(workspaceRole, 'invoices.customer.manage')");
-    expect(route).toContain("hasWorkspaceCapability(workspaceRole, 'invoices.carrier.manage')");
+    expect(route).toContain("hasWorkspaceCapabilityForContext(workspaceRole, 'invoices.customer.manage', { membershipRole })");
+    expect(route).toContain("hasWorkspaceCapabilityForContext(workspaceRole, 'invoices.carrier.manage', { membershipRole })");
     expect(route).toContain('Finance access is not available for this workspace role.');
 
     const financeCases = [
@@ -75,8 +76,8 @@ describe('CX Accounts Receivable parity contract', () => {
 
     for (const testCase of financeCases) {
       const workspaceRole = resolveWorkspaceRole(testCase.input);
-      const allowed = hasWorkspaceCapability(workspaceRole, 'invoices.customer.manage')
-        || hasWorkspaceCapability(workspaceRole, 'invoices.carrier.manage');
+      const allowed = hasWorkspaceCapabilityForContext(workspaceRole, 'invoices.customer.manage', { membershipRole: testCase.input.membershipRole })
+        || hasWorkspaceCapabilityForContext(workspaceRole, 'invoices.carrier.manage', { membershipRole: testCase.input.membershipRole });
       expect(allowed).toBe(testCase.allowed);
     }
   });

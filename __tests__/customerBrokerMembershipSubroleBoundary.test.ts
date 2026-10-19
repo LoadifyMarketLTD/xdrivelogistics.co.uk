@@ -44,6 +44,22 @@ describe('Customer and Broker company subrole boundaries', () => {
     }
   });
 
+  it('keeps ordinary Customer/Broker members finance-enabled without granting admin or dispatch authority', () => {
+    const customer = { ...active, workspaceRole: 'customer' as const, membershipRole: 'member' };
+    expect(isRoleAllowedForPath('/customer/invoices', 'customer', customer)).toBe(true);
+    for (const path of ['/customer/post-load', '/customer/awards', '/customer/documents', '/customer/team', '/customer/settings']) {
+      expect(isRoleAllowedForPath(path, 'customer', customer)).toBe(false);
+    }
+
+    const broker = { ...active, workspaceRole: 'broker' as const, membershipRole: 'member' };
+    for (const path of ['/broker/finance', '/broker/customer-invoices', '/broker/carrier-costs', '/broker/margins']) {
+      expect(isRoleAllowedForPath(path, 'broker', broker)).toBe(true);
+    }
+    for (const path of ['/broker/post-load', '/broker/compare-quotes', '/broker/awards', '/broker/pod-review', '/broker/disputes', '/broker/team', '/broker/settings', '/broker/customers', '/broker/carrier-network']) {
+      expect(isRoleAllowedForPath(path, 'broker', broker)).toBe(false);
+    }
+  });
+
   it('preserves full Customer/Broker workspace capabilities for owner/admin membership', () => {
     expect(isRoleAllowedForPath('/customer/settings', 'customer', { ...active, workspaceRole: 'customer', membershipRole: 'admin' })).toBe(true);
     expect(isRoleAllowedForPath('/customer/invoices', 'customer', { ...active, workspaceRole: 'customer', membershipRole: 'admin' })).toBe(true);
