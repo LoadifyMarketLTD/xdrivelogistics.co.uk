@@ -54,10 +54,10 @@ type InvoicePdfInput = {
   paymentTerms?: string | null;
 };
 
-const safeText = (value: string | null | undefined, fallback = 'Not provided') =>
+const safeText = (value: string | null | undefined, fallback = '') =>
   value?.trim() || fallback;
 
-const pdfText = (value: string | null | undefined, fallback = 'Not provided') =>
+const pdfText = (value: string | null | undefined, fallback = '') =>
   safeText(value, fallback)
     .normalize('NFKD')
     .replace(/[\u0300-\u036f]/g, '')
@@ -77,8 +77,35 @@ const money = (value: number, currency: string) => {
   }
 };
 
-const wrapText = (text: string, maxChars = 60) => {
-  const words = pdfText(text, '').split(/\s+/).filter(Boolean);
+const formatDate = (value: string | null | undefined) => {
+  if (!value) return '';
+  const parsed = new Date(value.length <= 10 ? `${value}T00:00:00.000Z` : value);
+  if (Number.isNaN(parsed.getTime())) return pdfText(value);
+  return parsed.toLocaleDateString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    timeZone: 'Europe/London',
+  });
+};
+
+const formatDateTime = (value: string | null | undefined) => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return pdfText(value);
+  return parsed.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+    timeZone: 'Europe/London',
+  });
+};
+
+const wrapText = (text: string, maxChars = 70) => {
+  const words = pdfText(text).split(/\s+/).filter(Boolean);
   const lines: string[] = [];
   let current = '';
   for (const word of words) {
@@ -91,34 +118,13 @@ const wrapText = (text: string, maxChars = 60) => {
     }
   }
   if (current) lines.push(current);
-  return lines.length ? lines : [''];
+  return lines;
 };
 
-const formatDate = (value: string | null | undefined) => {
-  if (!value) return 'Not set';
-  const parsed = new Date(value.length <= 10 ? `${value}T00:00:00.000Z` : value);
-  if (Number.isNaN(parsed.getTime())) return pdfText(value, 'Not set');
-  return parsed.toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    timeZone: 'Europe/London',
-  });
-};
-
-const formatDateTime = (value: string | null | undefined) => {
-  if (!value) return 'Not set';
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return pdfText(value, 'Not set');
-  return parsed.toLocaleString('en-GB', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-    timeZone: 'Europe/London',
-  });
+const fitText = (font: PDFFont, value: string, maxWidth: number, size: number, minSize = 6.5) => {
+  let current = size;
+  while (current > minSize && font.widthOfTextAtSize(value, current) > maxWidth) current -= 0.25;
+  return current;
 };
 
 const embedImage = async (pdf: PDFDocument, bytes: Uint8Array): Promise<PDFImage | null> => {
@@ -131,14 +137,6 @@ const embedImage = async (pdf: PDFDocument, bytes: Uint8Array): Promise<PDFImage
       return null;
     }
   }
-};
-
-const fitText = (font: PDFFont, value: string, maxWidth: number, size: number, minSize = 6.8) => {
-  let currentSize = size;
-  while (currentSize > minSize && font.widthOfTextAtSize(value, currentSize) > maxWidth) {
-    currentSize -= 0.25;
-  }
-  return currentSize;
 };
 
 const fallbackVatTreatment = (input: InvoicePdfInput): InvoiceVatTreatment => {
@@ -154,361 +152,329 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const regular = await pdf.embedFont(StandardFonts.Helvetica);
   const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
 
-  // Neutral invoice palette. The commercial document belongs to the issuer,
-  // not to the XDrive platform. Issuer branding is supplied only by issuer data/logo.
-  const navy = rgb(31 / 255, 41 / 255, 55 / 255);
-  const dark = rgb(26 / 255, 31 / 255, 43 / 255);
-  const grey = rgb(75 / 255, 85 / 255, 99 / 255);
+  const ink = rgb(25 / 255, 31 / 255, 40 / 255);
+  const slate = rgb(71 / 255, 85 / 255, 105 / 255);
   const muted = rgb(100 / 255, 116 / 255, 139 / 255);
-  const line = rgb(218 / 255, 224 / 255, 232 / 255);
-  const softHeader = rgb(244 / 255, 246 / 255, 248 / 255);
-  const white = rgb(1, 1, 1);
+  const border = rgb(221 / 255, 226 / 255, 232 / 255);
+  const soft = rgb(247 / 255, 249 / 255, 251 / 255);
+
 
   const pageWidth = 595.28;
-  const margin = 36;
+  const margin = 42;
   const contentWidth = pageWidth - margin * 2;
   const issuerName = pdfText(input.issuerName, 'Invoice issuer');
   const vatTreatment = fallbackVatTreatment(input);
 
-  const drawRight = (value: string, xRight: number, y: number, size: number, font: PDFFont, color = dark) => {
-    const text = pdfText(value, '');
-    const fitted = fitText(font, text, 150, size);
-    const width = font.widthOfTextAtSize(text, fitted);
-    page.drawText(text, { x: xRight - width, y, size: fitted, font, color });
+  const drawLabelValue = (
+    label: string,
+    value: string,
+    x: number,
+    y: number,
+    width: number,
+    options: { valueBold?: boolean; size?: number } = {},
+  ) => {
+    if (!value) return;
+    page.drawText(label.toUpperCase(), { x, y, size: 6.5, font: bold, color: muted });
+    const valueSize = fitText(options.valueBold ? bold : regular, value, width, options.size ?? 9.2, 6.4);
+    page.drawText(value, {
+      x,
+      y: y - 13,
+      size: valueSize,
+      font: options.valueBold ? bold : regular,
+      color: ink,
+    });
   };
 
-  // ---------------------------------------------------------------------------
-  // Header: issuer logo when available; otherwise issuer name only.
-  // ---------------------------------------------------------------------------
+  // Header
   let logoDrawn = false;
   if (input.logoBytes?.byteLength) {
     const logo = await embedImage(pdf, input.logoBytes);
     if (logo) {
-      const maxWidth = 166;
-      const maxHeight = 54;
+      const maxWidth = 150;
+      const maxHeight = 50;
       const scale = Math.min(maxWidth / logo.width, maxHeight / logo.height);
       page.drawImage(logo, {
         x: margin,
-        y: 766,
+        y: 760,
         width: logo.width * scale,
         height: logo.height * scale,
       });
       logoDrawn = true;
     }
   }
+
   if (!logoDrawn) {
-    const headerSize = fitText(bold, issuerName.slice(0, 70), 220, 21, 12);
-    page.drawText(issuerName.slice(0, 70), { x: margin, y: 786, size: headerSize, font: bold, color: navy });
+    const size = fitText(bold, issuerName, 245, 22, 13);
+    page.drawText(issuerName, { x: margin, y: 790, size, font: bold, color: ink });
   }
 
-  if (logoDrawn) {
-    page.drawText(issuerName.slice(0, 70), { x: margin, y: 735, size: 13.5, font: bold, color: dark });
-  }
-  let issuerY = logoDrawn ? 717 : 758;
-  const issuerAddressLines = wrapText(pdfText(input.issuerAddress, ''), 48).filter(Boolean).slice(0, 3);
-  for (const addressLine of issuerAddressLines) {
-    page.drawText(addressLine, { x: margin, y: issuerY, size: 8.7, font: regular, color: grey });
-    issuerY -= 12;
-  }
-  if (input.issuerCompanyNumber) {
-    page.drawText(`Company No. ${pdfText(input.issuerCompanyNumber, '')}`.slice(0, 70), { x: margin, y: issuerY, size: 8.7, font: regular, color: dark });
-    issuerY -= 12;
-  }
-  if (input.issuerVatNumber && vatTreatment !== 'not_registered') {
-    page.drawText(`UK VAT # ${pdfText(input.issuerVatNumber, '')}`.slice(0, 70), { x: margin, y: issuerY, size: 8.7, font: regular, color: dark });
-    issuerY -= 12;
-  }
-  if (input.issuerEmail) {
-    page.drawText('Email:', { x: margin, y: issuerY, size: 8.5, font: bold, color: dark });
-    page.drawText(pdfText(input.issuerEmail, '').slice(0, 66), { x: margin + 31, y: issuerY, size: 8.5, font: regular, color: dark });
+  const invoiceTitle = 'INVOICE';
+  const invoiceTitleWidth = bold.widthOfTextAtSize(invoiceTitle, 24);
+  page.drawText(invoiceTitle, {
+    x: pageWidth - margin - invoiceTitleWidth,
+    y: 790,
+    size: 24,
+    font: bold,
+    color: ink,
+  });
+
+  let issuerY = logoDrawn ? 744 : 760;
+  const issuerAddress = wrapText(pdfText(input.issuerAddress), 52).slice(0, 3);
+  issuerAddress.forEach((line, index) => {
+    page.drawText(line, { x: margin, y: issuerY - index * 11, size: 8.5, font: regular, color: slate });
+  });
+  issuerY -= issuerAddress.length * 11;
+
+  const issuerMeta = [
+    input.issuerCompanyNumber ? `Company No. ${pdfText(input.issuerCompanyNumber)}` : '',
+    input.issuerVatNumber && vatTreatment !== 'not_registered' ? `VAT No. ${pdfText(input.issuerVatNumber)}` : '',
+  ].filter(Boolean).join('  |  ');
+  if (issuerMeta) {
+    page.drawText(issuerMeta, { x: margin, y: issuerY - 2, size: 8.1, font: regular, color: slate });
     issuerY -= 13;
   }
-  if (input.issuerPhone) {
-    page.drawText('Tel:', { x: margin, y: issuerY, size: 8.5, font: bold, color: dark });
-    page.drawText(pdfText(input.issuerPhone, '').slice(0, 52), { x: margin + 20, y: issuerY, size: 8.5, font: regular, color: dark });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Right-side metadata and billing cards.
-  // ---------------------------------------------------------------------------
-  const metaX = 348;
-  const metaY = 738;
-  const metaW = 211;
-  const metaH = 82;
-  page.drawRectangle({ x: metaX, y: metaY, width: metaW, height: metaH, color: softHeader, borderColor: line, borderWidth: 0.55 });
-  const referenceValue = [
-    pdfText(input.jobReference, ''),
-    input.loadId ? pdfText(input.loadId, '') : '',
-  ].filter(Boolean).join(' / ') || 'Not set';
-  const metaRows: Array<[string, string]> = [
-    ['DATE', formatDate(input.invoiceDate)],
-    ['JOB / LOAD REF', referenceValue],
-    ['INVOICE#', pdfText(input.invoiceNumber, 'Invoice')],
-  ];
-  const metaRowHeight = metaH / metaRows.length;
-  metaRows.forEach(([label, value], index) => {
-    const rowTop = metaY + metaH - index * metaRowHeight;
-    const rowBottom = rowTop - metaRowHeight;
-    if (index > 0) {
-      page.drawLine({ start: { x: metaX + 10, y: rowTop }, end: { x: metaX + metaW - 10, y: rowTop }, thickness: 0.45, color: line });
-    }
-    page.drawText(label, { x: metaX + 12, y: rowTop - 10, size: 6.8, font: bold, color: grey });
-    const safeValue = pdfText(value, '').slice(0, 56);
-    const valueFont = index === 1 || index === 2 ? bold : regular;
-    const valueSize = fitText(valueFont, safeValue, metaW - 24, 8.7, 6.1);
-    page.drawText(safeValue, { x: metaX + 12, y: rowBottom + 5.5, size: valueSize, font: valueFont, color: dark });
-  });
-
-  const billX = 315;
-  const billY = 620;
-  const billW = 244;
-  const billH = 116;
-  page.drawRectangle({ x: billX, y: billY, width: billW, height: billH, color: softHeader, borderColor: line, borderWidth: 0.55 });
-  page.drawText('Invoice to:', { x: billX + 14, y: billY + 65, size: 8.5, font: bold, color: dark });
-  page.drawText(pdfText(input.clientName, 'Customer').slice(0, 52), { x: billX + 14, y: billY + 47, size: 11.2, font: bold, color: dark });
-  let billTextY = billY + 32;
-  for (const billLine of wrapText(pdfText(input.clientAddress, ''), 42).filter(Boolean).slice(0, 2)) {
-    page.drawText(billLine, { x: billX + 14, y: billTextY, size: 8.2, font: regular, color: dark });
-    billTextY -= 11;
-  }
-  if (input.clientEmail) {
-    page.drawText(pdfText(input.clientEmail, '').slice(0, 55), { x: billX + 14, y: billTextY, size: 8.1, font: regular, color: dark });
-    billTextY -= 10;
-  }
-  const customerIdentity = [
-    input.customerCompanyNumber ? `Co. ${pdfText(input.customerCompanyNumber, '')}` : '',
-    input.customerVatNumber ? `VAT ${pdfText(input.customerVatNumber, '')}` : '',
-  ].filter(Boolean).join(' · ');
-  if (customerIdentity) {
-    page.drawText(customerIdentity.slice(0, 70), { x: billX + 14, y: billTextY, size: 7.2, font: regular, color: grey });
-    billTextY -= 9;
-  }
-  if (input.customerReference) {
-    page.drawText(`Customer Ref: ${pdfText(input.customerReference, '')}`.slice(0, 70), { x: billX + 14, y: billTextY, size: 7.2, font: regular, color: grey });
-  }
-
-  // ---------------------------------------------------------------------------
-  // INVOICE title tab: deliberately left-aligned and not full-width.
-  // ---------------------------------------------------------------------------
-  const titleY = 602;
-  page.drawRectangle({ x: margin, y: titleY, width: 214, height: 35, color: navy });
-  page.drawText('INVOICE', { x: margin + 14, y: titleY + 10, size: 19, font: bold, color: white });
-
-  const tableX1 = margin + 110;
-  const tableX2 = margin + 390;
-
-  const drawRows = ({
-    topY,
-    rowHeight,
-    firstLabel,
-    firstValue,
-    firstRight,
-    secondLabel,
-    secondValue,
-    secondRight,
-  }: {
-    topY: number;
-    rowHeight: number;
-    firstLabel: string;
-    firstValue: string;
-    firstRight: string;
-    secondLabel: string;
-    secondValue: string;
-    secondRight: string;
-  }) => {
-    const bottom = topY - rowHeight * 2;
-    page.drawRectangle({ x: margin, y: bottom, width: contentWidth, height: rowHeight * 2, color: white, borderColor: line, borderWidth: 0.65 });
-    page.drawLine({ start: { x: margin, y: topY - rowHeight }, end: { x: margin + contentWidth, y: topY - rowHeight }, thickness: 0.55, color: line });
-    page.drawLine({ start: { x: tableX1, y: bottom }, end: { x: tableX1, y: topY }, thickness: 0.55, color: line });
-    page.drawLine({ start: { x: tableX2, y: bottom }, end: { x: tableX2, y: topY }, thickness: 0.55, color: line });
-
-    const row1Y = topY - rowHeight + 10;
-    const row2Y = bottom + 10;
-    page.drawText(firstLabel, { x: margin + 12, y: row1Y, size: 8.5, font: bold, color: dark });
-    page.drawText(secondLabel, { x: margin + 12, y: row2Y, size: 8.5, font: bold, color: dark });
-
-    const firstLines = wrapText(firstValue, 47).slice(0, 2);
-    firstLines.forEach((lineValue, index) => {
-      page.drawText(lineValue, { x: tableX1 + 11, y: row1Y + 1 - index * 10, size: 8.4, font: regular, color: dark });
-    });
-    page.drawText(pdfText(secondValue, 'Not provided').slice(0, 58), { x: tableX1 + 11, y: row2Y, size: 8.4, font: regular, color: dark });
-    const rightColumnWidth = margin + contentWidth - tableX2 - 22;
-    const firstRightText = pdfText(firstRight, '').slice(0, 44);
-    const secondRightText = pdfText(secondRight, '').slice(0, 44);
-    page.drawText(firstRightText, {
-      x: tableX2 + 11,
-      y: row1Y,
-      size: fitText(regular, firstRightText, rightColumnWidth, 8.4, 6.2),
-      font: regular,
-      color: dark,
-    });
-    page.drawText(secondRightText, {
-      x: tableX2 + 11,
-      y: row2Y,
-      size: fitText(regular, secondRightText, rightColumnWidth, 8.4, 6.2),
-      font: regular,
-      color: dark,
-    });
-  };
-
-  // PICKUP is intentionally a light section header in the approved model.
-  const pickupHeaderY = 573;
-  page.drawRectangle({ x: margin, y: pickupHeaderY, width: contentWidth, height: 24, color: softHeader, borderColor: line, borderWidth: 0.55 });
-  page.drawText('PICKUP', { x: margin + 13, y: pickupHeaderY + 8, size: 10.5, font: bold, color: navy });
-  drawRows({
-    topY: pickupHeaderY,
-    rowHeight: 29,
-    firstLabel: 'Location',
-    firstValue: pdfText(input.pickupLocation, 'Collection location not provided'),
-    firstRight: [input.orderedAt ? `Ordered ${formatDate(input.orderedAt)}` : '', pdfText(input.cargoDescription, '')].filter(Boolean).join(' · '),
-    secondLabel: 'Pickup time',
-    secondValue: formatDateTime(input.pickupDateTime),
-    secondRight: pdfText(input.vehicleDescription || input.serviceDescription, 'Transport service'),
-  });
-
-  // DELIVERY remains the full-width navy anchor bar.
-  const deliveryHeaderY = 487;
-  page.drawRectangle({ x: margin, y: deliveryHeaderY, width: contentWidth, height: 26, color: navy });
-  page.drawText('DELIVERY', { x: margin + 13, y: deliveryHeaderY + 9, size: 10.8, font: bold, color: white });
-  drawRows({
-    topY: deliveryHeaderY,
-    rowHeight: 29,
-    firstLabel: 'Location',
-    firstValue: pdfText(input.deliveryLocation, 'Delivery location not provided'),
-    firstRight: formatDateTime(input.deliveryDateTime),
-    secondLabel: 'Recipient',
-    secondValue: pdfText(input.recipientName, 'Not recorded'),
-    secondRight: [input.leftAt ? `Left at: ${pdfText(input.leftAt, '')}` : '', input.deliveryNotes ? `Notes: ${pdfText(input.deliveryNotes, '')}` : ''].filter(Boolean).join(' · '),
-  });
-
-  // ---------------------------------------------------------------------------
-  // POD / evidence summary.
-  // Keep the commercial invoice compact: evidence lives in appendices instead of
-  // consuming the invoice body. This mirrors the dense finance-document pattern
-  // while retaining XDrive's POD audit trail.
-  // ---------------------------------------------------------------------------
-  const isPdfEvidence = (item: InvoiceEvidenceImage) => String.fromCharCode(...item.bytes.slice(0, 5)) === '%PDF-';
-  const imageEvidence = (input.evidenceImages ?? []).filter(item => !isPdfEvidence(item));
-  const pdfEvidence = (input.evidenceImages ?? []).filter(isPdfEvidence);
-  const evidenceCount = imageEvidence.length + pdfEvidence.length;
-  const evidenceSummary = evidenceCount
-    ? `POD evidence attached: ${evidenceCount} item${evidenceCount === 1 ? '' : 's'}${input.signatureAttestation ? ' + recipient attestation' : ''}.`
-    : input.signatureAttestation
-      ? 'Recipient attestation attached.'
-      : 'POD evidence: not attached to this invoice.';
-  page.drawText(evidenceSummary, { x: margin, y: 409, size: 7.4, font: regular, color: evidenceCount || input.signatureAttestation ? dark : muted });
-
-  // ---------------------------------------------------------------------------
-  // Delivery confirmation + PAYABLE. Total is the only dominant financial value.
-  // ---------------------------------------------------------------------------
-  const payableY = 358;
-  const payableH = 38;
-  page.drawRectangle({ x: margin, y: payableY, width: contentWidth, height: payableH, color: softHeader, borderColor: line, borderWidth: 0.55 });
-  page.drawText('Delivery by', { x: margin + 13, y: payableY + 22, size: 6.7, font: regular, color: muted });
-  page.drawText(pdfText(input.recipientName, 'Recipient not recorded').slice(0, 46), { x: margin + 13, y: payableY + 9, size: 9, font: regular, color: dark });
-  page.drawText('PAYABLE', { x: 395, y: payableY + 12, size: 10.8, font: bold, color: navy });
-  const totalText = money(finiteMoney(input.totalAmount), input.currency);
-  const totalSize = fitText(bold, totalText, 122, 21, 16);
-  const totalWidth = bold.widthOfTextAtSize(totalText, totalSize);
-  page.drawText(totalText, { x: margin + contentWidth - totalWidth - 12, y: payableY + 8, size: totalSize, font: bold, color: navy });
-
-  // ---------------------------------------------------------------------------
-  // Payment details table.
-  // ---------------------------------------------------------------------------
-  const payBoxY = 190;
-  const payBoxH = 153;
-  page.drawRectangle({ x: margin, y: payBoxY, width: contentWidth, height: payBoxH, color: white, borderColor: line, borderWidth: 0.65 });
-  page.drawRectangle({ x: margin, y: payBoxY + payBoxH - 25, width: contentWidth, height: 25, color: softHeader });
-  page.drawText('Payment Details', { x: margin + 12, y: payBoxY + payBoxH - 17, size: 10.5, font: bold, color: dark });
-
-  const bankRowY = payBoxY + 101;
-  page.drawText('Bank Transfer', { x: margin + 12, y: bankRowY + 11, size: 9.5, font: bold, color: dark });
-  page.drawText('(Preferred Method)', { x: margin + 82, y: bankRowY + 11, size: 8.4, font: regular, color: dark });
-  page.drawLine({ start: { x: margin, y: bankRowY }, end: { x: margin + contentWidth, y: bankRowY }, thickness: 0.55, color: line });
-
-  const splitX = margin + 313;
-  page.drawLine({ start: { x: splitX, y: payBoxY + 37 }, end: { x: splitX, y: bankRowY }, thickness: 0.55, color: line });
-  page.drawLine({ start: { x: margin, y: payBoxY + 69 }, end: { x: margin + contentWidth, y: payBoxY + 69 }, thickness: 0.55, color: line });
-  page.drawLine({ start: { x: margin, y: payBoxY + 37 }, end: { x: margin + contentWidth, y: payBoxY + 37 }, thickness: 0.55, color: line });
-
-  page.drawText('Account Name:', { x: margin + 12, y: payBoxY + 80, size: 8.1, font: bold, color: dark });
-  page.drawText(pdfText(input.bankAccountName, 'Not configured').slice(0, 35), { x: margin + 84, y: payBoxY + 80, size: 8.2, font: regular, color: dark });
-  page.drawText('Sort code:', { x: splitX + 12, y: payBoxY + 80, size: 8.1, font: bold, color: dark });
-  page.drawText(pdfText(input.bankSortCode, 'Not configured').slice(0, 18), { x: splitX + 59, y: payBoxY + 80, size: 8.2, font: regular, color: dark });
-
-  page.drawText('Account Number:', { x: margin + 12, y: payBoxY + 49, size: 8.1, font: bold, color: dark });
-  page.drawText(pdfText(input.bankAccountNumber, 'Not configured').slice(0, 24), { x: margin + 91, y: payBoxY + 49, size: 8.2, font: regular, color: dark });
-  page.drawText('Net:', { x: splitX + 12, y: payBoxY + 49, size: 8.1, font: bold, color: dark });
-  drawRight(money(finiteMoney(input.netAmount), input.currency), margin + contentWidth - 12, payBoxY + 49, 8.2, regular);
-
-  page.drawText('PayPal:', { x: margin + 12, y: payBoxY + 17, size: 8.1, font: bold, color: dark });
-  page.drawText(pdfText(input.paypalEmail, 'Not configured').slice(0, 64), { x: margin + 49, y: payBoxY + 17, size: 8.2, font: regular, color: dark });
-
-  const vatLabel = vatTreatment === 'not_registered'
-    ? 'VAT: Not registered'
-    : vatTreatment === 'zero_rated'
-      ? 'VAT 0% (zero-rated):'
-      : vatTreatment === 'reverse_charge'
-        ? `VAT ${finiteMoney(input.vatRate)}% (reverse):`
-        : `VAT ${finiteMoney(input.vatRate)}%:`;
-  page.drawText(vatLabel, { x: splitX + 12, y: payBoxY + 17, size: 8.1, font: bold, color: dark });
-  drawRight(money(finiteMoney(input.vatAmount), input.currency), margin + contentWidth - 12, payBoxY + 17, 8.2, regular);
-
-  const terms = pdfText(input.paymentTerms, '14 days');
-  page.drawText(`Payment terms: ${terms}. Due date: ${formatDate(input.dueDate)}.`.slice(0, 112), { x: margin + 12, y: 170, size: 7.5, font: regular, color: dark });
-  page.drawText('Late payments may incur administrative charges.', { x: margin + 12, y: 158, size: 7.5, font: regular, color: dark });
-
-  const vatDisclosure = vatTreatment === 'reverse_charge'
-    ? `Reverse charge: customer accounts for VAT; VAT is excluded from PAYABLE.${input.customerVatNumber ? ` Customer VAT: ${pdfText(input.customerVatNumber, '')}.` : ''}`
-    : vatTreatment === 'not_registered'
-      ? 'Issuer is not VAT registered; no VAT has been charged.'
-      : vatTreatment === 'zero_rated'
-        ? 'Zero-rated supply: VAT charged at 0%.'
-        : '';
-  if (vatDisclosure) {
-    const disclosureSize = fitText(regular, pdfText(vatDisclosure, ''), contentWidth, 6.7, 5.8);
-    page.drawText(pdfText(vatDisclosure, '').slice(0, 160), { x: margin + 12, y: 148, size: disclosureSize, font: regular, color: dark });
-  }
-
-  // ---------------------------------------------------------------------------
-  // Footer: full-width navy, only verified company/contact data.
-  // ---------------------------------------------------------------------------
-  const footerH = 58;
-  page.drawRectangle({ x: 0, y: 0, width: pageWidth, height: footerH, color: navy });
-  page.drawText(issuerName.slice(0, 58), { x: margin, y: 35, size: 9.1, font: bold, color: white });
-  const footerAddress = pdfText(input.issuerAddress, '');
-  if (footerAddress) {
-    const startX = margin + Math.min(150, bold.widthOfTextAtSize(issuerName.slice(0, 58), 9.1) + 8);
-    page.drawText(`| ${footerAddress}`.slice(0, 86), { x: startX, y: 35, size: 7.9, font: regular, color: white });
-  }
-  const contactParts = [input.issuerEmail, input.issuerPhone, input.issuerWebsite]
-    .map((value) => pdfText(value, ''))
+  const issuerContact = [input.issuerEmail, input.issuerPhone, input.issuerWebsite]
+    .map((v) => pdfText(v))
     .filter(Boolean)
     .join('  |  ');
-  if (contactParts) {
-    const contactSize = fitText(regular, contactParts, contentWidth, 8.1, 6.8);
-    page.drawText(contactParts, { x: margin, y: 16, size: contactSize, font: regular, color: white });
+  if (issuerContact) {
+    const contactSize = fitText(regular, issuerContact, 280, 8.1, 6.6);
+    page.drawText(issuerContact, { x: margin, y: issuerY - 1, size: contactSize, font: regular, color: slate });
   }
 
+  // Invoice metadata - no boxes, no overlap
+  const metaX = 374;
+  const metaWidth = pageWidth - margin - metaX;
+  const ref = pdfText(input.jobReference || input.loadId);
+  drawLabelValue('Invoice no.', pdfText(input.invoiceNumber, 'Invoice'), metaX, 757, metaWidth, { valueBold: true });
+  drawLabelValue('Invoice date', formatDate(input.invoiceDate), metaX, 719, metaWidth);
+  drawLabelValue('Due date', formatDate(input.dueDate), metaX, 681, metaWidth);
+  if (ref) drawLabelValue('Job / load ref', ref, metaX, 643, metaWidth, { valueBold: true });
+
+  page.drawLine({
+    start: { x: margin, y: 620 },
+    end: { x: pageWidth - margin, y: 620 },
+    thickness: 1,
+    color: border,
+  });
+
+  // Parties
+  page.drawText('FROM', { x: margin, y: 593, size: 7, font: bold, color: muted });
+  page.drawText('BILL TO', { x: 315, y: 593, size: 7, font: bold, color: muted });
+
+  page.drawText(issuerName, { x: margin, y: 574, size: 11.5, font: bold, color: ink });
+  const fromY = 559;
+  wrapText(pdfText(input.issuerAddress), 45).slice(0, 4).forEach((line, index) => {
+    page.drawText(line, { x: margin, y: fromY - index * 11, size: 8.5, font: regular, color: slate });
+  });
+
+  const clientName = pdfText(input.clientName, 'Customer');
+  page.drawText(clientName, { x: 315, y: 574, size: 11.5, font: bold, color: ink });
+  let clientY = 559;
+  const clientAddress = wrapText(pdfText(input.clientAddress), 41).slice(0, 4);
+  clientAddress.forEach((line, index) => {
+    page.drawText(line, { x: 315, y: clientY - index * 11, size: 8.5, font: regular, color: slate });
+  });
+  clientY -= clientAddress.length * 11;
+  if (input.clientEmail) {
+    page.drawText(pdfText(input.clientEmail), { x: 315, y: clientY, size: 8.3, font: regular, color: slate });
+    clientY -= 11;
+  }
+  const customerMeta = [
+    input.customerCompanyNumber ? `Company No. ${pdfText(input.customerCompanyNumber)}` : '',
+    input.customerVatNumber ? `VAT No. ${pdfText(input.customerVatNumber)}` : '',
+    input.customerReference ? `Customer Ref. ${pdfText(input.customerReference)}` : '',
+  ].filter(Boolean);
+  customerMeta.slice(0, 2).forEach((line, index) => {
+    page.drawText(line, { x: 315, y: clientY - index * 10, size: 7.7, font: regular, color: muted });
+  });
+
+  // Commercial line item table
+  const tableTop = 465;
+  const tableX = margin;
+  const qtyW = 38;
+  const descW = 295;
+  const unitW = 88;
+  const totalW = contentWidth - qtyW - descW - unitW;
+  const headerH = 24;
+  const rowH = 122;
+
+  page.drawRectangle({ x: tableX, y: tableTop - headerH, width: contentWidth, height: headerH, color: soft });
+  page.drawRectangle({
+    x: tableX,
+    y: tableTop - headerH - rowH,
+    width: contentWidth,
+    height: headerH + rowH,
+    borderColor: border,
+    borderWidth: 0.8,
+  });
+
+  const xQty = tableX;
+  const xDesc = xQty + qtyW;
+  const xUnit = xDesc + descW;
+  const xTotal = xUnit + unitW;
+  [xDesc, xUnit, xTotal].forEach((x) => {
+    page.drawLine({
+      start: { x, y: tableTop - headerH - rowH },
+      end: { x, y: tableTop },
+      thickness: 0.6,
+      color: border,
+    });
+  });
+
+  page.drawText('QTY', { x: xQty + 11, y: tableTop - 16, size: 7.2, font: bold, color: muted });
+  page.drawText('DESCRIPTION', { x: xDesc + 11, y: tableTop - 16, size: 7.2, font: bold, color: muted });
+  page.drawText('UNIT PRICE', { x: xUnit + 11, y: tableTop - 16, size: 7.2, font: bold, color: muted });
+  page.drawText('TOTAL', { x: xTotal + 11, y: tableTop - 16, size: 7.2, font: bold, color: muted });
+
+  page.drawText('1', { x: xQty + 14, y: tableTop - 48, size: 10, font: regular, color: ink });
+
+  const serviceTitle = pdfText(input.serviceDescription || 'Transport service');
+  page.drawText(serviceTitle, { x: xDesc + 11, y: tableTop - 46, size: 10, font: bold, color: ink });
+
+  const descriptionLines: string[] = [];
+  if (input.pickupLocation && input.deliveryLocation) {
+    descriptionLines.push(`${pdfText(input.pickupLocation)} -> ${pdfText(input.deliveryLocation)}`);
+  } else if (input.pickupLocation) {
+    descriptionLines.push(`Collection: ${pdfText(input.pickupLocation)}`);
+  } else if (input.deliveryLocation) {
+    descriptionLines.push(`Delivery: ${pdfText(input.deliveryLocation)}`);
+  }
+  if (input.vehicleDescription) descriptionLines.push(`Vehicle: ${pdfText(input.vehicleDescription)}`);
+  if (input.cargoDescription) descriptionLines.push(`Goods: ${pdfText(input.cargoDescription)}`);
+  const serviceDate = input.deliveryDateTime || input.pickupDateTime || input.orderedAt;
+  if (serviceDate) descriptionLines.push(`Service date: ${formatDateTime(serviceDate)}`);
+  if (input.recipientName) descriptionLines.push(`Received by: ${pdfText(input.recipientName)}`);
+  if (input.deliveryNotes) descriptionLines.push(`Delivery notes: ${pdfText(input.deliveryNotes)}`);
+
+  let descY = tableTop - 63;
+  for (const detail of descriptionLines.slice(0, 6)) {
+    const wrapped = wrapText(detail, 58).slice(0, 2);
+    wrapped.forEach((line, index) => {
+      page.drawText(line, { x: xDesc + 11, y: descY - index * 10, size: 8.1, font: regular, color: slate });
+    });
+    descY -= wrapped.length * 10 + 2;
+    if (descY < tableTop - headerH - rowH + 12) break;
+  }
+
+  const unitPrice = money(finiteMoney(input.netAmount), input.currency);
+  const totalValue = money(finiteMoney(input.totalAmount), input.currency);
+  const unitSize = fitText(regular, unitPrice, unitW - 20, 9.2, 7);
+  const totalSize = fitText(bold, totalValue, totalW - 20, 9.5, 7);
+  page.drawText(unitPrice, { x: xUnit + 11, y: tableTop - 48, size: unitSize, font: regular, color: ink });
+  page.drawText(totalValue, { x: xTotal + 11, y: tableTop - 48, size: totalSize, font: bold, color: ink });
+
+  // Totals
+  const totalsX = 350;
+  const totalsY = 252;
+  const totalsW = pageWidth - margin - totalsX;
+  const amountRow = (label: string, value: string, y: number, strong = false) => {
+    page.drawText(label, { x: totalsX, y, size: strong ? 9.5 : 8.5, font: strong ? bold : regular, color: strong ? ink : slate });
+    const font = strong ? bold : regular;
+    const size = strong ? 11 : 8.8;
+    const fitted = fitText(font, value, 82, size, 7);
+    const width = font.widthOfTextAtSize(value, fitted);
+    page.drawText(value, { x: totalsX + totalsW - width, y, size: fitted, font, color: strong ? ink : slate });
+  };
+
+  amountRow('Subtotal', money(finiteMoney(input.netAmount), input.currency), totalsY + 54);
+  const vatLabel = vatTreatment === 'not_registered'
+    ? 'VAT'
+    : vatTreatment === 'zero_rated'
+      ? 'VAT (0%)'
+      : vatTreatment === 'reverse_charge'
+        ? 'VAT (reverse charge)'
+        : `VAT (${finiteMoney(input.vatRate)}%)`;
+  amountRow(vatLabel, vatTreatment === 'not_registered' ? 'Not registered' : money(finiteMoney(input.vatAmount), input.currency), totalsY + 31);
+  page.drawLine({ start: { x: totalsX, y: totalsY + 20 }, end: { x: totalsX + totalsW, y: totalsY + 20 }, thickness: 0.8, color: border });
+  amountRow('TOTAL DUE', totalValue, totalsY - 1, true);
+
+  // Payment terms and details
+  page.drawText('PAYMENT DETAILS', { x: margin, y: 285, size: 7, font: bold, color: muted });
+  const paymentTerms = pdfText(input.paymentTerms, '14 days');
+  page.drawText(`Payment terms: ${paymentTerms}`, { x: margin, y: 265, size: 9, font: bold, color: ink });
+  page.drawText(`Due date: ${formatDate(input.dueDate)}`, { x: margin, y: 249, size: 8.5, font: regular, color: slate });
+
+  const bankLines = [
+    input.bankAccountName ? `Account name: ${pdfText(input.bankAccountName)}` : '',
+    input.bankSortCode ? `Sort code: ${pdfText(input.bankSortCode)}` : '',
+    input.bankAccountNumber ? `Account number: ${pdfText(input.bankAccountNumber)}` : '',
+    input.paypalEmail ? `PayPal: ${pdfText(input.paypalEmail)}` : '',
+  ].filter(Boolean);
+  bankLines.forEach((line, index) => {
+    page.drawText(line, { x: margin, y: 226 - index * 15, size: 8.5, font: regular, color: slate });
+  });
+
+  const vatDisclosure = vatTreatment === 'not_registered'
+    ? 'Issuer is not VAT registered; no VAT has been charged.'
+    : vatTreatment === 'zero_rated'
+      ? 'Zero-rated supply: VAT charged at 0%.'
+      : vatTreatment === 'reverse_charge'
+        ? 'Reverse charge applies: customer accounts for VAT.'
+        : '';
+  if (vatDisclosure) {
+    page.drawText(vatDisclosure, { x: margin, y: 156, size: 7.5, font: regular, color: muted });
+  }
+
+  const evidenceItems = input.evidenceImages ?? [];
+  const isPdfEvidence = (item: InvoiceEvidenceImage) => String.fromCharCode(...item.bytes.slice(0, 5)) === '%PDF-';
+  const imageEvidence = evidenceItems.filter((item) => !isPdfEvidence(item));
+  const pdfEvidence = evidenceItems.filter(isPdfEvidence);
+  const evidenceCount = evidenceItems.length + (input.signatureAttestation ? 1 : 0);
+  if (evidenceCount > 0) {
+    page.drawText(
+      `Supporting POD evidence is attached in ${evidenceCount} appendix item${evidenceCount === 1 ? '' : 's'}.`,
+      { x: margin, y: 137, size: 7.5, font: regular, color: muted },
+    );
+  }
+
+  // Footer - issuer only
+  page.drawLine({
+    start: { x: margin, y: 92 },
+    end: { x: pageWidth - margin, y: 92 },
+    thickness: 0.8,
+    color: border,
+  });
+  page.drawText(issuerName, { x: margin, y: 72, size: 8.8, font: bold, color: ink });
+  const footerMeta = [
+    input.issuerCompanyNumber ? `Company No. ${pdfText(input.issuerCompanyNumber)}` : '',
+    input.issuerVatNumber && vatTreatment !== 'not_registered' ? `VAT No. ${pdfText(input.issuerVatNumber)}` : '',
+  ].filter(Boolean).join('  |  ');
+  if (footerMeta) {
+    page.drawText(footerMeta, { x: margin, y: 57, size: 7.5, font: regular, color: slate });
+  }
+  const footerContact = [input.issuerEmail, input.issuerPhone, input.issuerWebsite]
+    .map((v) => pdfText(v))
+    .filter(Boolean)
+    .join('  |  ');
+  if (footerContact) {
+    const footerSize = fitText(regular, footerContact, contentWidth, 7.5, 6.3);
+    page.drawText(footerContact, { x: margin, y: 42, size: footerSize, font: regular, color: slate });
+  }
+
+  // Appendices
   if (input.signatureAttestation) {
     const attestation = pdf.addPage([595.28, 841.89]);
-    attestation.drawText('Recipient attestation', { x: 32, y: 800, font: bold, size: 14 });
-    wrapText(input.signatureAttestation, 95).forEach((text, index) => {
-      attestation.drawText(text, { x: 32, y: 770 - index * 14, font: regular, size: 9 });
+    attestation.drawText('Recipient attestation', { x: 42, y: 790, font: bold, size: 16, color: ink });
+    wrapText(input.signatureAttestation, 92).forEach((text, index) => {
+      attestation.drawText(text, { x: 42, y: 755 - index * 14, font: regular, size: 9, color: slate });
     });
   }
+
   for (const item of imageEvidence) {
     const image = await embedImage(pdf, item.bytes);
     if (!image) throw new Error('POD image is not a valid PNG or JPEG.');
     const appendix = pdf.addPage([595.28, 841.89]);
-    appendix.drawText(pdfText(item.label, 'POD evidence'), { x: 32, y: 800, font: bold, size: 12 });
-    const scale = Math.min(530 / image.width, 730 / image.height);
-    appendix.drawImage(image, { x: 32, y: 40, width: image.width * scale, height: image.height * scale });
+    appendix.drawText(pdfText(item.label, 'POD evidence'), { x: 42, y: 790, font: bold, size: 14, color: ink });
+    const scale = Math.min(511 / image.width, 700 / image.height);
+    appendix.drawImage(image, { x: 42, y: 55, width: image.width * scale, height: image.height * scale });
   }
+
   for (const item of pdfEvidence) {
     const document = await PDFDocument.load(item.bytes);
     const pages = await pdf.copyPages(document, document.getPageIndices());
     for (const evidencePage of pages) pdf.addPage(evidencePage);
   }
+
   return pdf.save();
 }
