@@ -35,6 +35,8 @@ describe('postcode address lookup contract', () => {
     expect(field).not.toContain('api.postcodes.io');
     expect(route).toContain("'Cache-Control': 'private, no-store, max-age=0, must-revalidate'");
     expect(route).toContain("'Netlify-CDN-Cache-Control': 'no-store'");
+    expect(route).toContain("Origin: 'https://www.xdrivelogistics.co.uk'");
+    expect(route).toContain("Referer: 'https://www.xdrivelogistics.co.uk/'");
   });
 
   it('formats structured address rows returned for the exact postcode', () => {

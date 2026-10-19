@@ -13,6 +13,12 @@ const NO_STORE_HEADERS = {
   'Netlify-CDN-Cache-Control': 'no-store',
 } as const;
 
+const IDEAL_REQUEST_HEADERS = {
+  Origin: 'https://www.xdrivelogistics.co.uk',
+  Referer: 'https://www.xdrivelogistics.co.uk/',
+  'User-Agent': 'XDriveLogistics/1.0 address-lookup',
+} as const;
+
 const normalizePostcode = (value: string) => {
   const compact = value.toUpperCase().replace(/\s+/g, '').trim();
   return compact.length > 3 ? `${compact.slice(0, -3)} ${compact.slice(-3)}` : compact;
@@ -146,6 +152,7 @@ async function lookupIdealAutocomplete(query: string, apiKey: string) {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(6_000),
       cache: 'no-store',
+      headers: IDEAL_REQUEST_HEADERS,
     });
     if (!response.ok) return null;
     const payload = await response.json() as { result?: { hits?: IdealAutocompleteHit[] } };
@@ -164,6 +171,7 @@ async function lookupIdealPostcodes(postcode: string, apiKey: string) {
     const response = await fetch(url, {
       signal: AbortSignal.timeout(6_000),
       cache: 'no-store',
+      headers: IDEAL_REQUEST_HEADERS,
     });
     if (response.status === 404) return { suggestions: [] as string[], notFound: true };
     if (!response.ok) return null;
