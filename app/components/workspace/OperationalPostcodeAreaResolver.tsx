@@ -160,21 +160,37 @@ function hintFor(input: HTMLInputElement) {
   return hint;
 }
 
+const locationDropdowns = new WeakMap<HTMLInputElement, HTMLElement>();
+
+function positionDropdown(input: HTMLInputElement, dropdown: HTMLElement) {
+  const rect = input.getBoundingClientRect();
+  Object.assign(dropdown.style, {
+    left: `${Math.round(rect.left)}px`,
+    top: `${Math.round(rect.bottom + 2)}px`,
+    width: `${Math.round(rect.width)}px`,
+  });
+}
+
+function existingDropdownFor(input: HTMLInputElement) {
+  const dropdown = locationDropdowns.get(input) ?? null;
+  return dropdown?.isConnected ? dropdown : null;
+}
+
 function dropdownFor(input: HTMLInputElement) {
-  const existing = input.parentElement?.querySelector<HTMLElement>(':scope > [data-xdrive-location-suggestions]');
-  if (existing) return existing;
+  const existing = existingDropdownFor(input);
+  if (existing) {
+    positionDropdown(input, existing);
+    return existing;
+  }
 
   const dropdown = document.createElement('div');
+  locationDropdowns.set(input, dropdown);
   dropdown.dataset.xdriveLocationSuggestions = 'true';
   dropdown.setAttribute('role', 'listbox');
   dropdown.setAttribute('aria-label', 'Location suggestions');
   Object.assign(dropdown.style, {
-    position: 'absolute',
-    left: '0',
-    right: '0',
-    top: '100%',
-    zIndex: '80',
-    marginTop: '2px',
+    position: 'fixed',
+    zIndex: '2147483000',
     maxHeight: '240px',
     overflowY: 'auto',
     border: '1px solid #aebdce',
@@ -183,12 +199,8 @@ function dropdownFor(input: HTMLInputElement) {
     boxShadow: '0 8px 18px rgba(15,23,42,0.14)',
     display: 'none',
   });
-  const parent = input.parentElement;
-  if (parent) {
-    const style = window.getComputedStyle(parent);
-    if (style.position === 'static') parent.style.position = 'relative';
-    parent.appendChild(dropdown);
-  }
+  positionDropdown(input, dropdown);
+  document.body.appendChild(dropdown);
   return dropdown;
 }
 
@@ -265,7 +277,7 @@ export default function OperationalPostcodeAreaResolver() {
       if (previousTimer) window.clearTimeout(previousTimer);
       controllers.get(input)?.abort();
 
-      const dropdown = input.parentElement?.querySelector<HTMLElement>(':scope > [data-xdrive-location-suggestions]');
+      const dropdown = existingDropdownFor(input);
       if (dropdown) {
         dropdown.replaceChildren();
         dropdown.style.display = 'none';
@@ -318,7 +330,7 @@ export default function OperationalPostcodeAreaResolver() {
               }
             } catch (error) {
               if (!(error instanceof DOMException && error.name === 'AbortError')) {
-                const activeDropdown = input.parentElement?.querySelector<HTMLElement>(':scope > [data-xdrive-location-suggestions]');
+                const activeDropdown = existingDropdownFor(input);
                 if (activeDropdown) activeDropdown.style.display = 'none';
               }
             }
@@ -384,7 +396,7 @@ export default function OperationalPostcodeAreaResolver() {
       if (input instanceof HTMLInputElement) {
         resolve(input, true);
         window.setTimeout(() => {
-          input.parentElement?.querySelector<HTMLElement>(':scope > [data-xdrive-location-suggestions]')?.style.setProperty('display', 'none');
+          existingDropdownFor(input)?.style.setProperty('display', 'none');
         }, 140);
       }
     };

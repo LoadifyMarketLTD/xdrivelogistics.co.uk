@@ -35,7 +35,10 @@ describe('global operational postcode autocomplete', () => {
     expect(resolver).toContain("libraries=places&v=weekly");
     expect(resolver).toContain("script[nonce]");
     expect(resolver).toContain("componentRestrictions: { country: 'gb' }");
-    expect(resolver).toContain('data-xdrive-location-suggestions');
+    expect(resolver).toContain("dropdown.dataset.xdriveLocationSuggestions = 'true'");
+    expect(resolver).toContain('document.body.appendChild(dropdown)');
+    expect(resolver).toContain("position: 'fixed'");
+    expect(resolver).toContain('existingDropdownFor(input)');
     expect(resolver).toContain('setReactInputValue');
   });
 
