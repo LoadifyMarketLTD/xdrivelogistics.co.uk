@@ -31,15 +31,14 @@ describe('global operational postcode autocomplete', () => {
     expect(resolver).toContain('rawValue.length >= 2');
     expect(resolver).toContain('const hint = postcodeField ? hintFor(input) : null');
     expect(resolver).toContain('if (locationField) return');
-    expect(resolver).toContain('lookupGooglePlaces(rawValue)');
-    expect(resolver).toContain("libraries=places&v=weekly");
-    expect(resolver).toContain("script[nonce]");
-    expect(resolver).toContain("componentRestrictions: { country: 'gb' }");
+    expect(resolver).not.toContain('lookupGooglePlaces(rawValue)');
+    expect(resolver).not.toContain('maps.googleapis.com/maps/api/js');
     expect(resolver).toContain("dropdown.dataset.xdriveLocationSuggestions = 'true'");
     expect(resolver).toContain('document.body.appendChild(dropdown)');
     expect(resolver).toContain("position: 'fixed'");
     expect(resolver).toContain('existingDropdownFor(input)');
     expect(resolver).toContain('setReactInputValue');
+    expect(resolver).toContain('suggestionHasCountry');
   });
 
   it('uses provider-backed partial address autocomplete for CX-style postcode typing', () => {
@@ -49,6 +48,9 @@ describe('global operational postcode autocomplete', () => {
     expect(route).toContain("provider: 'ideal-postcodes-autocomplete'");
     expect(route).toContain("provider: 'getaddress-autocomplete'");
     expect(route).toContain("provider: 'mapbox-geocoding-autocomplete'");
+    expect(route).toContain("provider: 'photon-openstreetmap'");
+    expect(route).toContain("https://photon.komoot.io/api/");
+    expect(route).toContain("https://photon.komoot.io/reverse");
     expect(route).not.toContain("provider: 'postcodes-io-autocomplete'");
     expect(route).not.toContain('/autocomplete?limit=12');
     expect(route).toContain("'Netlify-CDN-Cache-Control': 'no-store'");

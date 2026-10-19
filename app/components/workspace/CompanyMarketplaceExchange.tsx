@@ -3,7 +3,7 @@
 import WorkspaceRestrictionBanner from './WorkspaceRestrictionBanner';
 import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '../AuthContext';
 import { resolveActiveCompanyId } from '../../../lib/activeCompany';
@@ -246,7 +246,33 @@ export default function CompanyMarketplaceExchange({
     finally { setLoading(false); }
   }, [companyId, fixtureData, getToken]);
 
-  useEffect(() => { if (!companyId) return; if (tab === 'loads') void loadLoads(1, false); else void loadListTab(tab); }, [companyId, tab, loadLoads, loadListTab]);
+  const loadLoadsRef = useRef(loadLoads);
+  const loadListTabRef = useRef(loadListTab);
+  useEffect(() => { loadLoadsRef.current = loadLoads; }, [loadLoads]);
+  useEffect(() => { loadListTabRef.current = loadListTab; }, [loadListTab]);
+  const autoLoadsFilterKey = useMemo(() => JSON.stringify({
+    pageSize: filters.pageSize,
+    fromRadius: filters.fromRadius,
+    toRadius: filters.toRadius,
+    loadType: filters.loadType,
+    description: filters.description,
+    vehicle: filters.vehicle,
+    minVehicle: filters.minVehicle,
+    maxVehicle: filters.maxVehicle,
+    body: filters.body,
+    freight: filters.freight,
+    member: filters.member,
+    postedWithinHours: filters.postedWithinHours,
+    dateFrom: filters.dateFrom,
+    dateTo: filters.dateTo,
+    minBudget: filters.minBudget,
+    maxBudget: filters.maxBudget,
+  }), [filters]);
+  useEffect(() => {
+    if (!companyId) return;
+    if (tab === 'loads') void loadLoadsRef.current(1, false);
+    else void loadListTabRef.current(tab);
+  }, [autoLoadsFilterKey, companyId, tab]);
   const applyDefault = () => { if (!defaultKey) return; try { const saved = JSON.parse(localStorage.getItem(defaultKey) ?? 'null') as Partial<Filters> | null; if (saved) { setFilters({ ...DEFAULT_FILTERS, ...saved }); setPage(1); setNotice('Saved default search loaded. Press Search to refresh results.'); } else setNotice('No default marketplace search has been saved yet.'); } catch { setNotice('The saved default search could not be read.'); } };
   const saveDefault = () => { if (!defaultKey) return; localStorage.setItem(defaultKey, JSON.stringify(filters)); setNotice('Default marketplace search saved for this company workspace.'); };
   const clearFilters = () => { setFilters(DEFAULT_FILTERS); setPage(1); setNotice('Filters cleared. Results will refresh automatically.'); };

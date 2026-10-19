@@ -102,6 +102,98 @@ async function lookupGetAddressAutocomplete(query: string, apiKey: string) {
 }
 
 
+type PhotonFeature = {
+  properties?: {
+    countrycode?: string | null;
+    name?: string | null;
+    street?: string | null;
+    city?: string | null;
+    district?: string | null;
+    postcode?: string | null;
+    type?: string | null;
+  };
+  geometry?: {
+    coordinates?: [number, number];
+  };
+};
+
+const PHOTON_HEADERS = {
+  'User-Agent': 'XDriveLogistics/1.0 address-autocomplete',
+} as const;
+
+const postcodeFragment = (value: string) => value.toUpperCase().replace(/\s+/g, '');
+
+async function photonFeatures(url: URL) {
+  try {
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(7_000),
+      cache: 'no-store',
+      headers: PHOTON_HEADERS,
+    });
+    if (!response.ok) return [] as PhotonFeature[];
+    const payload = await response.json() as { features?: PhotonFeature[] };
+    return Array.isArray(payload.features) ? payload.features : [];
+  } catch {
+    return [] as PhotonFeature[];
+  }
+}
+
+function photonAddressLabel(feature: PhotonFeature, requiredPostcodePrefix = '') {
+  const props = feature.properties ?? {};
+  if (clean(props.countrycode).toUpperCase() !== 'GB') return '';
+  const postcode = clean(props.postcode);
+  if (requiredPostcodePrefix && postcode && !postcodeFragment(postcode).startsWith(requiredPostcodePrefix)) return '';
+  const street = clean(props.street)
+    || (clean(props.type).toLowerCase() === 'street' ? clean(props.name) : '');
+  if (!street) return '';
+  const locality = clean(props.city) || clean(props.district);
+  return formatAddress([street, locality, postcode, 'GB']);
+}
+
+async function lookupPhotonAutocomplete(query: string) {
+  const trimmed = clean(query);
+  if (trimmed.length < 3) return [] as string[];
+
+  const url = new URL('https://photon.komoot.io/api/');
+  url.searchParams.set('q', trimmed);
+  url.searchParams.set('limit', '12');
+  url.searchParams.set('lang', 'en');
+  const forward = await photonFeatures(url);
+  const postcodeQuery = postcodeFragment(trimmed);
+  const looksLikePostcode = /^[A-Z]{1,2}\d[A-Z\d]?\d?[A-Z]{0,2}$/.test(postcodeQuery);
+
+  if (looksLikePostcode && postcodeQuery.length >= 5) {
+    const postcodeFeatures = forward.filter((feature) => {
+      const props = feature.properties ?? {};
+      if (clean(props.countrycode).toUpperCase() !== 'GB') return false;
+      const candidate = postcodeFragment(clean(props.name) || clean(props.postcode));
+      return candidate.startsWith(postcodeQuery);
+    }).slice(0, 8);
+
+    const reverseRows = await Promise.all(postcodeFeatures.map(async (feature) => {
+      const coordinates = feature.geometry?.coordinates;
+      if (!coordinates || coordinates.length < 2) return [] as PhotonFeature[];
+      const reverse = new URL('https://photon.komoot.io/reverse');
+      reverse.searchParams.set('lon', String(coordinates[0]));
+      reverse.searchParams.set('lat', String(coordinates[1]));
+      reverse.searchParams.set('limit', '5');
+      reverse.searchParams.set('lang', 'en');
+      return photonFeatures(reverse);
+    }));
+
+    const postcodeSuggestions = dedupe(
+      reverseRows.flat()
+        .map((feature) => photonAddressLabel(feature, postcodeQuery))
+        .filter(Boolean),
+    );
+    if (postcodeSuggestions.length) return postcodeSuggestions.slice(0, 12);
+  }
+
+  return dedupe(
+    forward.map((feature) => photonAddressLabel(feature)).filter(Boolean),
+  ).slice(0, 12);
+}
+
 type MapboxFeature = {
   properties?: {
     full_address?: string | null;
@@ -282,9 +374,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  if (!exactPostcode) {
+    const suggestions = await lookupPhotonAutocomplete(autocompleteQuery);
+    if (suggestions.length) {
+      return NextResponse.json({
+        suggestions,
+        configured: true,
+        provider: 'photon-openstreetmap',
+      }, { headers: NO_STORE_HEADERS });
+    }
+  }
+
   if (idealKey && exactPostcode) {
     const result = await lookupIdealPostcodes(postcode, idealKey);
-    if (result) {
+    if (result?.suggestions.length) {
       return NextResponse.json({
         suggestions: result.suggestions,
         configured: true,
@@ -296,12 +399,24 @@ export async function GET(request: NextRequest) {
 
   if (getAddressKey && exactPostcode) {
     const result = await lookupGetAddress(postcode, getAddressKey);
-    if (result) {
+    if (result?.suggestions.length) {
       return NextResponse.json({
         suggestions: result.suggestions,
         configured: true,
         provider: 'getaddress',
         postcodeFound: !result.notFound,
+      }, { headers: NO_STORE_HEADERS });
+    }
+  }
+
+  if (exactPostcode) {
+    const suggestions = await lookupPhotonAutocomplete(postcode);
+    if (suggestions.length) {
+      return NextResponse.json({
+        suggestions,
+        configured: true,
+        provider: 'photon-openstreetmap',
+        postcodeFound: true,
       }, { headers: NO_STORE_HEADERS });
     }
   }
