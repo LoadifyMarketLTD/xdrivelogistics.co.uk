@@ -30,6 +30,8 @@ describe('global operational postcode autocomplete', () => {
     expect(resolver).toContain('LOCATION_QUERY.test(rawValue)');
     expect(resolver).toContain("context.includes('town / postcode')");
     expect(resolver).toContain("context.includes('location / postcode')");
+    expect(resolver).toContain("input.parentElement?.textContent ?? ''");
+    expect(resolver).toContain("context.includes('enter destination')");
     expect(resolver).toContain('if (isMixedLocationContext(context)) return false');
     expect(resolver).toContain('rawValue.length >= 2');
     expect(resolver).toContain('const hint = postcodeField ? hintFor(input) : null');

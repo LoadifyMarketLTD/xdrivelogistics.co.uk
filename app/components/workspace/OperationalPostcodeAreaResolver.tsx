@@ -26,6 +26,7 @@ function fieldContext(input: HTMLInputElement) {
     input.getAttribute('aria-label') ?? '',
     input.getAttribute('autocomplete') ?? '',
     label?.textContent ?? '',
+    input.parentElement?.textContent ?? '',
   ].join(' ').toLowerCase();
 }
 
@@ -34,7 +35,8 @@ function isMixedLocationContext(context: string) {
   if (context.includes('town / postcode') || context.includes('town/postcode')) return true;
   if (context.includes('postcode / area') || context.includes('postcode / anywhere')) return true;
   if (context.includes('location / postcode') || context.includes('location/postcode')) return true;
-  return /(^|\s)(from:|to:|pickup|delivery)(\s|$)/.test(context);
+  if (context.includes('enter destination')) return true;
+  return /(^|\s)(from|to|pickup|delivery)(?:\s*[:/]|\s|$)/.test(context);
 }
 
 function isPostcodeField(input: HTMLInputElement) {
