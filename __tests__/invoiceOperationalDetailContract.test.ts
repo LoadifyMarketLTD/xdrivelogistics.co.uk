@@ -7,39 +7,47 @@ describe('XDrive invoice operational detail contract', () => {
   const pdf = read('lib/server/invoicePdf.ts');
   const preview = read('app/api/driver/finance/invoices/[id]/preview/route.ts');
   const submit = read('app/api/driver/finance/invoices/[id]/submit/route.ts');
+  const delivery = read('lib/server/invoiceDelivery.ts');
   const webTemplate = read('app/components/InvoiceTemplate.tsx');
 
-  it('keeps the XDrive invoice structure while exposing identity and reference details', () => {
+  it('keeps issuer-owned identity and human commercial references without platform identifiers', () => {
     expect(pdf).toContain('issuerXdId?: string | null');
     expect(pdf).toContain('customerCompanyNumber?: string | null');
     expect(pdf).toContain('customerXdId?: string | null');
     expect(pdf).toContain('customerReference?: string | null');
     expect(pdf).toContain('loadId?: string | null');
-    expect(pdf).toContain('XDrive ID');
-    expect(pdf).toContain('Customer Ref:');
-    expect(pdf).toContain('JOB / LOAD REF');
+    expect(pdf).toContain("drawLabelValue('Job / load ref'");
+    expect(pdf).toContain('Customer Ref.');
+    expect(pdf).not.toContain("page.drawText('XDrive ID");
+    expect(pdf).not.toContain('app.xdrivelogistics.co.uk');
   });
 
-  it('passes immutable invoice snapshots into both preview and sent PDF generation', () => {
-    for (const route of [preview, submit]) {
-      expect(route).toContain('issuer_xd_id_snapshot');
-      expect(route).toContain('customer_company_number_snapshot');
-      expect(route).toContain('customer_xd_id_snapshot');
-      expect(route).toContain('customer_ref');
-      expect(route).toContain('load_id');
-      expect(route).toContain('ordered_at');
-      expect(route).toContain('left_at');
-      expect(route).toContain('delivery_notes');
-    }
+  it('passes immutable invoice snapshots into preview and canonical sent PDF generation', () => {
+    expect(preview).toContain('issuer_xd_id_snapshot');
+    expect(preview).toContain('customer_company_number_snapshot');
+    expect(preview).toContain('customer_xd_id_snapshot');
+    expect(preview).toContain('customer_ref');
+    expect(preview).toContain('load_id');
+    expect(preview).toContain('ordered_at');
+    expect(preview).toContain('left_at');
+    expect(preview).toContain('delivery_notes');
+
+    expect(submit).toContain('submitInvoice(request, context)');
+    expect(delivery).toContain('loadInvoicePdfContext');
+    expect(delivery).toContain('issuerCompanyNumber:');
+    expect(delivery).toContain('customerCompanyNumber:');
+    expect(delivery).toContain('customerReference:');
+    expect(delivery).toContain('loadId:');
   });
 
-  it('retains collection, delivery and payment detail without adopting the CX layout', () => {
-    expect(pdf).toContain("secondLabel: 'Pickup time'");
-    expect(pdf).toContain('Ordered ${formatDate(input.orderedAt)}');
-    expect(pdf).toContain('Left at:');
+  it('retains collection, delivery and payment detail in the professional issuer PDF', () => {
+    expect(pdf).toContain("descriptionLines.push(`${pdfText(input.pickupLocation)} -> ${pdfText(input.deliveryLocation)}`)");
+    expect(pdf).toContain('Service date:');
+    expect(pdf).toContain('Received by:');
+    expect(pdf).toContain('Delivery notes:');
+    expect(pdf).toContain('PAYMENT DETAILS');
+    expect(pdf).toContain('Payment terms:');
     expect(webTemplate).toContain('Proof of Delivery');
     expect(webTemplate).toContain('Payment terms:');
-    expect(webTemplate).toContain('Bank details are available from the invoice issuer.');
-    expect(webTemplate).toContain('Ordered:');
   });
 });
