@@ -28,8 +28,9 @@ type Tab = Exclude<AvailabilityTab, 'future'> | 'all';
 const LIVE_AVAILABILITY_DEFAULTS_KEY = 'xdrive:carrier:live-availability:defaults';
 const LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS = (() => {
   const options = marketplaceVehicleSizeOptions();
+  const lower = Math.max(0, options.findIndex((option) => option.value === 'motorbike'));
   const upper = options.findIndex((option) => option.value === 'truck_7_5t');
-  return upper >= 0 ? options.slice(0, upper + 1) : options;
+  return upper >= lower ? options.slice(lower, upper + 1) : options.slice(lower);
 })();
 const isUkCoordinate = (lat: number, lng: number) => lat >= 49.8 && lat <= 60.9 && lng >= -8.7 && lng <= 1.9;
 
@@ -93,8 +94,8 @@ export default function LiveAvailabilityPage() {
   const [nearbyGroupId, setNearbyGroupId] = useState('');
   const [nearbyPostcode, setNearbyPostcode] = useState('');
   const [nearbyPostcodeArea, setNearbyPostcodeArea] = useState('');
-  const [nearbyRadius, setNearbyRadius] = useState('100');
-  const [nearbyQuery, setNearbyQuery] = useState({ postcode: '', radius: '100', vehicle: 'all', body: 'all', groupId: '' });
+  const [nearbyRadius, setNearbyRadius] = useState('30');
+  const [nearbyQuery, setNearbyQuery] = useState({ postcode: '', radius: '30', vehicle: 'all', body: 'all', groupId: '' });
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [nearbyPositions, setNearbyPositions] = useState<NearbyAvailabilityPosition[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(true);
@@ -190,8 +191,8 @@ export default function LiveAvailabilityPage() {
     setNearbyGroupId('');
     setNearbyPostcode('');
     setNearbyPostcodeArea('');
-    setNearbyRadius('100');
-    setNearbyQuery({ postcode: '', radius: '100', vehicle: 'all', body: 'all', groupId: '' });
+    setNearbyRadius('30');
+    setNearbyQuery({ postcode: '', radius: '30', vehicle: 'all', body: 'all', groupId: '' });
     setFilterNotice('');
   };
 
@@ -217,10 +218,7 @@ export default function LiveAvailabilityPage() {
     if (typeof window === 'undefined') return;
     try {
       const raw = window.localStorage.getItem(LIVE_AVAILABILITY_DEFAULTS_KEY);
-      if (!raw) {
-        setFilterNotice('No saved availability defaults are available on this device.');
-        return;
-      }
+      if (!raw) return;
       const parsed = JSON.parse(raw) as Partial<{ tab: Tab; availability: string; region: 'uk-euro' | 'euro'; vehicleDropdownMode: boolean; vehicleMinIndex: number; vehicleMaxIndex: number; nearbyVehicle: string; nearbyBody: string; nearbyGroupId: string; nearbyPostcode: string; nearbyRadius: string }>;
       if (parsed.tab === 'all' || parsed.tab === 'live' || parsed.tab === 'nearby') setTab(parsed.tab);
       if (typeof parsed.availability === 'string') setAvailability(parsed.availability);
@@ -236,7 +234,7 @@ export default function LiveAvailabilityPage() {
       setNearbyBody(savedBody);
       setNearbyGroupId(savedGroupId);
       const savedPostcode = typeof parsed.nearbyPostcode === 'string' ? parsed.nearbyPostcode : '';
-      const savedRadius = typeof parsed.nearbyRadius === 'string' ? parsed.nearbyRadius : '100';
+      const savedRadius = typeof parsed.nearbyRadius === 'string' ? parsed.nearbyRadius : '30';
       setNearbyPostcode(savedPostcode);
       setNearbyRadius(savedRadius);
       setNearbyQuery({ postcode: savedPostcode, radius: savedRadius, vehicle: savedDropdownMode ? savedVehicle : 'all', body: savedBody, groupId: savedGroupId });
@@ -396,6 +394,10 @@ export default function LiveAvailabilityPage() {
               }}
               onClear={clearFilters}
             >
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
+                <input type="checkbox" checked={saveAsDefault} onChange={(event) => setSaveAsDefault(event.target.checked)} />
+                Save as Default
+              </label>
               <div role="radiogroup" aria-label="Availability region" style={{ display: 'flex', gap: 8, alignItems: 'center', fontSize: 12 }}>
                 <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><input type="radio" name="availability-region" checked={region === 'uk-euro'} onChange={() => setRegion('uk-euro')} /> UK &amp; Euro</label>
                 <label style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}><input type="radio" name="availability-region" checked={region === 'euro'} onChange={() => setRegion('euro')} /> Euro</label>
@@ -413,6 +415,7 @@ export default function LiveAvailabilityPage() {
               <OperationalFilterField label="Member / Driver">
                 <OperationalFilterInput value={search} onChange={setSearch} onClear={() => setSearch('')} placeholder="Member or driver" />
               </OperationalFilterField>
+              <button type="button" onClick={() => setVehicleDropdownMode((current) => !current)} style={{ border: 0, background: 'transparent', color: '#1d57d8', padding: 0, fontSize: 11, textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>{vehicleDropdownMode ? 'Display range version' : 'Display dropdown version'}</button>
               <OperationalFilterField label="Vehicle Size">
                 {vehicleDropdownMode ? (
                   <OperationalFilterSelect value={nearbyVehicle} onChange={setNearbyVehicle} options={[{ value: 'all', label: 'Any vehicle' }, ...nearbyVehicleTypes]} />
@@ -425,11 +428,14 @@ export default function LiveAvailabilityPage() {
                     <div className="xdrive-vehicle-size-range__labels"><span>{(LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS[vehicleMinIndex]?.label ?? 'Motorbike').replace('Motorbike', 'Motorcycle')} - {LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS[vehicleMaxIndex]?.label ?? '7.5T'}</span></div>
                   </div>
                 )}
-                <button type="button" onClick={() => setVehicleDropdownMode((current) => !current)} style={{ border: 0, background: 'transparent', color: '#1d57d8', padding: '3px 0 0', fontSize: 11, textDecoration: 'underline', cursor: 'pointer', textAlign: 'left' }}>{vehicleDropdownMode ? 'Display range version' : 'Display dropdown version'}</button>
               </OperationalFilterField>
               <OperationalFilterField label="Body Type">
                 <OperationalFilterSelect value={nearbyBody} onChange={setNearbyBody} options={[{ value: 'all', label: 'Any body' }, ...nearbyBodyTypes]} />
               </OperationalFilterField>
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
+                <input type="checkbox" checked={tab === 'live'} onChange={(event) => setTab(event.target.checked ? 'live' : 'all')} />
+                My Sub-contractors
+              </label>
               <div style={{ border: '1px solid #d8dee8', background: '#fff' }}>
                 <div style={{ padding: '5px 7px', borderBottom: '1px solid #d8dee8', background: '#f4f6f8', fontSize: 11, fontWeight: 700 }}>Groups</div>
                 <div style={{ display: 'grid', gap: 5, padding: 7 }}>
@@ -444,10 +450,6 @@ export default function LiveAvailabilityPage() {
                   <button type="button" onClick={() => router.push('/admin/marketplace/directory')} disabled={!privateGroups.canManage} style={{ border: 0, background: 'transparent', color: '#1d57d8', padding: 0, fontSize: 11, textDecoration: 'underline', cursor: privateGroups.canManage ? 'pointer' : 'default', textAlign: 'left' }}>Add / Edit Groups</button>
                 </div>
               </div>
-              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
-                <input type="checkbox" checked={tab === 'live'} onChange={(event) => setTab(event.target.checked ? 'live' : 'all')} />
-                My Sub-contractors
-              </label>
             </OperationalFilters>
           </div>
         }
