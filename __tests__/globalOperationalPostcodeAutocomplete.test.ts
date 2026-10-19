@@ -62,6 +62,15 @@ describe('global operational postcode autocomplete', () => {
     expect(route).toContain("'Netlify-CDN-Cache-Control': 'no-store'");
   });
 
+  it('prioritises the fast postcode-fragment provider before commercial provider timeouts', () => {
+    const route = read('app/api/location/postcode-addresses/route.ts');
+    const fastBranch = route.indexOf('if (postcodeLikeQuery)');
+    const idealBranch = route.indexOf('if (idealKey && !exactPostcode)');
+    expect(fastBranch).toBeGreaterThanOrEqual(0);
+    expect(idealBranch).toBeGreaterThan(fastBranch);
+    expect(route).toContain("provider: 'photon-openstreetmap'");
+  });
+
   it('clears stale postcode-only results before every new location lookup', () => {
     const resolver = read('app/components/workspace/OperationalPostcodeAreaResolver.tsx');
     expect(resolver).toContain('dropdown.replaceChildren()');

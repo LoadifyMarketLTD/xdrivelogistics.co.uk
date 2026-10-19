@@ -355,6 +355,25 @@ export async function GET(request: NextRequest) {
   const idealKey = process.env.IDEAL_POSTCODES_API_KEY?.trim();
   const getAddressKey = process.env.GETADDRESS_API_KEY?.trim();
   const mapboxToken = process.env.MAPBOX_ACCESS_TOKEN?.trim();
+  const compactAutocompleteQuery = postcodeFragment(autocompleteQuery);
+  const postcodeLikeQuery = /^[A-Z]{1,2}\d[A-Z\d]?\d?[A-Z]{0,2}$/.test(compactAutocompleteQuery);
+
+  // Postcode fragments are the dominant operational path (for example BB19Q).
+  // Photon already returns the CX-style street/locality/postcode rows for these
+  // queries, while a misconfigured commercial provider can otherwise consume
+  // its full timeout before we reach the useful result. Resolve postcode-like
+  // input first so interactive filters remain responsive during React rerenders.
+  if (postcodeLikeQuery) {
+    const suggestions = await lookupPhotonAutocomplete(autocompleteQuery);
+    if (suggestions.length) {
+      return NextResponse.json({
+        suggestions,
+        configured: true,
+        provider: 'photon-openstreetmap',
+        ...(exactPostcode ? { postcodeFound: true } : {}),
+      }, { headers: NO_STORE_HEADERS });
+    }
+  }
 
   if (idealKey && !exactPostcode) {
     const suggestions = await lookupIdealAutocomplete(autocompleteQuery, idealKey);
@@ -389,7 +408,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  if (!exactPostcode) {
+  if (!exactPostcode && !postcodeLikeQuery) {
     const suggestions = await lookupPhotonAutocomplete(autocompleteQuery);
     if (suggestions.length) {
       return NextResponse.json({
@@ -420,18 +439,6 @@ export async function GET(request: NextRequest) {
         configured: true,
         provider: 'getaddress',
         postcodeFound: !result.notFound,
-      }, { headers: NO_STORE_HEADERS });
-    }
-  }
-
-  if (exactPostcode) {
-    const suggestions = await lookupPhotonAutocomplete(postcode);
-    if (suggestions.length) {
-      return NextResponse.json({
-        suggestions,
-        configured: true,
-        provider: 'photon-openstreetmap',
-        postcodeFound: true,
       }, { headers: NO_STORE_HEADERS });
     }
   }
