@@ -244,7 +244,7 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
     <ProtectedRoute allowedRoles={['driver']}>
       <DriverWorkspaceShell hideHeader>
         {mode === 'fleet' ? <DriverFleetIntegratedNav /> : null}
-        <div className="driver-live-availability-canonical">
+        <div className={`driver-live-availability-canonical driver-live-availability-canonical--${mode}`}>
           <aside className="driver-more-rail driver-live-filter-rail">
             <div className="driver-live-mode">
               {mode === 'fleet' ? <button type="button" className="driver-more-button--success" onClick={() => router.push('/driver/availability')}>Add Future Position</button> : null}
@@ -332,7 +332,7 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
             {nearbyError && <div className="driver-more-alert driver-more-alert--danger">{nearbyError}</div>}
 
             <div className="driver-live-topbar">
-              <div className="driver-more-segment" role="group" aria-label="Availability audience">
+              <div className="driver-more-segment" role="group" aria-label={mode === 'fleet' ? 'My Fleet audience' : 'Availability audience'}>
                 <button type="button" data-active={audience === 'all'} aria-pressed={audience === 'all'} onClick={() => setAudience('all')}>All</button>
                 <button type="button" data-active={audience === 'drivers-subcontractors'} aria-pressed={audience === 'drivers-subcontractors'} onClick={() => setAudience('drivers-subcontractors')}>Drivers & Sub-contractors</button>
                 <button type="button" data-active={audience === 'other-drivers'} aria-pressed={audience === 'other-drivers'} onClick={() => setAudience('other-drivers')}>Other Drivers</button>

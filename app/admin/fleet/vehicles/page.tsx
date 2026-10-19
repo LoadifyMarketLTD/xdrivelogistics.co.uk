@@ -12,7 +12,6 @@ import {
   DataTable,
   EmptyState,
   PageFrame,
-  PageHeader,
   Panel,
   StatusBadge,
 } from '../../../components/workspace/WorkspaceUI';
@@ -142,14 +141,10 @@ export default function FleetVehiclesPage() {
 
   return (
     <PageFrame>
-      <PageHeader
-        eyebrow="Fleet capacity"
-        title="My Fleet"
-      />
       {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
       {exchangeError && <AlertBanner tone="warning">{exchangeError}</AlertBanner>}
 
-      <div className="workspace-board-layout">
+      <div className="workspace-board-layout xdrive-my-fleet-canonical">
         <aside className="workspace-filter-rail" aria-label="My Fleet search panel">
           <div className="workspace-filter-rail__header">Search Panel</div>
           <div className="workspace-filter-rail__body">

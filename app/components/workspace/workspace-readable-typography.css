@@ -69,13 +69,13 @@
  * (map loading/attribution and privacy helper copy). Keep the same Diary-readable
  * 14px floor across the whole module, including those non-semantic wrappers. */
 .xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
-  :is(.xdrive-live-availability-page, .driver-live-availability-canonical) * {
+  :is(.xdrive-live-availability-page, .driver-live-availability-canonical, .xdrive-my-fleet-canonical) * {
   font-size: 14px !important;
   line-height: 18px !important;
 }
 
 .xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
-  .xdrive-live-availability-page :is(.workspace-panel__title, .xdrive-panel__title, td strong),
+  :is(.xdrive-live-availability-page, .xdrive-my-fleet-canonical) :is(.workspace-panel__title, .xdrive-panel__title, td strong),
 .xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
   .driver-live-availability-canonical :is(.driver-more-rail__title, td b) {
   font-size: 16px !important;
@@ -338,7 +338,7 @@
 
 /* Live Availability / Nearby: the map is the primary workspace object. */
 .xdrive-workspace-visual.xdrive-workspace-measured.xdrive-workspace-measured.xdrive-operational-top-workspace
-  :is(.xdrive-live-availability-page, .driver-live-availability-canonical, .driver-nearby-canonical)
+  :is(.xdrive-live-availability-page, .driver-live-availability-canonical, .driver-nearby-canonical, .xdrive-my-fleet-canonical)
   .leaflet-container {
   min-height: 430px !important;
   height: clamp(430px, 48vh, 560px) !important;

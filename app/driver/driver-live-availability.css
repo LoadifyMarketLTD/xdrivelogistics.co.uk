@@ -8,7 +8,7 @@
   align-items:start;
 }
 @media(min-width:981px){
-  .xdrive-driver-workspace .driver-live-availability-canonical{
+  .xdrive-driver-workspace .driver-live-availability-canonical--availability{
     width:calc(100% + (2 * var(--ws-page-x,16px)));
     margin-left:calc(-1 * var(--ws-page-x,16px));
     margin-right:calc(-1 * var(--ws-page-x,16px));

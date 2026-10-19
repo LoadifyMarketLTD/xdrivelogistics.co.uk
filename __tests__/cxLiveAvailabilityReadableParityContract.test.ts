@@ -25,7 +25,7 @@ describe('CX Live Availability readable parity', () => {
     expect(admin).toContain('xdrive-live-availability-page');
     expect(driver).toContain('driver-live-availability-canonical');
     expect(driver).toContain('<DriverWorkspaceShell hideHeader>');
-    expect(typography).toContain(':is(.xdrive-live-availability-page, .driver-live-availability-canonical) *');
+    expect(typography).toContain(':is(.xdrive-live-availability-page, .driver-live-availability-canonical, .xdrive-my-fleet-canonical) *');
     expect(typography).toContain('font-size: 14px !important;');
   });
 
