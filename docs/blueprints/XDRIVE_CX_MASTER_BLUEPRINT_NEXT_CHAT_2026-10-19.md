@@ -1,53 +1,78 @@
-# XDRIVE — CX MASTER BLUEPRINT / NEXT CHAT HANDOFF
-**Updated:** 2026-10-19  
-**Canonical production base:** `main@b783297`  
-**Status:** ACTIVE / PARTIALLY IMPLEMENTED / CONTINUE FROM HERE  
-**Scope:** 7 operational workspaces. Super Admin excluded.  
-**Reference:** Courier Exchange live is the final external UI/flow reference; XDrive rules remain authoritative for identity, permissions, compliance, Stripe, POD/invoice lifecycle and branding.
+﻿# XDRIVE â€” CX MASTER BLUEPRINT / NEXT CHAT HANDOFF
+**Updated:** 2026-10-19
+**Canonical production base:** `main@c9da8e6`
+**Status:** ACTIVE / PARTIALLY IMPLEMENTED / CONTINUE FROM HERE
+**Scope:** 7 operational workspaces. Super Admin excluded.
+**Reference:** Courier Exchange live is the final external UI/flow reference; XDrive remains authoritative for identity, permissions, compliance, Stripe, POD/invoice lifecycle, email, document ownership and branding.
 
 ---
 
-## 0. WHY THIS DOCUMENT EXISTS
+# 0. PURPOSE OF THIS DOCUMENT
 
-This document replaces/supersedes the partially implemented blueprint created on 2026-10-18:
+This document updates and supersedes the previous partial handoff:
 
-`XDRIVE_CX_NAVBAR_GLOBAL_TYPOGRAPHY_MASTER_BLUEPRINT_2026-10-18.md`
+`docs/blueprints/XDRIVE_CX_MASTER_BLUEPRINT_NEXT_CHAT_2026-10-19.md`
 
-The previous blueprint was implemented only in part. This handoff records exactly:
+The prior version was based on `main@b783297`. Production has since advanced to `main@c9da8e6`.
 
-1. what has been implemented and verified;
-2. what is only partially aligned;
-3. what remains to be completed;
-4. the exact order for the next chat;
-5. the non-negotiable production gates;
-6. the anti-revert rules that must protect completed work.
+This handoff records, from the real current repository state:
 
-Do not restart the project from zero. Continue from the verified production base.
+1. what is fully implemented and protected;
+2. what has advanced since the previous handoff;
+3. what is still only partially implemented;
+4. what still requires current Courier Exchange live verification;
+5. the exact execution order for the next chat;
+6. the mandatory PowerShell/build/deploy gate;
+7. anti-revert rules for concurrent agents;
+8. protected production behavior outside the navbar/CX visual project.
+
+Do **not** restart from zero. Continue from current `origin/main`.
 
 ---
 
 # 1. NON-NEGOTIABLE GLOBAL RULES
 
-## 1.1 Reference
-Courier Exchange live is the final reference for:
-- page responsibility;
-- information order;
-- tab/subtab structure;
+## 1.1 Final reference
+
+Courier Exchange live is the final external reference for:
+
+- responsibility of each page;
+- navbar/tab/subtab hierarchy;
 - filter discipline;
+- information order;
+- map/list relationship;
+- action placement;
 - operational density;
-- interaction patterns;
-- list/map relationships;
-- visual hierarchy.
+- table/card scanning;
+- empty/loading/error states;
+- page boundaries.
 
 Do **not** copy:
-- Courier Exchange / TEG branding;
-- SmartPay;
-- proprietary product names;
-- private or irrelevant fields;
-- typography below the XDrive readability contract.
 
-## 1.2 Workspaces
+- Courier Exchange / TEG branding;
+- SmartPay or other proprietary product names;
+- private or irrelevant CX fields;
+- sub-14px operational typography;
+- CX-specific commercial advertising rails.
+
+XDrive-specific rules always win for:
+
+- permissions;
+- legal/compliance gates;
+- Stripe;
+- POD;
+- invoices;
+- documents;
+- email;
+- issuer branding;
+- customer/broker/carrier/driver lifecycle.
+
+---
+
+## 1.2 Workspaces in scope
+
 Verify and propagate across:
+
 1. Customer
 2. Broker
 3. Carrier / Admin Company
@@ -56,57 +81,90 @@ Verify and propagate across:
 6. Owner Driver
 7. Company / Employed Driver
 
-Super Admin is excluded from this blueprint.
+**Super Admin is excluded.**
+
+Do not add pages/functions to a role merely to make its navbar visually match another role.
+
+---
 
 ## 1.3 Typography contract
-Hard global operational contract:
+
+Global operational contract:
+
 - Page title: **20px / 26px / 700**
 - Section title: **16px / 20px / 700**
-- Panel / important title: **16px / 20px / 700**
-- Body / route / value: **14px / 18px**
+- Panel / important operational title: **16px / 20px / 700**
+- Body / route / operational values: **14px / 18px**
 - Labels: **14px / 18px / 600**
 - Metadata / refs / badges: **14px / 18px minimum**
 - Buttons / links / tabs / filters: **14px / 18px / 600**
 - Active / selected: **700**
 - Top navbar only: **13px / 600**
-- Important record names/values: **16px / 20px / 700**
+- Important names / record values: **16px / 20px / 700**
 
-No operational 10px/11px/12px text.
+No 10px/11px/12px operational UI.
+
+Never solve layout problems by shrinking typography below this contract.
+
+---
 
 ## 1.4 Validation policy
-GitHub Actions are forbidden and disabled.
 
-All validation is local through PowerShell.
+**GitHub Actions are forbidden and disabled.**
 
-Before any push to `main`:
-- protected invariant PowerShell gate;
-- `git diff --check`;
-- targeted tests;
-- TypeScript;
-- lint where relevant;
-- authenticated browser/E2E where relevant;
-- production `npm run build`;
-- visual desktop + reduced viewport check.
+Do not recreate `.github/workflows`.
 
-Do not declare PASS before the production build completes.
+Validation is local through PowerShell.
 
-## 1.5 Anti-revert
-Protected files/rules:
-- `AGENTS.md`
-- `scripts/verify-protected-workspace-invariants.ps1`
-- no `.github/workflows`;
-- Live Availability wheel zoom must remain enabled;
-- Directory Saved Network must remain functional;
-- operational typography minimums must remain intact;
-- shared component work must not be replaced by old role-local copies.
+Before pushing any implementation batch to `main`:
+
+1. fetch latest `origin/main`;
+2. inspect overlapping concurrent-agent commits;
+3. run protected invariant PowerShell gate;
+4. run `git diff --check`;
+5. run targeted tests;
+6. run TypeScript;
+7. run lint for touched files;
+8. run authenticated browser/E2E where relevant;
+9. verify desktop;
+10. verify reduced viewport;
+11. run full production `npm run build`;
+12. commit only the verified batch;
+13. fetch `origin/main` again before push;
+14. reconcile overlap if another agent changed the same files;
+15. push only after the branch is still clean;
+16. verify `origin/main` contains the commit;
+17. verify Netlify Production deploy.
+
+Do not declare PASS before the production build and deploy are demonstrated.
+
+---
+
+## 1.5 Anti-revert policy
+
+Protected production rules:
+
+- `AGENTS.md` must remain;
+- `scripts/verify-protected-workspace-invariants.ps1` must remain;
+- `.github/workflows` must remain absent;
+- Live Availability wheel zoom stays enabled;
+- map pan, +/- zoom, marker popup, `setView`, `fitBounds` stay enabled;
+- Directory Saved Network remains functional;
+- Directory Companies / Drivers separation remains;
+- operational typography minimums remain;
+- shared components must not be replaced by old role-local copies;
+- global postcode resolver/autocomplete must not be bypassed with duplicate local behavior unless explicitly opted out to avoid duplicate UI;
+- My Fleet must not regain vehicle-document/compliance master-data blocks that belong in Drivers & Vehicles / resource administration;
+- external notifications must not expose raw UUIDs;
+- issuer invoices must not be rebranded as XDrive invoices.
 
 Always inspect `origin/main` before editing and before pushing.
 
 ---
 
-# 2. CANONICAL NAVBAR EXECUTION ORDER
+# 2. CANONICAL EXECUTION ORDER
 
-The canonical audit/implementation sequence remains:
+The canonical page order remains:
 
 1. Dashboard
 2. Directory
@@ -119,7 +177,8 @@ The canonical audit/implementation sequence remains:
 9. Freight Vision
 10. Drivers & Vehicles
 
-XDrive-specific surfaces remain permitted only when they do not duplicate canonical functions:
+XDrive-specific surfaces remain allowed only when they do not duplicate canonical functions:
+
 - Action Centre
 - Jobs / My Jobs
 - Settings
@@ -127,225 +186,304 @@ XDrive-specific surfaces remain permitted only when they do not duplicate canoni
 
 ---
 
-# 3. CURRENT PRODUCTION STATE — IMPLEMENTED / VERIFIED
+# 3. COMPLETED / VERIFIED FOUNDATIONS
 
-## 3.1 Dashboard — PASS
+## 3.1 Dashboard â€” PASS
+
 **Status:** VERIFIED / IN MAIN / PRODUCTION
 
 Implemented:
-- driver dashboard structure aligned with verified CX dashboard hierarchy;
+
+- driver dashboard aligned with verified CX dashboard hierarchy;
 - duplicate Company Driver Dashboard header removed;
-- Refresh moved into Reports & Statistics;
+- Refresh moved inside Reports & Statistics;
 - role-specific dashboard content preserved;
-- shared visual hierarchy retained.
+- shared visual hierarchy retained;
+- seven-workspace dashboard behavior already audited in prior phase.
 
 Key commit:
-- `f1d977c – Align driver dashboards with verified CX dashboard layout`
 
-Verification performed:
-- authenticated Owner Driver + Company Driver;
-- seven-role dashboard coverage in prior audit;
-- targeted tests;
-- TypeScript;
-- clean-main visual verification.
+- `f1d977c â€” Align driver dashboards with verified CX dashboard layout`
 
-### Do not reopen Dashboard unless:
+Do not reopen Dashboard unless:
+
 - a regression is found;
 - a new shared global change affects it.
 
 ---
 
-## 3.2 Directory — PASS WITH PROTECTED FUNCTIONALITY
+## 3.2 Directory â€” PASS WITH PROTECTED FUNCTIONALITY
+
 **Status:** VERIFIED / IN MAIN / PRODUCTION
 
 Implemented:
-- shared CX-aligned Directory structure;
-- explicit Companies and Drivers sections;
-- CX-style search/filter structure;
+
+- shared CX-aligned Directory;
+- Companies and Drivers sections separated;
+- CX-style search/filter discipline;
 - Find My Nearest;
 - role-aware routes;
 - Owner Driver Saved Network;
-- no fabricated combined result claim;
-- shared component across applicable workspaces;
+- Save Network / Remove Saved;
+- Saved Network error state;
+- no false claim that companies/drivers are mixed â€œas in CXâ€;
+- no legacy separate Driver Directory branch;
 - human/business identity presentation;
-- global postcode area autodetection now also applies to postcode/outcode inputs.
+- postcode/outcode recognition inherited from global resolver.
 
 Key commits:
-- `9762375 – Align Directory with CX across operational workspaces`
-- `cd8add6 – Restore saved network action and unblock production build`
-- `b783297 – Autodetect postcode areas across operational workspaces`
 
-Protected functionality:
-- Save Network / Remove Saved;
+- `9762375 â€” Align Directory with CX across operational workspaces`
+- `cd8add6 â€” Restore saved network action and unblock production build`
+- `b783297 â€” Autodetect postcode areas across operational workspaces`
+- `c9da8e6 â€” Add global operational postcode autocomplete`
+
+Protected:
+
 - `toggleSavedCompany`;
-- Saved Network error state;
+- Save Network / Remove Saved;
+- Saved Network error reporting;
 - Companies / Drivers separation;
 - role access boundaries.
 
-Important history:
-The first Directory production batch introduced unused-code lint failures. Those were repaired. Do not reintroduce those orphan declarations.
+Historical warning:
+The first Directory batch introduced unused declarations that broke Netlify lint/build. Those were repaired. Never reintroduce orphan imports/state.
 
 ---
 
-## 3.3 Live Availability — PASS FOR CURRENT DEFINED SCOPE
+## 3.3 Live Availability â€” PASS FOR CURRENT DEFINED SCOPE
+
 **Status:** VERIFIED / IN MAIN / PRODUCTION
 
 Implemented:
-- map remains visible even with zero results;
+
+- map visible even when result count is zero;
 - pan / drag;
-- zoom +/-;
+- +/- zoom;
 - mouse-wheel zoom;
 - marker popup;
 - selected-driver focus;
-- fitBounds;
+- `fitBounds`;
 - audience controls;
 - Live / Future structure;
 - nearest logic;
 - readable global typography;
 - map made visually dominant;
-- excessive helper prose removed;
-- CX-style compact filter discipline;
+- compact CX-style filtering;
+- unnecessary explanatory prose removed;
 - canonical marketplace vehicle-size options;
-- postcode/outcode area autodetection;
-- same operational logic propagated to owner-driver/company/fleet views where applicable.
+- postcode/outcode area resolution;
+- global postcode autocomplete integration.
 
 Key commits:
-- `21e0061 – Enforce readable Live Availability typography`
-- `29ff678 – Enable full Live Availability map interaction`
-- `8dd6e82 – Refine operational workspace visual hierarchy globally`
-- `abe50c2 – Refine Live Availability filters against CX`
-- `b783297 – Autodetect postcode areas across operational workspaces`
 
-Protected:
-- `scrollWheelZoom` enabled;
-- `setView`;
-- `fitBounds`;
-- marker Popup;
-- 14px minimum readable UI;
-- global postcode resolver.
+- `21e0061 â€” Enforce readable Live Availability typography`
+- `29ff678 â€” Enable full Live Availability map interaction`
+- `8dd6e82 â€” Refine operational workspace visual hierarchy globally`
+- `abe50c2 â€” Refine Live Availability filters against CX`
+- `b783297 â€” Autodetect postcode areas across operational workspaces`
+- `c9da8e6 â€” Add global operational postcode autocomplete`
 
-### Current UX rules
-Remove unnecessary descriptive copy between controls. Prefer:
+Current UX rule:
+
+Prefer:
 - label;
 - control;
-- live resolved value/state only.
+- live resolved state.
 
-Do not re-add explanatory text such as:
-- “OFF by default. Maximum 8 hours...”
-- “Only you. Your position...”
-unless legally or operationally essential.
+Do not re-add filler text such as:
+- â€œOFF by default. Maximum 8 hours...â€
+- â€œOnly you. Your position...â€
+unless legally, operationally or safety critical.
 
 ---
 
-## 3.4 Global visual hierarchy — PASS AS FOUNDATION
+## 3.4 Global operational visual hierarchy â€” PASS AS FOUNDATION
+
 **Status:** IMPLEMENTED / PRODUCTION
 
 Implemented globally:
-- stronger title hierarchy;
+
+- stronger page-title hierarchy;
 - shared card/panel density;
-- search rail widened;
-- consistent 32px controls;
-- table density normalized;
-- map height increased;
-- cleaner top navigation geometry;
-- common operational background/borders;
-- mobile/reduced viewport collapse logic.
+- wider filter/search rail;
+- consistent control heights;
+- normalized table density;
+- stronger section contrast;
+- improved navbar geometry;
+- larger map presence;
+- reduced-viewport collapse logic;
+- consistent readable typography.
 
 Key commit:
-- `8dd6e82 – Refine operational workspace visual hierarchy globally`
 
-This is a foundation, not proof that every page below is functionally complete.
+- `8dd6e82 â€” Refine operational workspace visual hierarchy globally`
+
+This is a **foundation**, not proof that every remaining page is functionally final.
 
 ---
 
-## 3.5 Global postcode/outcode area autodetection — PASS
+## 3.5 Global postcode/outcode area resolution â€” PASS
+
 **Status:** IMPLEMENTED / PRODUCTION
 
-Production commit:
-- `b783297 – Autodetect postcode areas across operational workspaces`
+Implemented in:
 
-Rule:
-Any operational text/search input identified as postcode/outcode receives automatic area resolution through the shared shell resolver.
+- `b783297 â€” Autodetect postcode areas across operational workspaces`
+- `669aa8b â€” Align My Fleet and dedupe operational postcode presentation`
+- `c9da8e6 â€” Add global operational postcode autocomplete`
 
 Shared endpoint:
+
 - `/api/location/postcode-area`
 
 Shared client:
+
 - `OperationalPostcodeAreaResolver.tsx`
 
-Protected invariant:
-New operational postcode/outcode fields should inherit the resolver automatically.
+Related shared field:
 
-Where a page has a dedicated postcode resolver already, it may opt out of the global resolver to avoid duplicate labels.
+- `PostcodeAddressField.tsx`
+
+Global rule:
+
+Any operational postcode/outcode input should:
+
+- normalize the value;
+- resolve the UK area automatically;
+- show the resolved area compactly;
+- support autocomplete/address lookup where applicable;
+- avoid duplicate manual town entry when postcode already provides the area;
+- avoid duplicate `Town, postcode, postcode` presentation;
+- inherit shared behavior automatically.
+
+A page with a dedicated resolver may explicitly opt out of the global resolver only to prevent duplicate UI.
+
+Protected new behavior:
+
+- global resolver is shell-level;
+- new operational postcode inputs should inherit behavior without custom page code;
+- location presentation uses shared de-duplication logic.
 
 ---
 
-# 4. PARTIALLY IMPLEMENTED — MUST NOT BE CALLED FINAL PASS
+# 4. ADVANCED / PARTIAL PAGES
 
-## 4.1 My Fleet — PARTIAL
-**Current state:** existing implementation predates the current strict blueprint gate.
+## 4.1 My Fleet â€” ADVANCED IMPLEMENTATION / FINAL RE-CERTIFICATION REQUIRED
 
-Known implementation:
-- fleet vehicles page exists;
-- fleet resources exist;
-- active fleet data/actions exist;
-- shared shell/navigation exists;
-- typography/global visual hierarchy now applies.
+**Status:** SUBSTANTIALLY IMPLEMENTED AFTER PREVIOUS BLUEPRINT
+**Do not mark final PASS yet without the final current-CX/role/viewports gate.**
 
-Not yet completed under the 2026-10-18/19 canonical gate:
-- fresh CX live screenshot + measurement;
-- exact active operational fleet responsibilities;
-- duplicate audit against Drivers & Vehicles;
-- clear separation of operational use vs master register;
-- all applicable role views;
-- desktop/reduced viewport visual parity;
-- authenticated E2E after current global changes.
+Major new implementation since previous handoff:
 
-### Next task
-Audit:
-- `/admin/fleet/vehicles`
-- corresponding CX My Fleet live screen
-- role applicability: Carrier/Admin, Fleet Manager, Dispatcher where permitted.
+- `669aa8b â€” Align My Fleet and dedupe operational postcode presentation`
 
-Required decision matrix:
+What changed:
+
+- removed MOT / insurance / document signal from My Fleet;
+- removed master-document logic from operational fleet page;
+- My Fleet now focuses on **fleet availability**, not master-data compliance;
+- columns now prioritize:
+  - Driver
+  - Phone
+  - Vehicle Size
+  - Vehicle
+  - Current Position
+  - Location Received
+  - Availability
+- map remains rendered even when zero results;
+- Other Drivers result count integrated into panel title;
+- excessive helper descriptions removed;
+- availability labels normalized;
+- shared location presentation de-duplicates postcode/location text;
+- shared vehicle fallback behavior hardened.
+
+This is directionally correct and matches the core blueprint boundary:
+
+**My Fleet = current operational fleet use**
+**Drivers & Vehicles = master register/admin/compliance**
+
+### What still prevents final PASS
+
+Need one final current-CX certification:
+
+1. open authenticated CX My Fleet now;
+2. capture current screenshot;
+3. measure layout;
+4. inventory all current tabs/subtabs;
+5. inventory search/filter controls;
+6. inventory row/column fields;
+7. verify map/list relationship;
+8. compare `/admin/fleet/vehicles` 1:1;
+9. verify Carrier/Admin;
+10. verify Fleet Manager;
+11. verify Dispatcher only where role permits;
+12. confirm no master-data duplication;
+13. desktop visual check;
+14. reduced viewport check;
+15. authenticated E2E;
+16. build;
+17. production deploy.
+
+### Required duplicate matrix
+
 `Function | My Fleet | Drivers & Vehicles | Duplicate | Decision`
 
-Do not duplicate master forms inside My Fleet.
+Expected boundary:
+
+- live/current position â†’ My Fleet;
+- current availability â†’ My Fleet;
+- operational assignment signal â†’ My Fleet;
+- registration identity â†’ may be displayed, but not administered here;
+- MOT/insurance/documents â†’ Drivers & Vehicles / compliance;
+- add/edit vehicle â†’ Drivers & Vehicles;
+- driver master profile â†’ Drivers & Vehicles.
+
+### Next-chat first task
+
+**Do not rebuild My Fleet from zero.**
+Perform final re-certification of the `669aa8b` implementation.
+If PASS, record it and move immediately to Return Journeys.
 
 ---
 
-## 4.2 Return Journeys — PARTIAL
-**Current state:** functionality exists; final CX blueprint audit not completed.
+## 4.2 Return Journeys â€” PARTIAL / NEXT FULL PAGE AFTER MY FLEET CERTIFICATION
 
 Existing:
+
 - page exists;
-- create/edit/delete logic exists;
-- route fields;
+- create/edit/delete logic;
+- FROM / TO;
 - availability windows;
 - vehicle;
-- matching/operational relationship.
+- matching relationship;
+- postcode/outcode area support inherited globally.
 
-Must still verify:
-- exact CX live geometry;
-- origin/destination UX;
+Still required:
+
+- current CX live screenshot and measurement;
+- exact origin/destination UX;
 - radius behavior;
-- active/expired states;
-- match relationship to Loads;
-- integration with Diary;
-- integration with Live Availability;
-- removal of any duplicate return-availability surfaces;
-- postcode/outcode area autodetection on FROM/TO;
+- active/expired/future states;
+- relationship to Loads;
+- relationship to Diary;
+- relationship to Live Availability;
+- remove duplicate return-availability surfaces;
 - role permissions;
-- reduced viewport.
+- reduced viewport;
+- E2E;
+- production build/deploy.
 
-Do not create a second independent availability system.
+Critical rule:
+
+Return Journeys must not become a second independent availability engine.
 
 ---
 
-## 4.3 Loads — ADVANCED PARTIAL
-**Current state:** substantial prior work exists, but it has not been re-certified against the current final blueprint after all recent global changes.
+## 4.3 Loads â€” ADVANCED PARTIAL / RE-CERTIFICATION REQUIRED
 
-Existing work includes:
+Historical work already exists:
+
 - CX-like collapsed/expanded cards;
 - route hierarchy;
 - refresh positioning;
@@ -354,74 +492,93 @@ Existing work includes:
 - operational details;
 - quick search;
 - map synchronization;
-- shared vehicle imagery/presentation;
+- shared vehicle imagery;
 - shared marketplace component;
-- Quote Now integration.
+- Quote Now integration;
+- location/postcode de-duplication now shared.
 
 Historical commits include:
-- `cb50225 – Match CX Loads collapsed and expanded data layout`
-- `d68ede0 – Place Loads refresh inside results header`
-- `b04bbd7 – Refine CX Loads card height label order and footer`
-- `d3621f9 – Align Loads cards with CX status header and notes`
-- `741fcb9 – Synchronize Loads quick search with map and reset filters`
-- `dbcbae0 – Unify Loads Quotes Diary with Admin Marketplace identity`
-- `884e894 – Unify Quote Now across operational workspaces`
+
+- `cb50225 â€” Match CX Loads collapsed and expanded data layout`
+- `d68ede0 â€” Place Loads refresh inside results header`
+- `b04bbd7 â€” Refine CX Loads card height label order and footer`
+- `d3621f9 â€” Align Loads cards with CX status header and notes`
+- `741fcb9 â€” Synchronize Loads quick search with map and reset filters`
+- `dbcbae0 â€” Unify Loads Quotes Diary with Admin Marketplace identity`
+- `884e894 â€” Unify Quote Now across operational workspaces`
+- `669aa8b â€” Align My Fleet and dedupe operational postcode presentation`
 
 Still required:
-- re-open CX live Loads;
-- current 1:1 filter inventory;
+
+- re-open **current CX live Loads**;
+- current filter inventory;
 - current toolbar inventory;
 - current state/subtab inventory;
-- current card measurement;
-- permissions on all applicable roles;
-- customer/broker/carrier/owner-driver differences;
-- full postcode area behavior;
-- map/radar if present;
-- remove any old helper/filler copy;
-- full current build/E2E/visual PASS.
+- exact card measurement;
+- role-specific permissions;
+- Customer/Broker/Carrier/Owner Driver differences;
+- current postcode/autocomplete behavior;
+- map/radar relationship if present;
+- remove old helper/filler copy;
+- current authenticated E2E;
+- desktop/reduced viewport;
+- production build/deploy.
 
-Do not assume historical visual work equals final PASS.
+Do not assume historical parity is current parity.
 
 ---
 
-## 4.4 Quotes — ADVANCED PARTIAL
+## 4.4 Quotes â€” ADVANCED PARTIAL
+
 Existing:
-- shared quote workflow/card;
+
+- shared quote workflow;
 - unified Quote Now;
-- marketplace identity work;
-- multiple role surfaces.
+- marketplace identity;
+- multiple role surfaces;
+- shared location presentation.
 
 Still required:
-- current CX live state tabs;
-- Received / Submitted / Unsuccessful / Archived;
-- awarded/accepted XDrive lifecycle mapping;
+
+- current CX live quote states;
+- Received;
+- Submitted;
+- Unsuccessful;
+- Archived;
+- awarded/accepted mapping to XDrive lifecycle;
 - one shared quote record presentation;
 - one shared modal;
-- eliminate repeated company/status/amount blocks;
+- remove repeated company/status/amount blocks;
 - permission audit;
-- customer/broker/carrier/owner-driver role differences;
-- E2E quote submission and response;
-- current visual verification.
+- customer/broker/carrier/owner-driver differences;
+- quote submission E2E;
+- quote response E2E;
+- current visual verification;
+- build/deploy.
 
 ---
 
-## 4.5 Diary — PARTIAL / IMPORTANT REMAINING CLEANUP
-Typography and shared identity are improved, but Diary still needs the blueprint’s functional cleanup.
+## 4.5 Diary â€” PARTIAL / MAJOR CLEANUP STILL REQUIRED
 
-Mandatory remaining items:
-- remove duplicated Booking Ref / Customer Ref / PO fabricated repetitions;
+Typography and shared identity are improved.
+
+Mandatory remaining cleanup:
+
+- remove fabricated repeated Booking Ref / Customer Ref / PO values;
 - remove duplicate Pickup/Delivery blocks;
-- remove duplicated POD blocks;
-- remove carrier profile links from Diary;
-- move cargo/account/profile detail into Order/Job Details;
-- remove redundant Open Booking where Order/Job detail already serves purpose;
-- final action bar target:
+- remove duplicate POD blocks;
+- remove carrier-profile links from Diary;
+- move cargo/account/profile details to Order / Job Details;
+- remove redundant Open Booking where Order/Job already serves the detail function.
 
-`Leave Feedback | POD | Order | Notes | History | Documents | View invoice (£)`
+Final action bar target:
+
+`Leave Feedback | POD | Order | Notes | History | Documents | View invoice (Â£)`
 
 Search rail target:
+
 - Contacts
-- Payment Report (permission-based)
+- Payment Report (permission based)
 - All
 - Jobs Sub-contracted
 - Our Bookings
@@ -439,6 +596,7 @@ Search rail target:
 - View Archived Bookings
 
 Toolbar target:
+
 - List View / Split View
 - Expand / Collapse All
 - Refresh
@@ -446,117 +604,165 @@ Toolbar target:
 - items/page
 - pagination
 
-Diary remains an operational register, not Job Details.
+Rule:
+
+**Diary = operational register, not Job Details.**
 
 ---
 
-## 4.6 Freight Vision — PARTIAL
-Existing page and map/tracking capabilities predate final blueprint.
+## 4.6 Freight Vision â€” PARTIAL
 
-Must still verify:
-- CX live Freight Vision;
+Existing:
+
+- page;
+- map/tracking capabilities;
+- operational execution data.
+
+Still required:
+
+- current CX Freight Vision live audit;
 - execution-only responsibility;
 - active jobs;
 - list/map synchronization;
 - vehicle/driver positions by permission;
 - job overlays;
 - status filters;
-- no availability discovery duplication;
-- no duplicate Return Journey management;
-- no duplicate driver register;
-- authenticated role verification;
-- desktop/reduced viewport.
+- no availability-discovery duplication;
+- no Return Journey management duplication;
+- no driver-register duplication;
+- role verification;
+- desktop/reduced viewport;
+- E2E;
+- build/deploy.
 
 Boundary:
-- Live Availability = available capacity.
-- Freight Vision = active execution/tracking.
+
+**Live Availability = available capacity**
+**Freight Vision = active execution/tracking**
 
 ---
 
-## 4.7 Drivers & Vehicles — PARTIAL
+## 4.7 Drivers & Vehicles â€” PARTIAL
+
 Existing:
+
 - resources page;
 - driver/vehicle administration;
 - status/compliance/readiness data.
 
-Must still complete:
-- current CX live Drivers & Vehicles audit;
-- split/merge decisions for Drivers and Vehicles registers;
+Still required:
+
+- current CX Drivers & Vehicles audit;
+- split/merge decision for driver and vehicle registers;
 - remove duplicate master pages/routes;
-- ensure My Fleet does not duplicate master-data management;
+- ensure My Fleet does not regain master-data management;
 - assignment relationship;
 - compliance/readiness;
-- add/edit;
+- add/edit flows;
 - role permissions;
 - visual parity;
-- E2E.
+- E2E;
+- build/deploy.
 
 Boundary:
-- Drivers & Vehicles = master-data/register/admin.
-- My Fleet = current operational fleet use.
+
+**Drivers & Vehicles = master-data / register / admin**
+**My Fleet = operational fleet availability/use**
 
 ---
 
 # 5. GLOBAL UX CLEANUP STILL REQUIRED
 
-The following global rule was requested after visual review and must be checked across all remaining pages:
-
 ## 5.1 Remove empty intermediate action rows
-Do not render:
-`Page Header → empty bordered toolbar → real toolbar → content`
+
+User explicitly identified this pattern as wrong:
+
+`Page Header â†’ empty bordered action row â†’ real toolbar â†’ content`
 
 Target:
-`Page Header → real content toolbar → content`
 
-If a toolbar contains only right-side actions and no meaningful left content:
-- merge those actions into the next real toolbar/section header;
-- remove empty border/background/min-height/padding.
+`Page Header â†’ real content toolbar â†’ content`
 
-This must be applied globally where the shared architecture allows it.
+If a row contains only right-side actions and no meaningful left content:
+
+- move those actions into the next real toolbar/section header;
+- remove the empty bordered spacer;
+- remove unnecessary min-height/padding/background/border.
+
+This must be checked globally, not only Live Availability.
+
+---
 
 ## 5.2 Remove unnecessary helper prose
-Operational interfaces should not explain obvious controls.
 
-Remove filler copy that:
+Operational screens must not explain obvious controls.
+
+Remove text that:
+
 - repeats the selected state;
 - pushes controls downward;
-- describes ordinary behavior;
-- adds no safety/legal/compliance value.
+- explains ordinary UI behavior;
+- adds no legal/safety/operational value.
 
 Keep only:
+
 - validation;
 - error;
 - live resolved state;
 - legal/compliance warning;
 - essential permission reason.
 
+---
+
 ## 5.3 Controls over prose
-Filter rails should prioritize:
+
+Search/filter rail structure should be:
+
 - label;
 - control;
 - action.
 
-Not:
-- label;
-- paragraph;
-- paragraph;
-- control;
-- more explanation.
+Avoid:
 
-## 5.4 Postcode
-Every operational postcode/outcode input must:
-- normalize input;
-- auto-resolve its area;
-- display resolved area compactly;
-- never require duplicate manual town entry when postcode already provides it;
-- never make postcode recognition page-specific when shared behavior is possible.
+- label;
+- explanatory paragraph;
+- second paragraph;
+- control;
+- another explanatory paragraph.
 
 ---
 
-# 6. XDRIVE-SPECIFIC FUNCTIONAL RULES
+## 5.4 Postcode/autocomplete
+
+This is now a global protected capability.
+
+Every operational postcode/outcode input must:
+
+- normalize input;
+- resolve area;
+- display area compactly;
+- support autocomplete/address selection where relevant;
+- avoid duplicate town/postcode display;
+- use shared resolver, not page-specific duplicated fetch logic unless strictly necessary.
+
+---
+
+## 5.5 Vehicle taxonomy
+
+Where a field is **Vehicle Size**, it must use the canonical marketplace vehicle taxonomy, not values derived only from currently loaded records.
+
+Do not show â€œAny vehicleâ€ as if it were the only meaningful choice when the page should provide actual vehicle categories.
+
+Keep the shared marketplace vehicle-size options authoritative.
+
+---
+
+# 6. XDRIVE-SPECIFIC FUNCTIONAL BOUNDARIES
 
 ## Action Centre
-Intervention only:
+
+Intervention items only:
+
 - POD review;
 - quote decision;
 - compliance issue;
@@ -566,209 +772,324 @@ Intervention only:
 
 Do not duplicate Notifications.
 
+---
+
 ## Jobs / My Jobs
+
 Purpose:
+
 - execution after award/allocation.
 
 Do not duplicate:
+
 - marketplace;
 - Diary.
 
+---
+
 ## More
+
 Secondary tools only.
 
-Do not place canonical navbar functions again under More.
+Do not duplicate canonical navbar functions inside More.
 
 ---
 
-# 7. DUPLICATE AUDIT — REQUIRED FOR EVERY REMAINING PAGE
+# 7. DUPLICATE AUDIT REQUIRED ON EVERY REMAINING PAGE
 
-For every role/workspace:
+Use:
 
 `Function | Navbar | More | Dashboard | Page | Duplicate | Decision`
 
 Allowed decisions:
+
 - KEEP
 - MOVE
 - MERGE
 - REMOVE
 
 Known duplicate risks:
+
 - Availability under More vs Live Availability;
 - Return Journeys duplicate routes;
 - Drivers / Vehicles duplicate register pages;
-- Booking / Customer / PO refs;
+- Booking / Customer / PO repeated refs;
 - POD state/action/detail repetition;
 - Pickup/Delivery repetition;
 - profile links in Diary;
-- Open Booking vs Order/Job Details.
+- Open Booking vs Order/Job Details;
+- My Fleet compliance/master data vs Drivers & Vehicles.
 
 ---
 
-# 8. REQUIRED EXECUTION METHOD FOR NEXT CHAT
+# 8. PROTECTED PRODUCTION WORK OUTSIDE THE CX NAVBAR BLUEPRINT
 
-For each remaining navbar page, **do not skip steps**:
+Do not revert these while implementing UI work.
 
-1. Fetch latest `origin/main`.
-2. Verify no protected work was reverted.
-3. Open authenticated CX live.
-4. Capture screenshot.
-5. Measure geometry.
-6. Inventory tabs/subtabs.
-7. Inventory filters.
-8. Inventory actions.
-9. Inventory states.
-10. Open corresponding XDrive production/local page.
-11. Compare 1:1.
-12. Mark KEEP / MOVE / MERGE / REMOVE / ADD.
-13. Fix shared component first.
-14. Propagate to applicable roles.
-15. Run protected invariant PowerShell gate.
-16. Run `git diff --check`.
-17. Run targeted tests.
-18. Run TypeScript.
-19. Run lint for touched files.
-20. Run authenticated E2E.
-21. Verify desktop + reduced viewport visually.
-22. Run full production `npm run build`.
-23. Commit only the verified batch.
-24. Fetch `origin/main` again before push.
-25. Reconcile any concurrent agent changes.
-26. Push only if the batch is still clean.
-27. Verify `origin/main` contains the commit.
-28. Verify Netlify Production deploy.
-29. Move immediately to the next page.
+## External references / notifications
 
-No long silent gaps. Report meaningful checkpoints while continuing execution.
+- raw UUIDs removed from external operational notifications;
+- human references used instead.
 
----
+Commit:
+- `f0ab38a â€” Use human references in external notifications`
 
-# 9. NEXT CHAT — EXACT START POINT
+## Transactional email channels
 
-**Do not restart Dashboard, Directory or Live Availability.**
+Commits:
+- `685325d â€” Route transactional email through functional XDrive senders`
+- `5f566f5 â€” Align transactional email channels and public contacts`
 
-Start with:
+## Invoice/document ownership
 
-## PHASE A — MY FLEET
-1. Open CX live My Fleet.
-2. Capture/measure exact structure.
-3. Open XDrive `/admin/fleet/vehicles`.
-4. Compare:
-   - vehicle list;
-   - drivers;
-   - availability;
-   - current allocation;
-   - location/status;
-   - readiness;
-   - filters;
-   - actions.
-5. Build duplicate matrix against Drivers & Vehicles.
-6. Fix shared component.
-7. Propagate by role.
-8. Full gate.
-9. Push PASS immediately.
+Commits:
+- `f6571db â€” Use issuer branding and attach invoices from the canonical delivery path`
+- `12ee020 â€” Remove platform identifiers from issuer invoices and fix PDF metadata layout`
+- `74e27bd â€” Use neutral operational document footer`
+- `868c9f7 â€” Add remittance advice and issuer invoice copies`
 
-Then:
+## POD / booking document delivery
 
-## PHASE B — RETURN JOURNEYS
-Full CX audit + integration with Live Availability / Loads / Diary.
+Commits:
+- `c7619af â€” Attach booking and POD documents to operational emails`
+- `de20453 â€” Clean booking documents and date-only POD timestamps`
 
-## PHASE C — LOADS
-Re-certify current shared Loads implementation against **current CX live**, not old screenshots.
+Rules:
 
-## PHASE D — QUOTES
-Re-certify shared quote workflow and all states.
-
-## PHASE E — DIARY
-Perform the major duplicate/function cleanup listed in section 4.5.
-
-## PHASE F — FREIGHT VISION
-Re-certify tracking/execution responsibilities.
-
-## PHASE G — DRIVERS & VEHICLES
-Re-certify master register and remove overlap with My Fleet.
+- issuer invoice belongs visually/legal to issuer;
+- XDrive must not rebrand issuer invoices;
+- POD/booking documents must remain attached through the canonical path;
+- external emails must not leak database UUIDs.
 
 ---
 
-# 10. CURRENT PRODUCTION COMMIT ANCHORS
+# 9. EXACT EXECUTION METHOD FOR NEXT CHAT
 
-Relevant verified/important production history:
+For each remaining canonical page:
 
-- `f1d977c` — Align driver dashboards with verified CX dashboard layout
-- `9762375` — Align Directory with CX across operational workspaces
-- `cd8add6` — Restore saved network action and unblock production build
-- `4f37f28` — Disable GitHub Actions and require PowerShell validation
-- `29ff678` — Enable full Live Availability map interaction
-- `8dd6e82` — Refine operational workspace visual hierarchy globally
-- `abe50c2` — Refine Live Availability filters against CX
-- `b783297` — Autodetect postcode areas across operational workspaces
+1. fetch latest `origin/main`;
+2. verify protected invariants;
+3. inspect concurrent-agent commits touching the same files;
+4. open authenticated CX live;
+5. capture screenshot;
+6. measure geometry;
+7. inventory tabs/subtabs;
+8. inventory filters;
+9. inventory actions;
+10. inventory states;
+11. open XDrive production/local equivalent;
+12. compare 1:1;
+13. mark KEEP / MOVE / MERGE / REMOVE / ADD;
+14. fix shared component first;
+15. propagate by applicable role;
+16. run duplicate audit;
+17. run protected PowerShell gate;
+18. run `git diff --check`;
+19. run targeted tests;
+20. run TypeScript;
+21. run lint for touched files;
+22. run authenticated E2E;
+23. verify desktop;
+24. verify reduced viewport;
+25. run full production `npm run build`;
+26. commit only verified files;
+27. fetch `origin/main` again;
+28. reconcile overlapping concurrent changes;
+29. push only if still clean;
+30. verify `origin/main` SHA;
+31. verify Netlify Production deploy;
+32. continue immediately to the next canonical page.
 
-At creation of this handoff, canonical production base is:
-**`main@b783297`**
+Do not wait for the user to remind you to continue.
+
+Do not leave long silent gaps. Report only meaningful checkpoints while continuing execution.
 
 ---
 
-# 11. PRODUCTION/EMAIL/INVOICE WORK DONE OUTSIDE THE NAVBAR BLUEPRINT
+# 10. NEXT CHAT â€” EXACT START POINT
 
-Do not accidentally revert these while implementing UI work.
+## PHASE A â€” MY FLEET FINAL CERTIFICATION
 
-Recent production work includes:
-- human external references instead of UUIDs in notifications;
-- functional transactional email channels;
-- issuer/company branding on invoices;
-- canonical invoice attachment path;
-- removal of XDrive/platform identifiers where issuer invoice must belong to issuer;
-- invoice PDF metadata/layout improvements.
+Do **not** rebuild.
 
-Relevant commits:
-- `f0ab38a`
-- `685325d`
-- `f6571db`
-- `12ee020`
+Start from current implementation:
 
-These are not completion evidence for the CX navbar pages, but they are protected production behavior.
+- `669aa8b â€” Align My Fleet and dedupe operational postcode presentation`
+
+Exact steps:
+
+1. open CX live My Fleet;
+2. capture current screenshot;
+3. measure structure;
+4. inventory tabs/filters/actions/columns;
+5. open XDrive `/admin/fleet/vehicles`;
+6. compare current implementation;
+7. build My Fleet vs Drivers & Vehicles duplicate matrix;
+8. verify Carrier/Admin;
+9. verify Fleet Manager;
+10. verify Dispatcher only where permitted;
+11. verify map remains visible at zero results;
+12. verify current-position interaction;
+13. verify vehicle size taxonomy;
+14. verify postcode/location presentation;
+15. desktop;
+16. reduced viewport;
+17. E2E;
+18. PowerShell gate;
+19. build;
+20. deploy.
+
+If PASS:
+- mark My Fleet PASS;
+- do not keep changing it;
+- immediately continue to Return Journeys.
 
 ---
 
-# 12. PASS MATRIX
+## PHASE B â€” RETURN JOURNEYS
+
+Perform full current-CX audit and integration check with:
+
+- Live Availability;
+- Loads;
+- Diary.
+
+Main focus:
+- FROM/TO UX;
+- radius;
+- vehicle;
+- active/future/expired;
+- matching;
+- no duplicate availability engine;
+- postcode/autocomplete;
+- role permissions.
+
+---
+
+## PHASE C â€” LOADS
+
+Re-certify the current shared implementation against **current CX live**, not old screenshots.
+
+Focus:
+- filters;
+- card geometry;
+- expand/collapse;
+- map/radar relationship;
+- route hierarchy;
+- actions;
+- role-specific permissions;
+- postcode/autocomplete;
+- mobile/reduced viewport.
+
+---
+
+## PHASE D â€” QUOTES
+
+Re-certify:
+
+- state tabs;
+- shared modal;
+- shared record card;
+- awarded/accepted lifecycle;
+- role-specific permissions;
+- quote submit/respond E2E.
+
+---
+
+## PHASE E â€” DIARY
+
+Perform major duplicate/function cleanup from section 4.5.
+
+Do not stop at visual changes.
+
+---
+
+## PHASE F â€” FREIGHT VISION
+
+Re-certify tracking/execution boundary and remove overlap with availability/register pages.
+
+---
+
+## PHASE G â€” DRIVERS & VEHICLES
+
+Re-certify master register, compliance/readiness, add/edit, assignments, permissions and remove overlap with My Fleet.
+
+---
+
+# 11. CURRENT PRODUCTION COMMIT ANCHORS
+
+Current canonical base:
+
+**`main@c9da8e6`**
+
+Important production history:
+
+- `f1d977c` â€” Dashboard alignment
+- `9762375` â€” Directory alignment
+- `cd8add6` â€” Saved Network/build repair
+- `4f37f28` â€” GitHub Actions disabled / PowerShell validation
+- `29ff678` â€” full Live Availability map interaction
+- `8dd6e82` â€” global operational visual hierarchy
+- `abe50c2` â€” Live Availability CX filter refinement
+- `b783297` â€” global postcode area autodetection
+- `669aa8b` â€” My Fleet alignment + location presentation de-duplication
+- `c9da8e6` â€” global operational postcode autocomplete
+
+---
+
+# 12. CURRENT PASS MATRIX
 
 | Canonical page | Current state | Next action |
 |---|---|---|
 | Dashboard | **PASS** | Protect only |
 | Directory | **PASS** | Protect only |
 | Live Availability | **PASS** | Protect only |
-| My Fleet | **PARTIAL** | Next page to execute |
-| Return Journeys | **PARTIAL** | Execute after My Fleet |
-| Loads | **ADVANCED PARTIAL** | Re-certify against current CX |
-| Quotes | **ADVANCED PARTIAL** | Re-certify against current CX |
+| My Fleet | **ADVANCED / FINAL RE-CERTIFICATION REQUIRED** | First task next chat |
+| Return Journeys | **PARTIAL** | Full current-CX audit |
+| Loads | **ADVANCED PARTIAL** | Re-certify current CX |
+| Quotes | **ADVANCED PARTIAL** | Re-certify current CX |
 | Diary | **PARTIAL / CLEANUP REQUIRED** | Major duplicate/function cleanup |
-| Freight Vision | **PARTIAL** | Full current CX audit |
-| Drivers & Vehicles | **PARTIAL** | Full current CX audit + dedupe |
+| Freight Vision | **PARTIAL** | Full current-CX audit |
+| Drivers & Vehicles | **PARTIAL** | Full current-CX audit + dedupe |
 
 ---
 
 # 13. FINAL INSTRUCTION TO THE NEXT AGENT
 
-Continue execution. Do not ask the user to repeat known requirements.
+Continue execution autonomously.
 
-Do not declare something PASS because:
+Do not ask the user to repeat requirements already in this blueprint.
+
+Do not call something PASS because:
+
 - the page exists;
-- old tests pass;
+- an old test passes;
 - TypeScript passes;
-- it resembles CX;
-- a historical commit touched it.
+- a historical commit touched it;
+- it looks similar to CX;
+- another agent said it was done.
 
 A canonical page is PASS only after:
+
 - current CX live comparison;
 - current XDrive verification;
 - role/access verification;
 - duplicate audit;
 - functional verification;
-- visual verification;
-- local PowerShell gate;
+- desktop verification;
+- reduced viewport verification;
+- PowerShell invariant gate;
+- tests;
+- TypeScript;
+- lint where applicable;
 - production build;
 - production deploy.
 
-Protect completed work from concurrent agents. Fetch before editing, fetch before pushing, inspect overlapping commits.
+Protect completed work from concurrent agents:
 
-The immediate next task is **My Fleet**.
+- fetch before editing;
+- fetch before pushing;
+- inspect overlap;
+- never blindly reset/cherry-pick old branches over current main.
+
+**Immediate next task: My Fleet final certification, then Return Journeys.**
