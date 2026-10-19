@@ -29,7 +29,8 @@ describe('postcode address lookup contract', () => {
     expect(route).toContain('api.ideal-postcodes.co.uk/v1/postcodes/');
     expect(route).toContain('api.getAddress.io/find/');
     expect(route).not.toContain('api.mapbox.com');
-    expect(route).not.toContain('api.postcodes.io/postcodes/');
+    expect(route).toContain('api.postcodes.io/postcodes/');
+    expect(field).not.toContain('api.postcodes.io');
   });
 
   it('formats structured address rows returned for the exact postcode', () => {
@@ -59,8 +60,8 @@ describe('postcode address lookup contract', () => {
     expect(field).not.toContain('Select a street below');
   });
 
-  it('keeps manual address entry available when lookup is unavailable', () => {
-    expect(route).toContain('configured: false');
+  it('keeps manual address entry available even when every lookup provider returns no suggestions', () => {
+    expect(route).toContain('suggestions: []');
     expect(field).toContain('onAddress(event.target.value)');
   });
 });

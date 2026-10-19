@@ -51,6 +51,60 @@ type GetAddressAddress = {
   county?: string | null;
 };
 
+
+type GetAddressAutocompleteSuggestion = {
+  address?: string | null;
+  location?: string | null;
+};
+
+async function lookupGetAddressAutocomplete(query: string, apiKey: string) {
+  const endpoints = [
+    new URL(`https://api.getAddress.io/autocomplete/${encodeURIComponent(query)}`),
+    new URL(`https://api.getAddress.io/location/${encodeURIComponent(query)}`),
+  ];
+
+  for (const url of endpoints) {
+    url.searchParams.set('api-key', apiKey);
+    url.searchParams.set('top', '12');
+    try {
+      const response = await fetch(url, {
+        signal: AbortSignal.timeout(6_000),
+        cache: 'no-store',
+      });
+      if (!response.ok) continue;
+      const payload = await response.json() as { suggestions?: GetAddressAutocompleteSuggestion[] };
+      const suggestions = Array.isArray(payload.suggestions)
+        ? dedupe(payload.suggestions
+          .map((item) => clean(item.address) || clean(item.location))
+          .filter(Boolean))
+        : [];
+      if (suggestions.length) return suggestions;
+    } catch {
+      // Try the next provider shape.
+    }
+  }
+  return [] as string[];
+}
+
+async function lookupPublicPostcodeAutocomplete(query: string) {
+  const compactQuery = query.toUpperCase().replace(/\s+/g, '');
+  if (!/^[A-Z]{1,2}\d[A-Z\d]?\d?[A-Z]{0,2}$/.test(compactQuery)) return [] as string[];
+
+  try {
+    const response = await fetch(
+      `https://api.postcodes.io/postcodes/${encodeURIComponent(compactQuery)}/autocomplete?limit=12`,
+      { signal: AbortSignal.timeout(5_000), cache: 'no-store' },
+    );
+    if (!response.ok) return [] as string[];
+    const payload = await response.json() as { result?: unknown };
+    return Array.isArray(payload.result)
+      ? dedupe(payload.result.filter((item): item is string => typeof item === 'string' && item.trim().length > 0))
+      : [];
+  } catch {
+    return [] as string[];
+  }
+}
+
 async function lookupIdealAutocomplete(query: string, apiKey: string) {
   const url = new URL('https://api.ideal-postcodes.co.uk/v1/autocomplete/addresses');
   url.searchParams.set('api_key', apiKey);
@@ -156,20 +210,36 @@ export async function GET(request: NextRequest) {
   const idealKey = process.env.IDEAL_POSTCODES_API_KEY?.trim();
   const getAddressKey = process.env.GETADDRESS_API_KEY?.trim();
 
-  if (!idealKey && !getAddressKey) {
-    return NextResponse.json({ suggestions: [], configured: false, provider: null }, {
-      headers: { 'Cache-Control': 'no-store' },
-    });
-  }
-
   if (idealKey && !exactPostcode) {
     const suggestions = await lookupIdealAutocomplete(autocompleteQuery, idealKey);
-    if (suggestions) {
+    if (suggestions?.length) {
       return NextResponse.json({
         suggestions,
         configured: true,
         provider: 'ideal-postcodes-autocomplete',
       }, { headers: { 'Cache-Control': 'private, max-age=60' } });
+    }
+  }
+
+  if (getAddressKey && !exactPostcode) {
+    const suggestions = await lookupGetAddressAutocomplete(autocompleteQuery, getAddressKey);
+    if (suggestions.length) {
+      return NextResponse.json({
+        suggestions,
+        configured: true,
+        provider: 'getaddress-autocomplete',
+      }, { headers: { 'Cache-Control': 'private, max-age=60' } });
+    }
+  }
+
+  if (!exactPostcode) {
+    const suggestions = await lookupPublicPostcodeAutocomplete(autocompleteQuery);
+    if (suggestions.length) {
+      return NextResponse.json({
+        suggestions,
+        configured: Boolean(idealKey || getAddressKey),
+        provider: 'postcodes-io-autocomplete',
+      }, { headers: { 'Cache-Control': 'public, max-age=300' } });
     }
   }
 
