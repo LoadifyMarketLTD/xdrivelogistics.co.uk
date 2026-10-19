@@ -116,10 +116,10 @@ for (const [role,prefix,route] of roles) {
    result.collapsed=true;
    }
    stage='assert-fonts';
-   for(const measurement of result.screens as any[]){
+   for(const measurement of result.screens as Array<{ width: number; card: { x: number; width: number } | null; fonts: Record<string, string[]> }>){
     if(measurement.card) expect(measurement.card.x+measurement.card.width,role+' card right edge '+measurement.width).toBeLessThanOrEqual(measurement.width+1);
-    for(const key of ['address','date','status'])for(const size of measurement.fonts[key])expect(size,role+' '+key).toBe('16px');
-    for(const key of ['dateMeta','label','footer','filter','filterLabel','filterHeader','tabs','empty'])for(const size of measurement.fonts[key])expect(size,role+' '+key).toBe('14px');
+    for(const key of ['address','date','status','filterHeader'])for(const size of measurement.fonts[key])expect(size,role+' '+key).toBe('16px');
+    for(const key of ['dateMeta','label','footer','filter','filterLabel','tabs','empty'])for(const size of measurement.fonts[key])expect(size,role+' '+key).toBe('14px');
    }
    result.status='passed';
   }catch(error){
