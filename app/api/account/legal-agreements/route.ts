@@ -45,7 +45,7 @@ const LEGAL_ROLE_VALUES = new Set<RegistrationLegalRole>([
 ]);
 
 const json = (status: number, body: Record<string, unknown>) =>
-  NextResponse.json(body, { status });
+  NextResponse.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 
 const authenticate = async (request: NextRequest) => {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -379,7 +379,9 @@ export async function POST(request: NextRequest) {
     userId: auth.user.id,
     userEmail: auth.user.email ?? null,
     companyId: context.companyId,
-    onboardingApplicationId: isInitialRemediation ? context.onboardingApplicationId : null,
+    // A later explicit acceptance belongs to the SAME canonical application.
+    // Otherwise the submit gate cannot find it, even though the UI says Current.
+    onboardingApplicationId: context.onboardingApplicationId,
     evidence,
     signerFullName: payload.signerFullName,
     source: acceptanceSource,

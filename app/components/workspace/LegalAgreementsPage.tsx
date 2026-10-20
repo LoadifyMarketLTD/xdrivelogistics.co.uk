@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import LegalDocumentChecklist from './LegalDocumentChecklist';
 import { legalDraftKey, readLegalDraft } from '../../../lib/legal/legalAcceptanceDraft';
 import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { isRtlLegalLanguage, LEGAL_LANGUAGE_LABELS, LEGAL_LANGUAGES, type LegalLanguage } from '../../../lib/legal/controlledLegalDocuments';
 import { getLegalUiCopy } from '../../../lib/legal/legalUiCopy';
 import {
@@ -141,7 +142,13 @@ export default function LegalAgreementsPage({
   };
 
   const getAccessToken = async () => {
-    const { data, error: sessionError } = await supabase.auth.getSession();
+    const cachedToken = readRouteAuthAccessToken();
+    if (cachedToken) return cachedToken;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const { data, error: sessionError } = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Session lookup timed out. Please reload and sign in again.')), 15000); }),
+    ]).finally(() => { if (timer) clearTimeout(timer); });
     if (sessionError) throw new Error(sessionError.message);
     userIdRef.current = data.session?.user?.id ?? null;
     const token = data.session?.access_token;

@@ -27,10 +27,11 @@ import { persistSignedLegalAcceptance } from '../../../../lib/legal/persistSigne
 
 const requestSchema = z.object({
   forceRegenerateToken: z.boolean().optional(),
+  resumeOnly: z.boolean().optional(),
 });
 
 const json = (status: number, body: Record<string, unknown>) =>
-  NextResponse.json(body, { status });
+  NextResponse.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 
 export async function POST(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
@@ -64,13 +65,6 @@ export async function POST(request: NextRequest) {
   const hasModernLegalGate = hasModernRegistrationLegalMetadata(legalMetadata);
   const legalEvidence = buildRegistrationLegalEvidence(legalMetadata);
 
-  if (hasModernLegalGate && !legalEvidence) {
-    return json(409, {
-      error: 'Registration legal acceptance evidence is incomplete or does not match the active XDrive agreement versions.',
-      code: 'invalid_registration_legal_evidence',
-    });
-  }
-
   const metadataAccountType = resolveOnboardingAccountTypeFromMetadata(
     (authUser.user_metadata ?? null) as Record<string, unknown> | null,
     (authUser.app_metadata ?? null) as Record<string, unknown> | null,
@@ -91,6 +85,15 @@ export async function POST(request: NextRequest) {
     });
   }
   const existing = existingRows?.[0] ?? null;
+
+  // Signup validation cannot prevent an authenticated existing applicant from
+  // reaching the current agreement form. It still guards NEW registrations.
+  if (!existing && hasModernLegalGate && !legalEvidence) {
+    return json(409, {
+      error: 'Registration legal acceptance evidence is incomplete or does not match the active XDrive agreement versions.',
+      code: 'invalid_registration_legal_evidence',
+    });
+  }
 
   const existingAccountType = normalizeOnboardingAccountType(existing?.account_type);
   if (existing && !existingAccountType) {
@@ -137,6 +140,30 @@ export async function POST(request: NextRequest) {
   }
 
   const normalizedExistingStatus = normalizeOnboardingStatus(existing?.status);
+  const metadataSigner = typeof authUser.user_metadata?.legal_signer_full_name === 'string'
+    ? authUser.user_metadata.legal_signer_full_name.trim() : '';
+  const metadataSignerValid = metadataSigner.length >= 2 && metadataSigner.length <= 120;
+
+  if (existing && (payload.resumeOnly === true || !legalEvidence || !metadataSignerValid)) {
+    // A read-only resume never recreates old consent, changes applicant status,
+    // rotates an invitation, sends another email or activates a workspace.
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from('profiles').select('status').eq('user_id', authUser.id).maybeSingle();
+    if (profileError) return json(503, { error: 'Account access could not be verified. Please retry.' });
+    if (!profile || !['active', 'pending'].includes(String(profile.status ?? ''))) {
+      return json(403, { error: 'Account access requires Platform Compliance review.', code: 'onboarding_access_restricted' });
+    }
+    return json(200, {
+      onboardingApplicationId: existing.id,
+      status: normalizedExistingStatus,
+      accountType,
+      onboardingUrl: '/onboarding/resume',
+      tokenExpiresAt: existing.token_expires_at,
+      invitationRegenerated: false,
+      legalEvidenceRecorded: false,
+      resumeAllowed: true,
+    });
+  }
   const now = new Date();
   const tokenExpired = Boolean(
     existing?.token_expires_at && new Date(existing.token_expires_at).getTime() <= now.getTime(),

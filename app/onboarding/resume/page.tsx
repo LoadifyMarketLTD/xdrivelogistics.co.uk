@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 
 type AccountType = 'customer_shipper' | 'broker_shipper' | 'fleet_courier' | 'individual_driver' | 'owner_driver';
 
@@ -22,11 +23,17 @@ export default function OnboardingResumePage() {
     let cancelled = false;
 
     const resolveResumeRoute = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!session?.access_token) {
+      let accessToken = readRouteAuthAccessToken();
+      if (!accessToken) {
+        let timer: ReturnType<typeof setTimeout> | undefined;
+        const result = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Session lookup timed out. Please reload and sign in again.')), 15000); }),
+        ]).finally(() => { if (timer) clearTimeout(timer); });
+        if (result.error) throw result.error;
+        accessToken = result.data.session?.access_token ?? null;
+      }
+      if (!accessToken) {
         router.replace('/login?next=/onboarding/resume');
         return;
       }
@@ -34,10 +41,12 @@ export default function OnboardingResumePage() {
       const response = await fetch('/api/onboarding/init', {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${session.access_token}`,
+          Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ forceRegenerateToken: false }),
+        body: JSON.stringify({ forceRegenerateToken: false, resumeOnly: true }),
+        signal: AbortSignal.timeout(30000),
+        cache: 'no-store',
       });
       const payload = (await response.json().catch(() => null)) as {
         error?: string;
