@@ -11,10 +11,10 @@ import {
   AlertBanner,
   DataTable,
   EmptyState,
-  PageFrame,
   Panel,
   StatusBadge,
 } from '../../../components/workspace/WorkspaceUI';
+import { VehicleRegisterShell } from '../../../components/workspace/VehicleRegisterShell';
 
 type Audience = 'all' | 'drivers-subcontractors' | 'other-drivers';
 type ExchangePosition = {
@@ -140,7 +140,11 @@ export default function FleetVehiclesPage() {
   };
 
   return (
-    <PageFrame>
+    <VehicleRegisterShell
+      title="My Fleet"
+      subtitle="Live and future fleet capacity, vehicle assignment and operational availability."
+      actions={<><button type="button" onClick={() => router.push('/admin/vehicles')} className="carrier-register-action">+ Add Vehicle</button><button type="button" onClick={() => void refreshAll()} disabled={data.loading || presence.loading || exchangeLoading}>{data.loading || presence.loading || exchangeLoading ? 'Refreshing...' : 'Refresh'}</button></>}
+    >
       {presence.error && <AlertBanner tone="warning">{presence.error}</AlertBanner>}
       {exchangeError && <AlertBanner tone="warning">{exchangeError}</AlertBanner>}
 
@@ -227,6 +231,6 @@ export default function FleetVehiclesPage() {
           )}
         </main>
       </div>
-    </PageFrame>
+    </VehicleRegisterShell>
   );
 }

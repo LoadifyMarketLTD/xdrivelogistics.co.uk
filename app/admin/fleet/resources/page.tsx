@@ -12,11 +12,10 @@ import {
   AlertBanner,
   DataTable,
   EmptyState,
-  PageFrame,
-  PageHeader,
   Panel,
   StatusBadge,
 } from '../../../components/workspace/WorkspaceUI';
+import { VehicleRegisterShell } from '../../../components/workspace/VehicleRegisterShell';
 
 const when = (value: string | null | undefined) => value
   ? new Date(value).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' })
@@ -269,14 +268,11 @@ export default function FleetResourcesPage() {
   ];
 
   return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Fleet resources"
-        title="Drivers & Vehicles"
-        description="One consolidated fleet workspace for driver/vehicle relationships, availability, live tracking, future capacity, return journeys and operational attention."
-        meta={<span>{intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : 'Fleet resource view'}</span>}
-      />
-
+    <VehicleRegisterShell
+      title="Drivers & Vehicles"
+      subtitle={<>One consolidated fleet workspace for driver/vehicle relationships, availability, live tracking, future capacity and operational attention. {intelligence.generatedAt ? `Intelligence updated ${when(intelligence.generatedAt)}` : ''}</>}
+      actions={<><button type="button" onClick={() => router.push('/admin/vehicles')} className="carrier-register-action">+ Add Vehicle</button><button type="button" onClick={() => void refreshAll()} disabled={data.loading || intelligence.loading}>{data.loading || intelligence.loading ? 'Refreshing...' : 'Refresh'}</button></>}
+    >
       <div className="workspace-board-layout">
         <aside className="workspace-filter-rail" aria-label="Drivers and vehicles workspace navigation">
           <div className="workspace-filter-rail__header">Drivers &amp; Vehicles</div>
@@ -397,7 +393,7 @@ export default function FleetResourcesPage() {
       )}
         </main>
       </div>
-    </PageFrame>
+    </VehicleRegisterShell>
   );
 }
 

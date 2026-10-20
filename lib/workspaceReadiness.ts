@@ -23,8 +23,8 @@ export function resolveReadinessContext(input: {
   const company = normal(input.companyType);
   const driver = normal(input.driverType);
   let role: WorkspaceRole;
-  if (driver === 'company_driver' || member === 'driver') role = 'driver';
-  else if (driver === 'owner_driver' || account === 'owner_driver' || profile === 'owner_driver') role = 'owner_driver';
+  if (driver === 'owner_driver' || account === 'owner_driver' || profile === 'owner_driver') role = 'owner_driver';
+  else if (driver === 'company_driver' || member === 'driver') role = 'driver';
   else if (['driver', 'company_driver'].includes(profile) || ['individual_driver', 'company_driver'].includes(account)) role = 'driver';
   else if ([profile, account, company].some((s) => ['customer', 'customer_shipper', 'shipper'].includes(s))) role = 'customer';
   else if ([profile, account, company].some((s) => ['broker', 'broker_shipper'].includes(s))) role = 'broker';
@@ -72,7 +72,10 @@ export function driverReadinessBlocker(code: string, context: ReadinessContext):
     const docType = code.split(':')[1];
     return { ...base, title: 'Vehicle document requires attention', message: 'Your assigned vehicle needs current, approved ' + docType + ' evidence. Upload the replacement here; verification is still required.', actionLabel: 'Upload vehicle ' + docType, actionHref: '/driver/vehicle-readiness?document=' + encodeURIComponent(docType) + '#vehicle-document-upload' };
   }
-  if (code.startsWith('canonical_vehicle_')) return { ...base, title: 'Vehicle assignment requires attention', message: context.canManageCompany ? 'Select exactly one active vehicle from your company. Existing job and quote commitments remain protected.' : 'Your company administrator manages assignments. Review your assigned vehicle and contact the company to resolve this restriction.', actionLabel: context.canManageCompany ? 'Resolve vehicle assignment' : 'Review vehicle assignment', actionHref: '/driver/vehicle-readiness?section=assignment#vehicle-assignment' };
+  if (code.startsWith('canonical_vehicle_')) {
+    const canManageVehicle = context.canManageCompany || context.role === 'owner_driver';
+    return { ...base, title: context.role === 'owner_driver' ? 'Vehicle setup requires attention' : 'Vehicle assignment requires attention', message: canManageVehicle ? (context.role === 'owner_driver' ? 'Add or select your active vehicle to complete vehicle setup. Existing job and quote commitments remain protected.' : 'Select exactly one active vehicle from your company. Existing job and quote commitments remain protected.') : 'Your company administrator manages assignments. Review your assigned vehicle and contact the company to resolve this restriction.', actionLabel: canManageVehicle ? (context.role === 'owner_driver' ? 'Add or manage vehicle' : 'Resolve vehicle assignment') : 'Review vehicle assignment', actionHref: '/driver/vehicle-readiness?section=assignment#vehicle-assignment' };
+  }
   return base;
 }
 

@@ -5,8 +5,8 @@ import ProtectedRoute from '../../components/ProtectedRoute';
 import { useAuth } from '../../components/AuthContext';
 import { readRouteAuthHeader } from '../../../lib/routeAuthCookie';
 import { VEHICLE_GROUPS, VEHICLE_TYPE_LABELS } from '../../../lib/vehicleTypes';
-import { PageHeader, StatusBadge } from '../../components/workspace/WorkspaceUI';
-import DriverFleetIntegratedNav from '../_components/DriverFleetIntegratedNav';
+import { StatusBadge } from '../../components/workspace/WorkspaceUI';
+import { VehicleRegisterShell } from '../../components/workspace/VehicleRegisterShell';
 
 type VehicleRow = {
   id: string;
@@ -38,11 +38,6 @@ const EMPTY_FORM: VehicleForm = {
   type: 'van_large', reg_plate: '', make: '', model: '', payload_kg: '', pallets_capacity: '',
   has_tail_lift: false, has_straps: false, has_blankets: false,
 };
-
-function vehicleName(vehicle: VehicleRow) {
-  const makeModel = [vehicle.make, vehicle.model].filter(Boolean).join(' ');
-  return `${vehicle.reg_plate ?? 'No plate'}${makeModel ? ` · ${makeModel}` : ''}`;
-}
 
 export default function DriverVehiclesPage() {
   const { user } = useAuth();
@@ -111,7 +106,6 @@ export default function DriverVehiclesPage() {
     () => vehicles.find((vehicle) => vehicle.id === canonicalVehicleId) ?? null,
     [canonicalVehicleId, vehicles],
   );
-  const equippedCount = useMemo(() => vehicles.filter((vehicle) => vehicle.has_tail_lift || vehicle.has_straps || vehicle.has_blankets).length, [vehicles]);
 
   const startAdd = () => {
     if (!canManageVehicles) return;
@@ -181,70 +175,71 @@ export default function DriverVehiclesPage() {
 
   return (
     <ProtectedRoute allowedRoles={['driver']}>
-      <section className="page driver-fleet-prototype">
-        <DriverFleetIntegratedNav />
-        <PageHeader eyebrow="Fleet resources" title="My Fleet" description="Vehicles, assignment, capacity and operational readiness." />
-        <div className="pagebody">
-          <aside className="left">
-            <div className="left-title">Fleet Filters</div>
-            <div className="filter"><span className="label">Quick search</span><input className="input" placeholder="Vehicle, driver, registration" onChange={(event) => {
-              const needle = event.target.value.trim().toLowerCase();
-              document.querySelectorAll<HTMLElement>('.fleet-row').forEach((row) => {
-                row.style.display = !needle || (row.dataset.search ?? '').includes(needle) ? '' : 'none';
-              });
-            }} /></div>
-            <div className="filter">
-              <div className="linkrow active">All fleet<span className="count">{vehicles.length}</span></div>
-              <div className="linkrow">Assigned to me<span className="count">{assignedVehicles.length}</span></div>
-              <div className="linkrow">Canonical active<span className="count">{canonicalVehicle ? 1 : 0}</span></div>
-            </div>
-            <div className="filter"><span className="label">Capacity</span><label className="check"><input type="checkbox" checked={equippedCount > 0} readOnly />Equipment recorded</label></div>
-          </aside>
-          <main className="main">
-            {error && <div className="vision-note">{error}</div>}
-            {notice && <div className="vision-note">{notice}</div>}
-            {!canonicalVehicleSignalAvailable && <div className="vision-note">Canonical active-vehicle signal is temporarily unavailable. Vehicle records remain visible.</div>}
-            <div className="fleet-cx-toolbar">
-              <div>
-                <strong>Company Vehicles</strong>
-                <span>{vehicles.length} vehicle{vehicles.length === 1 ? '' : 's'} · {assignedVehicles.length} assigned to you · {canonicalVehicle ? '1 active' : 'no active vehicle'}</span>
+      <VehicleRegisterShell
+        title="My Vehicle"
+        subtitle={<>{vehicles.length} vehicle{vehicles.length === 1 ? '' : 's'} · {assignedVehicles.length} assigned · {canonicalVehicle ? '1 active' : 'no active vehicle'}</>}
+        actions={<><button type="button" onClick={() => void load()} disabled={loading}>Refresh</button>{canManageVehicles && !showForm && <button type="button" onClick={startAdd} className="carrier-register-action">+ Add Vehicle</button>}</>}
+      >
+          {error && <div className="xdrive-alert-banner" style={{ marginBottom: 8, backgroundColor: '#fef2f2', border: '1px solid #fca5a5', color: '#b91c1c' }}>{error}</div>}
+          {notice && <div className="xdrive-alert-banner" style={{ marginBottom: 8, backgroundColor: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534' }}>{notice}</div>}
+          {!canonicalVehicleSignalAvailable && <div className="xdrive-alert-banner" style={{ marginBottom: 8 }}>Canonical active-vehicle signal is temporarily unavailable. Vehicle records remain visible.</div>}
+
+          {showForm && canManageVehicles && (
+            <section className="carrier-register-results" aria-label={editingId ? 'Edit vehicle' : 'Add vehicle'} style={{ marginBottom: 8, padding: 10 }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2,minmax(0,1fr))', gap: 8 }}>
+                <label style={labelStyle}>Vehicle Type<select style={inputStyle} value={form.type} onChange={(event) => setField('type', event.target.value)}>{VEHICLE_GROUPS.flatMap(([, options]) => options).map(([label,value]) => <option key={value} value={value}>{label}</option>)}</select></label>
+                <label style={labelStyle}>Registration<input style={inputStyle} value={form.reg_plate} onChange={(event) => setField('reg_plate', event.target.value)} /></label>
+                <label style={labelStyle}>Make<input style={inputStyle} value={form.make} onChange={(event) => setField('make', event.target.value)} /></label>
+                <label style={labelStyle}>Model<input style={inputStyle} value={form.model} onChange={(event) => setField('model', event.target.value)} /></label>
+                <label style={labelStyle}>Payload (kg)<input style={inputStyle} type="number" value={form.payload_kg} onChange={(event) => setField('payload_kg', event.target.value)} /></label>
+                <label style={labelStyle}>Pallets<input style={inputStyle} type="number" value={form.pallets_capacity} onChange={(event) => setField('pallets_capacity', event.target.value)} /></label>
               </div>
-              <div className="fleet-cx-toolbar__actions">
-                <button type="button" className="btn" onClick={() => void load()} disabled={loading}>Refresh</button>
-                {canManageVehicles && !showForm && <button type="button" className="btn green" onClick={startAdd}>Add Vehicle</button>}
+              <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center', marginTop: 10 }}>
+                <label><input type="checkbox" checked={form.has_tail_lift} onChange={(event) => setField('has_tail_lift', event.target.checked)} /> Tail lift</label>
+                <label><input type="checkbox" checked={form.has_straps} onChange={(event) => setField('has_straps', event.target.checked)} /> Straps</label>
+                <label><input type="checkbox" checked={form.has_blankets} onChange={(event) => setField('has_blankets', event.target.checked)} /> Blankets</label>
+                <span style={{ flex: 1 }} />
+                <button type="button" onClick={cancelForm}>Cancel</button>
+                <button type="button" className="carrier-register-action" onClick={() => void save()} disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update Vehicle' : 'Add Vehicle'}</button>
               </div>
-            </div>
-            {showForm && canManageVehicles && <section className="fleet-inspector">
-              <div><b>{editingId ? 'Edit vehicle' : 'Add vehicle'}</b><span className="meta">Save real vehicle capacity and equipment data.</span></div>
-              <div className="row2"><select className="select" value={form.type} onChange={(event) => setField('type', event.target.value)}>{VEHICLE_GROUPS.flatMap(([, options]) => options).map(([label,value]) => <option key={value} value={value}>{label}</option>)}</select><input className="input" value={form.reg_plate} onChange={(event) => setField('reg_plate', event.target.value)} placeholder="Registration" /></div>
-              <div className="row2"><input className="input" value={form.make} onChange={(event) => setField('make', event.target.value)} placeholder="Make" /><input className="input" value={form.model} onChange={(event) => setField('model', event.target.value)} placeholder="Model" /></div>
-              <div className="row2"><input className="input" type="number" value={form.payload_kg} onChange={(event) => setField('payload_kg', event.target.value)} placeholder="Payload kg" /><input className="input" type="number" value={form.pallets_capacity} onChange={(event) => setField('pallets_capacity', event.target.value)} placeholder="Pallets" /></div>
-              <div className="fleet-commandbar"><label className="check"><input type="checkbox" checked={form.has_tail_lift} onChange={(event) => setField('has_tail_lift', event.target.checked)} />Tail lift</label><label className="check"><input type="checkbox" checked={form.has_straps} onChange={(event) => setField('has_straps', event.target.checked)} />Straps</label><label className="check"><input type="checkbox" checked={form.has_blankets} onChange={(event) => setField('has_blankets', event.target.checked)} />Blankets</label><span className="spacer" /><button type="button" className="btn" onClick={cancelForm}>Cancel</button><button type="button" className="btn primary" onClick={() => void save()} disabled={saving}>{saving ? 'Saving…' : editingId ? 'Update vehicle' : 'Add vehicle'}</button></div>
-            </section>}
-            <div className="tablewrap fleet-tablewrap fleet-tablewrap--compact">
-              <table className="fleet-table fleet-table--compact">
-                <thead><tr><th>Name</th><th>Size / Type</th><th>Payload</th><th>Equipment</th><th>Status</th><th>Actions</th></tr></thead>
-                <tbody>
-                  {vehicles.map((vehicle) => {
-                    const assigned = Boolean(driverId) && vehicle.assigned_driver_id === driverId;
-                    const canonical = vehicle.id === canonicalVehicleId;
-                    const equipment = [vehicle.has_tail_lift && 'Tail lift', vehicle.has_straps && 'Straps', vehicle.has_blankets && 'Blankets'].filter(Boolean).join(' · ') || 'Standard';
-                    return <tr key={vehicle.id} className="fleet-row" data-id={vehicle.id} data-search={`${vehicleName(vehicle)} ${vehicle.reg_plate ?? ''} ${vehicle.type ?? ''}`.toLowerCase()}>
-                      <td><div className="fleet-name"><div><b>{vehicleName(vehicle)}</b><span className="meta">{assigned ? 'Assigned to current driver' : 'Company fleet record'}</span></div></div></td>
-                      <td>{VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Unknown'}</td>
-                      <td>{vehicle.payload_kg != null ? `${vehicle.payload_kg} kg` : 'Not supplied'}</td>
-                      <td>{equipment}</td>
-                      <td><StatusBadge value={canonical ? 'Active' : assigned ? 'Assigned' : 'Recorded'} tone={canonical ? 'green' : assigned ? 'blue' : 'grey'} /></td>
-                      <td><button type="button" className="rowbtn blue" onClick={() => startEdit(vehicle)} disabled={!canManageVehicles}>Open</button>{assigned && canManageVehicles && <button type="button" className="rowbtn" onClick={() => void deactivate(vehicle.id)} disabled={deactivatingId === vehicle.id}>{deactivatingId === vehicle.id ? 'Removing…' : 'Unassign'}</button>}</td>
-                    </tr>;
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {!loading && vehicles.length === 0 && <div className="xd2-calm-empty"><b>No vehicle records</b><span>{canManageVehicles ? 'Add a real vehicle to the workspace.' : 'No vehicle is assigned to this Driver profile.'}</span></div>}
-          </main>
-        </div>
-      </section>
+            </section>
+          )}
+
+          <section className="carrier-register-results" aria-label="Vehicle directory">
+            {loading ? (
+              <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>Loading...</div>
+            ) : vehicles.length === 0 ? (
+              <div className="carrier-register-empty" style={{ padding: '3rem', textAlign: 'center', color: '#6b7280' }}>
+                <p>{canManageVehicles ? 'No vehicles yet. Add your first vehicle.' : 'No vehicle is assigned to this Driver profile.'}</p>
+              </div>
+            ) : (
+              <div className="carrier-register-table-wrap">
+                <table className="carrier-register-table">
+                  <thead><tr>{['Reg Plate','Type','Make / Model','Payload (kg)','Equipment','Status','Actions'].map((heading)=><th key={heading}>{heading}</th>)}</tr></thead>
+                  <tbody>
+                    {vehicles.map((vehicle) => {
+                      const assigned = Boolean(driverId) && vehicle.assigned_driver_id === driverId;
+                      const canonical = vehicle.id === canonicalVehicleId;
+                      const equipment = [vehicle.has_tail_lift && 'Tail lift', vehicle.has_straps && 'Straps', vehicle.has_blankets && 'Blankets'].filter(Boolean).join(' · ') || 'Standard';
+                      return <tr key={vehicle.id}>
+                        <td style={{ fontWeight: 700 }}>{vehicle.reg_plate ?? '—'}</td>
+                        <td>{VEHICLE_TYPE_LABELS[vehicle.type ?? ''] ?? vehicle.type?.replace(/_/g, ' ') ?? 'Unknown'}</td>
+                        <td>{[vehicle.make, vehicle.model].filter(Boolean).join(' ') || '—'}</td>
+                        <td>{vehicle.payload_kg != null ? vehicle.payload_kg : '—'}</td>
+                        <td>{equipment}</td>
+                        <td><StatusBadge value={canonical ? 'Active' : assigned ? 'Assigned' : 'Recorded'} tone={canonical ? 'green' : assigned ? 'blue' : 'grey'} /></td>
+                        <td><div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}><button type="button" onClick={() => startEdit(vehicle)} disabled={!canManageVehicles}>Edit</button>{assigned && canManageVehicles && <button type="button" onClick={() => void deactivate(vehicle.id)} disabled={deactivatingId === vehicle.id}>{deactivatingId === vehicle.id ? 'Removing…' : 'Unassign'}</button>}</div></td>
+                      </tr>;
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+      </VehicleRegisterShell>
     </ProtectedRoute>
   );
 }
+
+const inputStyle = { width: '100%', minHeight: 32, border: '1px solid #cfd7e3', borderRadius: 4, padding: '5px 8px', background: '#fff', color: '#172033', fontSize: 12, boxSizing: 'border-box' as const };
+const labelStyle = { display: 'grid', gap: 4, color: '#64748b', fontSize: 11, fontWeight: 700 } as const;
