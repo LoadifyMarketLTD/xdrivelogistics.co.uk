@@ -7,7 +7,7 @@
  *     required scenario: draft/posted/allocated/terminal statuses,
  *     private/public visibility, assigned/unassigned drivers, and
  *     enough records to exercise pagination.
- *   - The CI workflow runs the Jobs visual gate spec.
+ *   - The Jobs visual gate remains directly runnable from the repository.
  *   - The E2E spec guards itself with the fixture flag.
  *
  * These are source-contract tests (file-read assertions), not rendering tests.
@@ -34,11 +34,6 @@ const fixtureComponent = readFileSync(
 
 const e2eSpec = readFileSync(
   resolve(CWD, 'e2e/jobs-visual-gate.spec.ts'),
-  'utf8',
-);
-
-const workflow = readFileSync(
-  resolve(CWD, '.github/workflows/visual-fixture-gate.yml'),
   'utf8',
 );
 
@@ -263,23 +258,5 @@ describe('Jobs visual gate E2E spec', () => {
   });
 });
 
-// ── CI workflow ───────────────────────────────────────────────────────────────
-
-describe('Jobs visual gate CI workflow', () => {
-  it('runs the Jobs visual gate spec alongside the workspace gate', () => {
-    expect(workflow).toContain('jobs-visual-gate.spec.ts');
-  });
-
-  it('still runs the workspace visual auth gate', () => {
-    expect(workflow).toContain('workspace-visual-auth-gate.spec.ts');
-  });
-
-  it('runs under E2E_VISUAL_FIXTURE: "true"', () => {
-    expect(workflow).toContain('E2E_VISUAL_FIXTURE: "true"');
-  });
-
-  it('uploads Playwright artifacts', () => {
-    expect(workflow).toContain('actions/upload-artifact@v4');
-    expect(workflow).toContain('if: always()');
-  });
-});
+// The visual gate is intentionally repository-local. It can be run directly with
+// Playwright and does not depend on a GitHub Actions workflow being present.

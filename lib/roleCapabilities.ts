@@ -271,8 +271,6 @@ const isDriverCommercialRoute = (pathname: string) => {
     clean.startsWith('/driver/finance/') ||
     clean === '/driver/returns' ||
     clean.startsWith('/driver/returns/') ||
-    clean === '/driver/directory' ||
-    clean.startsWith('/driver/directory/') ||
     clean === '/driver/nearby' ||
     clean.startsWith('/driver/nearby/')
   );
