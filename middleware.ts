@@ -462,11 +462,29 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
         ? profilePortalRole
         : null;
 
-  const activeCompany = resolveActiveCompanyContext(memberships, {
+  let recoveringOwnerDriverLanding = false;
+  let activeCompany = resolveActiveCompanyContext(memberships, {
     preferredCompanyId: profile.company_id ?? null,
     targetPathname: request.nextUrl.pathname,
     identityRole: portalIdentityRole,
   });
+  // An old login/bookmark may still target /admin after owner-driver approval.
+  // Resolve only this landing page against the existing owner-operator company;
+  // the scoped active-driver checks below still run before redirecting to /driver.
+  // Never enable admin capabilities or recover nested admin/platform-owner URLs.
+  if (!activeCompany.ok && activeCompany.error === 'workspace_not_enabled'
+      && request.nextUrl.pathname === '/admin' && profile.is_driver === true) {
+    const recoveryCompany = resolveActiveCompanyContext(memberships, {
+      preferredCompanyId: profile.company_id ?? null,
+      targetPathname: '/driver',
+      identityRole: portalIdentityRole,
+    });
+    if (recoveryCompany.ok && recoveryCompany.context.activeWorkspace === 'owner_operator'
+        && ['owner', 'admin'].includes(recoveryCompany.context.membershipRole)) {
+      activeCompany = recoveryCompany;
+      recoveringOwnerDriverLanding = true;
+    }
+  }
   if (!activeCompany.ok) {
     return { kind: 'forbidden' };
   }
@@ -514,6 +532,11 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   }
   const companyStatus = selectedMembership.companies.status?.toLowerCase() ?? null;
   if (companyStatus !== 'active') {
+    return { kind: 'forbidden' };
+  }
+  if (recoveringOwnerDriverLanding && (!driver?.id
+      || driver.driver_type?.trim().toLowerCase() !== 'owner_driver'
+      || driver.status?.toLowerCase() !== 'active' || driver.app_access !== true)) {
     return { kind: 'forbidden' };
   }
   const ownerDriverWorkspace = hasDriverProviderWorkspaceEvidence(driver, ownerDriverWorkspaceRequested);

@@ -104,3 +104,44 @@ describe('approved owner-driver access uses canonical records, not missing signu
     expect(response.headers.get('location')).toContain('/forbidden');
   });
 });
+
+
+describe('stale owner-driver entry recovery', () => {
+  it('redirects the old admin home to the canonical driver home without admitting the admin workspace', async () => {
+    state.userMetadata = { role: 'company_admin', signup_type: 'fleet_operator', account_type: 'fleet_courier', owner_driver_workspace: false };
+    const response = await middleware(request('/admin'));
+    expect(new URL(response.headers.get('location')!).pathname).toBe('/driver');
+    expect(state.rpc).not.toHaveBeenCalled();
+  });
+  it('does not treat an old nested admin URL as an owner-driver access grant', async () => {
+    const response = await middleware(request('/admin/settings'));
+    expect(new URL(response.headers.get('location')!).pathname).toBe('/forbidden');
+  });
+});
+
+
+describe('old admin home recovery retains permission checks', () => {
+  it.each(['pending', 'suspended', 'inactive'])('keeps a %s profile out', async status => {
+    state.tables.profiles[0].status = status;
+    const response = await middleware(request('/admin'));
+    expect(response.headers.get('location')).toContain('/forbidden');
+  });
+  it.each(['inactive', 'suspended'])('keeps a %s driver out', async status => {
+    state.tables.drivers[0].status = status;
+    expect((await middleware(request('/admin'))).headers.get('location')).toContain('/forbidden');
+  });
+  it('does not redirect a disabled or absent scoped driver as an active owner', async () => {
+    state.tables.drivers[0].app_access = false;
+    expect((await middleware(request('/admin'))).headers.get('location')).toContain('/forbidden');
+    state.tables.drivers = [];
+    expect((await middleware(request('/admin'))).headers.get('location')).toContain('/forbidden');
+  });
+  it('does not infer owner-driver recovery from metadata or another company', async () => {
+    state.tables.drivers[0].driver_type = 'company_driver';
+    state.appMetadata = { owner_driver_workspace: true };
+    expect((await middleware(request('/admin'))).headers.get('location')).toContain('/forbidden');
+    state.tables.drivers[0].driver_type = 'owner_driver';
+    state.tables.drivers[0].company_id = 'foreign-company';
+    expect((await middleware(request('/admin'))).headers.get('location')).toContain('/forbidden');
+  });
+});
