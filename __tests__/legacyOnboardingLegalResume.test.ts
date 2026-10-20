@@ -40,7 +40,14 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => {
     getBearerToken:(req:Request)=>req.headers.get('authorization')?.replace('Bearer ','')??null };
 });
 import { POST as init } from '../app/api/onboarding/init/route';
-import { GET as legalGet, POST as legalPost } from '../app/api/account/legal-agreements/route';
+import { GET as legalGetRoute, POST as legalPostRoute } from '../app/api/account/legal-agreements/route';
+async function requireResponse(promise: Promise<Response | undefined>): Promise<Response> {
+  const response = await promise;
+  if (!response) throw new Error('The legal endpoint must return an HTTP response.');
+  return response;
+}
+const legalGet = (request: NextRequest) => requireResponse(legalGetRoute(request));
+const legalPost = (request: NextRequest) => requireResponse(legalPostRoute(request));
 const actor='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa', appId='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const roles = {owner_driver:'owner_operator',fleet_courier:'fleet_operator',broker_shipper:'transport_broker',customer_shipper:'customer_shipper'} as const;
 const oldAt='2026-09-27T19:10:27.597Z';

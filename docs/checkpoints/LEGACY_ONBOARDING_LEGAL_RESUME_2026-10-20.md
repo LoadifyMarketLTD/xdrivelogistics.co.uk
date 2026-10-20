@@ -20,6 +20,7 @@ The onboarding reminder links lead to `/onboarding/resume`. Previously its init 
 - Ten local browser/API checks passed. Eight UI checks use explicitly intercepted legacy data for the four commercial account types at 390px and 1440px; no signing is submitted. One authenticated read-only init test uses the existing authorised E2E account. One check verifies unauthenticated denial. These are not real customer signings or completed customer onboardings.
 - Fixture tests block service workers so worker-owned requests cannot bypass network interception and display unrelated real test-account data. The website service worker was not changed.
 - Local webpack compilation succeeded; the Windows production build worker later exited natively with code 3221226505 during static generation. Do not label that local full build PASS. Netlify's mandatory production build/release gate must pass before publication can be claimed.
+- Standalone TypeScript completed with exit code 0 after adding an explicit HTTP-response assertion to the test harness; the affected 44 unit cases were rerun and passed. This test-only correction does not change application behaviour.
 - Production publication and the same browser/read-only regression must be verified separately.
 
 ## Client continuity
