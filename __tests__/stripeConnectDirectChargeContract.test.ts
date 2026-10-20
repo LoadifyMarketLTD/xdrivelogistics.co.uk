@@ -11,7 +11,11 @@ describe('XDrive Stripe Connect direct-charge contract', () => {
     expect(onboarding).toContain("'controller[losses][payments]': 'stripe'");
     expect(onboarding).toContain("'controller[requirement_collection]': 'stripe'");
     expect(onboarding).toContain("'controller[stripe_dashboard][type]': 'full'");
-    expect(onboarding).toContain("new Set(['owner', 'admin'])");
+    expect(onboarding).toContain('listStripeSetupCompanies(supabaseAdmin, authData.user.id)');
+    const setupAccess = source('app/api/_lib/stripeSetupAccess.ts');
+    expect(setupAccess).toContain("new Set(['owner', 'admin'])");
+    expect(setupAccess).toContain('company.created_by !== actorId');
+    expect(setupAccess).toContain('app.user_id === actorId && app.company_id === company.id');
     expect(onboarding).toContain("type: 'account_onboarding'");
   });
 

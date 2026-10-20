@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import { verifyPlatformOwner } from '../_lib/verifyPlatformOwner';
+import { getStripeCommercialReadiness } from '../../_lib/stripeCommercialReadiness';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 
@@ -27,6 +28,7 @@ type MissingDocumentRow = { doc_type?: string | null; required_doc_type?: string
 
 const COMPANY_BOUND_ACCOUNT_TYPES = new Set(['broker_shipper', 'fleet_courier', 'owner_driver', 'individual_driver', 'company_driver']);
 const APPROVABLE_COMPANY_STATUSES = new Set(['pending_approval', 'approved', 'active']);
+const STRIPE_REQUIRED_ACCOUNT_TYPES = new Set(['customer_shipper', 'broker_shipper', 'fleet_courier', 'owner_driver']);
 const ACTIVE_APPLICATION_STATUSES = ['submitted', 'under_review', 'request_changes'];
 
 const normalized = (value: string | null | undefined, fallback = '') => {
@@ -88,6 +90,19 @@ export async function GET(request: NextRequest) {
     if (missingDocuments.length > 0) approvalBlockers.push(`Missing or invalid documents: ${missingDocuments.join(', ')}.`);
     if (riskStatus !== 'clear') approvalBlockers.push(`Risk status is ${riskStatus}.`);
 
+    const stripeRequired = STRIPE_REQUIRED_ACCOUNT_TYPES.has(accountType);
+    let stripeReady = !stripeRequired;
+    if (stripeRequired) {
+      try {
+        const stripe = await getStripeCommercialReadiness(admin, companyId);
+        stripeReady = stripe.infrastructureAvailable && stripe.ready;
+        if (!stripe.infrastructureAvailable) approvalBlockers.push('Stripe readiness check is unavailable.');
+        else if (!stripe.ready) approvalBlockers.push('Stripe setup required: the applicant must connect and activate their company account from Payment settings.');
+      } catch {
+        approvalBlockers.push('Stripe readiness check is unavailable.');
+      }
+    }
+
     const payload = application.payload ?? {};
     const applicantName = normalized(typeof payload.full_name === 'string' ? payload.full_name : null)
       || normalized(typeof payload.contact_person === 'string' ? payload.contact_person : null)
@@ -114,6 +129,8 @@ export async function GET(request: NextRequest) {
       last_activity_at: application.last_activity_at ?? application.created_at,
       missing_documents: missingDocuments,
       compliance_check_available: complianceCheckAvailable,
+      stripe_required: stripeRequired,
+      stripe_ready: stripeReady,
       ready_for_approval: approvalBlockers.length === 0,
       approval_blockers: approvalBlockers,
       compliance_error: missingError?.message ?? null,

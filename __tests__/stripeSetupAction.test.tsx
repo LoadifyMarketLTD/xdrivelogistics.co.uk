@@ -125,7 +125,10 @@ describe('Post Load Stripe readiness boundary', () => {
   });
   it('keeps owner/admin Stripe onboarding separate from Post Load and avoids automatic publication or form navigation', () => {
     const onboarding = read('app/api/payments/connect/onboarding/route.ts');
-    expect(onboarding).toContain("new Set(['owner', 'admin'])");
+    expect(onboarding).toContain('listStripeSetupCompanies(supabaseAdmin, authData.user.id)');
+    const authority = read('app/api/_lib/stripeSetupAccess.ts');
+    expect(authority).toContain("new Set(['owner', 'admin'])");
+    expect(authority).toContain('company.created_by !== actorId');
     const action = read('lib/startStripeCompanyOnboarding.ts');
     expect(action).not.toContain('/api/jobs/create');
     expect(action).not.toContain('window.location');

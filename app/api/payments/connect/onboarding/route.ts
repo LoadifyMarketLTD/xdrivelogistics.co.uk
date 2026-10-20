@@ -6,9 +6,11 @@ import { XDRIVE_LOGISTICS_COMPANY_ID } from '../../../../../lib/activeWorkspace'
 import { getCanonicalSiteOrigin } from '../../../../../lib/siteUrl';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from '../../../_lib/supabaseAdmin';
 import { isStripeServerConfigured, stripeRequest } from '../../../_lib/stripeServer';
+import { listStripeSetupCompanies } from '../../../_lib/stripeSetupAccess';
+import { getStripeCommercialReadiness } from '../../../_lib/stripeCommercialReadiness';
 
-const requestSchema = z.object({ companyId: z.string().uuid() });
-const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
+const requestSchema = z.object({ companyId: z.string().uuid(), action: z.enum(['start', 'refresh']).default('start') });
+const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status, headers: { 'Cache-Control': 'private, no-store' } });
 
 type StripeAccount = {
   id: string;
@@ -33,28 +35,9 @@ async function createCompanyOnboarding(request: NextRequest) {
   if (!parsed.success) return json(400, { error: 'Invalid request.' });
   const { companyId } = parsed.data;
 
-  const { data: membership, error: membershipError } = await supabaseAdmin
-    .from('company_memberships')
-    .select('company_id, role_in_company, status')
-    .eq('user_id', authData.user.id)
-    .eq('company_id', companyId)
-    .eq('status', 'active')
-    .maybeSingle();
-  if (membershipError) return json(500, { error: membershipError.message });
-  if (!membership) return json(403, { error: 'You do not have an active membership for this company.' });
-
-  const allowedRoles = new Set(['owner', 'admin']);
-  if (!allowedRoles.has(String(membership.role_in_company ?? ''))) {
-    return json(403, { error: 'Only a company owner or admin can configure Stripe payouts.' });
-  }
-
-  const { data: company, error: companyError } = await supabaseAdmin
-    .from('companies')
-    .select('id, name')
-    .eq('id', companyId)
-    .maybeSingle();
-  if (companyError) return json(500, { error: companyError.message });
-  if (!company) return json(404, { error: 'Company not found.' });
+  const companies = await listStripeSetupCompanies(supabaseAdmin, authData.user.id);
+  const company = companies.find(candidate => candidate.companyId === companyId);
+  if (!company) return json(403, { error: 'Only an authorised company owner/admin or its own pending applicant can configure Stripe.', code: 'STRIPE_SETUP_COMPANY_FORBIDDEN' });
 
   if (companyId === XDRIVE_LOGISTICS_COMPANY_ID) {
     const platformAccount = await stripeRequest<StripeAccount>('/account', { method: 'GET' });
@@ -83,6 +66,7 @@ async function createCompanyOnboarding(request: NextRequest) {
   if (existing?.stripe_account_id) {
     account = await stripeRequest<StripeAccount>(`/accounts/${existing.stripe_account_id}`, { method: 'GET' });
   } else {
+    if (parsed.data.action === 'refresh') return json(200, { stripeReady: false, onboardingStatus: 'not_started' });
     account = await stripeRequest<StripeAccount>('/accounts', {
       params: {
         country: 'GB',
@@ -97,25 +81,26 @@ async function createCompanyOnboarding(request: NextRequest) {
       idempotencyKey: `xdrive-connect-account:${companyId}`,
     });
 
-    const { error: saveError } = await supabaseAdmin.from('stripe_connected_accounts').upsert({
-      company_id: companyId,
-      stripe_account_id: account.id,
-      account_type: 'standard',
-      onboarding_status: account.details_submitted ? 'submitted' : 'pending',
-      details_submitted: Boolean(account.details_submitted),
-      charges_enabled: Boolean(account.charges_enabled),
-      payouts_enabled: Boolean(account.payouts_enabled),
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'company_id' });
-    if (saveError) return json(500, { error: saveError.message });
   }
+
+  // A return URL is not evidence of completion: persist only Stripe's response.
+  const ready = account.details_submitted === true && account.charges_enabled === true && account.payouts_enabled === true;
+  const onboardingStatus = ready ? 'enabled' : account.details_submitted ? 'submitted' : 'pending';
+  const { error: saveError } = await supabaseAdmin.from('stripe_connected_accounts').upsert({
+    company_id: companyId, stripe_account_id: account.id, account_type: 'standard',
+    onboarding_status: onboardingStatus, details_submitted: Boolean(account.details_submitted),
+    charges_enabled: Boolean(account.charges_enabled), payouts_enabled: Boolean(account.payouts_enabled),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'company_id' });
+  if (saveError) return json(500, { error: 'Stripe account state could not be saved.' });
+  if (parsed.data.action === 'refresh') return json(200, { stripeReady: ready, onboardingStatus });
 
   const origin = getCanonicalSiteOrigin();
   const accountLink = await stripeRequest<StripeAccountLink>('/account_links', {
     params: {
       account: account.id,
-      refresh_url: `${origin}/settings/payments?connect=refresh`,
-      return_url: `${origin}/settings/payments?connect=return`,
+      refresh_url: `${origin}/settings/payments?connect=refresh&companyId=${companyId}`,
+      return_url: `${origin}/settings/payments?connect=return&companyId=${companyId}`,
       type: 'account_onboarding',
     },
     idempotencyKey: `xdrive-connect-link:${companyId}:${Math.floor(Date.now() / 60000)}`,
@@ -144,5 +129,25 @@ export async function POST(request: NextRequest) {
       : { message: String(reason ?? ''), stripeCode: '', status: 0 };
     console.error('[stripe.onboarding]', { code: failure.code, ...diagnostic });
     return json(failure.status, { error: failure.error, code: failure.code });
+  }
+}
+/** Read-only setup discovery; never creates an account or an account link. */
+export async function GET(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return json(503, { error: 'Server auth is not configured.' });
+  const token = getBearerToken(request);
+  if (!token) return json(401, { error: 'Sign in to configure your company payments.' });
+  const { data: auth, error } = await (supabaseValidator ?? supabaseAdmin).auth.getUser(token);
+  if (error || !auth.user) return json(401, { error: 'Your session expired. Please sign in again.' });
+  try {
+    const companies = await listStripeSetupCompanies(supabaseAdmin, auth.user.id);
+    const output = await Promise.all(companies.map(async company => {
+      const state = await getStripeCommercialReadiness(supabaseAdmin!, company.companyId);
+      if (!state.infrastructureAvailable) throw new Error('Stripe account status is temporarily unavailable.');
+      return { ...company, stripeReady: state.ready, onboardingStatus: state.onboardingStatus ?? 'not_started' };
+    }));
+    return json(200, { companies: output });
+  } catch (reason) {
+    console.error('[stripe.setup-discovery]', reason instanceof Error ? reason.message : 'Unknown failure');
+    return json(503, { error: 'Company payment setup could not be verified. Please retry.' });
   }
 }

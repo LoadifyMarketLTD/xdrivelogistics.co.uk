@@ -141,7 +141,7 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
             <thead>
               <tr style={{ color: '#0B2F6B', textAlign: 'left' }}>
-                {['Applicant', 'Company', 'Account type', 'Onboarding', 'Compliance / risk', 'Actions'].map((heading) => (
+                {['Applicant', 'Company', 'Account type', 'Onboarding', 'Compliance / payments', 'Actions'].map((heading) => (
                   <th key={heading} style={{ padding: '8px 10px', borderBottom: '1px solid #E5E7EB', fontSize: 10, textTransform: 'uppercase' }}>{heading}</th>
                 ))}
               </tr>
@@ -158,7 +158,7 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
                     <td style={{ padding: '9px 10px' }}>
                       <span style={{ ...pill(row.ready_for_approval ? 'ready' : 'pending'), display: 'inline-block', borderWidth: 1, borderStyle: 'solid', borderRadius: 999, padding: '2px 7px', fontWeight: 800 }}>{row.ready_for_approval ? 'Ready for approval' : 'Blocked'}</span>
                       <div style={{ marginTop: 4, maxWidth: 300, color: row.ready_for_approval ? '#166534' : '#991B1B' }}>
-                        {row.ready_for_approval ? 'Compliance and risk checks are clear.' : row.approval_blockers.join(' ')}
+                        {row.ready_for_approval ? 'Compliance, risk and required Stripe checks are clear.' : row.approval_blockers.join(' ')}
                       </div>
                     </td>
                     <td style={{ padding: '9px 10px' }}>

@@ -1,112 +1,120 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-
+import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { supabase } from '../../../lib/supabaseClient';
+import { readRouteAuthAccessToken } from '../../../lib/routeAuthCookie';
 import { ActionButton, AlertBanner, EmptyState, PageFrame, PageHeader, Panel } from '../../components/workspace/WorkspaceUI';
 
-type CompanyChoice = { companyId: string; name: string; role: string };
+type CompanyChoice = { companyId: string; name: string; role: string; preApproval: boolean; stripeReady: boolean; onboardingStatus: string };
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const cached = readRouteAuthAccessToken();
+  if (cached) return { Authorization: `Bearer ${cached}` };
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const { data } = await Promise.race([
+    supabase.auth.getSession(),
+    new Promise<never>((_, reject) => { timer = setTimeout(() => reject(new Error('Session lookup timed out. Please reload and sign in again.')), 15000); }),
+  ]).finally(() => { if (timer) clearTimeout(timer); });
+  if (!data.session?.access_token) throw new Error('Sign in to configure your company payments.');
+  return { Authorization: `Bearer ${data.session.access_token}` };
+}
 
 export default function PaymentSettingsPage() {
-  const router = useRouter();
   const [companies, setCompanies] = useState<CompanyChoice[]>([]);
   const [loading, setLoading] = useState(true);
   const [connectingId, setConnectingId] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [message, setMessage] = useState('');
+
+  const load = useCallback(async () => {
+    const response = await fetch('/api/payments/connect/onboarding', {
+      headers: await authHeaders(), cache: 'no-store', signal: AbortSignal.timeout(30000),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error ?? 'Your company could not be loaded.');
+    setCompanies(payload.companies ?? []);
+  }, []);
+
+  const refresh = useCallback(async (companyId: string) => {
+    const response = await fetch('/api/payments/connect/onboarding', {
+      method: 'POST', headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
+      body: JSON.stringify({ companyId, action: 'refresh' }), signal: AbortSignal.timeout(30000),
+    });
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload.error ?? 'Stripe status could not be refreshed.');
+    setMessage(payload.stripeReady
+      ? 'Stripe is active. Platform Compliance can now recheck your application; this does not automatically approve it.'
+      : 'Stripe setup is not fully active yet. Continue setup to complete the details or check again after Stripe finishes its review.');
+    await load();
+  }, [load]);
 
   useEffect(() => {
     let active = true;
-    const load = async () => {
-      setLoading(true);
-      setError('');
-      const { data: sessionData } = await supabase.auth.getSession();
-      const user = sessionData.session?.user;
-      if (!user) {
-        if (active) setError('Your session has expired. Please sign in again.');
-        if (active) setLoading(false);
-        return;
+    const initialize = async () => {
+      await load();
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('connect') === 'return' && params.get('companyId')) {
+        await refresh(params.get('companyId')!);
+      } else if (params.get('connect') === 'refresh') {
+        setMessage('Your Stripe link has expired or was already used. Select Continue Stripe setup to obtain a new secure link.');
       }
-      const { data, error: membershipError } = await supabase
-        .from('company_memberships')
-        .select('company_id, role_in_company, companies(name)')
-        .eq('user_id', user.id)
-        .eq('status', 'active')
-        .in('role_in_company', ['owner', 'admin']);
-      if (!active) return;
-      if (membershipError) {
-        setError(membershipError.message);
-      } else {
-        setCompanies((data ?? []).map((row) => {
-          const companyRelation = row.companies as unknown as { name?: string } | { name?: string }[] | null;
-          const company = Array.isArray(companyRelation) ? companyRelation[0] : companyRelation;
-          return {
-            companyId: String(row.company_id),
-            role: String(row.role_in_company ?? ''),
-            name: company?.name?.trim() || 'XDrive company',
-          };
-        }));
-      }
-      setLoading(false);
     };
-    void load();
+    void initialize().catch(reason => { if (active) setError(reason instanceof Error ? reason.message : 'Payment setup could not be loaded.'); })
+      .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, []);
+  }, [load, refresh]);
 
   const connect = async (companyId: string) => {
-    setConnectingId(companyId);
-    setError('');
+    setConnectingId(companyId); setError(''); setMessage('');
     try {
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      if (!token) throw new Error('Your session has expired. Please sign in again.');
       const response = await fetch('/api/payments/connect/onboarding', {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ companyId }),
+        method: 'POST', headers: { ...await authHeaders(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ companyId, action: 'start' }), signal: AbortSignal.timeout(55000),
       });
-      const payload = (await response.json().catch(() => null)) as { onboardingUrl?: string; error?: string } | null;
-      if (!response.ok || !payload?.onboardingUrl) throw new Error(payload?.error ?? 'Stripe onboarding could not be started.');
-      window.location.assign(payload.onboardingUrl);
+      const payload = await response.json();
+      if (!response.ok || !payload.onboardingUrl) throw new Error(payload.error ?? 'Stripe setup could not be started.');
+      const destination = new URL(payload.onboardingUrl);
+      if (destination.protocol !== 'https:' || !destination.hostname.endsWith('.stripe.com')) throw new Error('Invalid Stripe setup destination.');
+      window.location.assign(destination.href);
     } catch (reason) {
-      setError(reason instanceof Error ? reason.message : 'Stripe onboarding could not be started.');
+      setError(reason instanceof Error ? reason.message : 'Stripe setup could not be started.');
       setConnectingId(null);
     }
   };
 
-  return (
-    <PageFrame>
-      <PageHeader
-        eyebrow="Payments"
-        title="Receive transport payments"
-        description="Connect your business to Stripe so customers can pay transport invoices securely. Stripe collects verification and bank details; XDrive does not store your bank credentials or custody transport funds."
-        actions={<ActionButton tone="secondary" onClick={() => router.back()}>Back</ActionButton>}
-      />
-      {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
-      <Panel title="Stripe payout connection" description="Only company owners and admins can create or refresh the payout connection.">
-        {loading ? <EmptyState title="Loading companies…" /> : companies.length === 0 ? (
-          <EmptyState title="No authorised company found" description="You need an active owner/admin company membership before payout onboarding can start." />
-        ) : (
-          <div style={{ display: 'grid', gap: '0.75rem' }}>
-            {companies.map((company) => (
-              <div key={company.companyId} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '1rem', padding: '0.9rem 1rem', border: '1px solid #E5E7EB', borderRadius: '12px' }}>
-                <div>
-                  <div style={{ fontWeight: 850 }}>{company.name}</div>
-                  <div style={{ marginTop: '0.2rem', color: '#64748B', fontSize: '0.82rem' }}>Stripe Connect Standard · {company.role}</div>
-                </div>
-                <ActionButton tone="primary" disabled={connectingId === company.companyId} onClick={() => void connect(company.companyId)}>
-                  {connectingId === company.companyId ? 'Opening Stripe…' : 'Connect / manage payout account'}
-                </ActionButton>
-              </div>
-            ))}
-          </div>
-        )}
-      </Panel>
-      <Panel title="How job money moves">
-        <div style={{ lineHeight: 1.75, color: '#334155' }}>
-          Customer pays in Stripe → Stripe processes the direct charge on the carrier connected account → Stripe pays the carrier/owner-driver according to its payout schedule. XDrive records payment status against the job invoice but does not receive the transport value into the XDrive platform balance.
-        </div>
-      </Panel>
-    </PageFrame>
-  );
+  const checkStatus = async (companyId: string) => {
+    setConnectingId(companyId); setError('');
+    try { await refresh(companyId); }
+    catch (reason) { setError(reason instanceof Error ? reason.message : 'Stripe status could not be checked.'); }
+    finally { setConnectingId(null); }
+  };
+
+  return <PageFrame>
+    <PageHeader eyebrow="Payments" title="Receive transport payments"
+      description="Connect your business to Stripe. Pending company applicants can complete this setup before Platform Compliance approval, without gaining commercial workspace access."
+      actions={<Link href="/pending-approval">Application status</Link>} />
+    {error && <AlertBanner tone="danger">{error} <Link href="/login?next=%2Fsettings%2Fpayments">Sign in again</Link></AlertBanner>}
+    {message && <div role="status"><AlertBanner tone="info">{message}</AlertBanner></div>}
+    <Panel title="Stripe payout connection" description="Only authorised owners and admins can configure their own company. Stripe collects verification and bank details securely.">
+      {loading ? <EmptyState title="Loading your company..." /> : !companies.length ? <EmptyState title="No company available for payment setup"
+        description="Sign in with the account that owns the application. An invited company owner can complete Stripe for their own pending company; ordinary driver invitations do not grant this permission." /> :
+        <div style={{ display: 'grid', gap: 16 }}>
+          {companies.map(company => <section key={company.companyId} aria-label={company.name}
+            style={{ border: '1px solid #cbd5e1', borderRadius: 8, padding: 16 }}>
+            <h2 style={{ fontSize: 19, margin: '0 0 8px' }}>{company.name}</h2>
+            <p>{company.preApproval ? 'Pre-approval payment setup. Your application remains under review.' : 'Authorised company payment setup.'}</p>
+            <p><strong>Stripe:</strong> {company.stripeReady ? 'Active - payments and payouts enabled' : company.onboardingStatus === 'not_started' ? 'Not connected' : 'Setup incomplete or awaiting Stripe verification'}</p>
+            <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
+              {!company.stripeReady && <ActionButton tone="primary" disabled={connectingId !== null} onClick={() => void connect(company.companyId)}>
+                {connectingId === company.companyId ? 'Please wait...' : company.onboardingStatus === 'not_started' ? 'Connect Stripe' : 'Continue Stripe setup'}
+              </ActionButton>}
+              <ActionButton tone="secondary" disabled={connectingId !== null} onClick={() => void checkStatus(company.companyId)}>Check Stripe status</ActionButton>
+            </div>
+          </section>)}
+        </div>}
+    </Panel>
+    <Panel title="How job money moves"><p>Stripe processes transport payments on the carrier account and pays that business according to its payout schedule. XDrive records the invoice payment status. Completing this setup does not approve your documents or activate your workspace.</p></Panel>
+    <p><Link href="/onboarding/documents">View or replace my documents</Link></p>
+  </PageFrame>;
 }
