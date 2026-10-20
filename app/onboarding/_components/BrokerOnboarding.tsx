@@ -184,6 +184,13 @@ export function BrokerOnboarding({ token }: { token: string }) {
         return;
       }
 
+      if (['submitted', 'under_review', 'compliance_review', 'admin_approval', 'approved'].includes(application?.status ?? '')) {
+        setApplication(data.application);
+        setUploadedDocuments((previous) => new Set(previous).add(docType));
+        setMessage('Replacement uploaded. Your application remains in review; the new file awaits verification.');
+        return;
+      }
+
       const markerKey = `doc_${docType}`;
       const nextPayload = { ...formData, [markerKey]: data.path ?? 'uploaded' };
       const persist = await fetch('/api/onboarding/broker/session', {
@@ -340,6 +347,7 @@ export function BrokerOnboarding({ token }: { token: string }) {
 
       <section style={{ marginTop: '1.5rem' }}>
         <h2>Company Documents</h2>
+        <p><a href="/onboarding/documents">View or replace my documents</a> - including files already submitted for review.</p>
         {!application.company_id ? (
           <p style={{ color: '#92400E' }}>Verify the company before uploading documents.</p>
         ) : (

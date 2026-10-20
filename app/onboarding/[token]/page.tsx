@@ -299,6 +299,13 @@ export default function OnboardingTokenPage() {
         return;
       }
 
+      if (['submitted', 'under_review', 'compliance_review', 'admin_approval', 'approved'].includes(application?.status ?? '')) {
+        setApplication(data.application);
+        setFormData((previous) => ({ ...previous, ['doc_' + docType]: data.path }));
+        setMessage('Replacement uploaded. Your application remains in review; the new file awaits verification.');
+        return;
+      }
+
       const markerKey = `doc_${docType}`;
       const nextFormData = { ...formData, [markerKey]: data.path ?? 'uploaded' };
       setFormData(nextFormData);
@@ -444,9 +451,7 @@ export default function OnboardingTokenPage() {
     (doc) => doc.requirement === 'required' && !formData[`doc_${doc.type}`],
   );
   const isRecoveryResume = token === 'resume';
-  const visibleDocuments = isRecoveryResume
-    ? onboardingDocuments.filter((doc) => doc.type === requestedDocument || recoveryAssessment.missingDocuments.some((item) => item.type === doc.type))
-    : onboardingDocuments;
+  const visibleDocuments = onboardingDocuments;
 
   const renderRecoveryMissingFields = () => (
     <section>
@@ -536,6 +541,7 @@ export default function OnboardingTokenPage() {
       {visibleDocuments.length > 0 && (
         <section style={{ marginTop: '2rem' }}>
           <h2>Document Upload</h2>
+          <p><a href="/onboarding/documents">View or replace my documents</a> - including files already submitted for review.</p>
           <p style={{ color: '#4B5563' }}>
             Required documents block activation until approved. Conditional documents are requested only when they apply to the person, vehicle or business.
           </p>

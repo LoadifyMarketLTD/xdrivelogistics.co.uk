@@ -65,9 +65,11 @@ describe('public funnel hardening', () => {
   });
 
   it('binds fleet document uploads to the verified onboarding company', () => {
-    expect(documentsRoute).toContain("if (!app.company_id)");
-    expect(documentsRoute).toContain(".eq('id', app.company_id)");
-    expect(documentsRoute).toContain(".eq('company_id', company.id)");
+    const replacement = read('supabase/migrations/20261020184144_atomic_onboarding_document_replacement.sql');
+    expect(replacement).toContain('OR v_app.company_id IS NULL');
+    expect(replacement).toContain('public.company_memberships m JOIN public.companies c');
+    expect(replacement).toContain('m.company_id=v_app.company_id AND m.user_id=p_actor_user_id');
+    expect(documentsRoute).toContain('p_application_id: app.id');
     expect(documentsRoute).toContain(".eq('user_id', authData.user.id)");
   });
 

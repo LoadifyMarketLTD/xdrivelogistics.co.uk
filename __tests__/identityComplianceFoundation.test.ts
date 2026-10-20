@@ -54,8 +54,10 @@ describe('identity compliance foundation', () => {
     expect(uploadRoute).toContain(".from('fraud_review_cases')");
     expect(uploadRoute).toContain(".in('status', ['cleared', 'dismissed'])");
     expect(uploadRoute).toContain("code: 'duplicate_document_detected'");
-    expect(uploadRoute).toContain(".eq('id', app.company_id)");
-    expect(uploadRoute).toContain(".from('company_memberships')");
+    const replacement = readRepoFile('supabase/migrations/20261020184144_atomic_onboarding_document_replacement.sql');
+    expect(replacement).toContain('public.company_memberships m JOIN public.companies c');
+    expect(replacement).toContain('m.company_id=v_app.company_id AND m.user_id=p_actor_user_id');
+    expect(uploadRoute).toContain("rpc('store_onboarding_document_revision'");
     expect(uploadRoute).toContain(".eq('user_id', authData.user.id)");
   });
 

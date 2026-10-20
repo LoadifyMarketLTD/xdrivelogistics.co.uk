@@ -25,16 +25,6 @@ type Row = {
   file_available: boolean;
 };
 
-const openSecureDocument = (url: string) => {
-  const link = document.createElement('a');
-  link.href = url;
-  link.target = '_blank';
-  link.rel = 'noopener noreferrer';
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-};
-
 export default function Page() {
   const [reloadToken, setReloadToken] = useState(() => Date.now());
   const [busyDocumentId, setBusyDocumentId] = useState<string | null>(null);
@@ -42,6 +32,7 @@ export default function Page() {
   const [pendingReject, setPendingReject] = useState<Row | null>(null);
   // PR-0.5: inline error replacing window.alert
   const [inlineError, setInlineError] = useState<string | null>(null);
+  const [securePreview, setSecurePreview] = useState<{ id: string; url: string } | null>(null);
 
   const viewDocument = async (row: Row) => {
     if (!row.file_available) {
@@ -49,10 +40,11 @@ export default function Page() {
       return;
     }
 
+    setInlineError(null);
     setBusyDocumentId(row.id);
     try {
       const auth = await getAuthHeader();
-      if (!auth) return;
+      if (!auth) { setInlineError('Your session has expired. Sign in again.'); return; }
 
       const response = await fetch('/api/super-admin/compliance/documents', {
         method: 'POST',
@@ -76,7 +68,9 @@ export default function Page() {
         return;
       }
 
-      openSecureDocument(payload.url);
+      setSecurePreview({ id: row.id, url: payload.url });
+    } catch (reason) {
+      setInlineError(reason instanceof Error ? reason.message : 'The document request failed. Please try again.');
     } finally {
       setBusyDocumentId(null);
     }
@@ -188,11 +182,12 @@ export default function Page() {
                 style={{ fontSize: '0.68rem', fontWeight: 700 }}
                 title={row.file_available ? 'Open a short-lived secure preview' : 'No stored file'}
               >
-                {busy ? 'Please wait…' : 'View document'}
+                {busy ? 'Please wait…' : row.file_available ? 'View document' : 'No document uploaded'}
               </button>
+              {securePreview?.id === row.id && <a href={securePreview.url} target="_blank" rel="noopener noreferrer" style={{ fontWeight: 700 }}>Open secure preview</a>}
               <button
                 type="button"
-                disabled={busy}
+                disabled={busy || !row.file_available}
                 onClick={() => void updateDocument(row, 'approve')}
                 style={{ fontSize: '0.68rem' }}
               >
@@ -211,7 +206,7 @@ export default function Page() {
         },
       },
     ],
-    [busyDocumentId],
+    [busyDocumentId, securePreview],
   );
 
   return (

@@ -63,7 +63,8 @@ export default function LoginPage() {
       if (!result.success) {
         setError(result.error || 'Login failed');
       } else if (result.route) {
-        router.replace(result.route);
+        const selfServiceDocuments = safeNextPath === '/onboarding/documents' || safeNextPath?.startsWith('/onboarding/documents?');
+        router.replace(selfServiceDocuments ? safeNextPath! : result.route);
       }
     } finally {
       setIsLoading(false);

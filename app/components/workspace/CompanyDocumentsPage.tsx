@@ -178,6 +178,7 @@ export default function CompanyDocumentsPage() {
         description="Company-level compliance records and their recorded review state. This workspace does not self-approve company compliance evidence."
       />
 
+      <p><a href="/onboarding/documents" style={{ fontWeight: 700 }}>View or replace my onboarding documents</a>. Only documents belonging to your own application can be changed.</p>
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
 
       <KpiGrid>
