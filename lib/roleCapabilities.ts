@@ -156,6 +156,14 @@ export const hasWorkspaceCapabilityForContext = (
   }
 
   if (membershipRole === 'member') {
+    const rawRole = context.rawRole?.trim().toLowerCase() ?? '';
+    if (
+      workspaceRole === 'broker'
+      && rawRole === 'broker'
+      && (capability === 'loads.create' || capability === 'loads.publish')
+    ) {
+      return hasWorkspaceCapability(workspaceRole, capability);
+    }
     const allowed = workspaceRole === 'customer'
       ? CUSTOMER_MEMBER_CAPABILITIES
       : BROKER_MEMBER_CAPABILITIES;

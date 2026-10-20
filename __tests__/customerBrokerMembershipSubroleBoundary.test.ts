@@ -60,6 +60,12 @@ describe('Customer and Broker company subrole boundaries', () => {
     }
   });
 
+  it('allows a canonical Broker profile with member company membership to use the broker posting flow', () => {
+    const broker = { ...active, workspaceRole: 'broker' as const, membershipRole: 'member', rawRole: 'broker' };
+    expect(isRoleAllowedForPath('/broker/post-load', 'broker', broker)).toBe(true);
+    expect(isRoleAllowedForPath('/broker/bulk-import', 'broker', broker)).toBe(true);
+  });
+
   it('preserves full Customer/Broker workspace capabilities for owner/admin membership', () => {
     expect(isRoleAllowedForPath('/customer/settings', 'customer', { ...active, workspaceRole: 'customer', membershipRole: 'admin' })).toBe(true);
     expect(isRoleAllowedForPath('/customer/invoices', 'customer', { ...active, workspaceRole: 'customer', membershipRole: 'admin' })).toBe(true);
