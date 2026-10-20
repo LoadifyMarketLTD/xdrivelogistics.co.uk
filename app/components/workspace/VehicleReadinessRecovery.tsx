@@ -8,9 +8,11 @@ import { WORKSPACE_READINESS_CHANGED } from '../../../lib/workspaceReadiness';
 type Vehicle = {id:string;reg_plate:string|null;type:string|null;status:string;assigned_driver_id:string|null};
 type Document = {id:string;vehicle_id:string;doc_type:string;status:string;expiry_date:string|null;rejection_reason:string|null};
 type Snapshot = {companyId:string;driverId:string;canManageAssignment:boolean;vehicles:Vehicle[];documents:Document[]};
-const field = {width:'100%',padding:'9px 10px',border:'1px solid #cbd5e1',borderRadius:6,background:'#fff',color:'#1a1f2b'} as const;
-const panel = {padding:16,border:'1px solid #d7e0ea',borderRadius:8,background:'#fff',minWidth:0} as const;
-const button = {padding:'9px 14px',border:0,borderRadius:6,background:'#0b2f6b',color:'#fff',fontWeight:700,cursor:'pointer'} as const;
+const field = {width:'100%',minHeight:40,padding:'9px 10px',border:'1px solid #c8d3e0',borderRadius:7,background:'#fff',color:'#111827',fontSize:14} as const;
+const panel = {padding:20,border:'1px solid #d5deea',borderRadius:10,background:'#fff',minWidth:0,boxShadow:'0 1px 2px rgba(15,23,42,.04)'} as const;
+const button = {padding:'10px 16px',border:0,borderRadius:7,background:'#0b2f6b',color:'#fff',fontWeight:800,fontSize:13,cursor:'pointer',display:'inline-flex',alignItems:'center',justifyContent:'center',gap:6} as const;
+const quietButton = {...button,background:'#eef3f8',color:'#0b2f6b',border:'1px solid #c9d5e3'} as const;
+const statusPill = {display:'inline-flex',alignItems:'center',minHeight:26,padding:'4px 9px',borderRadius:999,background:'#edf7ef',color:'#176b33',fontSize:12,fontWeight:800} as const;
 export default function VehicleReadinessRecovery(){
  const {user}=useAuth();
  const params=useSearchParams();
@@ -75,36 +77,55 @@ export default function VehicleReadinessRecovery(){
   }catch(reason){setError(reason instanceof Error?reason.message:'Assignment could not be saved.');}finally{busy.current=false;setWorking(false);}
  }
  const assigned=snapshot?.vehicles.filter(v=>v.assigned_driver_id===snapshot.driverId&&v.status==='active')??[];
- return <main style={{maxWidth:960,margin:'0 auto',padding:16,color:'#1a1f2b',display:'grid',gap:14}}>
-  <header><h1 style={{margin:'0 0 6px',fontSize:24,color:'#0b2f6b'}}>Vehicle readiness</h1><p style={{margin:0}}>Resolve the exact vehicle assignment or document restriction. No job is posted or quoted here.</p></header>
-  {error&&<div role="alert" style={{...panel,color:'#b91c1c'}}>{error} <button type="button" style={button} disabled={working||loading} onClick={()=>void load()}>Retry check</button></div>}
-  {message&&<div role="status" style={panel}>{message}</div>}
-  {loading?<p role="status">Loading your vehicle requirements...</p>:snapshot&&<>
+ return <main style={{width:'100%',maxWidth:1320,margin:'0 auto',padding:'24px clamp(16px,3vw,36px) 32px',color:'#172033',display:'grid',gap:18}}>
+  <header style={{display:'flex',flexWrap:'wrap',alignItems:'flex-end',justifyContent:'space-between',gap:14,paddingBottom:4}}>
+   <div>
+    <div style={{fontSize:11,fontWeight:900,letterSpacing:'.12em',color:'#1d5aa6',marginBottom:5}}>MY FLEET</div>
+    <h1 style={{margin:'0 0 5px',fontSize:'clamp(24px,2.2vw,32px)',lineHeight:1.08,color:'#0b2142'}}>Vehicle readiness</h1>
+    <p style={{margin:0,maxWidth:760,color:'#5f6b7b',fontSize:14}}>Manage the vehicle linked to your driver account and keep its required evidence current.</p>
+   </div>
+   {!loading&&snapshot&&<span style={assigned.length===1?statusPill:{...statusPill,background:'#fff4e5',color:'#965b00'}}>{assigned.length===1?'Vehicle ready':'Vehicle action required'}</span>}
+  </header>
+  {error&&<div role="alert" style={{...panel,color:'#9f1d1d',display:'flex',flexWrap:'wrap',justifyContent:'space-between',alignItems:'center',gap:12}}><span>{error}</span><button type="button" style={quietButton} disabled={working||loading} onClick={()=>void load()}>Retry check</button></div>}
+  {message&&<div role="status" style={{...panel,borderColor:'#b9ddc3',background:'#f5fbf6',color:'#1d6332'}}>{message}</div>}
+  {loading?<div role="status" style={panel}>Loading your vehicle requirements...</div>:snapshot&&<div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(300px,1fr))',gap:16,alignItems:'start'}}>
    <section id="vehicle-assignment" aria-label="Vehicle assignment" style={panel}>
-    <h2 style={{fontSize:18,marginTop:0}}>Vehicle assignment</h2>
-    <p>{assigned.length===1?'One active vehicle is assigned to you.':assigned.length===0?'No active vehicle is assigned to you.':'More than one active assignment needs attention.'}</p>
-    {!snapshot.canManageAssignment&&<p>Your company administrator manages vehicle assignments. You can upload documents for your assigned vehicle below. <a href="/driver/support?reason=vehicle-assignment">Ask for company assignment help</a></p>}
-    <div style={{display:'grid',gap:8}}>{snapshot.vehicles.map(v=><div key={v.id} style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:10,borderTop:'1px solid #e5e7eb',paddingTop:8}}>
-     <span style={{flex:'1 1 240px'}}><strong>{v.reg_plate||'Registration not supplied'}</strong> - {v.type?.replaceAll('_',' ')} - {v.status}<br/>{v.assigned_driver_id===snapshot.driverId?'Assigned to you':v.assigned_driver_id?'Assigned to another company driver':'Not assigned'}</span>
-     {snapshot.canManageAssignment&&v.assigned_driver_id===snapshot.driverId&&<button style={button} type="button" disabled={working} onClick={()=>void assign(v.id,'unassign')}>Remove assignment</button>}
+    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,marginBottom:8}}>
+     <div><div style={{fontSize:11,fontWeight:900,letterSpacing:'.08em',color:'#64748b'}}>VEHICLE</div><h2 style={{fontSize:20,margin:'2px 0 0',color:'#0b2142'}}>Assignment</h2></div>
+     <span style={assigned.length===1?statusPill:{...statusPill,background:'#fff4e5',color:'#965b00'}}>{assigned.length===1?'Active':'Needs setup'}</span>
+    </div>
+    <p style={{margin:'8px 0 14px',color:'#5f6b7b'}}>{assigned.length===1?'Your active vehicle is linked to this driver account.':assigned.length===0?'No active vehicle is linked to this driver account yet.':'More than one active assignment needs attention.'}</p>
+    {!snapshot.canManageAssignment&&<div style={{padding:12,borderRadius:8,background:'#f7f9fc',color:'#465366',fontSize:13}}>Your company administrator manages vehicle assignments. You can still upload documents for your assigned vehicle. <a href="/driver/support?reason=vehicle-assignment">Request assignment help</a>.</div>}
+    {snapshot.canManageAssignment&&assigned.length===0&&<div style={{padding:16,border:'1px dashed #b7c5d8',borderRadius:9,background:'#f8fafc',marginBottom:14}}>
+     <strong style={{display:'block',fontSize:15,color:'#0b2142',marginBottom:5}}>Add your first vehicle</strong>
+     <span style={{display:'block',fontSize:13,color:'#667085',marginBottom:12}}>Registration, vehicle type, capacity and equipment are saved in My Fleet.</span>
+     <a href="/driver/vehicles?action=add" style={{...button,textDecoration:'none'}}>Add vehicle</a>
+    </div>}
+    <div style={{display:'grid',gap:10}}>{snapshot.vehicles.map(v=><div key={v.id} style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:12,border:'1px solid #e3e8ef',borderRadius:8,padding:12,background:'#fbfcfe'}}>
+     <span style={{flex:'1 1 220px',fontSize:13,color:'#5f6b7b'}}><strong style={{display:'block',fontSize:15,color:'#172033',marginBottom:2}}>{v.reg_plate||'Registration not supplied'}</strong>{v.type?.replaceAll('_',' ')||'Vehicle type not recorded'} · {v.status}<br/>{v.assigned_driver_id===snapshot.driverId?'Assigned to you':v.assigned_driver_id?'Assigned to another company driver':'Not assigned'}</span>
+     {snapshot.canManageAssignment&&v.assigned_driver_id===snapshot.driverId&&<button style={quietButton} type="button" disabled={working} onClick={()=>void assign(v.id,'unassign')}>Remove assignment</button>}
      {snapshot.canManageAssignment&&!v.assigned_driver_id&&v.status==='active'&&<button style={button} type="button" disabled={working||assigned.length>0} onClick={()=>void assign(v.id,'assign')}>Assign to me</button>}
     </div>)}</div>
-    {snapshot.canManageAssignment&&<p><a href="/driver/vehicles?action=add" target="_blank" rel="noopener noreferrer">Add a company vehicle</a></p>}
+    {snapshot.canManageAssignment&&assigned.length>0&&<div style={{marginTop:14,fontSize:13}}><a href="/driver/vehicles?action=add">Manage vehicles in My Fleet</a></div>}
    </section>
    <section id="vehicle-document-upload" aria-label="Upload vehicle document" style={panel}>
-    <h2 style={{fontSize:18,marginTop:0}}>Upload vehicle document</h2>
-    <p>Select the exact vehicle and the missing or expired document. Verification is required after upload.</p>
-    {assigned.length===0?<p>Resolve the active vehicle assignment above before uploading its evidence.</p>:<div style={{display:'grid',gap:12}}>
-     <label>Assigned vehicle<select style={field} value={vehicleId} onChange={e=>setVehicleId(e.target.value)}>{assigned.map(v=><option key={v.id} value={v.id}>{v.reg_plate||v.type||'Assigned vehicle'}</option>)}</select></label>
-     <label>Document type<select style={field} value={docType} onChange={e=>setDocType(e.target.value)}><option value="mot">MOT</option><option value="insurance">Vehicle insurance</option></select></label>
-     <label>Issue date (optional)<input style={field} type="date" value={issued} onChange={e=>setIssued(e.target.value)}/></label>
-     <label>Expiry date<input style={field} type="date" required value={expiry} onChange={e=>setExpiry(e.target.value)}/></label>
-     <label>Document file<input id="vehicle-document-file" ref={fileInput} style={field} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]??null)}/></label>
-     <button style={button} type="button" disabled={working||!file||!expiry} onClick={()=>void submit()}>{working?'Saving...':'Submit vehicle document for verification'}</button>
+    <div style={{fontSize:11,fontWeight:900,letterSpacing:'.08em',color:'#64748b'}}>COMPLIANCE</div>
+    <h2 style={{fontSize:20,margin:'2px 0 6px',color:'#0b2142'}}>Vehicle documents</h2>
+    <p style={{margin:'0 0 14px',color:'#5f6b7b',fontSize:14}}>Upload current MOT or insurance evidence for the active vehicle. Verification remains required.</p>
+    {assigned.length===0?<div style={{padding:14,borderRadius:8,background:'#f8fafc',color:'#667085',fontSize:13}}>Add or assign your active vehicle first. The document form will unlock automatically.</div>:<div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:12}}>
+     <label style={{gridColumn:'1 / -1',fontSize:13,fontWeight:700}}>Assigned vehicle<select style={field} value={vehicleId} onChange={e=>setVehicleId(e.target.value)}>{assigned.map(v=><option key={v.id} value={v.id}>{v.reg_plate||v.type||'Assigned vehicle'}</option>)}</select></label>
+     <label style={{gridColumn:'1 / -1',fontSize:13,fontWeight:700}}>Document type<select style={field} value={docType} onChange={e=>setDocType(e.target.value)}><option value="mot">MOT</option><option value="insurance">Vehicle insurance</option></select></label>
+     <label style={{fontSize:13,fontWeight:700}}>Issue date <span style={{fontWeight:500,color:'#7a8594'}}>(optional)</span><input style={field} type="date" value={issued} onChange={e=>setIssued(e.target.value)}/></label>
+     <label style={{fontSize:13,fontWeight:700}}>Expiry date<input style={field} type="date" required value={expiry} onChange={e=>setExpiry(e.target.value)}/></label>
+     <label style={{gridColumn:'1 / -1',fontSize:13,fontWeight:700}}>Document file<input id="vehicle-document-file" ref={fileInput} style={field} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" onChange={e=>setFile(e.target.files?.[0]??null)}/></label>
+     <button style={{...button,gridColumn:'1 / -1'}} type="button" disabled={working||!file||!expiry} onClick={()=>void submit()}>{working?'Saving...':'Submit for verification'}</button>
     </div>}
-    {snapshot.documents.length>0&&<div style={{marginTop:16}}><h3>Submitted vehicle evidence</h3>{snapshot.documents.map(d=><p key={d.id}><strong>{d.doc_type.toUpperCase()}</strong> - {d.status}{d.expiry_date?' - expires '+d.expiry_date:''}{d.rejection_reason?' - '+d.rejection_reason:''}</p>)}</div>}
+    {snapshot.documents.length>0&&<div style={{marginTop:18,paddingTop:14,borderTop:'1px solid #e5eaf0'}}><h3 style={{fontSize:14,margin:'0 0 8px'}}>Submitted evidence</h3>{snapshot.documents.map(d=><div key={d.id} style={{fontSize:13,padding:'7px 0',borderTop:'1px solid #f0f2f5'}}><strong>{d.doc_type.toUpperCase()}</strong> · {d.status}{d.expiry_date?' · expires '+d.expiry_date:''}{d.rejection_reason?' · '+d.rejection_reason:''}</div>)}</div>}
    </section>
-  </>}
-  <p><a href="/driver/loads">Back to Loads</a> - <button type="button" style={button} disabled={working||loading} onClick={()=>{void load();window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED));}}>Re-check requirements</button></p>
+  </div>}
+  <div style={{display:'flex',flexWrap:'wrap',alignItems:'center',justifyContent:'space-between',gap:12,paddingTop:2,fontSize:13}}>
+   <a href="/driver/loads">Back to Loads</a>
+   <button type="button" style={quietButton} disabled={working||loading} onClick={()=>{void load();window.dispatchEvent(new Event(WORKSPACE_READINESS_CHANGED));}}>Re-check requirements</button>
+  </div>
  </main>;
 }
