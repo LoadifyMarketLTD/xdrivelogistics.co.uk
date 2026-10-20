@@ -39,6 +39,8 @@ describe('CX Drivers & Vehicles consolidated access contract', () => {
     expect(source).toContain("columns={['Vehicle', 'Size / type', 'Year', 'Max payload', 'Assigned driver', 'Tracking', 'Advertising', 'Notify when tracked', 'Documents']}");
     expect(source).toContain('vehicle.manufacture_year');
     expect(source).toContain('vehicle.payload_kg');
+    expect(source).toContain('>Add Vehicle</ActionButton>');
+    expect(source).toContain("router.push('/admin/vehicles')");
     expect(source).not.toContain("router.push('/admin/event-log')}>Event Log");
     expect(source).not.toContain("router.push('/admin/documents')}>Documents");
   });
