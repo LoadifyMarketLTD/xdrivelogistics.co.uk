@@ -11,6 +11,7 @@ import { logRuntimeProof } from '../../../lib/runtimeProof';
 import { useAdminCompanyContext } from '../_hooks/useAdminCompanyContext';
 import { getAccessToken } from '../_lib/getAccessToken';
 import { AlertBanner } from '../../components/workspace/WorkspaceUI';
+import { VehicleRegisterShell } from '../../components/workspace/VehicleRegisterShell';
 
 const VEHICLE_TYPES: VehicleType[] = ['bicycle', 'motorbike', 'car', 'van_small', 'van_large', 'luton', 'truck_7_5t', 'truck_18t', 'artic'];
 
@@ -330,17 +331,12 @@ export default function VehiclesPage() {
 
   return (
     <ProtectedRoute>
-      <div className="carrier-register-page carrier-register-page--vehicles">
-        <div style={{ width: '100%' }}>
-          <div className="carrier-register-toolbar">
-            <div>
-              <h1 className="carrier-register-title">{isDriverWorkspace ? 'My Vehicle' : 'Vehicles'}</h1>
-              <p className="carrier-register-subtitle">{isDriverWorkspace ? 'Manage your own vehicle details.' : 'Manage fleet vehicles'}</p>
-            </div>
-            <button onClick={() => { setError(''); setShowModal(true); }} disabled={!companyResolved || !companyId} className="carrier-register-action">
-              + Add Vehicle
-            </button>
-          </div>
+      <>
+      <VehicleRegisterShell
+        title={isDriverWorkspace ? 'My Vehicle' : 'Vehicles'}
+        subtitle={isDriverWorkspace ? 'Manage your own vehicle details.' : 'Manage fleet vehicles'}
+        actions={<button onClick={() => { setError(''); setShowModal(true); }} disabled={!companyResolved || !companyId} className="carrier-register-action">+ Add Vehicle</button>}
+      >
 
           {companyError ? <AlertBanner tone="warning">{companyError}</AlertBanner> : null}
 
@@ -451,7 +447,7 @@ export default function VehiclesPage() {
               </>
             )}
           </section>
-        </div>
+      </VehicleRegisterShell>
 
         {/* Create Modal */}
         {showModal && (
@@ -566,7 +562,7 @@ export default function VehiclesPage() {
             </div>
           </div>
         )}
-      </div>
+      </>
     </ProtectedRoute>
   );
 }
