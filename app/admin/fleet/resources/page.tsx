@@ -374,7 +374,11 @@ export default function FleetResourcesPage() {
               <StatusBadge key="documents" value={documentState} tone={vehicleDocuments.length ? 'blue' : 'orange'} />,
             ];
           })}
-          empty={<EmptyState title={vehiclesAvailable ? 'No company vehicles recorded' : 'Vehicle data unavailable'} description={vehiclesAvailable ? 'Add company vehicles to build the operational fleet register.' : 'The vehicle source could not be confirmed.'} />}
+          empty={<EmptyState
+            title={vehiclesAvailable ? 'No company vehicles recorded' : 'Vehicle data unavailable'}
+            description={vehiclesAvailable ? 'Add company vehicles to build the operational fleet register.' : 'The vehicle source could not be confirmed.'}
+            action={vehiclesAvailable ? <ActionButton tone="success" onClick={() => router.push('/admin/vehicles')}>Add Vehicle</ActionButton> : undefined}
+          />}
         />
       </Panel>
 
