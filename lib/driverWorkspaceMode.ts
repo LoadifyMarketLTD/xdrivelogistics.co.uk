@@ -82,6 +82,18 @@ export const isDriverProviderWorkspaceRequested = (
   );
 };
 
+/** Resolve a workspace from the driver record already scoped to this user/company.
+ * Canonical database classification wins over old/missing signup flags. Metadata
+ * is only a compatibility fallback when that classification is not recorded. */
+export const hasDriverProviderWorkspaceEvidence = (
+  scopedDriver: { id?: string | null; driver_type?: string | null } | null | undefined,
+  serverMetadataRequested: boolean,
+): boolean => {
+  if (!scopedDriver?.id) return false;
+  const driverType = (scopedDriver.driver_type ?? '').trim().toLowerCase();
+  return driverType ? PROVIDER_WORKSPACE_TAGS.has(driverType) : serverMetadataRequested;
+};
+
 export const isDriverExecutionModeRequested = (
   userMetadata: DriverWorkspaceMetadata,
   appMetadata: DriverWorkspaceMetadata

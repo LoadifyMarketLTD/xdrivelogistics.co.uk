@@ -5,7 +5,7 @@ import { isSupabaseAdminConfigured, supabaseAdmin, supabaseValidator } from './a
 import { getPostLoginRoute } from './lib/authSession';
 import { resolveActiveCompanyContext, type RawMembershipRow } from './lib/activeWorkspace';
 import { isRoleAllowedForPath, mapAppRole, resolveAuthoritativeRole, type AppUserRole } from './lib/authRole';
-import { isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './lib/driverWorkspaceMode';
+import { hasDriverProviderWorkspaceEvidence, isDriverExecutionModeRequested, isDriverProviderWorkspaceRequested } from './lib/driverWorkspaceMode';
 import { resolveMembershipRole, type MembershipRole } from './lib/membershipRole';
 import { ROUTE_AUTH_COOKIE_NAME } from './lib/routeAuthCookie';
 import { getCanonicalSiteUrl } from './lib/siteUrl';
@@ -70,6 +70,7 @@ type DriverRouteRow = {
   must_change_password?: boolean | null;
   status?: string | null;
   can_commercial_bid?: boolean | null;
+  driver_type?: string | null;
 };
 
 const buildRedirect = (request: NextRequest, pathname: string, clearCookie = false) => {
@@ -163,7 +164,7 @@ const isMissingDriverCanBidColumn = (
 ): boolean => {
   if (!error || error.code !== '42703') return false;
   const text = `${error.message ?? ''} ${error.details ?? ''} ${error.hint ?? ''}`.toLowerCase();
-  return text.includes('can_commercial_bid');
+  return text.includes('can_commercial_bid') || text.includes('driver_type');
 };
 
 const isServiceFailure = (message: string | null | undefined) => {
@@ -389,7 +390,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
     if (standaloneDriverIdentity) {
       const { data: standaloneDriverInitial, error: standaloneDriverErrorInitial } = await supabaseAdmin
         .from('drivers')
-        .select('id, company_id, app_access, must_change_password, status, can_commercial_bid')
+        .select('id, company_id, app_access, must_change_password, status, can_commercial_bid, driver_type')
         .eq('user_id', authData.user.id)
         .eq('status', 'active')
         .limit(2);
@@ -421,7 +422,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
         return { kind: 'forbidden' };
       }
 
-      const ownerDriverWorkspace = ownerDriverWorkspaceRequested;
+      const ownerDriverWorkspace = hasDriverProviderWorkspaceEvidence(driver, ownerDriverWorkspaceRequested);
       const ownerDriverExecutionMode = ownerDriverWorkspace && ownerDriverExecutionModeRequested;
 
       return {
@@ -477,7 +478,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
 
   const { data: driverDataInitial, error: driverErrorInitial } = await supabaseAdmin
     .from('drivers')
-    .select('id, company_id, app_access, must_change_password, status, can_commercial_bid')
+    .select('id, company_id, app_access, must_change_password, status, can_commercial_bid, driver_type')
     .eq('user_id', authData.user.id)
     .eq('company_id', activeCompany.context.companyId)
     .limit(1)
@@ -515,7 +516,7 @@ export const resolveRouteAuth = async (request: NextRequest): Promise<RouteAuthR
   if (companyStatus !== 'active') {
     return { kind: 'forbidden' };
   }
-  const ownerDriverWorkspace = ownerDriverWorkspaceRequested && Boolean(driver?.id);
+  const ownerDriverWorkspace = hasDriverProviderWorkspaceEvidence(driver, ownerDriverWorkspaceRequested);
   const ownerDriverExecutionMode = ownerDriverWorkspace && ownerDriverExecutionModeRequested;
 
   const role = resolveAuthoritativeRole({
