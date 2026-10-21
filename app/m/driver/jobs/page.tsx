@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 import {useCallback,useEffect,useState} from 'react';
 import Link from 'next/link';
 import {readRouteAuthAccessToken} from '../../../../lib/routeAuthCookie';
