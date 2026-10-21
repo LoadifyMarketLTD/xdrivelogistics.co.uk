@@ -1,8 +1,8 @@
 'use client';
 
 import Link from 'next/link';
-import type { FormEvent } from 'react';
-import { useEffect, useState } from 'react';
+import type { FormEvent, KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '../../components/AuthContext';
 import {
@@ -47,30 +47,83 @@ function OwnerMenu() {
   const pathname = usePathname();
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => setOpen(false), [pathname]);
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
+      if (event.key === 'Escape' && open) {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    const onPointerDown = (event: PointerEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
     };
     document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, []);
+    document.addEventListener('pointerdown', onPointerDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.removeEventListener('pointerdown', onPointerDown);
+    };
+  }, [open]);
+
+  const focusFirstMenuItem = () => {
+    requestAnimationFrame(() => {
+      menuRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
+    });
+  };
+
+  const onMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (!['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+    const items = Array.from(menuRef.current?.querySelectorAll<HTMLElement>('[role="menuitem"]') ?? []);
+    if (!items.length) return;
+    event.preventDefault();
+    const current = Math.max(0, items.indexOf(document.activeElement as HTMLElement));
+    const next = event.key === 'Home'
+      ? 0
+      : event.key === 'End'
+        ? items.length - 1
+        : event.key === 'ArrowDown'
+          ? (current + 1) % items.length
+          : (current - 1 + items.length) % items.length;
+    items[next]?.focus();
+  };
+
   return (
-    <div className={styles.ownerMenuWrap}>
+    <div ref={wrapRef} className={styles.ownerMenuWrap}>
       <button
+        ref={buttonRef}
         type="button"
         className={styles.ownerButton}
         onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            setOpen(true);
+            focusFirstMenuItem();
+          }
+        }}
         aria-expanded={open}
         aria-haspopup="menu"
+        aria-controls="super-admin-owner-menu"
       >
         <CircleUserRound size={20} aria-hidden="true" />
         <span>Platform Owner</span>
         <ChevronDown size={16} aria-hidden="true" />
       </button>
       {open ? (
-        <div className={styles.ownerMenu} role="menu">
+        <div
+          ref={menuRef}
+          id="super-admin-owner-menu"
+          className={styles.ownerMenu}
+          role="menu"
+          onKeyDown={onMenuKeyDown}
+        >
           <div className={styles.ownerMenuIdentity} role="presentation">
             <strong>Platform Owner</strong>
             <span>{user?.email ?? 'Account details unavailable'}</span>
@@ -96,6 +149,7 @@ export default function SuperAdminTopbar({ collapsed, mobileOpen, onToggleSideba
           className={styles.mobileMenuButton}
           onClick={onToggleMobile}
           aria-expanded={mobileOpen}
+          aria-controls="super-admin-navigation"
           aria-label="Toggle Super Admin navigation"
         >
           <Menu size={20} aria-hidden="true" />
