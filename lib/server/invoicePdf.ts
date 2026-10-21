@@ -212,6 +212,8 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const muted = rgb(100 / 255, 116 / 255, 139 / 255);
   const border = rgb(221 / 255, 226 / 255, 232 / 255);
   const soft = rgb(247 / 255, 249 / 255, 251 / 255);
+  const navy = rgb(6 / 255, 43 / 255, 85 / 255);
+  const pale = rgb(238 / 255, 242 / 255, 247 / 255);
 
 
   const pageWidth = 595.28;
@@ -264,13 +266,13 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   }
 
   const invoiceTitle = 'INVOICE';
-  const invoiceTitleWidth = bold.widthOfTextAtSize(invoiceTitle, 24);
+  page.drawRectangle({ x: 336, y: 775, width: pageWidth - margin - 336, height: 38, color: navy });
   page.drawText(invoiceTitle, {
-    x: pageWidth - margin - invoiceTitleWidth,
-    y: 790,
-    size: 24,
+    x: 350,
+    y: 786,
+    size: 22,
     font: bold,
-    color: ink,
+    color: rgb(1, 1, 1),
   });
 
   let issuerY = logoDrawn ? 744 : 760;
@@ -315,7 +317,8 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
 
   // Parties
   page.drawText('FROM', { x: margin, y: 593, size: 7, font: bold, color: muted });
-  page.drawText('BILL TO', { x: 315, y: 593, size: 7, font: bold, color: muted });
+  page.drawRectangle({ x: 304, y: 510, width: pageWidth - margin - 304, height: 90, color: pale });
+  page.drawText('INVOICE TO', { x: 315, y: 583, size: 7, font: bold, color: muted });
 
   page.drawText(issuerName, { x: margin, y: 574, size: 11.5, font: bold, color: ink });
   const fromY = 559;
@@ -354,7 +357,7 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   const headerH = 24;
   const rowH = 122;
 
-  page.drawRectangle({ x: tableX, y: tableTop - headerH, width: contentWidth, height: headerH, color: soft });
+  page.drawRectangle({ x: tableX, y: tableTop - headerH, width: contentWidth, height: headerH, color: navy });
   page.drawRectangle({
     x: tableX,
     y: tableTop - headerH - rowH,
@@ -377,10 +380,10 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
     });
   });
 
-  page.drawText('QTY', { x: xQty + 11, y: tableTop - 16, size: 7.2, font: bold, color: muted });
-  page.drawText('DESCRIPTION', { x: xDesc + 11, y: tableTop - 16, size: 7.2, font: bold, color: muted });
-  page.drawText('UNIT PRICE', { x: xUnit + 11, y: tableTop - 16, size: 7.2, font: bold, color: muted });
-  page.drawText('TOTAL', { x: xTotal + 11, y: tableTop - 16, size: 7.2, font: bold, color: muted });
+  page.drawText('QTY', { x: xQty + 11, y: tableTop - 16, size: 7.2, font: bold, color: rgb(1, 1, 1) });
+  page.drawText('DESCRIPTION', { x: xDesc + 11, y: tableTop - 16, size: 7.2, font: bold, color: rgb(1, 1, 1) });
+  page.drawText('UNIT PRICE', { x: xUnit + 11, y: tableTop - 16, size: 7.2, font: bold, color: rgb(1, 1, 1) });
+  page.drawText('TOTAL', { x: xTotal + 11, y: tableTop - 16, size: 7.2, font: bold, color: rgb(1, 1, 1) });
 
   page.drawText('1', { x: xQty + 14, y: tableTop - 48, size: 10, font: regular, color: ink });
 
@@ -461,7 +464,8 @@ export async function buildInvoicePdf(input: InvoicePdfInput): Promise<Uint8Arra
   amountRow('TOTAL DUE', totalValue, totalsY - 1, true);
 
   // Payment terms and details
-  page.drawText('PAYMENT DETAILS', { x: margin, y: 285, size: 7, font: bold, color: muted });
+  page.drawRectangle({ x: margin, y: 276, width: 240, height: 22, color: navy });
+  page.drawText('PAYMENT DETAILS', { x: margin + 10, y: 284, size: 7, font: bold, color: rgb(1, 1, 1) });
   const paymentTerms = pdfText(input.paymentTerms, '14 days');
   page.drawText(`Payment terms: ${paymentTerms}`, { x: margin, y: 265, size: 9, font: bold, color: ink });
   page.drawText(`Due date: ${formatDate(input.dueDate)}`, { x: margin, y: 249, size: 8.5, font: regular, color: slate });
