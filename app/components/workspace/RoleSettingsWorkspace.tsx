@@ -179,9 +179,8 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
   const [success, setSuccess] = useState('');
 
   const canEditCompany = membershipRole === 'owner' || membershipRole === 'admin';
-  const companyProfileRoles: readonly RoleMode[] = ['customer', 'broker', 'owner', 'carrier'];
   const billingRoles: readonly RoleMode[] = ['customer', 'broker', 'owner', 'carrier'];
-  const companyProfileVisible = companyProfileRoles.includes(role);
+  const companyProfileVisible = true;
   const canManageBilling = canEditCompany && billingRoles.includes(role);
   const financeSettingsVisible = canManageBilling;
   const companyOperationsVisible = canEditCompany && (role === 'carrier' || role === 'owner');
@@ -347,7 +346,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
   const nav = useMemo(() => [
     { label: 'Overview', action: () => setSection('overview'), active: section === 'overview' },
     { label: 'My Profile', action: () => setSection('profile'), active: section === 'profile' },
-    ...(companyProfileVisible ? [{ label: 'Company Profile', action: () => setSection('company'), active: section === 'company' }] : []),
+    ...(companyProfileVisible ? [{ label: 'Company Settings', action: () => setSection('company'), active: section === 'company' }] : []),
     ...(companyOperationsVisible ? [
       { label: 'Company Operations', action: () => setSection('operations'), active: section === 'operations' },
       { label: 'Blocked Members', action: () => setSection('blocked'), active: section === 'blocked' },
@@ -361,7 +360,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
     ...(role === 'finance' && routes.finance ? [{ label: 'Finance Workspace', action: () => router.push(routes.finance!), active: false }] : []),
     ...(routes.notifications ? [{ label: 'Notifications', action: () => router.push(routes.notifications!), active: false }] : []),
     { label: 'Security', action: () => setSection('security'), active: section === 'security' },
-    ...(routes.audit && role !== 'customer' ? [{ label: 'Audit / Event Log', action: () => router.push(routes.audit!), active: false }] : []),
+    ...(routes.audit ? [{ label: 'Audit / Event Log', action: () => router.push(routes.audit!), active: false }] : []),
     ...(routes.support ? [{ label: 'Support', action: () => router.push(routes.support!), active: false }] : []),
   ], [companyOperationsVisible, companyProfileVisible, financeSettingsVisible, role, router, routes.audit, routes.billing, routes.documents, routes.finance, routes.notifications, routes.support, routes.team, routes.vehicles, section]);
 
@@ -383,18 +382,16 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
       {error && <AlertBanner tone="danger">{error}</AlertBanner>}
       {success && <AlertBanner tone="success">{success}</AlertBanner>}
 
-      <div className={role === 'owner' || role === 'driver' ? 'role-settings-layout role-settings-layout--topnav' : 'role-settings-layout'}>
-        {role !== 'owner' && role !== 'driver' && (
-          <aside className="role-settings-nav">
-            <div className="role-settings-company">
-              <strong>{companyDisplay}</strong>
-              <span>{identityCode} · {role}</span>
-            </div>
-            {nav.map((item) => (
-              <button key={item.label} type="button" data-active={item.active ? 'true' : 'false'} onClick={item.action}>{item.label}</button>
-            ))}
-          </aside>
-        )}
+      <div className="role-settings-layout">
+        <aside className="role-settings-nav">
+          <div className="role-settings-company">
+            <strong>{companyDisplay}</strong>
+            <span>{identityCode} · {role}</span>
+          </div>
+          {nav.map((item) => (
+            <button key={item.label} type="button" data-active={item.active ? 'true' : 'false'} onClick={item.action}>{item.label}</button>
+          ))}
+        </aside>
 
         <main className="role-settings-main">
           {loading ? <Panel><EmptyState compact title="Loading settings…" /></Panel> : !company ? (
@@ -416,7 +413,7 @@ export default function RoleSettingsWorkspace({ role, roleLabel }: { role: RoleM
             </div>
           ) : section === 'company' ? (
             <div style={{ display: 'grid', gap: 10 }}>
-              <Panel title="Company Profile" description={canEditCompany ? 'Edit the live company record used by this workspace.' : 'Your current membership can view this company profile but cannot edit it.'}>
+              <Panel title="Company Settings" description={canEditCompany ? 'Edit the live company record used by this workspace.' : 'Your current membership can view company settings but cannot edit them.'}>
                 <div className="role-settings-form">
                   <label>Company name<input disabled={!canEditCompany} value={companyForm.name} onChange={(e) => setCompanyForm((v) => ({ ...v, name: e.target.value }))} /></label>
                   <label>Contact person<input disabled={!canEditCompany} value={companyForm.contactName} onChange={(e) => setCompanyForm((v) => ({ ...v, contactName: e.target.value }))} /></label>
