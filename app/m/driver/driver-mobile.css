@@ -4,3 +4,10 @@
 .xd-driver-mobile__nav a { min-height: 48px; display: flex; align-items: center; justify-content: center; text-decoration: none; font-size: 14px; font-weight: 650; color: #40536e; border-radius: 8px; }
 .xd-driver-mobile__nav a[aria-current=page] { color: #0b4289; background: #eaf2ff; }
 @media (min-width: 768px) { .xd-driver-mobile__nav { max-width: 760px; left: 50%; transform: translateX(-50%); } }
+.xd-mobile-list h1 {font-size: 25px; line-height: 1.25; font-weight: 750; margin: 0 0 6px;}
+.xd-mobile-list header {margin-bottom: 18px;}
+.xd-mobile-list header p {color:#53647c; margin:0;}
+.xd-mobile-card {background:#fff; border:1px solid #dce5f0; border-radius:12px; padding:15px; margin:0 0 12px; overflow-wrap:anywhere;}
+.xd-mobile-card__top {display:flex;justify-content:space-between;gap:10px;align-items:center;}
+.xd-mobile-route {font-size:17px;font-weight:700;line-height:1.4;}
+.xd-mobile-card a,.xd-mobile-list button {min-height:44px;display:inline-flex;align-items:center;padding:9px 14px;background:#0b4289;color:white;border:0;border-radius:8px;text-decoration:none;font-weight:650;}
