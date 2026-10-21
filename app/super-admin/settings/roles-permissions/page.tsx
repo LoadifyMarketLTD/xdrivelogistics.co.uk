@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ShieldCheck } from 'lucide-react';
 import ProtectedRoute from '../../../components/ProtectedRoute';
 import { CANONICAL_ROLES } from './rolesRegistry';
@@ -17,6 +17,27 @@ const toneFor = (role: CanonicalRole) => role.accessLevel === 'platform' ? 'warn
 export default function Page() {
   const [selectedRole, setSelectedRole] = useState<CanonicalRole | null>(null);
   const [query, setQuery] = useState('');
+  const closeDialogRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    if (!selectedRole) return;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const timer = window.setTimeout(() => closeDialogRef.current?.focus(), 0);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setSelectedRole(null);
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus();
+    };
+  }, [selectedRole]);
+
   const roles = useMemo(() => {
     const normalized = query.trim().toLowerCase();
     return normalized ? CANONICAL_ROLES.filter((role) => [role.label, role.description, role.workspaceRole, role.appRole].some((value) => String(value).toLowerCase().includes(normalized))) : CANONICAL_ROLES;
@@ -54,7 +75,7 @@ export default function Page() {
         <aside style={{ width: 'min(560px,94vw)', height: '100%', overflowY: 'auto', background: '#FFFFFF', borderLeft: '1px solid #E5E7EB', boxShadow: '-16px 0 44px rgba(7,27,60,.18)' }} onClick={(event) => event.stopPropagation()}>
           <div style={{ position: 'sticky', top: 0, zIndex: 1, background: '#FFFFFF', borderBottom: '1px solid #E5E7EB', padding: 16, display: 'flex', justifyContent: 'space-between', gap: 12 }}>
             <div><strong style={{ color: '#0B2F6B', fontSize: 18 }}>{selectedRole.label}</strong><div style={{ color: '#667085', fontSize: 12, marginTop: 4 }}>{scopeLabel(selectedRole)} scope · {selectedRole.accessLevel}</div></div>
-            <button type="button" className="sa-button" aria-label="Close role inspection" onClick={() => setSelectedRole(null)}>Close</button>
+            <button ref={closeDialogRef} type="button" className="sa-button" aria-label="Close role inspection" onClick={() => setSelectedRole(null)}>Close</button>
           </div>
           <div style={{ padding: 16 }}>
             <p style={{ color: '#344054', lineHeight: 1.55, marginTop: 0 }}>{selectedRole.description}</p>
