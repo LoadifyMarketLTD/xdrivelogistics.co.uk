@@ -12,6 +12,7 @@ import { useAuth } from '../../../components/AuthContext';
 import { usePrivateNetworkGroups } from '../../../components/workspace/usePrivateNetworkGroups';
 import { AVAILABILITY_BODY_TYPE_OPTIONS, matchesAvailabilityFilters } from '../../../../lib/availability/canonicalAvailability';
 import { marketplaceVehicleSizeOptions } from '../../../../lib/vehicleSizeRange';
+import { DRIVER_AVAILABILITY_PRESENCE_CHANGED } from '../../../hooks/useDriverAvailabilityPresencePublisher';
 
 type Visibility = 'private' | 'fleet' | 'exchange';
 type Presence = { visibility: Visibility; available_until: string; recorded_at: string };
@@ -190,6 +191,7 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
       if (!response.ok) setError(payload.error ?? 'Live availability could not be started.');
       else {
         setMessage(`Live availability is on until ${new Date(payload.available_until ?? Date.now()).toLocaleString('en-GB')}.`);
+        window.dispatchEvent(new Event(DRIVER_AVAILABILITY_PRESENCE_CHANGED));
         await Promise.all([loadPresence(), loadNearby()]);
       }
       setBusy(false);
@@ -209,6 +211,7 @@ export function DriverAvailabilityLiveWorkspace({ mode: explicitMode }: { mode?:
     else {
       setPresence(null);
       setMessage('Live availability is off.');
+      window.dispatchEvent(new Event(DRIVER_AVAILABILITY_PRESENCE_CHANGED));
       await loadNearby();
     }
     setBusy(false);

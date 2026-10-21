@@ -38,7 +38,7 @@ describe('CX-close Live Availability composition', () => {
 
   it('keeps the map dominant and the CX register below it', () => {
     const map = source.indexOf('height={300}');
-    const register = source.indexOf("columns={['Member (ID)', 'Phone', 'Vehicle Size', 'Current Location', 'Home Location', 'Location Received', 'Journeys']}");
+    const register = source.indexOf("columns={['Member (ID)', 'Phone', 'Vehicle Size', 'Current Location', 'Home Location', 'Location Received', 'Journeys', 'Action']}");
     expect(map).toBeGreaterThan(0);
     expect(register).toBeGreaterThan(map);
     expect(source).not.toContain('<TwoColumn');
@@ -57,7 +57,14 @@ describe('CX-close Live Availability composition', () => {
     expect(source).toContain("position.scope === 'exchange'");
     expect(source).toContain('/api/location/postcode-area');
     expect(source).toContain('workspace-postcode-area');
-    expect(source).not.toContain('position.driver_id');
+    expect(source).toContain("position.scope === 'exchange'");
+    expect(source).toContain("position.scope === 'fleet'");
+    expect(source).toContain("fetch('/api/availability/nearby?scope=fleet'");
+  });
+
+  it('supports direct booking from an available Exchange member without publishing to the open board first', () => {
+    expect(source).toContain('Book Direct');
+    expect(source).toContain('/admin/post-load?directCarrier=');
   });
 
   it('does not introduce Super Admin coupling', () => {

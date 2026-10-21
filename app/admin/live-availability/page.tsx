@@ -98,6 +98,7 @@ export default function LiveAvailabilityPage() {
   const [nearbyQuery, setNearbyQuery] = useState({ postcode: '', radius: '30', vehicle: 'all', body: 'all', groupId: '' });
   const [selectedDriverId, setSelectedDriverId] = useState<string | null>(null);
   const [nearbyPositions, setNearbyPositions] = useState<NearbyAvailabilityPosition[]>([]);
+  const [fleetPresencePositions, setFleetPresencePositions] = useState<NearbyAvailabilityPosition[]>([]);
   const [nearbyLoading, setNearbyLoading] = useState(true);
   const [nearbyError, setNearbyError] = useState('');
   const [filterNotice, setFilterNotice] = useState('');
@@ -110,7 +111,8 @@ export default function LiveAvailabilityPage() {
     const token = sessionData.session?.access_token;
     if (!token) {
       setNearbyPositions([]);
-      setNearbyError('Nearby Exchange availability could not be verified because the session is unavailable.');
+      setFleetPresencePositions([]);
+      setNearbyError('Live availability could not be verified because the session is unavailable.');
       setNearbyLoading(false);
       return;
     }
@@ -123,24 +125,37 @@ export default function LiveAvailabilityPage() {
       if (nearbyQuery.vehicle !== 'all') params.set('vehicleType', nearbyQuery.vehicle);
       if (nearbyQuery.body !== 'all') params.set('bodyType', nearbyQuery.body);
       if (nearbyQuery.groupId) params.set('groupId', nearbyQuery.groupId);
-      const response = await fetch(`/api/availability/nearby?${params.toString()}`, {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: 'no-store',
-      });
-      const payload = await response.json().catch(() => ({})) as NearbyAvailabilityResponse;
-      if (!response.ok) {
-        setNearbyPositions([]);
-        setNearbyError(payload.error ?? 'Nearby Exchange availability could not be loaded.');
-      } else {
-        setNearbyPositions((payload.positions ?? []).filter((position) => position.scope === 'exchange'));
+      const [exchangeResponse, fleetResponse] = await Promise.all([
+        fetch(`/api/availability/nearby?${params.toString()}`, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        }),
+        fetch('/api/availability/nearby?scope=fleet', {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        }),
+      ]);
+      const [payload, fleetPayload] = await Promise.all([
+        exchangeResponse.json().catch(() => ({})) as Promise<NearbyAvailabilityResponse>,
+        fleetResponse.json().catch(() => ({})) as Promise<NearbyAvailabilityResponse>,
+      ]);
+      setNearbyPositions(exchangeResponse.ok
+        ? (payload.positions ?? []).filter((position) => position.scope === 'exchange')
+        : []);
+      setFleetPresencePositions(fleetResponse.ok
+        ? (fleetPayload.positions ?? []).filter((position) => position.scope === 'fleet' && (!data.companyId || position.company_id === data.companyId))
+        : []);
+      if (!exchangeResponse.ok || !fleetResponse.ok) {
+        setNearbyError(payload.error ?? fleetPayload.error ?? 'Part of Live Availability could not be loaded.');
       }
     } catch {
       setNearbyPositions([]);
-      setNearbyError('Nearby Exchange availability could not be loaded. Check the connection and retry.');
+      setFleetPresencePositions([]);
+      setNearbyError('Live availability could not be loaded. Check the connection and retry.');
     } finally {
       setNearbyLoading(false);
     }
-  }, [nearbyQuery.body, nearbyQuery.groupId, nearbyQuery.postcode, nearbyQuery.radius, nearbyQuery.vehicle]);
+  }, [data.companyId, nearbyQuery.body, nearbyQuery.groupId, nearbyQuery.postcode, nearbyQuery.radius, nearbyQuery.vehicle]);
 
   useEffect(() => {
     void loadNearby();
@@ -259,8 +274,22 @@ export default function LiveAvailabilityPage() {
     return map;
   }, [data.locations]);
 
+  const fleetPresenceByDriver = useMemo(() => new Map(
+    fleetPresencePositions
+      .filter((position) => position.driver_id)
+      .map((position) => [String(position.driver_id), position] as const),
+  ), [fleetPresencePositions]);
+
   const driverRows = useMemo(() => data.drivers.map((driver) => {
-    const location = latestLocations.get(driver.id) ?? null;
+    const trackedLocation = latestLocations.get(driver.id) ?? null;
+    const presence = fleetPresenceByDriver.get(driver.id) ?? null;
+    const trackedAt = trackedLocation?.recorded_at ?? trackedLocation?.updated_at ?? null;
+    const presenceAt = presence?.recorded_at ?? null;
+    const trackedMs = trackedAt ? new Date(trackedAt).getTime() : Number.NEGATIVE_INFINITY;
+    const presenceMs = presenceAt ? new Date(presenceAt).getTime() : Number.NEGATIVE_INFINITY;
+    const location: WorkspaceLocation | null = presence && presenceMs >= trackedMs
+      ? { id: `availability:${driver.id}`, driver_id: driver.id, job_id: null, lat: presence.lat, lng: presence.lng, recorded_at: presence.recorded_at ?? null, updated_at: null }
+      : trackedLocation;
     const timestamp = location?.recorded_at ?? location?.updated_at ?? null;
     const timestampMs = timestamp ? new Date(timestamp).getTime() : Number.NaN;
     const stale = Boolean(location) && (!Number.isFinite(timestampMs) || Date.now() - timestampMs > 20 * 60_000);
@@ -277,7 +306,7 @@ export default function LiveAvailabilityPage() {
     const future = intelligence.futureByDriver.get(driver.id) ?? null;
     const returnJourney = intelligence.journeyByDriver.get(driver.id) ?? null;
     return { driver, location, timestamp, stale, vehicle, currentJob, nextJob, future, returnJourney };
-  }), [data.drivers, data.jobs, data.vehicles, intelligence.futureByDriver, intelligence.journeyByDriver, latestLocations]);
+  }), [data.drivers, data.jobs, data.vehicles, fleetPresenceByDriver, intelligence.futureByDriver, intelligence.journeyByDriver, latestLocations]);
 
   const minVehicleValue = LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS[vehicleMinIndex]?.value ?? null;
   const maxVehicleValue = LIVE_AVAILABILITY_VEHICLE_SIZE_OPTIONS[vehicleMaxIndex]?.value ?? null;
@@ -347,6 +376,7 @@ export default function LiveAvailabilityPage() {
       : nextJob
         ? `Next: ${nextJob.pickup_location ?? 'Pickup'} → ${nextJob.delivery_location ?? 'Delivery'}`
         : 'No journey',
+    '—',
   ]), [filtered]);
 
   const nearbyTableRows = useMemo(() => filteredNearby.map((position, index) => {
@@ -359,8 +389,11 @@ export default function LiveAvailabilityPage() {
       'Not published',
       when(position.recorded_at),
       'Exchange availability',
+      position.company_id
+        ? <button key="direct" type="button" onClick={() => router.push(`/admin/post-load?directCarrier=${encodeURIComponent(position.company_id!)}`)} style={{ border: '1px solid #b8c6da', background: '#fff', color: '#174ea6', borderRadius: 4, padding: '4px 8px', fontWeight: 700, cursor: 'pointer' }}>Book Direct</button>
+        : '—',
     ];
-  }), [filteredNearby]);
+  }), [filteredNearby, router]);
 
   const availabilityValues = useMemo(() => [...new Set(data.drivers.map((driver) => String(driver.availability_status ?? 'offline').toLowerCase()))].sort(), [data.drivers]);
   const nearbyVehicleTypes = useMemo(() => marketplaceVehicleSizeOptions(), []);
@@ -486,7 +519,7 @@ export default function LiveAvailabilityPage() {
                   <span>● Cluster</span>
                 </div>
                 <DataTable
-                  columns={['Member (ID)', 'Phone', 'Vehicle Size', 'Current Location', 'Home Location', 'Location Received', 'Journeys']}
+                  columns={['Member (ID)', 'Phone', 'Vehicle Size', 'Current Location', 'Home Location', 'Location Received', 'Journeys', 'Action']}
                   rows={tab === 'all' ? [...fleetTableRows, ...nearbyTableRows] : fleetTableRows}
                   empty={<EmptyState title="No drivers match these availability filters" />}
                 />
@@ -502,7 +535,7 @@ export default function LiveAvailabilityPage() {
                   <span>● Cluster</span>
                 </div>
                 <DataTable
-                  columns={['Member (ID)', 'Phone', 'Vehicle Size', 'Current Location', 'Home Location', 'Location Received', 'Journeys']}
+                  columns={['Member (ID)', 'Phone', 'Vehicle Size', 'Current Location', 'Home Location', 'Location Received', 'Journeys', 'Action']}
                   rows={nearbyTableRows}
                   empty={<EmptyState title={nearbyLoading ? 'Loading nearby Exchange availability…' : nearbyError ? 'Nearby Exchange availability unavailable' : 'No nearby Exchange vehicles'} />}
                 />

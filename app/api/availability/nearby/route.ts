@@ -5,6 +5,8 @@ import { normaliseAvailabilityFilterValue } from '../../../../lib/availability/c
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
+const AVAILABILITY_LOCATION_MAX_AGE_MS = 5 * 60_000;
+
 const ACTIVE_JOB_STATUSES = new Set([
   'allocated', 'accepted', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'arrived_pickup',
   'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_route_delivery', 'on_site_delivery', 'arrived_delivery',
@@ -122,10 +124,13 @@ export async function GET(request: NextRequest) {
     privateGroupCompanyIds = new Set((groupMembers ?? []).map((row) => String(row.company_id)).filter(Boolean));
   }
 
+  const now = new Date();
+  const freshnessCutoff = new Date(now.getTime() - AVAILABILITY_LOCATION_MAX_AGE_MS).toISOString();
   const { data, error } = await supabaseAdmin
     .from('driver_availability_presence')
     .select('driver_id, company_id, visibility, exact_lat, exact_lng, exchange_lat, exchange_lng, available_until, recorded_at')
-    .gt('available_until', new Date().toISOString())
+    .gt('available_until', now.toISOString())
+    .gte('recorded_at', freshnessCutoff)
     .in('visibility', ['fleet', 'exchange'])
     .order('recorded_at', { ascending: false })
     .limit(500);
