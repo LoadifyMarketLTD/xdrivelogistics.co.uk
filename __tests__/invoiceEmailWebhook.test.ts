@@ -27,7 +27,7 @@ const headers = {
   'svix-signature': 'v1,test',
 };
 
-function request(body: unknown, customHeaders = headers) {
+function request(body: unknown, customHeaders: Record<string, string> = headers) {
   return new NextRequest('https://www.xdrivelogistics.co.uk/api/payments/webhooks/email', {
     method: 'POST',
     headers: customHeaders,
