@@ -1,0 +1,63 @@
+/* Courier Exchange readable typography adapted for Super Admin.
+ * Keeps the Super Admin v3 geometry/palette while replacing the dense
+ * 9–11px type scale with the approved CX-readable family and spacing.
+ */
+
+.super-admin-enterprise-root {
+  --sa-font-body: 14px;
+  --sa-font-heading: 16px;
+  --sa-font-page-title: 20px;
+  font-family: "HK Nova", Arial, sans-serif;
+  font-size: var(--sa-font-body);
+  line-height: 1.4;
+  letter-spacing: normal;
+}
+
+.super-admin-enterprise-root :where(*) {
+  font-family: inherit !important;
+}
+
+.super-admin-enterprise-root
+  :is(p, span, small, label, legend, dt, dd, li, td, th, input, select, textarea, option, a, button, summary, [role="button"], [role="tab"], [role="menuitem"]) {
+  font-size: 14px !important;
+  line-height: 18px !important;
+  letter-spacing: normal !important;
+}
+
+.super-admin-enterprise-root
+  :is(button, a, summary, [role="button"], [role="tab"], [role="menuitem"]) {
+  font-weight: 600 !important;
+}
+
+.super-admin-enterprise-root h1 {
+  font-size: var(--sa-font-page-title) !important;
+  line-height: 26px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.super-admin-enterprise-root :is(h2, h3, h4) {
+  font-size: var(--sa-font-heading) !important;
+  line-height: 20px !important;
+  font-weight: 700 !important;
+  letter-spacing: -0.01em !important;
+}
+
+/* Match CX's compact top-navigation exception without returning to 9–11px text. */
+.super-admin-enterprise-root
+  :is(nav, [role="navigation"]) :is(button, a, [role="button"], [role="tab"], [role="menuitem"]) {
+  font-size: 13px !important;
+  line-height: 18px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.005em !important;
+}
+
+/* Dense tables and metadata retain compact geometry, but never below the CX floor. */
+.super-admin-enterprise-root :is(table, [role="table"]) :is(th, td) {
+  font-size: 14px !important;
+  line-height: 18px !important;
+}
+
+.super-admin-enterprise-root :is(input, select, textarea) {
+  min-height: 34px;
+}
