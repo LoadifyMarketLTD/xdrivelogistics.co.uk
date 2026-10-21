@@ -11,3 +11,4 @@
 .xd-mobile-card__top {display:flex;justify-content:space-between;gap:10px;align-items:center;}
 .xd-mobile-route {font-size:17px;font-weight:700;line-height:1.4;}
 .xd-mobile-card a,.xd-mobile-list button {min-height:44px;display:inline-flex;align-items:center;padding:9px 14px;background:#0b4289;color:white;border:0;border-radius:8px;text-decoration:none;font-weight:650;}
+.xd-mobile-card button {margin:8px 8px 0 0}.xd-mobile-card form {margin-top:12px;display:grid;gap:12px}.xd-mobile-card label {display:grid;gap:4px;font-weight:600}.xd-mobile-card input,.xd-mobile-card textarea {width:100%;min-height:44px;padding:10px;border:1px solid #8b9eb7;border-radius:8px;font:inherit}.xd-mobile-list {min-width:0}.xd-mobile-card p {margin:9px 0;line-height:1.45}
