@@ -61,3 +61,85 @@
 .super-admin-enterprise-root :is(input, select, textarea) {
   min-height: 34px;
 }
+
+
+/* Keyboard focus is explicit across the entire Super Admin control plane. */
+.super-admin-enterprise-root
+  :where(button, a[href], input, select, textarea, summary, [role="button"], [role="tab"], [role="menuitem"]):focus-visible {
+  outline: 3px solid rgba(29, 87, 216, 0.28) !important;
+  outline-offset: 2px !important;
+}
+
+/* Touch devices receive full-size hit targets without inflating the desktop UI. */
+@media (pointer: coarse) {
+  .super-admin-enterprise-root
+    :is(button, summary, select, [role="button"], [role="tab"], [role="menuitem"]) {
+    min-width: 44px;
+    min-height: 44px !important;
+    touch-action: manipulation;
+  }
+
+  .super-admin-enterprise-root
+    :is(input:not([type="checkbox"]):not([type="radio"]), textarea) {
+    min-height: 44px !important;
+  }
+
+  .super-admin-enterprise-root
+    :is(input[type="checkbox"], input[type="radio"]) {
+    width: 24px;
+    height: 24px;
+  }
+
+  .super-admin-enterprise-root a[href] {
+    touch-action: manipulation;
+  }
+
+  .super-admin-enterprise-root
+    :is([class*="tableWrap"], [class*="table-wrap"], [role="region"]) {
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+
+/* CX readability must also reach text rendered directly by utility divs.
+ * CSS-module class names preserve these semantic fragments in production. */
+.super-admin-enterprise-root
+  :is(
+    [class*="eyebrow"], [class*="Eyebrow"],
+    [class*="label"], [class*="Label"],
+    [class*="description"], [class*="Description"],
+    [class*="subtitle"], [class*="Subtitle"],
+    [class*="meta"], [class*="Meta"],
+    [class*="muted"], [class*="Muted"],
+    [class*="note"], [class*="Note"],
+    [class*="count"], [class*="Count"],
+    [class*="notice"], [class*="Notice"],
+    [class*="empty"], [class*="Empty"],
+    [class*="fieldValue"], [class*="FieldValue"],
+    [class*="sectionBody"], [class*="SectionBody"],
+    [class*="eventAction"], [class*="EventAction"],
+    [class*="eventTime"], [class*="EventTime"],
+    [class*="eventMeta"], [class*="EventMeta"],
+    [class*="stateChange"], [class*="StateChange"],
+    [class*="feedback"], [class*="Feedback"]
+  ) {
+  font-size: 14px !important;
+  line-height: 18px !important;
+  letter-spacing: normal !important;
+}
+
+.super-admin-enterprise-root
+  :is([class*="actionTitle"], [class*="ActionTitle"], [class*="caseTitle"], [class*="CaseTitle"]) {
+  font-size: 16px !important;
+  line-height: 20px !important;
+  font-weight: 700 !important;
+}
+
+/* Keep the CX navigation exception consistent for nested labels/icons too. */
+.super-admin-enterprise-root
+  :is(nav, [role="navigation"])
+  :is(button, a, [role="button"], [role="tab"], [role="menuitem"])
+  :where(span, small, strong, b, em, label) {
+  font-size: 13px !important;
+  line-height: 18px !important;
+}

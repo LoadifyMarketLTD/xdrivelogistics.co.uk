@@ -2,11 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import {
-  getBearerToken,
   isSupabaseAdminConfigured,
   supabaseAdmin,
-  supabaseValidator,
 } from '../../../_lib/supabaseAdmin';
+import { verifyPlatformOwner } from '../../_lib/verifyPlatformOwner';
 
 const respond = (status: number, payload: Record<string, unknown>) =>
   NextResponse.json(payload, { status });
@@ -16,26 +15,6 @@ const reviewSchema = z.object({
   action: z.enum(['investigate', 'clear', 'confirm', 'dismiss']),
   reason: z.string().trim().min(5).max(5000),
 });
-
-const verifyPlatformOwner = async (request: NextRequest) => {
-  if (!isSupabaseAdminConfigured || !supabaseAdmin) return null;
-
-  const token = getBearerToken(request);
-  if (!token) return null;
-
-  const validatorClient = supabaseValidator ?? supabaseAdmin;
-  const { data: authData, error: authError } = await validatorClient.auth.getUser(token);
-  if (authError || !authData.user) return null;
-
-  const { data: profile, error: profileError } = await supabaseAdmin
-    .from('profiles')
-    .select('role')
-    .eq('user_id', authData.user.id)
-    .maybeSingle();
-
-  if (profileError || profile?.role !== 'owner') return null;
-  return authData.user;
-};
 
 export async function GET(request: NextRequest) {
   if (!isSupabaseAdminConfigured || !supabaseAdmin) {
