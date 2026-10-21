@@ -72,4 +72,20 @@ describe('Super Admin deep control-plane contract', () => {
     expect(typography).toContain(':focus-visible');
     expect(typography).toContain('touch-action: manipulation');
   });
+
+  it('keeps modal surfaces keyboard dismissible, focus-managed and scroll-locked', () => {
+    const confirmModal = read('app/super-admin/_components/ActionConfirmModal.tsx');
+    const rolesPage = read('app/super-admin/settings/roles-permissions/page.tsx');
+    const notificationsPage = read('app/super-admin/notifications/page.tsx');
+
+    for (const source of [confirmModal, rolesPage, notificationsPage]) {
+      expect(source).toMatch(/event\.key\s*===\s*['"]Escape['"]/);
+      expect(source).toMatch(/document\.body\.style\.overflow\s*=\s*['"]hidden['"]/);
+      expect(source).toContain('previousFocusRef.current?.focus()');
+    }
+
+    expect(confirmModal).toContain('reasonRef.current?.focus()');
+    expect(rolesPage).toContain('closeDialogRef.current?.focus()');
+    expect(notificationsPage).toContain('retryReasonRef.current?.focus()');
+  });
 });

@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import SuperAdminLiveTablePage from '../_components/SuperAdminLiveTablePage';
 import {
   createNotificationColumns,
@@ -24,6 +24,13 @@ export default function Page() {
   const [severity, setSeverity] = useState('all');
   const [retryTarget, setRetryTarget] = useState<string | null>(null);
   const [retryReason, setRetryReason] = useState('');
+  const retryReasonRef = useRef<HTMLTextAreaElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
+  const pendingByIdRef = useRef(pendingById);
+
+  useEffect(() => {
+    pendingByIdRef.current = pendingById;
+  }, [pendingById]);
 
   const openRetry = useCallback((notificationId: string) => {
     if (pendingById[notificationId]) return;
@@ -36,6 +43,28 @@ export default function Page() {
     setRetryTarget(null);
     setRetryReason('');
   }, [pendingById, retryTarget]);
+
+  useEffect(() => {
+    if (!retryTarget) return;
+    previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const timer = window.setTimeout(() => retryReasonRef.current?.focus(), 0);
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const notificationId = retryTarget;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && !pendingByIdRef.current[notificationId]) {
+        setRetryTarget(null);
+        setRetryReason('');
+      }
+    };
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      previousFocusRef.current?.focus();
+    };
+  }, [retryTarget]);
 
   const confirmRetry = useCallback(async () => {
     const notificationId = retryTarget;
@@ -85,12 +114,12 @@ export default function Page() {
       </div>
     } />
 
-    {retryTarget && <div role="dialog" aria-modal="true" aria-labelledby="retry-notification-title" style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(7,27,60,0.42)', display: 'grid', placeItems: 'center', padding: '20px' }}>
+    {retryTarget && <div role="dialog" aria-modal="true" aria-labelledby="retry-notification-title" style={{ position: 'fixed', inset: 0, zIndex: 80, background: 'rgba(7,27,60,0.42)', display: 'grid', placeItems: 'center', padding: '20px' }} onClick={(event) => { if (event.target === event.currentTarget && !retryPending) closeRetry(); }}>
       <div style={{ width: 'min(520px, 100%)', background: X.white, border: `1px solid ${X.border}`, borderRadius: '8px', boxShadow: '0 22px 60px rgba(7,27,60,.24)', padding: '20px' }}>
         <div id="retry-notification-title" style={{ color: X.navy, fontSize: '18px', fontWeight: 800 }}>Retry notification</div>
         <p style={{ margin: '8px 0 14px', color: X.muted, fontSize: '13px', lineHeight: 1.5 }}>This will release any stale queue lease and requeue the event. The original attempt history is preserved and your reason is written to the Platform Owner audit log.</p>
         <label htmlFor="retry-reason" style={{ display: 'block', fontSize: '12px', fontWeight: 700, color: X.charcoal, marginBottom: '6px' }}>Reason</label>
-        <textarea id="retry-reason" value={retryReason} onChange={(event) => setRetryReason(event.target.value)} maxLength={2000} rows={4} placeholder="Explain why this failed or skipped event should be retried…" style={{ width: '100%', resize: 'vertical', border: `1px solid ${X.border}`, borderRadius: '6px', padding: '10px', font: 'inherit', fontSize: '13px', color: X.charcoal, outlineColor: X.blue }} />
+        <textarea ref={retryReasonRef} id="retry-reason" value={retryReason} onChange={(event) => setRetryReason(event.target.value)} maxLength={2000} rows={4} placeholder="Explain why this failed or skipped event should be retried…" style={{ width: '100%', resize: 'vertical', border: `1px solid ${X.border}`, borderRadius: '6px', padding: '10px', font: 'inherit', fontSize: '13px', color: X.charcoal, outlineColor: X.blue }} />
         <div style={{ marginTop: '14px', display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
           <button type="button" onClick={closeRetry} disabled={retryPending} style={{ ...controlStyle, cursor: retryPending ? 'not-allowed' : 'pointer', fontWeight: 700 }}>Cancel</button>
           <button type="button" onClick={() => { void confirmRetry(); }} disabled={retryPending || retryReason.trim().length < 5} style={{ ...controlStyle, cursor: retryPending || retryReason.trim().length < 5 ? 'not-allowed' : 'pointer', fontWeight: 800, borderColor: retryPending || retryReason.trim().length < 5 ? X.border : X.blue, background: retryPending || retryReason.trim().length < 5 ? X.light : X.blue, color: retryPending || retryReason.trim().length < 5 ? X.muted : X.white }}>{retryPending ? 'Queuing…' : 'Queue retry'}</button>
