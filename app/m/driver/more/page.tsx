@@ -1,0 +1,2 @@
+﻿import Link from 'next/link';
+export default function MorePage() { return <section><h1>More</h1><ul><li><Link href="/driver/availability/live">Availability</Link></li><li><Link href="/driver/vehicles">Vehicle</Link></li><li><Link href="/driver/documents">Documents</Link></li><li><Link href="/driver/profile">Profile</Link></li><li><Link href="/driver/settings">Settings</Link></li></ul></section>; }
