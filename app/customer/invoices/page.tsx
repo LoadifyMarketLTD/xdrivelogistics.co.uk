@@ -1,11 +1,12 @@
 'use client';
 
-import InvoiceRegisterPage from '../../components/workspace/InvoiceRegisterPage';
+import { PageFrame } from '../../components/workspace/WorkspaceUI';
 import { WorkspaceFinanceControl } from '../../components/workspace/WorkspaceFinanceControl';
 
 export default function Page() {
-  return <>
-    <WorkspaceFinanceControl role="customer" />
-    <InvoiceRegisterPage mode="customer" />
-  </>;
+  return (
+    <PageFrame>
+      <WorkspaceFinanceControl role="customer" />
+    </PageFrame>
+  );
 }

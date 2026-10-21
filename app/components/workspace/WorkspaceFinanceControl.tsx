@@ -4,7 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '../../../lib/supabaseClient';
 import { AGING_BUCKET_LABELS, type AgingBucket } from '../../../lib/finance/accounts';
-import { ActionButton, AlertBanner, DataTable, EmptyState, KpiCard, KpiGrid, Panel, StatusBadge } from './WorkspaceUI';
+import { AlertBanner, StatusBadge } from './WorkspaceUI';
+import styles from './InvoiceProFinance.module.css';
 
 type Role = 'carrier' | 'broker' | 'customer';
 type View = 'dashboard' | 'all' | 'receivable' | 'payable' | 'ready' | 'awaiting' | 'overdue' | 'paid' | 'customers' | 'counterparties' | 'aging' | 'archive' | 'statements';
@@ -107,7 +108,7 @@ const detailHref = (role: Role, invoice: Invoice) => {
 export function WorkspaceFinanceControl({ role }: { role: Role }) {
   const router = useRouter();
   const [payload, setPayload] = useState<Payload | null>(null);
-  const [view, setView] = useState<View>(role === 'carrier' ? 'dashboard' : 'all');
+  const [view, setView] = useState<View>('dashboard');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [customerQuery, setCustomerQuery] = useState('');
@@ -153,150 +154,135 @@ export function WorkspaceFinanceControl({ role }: { role: Role }) {
   const showReceivables = role !== 'customer';
   const tabs: Array<[View, string]> = role === 'carrier'
     ? [
-      ['dashboard', 'Dashboard'],
-      ['all', 'All'],
-      ['ready', 'Ready To Invoice'],
-      ['awaiting', 'Awaiting Payment'],
-      ['paid', 'Paid'],
-      ['customers', 'Customers'],
-      ['archive', 'Archive'],
-      ['statements', 'Statements'],
+      ['dashboard', 'Dashboard'], ['all', 'All'], ['ready', 'Ready to Invoice'], ['awaiting', 'Awaiting Payment'],
+      ['paid', 'Paid'], ['customers', 'Customers'], ['archive', 'Archive'], ['statements', 'Statements'],
     ]
     : [
-      ['all', 'All'],
+      ['dashboard', 'Dashboard'], ['all', 'All'],
       ...(role === 'customer' ? [] : [['receivable', 'Accounts Receivable'] as [View, string]]),
       ['payable', 'Accounts Payable'],
       ...(role === 'customer' ? [] : [['ready', 'Ready to Invoice'] as [View, string]]),
-      ['awaiting', 'Awaiting Payment'], ['overdue', 'Overdue'], ['paid', 'Paid'], ['aging', 'Aging'], ['counterparties', 'Counterparties'], ['archive', 'Archive'],
+      ['awaiting', 'Awaiting Payment'], ['overdue', 'Overdue'], ['paid', 'Paid'], ['aging', 'Aging'],
+      ['counterparties', 'Counterparties'], ['archive', 'Archive'], ['statements', 'Statements'],
     ];
 
   return (
-    <div data-testid={`workspace-finance-control-${role}`} style={{ display: 'grid', gap: 12 }}>
+    <div data-testid={'workspace-finance-control-' + role} className={styles.surface}>
       {error ? <AlertBanner tone="danger">{error}</AlertBanner> : null}
-      <KpiGrid>
-        {showReceivables ? <KpiCard label="AR outstanding" value={summary ? money(summary.receivableOutstanding) : loading ? '…' : '£0.00'} tone="blue" /> : null}
-        {role !== 'carrier' ? <KpiCard label="AP outstanding" value={summary ? money(summary.payableOutstanding) : loading ? '…' : '£0.00'} tone="orange" /> : null}
-        <KpiCard label="Overdue" value={summary ? summary.overdueCount : loading ? '…' : 0} detail={summary ? money(summary.overdueValue) : undefined} tone={summary?.overdueCount ? 'red' : 'green'} />
-        <KpiCard label="Paid value" value={summary ? money(summary.paidValue) : loading ? '…' : '£0.00'} tone="green" />
-        {role !== 'customer' ? <KpiCard label="Ready To Invoice" value={summary ? summary.readyToInvoiceCount : loading ? '…' : 0} tone={summary?.readyToInvoiceCount ? 'orange' : 'green'} /> : null}
-      </KpiGrid>
 
-      <Panel
-        title={role === 'carrier' ? 'Accounts Receivable' : 'Accounts control'}
-        description={role === 'carrier'
-          ? 'Invoice readiness, receivables, customer balances and statements for the active company.'
-          : 'Canonical AR/AP, invoice lifecycle and verified payment history. Net, VAT and gross remain separate; outstanding values use recorded payments only.'}
-        actions={<>
-          <ActionButton tone="secondary" onClick={() => void load()} disabled={loading}>Refresh</ActionButton>
-          <ActionButton
-            tone="secondary"
-            onClick={() => view === 'customers' ? downloadCustomers(customers) : downloadRows(visibleInvoices)}
-            disabled={view === 'customers' ? !customers.length : (!visibleInvoices.length || view === 'ready' || view === 'statements')}
-          >
-            Export CSV
-          </ActionButton>
-        </>}
-      >
-        <div role="tablist" aria-label={role === 'carrier' ? 'Accounts Receivable' : 'Finance views'} style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 10 }}>
-          {tabs.map(([id, label]) => <ActionButton key={id} tone={view === id ? 'primary' : 'secondary'} onClick={() => {
-            if (id === 'statements' && role === 'carrier') {
-              router.push('/admin/finance/statements');
-              return;
-            }
-            setView(id);
-          }}>{label}</ActionButton>)}
+      <nav className={styles.nav} aria-label="Finance navigation">
+        {tabs.map(([id, label]) => (
+          <button key={id} className={styles.navButton} data-active={view === id} onClick={() => setView(id)}>{label}</button>
+        ))}
+      </nav>
+
+      <header className={styles.hero}>
+        <div>
+          <div className={styles.eyebrow}>Finance overview</div>
+          <h1 className={styles.title}>{role === 'customer' ? 'Control your payables.' : 'Command your cashflow.'}</h1>
+          <p className={styles.subtitle}>{role === 'customer' ? 'Supplier invoices, due dates and settlement performance  without the noise.' : 'Receivables, billing readiness and payment performance  without the noise.'}</p>
         </div>
+        <div className={styles.heroActions}>
+          <button className={styles.button} onClick={() => setView('statements')}>Statements</button>
+          <button className={styles.button} onClick={() => void load()} disabled={loading}>Refresh</button>
+          <button className={styles.button} onClick={() => downloadRows(visibleInvoices)} disabled={!visibleInvoices.length}>Export CSV</button>
+          {role !== 'customer' && <button className={[styles.button, styles.buttonPrimary].join(' ')} onClick={() => setView('ready')}>+ Create invoice</button>}
+        </div>
+      </header>
 
-        {view === 'dashboard' && role === 'carrier' ? (
-          <DataTable
-            columns={['Invoice', 'Customer', 'Gross', 'Received', 'Outstanding', 'Due', 'State']}
-            rows={visibleInvoices.slice(0, 8).map((invoice) => [
-              invoice.invoiceNumber,
-              invoice.counterpartyName,
-              money(invoice.gross, invoice.currency),
-              money(invoice.paidAmount, invoice.currency),
-              money(invoice.outstandingAmount, invoice.currency),
-              date(invoice.dueDate),
-              <StatusBadge key="state" value={invoice.lifecycle.replace(/_/g, ' ')} tone={invoice.lifecycle === 'paid' ? 'green' : invoice.lifecycle === 'overdue' ? 'red' : invoice.lifecycle === 'archive' ? 'grey' : 'orange'} />,
-            ])}
-            empty={<EmptyState title={loading ? 'Loading Accounts Receivable…' : 'No Accounts Receivable activity'} />}
-          />
-        ) : view === 'ready' ? (
-          <DataTable
-            columns={['Job', 'Customer', 'Route', 'Updated', 'Action']}
-            rows={(payload?.readyToInvoice ?? []).map((job) => [
-              `XDL-${job.id.slice(0, 8).toUpperCase()}`,
-              job.clientName ?? 'Customer',
-              `${job.pickupLocation ?? 'Collection'} → ${job.deliveryLocation ?? 'Delivery'}`,
-              date(job.updatedAt),
-              <ActionButton key="job" tone="secondary" onClick={() => router.push(role === 'broker' ? `/broker/jobs` : `/admin/jobs/${job.id}`)}>Open job</ActionButton>,
-            ])}
-            empty={<EmptyState title={loading ? 'Loading invoice readiness…' : 'No completed jobs waiting for an invoice'} />}
-          />
-        ) : view === 'aging' ? (
-          <DataTable
-            columns={['Aging bucket', ...(showReceivables ? ['Accounts Receivable'] : []), 'Accounts Payable']}
-            rows={(Object.keys(AGING_BUCKET_LABELS) as AgingBucket[]).map((bucket) => [
-              AGING_BUCKET_LABELS[bucket],
-              ...(showReceivables ? [money(summary?.receivableAging?.[bucket] ?? 0)] : []),
-              money(summary?.payableAging?.[bucket] ?? 0),
-            ])}
-            empty={<EmptyState title={loading ? 'Loading aging analysis…' : 'No aging data'} />}
-          />
-        ) : view === 'customers' && role === 'carrier' ? (
-          <div style={{ display: 'grid', gap: 10 }}>
-            <label style={{ display: 'grid', gap: 4, maxWidth: 360, fontSize: 11, fontWeight: 700, color: '#475569' }}>
-              FILTER CUSTOMERS
-              <input
-                value={customerQuery}
-                onChange={(event) => setCustomerQuery(event.target.value)}
-                placeholder="Customer name or ID"
-                style={{ minHeight: 34, border: '1px solid #cbd5e1', borderRadius: 4, padding: '0 10px' }}
-              />
-            </label>
-            <DataTable
-              columns={['Customer ID', 'Customer', 'Total invoiced · Number', 'Net', 'Gross', 'Payment received · Number', 'Net', 'Gross']}
-              rows={customers.map((counterparty) => [
-                counterparty.customerId || '—',
-                counterparty.name,
-                counterparty.totalInvoicedCount,
-                money(counterparty.totalInvoicedNet),
-                money(counterparty.totalInvoicedGross),
-                counterparty.paymentsReceivedCount,
-                money(counterparty.paymentsReceivedNet),
-                money(counterparty.paymentsReceivedGross),
-              ])}
-              empty={<EmptyState title={loading ? 'Loading customers…' : 'No customer invoice activity matches this filter'} />}
-            />
+      <section className={styles.metrics}>
+        <article className={[styles.metric, styles.metricGold].join(' ')}>
+          <div className={styles.metricLabel}>{role === 'customer' ? 'Accounts payable' : 'Ready to invoice'}</div>
+          <div className={styles.metricValue}>{role === 'customer' ? money(summary?.payableOutstanding ?? 0) : String(summary?.readyToInvoiceCount ?? 0)}</div>
+          <div className={styles.metricSub}>{role === 'customer' ? 'Open supplier balance' : (summary?.readyToInvoiceCount ?? 0) + ' jobs'}</div>
+        </article>
+        <article className={[styles.metric, styles.metricBlue].join(' ')}>
+          <div className={styles.metricLabel}>{role === 'customer' ? 'Outstanding' : 'Awaiting payment'}</div>
+          <div className={styles.metricValue}>{money(role === 'customer' ? summary?.payableOutstanding ?? 0 : summary?.receivableOutstanding ?? 0)}</div>
+          <div className={styles.metricSub}>{summary?.overdueCount ?? 0} overdue</div>
+        </article>
+        <article className={[styles.metric, styles.metricGreen].join(' ')}>
+          <div className={styles.metricLabel}>Paid</div>
+          <div className={styles.metricValue}>{money(summary?.paidValue ?? 0)}</div>
+          <div className={styles.metricSub}>Recorded settlements</div>
+        </article>
+        <article className={[styles.metric, styles.metricNavy].join(' ')}>
+          <div className={styles.metricLabel}>Currency</div>
+          <div className={styles.metricValue}>GBP</div>
+          <div className={styles.metricSub}>Primary finance ledger</div>
+        </article>
+      </section>
+
+      {view === 'dashboard' && (
+        <section className={styles.dashboard}>
+          <article className={styles.panel}>
+            <div className={styles.panelHeader}>
+              <div><div className={styles.panelKicker}>Cashflow workspace</div><h2 className={styles.panelTitle}>{role === 'customer' ? 'Payables flow' : 'Receivables flow'}</h2></div>
+              <button className={styles.button} onClick={() => setView('all')}>Open register </button>
+            </div>
+            <div className={styles.flow}>
+              <div className={styles.flowRow}><span className={[styles.dot, styles.dotGold].join(' ')} /><div><div className={styles.flowLabel}>{role === 'customer' ? 'Accounts payable' : 'Ready to invoice'}</div><div className={styles.flowSub}>{role === 'customer' ? 'Supplier invoices waiting for settlement' : 'Approved work waiting to be billed'}</div></div><strong className={styles.flowValue}>{role === 'customer' ? money(summary?.payableOutstanding ?? 0) : String(summary?.readyToInvoiceCount ?? 0)}</strong></div>
+              <div className={styles.flowRow}><span className={[styles.dot, styles.dotBlue].join(' ')} /><div><div className={styles.flowLabel}>Awaiting payment</div><div className={styles.flowSub}>Issued invoices still open</div></div><strong className={styles.flowValue}>{money(role === 'customer' ? summary?.payableOutstanding ?? 0 : summary?.receivableOutstanding ?? 0)}</strong></div>
+              <div className={styles.flowRow}><span className={[styles.dot, styles.dotGreen].join(' ')} /><div><div className={styles.flowLabel}>Paid</div><div className={styles.flowSub}>Completed settlements</div></div><strong className={styles.flowValue}>{money(summary?.paidValue ?? 0)}</strong></div>
+            </div>
+          </article>
+          <aside className={styles.panel}>
+            <div className={styles.panelHeader}><div><div className={styles.panelKicker}>Action centre</div><h2 className={styles.panelTitle}>What needs you</h2></div><span className={styles.registerMeta}>{summary?.overdueCount ?? 0} items</span></div>
+            {(summary?.overdueCount ?? 0) === 0 ? <div className={styles.clear}><span className={styles.clearIcon}></span><div><div className={styles.actionLabel}>All clear</div><div className={styles.actionSub}>No finance items need your attention.</div></div></div> : <div className={styles.actionCard}><strong>{summary?.overdueCount ?? 0} overdue  {money(summary?.overdueValue ?? 0)}</strong></div>}
+            {role !== 'customer' && <button className={styles.actionButton} onClick={() => setView('ready')}><span className={styles.actionIcon}></span><span><span className={styles.actionLabel}>Create invoice</span><span className={styles.actionSub}>Start from completed work</span></span><span className={styles.arrow}></span></button>}
+            <button className={styles.actionButton} onClick={() => setView(role === 'carrier' ? 'customers' : 'counterparties')}><span className={styles.actionIcon}></span><span><span className={styles.actionLabel}>{role === 'customer' ? 'Suppliers' : 'Customers'}</span><span className={styles.actionSub}>Review account performance</span></span><span className={styles.arrow}></span></button>
+            <button className={styles.actionButton} onClick={() => setView('statements')}><span className={styles.actionIcon}></span><span><span className={styles.actionLabel}>Statements</span><span className={styles.actionSub}>Review finance summaries</span></span><span className={styles.arrow}></span></button>
+          </aside>
+        </section>
+      )}
+
+      {view === 'ready' && (
+        <section className={styles.register}>
+          <div className={styles.registerHead}><div><div className={styles.panelKicker}>Invoice readiness</div><div className={styles.registerTitle}>Ready to Invoice</div></div><span className={styles.registerMeta}>{payload?.readyToInvoice?.length ?? 0} jobs</span></div>
+          {(payload?.readyToInvoice ?? []).length === 0 ? <div className={styles.empty}><strong>{loading ? 'Loading invoice readiness' : 'No completed jobs waiting for an invoice'}</strong></div> : (
+            <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Job</th><th>Customer</th><th>Route</th><th>Updated</th><th>Action</th></tr></thead><tbody>{(payload?.readyToInvoice ?? []).map((job) => <tr key={job.id}><td>{'XDL-' + job.id.slice(0,8).toUpperCase()}</td><td>{job.clientName ?? 'Customer'}</td><td>{job.pickupLocation ?? 'Collection'}  {job.deliveryLocation ?? 'Delivery'}</td><td>{date(job.updatedAt)}</td><td><button className={styles.button} onClick={() => router.push(role === 'broker' ? '/broker/jobs' : '/admin/jobs/' + job.id)}>Open job</button></td></tr>)}</tbody></table></div>
+          )}
+        </section>
+      )}
+
+      {view === 'customers' && role === 'carrier' && (
+        <section className={styles.register}>
+          <div className={styles.registerHead}><div><div className={styles.panelKicker}>Account performance</div><div className={styles.registerTitle}>Customers</div></div><button className={styles.button} onClick={() => downloadCustomers(customers)} disabled={!customers.length}>Export CSV</button></div>
+          <div style={{padding:14,borderBottom:'1px solid #e4eaf1'}}><input value={customerQuery} onChange={(event) => setCustomerQuery(event.target.value)} placeholder="Customer name or ID" style={{minHeight:38,width:'min(360px,100%)',border:'1px solid #cbd5e1',borderRadius:8,padding:'0 12px'}} /></div>
+          {customers.length === 0 ? <div className={styles.empty}><strong>{loading ? 'Loading customers' : 'No customer invoice activity'}</strong></div> : (
+            <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Customer ID</th><th>Customer</th><th>Invoices</th><th>Net</th><th>Gross</th><th>Payments</th><th>Paid gross</th></tr></thead><tbody>{customers.map((customer) => <tr key={customer.id}><td>{customer.customerId || ''}</td><td><strong>{customer.name}</strong></td><td>{customer.totalInvoicedCount}</td><td>{money(customer.totalInvoicedNet)}</td><td>{money(customer.totalInvoicedGross)}</td><td>{customer.paymentsReceivedCount}</td><td>{money(customer.paymentsReceivedGross)}</td></tr>)}</tbody></table></div>
+          )}
+        </section>
+      )}
+
+      {(view === 'aging' || view === 'statements') && (
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}><div><div className={styles.panelKicker}>{view === 'statements' ? 'Statements' : 'Aging'}</div><h2 className={styles.panelTitle}>{view === 'statements' ? 'Finance statement' : 'Aging analysis'}</h2></div></div>
+          <div className={styles.flow}>
+            {(Object.keys(AGING_BUCKET_LABELS) as AgingBucket[]).map((bucket) => <div className={styles.flowRow} key={bucket}><span className={styles.dot} /><div><div className={styles.flowLabel}>{AGING_BUCKET_LABELS[bucket]}</div><div className={styles.flowSub}>{showReceivables ? 'Receivable / payable exposure' : 'Payable exposure'}</div></div><strong className={styles.flowValue}>{showReceivables ? money(summary?.receivableAging?.[bucket] ?? 0) : money(summary?.payableAging?.[bucket] ?? 0)}</strong></div>)}
           </div>
-        ) : view === 'counterparties' ? (
-          <DataTable
-            columns={['Counterparty', 'Invoices', 'Receivable', 'Payable', 'Overdue']}
-            rows={(payload?.counterparties ?? []).map((counterparty) => [counterparty.name, counterparty.invoices, money(counterparty.receivable), money(counterparty.payable), money(counterparty.overdue)])}
-            empty={<EmptyState title={loading ? 'Loading counterparties…' : 'No counterparty finance activity'} />}
-          />
-        ) : (
-          <DataTable
-            columns={['Direction', 'Invoice', 'Counterparty', 'Net', 'VAT', 'Gross', 'Paid', 'Outstanding', 'Due', 'Aging', 'State', 'Action']}
-            rows={visibleInvoices.map((invoice) => [
-              <StatusBadge key="direction" value={invoice.direction === 'receivable' ? 'AR' : 'AP'} tone={invoice.direction === 'receivable' ? 'blue' : 'orange'} />,
-              invoice.invoiceNumber,
-              invoice.counterpartyName,
-              money(invoice.net, invoice.currency),
-              money(invoice.vat, invoice.currency),
-              money(invoice.gross, invoice.currency),
-              money(invoice.paidAmount, invoice.currency),
-              money(invoice.outstandingAmount, invoice.currency),
-              date(invoice.dueDate),
-              AGING_BUCKET_LABELS[invoice.agingBucket],
-              <StatusBadge key="state" value={invoice.lifecycle.replace(/_/g, ' ')} tone={invoice.lifecycle === 'paid' ? 'green' : invoice.lifecycle === 'overdue' ? 'red' : invoice.lifecycle === 'archive' ? 'grey' : 'orange'} />,
-              <ActionButton key="open" tone="secondary" onClick={() => router.push(detailHref(role, invoice))}>Open</ActionButton>,
-            ])}
-            empty={<EmptyState title={loading ? 'Loading finance control…' : 'No finance records in this view'} />}
-          />
-        )}
-      </Panel>
-      {payload?.note ? <div style={{ fontSize: 11, lineHeight: '16px', color: '#64748b' }}>{payload.note}</div> : null}
+        </section>
+      )}
+
+      {view === 'counterparties' && (
+        <section className={styles.register}>
+          <div className={styles.registerHead}><div><div className={styles.panelKicker}>Accounts</div><div className={styles.registerTitle}>Counterparties</div></div></div>
+          {(payload?.counterparties ?? []).length === 0 ? <div className={styles.empty}><strong>{loading ? 'Loading counterparties' : 'No counterparty finance activity'}</strong></div> : (
+            <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Counterparty</th><th>Invoices</th><th>Receivable</th><th>Payable</th><th>Overdue</th></tr></thead><tbody>{(payload?.counterparties ?? []).map((counterparty) => <tr key={counterparty.id}><td><strong>{counterparty.name}</strong></td><td>{counterparty.invoices}</td><td>{money(counterparty.receivable)}</td><td>{money(counterparty.payable)}</td><td>{money(counterparty.overdue)}</td></tr>)}</tbody></table></div>
+          )}
+        </section>
+      )}
+
+      {!['dashboard','ready','customers','aging','statements','counterparties'].includes(view) && (
+        <section className={styles.register}>
+          <div className={styles.registerHead}><div><div className={styles.panelKicker}>Invoice operations</div><div className={styles.registerTitle}>{view === 'receivable' ? 'Accounts Receivable' : view === 'payable' ? 'Accounts Payable' : 'Invoice register'}</div></div><span className={styles.registerMeta}>{visibleInvoices.length} records</span></div>
+          {visibleInvoices.length === 0 ? <div className={styles.empty}><strong>{loading ? 'Loading finance control' : 'No finance records in this view'}</strong></div> : (
+            <div className={styles.tableWrap}><table className={styles.table}><thead><tr><th>Direction</th><th>Invoice</th><th>Counterparty</th><th>Net</th><th>VAT</th><th>Gross</th><th>Paid</th><th>Outstanding</th><th>Due</th><th>Aging</th><th>State</th><th>Action</th></tr></thead><tbody>{visibleInvoices.map((invoice) => <tr key={invoice.id}><td><StatusBadge value={invoice.direction === 'receivable' ? 'AR' : 'AP'} tone={invoice.direction === 'receivable' ? 'blue' : 'orange'} /></td><td><strong>{invoice.invoiceNumber}</strong></td><td>{invoice.counterpartyName}</td><td>{money(invoice.net, invoice.currency)}</td><td>{money(invoice.vat, invoice.currency)}</td><td>{money(invoice.gross, invoice.currency)}</td><td>{money(invoice.paidAmount, invoice.currency)}</td><td>{money(invoice.outstandingAmount, invoice.currency)}</td><td>{date(invoice.dueDate)}</td><td>{AGING_BUCKET_LABELS[invoice.agingBucket]}</td><td><StatusBadge value={invoice.lifecycle.replace(/_/g,' ')} tone={invoice.lifecycle === 'paid' ? 'green' : invoice.lifecycle === 'overdue' ? 'red' : invoice.lifecycle === 'archive' ? 'grey' : 'orange'} /></td><td><button className={styles.button} onClick={() => router.push(detailHref(role, invoice))}>Open</button></td></tr>)}</tbody></table></div>
+          )}
+        </section>
+      )}
+
+      {payload?.note ? <div className={styles.registerMeta}>{payload.note}</div> : null}
     </div>
   );
 }
