@@ -55,11 +55,12 @@ describe('Customer and Owner Driver workspace structure parity', () => {
     expect(shellCss).not.toContain('max-width: min(252px');
   });
 
-  it('keeps Settings administrative and removes Customer operational duplicates from its side navigation', () => {
+  it('keeps the shared Settings sidebar consistent while preserving role-scoped routes', () => {
     expect(settings).toContain("routes.documents && role !== 'customer'");
-    expect(settings).toContain("routes.audit && role !== 'customer'");
+    expect(settings).toContain("routes.audit ? [{ label: 'Audit / Event Log'");
     expect(settings).toContain("routes.team ? [{ label: 'Users & Permissions'");
     expect(settings).toContain("routes.notifications ? [{ label: 'Notifications'");
+    expect(settings).toContain("{ label: 'Company Settings'");
     expect(settings).toContain("{ label: 'Security'");
   });
 
