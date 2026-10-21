@@ -157,7 +157,7 @@
 
 .sidebarLink {
   position: relative;
-  min-height: 42px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   gap: 11px;
@@ -301,9 +301,9 @@
 .desktopCollapseButton,
 .mobileMenuButton,
 .topbarIconLink {
-  width: 40px;
-  height: 40px;
-  flex: 0 0 40px;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -335,7 +335,7 @@
 
 .topbarSearch {
   width: min(520px, 42vw);
-  height: 42px;
+  height: 44px;
   display: flex;
   align-items: center;
   gap: 10px;
@@ -368,7 +368,7 @@
 }
 
 .topbarActionLink {
-  min-height: 40px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -397,7 +397,7 @@
 }
 
 .ownerButton {
-  min-height: 40px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
@@ -445,7 +445,7 @@
 }
 
 .ownerMenu a {
-  min-height: 38px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   padding: 0 10px;
@@ -569,7 +569,7 @@
 }
 
 .areaLinks a {
-  min-height: 34px;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -665,10 +665,15 @@
     top: 0;
     width: min(86vw, 304px);
     transform: translateX(-104%);
-    transition: transform 180ms ease;
+    visibility: hidden;
+    pointer-events: none;
+    transition: transform 180ms ease, visibility 0s linear 180ms;
   }
   .sidebarMobileOpen {
     transform: translateX(0);
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
   }
 
   .sidebarCollapsed .sidebarBrand {
@@ -745,8 +750,8 @@
   }
 
   .ownerButton {
-    width: 40px;
-    height: 40px;
+    width: 44px;
+    height: 44px;
     padding: 0;
     justify-content: center;
   }

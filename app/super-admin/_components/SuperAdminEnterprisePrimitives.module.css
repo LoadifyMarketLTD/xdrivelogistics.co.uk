@@ -223,7 +223,7 @@
 
 .filterBar input,
 .filterBar select {
-  min-height: 36px;
+  min-height: 44px;
   min-width: 220px;
   padding: 0 11px;
   border: 1px solid #D0D5DD;
@@ -295,6 +295,8 @@
 .dataGridScroll {
   width: 100%;
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-inline: contain;
 }
 
 .dataGrid {
@@ -367,7 +369,7 @@
 .sectionCardActions a,
 .filterBar button,
 .filterBar a {
-  min-height: 36px;
+  min-height: 44px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
