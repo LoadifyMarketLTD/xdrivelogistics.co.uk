@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
       'svix-id': eventId,
       'svix-timestamp': timestamp,
       'svix-signature': signature,
-    }) as ResendInvoiceEvent;
+    }) as unknown as ResendInvoiceEvent;
   } catch {
     return NextResponse.json({ error: 'Invalid email webhook signature' }, { status: 400 });
   }
