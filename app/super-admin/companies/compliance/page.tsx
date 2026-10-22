@@ -30,22 +30,22 @@ export default function Page() {
         {
           key: 'company',
           label: 'Company',
-          render: (row) => <span style={{ fontSize: '0.78rem' }}>{row.company_name ?? '—'}</span>,
+          render: (row) => <span style={{ fontSize: '0.875rem' }}>{row.company_name ?? '—'}</span>,
         },
         {
           key: 'entity',
           label: 'Entity',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem' }}>
+            <span style={{ fontSize: '0.875rem' }}>
               {row.entity_name ?? '—'}
-              <span style={{ marginLeft: '0.3rem', fontSize: '0.65rem', color: '#667085', textTransform: 'uppercase' }}>({row.entity_type})</span>
+              <span style={{ marginLeft: '0.3rem', fontSize: '0.875rem', color: '#667085', textTransform: 'uppercase' }}>({row.entity_type})</span>
             </span>
           ),
         },
         {
           key: 'doc_type',
           label: 'Document',
-          render: (row) => <span style={{ fontSize: '0.75rem', textTransform: 'capitalize' }}>{row.doc_type.replace(/_/g, ' ')}</span>,
+          render: (row) => <span style={{ fontSize: '0.875rem', textTransform: 'capitalize' }}>{row.doc_type.replace(/_/g, ' ')}</span>,
         },
         {
           key: 'status',
@@ -56,7 +56,7 @@ export default function Page() {
           key: 'expiry_date',
           label: 'Expiry',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#D92D20' : '#667085' }}>
+            <span style={{ fontSize: '0.875rem', color: row.is_expired ? '#D92D20' : '#667085' }}>
               {row.expiry_date ? formatDateTime(row.expiry_date) : '—'}
             </span>
           ),
@@ -64,7 +64,7 @@ export default function Page() {
         {
           key: 'created_at',
           label: 'Uploaded',
-          render: (row) => <span style={{ fontSize: '0.75rem' }}>{formatDateTime(row.created_at)}</span>,
+          render: (row) => <span style={{ fontSize: '0.875rem' }}>{formatDateTime(row.created_at)}</span>,
         },
       ]}
     />

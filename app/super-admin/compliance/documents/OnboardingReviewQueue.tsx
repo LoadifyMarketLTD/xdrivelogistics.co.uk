@@ -121,16 +121,16 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: 12, borderBottom: '1px solid #E5E7EB', background: '#F4F6F8' }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#0B2F6B' }}>Onboarding approval queue</div>
-          <div style={{ marginTop: 2, fontSize: 11, color: '#667085' }}>
+          <div style={{ marginTop: 2, fontSize: 14, color: '#667085' }}>
             Platform Owner review. Approval remains server-authoritative, explicitly company-bound and compliance-gated.
           </div>
         </div>
-        <button type="button" onClick={() => void loadQueue()} disabled={loading} style={{ height: 32, padding: '0 10px', border: '1px solid #1D57D8', borderRadius: 4, background: '#1D57D8', color: '#FFF', fontSize: 11, fontWeight: 800 }}>
+        <button type="button" onClick={() => void loadQueue()} disabled={loading} style={{ height: 32, padding: '0 10px', border: '1px solid #1D57D8', borderRadius: 4, background: '#1D57D8', color: '#FFF', fontSize: 14, fontWeight: 800 }}>
           {loading ? 'Refreshing…' : 'Refresh queue'}
         </button>
       </div>
 
-      {error && <div role="alert" style={{ margin: '10px 12px 0', padding: '8px 10px', border: '1px solid #FCA5A5', borderRadius: 4, background: '#FEF2F2', color: '#991B1B', fontSize: 11 }}>{error}</div>}
+      {error && <div role="alert" style={{ margin: '10px 12px 0', padding: '8px 10px', border: '1px solid #FCA5A5', borderRadius: 4, background: '#FEF2F2', color: '#991B1B', fontSize: 14 }}>{error}</div>}
 
       {loading ? (
         <div style={{ padding: 14, fontSize: 12, color: '#667085' }}>Loading onboarding review queue…</div>
@@ -138,11 +138,11 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
         <div style={{ padding: 14, fontSize: 12, color: '#667085' }}>No onboarding applications are awaiting Platform review.</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ color: '#0B2F6B', textAlign: 'left' }}>
                 {['Applicant', 'Company', 'Account type', 'Onboarding', 'Compliance / payments', 'Actions'].map((heading) => (
-                  <th key={heading} style={{ padding: '8px 10px', borderBottom: '1px solid #E5E7EB', fontSize: 10, textTransform: 'uppercase' }}>{heading}</th>
+                  <th key={heading} style={{ padding: '8px 10px', borderBottom: '1px solid #E5E7EB', fontSize: 14, textTransform: 'uppercase' }}>{heading}</th>
                 ))}
               </tr>
             </thead>
@@ -163,9 +163,9 @@ export default function OnboardingReviewQueue({ onReviewed }: { onReviewed?: () 
                     </td>
                     <td style={{ padding: '9px 10px' }}>
                       <div style={{ display: 'flex', flexDirection: 'column', gap: 4, minWidth: 120 }}>
-                        <button type="button" disabled={busy || !row.ready_for_approval} onClick={() => openAction(row, 'approve')} style={{ fontSize: 10, fontWeight: 800 }}>Approve onboarding</button>
-                        <button type="button" disabled={busy} onClick={() => openAction(row, 'request_changes')} style={{ fontSize: 10 }}>Request changes</button>
-                        <button type="button" disabled={busy} onClick={() => openAction(row, 'reject')} style={{ fontSize: 10 }}>Reject onboarding</button>
+                        <button type="button" disabled={busy || !row.ready_for_approval} onClick={() => openAction(row, 'approve')} style={{ fontSize: 14, fontWeight: 800 }}>Approve onboarding</button>
+                        <button type="button" disabled={busy} onClick={() => openAction(row, 'request_changes')} style={{ fontSize: 14 }}>Request changes</button>
+                        <button type="button" disabled={busy} onClick={() => openAction(row, 'reject')} style={{ fontSize: 14 }}>Reject onboarding</button>
                       </div>
                     </td>
                   </tr>
