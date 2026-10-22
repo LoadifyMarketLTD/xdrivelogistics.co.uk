@@ -62,6 +62,7 @@ export default function MobileBookingDetail() {
 
   const refresh = useCallback(async () => {
     setLoading(true);
+    setJob(null);
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw Error('Please sign in to view your booking.');

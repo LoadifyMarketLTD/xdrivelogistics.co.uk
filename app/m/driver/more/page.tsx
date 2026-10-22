@@ -14,7 +14,7 @@ type Section = { title: string; items: { label: string; href: string; detail?: s
 const operations = [
   { label: 'Availability', href: '/driver/availability/live', detail: 'Set your location and working status' },
   { label: 'Return journeys', href: '/driver/returns', detail: 'Declare a journey and find matching loads' },
-  { label: 'Documents', href: '/driver/documents', detail: 'Driver and vehicle compliance documents' },
+  { label: 'Documents', href: '/m/driver/documents', detail: 'Driver and vehicle compliance documents' },
   { label: 'Messages', href: '/driver/messages', detail: 'Operational updates and contacts' },
   { label: 'Job history', href: '/driver/history' },
 ];
@@ -30,6 +30,7 @@ export default function MobileMorePage() {
   const [loading, setLoading] = useState(true);
   const refresh = useCallback(async () => {
     setLoading(true);
+    setData(null);
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw Error('Please sign in to see your driver tools.');

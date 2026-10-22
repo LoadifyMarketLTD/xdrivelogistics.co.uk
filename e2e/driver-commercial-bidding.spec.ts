@@ -85,9 +85,9 @@ test.describe('driver commercial bidding e2e', () => {
     expect(payload.success).toBe(true);
     expect(typeof payload.bidId).toBe('string');
 
-    const resources = await apiJson<{ resources?: { quotes?: Array<{ id?: string; job_id?: string }> } }>(session, '/api/driver/mobile/resources');
-    expect(resources.response.status()).toBe(200);
-    const matched = (resources.payload.resources?.quotes ?? []).find((quote) => quote.id === payload.bidId && quote.job_id === job!.id);
+    const quotes = await apiJson<{ bids?: Array<{ id?: string; jobId?: string }> }>(session, '/api/driver/mobile/bids');
+    expect(quotes.response.status()).toBe(200);
+    const matched = (quotes.payload.bids ?? []).find((quote) => quote.id === payload.bidId && quote.jobId === job!.id);
     expect(Boolean(matched)).toBe(true);
   });
 

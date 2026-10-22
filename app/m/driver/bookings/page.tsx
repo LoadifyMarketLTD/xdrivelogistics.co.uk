@@ -23,6 +23,7 @@ export default function MobileBookingsPage() {
   const [error, setError] = useState('');
   const refresh = useCallback(async () => {
     setLoading(true);
+    setJobs([]);
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw Error('Please sign in to see your bookings.');
@@ -50,7 +51,7 @@ export default function MobileBookingsPage() {
     {error ? <div className="xd-mobile-error" role="alert"><p>{error}</p>
       <button type="button" onClick={() => void refresh()}>Retry</button></div> : null}
     {!loading && !error && jobs.length === 0 ? <p>No active bookings assigned to you.</p> : null}
-    {!loading && jobs.map(job => <article className="xd-mobile-card" key={job.id}>
+    {!loading && !error && jobs.map(job => <article className="xd-mobile-card" key={job.id}>
       <div className="xd-mobile-card__top">
         <strong>{job.reference}</strong>
         <span className="xd-mobile-pill">{job.status.replaceAll('_', ' ')}</span>

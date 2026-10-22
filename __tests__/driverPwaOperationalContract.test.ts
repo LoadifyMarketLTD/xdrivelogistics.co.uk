@@ -78,4 +78,31 @@ describe('Driver PWA operational wiring', () => {
     expect(resources).toContain("context.driverType?.trim().toLowerCase() === 'owner_driver'");
     expect(resources).toContain('context.canCommercialBid');
   });
+
+  it('clears sensitive driver information on refresh and hides stale results after failure', () => {
+    const cases = [
+      ['app/m/driver/jobs/page.tsx', 'setJobs([]);setQuoted([])'],
+      ['app/m/driver/quotes/page.tsx', 'setQuotes([]);'],
+      ['app/m/driver/bookings/page.tsx', 'setJobs([]);'],
+      ['app/m/driver/bookings/[id]/page.tsx', 'setJob(null);'],
+      ['app/m/driver/more/page.tsx', 'setData(null);'],
+    ];
+    for (const [path, guard] of cases) expect(source(path)).toContain(guard);
+    expect(source('app/m/driver/quotes/page.tsx')).toContain('!loading && !error && quotes.map');
+    expect(source('app/m/driver/bookings/page.tsx')).toContain('!loading && !error && jobs.map');
+  });
+
+  it('keeps compliance document viewing and uploads within the scoped mobile PWA', () => {
+    const more = source('app/m/driver/more/page.tsx');
+    const page = source('app/m/driver/documents/page.tsx');
+    const upload = source('app/m/driver/documents/DriverDocumentUpload.tsx');
+    expect(more).toContain("href: '/m/driver/documents'");
+    const navigation = source('app/m/driver/DriverMobileNavigation.tsx');
+    expect(navigation).toContain('isMoreSubview');
+    expect(page).toContain('/api/driver/mobile/documents/');
+    expect(page).toContain('<DriverDocumentUpload');
+    expect(upload).toContain("action: 'upload_document'");
+    expect(upload).toContain("isVehicleDocument: kind === 'vehicle'");
+    expect(upload).toContain('file.size > 10 * 1024 * 1024');
+  });
 });
