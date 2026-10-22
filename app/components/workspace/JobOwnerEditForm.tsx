@@ -52,6 +52,7 @@ type AdditionalStop = {
 };
 
 type Snapshot = {
+  pickupTown?: string; deliveryTown?: string;
   id: string;
   reference: string;
   status: string;
@@ -98,8 +99,8 @@ type Snapshot = {
 
 type FormState = {
   clientName: string; clientEmail: string; clientPhone: string;
-  pickupDate: string; pickupTime: string; pickupAddress: string; pickupPostcode: string; collectionContact: string; collectionPhone: string;
-  deliveryDate: string; deliveryTime: string; deliveryAddress: string; deliveryPostcode: string; deliveryContact: string; deliveryPhone: string;
+  pickupDate: string; pickupTime: string; pickupAddress: string; pickupTown: string; pickupPostcode: string; collectionContact: string; collectionPhone: string;
+  deliveryDate: string; deliveryTime: string; deliveryAddress: string; deliveryTown: string; deliveryPostcode: string; deliveryContact: string; deliveryPhone: string;
   vehicle: string; cargo: string; weight: string; pallets: string; length: string; width: string; height: string; cargoValue: string;
   customerReference: string; purchaseOrder: string; bookingReference: string; customerPrice: string; targetCarrierCost: string;
   tailLift: boolean; forklift: boolean; handball: boolean; adr: boolean; temperatureControlled: boolean; fragile: boolean;
@@ -108,8 +109,8 @@ type FormState = {
 
 const EMPTY_FORM: FormState = {
   clientName: '', clientEmail: '', clientPhone: '',
-  pickupDate: '', pickupTime: '', pickupAddress: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
-  deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
+  pickupDate: '', pickupTime: '', pickupAddress: '', pickupTown: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
+  deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryTown: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
   vehicle: 'LWB Van', cargo: 'Pallets', weight: '', pallets: '', length: '', width: '', height: '', cargoValue: '',
   customerReference: '', purchaseOrder: '', bookingReference: '', customerPrice: '', targetCarrierCost: '',
   tailLift: false, forklift: false, handball: false, adr: false, temperatureControlled: false, fragile: false,
@@ -171,8 +172,8 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
         setAdditionalStops(job.additionalStops ?? []);
         setForm({
           clientName: job.clientName ?? '', clientEmail: job.clientEmail ?? '', clientPhone: job.clientPhone ?? '',
-          pickupDate: job.pickupDate ?? '', pickupTime: job.pickupTime ?? '', pickupAddress: job.pickupAddress ?? '', pickupPostcode: job.pickupPostcode ?? '', collectionContact: job.collectionContact ?? '', collectionPhone: job.collectionPhone ?? '',
-          deliveryDate: job.deliveryDate ?? '', deliveryTime: job.deliveryTime ?? '', deliveryAddress: job.deliveryAddress ?? '', deliveryPostcode: job.deliveryPostcode ?? '', deliveryContact: job.deliveryContact ?? '', deliveryPhone: job.deliveryPhone ?? '',
+          pickupDate: job.pickupDate ?? '', pickupTime: job.pickupTime ?? '', pickupAddress: job.pickupAddress ?? '', pickupTown: job.pickupTown ?? '', pickupPostcode: job.pickupPostcode ?? '', collectionContact: job.collectionContact ?? '', collectionPhone: job.collectionPhone ?? '',
+          deliveryDate: job.deliveryDate ?? '', deliveryTime: job.deliveryTime ?? '', deliveryAddress: job.deliveryAddress ?? '', deliveryTown: job.deliveryTown ?? '', deliveryPostcode: job.deliveryPostcode ?? '', deliveryContact: job.deliveryContact ?? '', deliveryPhone: job.deliveryPhone ?? '',
           vehicle: job.vehicle || 'LWB Van', cargo: job.cargo || 'Pallets', weight: asInput(job.weight), pallets: asInput(job.pallets), length: asInput(job.length), width: asInput(job.width), height: asInput(job.height), cargoValue: asInput(job.cargoValue),
           customerReference: job.customerReference ?? '', purchaseOrder: job.purchaseOrder ?? '', bookingReference: job.bookingReference ?? '', customerPrice: asInput(job.customerPrice), targetCarrierCost: asInput(job.targetCarrierCost),
           tailLift: Boolean(job.tailLift), forklift: Boolean(job.forklift), handball: Boolean(job.handball), adr: Boolean(job.adr), temperatureControlled: Boolean(job.temperatureControlled), fragile: Boolean(job.fragile),
@@ -198,7 +199,7 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
   });
 
   const invalid = () => {
-    const mainInvalid = !form.pickupDate || !form.pickupTime || !isFullUkPostcode(form.pickupPostcode) || !form.pickupAddress.trim() || !form.deliveryDate || !form.deliveryTime || !isFullUkPostcode(form.deliveryPostcode) || !form.deliveryAddress.trim();
+    const mainInvalid = !form.pickupDate || !form.pickupTime || !isFullUkPostcode(form.pickupPostcode) || !form.pickupAddress.trim() || !form.pickupTown.trim() || !form.deliveryTown.trim() || !form.deliveryDate || !form.deliveryTime || !isFullUkPostcode(form.deliveryPostcode) || !form.deliveryAddress.trim();
     const stopsInvalid = additionalStops.some((stop) => !stop.date || !stop.time || !isFullUkPostcode(stop.postcode) || !stop.address.trim());
     const dimensionsInvalid = [form.length, form.width, form.height].some((value) => value.trim() && (numberOrNull(value) == null || Number(value) > 2000));
     return mainInvalid || stopsInvalid || dimensionsInvalid;
@@ -218,8 +219,8 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
         body: JSON.stringify({
           publish,
           clientName: form.clientName || null, clientEmail: form.clientEmail || '', clientPhone: form.clientPhone || null,
-          pickupDateTime: dateTime(form.pickupDate, form.pickupTime), pickupTimeSlot: form.pickupTime, pickupAddress: form.pickupAddress.trim(), pickupPostcode: normalizePostcode(form.pickupPostcode), collectionContact: form.collectionContact || null, collectionPhone: form.collectionPhone || null,
-          deliveryDateTime: dateTime(form.deliveryDate, form.deliveryTime), deliveryTimeSlot: form.deliveryTime, deliveryAddress: form.deliveryAddress.trim(), deliveryPostcode: normalizePostcode(form.deliveryPostcode), deliveryContact: form.deliveryContact || null, deliveryPhone: form.deliveryPhone || null,
+          pickupDateTime: dateTime(form.pickupDate, form.pickupTime), pickupTimeSlot: form.pickupTime, pickupAddress: form.pickupAddress.trim(), pickupTown: form.pickupTown.trim(), pickupPostcode: normalizePostcode(form.pickupPostcode), collectionContact: form.collectionContact || null, collectionPhone: form.collectionPhone || null,
+          deliveryDateTime: dateTime(form.deliveryDate, form.deliveryTime), deliveryTimeSlot: form.deliveryTime, deliveryAddress: form.deliveryAddress.trim(), deliveryTown: form.deliveryTown.trim(), deliveryPostcode: normalizePostcode(form.deliveryPostcode), deliveryContact: form.deliveryContact || null, deliveryPhone: form.deliveryPhone || null,
           additionalStops: additionalStops.map((stop) => ({ type: stop.type, address: stop.address.trim(), postcode: normalizePostcode(stop.postcode), contact: stop.contact || null, phone: stop.phone || null, dateTime: dateTime(stop.date, stop.time), instructions: stop.instructions || null })),
           vehicleLabel: form.vehicle, cargoLabel: form.cargo, weightKg: numberOrNull(form.weight), pallets: numberOrNull(form.pallets), lengthCm: numberOrNull(form.length), widthCm: numberOrNull(form.width), heightCm: numberOrNull(form.height), cargoValueGbp: numberOrNull(form.cargoValue),
           customerReference: form.customerReference || null, purchaseOrder: form.purchaseOrder || null, bookingReference: form.bookingReference || null, customerPrice: numberOrNull(form.customerPrice), targetCarrierCost: numberOrNull(form.targetCarrierCost),
@@ -249,6 +250,7 @@ export default function JobOwnerEditForm({ jobId, mode = 'customer' }: { jobId: 
 
     <Panel title="Collection and delivery" description="Update the route whenever required. Existing lifecycle status, award/allocation and operational evidence remain preserved.">
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(300px,1fr))', gap: 12 }}>
+        <div style={{display:"flex",gap:10,flexWrap:"wrap"}}><label>Collection town (public)<input required value={form.pickupTown} onChange={e=>set("pickupTown",e.target.value)}/></label><label>Delivery town (public)<input required value={form.deliveryTown} onChange={e=>set("deliveryTown",e.target.value)}/></label></div>
         <StopFields title="Collection" date={form.pickupDate} time={form.pickupTime} postcode={form.pickupPostcode} address={form.pickupAddress} contact={form.collectionContact} phone={form.collectionPhone} onDate={(v) => set('pickupDate', v)} onTime={(v) => set('pickupTime', v)} onPostcode={(v) => set('pickupPostcode', v)} onAddress={(v) => set('pickupAddress', v)} onContact={(v) => set('collectionContact', v)} onPhone={(v) => set('collectionPhone', v)} showErrors={showErrors} />
         <StopFields title="Delivery" date={form.deliveryDate} time={form.deliveryTime} postcode={form.deliveryPostcode} address={form.deliveryAddress} contact={form.deliveryContact} phone={form.deliveryPhone} onDate={(v) => set('deliveryDate', v)} onTime={(v) => set('deliveryTime', v)} onPostcode={(v) => set('deliveryPostcode', v)} onAddress={(v) => set('deliveryAddress', v)} onContact={(v) => set('deliveryContact', v)} onPhone={(v) => set('deliveryPhone', v)} showErrors={showErrors} />
       </div>

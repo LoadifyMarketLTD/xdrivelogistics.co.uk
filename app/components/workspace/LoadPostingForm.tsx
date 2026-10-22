@@ -244,8 +244,8 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     pickupAlertRadiusMiles: '1',
     deliveryAlertRadiusMiles: '1',
     clientName: '', clientEmail: '', clientPhone: '',
-    pickupDate: '', pickupTime: '', pickupAddress: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
-    deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
+    pickupDate: '', pickupTime: '', pickupAddress: '', pickupTown: '', pickupPostcode: '', collectionContact: '', collectionPhone: '',
+    deliveryDate: '', deliveryTime: '', deliveryAddress: '', deliveryTown: '', deliveryPostcode: '', deliveryContact: '', deliveryPhone: '',
     vehicle: 'LWB Van', cargo: 'Pallets', weight: '', pallets: '', itemCount: '', palletType: '', palletStackable: '', length: '', width: '', height: '', cargoValue: '',
     customerReference: '', purchaseOrder: '', bookingReference: '', customerPrice: '', targetCarrierCost: '', paymentTerms: COMPANY_CONFIG.payment.defaultTerm as (typeof PAYMENT_TERMS)[number],
     tailLift: false, forklift: false, handball: false, deliveryTailLift: false, deliveryForklift: false, deliveryHandball: false,
@@ -434,7 +434,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
     minimumDate: minimumRouteDate || undefined,
     now: clockNow,
   }));
-  const hasRequiredErrors = hasStopErrors(collectionErrors) || hasStopErrors(deliveryErrors) || additionalStopErrors.some(hasStopErrors);
+  const hasRequiredErrors = hasStopErrors(collectionErrors) || hasStopErrors(deliveryErrors) || additionalStopErrors.some(hasStopErrors) || !form.pickupTown.trim() || !form.deliveryTown.trim();
   const loadTypeError = form.loadType === 'regular_load' && form.regularDays.length === 0
     ? 'Select at least one operating day for a Regular Load.'
     : form.loadType === 'daily_hire' && !form.hireEndTime
@@ -573,13 +573,13 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           clientPhone: form.clientPhone || null,
           pickupDateTime: dateTime(form.pickupDate, form.pickupTime),
           pickupTimeSlot: form.pickupTime,
-          pickupAddress: form.pickupAddress.trim(),
+          pickupAddress: form.pickupAddress.trim(), pickupTown: form.pickupTown.trim(),
           pickupPostcode,
           collectionContact: form.collectionContact || null,
           collectionPhone: form.collectionPhone || null,
           deliveryDateTime: dateTime(form.deliveryDate, form.deliveryTime),
           deliveryTimeSlot: form.deliveryTime,
-          deliveryAddress: form.deliveryAddress.trim(),
+          deliveryAddress: form.deliveryAddress.trim(), deliveryTown: form.deliveryTown.trim(),
           deliveryPostcode,
           deliveryContact: form.deliveryContact || null,
           deliveryPhone: form.deliveryPhone || null,
@@ -1085,6 +1085,10 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
           />
         </div>
 
+        <div style={{display:'grid',gridTemplateColumns:'repeat(2,minmax(0,1fr))',gap:12,margin:'8px 0 12px'}}>
+          <label style={labelStyle}>Collection town (public) *<input style={fieldStyle} aria-invalid={showValidation && !form.pickupTown.trim()} value={form.pickupTown} onChange={e=>set('pickupTown',e.target.value)} placeholder="e.g. Manchester" required /></label>
+          <label style={labelStyle}>Delivery town (public) *<input style={fieldStyle} aria-invalid={showValidation && !form.deliveryTown.trim()} value={form.deliveryTown} onChange={e=>set('deliveryTown',e.target.value)} placeholder="e.g. Oldham" required /></label>
+        </div>
         <div style={{ display: 'grid', gap: '8px', borderTop: '1px solid #e2e8f0', marginTop: '12px', paddingTop: '10px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
             <div>

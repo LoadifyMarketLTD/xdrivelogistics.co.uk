@@ -3,6 +3,8 @@ import { NextRequest } from 'next/server';
 import { getBearerToken, isSupabaseAdminConfigured, supabaseAdmin } from '../../../../../_lib/supabaseAdmin';
 import { getFeatureFlag } from '../../../../../_lib/platformFlags';
 import { isWebDriverContext, requireActiveWebDriver } from '../../../../_lib/webDriverContext';
+import { updateWebDriverStop } from '../webStopStatus';
+import { undoWebDriverStatus } from '../webUndoStatus';
 import {
   insertTrackingEvent,
   jobSelect,
@@ -75,6 +77,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (!isWebDriverContext(driver)) return driver;
 
   const { id, action } = await params;
+  if (action === 'stop-status') return updateWebDriverStop(request, id, driver);
+  if (action === 'undo-status') return undoWebDriverStatus(request, id, driver);
   if (action === 'pod') {
     const podEnabled = await getFeatureFlag(supabaseAdmin, 'pod_capture');
     if (!podEnabled) return respond(503, { error: 'POD capture is currently disabled.' });

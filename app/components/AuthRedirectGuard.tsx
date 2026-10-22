@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './AuthContext';
-import { getPostLoginRoute } from '../../lib/authSession';
+import { getResponsivePostLoginRoute } from '../../lib/authSession';
 
 /**
  * Silently redirects authenticated users to their dashboard.
@@ -15,7 +15,7 @@ export function AuthRedirectGuard() {
 
   useEffect(() => {
     if (!isLoading && user) {
-      router.push(getPostLoginRoute(user));
+      router.push(getResponsivePostLoginRoute(user, window.matchMedia('(max-width: 767px)').matches));
     }
   }, [user, isLoading, router]);
 

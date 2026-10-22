@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { hasOnlyPreExecutionJobStatuses, preferredJobLifecycleStatus } from '../../../../../../lib/jobs/jobLifecycleStatus';
 import { labelToCargoType, labelToVehicleType } from '../../../../../../lib/vehicleTypes';
+import { publicTown } from '../../../../driver/_lib/mobilePublicArea';
 import {
   getBearerToken,
   isSupabaseAdminConfigured,
@@ -35,12 +36,14 @@ const updateSchema = z.object({
   clientPhone: optionalText,
   pickupDateTime: z.string().trim().min(1),
   pickupTimeSlot: z.string().trim().max(50),
+  pickupTown: z.string().trim().max(80).optional().nullable(),
   pickupAddress: z.string().trim().min(3).max(1000),
   pickupPostcode: z.string().trim().min(2).max(20),
   collectionContact: optionalText,
   collectionPhone: optionalText,
   deliveryDateTime: z.string().trim().optional().nullable(),
   deliveryTimeSlot: z.string().trim().max(50),
+  deliveryTown: z.string().trim().max(80).optional().nullable(),
   deliveryAddress: z.string().trim().min(3).max(1000),
   deliveryPostcode: z.string().trim().min(2).max(20),
   deliveryContact: optionalText,
@@ -218,12 +221,14 @@ const editableSnapshot = (context: OwnerContext) => {
     clientPhone: text(job.client_phone) ?? '',
     pickupDate: firstStop ? londonDateTime(firstStop.window_start).date : pickupSchedule.date,
     pickupTime: text(job.pickup_time_slot) || (firstStop ? londonDateTime(firstStop.window_start).time : pickupSchedule.time),
+    pickupTown: text(job.pickup_city) ?? '',
     pickupAddress: firstStop ? text(firstStop.address) ?? '' : executionAddress(job.pickup_location, job.pickup_postcode),
     pickupPostcode: firstStop ? text(firstStop.postcode) ?? '' : text(job.pickup_postcode) ?? '',
     collectionContact: firstStop ? text(firstStop.contact_name) ?? '' : text(job.collection_contact_name) ?? '',
     collectionPhone: firstStop ? text(firstStop.contact_phone) ?? '' : text(job.collection_contact_phone) ?? '',
     deliveryDate: lastStop ? londonDateTime(lastStop.window_start).date : deliverySchedule.date,
     deliveryTime: text(job.delivery_time_slot) || (lastStop ? londonDateTime(lastStop.window_start).time : deliverySchedule.time),
+    deliveryTown: text(job.delivery_city) ?? '',
     deliveryAddress: lastStop ? text(lastStop.address) ?? '' : executionAddress(job.delivery_location, job.delivery_postcode),
     deliveryPostcode: lastStop ? text(lastStop.postcode) ?? '' : text(job.delivery_postcode) ?? '',
     deliveryContact: lastStop ? text(lastStop.contact_name) ?? '' : text(job.delivery_contact_name) ?? '',
@@ -376,10 +381,12 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
     status: originalJob.status,
     current_status: originalJob.current_status,
     pickup_location: `${input.pickupAddress}, ${input.pickupPostcode.toUpperCase()}`,
+    pickup_city: publicTown(input.pickupTown) || null,
     pickup_postcode: input.pickupPostcode.toUpperCase(),
     pickup_datetime: input.pickupDateTime,
     pickup_time_slot: input.pickupTimeSlot,
     delivery_location: `${input.deliveryAddress}, ${input.deliveryPostcode.toUpperCase()}`,
+    delivery_city: publicTown(input.deliveryTown) || null,
     delivery_postcode: input.deliveryPostcode.toUpperCase(),
     delivery_datetime: input.deliveryDateTime || null,
     delivery_time_slot: input.deliveryTimeSlot,

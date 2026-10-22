@@ -11,6 +11,7 @@ import {
 import { getFeatureFlags, getGlobalSettingBoolean } from '../../_lib/platformFlags';
 import { operationalError } from '../../_lib/operationalError';
 import { calculateJobRouteMetrics } from '../../_lib/jobRouteMetrics';
+import { publicTown } from '../../driver/_lib/mobilePublicArea';
 import { areCompaniesBlocked } from '../../_lib/companyBlocks';
 import { getStripeCommercialReadiness, stripeCommercialReadinessPayload } from '../../_lib/stripeCommercialReadiness';
 import { getCommercialLegalReadiness, commercialLegalReadinessPayload } from '../../_lib/commercialLegalReadiness';
@@ -69,12 +70,14 @@ const bodySchema = z.object({
   clientPhone: optionalText,
   pickupDateTime: z.string().trim().min(1),
   pickupTimeSlot: z.string().trim().max(50),
+  pickupTown: z.string().trim().max(80).optional().nullable(),
   pickupAddress: z.string().trim().min(3).max(1000),
   pickupPostcode: z.string().trim().min(2).max(20),
   collectionContact: optionalText,
   collectionPhone: optionalText,
   deliveryDateTime: z.string().trim().optional().nullable(),
   deliveryTimeSlot: z.string().trim().max(50),
+  deliveryTown: z.string().trim().max(80).optional().nullable(),
   deliveryAddress: z.string().trim().min(3).max(1000),
   deliveryPostcode: z.string().trim().min(2).max(20),
   deliveryContact: optionalText,
@@ -689,10 +692,12 @@ export async function POST(request: NextRequest) {
     status,
     current_status: status,
     pickup_location: `${input.pickupAddress}, ${input.pickupPostcode.toUpperCase()}`,
+    pickup_city: publicTown(input.pickupTown) || null,
     pickup_postcode: input.pickupPostcode.toUpperCase(),
     pickup_datetime: input.pickupDateTime,
     pickup_time_slot: input.pickupTimeSlot,
     delivery_location: `${input.deliveryAddress}, ${input.deliveryPostcode.toUpperCase()}`,
+    delivery_city: publicTown(input.deliveryTown) || null,
     delivery_postcode: input.deliveryPostcode.toUpperCase(),
     delivery_datetime: input.deliveryDateTime || null,
     delivery_time_slot: input.deliveryTimeSlot,

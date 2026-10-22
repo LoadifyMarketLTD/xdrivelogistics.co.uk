@@ -658,6 +658,19 @@ export const getPostLoginRoute = (
   });
 };
 
+/** Driver-only mobile landing: retain desktop workspaces for non-drivers. */
+export const getResponsivePostLoginRoute = (
+  user: Parameters<typeof getPostLoginRoute>[0],
+  isMobile: boolean
+): string => {
+  const canonical = getPostLoginRoute(user);
+  if (!isMobile || user.mustChangePassword) return canonical;
+  if (user.role === 'driver' || user.ownerDriverWorkspace === true || user.ownerDriverExecutionMode === true) {
+    return '/m/driver/jobs';
+  }
+  return canonical;
+};
+
 export const roleCanAccessPath = (
   currentUser: Pick<ResolvedAuthUser, 'role'> & {
     canAccessDriverMode?: boolean;

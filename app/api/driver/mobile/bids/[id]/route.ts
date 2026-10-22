@@ -58,12 +58,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   if (action === 'withdraw') {
     if (status === 'withdrawn') return respond(200, { ok: true, status: 'withdrawn', idempotent: true });
     if (status !== 'submitted') return respond(409, { error: 'Only a submitted quote can be withdrawn.' });
-    const { error: withdrawError } = await supabaseAdmin
+    const { data: withdrawnRows, error: withdrawError } = await supabaseAdmin
       .from('job_bids')
       .update({ status: 'withdrawn', updated_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('status', 'submitted');
+      .eq('status', 'submitted')
+      .select('id');
     if (withdrawError) return respond(500, { error: withdrawError.message });
+    if (!withdrawnRows?.length) return respond(409, { error: 'Quote changed before withdrawal. Reload your quotes.' });
     return respond(200, { ok: true, status: 'withdrawn', idempotent: false });
   }
 
@@ -109,7 +111,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     && String(bid.message ?? '').trim() === message;
   if (idempotent) return respond(200, { ok: true, bidId: id, jobId: bid.job_id, amount: total, idempotent: true });
 
-  const { error: updateError } = await supabaseAdmin
+  const { data: editedRows, error: updateError } = await supabaseAdmin
     .from('job_bids')
     .update({
       bid_price_gbp: total,
@@ -123,8 +125,10 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       updated_at: new Date().toISOString(),
     })
     .eq('id', id)
-    .eq('status', 'submitted');
+    .eq('status', 'submitted')
+    .select('id');
   if (updateError) return respond(500, { error: updateError.message });
+  if (!editedRows?.length) return respond(409, { error: 'Quote changed before editing. Reload your quotes.' });
 
   return respond(200, { ok: true, bidId: id, jobId: bid.job_id, amount: total, idempotent: false });
 }

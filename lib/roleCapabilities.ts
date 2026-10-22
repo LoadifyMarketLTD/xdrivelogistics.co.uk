@@ -486,7 +486,12 @@ export const isCapabilityAllowedForPath = (
   if (pathMatches(path, '/super-admin')) return workspaceRole === 'platform_owner';
 
   if (pathMatches(path, '/m')) {
-    return workspaceRole === 'driver' || workspaceRole === 'owner_driver';
+    if (!pathMatches(path, '/m/driver')) return false;
+    if (workspaceRole !== 'driver' && workspaceRole !== 'owner_driver') return false;
+    if (!context.driverId || context.appAccess !== true) return false;
+    return isExplicitActiveStatus(context.accountStatus)
+      && isExplicitActiveStatus(context.companyStatus)
+      && isExplicitActiveStatus(context.driverStatus);
   }
 
   if (!isActiveStatus(context.accountStatus) || !isActiveStatus(context.companyStatus)) {

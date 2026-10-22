@@ -1,0 +1,232 @@
+import { requireWebDriver } from '../../_lib/webDriver';
+import { NextRequest } from 'next/server';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import { getFeatureFlag } from '../../../_lib/platformFlags';
+import { driverJobStatusesForScope } from '../../../../../lib/jobs/jobLifecyclePresentation';
+import { inspectJobEnvironmentalZones } from '../../../../../lib/environmentalZone';
+import { loadDriverAgreedRates } from '../../_lib/commercialRate';
+import { isDriverContext, jobSelect, mapJob, MobileJobRow, respond, toMoney } from '../../mobile/_lib';
+import { buildSignedJobAttachments } from '../../mobile/jobAttachmentPresentation';
+import { buildJobOperationalPresentation, driverJobOperationalSelect } from '../../mobile/jobOperationalPresentation';
+import { buildSignedPodPresentations } from '../../mobile/podPresentation';
+import { isDriverPodComplete } from '../../../../../lib/jobs/driverPodCompletion';
+
+type MobileJobWithPresentation = MobileJobRow & Record<string, unknown> & {
+  damage_photos?: unknown;
+  pod_generated_at?: string | null;
+  driver_notes?: string | null;
+};
+
+function validIsoDate(value: string | null) {
+  if (!value) return null;
+  const parsed = new Date(value);
+  return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
+}
+
+type OwnerCompanyRow = {
+  id: string;
+  name: string | null;
+  xd_id: string | null;
+};
+
+async function loadPosterProfiles(userIds: string[]) {
+  const memberIdByUserId = new Map<string, string>();
+  if (!supabaseAdmin || userIds.length === 0) return { memberIdByUserId, partial: false };
+
+  const { data, error } = await supabaseAdmin
+    .from('profiles')
+    .select('user_id,xd_id')
+    .in('user_id', userIds);
+
+  if (error) return { memberIdByUserId, partial: true };
+  for (const row of data ?? []) {
+    const userId = String(row.user_id ?? '');
+    const xdId = String(row.xd_id ?? '');
+    if (userId && xdId) memberIdByUserId.set(userId, xdId);
+  }
+  return { memberIdByUserId, partial: false };
+}
+
+async function loadOwnerCompanies(companyIds: string[]) {
+  const companiesById = new Map<string, OwnerCompanyRow>();
+  if (!supabaseAdmin || companyIds.length === 0) return { companiesById, partial: false };
+
+  const { data, error } = await supabaseAdmin
+    .from('companies')
+    .select('id, name, xd_id')
+    .in('id', companyIds);
+
+  if (error) return { companiesById, partial: true };
+  for (const row of (data ?? []) as OwnerCompanyRow[]) companiesById.set(row.id, row);
+  return { companiesById, partial: false };
+}
+
+type JobStopRow = {
+  id: string;
+  job_id: string;
+  sequence: number;
+  stop_type: 'collection' | 'delivery';
+  address: string;
+  postcode: string | null;
+  company_name: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  window_start: string | null;
+  window_end: string | null;
+  instructions: string | null;
+  status: string | null;
+  arrived_at: string | null;
+  completed_at: string | null;
+  handover: unknown;
+};
+
+function mapStop(stop: JobStopRow) {
+  return {
+    id: stop.id,
+    type: stop.stop_type,
+    sequence: stop.sequence,
+    address: [stop.address, stop.postcode].filter(Boolean).join(', '),
+    company: stop.company_name ?? undefined,
+    contactPerson: stop.contact_name ?? undefined,
+    telephone: stop.contact_phone ?? undefined,
+    timeWindowFrom: stop.window_start ?? undefined,
+    timeWindowTo: stop.window_end ?? undefined,
+    status: stop.status ?? 'pending',
+    notes: stop.instructions ?? undefined,
+    arrivedAt: stop.arrived_at ?? undefined,
+    completedAt: stop.completed_at ?? undefined,
+    handover: stop.handover && typeof stop.handover === 'object' ? stop.handover : null,
+  };
+}
+
+async function loadStops(jobIds: string[]) {
+  const stopsByJob = new Map<string, ReturnType<typeof mapStop>[]>();
+  if (!supabaseAdmin || jobIds.length === 0) return { stopsByJob, partial: false };
+
+  const { data, error } = await supabaseAdmin
+    .from('job_stops')
+    .select('id, job_id, sequence, stop_type, address, postcode, company_name, contact_name, contact_phone, window_start, window_end, instructions, status, arrived_at, completed_at, handover')
+    .in('job_id', jobIds)
+    .order('sequence', { ascending: true });
+
+  if (error) {
+    return { stopsByJob, partial: true };
+  }
+
+  for (const row of (data ?? []) as unknown as JobStopRow[]) {
+    const list = stopsByJob.get(row.job_id) ?? [];
+    list.push(mapStop(row));
+    stopsByJob.set(row.job_id, list);
+  }
+  return { stopsByJob, partial: false };
+}
+
+export async function GET(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+
+  const mobileAppEnabled = await getFeatureFlag(supabaseAdmin, 'driver_mobile_app');
+  if (!mobileAppEnabled) return respond(503, { error: 'The driver mobile app is currently disabled.' });
+
+  const driver = await requireWebDriver(request, { requireOperationallyActive: false });
+  if (!isDriverContext(driver)) return driver;
+
+  const { searchParams } = new URL(request.url);
+  const scope = searchParams.get('scope') || 'active';
+  const compact = searchParams.get('compact') === '1';
+  const limit = Math.min(Math.max(Number(searchParams.get('limit') ?? 100) || 100, 1), 250);
+  const statusList = driverJobStatusesForScope(scope);
+  const completedHistory = scope === 'completed';
+  const requestedHistoryDays = Number(searchParams.get('historyDays') ?? 365);
+  const historyDays = completedHistory
+    ? Math.min(365, Math.max(1, Number.isFinite(requestedHistoryDays) ? Math.round(requestedHistoryDays) : 365))
+    : null;
+  const cursor = completedHistory ? validIsoDate(searchParams.get('cursor')) : null;
+
+  let query = supabaseAdmin
+    .from('jobs')
+    .select(`${jobSelect},damage_photos,pod_generated_at,driver_notes,${driverJobOperationalSelect}`)
+    .eq('assigned_driver_id', driver.driverId)
+    .order(completedHistory || scope === 'bookings' ? 'updated_at' : 'pickup_datetime', { ascending: !(completedHistory || scope === 'bookings') })
+    .limit(limit);
+
+  if (completedHistory && historyDays !== null) {
+    const since = new Date(Date.now() - historyDays * 24 * 60 * 60 * 1000).toISOString();
+    query = query.gte('updated_at', since);
+    if (cursor) query = query.lt('updated_at', cursor);
+  }
+
+  if (statusList) {
+    const statuses = statusList.join(',');
+    query = query.or(`current_status.in.(${statuses}),and(current_status.is.null,status.in.(${statuses}))`);
+  }
+
+  const { data, error } = await query;
+  if (error) return respond(500, { error: error.message });
+
+  const rows = (data ?? []) as unknown as MobileJobWithPresentation[];
+  const ownerCompanyIds = [...new Set(rows.map((row) => row.company_id).filter((id): id is string => Boolean(id)))];
+  const posterUserIds = [...new Set(rows.map((row) => row.created_by).filter((id): id is string => Boolean(id)))];
+  const [commercial, stopData, ownerCompanies, posterProfiles] = await Promise.all([
+    loadDriverAgreedRates(supabaseAdmin, rows),
+    loadStops(rows.map((row) => row.id)),
+    loadOwnerCompanies(ownerCompanyIds),
+    loadPosterProfiles(posterUserIds),
+  ]);
+  const nextCursor = completedHistory && rows.length === limit
+    ? rows[rows.length - 1]?.updated_at ?? null
+    : null;
+
+  let podPresentationPartial = false;
+  let pods = new Map<string, Record<string, unknown> | null>();
+  if (!compact) {
+    try {
+      pods = await buildSignedPodPresentations(rows, driver.companyId);
+    } catch {
+      podPresentationPartial = true;
+    }
+  }
+
+  let attachmentPresentationPartial = false;
+  let attachments = new Map<string, Array<Record<string, unknown>>>();
+  if (!compact) {
+    try {
+      attachments = await buildSignedJobAttachments(rows);
+    } catch {
+      attachmentPresentationPartial = true;
+    }
+  }
+
+  return respond(200, {
+    scope,
+    ...(completedHistory ? { historyDays, nextCursor } : {}),
+    jobs: rows.map((row) => {
+      const agreedRate = commercial.rates.get(row.id) ?? null;
+      const operational = buildJobOperationalPresentation(row);
+      const zones = inspectJobEnvironmentalZones(row);
+      const environmentalZone = Array.from(new Set([zones.pickup?.label, zones.delivery?.label].filter((value): value is string => Boolean(value)))).join(' + ') || null;
+      const persistentStops = stopData.stopsByJob.get(row.id) ?? [];
+      const ownerCompany = row.company_id ? ownerCompanies.companiesById.get(row.company_id) ?? null : null;
+      const posterMemberId = row.created_by ? posterProfiles.memberIdByUserId.get(row.created_by) ?? null : null;
+      return {
+        ...mapJob(row),
+        ...operational,
+        // Photo uploads alone are not a completed POD.
+        podGenerated: isDriverPodComplete(row),
+        companyName: ownerCompany?.name ?? undefined,
+        companyXdId: posterMemberId ?? ownerCompany?.xd_id ?? undefined,
+        environmentalZone: environmentalZone ?? undefined,
+        stops: persistentStops.length > 0 ? persistentStops : operational.legacyStops,
+        attachments: attachments.get(row.id) ?? [],
+        pod: pods.get(row.id) ?? null,
+        price: toMoney(agreedRate),
+        agreedRateAmount: agreedRate,
+        budgetAmount: agreedRate,
+      };
+    }),
+    commercialRatePartial: commercial.partial,
+    multiDropPartial: stopData.partial,
+    companyPresentationPartial: ownerCompanies.partial || posterProfiles.partial,
+    podPresentationPartial,
+    attachmentPresentationPartial,
+  });
+}

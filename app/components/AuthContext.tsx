@@ -14,6 +14,7 @@ import {
   type SessionUser,
   type UserRole,
   getPostLoginRoute,
+  getResponsivePostLoginRoute,
   resolveAuthenticatedUser,
 } from '../../lib/authSession';
 import { clearRouteAuthCookie, writeRouteAuthCookie } from '../../lib/routeAuthCookie';
@@ -471,7 +472,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
       }
 
-      const route = getPostLoginRoute(result.user);
+      const route = getResponsivePostLoginRoute(result.user, typeof window !== 'undefined' && window.matchMedia('(max-width: 767px)').matches);
       return { success: true, route };
     } catch (error) {
       console.error('Login error:', error);
