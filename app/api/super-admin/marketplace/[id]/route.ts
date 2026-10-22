@@ -12,7 +12,7 @@ type MarketplaceGovernanceMutationRow = {
   exchange_visibility: string;
 };
 
-const MARKETPLACE_REASON_REQUIRED = new Set(['force_dispute', 'force_cancel']);
+const MARKETPLACE_REASON_REQUIRED = new Set(['hide_from_exchange', 'force_dispute', 'force_cancel']);
 
 const patchSchema = z.object({
   action: z.enum(['publish_to_exchange', 'hide_from_exchange', 'force_dispute', 'force_cancel']),

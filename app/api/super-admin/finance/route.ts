@@ -101,6 +101,25 @@ const loadAllRevenuePayments = async () => {
   return { rows, error: null as string | null };
 };
 
+const loadPaymentsForInvoiceIds = async (invoiceIds: string[]) => {
+  if (!supabaseAdmin) return { rows: [] as RevenuePaymentRow[], error: 'Server auth is not configured.' };
+  if (invoiceIds.length === 0) return { rows: [] as RevenuePaymentRow[], error: null as string | null };
+  const rows: RevenuePaymentRow[] = [];
+  for (let offset = 0; ; offset += REPORT_PAGE_SIZE) {
+    const result = await supabaseAdmin
+      .from('invoice_payment_history')
+      .select('id, invoice_id, amount, currency')
+      .in('invoice_id', invoiceIds)
+      .order('id', { ascending: true })
+      .range(offset, offset + REPORT_PAGE_SIZE - 1);
+    if (result.error) return { rows: [] as RevenuePaymentRow[], error: result.error.message };
+    const page = (result.data ?? []) as RevenuePaymentRow[];
+    rows.push(...page);
+    if (page.length < REPORT_PAGE_SIZE) break;
+  }
+  return { rows, error: null as string | null };
+};
+
 const money = (value: unknown) => Number(value) || 0;
 
 export async function GET(request: NextRequest) {
@@ -262,12 +281,10 @@ export async function GET(request: NextRequest) {
     if (error) return respond(500, { error: error.message });
     const rows = data ?? [];
     const invoiceIds = rows.map((row) => String(row.id));
-    const paymentsResult = invoiceIds.length
-      ? await supabaseAdmin.from('invoice_payment_history').select('invoice_id, amount').in('invoice_id', invoiceIds).limit(2000)
-      : { data: [], error: null };
-    if (paymentsResult.error) return respond(500, { error: paymentsResult.error.message });
+    const paymentsResult = await loadPaymentsForInvoiceIds(invoiceIds);
+    if (paymentsResult.error) return respond(500, { error: paymentsResult.error });
     const paidByInvoice = new Map<string, number>();
-    for (const payment of paymentsResult.data ?? []) {
+    for (const payment of paymentsResult.rows) {
       const invoiceId = String(payment.invoice_id ?? '');
       if (!invoiceId) continue;
       paidByInvoice.set(invoiceId, (paidByInvoice.get(invoiceId) ?? 0) + (Number(payment.amount) || 0));
