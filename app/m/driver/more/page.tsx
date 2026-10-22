@@ -63,7 +63,7 @@ export default function MobileMorePage() {
         {essentials.map(item => <article className="xd-mobile-card xd-mobile-link-row" key={item.href}>
           <Link href={item.href}>{item.label}</Link>
         </article>)}
-        {ownerDriver ? <article className="xd-mobile-card xd-mobile-link-row"><Link href="/driver/finance">My finance</Link></article> : null}
+        {ownerDriver ? <article className="xd-mobile-card xd-mobile-link-row"><Link href="/m/driver/finance">My finance</Link></article> : null}
       </nav>    </> : null}
   </section>;
 }

@@ -33,6 +33,8 @@ export default function MobileJobDetailsPage() {
   const [error, setError] = useState('');
   const [feedback, setFeedback] = useState('');
   const [amount, setAmount] = useState('');
+  const [extras, setExtras] = useState('0');
+  const [collectWithin, setCollectWithin] = useState('');
   const [message, setMessage] = useState('');
 
   const refresh = useCallback(async () => {
@@ -69,8 +71,18 @@ export default function MobileJobDetailsPage() {
     event.preventDefault();
     if (!job || quoted || submitting || job.canQuote === false) return;
     const price = Number(amount);
+    const includedExtras = Number(extras);
+    const eta = collectWithin.trim() === '' ? null : Number(collectWithin);
     if (!Number.isFinite(price) || price <= 0 || price > 1_000_000) {
       setFeedback('Enter a valid quote between £0.01 and £1,000,000.');
+      return;
+    }
+    if (!Number.isFinite(includedExtras) || includedExtras < 0 || includedExtras >= price) {
+      setFeedback('Included extras must be less than the total quoted amount.');
+      return;
+    }
+    if (eta !== null && (!Number.isInteger(eta) || eta < 5 || eta > 240)) {
+      setFeedback('Collection time must be between 5 and 240 minutes.');
       return;
     }
     setSubmitting(true);
@@ -81,12 +93,17 @@ export default function MobileJobDetailsPage() {
       const response = await fetch('/api/driver/web/bids', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jobId: job.id, amount: price, message }),
+        body: JSON.stringify({ jobId: job.id, amount: price,
+          baseAmount: Number((price - includedExtras).toFixed(2)),
+          additionalExtrasGbp: includedExtras,
+          collectWithinMinutes: eta, message }),
       });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(typeof result.error === 'string' ? result.error : 'Quote could not be submitted.');
       setQuoted(true);
       setAmount('');
+      setExtras('0');
+      setCollectWithin('');
       setMessage('');
       setFeedback('Quote submitted successfully.');
     } catch (cause) {
@@ -136,6 +153,10 @@ export default function MobileJobDetailsPage() {
       {canSubmit ? <form onSubmit={event => void submit(event)}>
         <label>Quote amount (GBP)<input type="number" min="0.01" max="1000000" step="0.01" required
           value={amount} onChange={event => setAmount(event.target.value)} /></label>
+        <label>Included extras (GBP)<input type="number" min="0" max="1000000" step="0.01"
+          value={extras} onChange={event => setExtras(event.target.value)} /></label>
+        <label>Collect within minutes (optional)<input type="number" min="5" max="240" step="1"
+          value={collectWithin} onChange={event => setCollectWithin(event.target.value)} /></label>
         <label>Message (optional)<textarea value={message} maxLength={1000}
           onChange={event => setMessage(event.target.value)} /></label>
         <button type="submit" disabled={submitting}>{submitting ? 'Submitting...' : 'Submit quote'}</button>

@@ -9,6 +9,7 @@ import { isDriverContext, jobSelect, mapJob, MobileJobRow, respond, toMoney } fr
 import { buildSignedJobAttachments } from '../../mobile/jobAttachmentPresentation';
 import { buildJobOperationalPresentation, driverJobOperationalSelect } from '../../mobile/jobOperationalPresentation';
 import { buildSignedPodPresentations } from '../../mobile/podPresentation';
+import { isDriverPodComplete } from '../../../../../lib/jobs/driverPodCompletion';
 
 type MobileJobWithPresentation = MobileJobRow & Record<string, unknown> & {
   damage_photos?: unknown;
@@ -209,6 +210,8 @@ export async function GET(request: NextRequest) {
       return {
         ...mapJob(row),
         ...operational,
+        // Photo uploads alone are not a completed POD.
+        podGenerated: isDriverPodComplete(row),
         companyName: ownerCompany?.name ?? undefined,
         companyXdId: posterMemberId ?? ownerCompany?.xd_id ?? undefined,
         environmentalZone: environmentalZone ?? undefined,
