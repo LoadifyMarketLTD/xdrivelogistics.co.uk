@@ -74,5 +74,8 @@ describe('Driver PWA operational wiring', () => {
     expect(page).toContain('ownerDriver ?');
     expect(page).toContain("'/driver/finance'");
     expect(page).toContain('/api/driver/mobile/resources');
+    const resources = source('app/api/driver/mobile/resources/route.ts');
+    expect(resources).toContain("context.driverType?.trim().toLowerCase() === 'owner_driver'");
+    expect(resources).toContain('context.canCommercialBid');
   });
 });
