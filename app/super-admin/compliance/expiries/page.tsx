@@ -32,20 +32,20 @@ export default function Page() {
           label: 'Owner',
           render: (row) => (
             <div>
-              <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>{row.entity_name}</div>
-              <div style={{ fontSize: '0.68rem', color: '#667085' }}>{row.entity_type}</div>
+              <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{row.entity_name}</div>
+              <div style={{ fontSize: '0.875rem', color: '#667085' }}>{row.entity_type}</div>
             </div>
           ),
         },
         {
           key: 'company',
           label: 'Company',
-          render: (row) => <span style={{ fontSize: '0.78rem' }}>{row.company_name}</span>,
+          render: (row) => <span style={{ fontSize: '0.875rem' }}>{row.company_name}</span>,
         },
         {
           key: 'doc_type',
           label: 'Document',
-          render: (row) => <span style={{ fontSize: '0.78rem' }}>{row.doc_type}</span>,
+          render: (row) => <span style={{ fontSize: '0.875rem' }}>{row.doc_type}</span>,
         },
         {
           key: 'status',
@@ -56,7 +56,7 @@ export default function Page() {
           key: 'expiry_date',
           label: 'Expiry Date',
           render: (row) => (
-            <span style={{ fontSize: '0.78rem', fontWeight: 600, color: row.is_expired ? '#D92D20' : row.expires_soon ? '#F5A300' : '#667085' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 600, color: row.is_expired ? '#D92D20' : row.expires_soon ? '#F5A300' : '#667085' }}>
               {row.expiry_date}
             </span>
           ),
@@ -66,7 +66,7 @@ export default function Page() {
           label: 'Days',
           render: (row) => (
             <span style={{
-              fontSize: '0.8rem', fontWeight: 700,
+              fontSize: '0.875rem', fontWeight: 700,
               color: row.is_expired ? '#D92D20' : row.days_until_expiry <= 7 ? '#D92D20' : row.days_until_expiry <= 30 ? '#F5A300' : '#168553',
             }}>
               {row.is_expired ? `${Math.abs(row.days_until_expiry)}d ago` : `${row.days_until_expiry}d`}

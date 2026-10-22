@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ActionConfirmModal } from '@/app/super-admin/_components/ActionConfirmModal';
 import { getAuthHeader } from '@/app/super-admin/_lib/getAuthHeader';
@@ -27,9 +27,19 @@ type RecoveryRow = {
 
 type Summary = {
   total: number;
-  recovery_required: number;
-  stale_over_7_days: number;
-  close_to_complete: number;
+  loaded: number;
+  recovery_required_on_page: number;
+  stale_over_7_days_on_page: number;
+  close_to_complete_on_page: number;
+};
+
+type Pagination = {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
 };
 
 const label = (value: string) => value.replace(/_/g, ' ');
@@ -42,8 +52,19 @@ export default function OnboardingRecoveryQueue() {
   const [error, setError] = useState<string | null>(null);
   const [pendingRow, setPendingRow] = useState<RecoveryRow | null>(null);
   const [pendingReminder, setPendingReminder] = useState(false);
+  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState<Pagination | null>(null);
+  const requestControllerRef = useRef<AbortController | null>(null);
 
   const load = useCallback(async () => {
+    requestControllerRef.current?.abort();
+    const controller = new AbortController();
+    requestControllerRef.current = controller;
+    let timedOut = false;
+    const timeout = window.setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, 12_000);
     setLoading(true);
     setError(null);
     try {
@@ -52,14 +73,16 @@ export default function OnboardingRecoveryQueue() {
         setError('Platform Owner authentication is required.');
         return;
       }
-      const response = await fetch('/api/super-admin/onboarding/recovery', {
+      const response = await fetch(`/api/super-admin/onboarding/recovery?page=${page}&limit=50`, {
         headers: { Authorization: auth },
         cache: 'no-store',
+        signal: controller.signal,
       });
       const payload = await response.json().catch(() => ({})) as {
         error?: string;
         rows?: RecoveryRow[];
         summary?: Summary;
+        pagination?: Pagination;
       };
       if (!response.ok) {
         setError(payload.error ?? `Unable to load onboarding recovery queue (${response.status}).`);
@@ -67,13 +90,26 @@ export default function OnboardingRecoveryQueue() {
       }
       setRows(Array.isArray(payload.rows) ? payload.rows : []);
       setSummary(payload.summary ?? null);
+      setPagination(payload.pagination ?? null);
+    } catch (cause) {
+      if (controller.signal.aborted && !timedOut) return;
+      setError(timedOut
+        ? 'Onboarding recovery queue timed out. No stale queue is being shown.'
+        : cause instanceof Error
+          ? cause.message
+          : 'Unable to load onboarding recovery queue.');
     } finally {
-      setLoading(false);
+      window.clearTimeout(timeout);
+      if (requestControllerRef.current === controller) {
+        requestControllerRef.current = null;
+        if (!controller.signal.aborted || timedOut) setLoading(false);
+      }
     }
-  }, []);
+  }, [page]);
 
   useEffect(() => {
     void load();
+    return () => requestControllerRef.current?.abort();
   }, [load]);
 
   const sendRecovery = async (row: RecoveryRow, reason: string, reminder: boolean) => {
@@ -106,21 +142,21 @@ export default function OnboardingRecoveryQueue() {
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: 12, borderBottom: '1px solid #E5E7EB', background: '#F4F6F8' }}>
         <div>
           <div style={{ fontSize: 14, fontWeight: 800, color: '#0B2F6B' }}>Onboarding recovery queue</div>
-          <div style={{ marginTop: 2, fontSize: 11, color: '#667085' }}>
+          <div style={{ marginTop: 2, fontSize: 14, color: '#667085' }}>
             Existing applicants keep their saved data and documents. Canonical progress shows only what is still required.
           </div>
           {summary && (
-            <div style={{ marginTop: 6, fontSize: 11, color: '#475467' }}>
-              {summary.recovery_required} require completion · {summary.stale_over_7_days} inactive over 7 days · {summary.close_to_complete} at least 70% complete
+            <div style={{ marginTop: 6, fontSize: 14, color: '#475467' }}>
+              {summary.total} eligible total · this page: {summary.recovery_required_on_page} require completion · {summary.stale_over_7_days_on_page} inactive over 7 days · {summary.close_to_complete_on_page} at least 70% complete
             </div>
           )}
         </div>
-        <button type="button" onClick={() => void load()} disabled={loading} style={{ height: 32, padding: '0 10px', border: '1px solid #1D57D8', borderRadius: 4, background: '#1D57D8', color: '#FFF', fontSize: 11, fontWeight: 800 }}>
+        <button type="button" onClick={() => void load()} disabled={loading} style={{ height: 32, padding: '0 10px', border: '1px solid #1D57D8', borderRadius: 4, background: '#1D57D8', color: '#FFF', fontSize: 14, fontWeight: 800 }}>
           {loading ? 'Refreshing…' : 'Refresh queue'}
         </button>
       </div>
 
-      {error && <div role="alert" style={{ margin: '10px 12px 0', padding: '8px 10px', border: '1px solid #FCA5A5', borderRadius: 4, background: '#FEF2F2', color: '#991B1B', fontSize: 11 }}>{error}</div>}
+      {error && <div role="alert" style={{ margin: '10px 12px 0', padding: '8px 10px', border: '1px solid #FCA5A5', borderRadius: 4, background: '#FEF2F2', color: '#991B1B', fontSize: 14 }}>{error}</div>}
 
       {loading ? (
         <div style={{ padding: 14, fontSize: 12, color: '#667085' }}>Loading onboarding recovery queue…</div>
@@ -128,11 +164,11 @@ export default function OnboardingRecoveryQueue() {
         <div style={{ padding: 14, fontSize: 12, color: '#667085' }}>No incomplete onboarding applications were found.</div>
       ) : (
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11 }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14 }}>
             <thead>
               <tr style={{ color: '#0B2F6B', textAlign: 'left' }}>
                 {['Applicant', 'Role / status', 'Progress', 'Still required', 'Last activity', 'Action'].map((heading) => (
-                  <th key={heading} style={{ padding: '8px 10px', borderBottom: '1px solid #E5E7EB', fontSize: 10, textTransform: 'uppercase' }}>{heading}</th>
+                  <th key={heading} style={{ padding: '8px 10px', borderBottom: '1px solid #E5E7EB', fontSize: 14, textTransform: 'uppercase' }}>{heading}</th>
                 ))}
               </tr>
             </thead>
@@ -176,7 +212,7 @@ export default function OnboardingRecoveryQueue() {
                           setPendingReminder(actionIsReminder);
                           setPendingRow(row);
                         }}
-                        style={{ fontSize: 10, fontWeight: 800 }}
+                        style={{ fontSize: 14, fontWeight: 800 }}
                       >
                         {reminderLocked ? 'Reminder available after 7 days' : actionIsReminder ? 'Send reminder' : 'Send completion request'}
                       </button>
@@ -188,6 +224,16 @@ export default function OnboardingRecoveryQueue() {
           </table>
         </div>
       )}
+
+      {pagination && pagination.totalPages > 1 ? (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, padding: 12, borderTop: '1px solid #E5E7EB', fontSize: 14, color: '#475467' }}>
+          <span>Page {pagination.page} of {pagination.totalPages} · {pagination.total} eligible applications</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button type="button" disabled={!pagination.hasPrevPage || loading} onClick={() => setPage((current) => Math.max(1, current - 1))}>Previous</button>
+            <button type="button" disabled={!pagination.hasNextPage || loading} onClick={() => setPage((current) => current + 1)}>Next</button>
+          </div>
+        </div>
+      ) : null}
 
       <ActionConfirmModal
         open={pendingRow !== null}
