@@ -27,7 +27,7 @@ export default function MobileBookingsPage() {
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw Error('Please sign in to see your bookings.');
-      const response = await fetch('/api/driver/mobile/jobs?scope=active', {
+      const response = await fetch('/api/driver/mobile/jobs?scope=bookings', {
         headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
       });
       const payload = await response.json().catch(() => ({}));

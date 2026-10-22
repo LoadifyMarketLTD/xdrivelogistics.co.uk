@@ -63,6 +63,7 @@ export const DRIVER_JOB_SCOPE_STATUSES = {
   upcoming: ['awarded', ...ALLOCATED_JOB_STATUSES, 'assigned'],
   active: [...IN_PROGRESS_JOB_STATUSES, ...legacyExecutionAliases],
   completed: [...COMPLETED_JOB_STATUSES],
+  bookings: [...new Set(['awarded', ...ALLOCATED_JOB_STATUSES, 'assigned', ...IN_PROGRESS_JOB_STATUSES, ...legacyExecutionAliases, 'delivered'])],
 } as const;
 
 export function driverJobStatusesForScope(scope: string | null | undefined): readonly string[] | null {
@@ -70,5 +71,6 @@ export function driverJobStatusesForScope(scope: string | null | undefined): rea
   if (normalised === 'all') return null;
   if (normalised === 'upcoming') return DRIVER_JOB_SCOPE_STATUSES.upcoming;
   if (normalised === 'completed') return DRIVER_JOB_SCOPE_STATUSES.completed;
+  if (normalised === 'bookings') return DRIVER_JOB_SCOPE_STATUSES.bookings;
   return DRIVER_JOB_SCOPE_STATUSES.active;
 }
