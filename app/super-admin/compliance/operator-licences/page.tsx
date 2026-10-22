@@ -53,20 +53,20 @@ export default function Page() {
           label: 'Entity',
           render: (row) => (
             <div>
-              <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>{row.entity_name}</div>
-              <div style={{ fontSize: '0.68rem', color: '#667085' }}>{row.entity_type}</div>
+              <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{row.entity_name}</div>
+              <div style={{ fontSize: '0.875rem', color: '#667085' }}>{row.entity_type}</div>
             </div>
           ),
         },
         {
           key: 'company',
           label: 'Company',
-          render: (row) => <span style={{ fontSize: '0.78rem' }}>{row.company_name}</span>,
+          render: (row) => <span style={{ fontSize: '0.875rem' }}>{row.company_name}</span>,
         },
         {
           key: 'doc_type',
           label: 'Licence Type',
-          render: (row) => <span style={{ fontSize: '0.78rem' }}>{row.doc_type}</span>,
+          render: (row) => <span style={{ fontSize: '0.875rem' }}>{row.doc_type}</span>,
         },
         {
           key: 'status',
@@ -76,13 +76,13 @@ export default function Page() {
         {
           key: 'issued_date',
           label: 'Issued',
-          render: (row) => <span style={{ fontSize: '0.75rem' }}>{row.issued_date ?? '—'}</span>,
+          render: (row) => <span style={{ fontSize: '0.875rem' }}>{row.issued_date ?? '—'}</span>,
         },
         {
           key: 'expiry_date',
           label: 'Expires',
           render: (row) => (
-            <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#D92D20' : '#667085' }}>
+            <span style={{ fontSize: '0.875rem', color: row.is_expired ? '#D92D20' : '#667085' }}>
               {row.expiry_date ?? '—'}{row.is_expired ? ' · EXPIRED' : ''}
             </span>
           ),

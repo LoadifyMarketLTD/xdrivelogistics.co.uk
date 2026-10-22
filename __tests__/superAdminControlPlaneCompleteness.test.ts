@@ -107,11 +107,13 @@ describe('Super Admin control-plane completeness', () => {
     expect(governanceRoute).toContain(".from('stripe_webhook_events')");
   });
 
-  it('keeps shared live-table data behaviour unchanged by the final UI-only contract', () => {
-    expect(liveTable).not.toContain('REQUEST_TIMEOUT_MS');
-    expect(liveTable).not.toContain('controller.abort()');
-    expect(liveTable).toContain("if (!res.ok) { setError((body as { error?: string }).error ?? 'The requested service is currently unavailable.'); return; }");
-    expect(liveTable).toContain("catch { setError('The requested service is currently unavailable.'); }");
+  it('keeps the shared live table fail-closed on timeouts and stale requests', () => {
+    expect(liveTable).toContain('const controller = new AbortController()');
+    expect(liveTable).toContain('controller.abort()');
+    expect(liveTable).toContain("'The requested service timed out. No stale data is being shown.'");
+    expect(liveTable).toContain('signal: controller.signal');
+    expect(liveTable).toContain('setRows([])');
+    expect(liveTable).toContain('if (!res.ok) {');
   });
 
   it('includes billing and webhook processing in Platform Health', () => {

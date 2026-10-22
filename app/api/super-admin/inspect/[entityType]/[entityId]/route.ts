@@ -4,6 +4,7 @@ import { resolveDriverOperationalEligibility } from '../../../../driver/_lib/ope
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../../_lib/supabaseAdmin';
 import { deriveSecureLoadIntelligence } from '../../../_lib/secureLoadIntelligence';
 import { verifyPlatformOwner } from '../../../_lib/verifyPlatformOwner';
+import { isTimestampFresh } from '../../../_lib/operationalMapTruth';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
 const CASE_SCHEMA_UNAVAILABLE_CODES = new Set(['42P01', 'PGRST202', 'PGRST205']);
@@ -26,6 +27,36 @@ type InspectorPayload = {
   stableId: string;
   sections: InspectorSection[];
   relationshipGroups: InspectorRelationGroup[];
+  liveMap?: {
+    drivers: Array<{
+      id: string;
+      name: string;
+      status: 'online' | 'busy' | 'offline' | 'sold';
+      vehicle: { registration: string; label: string } | null;
+      location: { lat: number | null; lng: number | null; heading: number | null; speed_mph: number | null; recorded_at: string | null; source?: string | null } | null;
+    }>;
+    jobs: Array<{
+      id: string;
+      short_id: string;
+      client: string;
+      status: string;
+      pickup: string;
+      delivery: string;
+      eta: null;
+      map: { pickup_lat: number | null; pickup_lng: number | null; delivery_lat: number | null; delivery_lng: number | null };
+    }>;
+    routes: Array<{
+      id: string;
+      short_id: string;
+      client: string;
+      status: string;
+      pickup: string;
+      delivery: string;
+      eta: null;
+      map: { pickup_lat: number | null; pickup_lng: number | null; delivery_lat: number | null; delivery_lng: number | null };
+    }>;
+    note?: string;
+  };
   note?: string;
 };
 
@@ -149,38 +180,330 @@ async function inspectUser(entityId: string): Promise<InspectorPayload | null> {
 
 async function inspectDriver(entityId: string): Promise<InspectorPayload | null> {
   if (!supabaseAdmin) return null;
-  const { data: driver, error } = await supabaseAdmin.from('drivers').select('id, user_id, company_id, display_name, full_name, name, email, phone, status, availability_status, app_access, reg_number, vehicle_type, license_number, driver_type, international_work_approved, can_commercial_bid, last_app_login, created_at, updated_at').eq('id', entityId).maybeSingle();
+
+  const { data: driver, error } = await supabaseAdmin
+    .from('drivers')
+    .select('id, user_id, company_id, display_name, full_name, name, email, phone, status, is_active, availability_status, app_access, reg_number, vehicle_type, license_number, driver_type, international_work_approved, can_commercial_bid, last_app_login, future_position, future_position_date, future_position_until, future_availability_notes, destination_priority_enabled, destination_radius_miles, must_change_password, notes, created_at, updated_at')
+    .eq('id', entityId)
+    .maybeSingle();
   if (error) throw new Error(error.message);
   if (!driver) return null;
-  const [company, profile, vehicles, jobs, latestLocation, vehicleCount, jobCount] = await Promise.all([
+
+  const [
+    company,
+    profile,
+    authResult,
+    vehicles,
+    jobs,
+    latestLocation,
+    availabilityPresence,
+    driverDocs,
+    onboardingApps,
+    bids,
+    reviews,
+    notifications,
+    loadAlertPreference,
+    vehicleCount,
+    jobCount,
+    bidCount,
+    reviewCount,
+    documentCount,
+  ] = await Promise.all([
     companySummary(driver.company_id),
     profileSummary(driver.user_id),
-    supabaseAdmin.from('vehicles').select('id, reg, registration, reg_plate, make, model, status, current_status').eq('assigned_driver_id', entityId).order('updated_at', { ascending: false }).limit(25),
-    supabaseAdmin.from('jobs').select('id, load_ref, load_id, title, status, pickup_location, delivery_location').eq('assigned_driver_id', entityId).order('created_at', { ascending: false }).limit(25),
+    driver.user_id ? supabaseAdmin.auth.admin.getUserById(driver.user_id) : Promise.resolve({ data: { user: null }, error: null }),
+    supabaseAdmin.from('vehicles').select('id, reg, registration, reg_plate, make, model, vehicle_type, type, status, current_status, is_available, is_tracked, last_tracked_at, telematics_id, international_work_approved, payload_kg, pallets_capacity, has_tail_lift, equipment').eq('assigned_driver_id', entityId).order('updated_at', { ascending: false }).limit(50),
+    supabaseAdmin.from('jobs').select('id, load_ref, load_id, title, status, current_status, pickup_location, pickup_postcode, delivery_location, delivery_postcode, pickup_datetime, delivery_datetime, pickup_lat, pickup_lng, delivery_lat, delivery_lng, vehicle_id, agreed_rate_gbp, budget_amount, currency, delivered_at, completed_at, created_at').eq('assigned_driver_id', entityId).order('created_at', { ascending: false }).limit(50),
     supabaseAdmin.from('driver_locations').select('id, job_id, vehicle_id, lat, lng, speed_mph, heading, source, source_provider, recorded_at').eq('driver_id', entityId).order('recorded_at', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('driver_availability_presence').select('driver_id, company_id, visibility, exact_lat, exact_lng, available_until, recorded_at, updated_at').eq('driver_id', entityId).order('recorded_at', { ascending: false }).limit(1).maybeSingle(),
+    supabaseAdmin.from('driver_documents').select('id, doc_type, status, issued_date, expiry_date, rejection_reason, verified_by, verified_at, holder_name, document_number_last4, date_of_birth, risk_status, risk_reasons, created_at').eq('driver_id', entityId).order('created_at', { ascending: false }).limit(100),
+    driver.user_id
+      ? supabaseAdmin.from('onboarding_applications').select('id, status, current_step, completion_percentage, risk_status, risk_reason, submitted_at, reviewed_at, last_activity_at, created_at').eq('user_id', driver.user_id).order('created_at', { ascending: false }).limit(25)
+      : Promise.resolve({ data: [], error: null }),
+    supabaseAdmin.from('job_bids').select('id, job_id, bidder_company_id, quote_vehicle_id, status, amount_gbp, bid_price_gbp, currency, message, created_at, updated_at').eq('bidder_driver_id', entityId).order('created_at', { ascending: false }).limit(50),
+    driver.user_id
+      ? supabaseAdmin.from('reviews').select('id, company_id, job_id, reviewer_user_id, reviewed_user_id, reviewer_company_id, rating, comment, would_use_again, delivered_promptly, courteous, created_at').eq('reviewed_user_id', driver.user_id).order('created_at', { ascending: false }).limit(50)
+      : Promise.resolve({ data: [], error: null }),
+    driver.user_id
+      ? supabaseAdmin.from('notification_events').select('id, event_type, entity_type, entity_id, status, created_at, processed_at, attempt_count, last_error').eq('recipient_user_id', driver.user_id).order('created_at', { ascending: false }).limit(50)
+      : Promise.resolve({ data: [], error: null }),
+    driver.user_id
+      ? supabaseAdmin.from('driver_load_alert_preferences').select('enabled, current_radius_enabled, home_outcode_enabled, home_outcode, future_position_enabled, radius_miles, current_location_max_age_minutes, require_vehicle_match, minimum_budget_gbp, in_app_enabled, email_enabled, push_enabled, updated_at').eq('driver_id', entityId).eq('user_id', driver.user_id).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
     countRows('vehicles', 'assigned_driver_id', entityId),
     countRows('jobs', 'assigned_driver_id', entityId),
+    countRows('job_bids', 'bidder_driver_id', entityId),
+    driver.user_id ? countRows('reviews', 'reviewed_user_id', driver.user_id) : Promise.resolve(0),
+    countRows('driver_documents', 'driver_id', entityId),
   ]);
-  for (const result of [vehicles, jobs, latestLocation]) if (result.error) throw new Error(result.error.message);
+
+  for (const result of [vehicles, jobs, latestLocation, availabilityPresence, driverDocs, onboardingApps, bids, reviews, notifications]) {
+    if (result.error) throw new Error(result.error.message);
+  }
+  if (loadAlertPreference.error && !['42P01', 'PGRST202', 'PGRST205'].includes(loadAlertPreference.error.code ?? '')) {
+    throw new Error(loadAlertPreference.error.message);
+  }
+
+  const applicationIds = (onboardingApps.data ?? []).map((row) => row.id);
+  const identityDocs = applicationIds.length
+    ? await supabaseAdmin
+      .from('driver_identity_documents')
+      .select('id, onboarding_application_id, doc_type, upload_status, verification_status, reviewed_at, review_notes, expiry_date, issued_date, holder_name, document_number_last4, date_of_birth, risk_status, risk_reasons, created_at, updated_at')
+      .in('onboarding_application_id', applicationIds)
+      .order('created_at', { ascending: false })
+      .limit(100)
+    : { data: [], error: null };
+  if (identityDocs.error) throw new Error(identityDocs.error.message);
+
+  const authUser = authResult.data.user ?? null;
+  const latestVehicle = (vehicles.data ?? [])[0] ?? null;
+  const latestApplication = (onboardingApps.data ?? [])[0] ?? null;
+  const latestExecutionAt = latestLocation.data?.recorded_at ? Date.parse(String(latestLocation.data.recorded_at)) : Number.NaN;
+  const latestPresenceAt = availabilityPresence.data?.recorded_at
+    ? Date.parse(String(availabilityPresence.data.recorded_at))
+    : availabilityPresence.data?.updated_at
+      ? Date.parse(String(availabilityPresence.data.updated_at))
+      : Number.NaN;
+  const positionNow = Date.now();
+  const presenceFresh = isTimestampFresh(latestPresenceAt, positionNow);
+  const presenceUsable = availabilityPresence.data?.exact_lat != null
+    && availabilityPresence.data?.exact_lng != null
+    && (!availabilityPresence.data.available_until || Date.parse(String(availabilityPresence.data.available_until)) > positionNow)
+    && presenceFresh;
+  const usePresence = presenceUsable && (!Number.isFinite(latestExecutionAt) || (Number.isFinite(latestPresenceAt) && latestPresenceAt >= latestExecutionAt));
+  const mapLat = usePresence ? availabilityPresence.data?.exact_lat ?? null : latestLocation.data?.lat ?? null;
+  const mapLng = usePresence ? availabilityPresence.data?.exact_lng ?? null : latestLocation.data?.lng ?? null;
+  const mapRecordedAt = usePresence
+    ? availabilityPresence.data?.recorded_at ?? availabilityPresence.data?.updated_at ?? null
+    : latestLocation.data?.recorded_at ?? null;
+  const mapSource = usePresence ? 'availability_presence' : latestLocation.data?.source ?? null;
+  const locationAgeMinutes = mapRecordedAt ? Math.max(0, Math.round((Date.now() - Date.parse(String(mapRecordedAt))) / 60_000)) : null;
+  const mapTimestamp = mapRecordedAt ? Date.parse(String(mapRecordedAt)) : Number.NaN;
+  const locationFresh = isTimestampFresh(mapTimestamp, positionNow);
+  const operationalStatus: 'online' | 'busy' | 'offline' | 'sold' =
+    driver.is_active === false || String(driver.status ?? '').toLowerCase() === 'inactive' || String(driver.availability_status ?? '').toLowerCase() === 'offline' || (!locationFresh && !presenceUsable)
+      ? 'offline'
+      : String(driver.availability_status ?? '').toLowerCase() === 'busy'
+        ? 'busy'
+        : locationFresh || presenceUsable
+          ? 'online'
+          : 'offline';
+  const ratings = (reviews.data ?? []).map((row) => Number(row.rating)).filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+  const averageRating = ratings.length ? Math.round((ratings.reduce((sum, rating) => sum + rating, 0) / ratings.length) * 10) / 10 : null;
+  const openJobStatuses = new Set(['allocated', 'accepted', 'assigned', 'in_progress', 'on_my_way', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery']);
+  const activeJob = (jobs.data ?? []).find((job) => openJobStatuses.has(String(job.current_status ?? job.status ?? '').toLowerCase())) ?? null;
+  const mapJob = activeJob ? {
+    id: String(activeJob.id),
+    short_id: String(activeJob.load_ref ?? activeJob.load_id ?? activeJob.id).slice(0, 12),
+    client: company?.name ?? 'Platform job',
+    status: String(activeJob.current_status ?? activeJob.status ?? 'unknown'),
+    pickup: String(activeJob.pickup_location ?? activeJob.pickup_postcode ?? 'Pickup'),
+    delivery: String(activeJob.delivery_location ?? activeJob.delivery_postcode ?? 'Delivery'),
+    eta: null,
+    map: {
+      pickup_lat: activeJob.pickup_lat == null ? null : Number(activeJob.pickup_lat),
+      pickup_lng: activeJob.pickup_lng == null ? null : Number(activeJob.pickup_lng),
+      delivery_lat: activeJob.delivery_lat == null ? null : Number(activeJob.delivery_lat),
+      delivery_lng: activeJob.delivery_lng == null ? null : Number(activeJob.delivery_lng),
+    },
+  } : null;
+  const vehicleRegistration = latestVehicle?.registration ?? latestVehicle?.reg_plate ?? latestVehicle?.reg ?? driver.reg_number ?? '—';
+  const vehicleLabel = latestVehicle
+    ? [latestVehicle.make, latestVehicle.model].filter(Boolean).join(' ') || latestVehicle.vehicle_type || latestVehicle.type || 'Vehicle'
+    : driver.vehicle_type ?? 'Vehicle';
 
   return {
     available: true, entityType: 'driver', entityId, stableId: entityId,
     reference: value(driver.reg_number ?? driver.license_number ?? driver.id),
     title: value(driver.display_name ?? driver.full_name ?? driver.name, 'Driver'),
-    subtitle: [driver.email, company?.name, driver.driver_type].filter(Boolean).join(' · '), status: optional(driver.status),
+    subtitle: [driver.email, company?.name, driver.driver_type].filter(Boolean).join(' · '),
+    status: optional(driver.status),
+    liveMap: {
+      drivers: [{
+        id: entityId,
+        name: value(driver.display_name ?? driver.full_name ?? driver.name, 'Driver'),
+        status: operationalStatus,
+        vehicle: latestVehicle ? { registration: String(vehicleRegistration), label: String(vehicleLabel) } : null,
+        location: mapLat != null && mapLng != null ? {
+          lat: Number(mapLat),
+          lng: Number(mapLng),
+          heading: usePresence ? null : latestLocation.data?.heading == null ? null : Number(latestLocation.data.heading),
+          speed_mph: usePresence ? null : latestLocation.data?.speed_mph == null ? null : Number(latestLocation.data.speed_mph),
+          recorded_at: mapRecordedAt == null ? null : String(mapRecordedAt),
+          source: mapSource == null ? null : String(mapSource),
+        } : null,
+      }],
+      jobs: mapJob ? [mapJob] : [],
+      routes: mapJob && mapJob.map.pickup_lat != null && mapJob.map.pickup_lng != null && mapJob.map.delivery_lat != null && mapJob.map.delivery_lng != null ? [mapJob] : [],
+      note: mapLat != null && mapLng != null
+        ? locationFresh || presenceUsable
+          ? 'Fresh Platform Owner location derived from current execution tracking or active availability presence.'
+          : 'Tracking is stale. This pin is the last known exact location and is not presented as live.'
+        : 'No exact location is available for this driver.',
+    },
     sections: [
-      { id: 'identity', title: 'Driver identity', fields: [field('email', 'Email', driver.email), field('phone', 'Phone', driver.phone), field('licence', 'Licence', driver.license_number), field('driver_type', 'Driver type', driver.driver_type), field('company', 'Company', company?.name), field('user_id', 'User ID', driver.user_id)] },
-      { id: 'readiness', title: 'Operational readiness', fields: [field('status', 'Status', driver.status), field('availability', 'Availability', driver.availability_status), field('app_access', 'App access', driver.app_access), field('commercial_bid', 'Commercial bid', driver.can_commercial_bid), field('international', 'International approved', driver.international_work_approved), field('last_login', 'Last app login', driver.last_app_login)] },
-      { id: 'position', title: 'Latest position', fields: latestLocation.data ? [field('recorded_at', 'Recorded', latestLocation.data.recorded_at), field('lat', 'Latitude', latestLocation.data.lat), field('lng', 'Longitude', latestLocation.data.lng), field('speed', 'Speed mph', latestLocation.data.speed_mph), field('source', 'Source', latestLocation.data.source), field('provider', 'Provider', latestLocation.data.source_provider)] : [], unavailable: !latestLocation.data, unavailableReason: !latestLocation.data ? 'No driver location has been recorded.' : undefined },
-      { id: 'counts', title: 'Relationship counts', fields: [field('vehicles', 'Assigned vehicles', vehicleCount), field('jobs', 'Assigned jobs', jobCount)] },
+      { id: 'identity', title: 'Driver identity & contact', fields: [
+        field('display_name', 'Display name', driver.display_name),
+        field('full_name', 'Full name', driver.full_name ?? driver.name),
+        field('email', 'Email', driver.email ?? authUser?.email),
+        field('phone', 'Phone', driver.phone),
+        field('licence', 'Licence', driver.license_number),
+        field('driver_type', 'Driver type', driver.driver_type),
+        field('company', 'Company', company?.name),
+        field('user_id', 'User ID', driver.user_id),
+        field('created_at', 'Driver created', driver.created_at),
+        field('updated_at', 'Last record update', driver.updated_at),
+      ] },
+      { id: 'access', title: 'Account & access', fields: [
+        field('status', 'Driver status', driver.status),
+        field('is_active', 'Active flag', driver.is_active),
+        field('app_access', 'App access', driver.app_access),
+        field('must_change_password', 'Must change password', driver.must_change_password),
+        field('profile_status', 'Profile status', profile?.status),
+        field('profile_role', 'Profile role', profile?.role),
+        field('auth_email', 'Auth email', authUser?.email),
+        field('auth_created', 'Auth account created', authUser?.created_at),
+        field('last_sign_in', 'Last auth sign-in', authUser?.last_sign_in_at),
+        field('last_app_login', 'Last app login', driver.last_app_login),
+      ] },
+      { id: 'readiness', title: 'Operational readiness & permissions', fields: [
+        field('availability', 'Availability', driver.availability_status),
+        field('commercial_bid', 'Commercial bid allowed', driver.can_commercial_bid),
+        field('international', 'International approved', driver.international_work_approved),
+        field('destination_priority', 'Destination priority', driver.destination_priority_enabled),
+        field('destination_radius', 'Destination radius miles', driver.destination_radius_miles),
+        field('future_position', 'Future position', driver.future_position),
+        field('future_position_date', 'Future position from', driver.future_position_date),
+        field('future_position_until', 'Future position until', driver.future_position_until),
+        field('future_notes', 'Future availability notes', driver.future_availability_notes),
+        field('notes', 'Internal driver notes', driver.notes),
+      ] },
+      { id: 'live-position', title: 'Live position & telemetry', fields: [
+        field('operational_status', 'Derived live state', operationalStatus),
+        field('location_age', 'Location age minutes', locationAgeMinutes),
+        field('location_source', 'Location source', mapSource),
+        field('recorded_at', 'Last position recorded', mapRecordedAt),
+        field('lat', 'Latitude', mapLat),
+        field('lng', 'Longitude', mapLng),
+        field('speed', 'Speed mph', usePresence ? null : latestLocation.data?.speed_mph),
+        field('heading', 'Heading', usePresence ? null : latestLocation.data?.heading),
+        field('provider', 'Tracking provider', usePresence ? 'availability_presence' : latestLocation.data?.source_provider),
+        field('presence_visibility', 'Availability visibility', availabilityPresence.data?.visibility),
+        field('available_until', 'Available until', availabilityPresence.data?.available_until),
+      ], unavailable: mapLat == null || mapLng == null, unavailableReason: mapLat == null || mapLng == null ? 'No exact driver location is currently available.' : undefined },
+      { id: 'vehicle', title: 'Current vehicle context', fields: [
+        field('registration', 'Registration', vehicleRegistration),
+        field('vehicle', 'Vehicle', vehicleLabel),
+        field('vehicle_status', 'Vehicle status', latestVehicle?.current_status ?? latestVehicle?.status),
+        field('available', 'Vehicle available', latestVehicle?.is_available),
+        field('tracked', 'Vehicle tracked', latestVehicle?.is_tracked),
+        field('last_tracked', 'Vehicle last tracked', latestVehicle?.last_tracked_at),
+        field('telematics', 'Telematics ID', latestVehicle?.telematics_id),
+        field('payload', 'Payload kg', latestVehicle?.payload_kg),
+        field('pallets', 'Pallet capacity', latestVehicle?.pallets_capacity),
+        field('tail_lift', 'Tail lift', latestVehicle?.has_tail_lift),
+        field('equipment', 'Equipment', latestVehicle?.equipment),
+      ], unavailable: !latestVehicle, unavailableReason: !latestVehicle ? 'No vehicle is currently assigned to this driver.' : undefined },
+      { id: 'compliance', title: 'Driver compliance', fields: [
+        field('driver_documents', 'Driver documents', documentCount),
+        field('identity_documents', 'Identity documents loaded', (identityDocs.data ?? []).length),
+        field('onboarding_status', 'Latest onboarding status', latestApplication?.status),
+        field('onboarding_step', 'Latest onboarding step', latestApplication?.current_step),
+        field('onboarding_completion', 'Onboarding completion %', latestApplication?.completion_percentage),
+        field('onboarding_risk', 'Onboarding risk', latestApplication?.risk_status),
+        field('onboarding_risk_reason', 'Onboarding risk reason', latestApplication?.risk_reason),
+      ] },
+      { id: 'driver-documents', title: 'Driver document register', description: 'Recent driver compliance documents with status, expiry, verification and risk context.', fields: (driverDocs.data ?? []).map((doc, index) =>
+        field(
+          String(doc.id ?? index),
+          `${doc.doc_type ?? 'Document'} · ${doc.status ?? 'unknown'}`,
+          [
+            doc.holder_name ? `holder ${doc.holder_name}` : null,
+            doc.document_number_last4 ? `last4 ${doc.document_number_last4}` : null,
+            doc.date_of_birth ? `DOB ${doc.date_of_birth}` : null,
+            doc.issued_date ? `issued ${doc.issued_date}` : null,
+            doc.expiry_date ? `expires ${doc.expiry_date}` : null,
+            doc.risk_status ? `risk ${doc.risk_status}` : null,
+            doc.rejection_reason ? `reason ${doc.rejection_reason}` : null,
+            doc.verified_at ? `verified ${doc.verified_at}` : null,
+          ].filter(Boolean).join(' · '),
+        ),
+      ), unavailable: (driverDocs.data ?? []).length === 0, unavailableReason: (driverDocs.data ?? []).length === 0 ? 'No driver compliance documents are stored.' : undefined },
+      { id: 'identity-documents', title: 'Identity document register', description: 'Identity documents linked through the driver’s onboarding applications.', fields: (identityDocs.data ?? []).map((doc, index) =>
+        field(
+          String(doc.id ?? index),
+          `${doc.doc_type ?? 'Identity document'} · ${doc.verification_status ?? doc.upload_status ?? 'unknown'}`,
+          [
+            doc.holder_name ? `holder ${doc.holder_name}` : null,
+            doc.document_number_last4 ? `last4 ${doc.document_number_last4}` : null,
+            doc.date_of_birth ? `DOB ${doc.date_of_birth}` : null,
+            doc.issued_date ? `issued ${doc.issued_date}` : null,
+            doc.expiry_date ? `expires ${doc.expiry_date}` : null,
+            doc.risk_status ? `risk ${doc.risk_status}` : null,
+            doc.review_notes ? `review ${doc.review_notes}` : null,
+            doc.reviewed_at ? `reviewed ${doc.reviewed_at}` : null,
+          ].filter(Boolean).join(' · '),
+        ),
+      ), unavailable: (identityDocs.data ?? []).length === 0, unavailableReason: (identityDocs.data ?? []).length === 0 ? 'No onboarding identity documents are linked to this driver.' : undefined },
+      { id: 'onboarding-history', title: 'Onboarding history', fields: (onboardingApps.data ?? []).map((application, index) =>
+        field(
+          String(application.id ?? index),
+          `Application ${index + 1} · ${application.status ?? 'unknown'}`,
+          [
+            application.current_step ? `step ${application.current_step}` : null,
+            application.completion_percentage != null ? `${application.completion_percentage}% complete` : null,
+            application.risk_status ? `risk ${application.risk_status}` : null,
+            application.risk_reason ? `reason ${application.risk_reason}` : null,
+            application.submitted_at ? `submitted ${application.submitted_at}` : null,
+            application.reviewed_at ? `reviewed ${application.reviewed_at}` : null,
+            application.last_activity_at ? `activity ${application.last_activity_at}` : null,
+          ].filter(Boolean).join(' · '),
+        ),
+      ), unavailable: (onboardingApps.data ?? []).length === 0, unavailableReason: (onboardingApps.data ?? []).length === 0 ? 'No onboarding application is linked to this driver account.' : undefined },
+      { id: 'reputation', title: 'Reputation & commercial history', fields: [
+        field('reviews', 'Reviews', reviewCount),
+        field('rating', 'Average rating', averageRating),
+        field('bids', 'Marketplace bids', bidCount),
+        field('assigned_jobs', 'Assigned jobs', jobCount),
+        field('assigned_vehicles', 'Assigned vehicles', vehicleCount),
+      ] },
+      { id: 'notifications', title: 'Recent driver notifications', description: 'Recent platform notification events addressed to this driver account.', fields: (notifications.data ?? []).map((event, index) =>
+        field(
+          String(event.id ?? index),
+          `${event.event_type ?? 'Notification'} · ${event.status ?? 'unknown'}`,
+          [
+            event.entity_type ? `entity ${event.entity_type}` : null,
+            event.created_at ? `created ${event.created_at}` : null,
+            event.processed_at ? `processed ${event.processed_at}` : null,
+            event.attempt_count != null ? `attempts ${event.attempt_count}` : null,
+            event.last_error ? `error ${event.last_error}` : null,
+          ].filter(Boolean).join(' · '),
+        ),
+      ), unavailable: (notifications.data ?? []).length === 0, unavailableReason: (notifications.data ?? []).length === 0 ? 'No recent notification events are stored for this driver user.' : undefined },
+      { id: 'alerts', title: 'Load alerts & notification preferences', fields: loadAlertPreference.data ? [
+        field('enabled', 'Load alerts enabled', loadAlertPreference.data.enabled),
+        field('radius', 'Radius miles', loadAlertPreference.data.radius_miles),
+        field('current_radius', 'Current radius enabled', loadAlertPreference.data.current_radius_enabled),
+        field('home_outcode', 'Home outcode', loadAlertPreference.data.home_outcode),
+        field('future_position_enabled', 'Future position matching', loadAlertPreference.data.future_position_enabled),
+        field('vehicle_match', 'Require vehicle match', loadAlertPreference.data.require_vehicle_match),
+        field('minimum_budget', 'Minimum budget GBP', loadAlertPreference.data.minimum_budget_gbp),
+        field('in_app', 'In-app notifications', loadAlertPreference.data.in_app_enabled),
+        field('email_notifications', 'Email notifications', loadAlertPreference.data.email_enabled),
+        field('push_notifications', 'Push notifications', loadAlertPreference.data.push_enabled),
+        field('updated', 'Preferences updated', loadAlertPreference.data.updated_at),
+      ] : [], unavailable: !loadAlertPreference.data, unavailableReason: !loadAlertPreference.data ? 'No driver load-alert preference record is stored.' : undefined },
     ],
     relationshipGroups: [
       { id: 'company', title: 'Company', rows: company ? compactRelations([relation('company', company.id, company.trading_name ?? company.name ?? company.legal_name ?? 'Company', company.xd_id ?? company.company_number, company.status)]) : [] },
       { id: 'user', title: 'Application user', rows: profile ? compactRelations([relation('user', profile.user_id, profile.full_name ?? 'User', profile.xd_id, profile.status)]) : [] },
-      { id: 'vehicles', title: 'Assigned vehicles', total: vehicleCount, rows: compactRelations((vehicles.data ?? []).map((row) => relation('vehicle', row.id, [row.make, row.model].filter(Boolean).join(' ') || 'Vehicle', row.registration ?? row.reg_plate ?? row.reg, row.status ?? row.current_status))) },
-      { id: 'jobs', title: 'Recent assigned jobs', total: jobCount, rows: compactRelations((jobs.data ?? []).map((row) => relation('job', row.id, row.title ?? `${row.pickup_location ?? 'Pickup'} → ${row.delivery_location ?? 'Delivery'}`, row.load_ref ?? row.load_id, row.status))) },
-      { id: 'live-job', title: 'Latest tracked job', rows: latestLocation.data?.job_id ? compactRelations([relation('job', latestLocation.data.job_id, 'Tracked job')]) : [] },
+      { id: 'vehicles', title: 'Assigned vehicles', total: vehicleCount, rows: compactRelations((vehicles.data ?? []).map((row) => relation('vehicle', row.id, [row.make, row.model].filter(Boolean).join(' ') || row.vehicle_type || row.type || 'Vehicle', row.registration ?? row.reg_plate ?? row.reg, row.status ?? row.current_status))) },
+      { id: 'jobs', title: 'Recent assigned jobs', total: jobCount, rows: compactRelations((jobs.data ?? []).map((row) => relation('job', row.id, row.title ?? `${row.pickup_location ?? 'Pickup'} → ${row.delivery_location ?? 'Delivery'}`, row.load_ref ?? row.load_id, row.current_status ?? row.status))) },
+      { id: 'bids', title: 'Marketplace bids', total: bidCount, rows: compactRelations((bids.data ?? []).map((row) => relation('job', row.job_id, `Bid · ${row.amount_gbp ?? row.bid_price_gbp ?? '—'} ${row.currency ?? 'GBP'}`, row.id, row.status))) },
+      { id: 'reviews', title: 'Recent reviews', total: reviewCount, rows: compactRelations((reviews.data ?? []).map((row) => relation('job', row.job_id, `Review ${row.rating ?? '—'}/5 · ${row.comment ?? 'No comment'}`, row.id))) },
+      { id: 'live-job', title: 'Currently tracked / active job', rows: activeJob ? compactRelations([relation('job', activeJob.id, activeJob.title ?? `${activeJob.pickup_location ?? 'Pickup'} → ${activeJob.delivery_location ?? 'Delivery'}`, activeJob.load_ref ?? activeJob.load_id, activeJob.current_status ?? activeJob.status)]) : [] },
     ],
+    note: `Loaded ${driverDocs.data?.length ?? 0} driver documents, ${identityDocs.data?.length ?? 0} identity documents, ${bids.data?.length ?? 0} bids, ${reviews.data?.length ?? 0} reviews and ${notifications.data?.length ?? 0} recent notifications. Relation lists are recent snapshots; exact counts are shown where available.`,
   };
 }
 

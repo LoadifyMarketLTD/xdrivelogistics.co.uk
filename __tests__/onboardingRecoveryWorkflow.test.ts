@@ -31,7 +31,12 @@ describe('Onboarding recovery workflow', () => {
     expect(api).toContain('canonical_completion_percentage');
     expect(api).toContain('blocking_reasons');
     expect(api).toContain('reminder_eligible');
+    expect(api).toContain("{ count: 'exact' }");
+    expect(api).toContain('.range(offset, offset + limit - 1)');
+    expect(api).toContain('hasNextPage: page * limit < count');
     expect(queue).toContain('Onboarding recovery queue');
+    expect(queue).toContain('Page {pagination.page} of {pagination.totalPages}');
+    expect(queue).toContain('setPage((current) => current + 1)');
     expect(queue).toContain('Send completion request');
     expect(queue).toContain('Send reminder');
     expect(page).toContain('<OnboardingRecoveryQueue />');

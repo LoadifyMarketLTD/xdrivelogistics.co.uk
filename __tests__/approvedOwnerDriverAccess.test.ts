@@ -4,7 +4,7 @@ import { NextRequest } from 'next/server';
 const state = vi.hoisted(() => ({
   actor: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
   company: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
-  tables: {} as Record<string, Array<Record<string, any>>>,
+  tables: {} as Record<string, Array<Record<string, unknown>>>,
   appMetadata: {} as Record<string, unknown>, userMetadata: {} as Record<string, unknown>,
   rpc: vi.fn(),
 }));

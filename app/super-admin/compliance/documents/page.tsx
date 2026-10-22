@@ -118,8 +118,8 @@ export default function Page() {
         label: 'Document owner',
         render: (row: Row) => (
           <div>
-            <div style={{ fontSize: '0.78rem', fontWeight: 600 }}>{row.entity_name}</div>
-            <div style={{ fontSize: '0.68rem', color: '#667085', textTransform: 'capitalize' }}>
+            <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{row.entity_name}</div>
+            <div style={{ fontSize: '0.875rem', color: '#667085', textTransform: 'capitalize' }}>
               {row.entity_type}
             </div>
           </div>
@@ -128,13 +128,13 @@ export default function Page() {
       {
         key: 'company',
         label: 'Company',
-        render: (row: Row) => <span style={{ fontSize: '0.78rem' }}>{row.company_name}</span>,
+        render: (row: Row) => <span style={{ fontSize: '0.875rem' }}>{row.company_name}</span>,
       },
       {
         key: 'doc_type',
         label: 'Document type',
         render: (row: Row) => (
-          <span style={{ fontSize: '0.78rem', textTransform: 'capitalize' }}>
+          <span style={{ fontSize: '0.875rem', textTransform: 'capitalize' }}>
             {row.doc_type.replace(/_/g, ' ')}
           </span>
         ),
@@ -148,7 +148,7 @@ export default function Page() {
         key: 'issued_date',
         label: 'Issued',
         render: (row: Row) => (
-          <span style={{ fontSize: '0.75rem', color: '#667085' }}>
+          <span style={{ fontSize: '0.875rem', color: '#667085' }}>
             {row.issued_date ?? '—'}
           </span>
         ),
@@ -157,7 +157,7 @@ export default function Page() {
         key: 'expiry_date',
         label: 'Expiry',
         render: (row: Row) => (
-          <span style={{ fontSize: '0.75rem', color: row.is_expired ? '#D92D20' : '#667085' }}>
+          <span style={{ fontSize: '0.875rem', color: row.is_expired ? '#D92D20' : '#667085' }}>
             {row.expiry_date ?? '—'}
             {row.is_expired ? ' · EXPIRED' : ''}
           </span>
@@ -166,7 +166,7 @@ export default function Page() {
       {
         key: 'created_at',
         label: 'Uploaded',
-        render: (row: Row) => <span style={{ fontSize: '0.75rem' }}>{formatDateTime(row.created_at)}</span>,
+        render: (row: Row) => <span style={{ fontSize: '0.875rem' }}>{formatDateTime(row.created_at)}</span>,
       },
       {
         key: 'actions',
@@ -179,7 +179,7 @@ export default function Page() {
                 type="button"
                 disabled={busy || !row.file_available}
                 onClick={() => void viewDocument(row)}
-                style={{ fontSize: '0.68rem', fontWeight: 700 }}
+                style={{ fontSize: '0.875rem', fontWeight: 700 }}
                 title={row.file_available ? 'Open a short-lived secure preview' : 'No stored file'}
               >
                 {busy ? 'Please wait…' : row.file_available ? 'View document' : 'No document uploaded'}
@@ -189,7 +189,7 @@ export default function Page() {
                 type="button"
                 disabled={busy || !row.file_available}
                 onClick={() => void updateDocument(row, 'approve')}
-                style={{ fontSize: '0.68rem' }}
+                style={{ fontSize: '0.875rem' }}
               >
                 Approve
               </button>
@@ -197,7 +197,7 @@ export default function Page() {
                 type="button"
                 disabled={busy}
                 onClick={() => void updateDocument(row, 'reject')}
-                style={{ fontSize: '0.68rem' }}
+                style={{ fontSize: '0.875rem' }}
               >
                 Reject
               </button>
@@ -238,7 +238,7 @@ export default function Page() {
             position: 'fixed', top: '1rem', right: '1rem', zIndex: 999,
             backgroundColor: '#7f1d1d', border: '1px solid #D92D20',
             borderRadius: '8px', padding: '0.75rem 1rem',
-            color: '#fca5a5', fontSize: '0.82rem', maxWidth: '360px',
+            color: '#fca5a5', fontSize: '0.875rem', maxWidth: '360px',
             cursor: 'pointer',
           }}
           onClick={() => setInlineError(null)}
