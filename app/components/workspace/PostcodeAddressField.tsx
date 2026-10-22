@@ -51,11 +51,13 @@ export default function PostcodeAddressField({
   postcode,
   address,
   onAddress,
+  onTown,
   error,
 }: {
   postcode: string;
   address: string;
   onAddress: (value: string) => void;
+  onTown?: (value: string) => void;
   error?: string;
 }) {
   const onAddressRef = useRef(onAddress);
@@ -190,6 +192,10 @@ export default function PostcodeAddressField({
               onMouseDown={(event) => event.preventDefault()}
               onClick={() => {
                 onAddress(suggestion);
+                const parts = suggestion.split(",").map(part => part.trim()).filter(Boolean);
+                const candidates = parts.filter(part => !/^(GB|UK|UNITED KINGDOM)$/i.test(part) && !/^[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/i.test(part));
+                const town = candidates.length > 1 ? candidates[candidates.length - 1] : "";
+                if (town && /^[\p{L}][\p{L}\p{M} .\u2019\x27&-]*$/u.test(town)) onTown?.(town);
                 setOpen(false);
               }}
             >

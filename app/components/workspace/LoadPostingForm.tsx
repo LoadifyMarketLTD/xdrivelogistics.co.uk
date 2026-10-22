@@ -1053,6 +1053,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             onTime={(value) => set('pickupTime', value)}
             onPostcode={(value) => set('pickupPostcode', value.toUpperCase())}
             onAddress={(value) => set('pickupAddress', value)}
+            onTown={(value) => set('pickupTown', value)}
             onContact={(value) => set('collectionContact', value)}
             onPhone={(value) => set('collectionPhone', value)}
             requiredDate
@@ -1077,6 +1078,7 @@ export default function LoadPostingForm({ mode }: { mode: LoadPostingMode }) {
             onTime={(value) => set('deliveryTime', value)}
             onPostcode={(value) => set('deliveryPostcode', value.toUpperCase())}
             onAddress={(value) => set('deliveryAddress', value)}
+            onTown={(value) => set('deliveryTown', value)}
             onContact={(value) => set('deliveryContact', value)}
             onPhone={(value) => set('deliveryPhone', value)}
             minDate={minimumRouteDate || undefined}
@@ -1308,6 +1310,7 @@ function StopFields({
   onTime,
   onPostcode,
   onAddress,
+  onTown,
   onContact,
   onPhone,
   requiredDate = false,
@@ -1327,6 +1330,7 @@ function StopFields({
   onTime: (value: string) => void;
   onPostcode: (value: string) => void;
   onAddress: (value: string) => void;
+  onTown?: (value: string) => void;
   onContact: (value: string) => void;
   onPhone: (value: string) => void;
   requiredDate?: boolean;
@@ -1378,7 +1382,7 @@ function StopFields({
         <input style={{ ...fieldStyle, ...(errors?.postcode ? invalidFieldStyle : {}) }} aria-invalid={errors?.postcode ? 'true' : undefined} autoCapitalize="characters" value={postcode} placeholder="e.g. BB1 1AA" onChange={(event) => onPostcode(event.target.value)} />
         {errors?.postcode ? <span style={validationMessageStyle}>{errors.postcode}</span> : null}
       </label>
-      <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} error={errors?.address} />
+      <PostcodeAddressField postcode={postcode} address={address} onAddress={onAddress} onTown={onTown} error={errors?.address} />
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <label style={labelStyle}>Contact<input style={fieldStyle} value={contact} onChange={(event) => onContact(event.target.value)} /></label>
         <label style={labelStyle}>Phone<input style={fieldStyle} value={phone} onChange={(event) => onPhone(event.target.value)} /></label>
