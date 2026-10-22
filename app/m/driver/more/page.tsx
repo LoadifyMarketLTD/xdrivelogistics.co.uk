@@ -13,7 +13,7 @@ type Resources = {
 type MenuItem = { label: string; href: string };
 const essentials: MenuItem[] = [
   { label: 'Documents', href: '/m/driver/documents' },
-  { label: 'Availability', href: '/driver/availability/live' },
+  { label: 'Availability', href: '/m/driver/availability' },
   { label: 'Messages', href: '/driver/messages' },
   { label: 'Profile & settings', href: '/driver/profile' },
   { label: 'Help & support', href: '/driver/support' },
