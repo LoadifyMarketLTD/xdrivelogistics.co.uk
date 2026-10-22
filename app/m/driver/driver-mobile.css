@@ -156,3 +156,23 @@
 .xd-detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px}.xd-detail-actions button{background:#f4c32b;color:#14273e;min-height:44px;border-radius:6px;font-weight:700}.xd-detail-actions button:last-child{background:#f16a64;color:#132439}.xd-public-route-map{height:270px;border-radius:6px;overflow:hidden;margin-top:10px}.xd-public-map-note{font-size:12px;color:#60738a;margin-top:8px}
 
 .xd-job-card[role=link]{cursor:pointer}.xd-job-card[role=link]:focus-visible{outline:3px solid #206ab2;outline-offset:3px}.xd-job-footer>.xd-job-quote,.xd-job-footer>.xd-job-manage{flex:1}.xd-job-footer .xd-job-status{flex:1;text-align:center}
+
+/* Driver Jobs legibility baseline: phone cards benchmarked against CX mobile alerts. */
+.xd-mobile-jobs .xd-job-card{border-radius:9px;margin-bottom:12px}
+.xd-mobile-jobs .xd-job-company{padding:15px 15px 8px;align-items:flex-start}
+.xd-mobile-jobs .xd-job-company strong{font-size:20px;line-height:1.25;font-weight:800;letter-spacing:-.02em}
+.xd-mobile-jobs .xd-job-company small{font-size:12px;line-height:1.4;color:#586474}
+.xd-mobile-jobs .xd-job-type{padding:0 15px 13px;font-size:16px;line-height:1.4}
+.xd-mobile-jobs .xd-job-type strong{font-size:15px;font-weight:750}
+.xd-mobile-jobs .xd-job-stops{gap:17px;padding:18px 17px}
+.xd-mobile-jobs .xd-job-track{width:20px;min-width:20px}
+.xd-mobile-jobs .xd-job-dot{width:16px;height:16px}
+.xd-mobile-jobs .xd-job-pin{width:15px;height:15px}
+.xd-mobile-jobs .xd-job-places{gap:22px}
+.xd-mobile-jobs .xd-job-places strong{font-size:22px;line-height:1.25;font-weight:800;text-transform:uppercase;letter-spacing:-.015em}
+.xd-mobile-jobs .xd-job-places small{font-size:16px;line-height:1.45;margin-top:6px;color:#626b77}
+.xd-mobile-jobs .xd-job-notes{padding:13px 15px!important;font-size:15px!important;line-height:1.5!important}
+.xd-mobile-jobs .xd-job-footer{padding:12px 15px}
+.xd-mobile-jobs .xd-job-footer .xd-job-quote{width:100%;flex:1;min-height:56px;font-size:21px;font-weight:750;border-radius:5px}
+.xd-mobile-jobs .xd-mobile-pill{font-size:13px;padding:7px 10px}
+@media (max-width:360px){.xd-mobile-jobs .xd-job-company strong{font-size:18px}.xd-mobile-jobs .xd-job-places strong{font-size:20px}.xd-mobile-jobs .xd-job-places small{font-size:15px}}
