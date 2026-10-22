@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Dynamic mock fixtures require heterogeneous records. */
 import { test, expect } from '@playwright/test';
 import fs from 'node:fs';
 
@@ -88,7 +89,7 @@ for (const [role, prefix, home] of roles) test(`${role} shared readable workspac
       console.log(role+': '+route);
       await page.setViewportSize({width:1680,height:1000});
       if(route!==home) {
-        let link=nav.locator(`a[href=${JSON.stringify(route)}]`);
+        const link=nav.locator(`a[href=${JSON.stringify(route)}]`);
         if(!await link.count()) {
           for(const trigger of await nav.locator('button[aria-haspopup=menu]').all()) {
             if(await trigger.getAttribute('aria-expanded')!=='true') await trigger.click();

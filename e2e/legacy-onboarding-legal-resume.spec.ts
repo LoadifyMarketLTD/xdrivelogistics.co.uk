@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any -- Dynamic mock fixtures require heterogeneous records. */
 import { test, expect } from '@playwright/test';
 import { buildCurrentLegalRequirement } from '../lib/legal/legalAgreementState';
 
