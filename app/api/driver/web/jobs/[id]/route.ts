@@ -6,6 +6,7 @@ import { buildSignedJobAttachments } from '../../../mobile/jobAttachmentPresenta
 import { buildJobOperationalPresentation, driverJobOperationalSelect } from '../../../mobile/jobOperationalPresentation';
 import { isDriverContext, jobSelect, mapJob, MobileJobRow, respond, toMoney } from '../../../mobile/_lib';
 import { buildSignedPodPresentations } from '../../../mobile/podPresentation';
+import { isDriverPodComplete } from '../../../../../../lib/jobs/driverPodCompletion';
 
 type JobStopRow = {
   id: string;
@@ -186,7 +187,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       specialInstructions,
       attachments,
       pod,
-      podCompleted: Boolean(pod),
+      podCompleted: isDriverPodComplete(row),
       price: toMoney(agreedRate),
       agreedRateAmount: agreedRate,
       budgetAmount: agreedRate,
