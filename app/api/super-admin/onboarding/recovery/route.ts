@@ -10,14 +10,20 @@ export async function GET(request: NextRequest) {
   const owner = await verifyPlatformOwner(request);
   if (!owner || !supabaseAdmin) return json(403, { error: 'Forbidden: Platform Owner authority required.' });
 
-  const { data: applications, error } = await supabaseAdmin
+  const { searchParams } = new URL(request.url);
+  const page = Math.max(1, Number(searchParams.get('page') ?? '1') || 1);
+  const limit = Math.min(100, Math.max(10, Number(searchParams.get('limit') ?? '50') || 50));
+  const offset = (page - 1) * limit;
+
+  const { data: applications, error, count } = await supabaseAdmin
     .from('onboarding_applications')
-    .select('id, user_id, email, account_type, status, current_step, completion_percentage, company_id, payload, created_at, last_activity_at')
+    .select('id, user_id, email, account_type, status, current_step, completion_percentage, company_id, payload, created_at, last_activity_at', { count: 'exact' })
     .in('status', ['invited', 'draft', 'in_progress', 'request_changes'])
     .order('last_activity_at', { ascending: false, nullsFirst: false })
-    .limit(100);
+    .range(offset, offset + limit - 1);
 
   if (error) return json(500, { error: error.message });
+  if (typeof count !== 'number') return json(500, { error: 'Onboarding recovery queue returned an incomplete exact count.' });
 
   const applicationIds = (applications ?? []).map((application) => application.id);
   const latestRecoveryEventByApplication = new Map<string, { event_type: string; created_at: string }>();
@@ -106,10 +112,19 @@ export async function GET(request: NextRequest) {
   return json(200, {
     rows,
     summary: {
-      total: rows.length,
-      recovery_required: rows.filter((row) => row.recovery_required).length,
-      stale_over_7_days: rows.filter((row) => typeof row.inactive_days === 'number' && row.inactive_days > 7).length,
-      close_to_complete: rows.filter((row) => row.canonical_completion_percentage >= 70 && row.recovery_required).length,
+      total: count,
+      loaded: rows.length,
+      recovery_required_on_page: rows.filter((row) => row.recovery_required).length,
+      stale_over_7_days_on_page: rows.filter((row) => typeof row.inactive_days === 'number' && row.inactive_days > 7).length,
+      close_to_complete_on_page: rows.filter((row) => row.canonical_completion_percentage >= 70 && row.recovery_required).length,
+    },
+    pagination: {
+      page,
+      limit,
+      total: count,
+      totalPages: Math.max(1, Math.ceil(count / limit)),
+      hasNextPage: page * limit < count,
+      hasPrevPage: page > 1,
     },
   });
 }

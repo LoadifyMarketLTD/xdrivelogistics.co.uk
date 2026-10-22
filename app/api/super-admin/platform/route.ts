@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
 import { isSupabaseAdminConfigured, supabaseAdmin } from '../../_lib/supabaseAdmin';
 import {
   isMissingDurabilityColumnError,
@@ -12,6 +13,12 @@ import { isSuperAdminDeployPreviewReadOnly, verifyPlatformOwner } from '../_lib/
 import { isInvoiceFullyPaid, toCanonicalInvoiceDisplayStatus } from '../../../../lib/invoiceStatus';
 
 const respond = (status: number, payload: Record<string, unknown>) => NextResponse.json(payload, { status });
+const notificationRetrySchema = z.object({
+  section: z.literal('notifications'),
+  action: z.literal('retry'),
+  notificationId: z.string().trim().min(1).max(200),
+  reason: z.string().trim().min(5).max(2000),
+}).strict();
 const SOURCE_PAGE_SIZE = 1000;
 const OPEN_JOB_STATUSES = [
   'draft', 'received', 'posted', 'quoted', 'awarded', 'allocated', 'accepted', 'assigned',
@@ -260,13 +267,16 @@ export async function PATCH(request: NextRequest) {
     return respond(403, { error: 'Forbidden: active Platform Owner required.' });
   }
 
-  const body = await request.json().catch(() => null) as { section?: string; action?: string; notificationId?: string; reason?: string } | null;
-  const section = String(body?.section ?? '').toLowerCase();
-  const action = String(body?.action ?? '').toLowerCase();
-  const notificationId = String(body?.notificationId ?? '').trim();
-  const reason = String(body?.reason ?? '').trim();
-  if (section !== 'notifications' || action !== 'retry' || !notificationId) return respond(400, { error: 'Invalid action payload.' });
-  if (reason.length < 5) return respond(400, { error: 'A notification retry reason of at least 5 characters is required.' });
+  const body = await request.json().catch(() => null);
+  const parsed = notificationRetrySchema.safeParse(body);
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0];
+    return respond(400, {
+      error: firstIssue?.message ?? 'Invalid action payload.',
+      fields: parsed.error.flatten().fieldErrors,
+    });
+  }
+  const { notificationId, reason } = parsed.data;
 
   const { data, error } = await supabaseAdmin.rpc('owner_retry_notification_event', {
     p_actor_user_id: owner.id,
