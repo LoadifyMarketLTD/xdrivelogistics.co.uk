@@ -447,6 +447,20 @@ export async function GET(request: NextRequest) {
     }
   }
 
+  // Continue with the public source if exact address providers have no results.
+  // Keep only addresses belonging to the complete requested postcode.
+  if (exactPostcode) {
+    const fallback = await lookupPhotonAutocomplete(postcode);
+    const compact = postcodeFragment(postcode);
+    const matching = fallback.filter(label => {
+      const found = label.toUpperCase().match(/\b(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/g) ?? [];
+      return found.some(value => postcodeFragment(value) === compact);
+    });
+    if (matching.length) return NextResponse.json({
+      suggestions: matching, configured: true,
+      provider: 'photon-openstreetmap', postcodeFound: true,
+    }, { headers: NO_STORE_HEADERS });
+  }
   return NextResponse.json({
     suggestions: [],
     configured: true,
