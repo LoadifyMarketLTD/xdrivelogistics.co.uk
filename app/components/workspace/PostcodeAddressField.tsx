@@ -105,12 +105,13 @@ export default function PostcodeAddressField({
         });
         if (!response.ok) return;
 
-        const payload = await response.json() as { suggestions?: unknown; towns?: Record<string,string>; configured?: boolean };
+        const payload = await response.json() as { suggestions?: unknown; towns?: Record<string,string>; configured?: boolean; provider?: string | null };
         if (payload.configured === false) return;
 
         const expected = normalized.replace(/\s/g, '').toUpperCase();
+        const verifiedExactProvider = isFullUkPostcode(normalized) && ['ideal-postcodes', 'getaddress'].includes(payload.provider || '');
         const next = Array.isArray(payload.suggestions)
-          ? payload.suggestions.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).filter(item => { const matches=item.toUpperCase().match(/\b(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/g) || []; return matches.some(match=>match.replace(/\s/g,'').startsWith(expected)); })
+          ? payload.suggestions.filter((item): item is string => typeof item === 'string' && item.trim().length > 0).filter(item => { const matches=item.toUpperCase().match(/\b(?:GIR\s?0AA|[A-Z]{1,2}\d[A-Z\d]?\s?\d[A-Z]{2})\b/g) || []; return matches.some(match=>match.replace(/\s/g,'').startsWith(expected)) || (verifiedExactProvider && matches.length === 0); })
           : [];
         if (cancelled) return;
 

@@ -365,7 +365,7 @@ export async function GET(request: NextRequest) {
   // queries, while a misconfigured commercial provider can otherwise consume
   // its full timeout before we reach the useful result. Resolve postcode-like
   // input first so interactive filters remain responsive during React rerenders.
-  if (postcodeLikeQuery) {
+  if (postcodeLikeQuery && !exactPostcode) {
     const suggestions = await lookupPhotonAutocomplete(autocompleteQuery);
     if (suggestions.length) {
       return NextResponse.json({
