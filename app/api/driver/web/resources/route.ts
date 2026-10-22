@@ -62,10 +62,10 @@ function isDriverOperationalAlert(row: AnyRow) {
 }
 
 export async function GET(request: NextRequest) {
-  // Identity, account approval, active status and native-device binding remain
-  // fail-closed inside requireDriver. Everything below is presentation/context
-  // and must not turn a valid session into a false authorization failure when a
-  // peripheral subsystem is temporarily unavailable.
+  // Browser PWA identity, app approval and active driver status remain
+  // fail-closed in requireWebDriver, while /mobile retains native device binding.
+  // Peripheral resource failures should not turn a valid session into a
+  // false authorization failure.
   const context = await requireWebDriver(request);
   if (!isDriverContext(context)) return context;
 

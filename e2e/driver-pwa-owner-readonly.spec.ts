@@ -45,4 +45,17 @@ test('Owner Driver can sign in and inspect each mobile workspace without mutatio
     const response = await apiRequest;
     expect(response.status(), `${path}: ${api} failed with HTTP ${response.status()}`).toBe(200);
   }
+
+  // No bearer token and no real job ID: exercise registration and fail-closed
+  // authorization of mutation routes without changing any live records.
+  const nonexistentId = '00000000-0000-4000-8000-000000000000';
+  for (const api of [
+    '/api/driver/web/bids',
+    `/api/driver/web/bids/${nonexistentId}`,
+    '/api/driver/web/resources',
+    `/api/driver/web/jobs/${nonexistentId}/loaded`,
+  ]) {
+    const response = await page.request.post(api, { data: {} });
+    expect(response.status(), `${api} must reject bearer-less mutations`).toBe(401);
+  }
 });

@@ -15,6 +15,9 @@ vi.mock('../app/api/_lib/supabaseAdmin', () => ({
 vi.mock('../app/api/_lib/platformFlags', () => ({
   getFeatureFlag: mocks.featureFlag,
 }));
+vi.mock('../app/api/driver/_lib/webDriver', () => ({
+  requireWebDriver: mocks.requireDriver,
+}));
 vi.mock('../app/api/driver/mobile/_lib', () => ({
   requireDriver: mocks.requireDriver,
   isDriverContext: (value: unknown) => Boolean(value && typeof value === 'object' && 'driverId' in value),
@@ -22,6 +25,7 @@ vi.mock('../app/api/driver/mobile/_lib', () => ({
 }));
 
 import { POST } from '../app/api/driver/mobile/bids/[id]/route';
+import { POST as webPOST } from '../app/api/driver/web/bids/[id]/route';
 
 const bid = {
   id: 'bid-1',
@@ -59,7 +63,7 @@ function table(name: string) {
   };
 }
 
-const requestFor = (action: string) => new NextRequest('http://localhost/api/driver/mobile/bids/bid-1', {
+const requestFor = (action: string, surface: 'mobile' | 'web' = 'mobile') => new NextRequest(`http://localhost/api/driver/${surface}/bids/bid-1`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ action, amount: 150, baseAmount: 150, additionalExtrasGbp: 0 }),
@@ -88,5 +92,27 @@ describe('Driver PWA quote update concurrency', () => {
     const json = await response.json();
     expect(json.ok).toBe(true);
     expect(json.idempotent).toBe(false);
+  });
+
+  it.each(['withdraw', 'edit'])('browser PWA rejects stale %s updates', async (action) => {
+    const response = await webPOST(requestFor(action, 'web'), { params: Promise.resolve({ id: 'bid-1' }) });
+    expect(response.status).toBe(409);
+    expect((await response.json()).error).toMatch(/changed/i);
+  });
+
+  it.each(['withdraw', 'edit'])('browser PWA confirms %s only after a persisted update', async (action) => {
+    mocks.affectedRows = [{ id: 'bid-1' }];
+    const response = await webPOST(requestFor(action, 'web'), { params: Promise.resolve({ id: 'bid-1' }) });
+    expect(response.status).toBe(200);
+    const json = await response.json();
+    expect(json.ok).toBe(true);
+    expect(json.idempotent).toBe(false);
+  });
+
+  it('browser PWA refuses to mutate another driver quote', async () => {
+    mocks.requireDriver.mockResolvedValue({ userId: 'other-user', driverId: 'other-driver' });
+    const response = await webPOST(requestFor('withdraw', 'web'), { params: Promise.resolve({ id: 'bid-1' }) });
+    expect(response.status).toBe(403);
+    expect((await response.json()).error).toMatch(/does not belong/i);
   });
 });

@@ -31,8 +31,8 @@ describe('Driver PWA bookings lifecycle scope', () => {
 
   it('wires the PWA booking list to the new server-filtered scope', () => {
     expect(source('app/m/driver/bookings/page.tsx'))
-      .toContain('/api/driver/mobile/jobs?scope=bookings');
-    const server = source('app/api/driver/mobile/jobs/route.ts');
+      .toContain('/api/driver/web/jobs?scope=bookings');
+    const server = source('app/api/driver/web/jobs/route.ts');
     expect(server).toContain('driverJobStatusesForScope(scope)');
     expect(server).toContain("scope === 'bookings'");
     expect(server).toContain(".eq('assigned_driver_id', driver.driverId)");

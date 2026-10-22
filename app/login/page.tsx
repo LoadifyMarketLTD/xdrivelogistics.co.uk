@@ -6,7 +6,7 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '../components/AuthContext';
 import { buildPathWithAuthParams, getBrowserAuthSignals, isRecoveryAuthFlow, RESET_PASSWORD_PATH } from '../../lib/authFlow';
-import { getPostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
+import { getResponsivePostLoginRoute, roleCanAccessPath } from '../../lib/authSession';
 import styles from './login.module.css';
 import heroStyles from './loginHeroFix.module.css';
 
@@ -48,7 +48,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (authLoading || !user) return;
-    const canonicalRoute = getPostLoginRoute(user);
+    const canonicalRoute = getResponsivePostLoginRoute(user, window.matchMedia('(max-width: 767px)').matches);
     const destination = safeNextPath && roleCanAccessPath(user, safeNextPath) ? safeNextPath : canonicalRoute;
     router.replace(destination);
   }, [authLoading, user, router, safeNextPath]);
