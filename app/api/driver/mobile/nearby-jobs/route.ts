@@ -321,6 +321,10 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const search = searchParams.get('search')?.trim().toLowerCase() ?? '';
+  const requestedJobId = searchParams.get('jobId')?.trim() ?? '';
+  if (requestedJobId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedJobId)) {
+    return respond(400, { error: 'Invalid job reference.' });
+  }
   const limit = Math.min(Number(searchParams.get('limit') ?? 50) || 50, 100);
   const destinationMode = searchParams.get('mode') === 'destination';
 
@@ -331,7 +335,8 @@ export async function GET(request: NextRequest) {
     .in('status', ['posted', 'quoted'])
     .is('awarded_carrier_company_id', null)
     .order('exchange_posted_at', { ascending: false })
-    .limit(Math.max(limit, 100));
+    .limit(requestedJobId ? 1 : Math.max(limit, 100));
+  if (requestedJobId) query = query.eq('id', requestedJobId);
   if (driver.companyId) query = query.neq('company_id', driver.companyId);
 
   const { data, error } = await query;

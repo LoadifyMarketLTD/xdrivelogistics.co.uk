@@ -35,7 +35,7 @@ export default function MobileDriverDocumentsPage() {
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Please sign in to see your documents.');
-      const response = await fetch('/api/driver/mobile/resources', {
+      const response = await fetch('/api/driver/web/resources', {
         headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
       });
       const result = await response.json().catch(() => ({}));
@@ -56,7 +56,7 @@ export default function MobileDriverDocumentsPage() {
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Please sign in again.');
-      const response = await fetch(`/api/driver/mobile/documents/${encodeURIComponent(document.id)}`, {
+      const response = await fetch(`/api/driver/web/documents/${encodeURIComponent(document.id)}`, {
         headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
       });
       const result = await response.json().catch(() => ({}));

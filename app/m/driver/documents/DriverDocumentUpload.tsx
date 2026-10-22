@@ -68,7 +68,7 @@ export default function DriverDocumentUpload({ hasAssignedVehicle, ownerDriver, 
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Please sign in again.');
       const base64 = await encodeFile(file);
-      const response = await fetch('/api/driver/mobile/resources', {
+      const response = await fetch('/api/driver/web/resources', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'upload_document', docType, fileName: file.name,

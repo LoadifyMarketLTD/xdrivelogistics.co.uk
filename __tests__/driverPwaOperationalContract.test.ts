@@ -5,6 +5,26 @@ import { describe, expect, it } from 'vitest';
 const source = (relative: string) => readFileSync(resolve(process.cwd(), relative), 'utf8');
 
 describe('Driver PWA operational wiring', () => {
+  it('exports authenticated browser handlers without weakening native device binding', () => {
+    const quotes = source('app/api/driver/web/bids/route.ts');
+    const quoteMutation = source('app/api/driver/web/bids/[id]/route.ts');
+    const resources = source('app/api/driver/web/resources/route.ts');
+    const jobDetail = source('app/api/driver/web/jobs/[id]/route.ts');
+    const native = source('app/api/driver/mobile/_lib.ts');
+    expect(quotes).toContain('export async function GET');
+    expect(quotes).toContain('export async function POST');
+    expect(quotes).toContain('requireWebDriver(request)');
+    expect(quotes).toContain('submitDriverQuote(');
+    expect(resources).toContain('export async function GET');
+    expect(resources).toContain('export async function POST');
+    expect(resources).toContain('requireWebDriver(request)');
+    expect(quoteMutation).toContain('export async function POST');
+    expect(quoteMutation).toContain('if (!owned)');
+    expect(jobDetail).toContain('requireWebDriver(request');
+    expect(jobDetail).toContain(".eq('assigned_driver_id', driver.driverId)");
+    expect(native).toContain('driver_mobile_device_sessions');
+  });
+
   it('has four dedicated tab routes and an installable scoped manifest', () => {
     const nav = source('app/m/driver/DriverMobileNavigation.tsx');
     const layout = source('app/m/driver/layout.tsx');
@@ -33,9 +53,9 @@ describe('Driver PWA operational wiring', () => {
 
   it('keeps pre-award Jobs on the public-information API and quotes through the guarded endpoint', () => {
     const page = source('app/m/driver/jobs/page.tsx');
-    const endpoint = source('app/api/driver/mobile/nearby-jobs/route.ts');
-    expect(page).toContain('/api/driver/mobile/nearby-jobs');
-    expect(page).toContain('/api/driver/mobile/bids');
+    const endpoint = source('app/api/driver/web/nearby-jobs/route.ts');
+    expect(page).toContain('/api/driver/web/nearby-jobs');
+    expect(page).toContain('/api/driver/web/bids');
     expect(endpoint).toContain('publicOutcode');
     expect(endpoint).toContain('fullPostcode: null');
     expect(endpoint).toContain('paymentTerms: row.payment_terms');
@@ -43,12 +63,30 @@ describe('Driver PWA operational wiring', () => {
     expect(page).toContain('job.podRequired');
   });
 
+  it('keeps marketplace job details inside PWA without exposing pre-award addresses', () => {
+    const jobs = source('app/m/driver/jobs/page.tsx');
+    const quotes = source('app/m/driver/quotes/page.tsx');
+    const detail = source('app/m/driver/jobs/[id]/page.tsx');
+    const endpoint = source('app/api/driver/web/nearby-jobs/route.ts');
+    expect(jobs).toContain('/m/driver/jobs/');
+    expect(quotes).toContain('/m/driver/jobs/');
+    expect(detail).toContain('nearby-jobs?jobId=');
+    expect(detail).toContain('/api/driver/web/bids');
+    expect(detail).toContain('job.canQuote !== false');
+    expect(endpoint).toContain("query.eq('id', requestedJobId)");
+    expect(endpoint).toContain(".in('status', ['posted', 'quoted'])");
+    expect(endpoint).toContain(".is('awarded_carrier_company_id', null)");
+    expect(endpoint).toContain('fullPostcode: null');
+    expect(endpoint).toContain('latitude: null');
+    expect(endpoint).toContain('longitude: null');
+  });
+
   it('uses the canonical quote edit/withdraw handler, not local quote status mutation', () => {
     const page = source('app/m/driver/quotes/page.tsx');
-    const endpoint = source('app/api/driver/mobile/bids/[id]/route.ts');
+    const endpoint = source('app/api/driver/web/bids/[id]/route.ts');
     expect(page).toContain("action === 'withdraw'");
     expect(page).toContain("'edit' | 'withdraw'");
-    expect(page).toContain('/api/driver/mobile/bids/');
+    expect(page).toContain('/api/driver/web/bids/');
     expect(endpoint).toContain("if (action === 'withdraw')");
     expect(endpoint).toContain("if (!owned)");
   });
@@ -56,7 +94,7 @@ describe('Driver PWA operational wiring', () => {
   it('requires persisted evidence and a signed POD instead of fabricating completion', () => {
     const page = source('app/m/driver/bookings/[id]/page.tsx');
     const evidence = source('app/m/driver/bookings/[id]/BookingEvidence.tsx');
-    const server = source('app/api/driver/mobile/jobs/[id]/[action]/route.ts');
+    const server = source('app/api/driver/web/jobs/[id]/[action]/route.ts');
     expect(page).toContain('<CollectionHandover');
     expect(page).toContain('<PodCapture');
     expect(page).toContain("perform('undo-status'");
@@ -72,9 +110,9 @@ describe('Driver PWA operational wiring', () => {
     const page = source('app/m/driver/more/page.tsx');
     expect(page).toContain("type === 'owner_driver'");
     expect(page).toContain('ownerDriver ?');
-    expect(page).toContain("'/driver/finance'");
-    expect(page).toContain('/api/driver/mobile/resources');
-    const resources = source('app/api/driver/mobile/resources/route.ts');
+    expect(page).toContain('/driver/finance');
+    expect(page).toContain('/api/driver/web/resources');
+    const resources = source('app/api/driver/web/resources/route.ts');
     expect(resources).toContain("context.driverType?.trim().toLowerCase() === 'owner_driver'");
     expect(resources).toContain('context.canCommercialBid');
   });
@@ -99,7 +137,7 @@ describe('Driver PWA operational wiring', () => {
     expect(more).toContain("href: '/m/driver/documents'");
     const navigation = source('app/m/driver/DriverMobileNavigation.tsx');
     expect(navigation).toContain('isMoreSubview');
-    expect(page).toContain('/api/driver/mobile/documents/');
+    expect(page).toContain('/api/driver/web/documents/');
     expect(page).toContain('<DriverDocumentUpload');
     expect(upload).toContain("action: 'upload_document'");
     expect(upload).toContain("isVehicleDocument: kind === 'vehicle'");
@@ -108,8 +146,8 @@ describe('Driver PWA operational wiring', () => {
 
   it('uses canonical driver and vehicle document schemas and storage buckets', () => {
     const upload = source('app/m/driver/documents/DriverDocumentUpload.tsx');
-    const resources = source('app/api/driver/mobile/resources/route.ts');
-    const signed = source('app/api/driver/mobile/documents/[id]/route.ts');
+    const resources = source('app/api/driver/web/resources/route.ts');
+    const signed = source('app/api/driver/web/documents/[id]/route.ts');
     expect(resources).toContain('COMPANY_DRIVER_DOCUMENT_TYPES');
     expect(resources).toContain('OWNER_DRIVER_DOCUMENT_TYPES');
     expect(resources).toContain('VEHICLE_DOCUMENT_TYPES.has(docType)');

@@ -66,7 +66,7 @@ export default function MobileBookingDetail() {
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw Error('Please sign in to view your booking.');
-      const response = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(id)}`, {
+      const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(id)}`, {
         headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
       });
       const result = await response.json().catch(() => ({}));
@@ -85,7 +85,7 @@ export default function MobileBookingDetail() {
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw Error('Please sign in again.');
-      const response = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(id)}/${path}`, {
+      const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(id)}/${path}`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),

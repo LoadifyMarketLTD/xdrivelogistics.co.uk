@@ -1,0 +1,620 @@
+import { requireWebDriver } from '../../_lib/webDriver';
+import { NextRequest } from 'next/server';
+import { sortSmartDestinationCandidates } from '../../../../../lib/smartDestinationPriority';
+import { mobilePublicArea, publicTown } from '../../_lib/mobilePublicArea';
+import { isSupabaseAdminConfigured, supabaseAdmin } from '../../../_lib/supabaseAdmin';
+import {
+  marketplaceNumber,
+  proposedPriceAmount,
+  publicOutcode,
+  publicQuoteNotes,
+} from '../../_lib/marketplacePublic';
+import { isDriverContext, respond } from '../../mobile/_lib';
+
+type NearbyJobRow = {
+  id: string;
+  company_id: string | null;
+  created_by: string | null;
+  status: string | null;
+  exchange_visibility: string | null;
+  awarded_carrier_company_id: string | null;
+  assigned_company_id?: string | null;
+  assigned_driver_id: string | null;
+  direct_invite_company_id: string | null;
+  pickup_location: string | null;
+  pickup_city: string | null;
+  pickup_postcode: string | null;
+  pickup_lat: number | null;
+  pickup_lng: number | null;
+  pickup_datetime: string | null;
+  pickup_time_slot: string | null;
+  collection_window_end?: string | null;
+  delivery_location: string | null;
+  delivery_city: string | null;
+  delivery_postcode: string | null;
+  delivery_lat: number | null;
+  delivery_lng: number | null;
+  delivery_datetime: string | null;
+  delivery_time_slot: string | null;
+  pickup_country_code?: string | null;
+  delivery_country_code?: string | null;
+  service_mode?: string | null;
+  direct_delivery_required?: boolean | null;
+  vehicle_type: string | null;
+  requested_vehicle_type?: string | null;
+  requested_vehicle_label: string | null;
+  cargo_type: string | null;
+  requested_cargo_label: string | null;
+  pallets: number | null;
+  weight_kg: number | string | null;
+  budget_amount: number | string | null;
+  currency: string | null;
+  payment_terms: string | null;
+  pod_required: boolean | null;
+  hard_copy_pod: string | null;
+  is_fixed_price: boolean | null;
+  load_details: string | null;
+  special_requirements: string | null;
+  access_restrictions: string | null;
+  job_distance_miles: number | string | null;
+  job_distance_minutes: number | null;
+  distance_to_pickup_miles?: number | string | null;
+  exchange_posted_at: string | null;
+  exchange_expires_at: string | null;
+  companies?: {
+    name?: string | null;
+    xd_id?: string | null;
+    company_type?: string | null;
+    created_at?: string | null;
+  } | Array<{
+    name?: string | null;
+    xd_id?: string | null;
+    company_type?: string | null;
+    created_at?: string | null;
+  }> | null;
+};
+
+// Explicit company FK keeps PostgREST embedding deterministic for mobile loads.
+const nearbySelect = [
+  'id', 'company_id', 'created_by', 'status', 'exchange_visibility', 'awarded_carrier_company_id', 'assigned_company_id', 'assigned_driver_id', 'direct_invite_company_id',
+  'pickup_location', 'pickup_city', 'pickup_postcode', 'pickup_lat', 'pickup_lng', 'pickup_datetime', 'pickup_time_slot', 'collection_window_end',
+  'delivery_location', 'delivery_city', 'delivery_postcode', 'delivery_lat', 'delivery_lng', 'delivery_datetime', 'delivery_time_slot',
+  'pickup_country_code', 'delivery_country_code', 'service_mode', 'direct_delivery_required',
+  'vehicle_type', 'requested_vehicle_type', 'requested_vehicle_label', 'cargo_type', 'requested_cargo_label',
+  'pallets', 'weight_kg', 'budget_amount', 'currency', 'payment_terms', 'pod_required', 'hard_copy_pod', 'is_fixed_price', 'load_details', 'special_requirements', 'access_restrictions',
+  'job_distance_miles', 'job_distance_minutes', 'exchange_posted_at', 'exchange_expires_at',
+  'companies!jobs_company_id_fkey(name,xd_id,company_type,created_at)',
+].join(',');
+
+function companyInfo(companies: NearbyJobRow['companies']) {
+  if (Array.isArray(companies)) return companies[0] ?? null;
+  return companies ?? null;
+}
+
+function mapNearbyJob(row: NearbyJobRow, posterMemberId: string | null, extras: Record<string, unknown> = {}) {
+  const proposedPrice = proposedPriceAmount(row.budget_amount);
+  const hasProposedPrice = proposedPrice !== null;
+  const company = companyInfo(row.companies);
+  return {
+    id: row.id,
+    publicReference: `XDL-${row.id.slice(0, 8).toUpperCase()}`,
+    poster: {
+      companyId: row.company_id ?? null,
+      name: company?.name ?? null,
+      memberCode: posterMemberId ?? company?.xd_id ?? null,
+      memberType: company?.company_type ?? null,
+      memberSince: company?.created_at ?? null,
+    },
+    posterCompanyName: company?.name ?? null,
+    pickup: {
+      addressSummary: mobilePublicArea(row.pickup_postcode, row.pickup_city),
+      postcode: publicOutcode(row.pickup_postcode),
+      // Pre-award Alerts privacy: exact collection postcode is withheld until allocation.
+      fullPostcode: null,
+      latitude: null,
+      longitude: null,
+      collectionFrom: row.pickup_datetime || row.pickup_time_slot || null,
+      collectionTo: row.collection_window_end || null,
+    },
+    delivery: {
+      addressSummary: mobilePublicArea(row.delivery_postcode, row.delivery_city),
+      postcode: publicOutcode(row.delivery_postcode),
+      // Pre-award Alerts privacy: exact delivery postcode is withheld until allocation.
+      fullPostcode: null,
+      latitude: null,
+      longitude: null,
+      deliveryFrom: row.delivery_datetime || row.delivery_time_slot || null,
+      deliveryTo: null,
+    },
+    vehicleType: row.requested_vehicle_label || row.requested_vehicle_type || row.vehicle_type || null,
+    bodyType: null,
+    pallets: marketplaceNumber(row.pallets),
+    weightKg: marketplaceNumber(row.weight_kg),
+    freightType: row.requested_cargo_label || row.cargo_type || null,
+    notesSummary: publicQuoteNotes(row.load_details),
+    distanceToPickupMiles: null,
+    journeyDistanceMiles: marketplaceNumber(row.job_distance_miles),
+    estimatedJourneyMinutes: marketplaceNumber(row.job_distance_minutes),
+    publicPrice: {
+      visible: hasProposedPrice,
+      amount: proposedPrice,
+      currency: hasProposedPrice ? row.currency || 'GBP' : null,
+    },
+    hasProposedPrice,
+    proposedPriceGbp: proposedPrice,
+    paymentTerms: row.payment_terms || null,
+    podRequired: row.pod_required !== false,
+    hardCopyPod: row.hard_copy_pod || null,
+    canQuote: true,
+    canSave: true,
+    expiresAt: row.exchange_expires_at,
+    pickupCountryCode: row.pickup_country_code || 'GB',
+    deliveryCountryCode: row.delivery_country_code || 'GB',
+    serviceMode: row.service_mode || null,
+    postedAt: row.exchange_posted_at || null,
+    directDeliveryRequired: row.direct_delivery_required === true,
+    ...extras,
+  };
+}
+
+function matchesPublicSearch(row: NearbyJobRow, search: string, posterMemberId: string | null) {
+  if (!search) return true;
+  const company = companyInfo(row.companies);
+  const publicText = [
+    publicOutcode(row.pickup_postcode),
+    publicOutcode(row.delivery_postcode),
+    publicTown(row.pickup_city),
+    publicTown(row.delivery_city),
+    row.vehicle_type,
+    row.requested_vehicle_type,
+    row.requested_vehicle_label,
+    row.cargo_type,
+    row.requested_cargo_label,
+    company?.name,
+    posterMemberId,
+    company?.xd_id,
+    row.id,
+  ].filter(Boolean).join(' ').toLowerCase();
+  return publicText.includes(search);
+}
+
+function exchangePostActive(row: NearbyJobRow, nowMs = Date.now()) {
+  if (!row.exchange_expires_at) return true;
+  const expires = new Date(row.exchange_expires_at).getTime();
+  return Number.isFinite(expires) && expires > nowMs;
+}
+
+type Coordinates = { lat: number; lng: number };
+function validCoordinates(lat: unknown, lng: unknown): Coordinates | null {
+  if (lat === null || lat === undefined || lng === null || lng === undefined) return null;
+  if (typeof lat === 'string' && lat.trim() === '') return null;
+  if (typeof lng === 'string' && lng.trim() === '') return null;
+  const parsedLat = Number(lat);
+  const parsedLng = Number(lng);
+  if (!Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) return null;
+  if (parsedLat < -90 || parsedLat > 90 || parsedLng < -180 || parsedLng > 180) return null;
+  return { lat: parsedLat, lng: parsedLng };
+}
+function postcodeKey(value: unknown) {
+  return String(value ?? '').replace(/\s+/g, '').toUpperCase();
+}
+
+async function postcodeCoordinates(postcodes: unknown[]) {
+  const unique = [...new Set(postcodes.map(postcodeKey).filter(Boolean))];
+  const result = new Map<string, Coordinates>();
+  if (unique.length === 0) return result;
+
+  try {
+    const response = await fetch('https://api.postcodes.io/postcodes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ postcodes: unique }),
+      signal: AbortSignal.timeout(5_000),
+    });
+    if (response.ok) {
+      const payload = await response.json() as {
+        result?: Array<{ query?: string; result?: { latitude?: number; longitude?: number } | null }>;
+      };
+      for (const item of payload.result ?? []) {
+        const coordinates = validCoordinates(item.result?.latitude, item.result?.longitude);
+        if (coordinates) result.set(postcodeKey(item.query), coordinates);
+      }
+    }
+  } catch {
+    // Continue to outcode fallback below.
+  }
+
+  // Marketplace jobs can intentionally expose only a UK outcode (for example BB2).
+  // postcodes.io /postcodes cannot resolve an outcode, so use its centroid instead.
+  const unresolved = unique.filter((value) => !result.has(value));
+  await Promise.all(unresolved.map(async (value) => {
+    const outcode = value.match(/^[A-Z]{1,2}\d[A-Z\d]?/)?.[0] ?? '';
+    if (!outcode) return;
+    try {
+      const response = await fetch('https://api.postcodes.io/outcodes/' + encodeURIComponent(outcode), {
+        signal: AbortSignal.timeout(5_000),
+      });
+      if (!response.ok) return;
+      const payload = await response.json() as {
+        result?: { latitude?: number; longitude?: number } | null;
+      };
+      const coordinates = validCoordinates(payload.result?.latitude, payload.result?.longitude);
+      if (coordinates) result.set(value, coordinates);
+    } catch {
+      // Best-effort only. Unknown distance is safer than an invented distance.
+    }
+  }));
+
+  return result;
+}
+
+function distanceMiles(from: Coordinates, to: Coordinates) {
+  const radians = (degrees: number) => degrees * Math.PI / 180;
+  const earthMiles = 3958.8;
+  const deltaLat = radians(to.lat - from.lat);
+  const deltaLng = radians(to.lng - from.lng);
+  const a = Math.sin(deltaLat / 2) ** 2
+    + Math.cos(radians(from.lat)) * Math.cos(radians(to.lat)) * Math.sin(deltaLng / 2) ** 2;
+  return earthMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+type DriverPickupMetric = { distanceMiles: number; durationMinutes: number };
+
+async function drivingMetricsFromDriver(
+  origin: Coordinates,
+  targets: Array<{ id: string; coordinates: Coordinates }>,
+) {
+  const metrics = new Map<string, DriverPickupMetric>();
+  const token = process.env.MAPBOX_ACCESS_TOKEN?.trim();
+  if (!token || targets.length === 0) return metrics;
+
+  for (let offset = 0; offset < targets.length; offset += 24) {
+    const chunk = targets.slice(offset, offset + 24);
+    const coordinates = [origin, ...chunk.map((item) => item.coordinates)]
+      .map((item) => `${item.lng},${item.lat}`)
+      .join(';');
+    const url = new URL(`https://api.mapbox.com/directions-matrix/v1/mapbox/driving/${coordinates}`);
+    url.searchParams.set('sources', '0');
+    url.searchParams.set('destinations', chunk.map((_, index) => String(index + 1)).join(';'));
+    url.searchParams.set('annotations', 'distance,duration');
+    url.searchParams.set('access_token', token);
+
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(5_000), cache: 'no-store' });
+      if (!response.ok) continue;
+      const payload = await response.json() as {
+        distances?: Array<Array<number | null>>;
+        durations?: Array<Array<number | null>>;
+      };
+      const distances = payload.distances?.[0] ?? [];
+      const durations = payload.durations?.[0] ?? [];
+      chunk.forEach((item, index) => {
+        const metres = Number(distances[index]);
+        const seconds = Number(durations[index]);
+        if (!Number.isFinite(metres) || metres <= 0 || !Number.isFinite(seconds) || seconds <= 0) return;
+        metrics.set(item.id, {
+          distanceMiles: Math.round((metres / 1609.344) * 10) / 10,
+          durationMinutes: Math.max(1, Math.round(seconds / 60)),
+        });
+      });
+    } catch {
+      // Keep the existing straight-line fallback if routing is unavailable.
+    }
+  }
+
+  return metrics;
+}
+function jobTime(value: unknown) {
+  const date = new Date(String(value ?? ''));
+  return Number.isNaN(date.getTime()) ? null : date.getTime();
+}
+function isInternational(row: NearbyJobRow) {
+  return String(row.delivery_country_code || 'GB').toUpperCase() !== 'GB';
+}
+
+export async function GET(request: NextRequest) {
+  if (!isSupabaseAdminConfigured || !supabaseAdmin) return respond(503, { error: 'Server auth is not configured.' });
+  const driver = await requireWebDriver(request);
+  if (!isDriverContext(driver)) return driver;
+  if (!driver.canCommercialBid) {
+    return respond(403, { error: 'Commercial marketplace access is not enabled for this Driver account.' });
+  }
+
+  const { searchParams } = new URL(request.url);
+  const search = searchParams.get('search')?.trim().toLowerCase() ?? '';
+  const requestedJobId = searchParams.get('jobId')?.trim() ?? '';
+  if (requestedJobId && !/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(requestedJobId)) {
+    return respond(400, { error: 'Invalid job reference.' });
+  }
+  const limit = Math.min(Number(searchParams.get('limit') ?? 50) || 50, 100);
+  const destinationMode = searchParams.get('mode') === 'destination';
+
+  let query = supabaseAdmin
+    .from('jobs')
+    .select(nearbySelect)
+    .or(driver.companyId ? `exchange_visibility.eq.exchange,and(exchange_visibility.eq.direct,direct_invite_company_id.eq.${driver.companyId})` : 'exchange_visibility.eq.exchange')
+    .in('status', ['posted', 'quoted'])
+    .is('awarded_carrier_company_id', null)
+    .order('exchange_posted_at', { ascending: false })
+    .limit(requestedJobId ? 1 : Math.max(limit, 100));
+  if (requestedJobId) query = query.eq('id', requestedJobId);
+  if (driver.companyId) query = query.neq('company_id', driver.companyId);
+
+  const { data, error } = await query;
+  if (error) return respond(500, { error: error.message });
+  const activeRows = ((data ?? []) as unknown as NearbyJobRow[])
+    .filter((row) => exchangePostActive(row));
+  const posterMemberId = (row: NearbyJobRow) => {
+    const company = companyInfo(row.companies);
+    return company?.xd_id || null;
+  };
+  const rows = activeRows
+    .filter((row) => matchesPublicSearch(row, search, posterMemberId(row)))
+    .slice(0, limit);
+  const preferenceByJob = new Map<string, string>();
+  if (rows.length > 0) {
+    const { data: preferenceRows, error: preferenceError } = await supabaseAdmin
+      .from('driver_job_search_preferences')
+      .select('job_id,state')
+      .eq('driver_id', driver.driverId)
+      .in('job_id', rows.map((row) => row.id));
+    if (preferenceError) return respond(500, { error: preferenceError.message });
+    for (const preference of preferenceRows ?? []) {
+      if (preference.job_id && preference.state) preferenceByJob.set(String(preference.job_id), String(preference.state));
+    }
+  }
+  const commercialBidExtras = driver.canCommercialBid
+    ? {}
+    : { canQuote: false, quoteWarning: 'Your account type does not permit commercial bidding.' };
+
+  const [{ data: latestDriverLocation }, { data: availabilityPresence }, { data: homeCompany }] = await Promise.all([
+    supabaseAdmin
+      .from('driver_locations')
+      .select('lat,lng,recorded_at')
+      .eq('driver_id', driver.driverId)
+      .order('recorded_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('driver_availability_presence')
+      .select('exact_lat,exact_lng,recorded_at,available_until')
+      .eq('driver_id', driver.driverId)
+      .maybeSingle(),
+    driver.companyId
+      ? supabaseAdmin.from('companies').select('postcode').eq('id', driver.companyId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+  ]);
+  const latestDriverPosition = validCoordinates(latestDriverLocation?.lat, latestDriverLocation?.lng);
+  const locationRecordedAt = latestDriverLocation?.recorded_at ? new Date(latestDriverLocation.recorded_at).getTime() : Number.NaN;
+  const jobLocationFresh = latestDriverPosition !== null
+    && Number.isFinite(locationRecordedAt)
+    && Date.now() - locationRecordedAt <= 120 * 60_000;
+  const availabilityPosition = validCoordinates(availabilityPresence?.exact_lat, availabilityPresence?.exact_lng);
+  const availabilityRecordedAt = availabilityPresence?.recorded_at
+    ? new Date(availabilityPresence.recorded_at).getTime()
+    : Number.NaN;
+  const availabilityUntil = availabilityPresence?.available_until
+    ? new Date(availabilityPresence.available_until).getTime()
+    : Number.NaN;
+  const availabilityLocationFresh = availabilityPosition !== null
+    && Number.isFinite(availabilityRecordedAt)
+    && Date.now() - availabilityRecordedAt <= 120 * 60_000
+    && Number.isFinite(availabilityUntil)
+    && availabilityUntil > Date.now();
+  const currentLocationFresh = jobLocationFresh || availabilityLocationFresh;
+  const liveDriverPosition = jobLocationFresh ? latestDriverPosition : availabilityLocationFresh ? availabilityPosition : null;
+
+  const postcodeInputs = [
+    ...rows.filter((row) => !validCoordinates(row.pickup_lat, row.pickup_lng)).map((row) => row.pickup_postcode),
+    currentLocationFresh ? null : homeCompany?.postcode,
+  ];
+  const postcodeFallbacks = await postcodeCoordinates(postcodeInputs);
+  const homePosition = currentLocationFresh ? null : (postcodeFallbacks.get(postcodeKey(homeCompany?.postcode)) ?? null);
+  const driverPosition = currentLocationFresh ? liveDriverPosition : homePosition;
+  const distanceOrigin = currentLocationFresh ? 'current_location' : homePosition ? 'home_location' : null;
+  const pickupCoordinateFallbacks = postcodeFallbacks;
+  const pickupCoordinatesByJob = new Map<string, Coordinates>();
+  const straightLineDistanceByJob = new Map<string, number | null>();
+  for (const row of rows) {
+    const pickup = validCoordinates(row.pickup_lat, row.pickup_lng)
+      ?? pickupCoordinateFallbacks.get(postcodeKey(row.pickup_postcode))
+      ?? null;
+    if (pickup) pickupCoordinatesByJob.set(row.id, pickup);
+    const rawMiles = driverPosition && pickup ? distanceMiles(driverPosition, pickup) : null;
+    const gbPickup = String(row.pickup_country_code || 'GB').toUpperCase() === 'GB';
+    const miles = rawMiles !== null && gbPickup && rawMiles > 700 ? null : rawMiles;
+    straightLineDistanceByJob.set(row.id, miles === null ? null : Number(miles.toFixed(1)));
+  }
+
+  const routedPickupMetrics = driverPosition
+    ? await drivingMetricsFromDriver(
+        driverPosition,
+        rows.flatMap((row) => {
+          const coordinates = pickupCoordinatesByJob.get(row.id);
+          return coordinates ? [{ id: row.id, coordinates }] : [];
+        }),
+      )
+    : new Map<string, DriverPickupMetric>();
+
+  const baseJob = (row: NearbyJobRow, extras: Record<string, unknown> = {}) => {
+    const routed = routedPickupMetrics.get(row.id);
+    return mapNearbyJob(row, posterMemberId(row), {
+      ...commercialBidExtras,
+      preferenceState: preferenceByJob.get(row.id) ?? null,
+      distanceToPickupMiles: routed?.distanceMiles ?? straightLineDistanceByJob.get(row.id) ?? null,
+      pickupEtaMinutes: routed?.durationMinutes ?? null,
+      distanceOrigin,
+      distanceMethod: routed ? 'road_route' : driverPosition ? 'straight_line_fallback' : null,
+      ...extras,
+    });
+  };
+  if (!destinationMode) return respond(200, { jobs: rows.map((row) => baseJob(row)) });
+
+  const [{ data: currentJob, error: currentJobError }, { data: declaredReturnJourney, error: returnJourneyError }] = await Promise.all([
+    supabaseAdmin
+      .from('jobs')
+      .select('id,delivery_postcode,delivery_lat,delivery_lng,delivery_datetime,delivery_time_slot,status,updated_at')
+      .eq('assigned_driver_id', driver.driverId)
+      .in('status', ['allocated', 'accepted', 'on_my_way_to_pickup', 'on_site_pickup', 'loaded', 'collected', 'in_transit', 'on_my_way_to_delivery', 'on_site_delivery', 'delivered'])
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    supabaseAdmin
+      .from('return_journeys')
+      .select('id,from_postcode,to_postcode,available_from,available_to,status,created_at')
+      .eq('driver_id', driver.driverId)
+      .in('status', ['active', 'available'])
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  if (currentJobError) return respond(500, { error: currentJobError.message });
+  if (returnJourneyError) return respond(500, { error: 'Return Journey matching state could not be loaded.' });
+
+  const currentJobEligible = currentJob
+    && ['in_transit', 'on_my_way_to_delivery', 'on_site_delivery', 'delivered'].includes(String(currentJob.status));
+  const returnJourneyValidUntil = jobTime(declaredReturnJourney?.available_to);
+  const declaredJourneyEligible = declaredReturnJourney
+    && Boolean(declaredReturnJourney.from_postcode)
+    && (returnJourneyValidUntil === null || returnJourneyValidUntil >= Date.now());
+
+  if (!currentJobEligible && !declaredJourneyEligible) {
+    return respond(200, {
+      jobs: rows.map((row) => baseJob(row)),
+      returnIq: {
+        active: false,
+        reason: currentJob
+          ? 'Activates when the driver is on the way to delivery or has a current Return Journey declaration.'
+          : 'No active delivery or current Return Journey declaration is available for matching.',
+      },
+    });
+  }
+
+  const matchingOriginPostcode = currentJobEligible
+    ? currentJob.delivery_postcode
+    : declaredReturnJourney?.from_postcode ?? null;
+  const geocoded = await postcodeCoordinates([matchingOriginPostcode, ...rows.map((row) => row.pickup_postcode)]);
+  const destination = currentJobEligible
+    ? validCoordinates(currentJob.delivery_lat, currentJob.delivery_lng) ?? geocoded.get(postcodeKey(matchingOriginPostcode)) ?? null
+    : geocoded.get(postcodeKey(matchingOriginPostcode)) ?? null;
+  if (!destination) {
+    return respond(200, {
+      jobs: rows.map((row) => baseJob(row)),
+      returnIq: {
+        active: false,
+        currentJobReference: currentJobEligible ? `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}` : null,
+        returnJourneyId: declaredJourneyEligible ? declaredReturnJourney.id : null,
+        destinationArea: mobilePublicArea(matchingOriginPostcode, null),
+        reason: 'The matching origin could not be located yet.',
+      },
+    });
+  }
+
+  const availableAfter = currentJobEligible
+    ? currentJob.delivery_datetime || currentJob.delivery_time_slot || null
+    : declaredReturnJourney?.available_from ?? null;
+  const availableAfterMs = jobTime(availableAfter);
+  const [driverAccess, companyAccess, vehicleAccess] = await Promise.all([
+    supabaseAdmin.from('drivers')
+      .select('international_work_approved,destination_priority_enabled,destination_radius_miles')
+      .eq('id', driver.driverId)
+      .maybeSingle(),
+    driver.companyId
+      ? supabaseAdmin.from('companies').select('international_work_approved').eq('id', driver.companyId).maybeSingle()
+      : Promise.resolve({ data: null, error: null }),
+    supabaseAdmin.from('vehicles').select('international_work_approved,type').eq('assigned_driver_id', driver.driverId).maybeSingle(),
+  ]);
+  if (driverAccess.error) return respond(500, { error: 'Driver destination preferences could not be loaded.' });
+
+  const requestedRadiusText = searchParams.get('radius');
+  const requestedRadius = requestedRadiusText === null
+    ? Number(driverAccess.data?.destination_radius_miles ?? 10)
+    : Number(requestedRadiusText);
+  const radiusMiles = Number.isFinite(requestedRadius)
+    ? Math.min(300, Math.max(10, Math.round(requestedRadius)))
+    : 10;
+
+  if (driverAccess.data?.destination_priority_enabled === false) {
+    return respond(200, {
+      jobs: rows.map((row) => baseJob(row)),
+      returnIq: {
+        active: false,
+        currentJobReference: currentJobEligible ? `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}` : null,
+        returnJourneyId: declaredJourneyEligible ? declaredReturnJourney.id : null,
+        destinationArea: mobilePublicArea(matchingOriginPostcode, null),
+        availableAfter,
+        radiusMiles,
+        reason: 'Destination priority is disabled in Driver Availability.',
+      },
+    });
+  }
+
+  const internationalApproved = driverAccess.data?.international_work_approved === true
+    && companyAccess.data?.international_work_approved === true
+    && vehicleAccess.data?.international_work_approved === true;
+
+  const vehicleRank: Record<string, number> = {
+    small_van: 1, van_small: 1, swb_van: 2, mwb_van: 3, lwb_van: 4, xlwb_van: 5,
+    luton: 6, luton_tail_lift: 6, truck_3_5t: 7, truck_5t: 8, truck_7_5t: 9,
+    truck_12t: 10, truck_18t: 11, truck_26t: 12,
+  };
+  const normalizeVehicle = (value: unknown) => String(value ?? '').trim().toLowerCase().replace(/[ .-]+/g, '_');
+  const assignedVehicle = normalizeVehicle(vehicleAccess.data?.type);
+  const assignedRank = vehicleRank[assignedVehicle] ?? 0;
+
+  const candidates = rows.map((row, originalIndex) => {
+    const pickup = validCoordinates(row.pickup_lat, row.pickup_lng)
+      ?? geocoded.get(postcodeKey(row.pickup_postcode))
+      ?? null;
+    const pickupMs = jobTime(row.pickup_datetime || row.pickup_time_slot);
+    const timingImpossible = availableAfterMs !== null && pickupMs !== null && pickupMs < availableAfterMs;
+    const miles = pickup ? distanceMiles(destination, pickup) : null;
+    const closeTiming = availableAfterMs !== null && pickupMs !== null && pickupMs - availableAfterMs < 90 * 60_000;
+    const needsInternationalApproval = isInternational(row) && !internationalApproved;
+    const requiredVehicle = normalizeVehicle(row.requested_vehicle_type || row.vehicle_type);
+    const requiredRank = vehicleRank[requiredVehicle] ?? 0;
+    const vehicleCompatible = Boolean(assignedVehicle)
+      && (requiredRank > 0 && assignedRank > 0 ? assignedRank >= requiredRank : assignedVehicle === requiredVehicle);
+    const destinationPriority = miles !== null
+      && miles <= radiusMiles
+      && !timingImpossible
+      && vehicleCompatible
+      && !needsInternationalApproval;
+    return {
+      row,
+      miles,
+      pickupMs,
+      originalIndex,
+      destinationPriority,
+      extras: {
+        distanceFromCurrentDeliveryMiles: miles === null ? null : Number(miles.toFixed(1)),
+        destinationPriority,
+        canQuote: !needsInternationalApproval && driver.canCommercialBid,
+        internationalEligibilityRequired: needsInternationalApproval,
+        quoteWarning: !driver.canCommercialBid
+          ? 'Your account type does not permit commercial bidding.'
+          : needsInternationalApproval
+            ? 'International eligibility must be approved for the company, driver and assigned vehicle.'
+            : timingImpossible
+              ? 'Timing conflict: collection is before the current delivery ETA.'
+              : closeTiming
+                ? 'Collection is close to the current ETA. Confirm unloading and travel time before quoting.'
+                : null,
+      },
+    };
+  });
+
+  const prioritizedJobs = sortSmartDestinationCandidates(candidates)
+    .map((item) => baseJob(item.row, item.extras));
+  return respond(200, {
+    jobs: prioritizedJobs,
+    returnIq: {
+      active: true,
+      currentJobReference: currentJobEligible ? `XDL-${String(currentJob.id).slice(0, 8).toUpperCase()}` : null,
+      returnJourneyId: declaredJourneyEligible ? declaredReturnJourney.id : null,
+      destinationArea: mobilePublicArea(matchingOriginPostcode, null),
+      availableAfter,
+      radiusMiles,
+    },
+  });
+}

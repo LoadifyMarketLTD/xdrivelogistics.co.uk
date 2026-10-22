@@ -8,7 +8,7 @@ type EvidenceCategory = 'photos' | 'damage' | 'documents';
 async function callJob(jobId: string, path: string, payload: unknown) {
   const token = readRouteAuthAccessToken();
   if (!token) throw new Error('Your session expired. Please sign in.');
-  const response = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(jobId)}/${path}`, {
+  const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/${path}`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
     body: JSON.stringify(payload),
@@ -24,7 +24,7 @@ async function uploadEvidence(jobId: string, file: File, kind: EvidenceKind, cat
   const token = readRouteAuthAccessToken();
   if (!token) throw new Error('Your session expired. Please sign in.');
   const name = `${kind}-${Date.now()}-${crypto.randomUUID()}.${file.type === 'image/png' ? 'png' : 'jpg'}`;
-  const response = await fetch(`/api/driver/mobile/jobs/${encodeURIComponent(jobId)}/evidence`, {
+  const response = await fetch(`/api/driver/web/jobs/${encodeURIComponent(jobId)}/evidence`, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': file.type,
       'x-xdrive-evidence-kind': kind,

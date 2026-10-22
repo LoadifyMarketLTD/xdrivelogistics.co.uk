@@ -41,7 +41,7 @@ export default function MobileQuotesPage() {
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Please sign in to view your quotes.');
-      const response = await fetch('/api/driver/mobile/bids', {
+      const response = await fetch('/api/driver/web/bids', {
         headers: { Authorization: `Bearer ${token}` }, cache: 'no-store'
       });
       const result = await response.json().catch(() => ({}));
@@ -87,7 +87,7 @@ export default function MobileQuotesPage() {
     try {
       const token = readRouteAuthAccessToken();
       if (!token) throw new Error('Please sign in again.');
-      const response = await fetch(`/api/driver/mobile/bids/${encodeURIComponent(quote.id)}`, {
+      const response = await fetch(`/api/driver/web/bids/${encodeURIComponent(quote.id)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify(action === 'withdraw'
@@ -123,7 +123,7 @@ export default function MobileQuotesPage() {
         <p>Quoted: {formatTime(quote.createdAt)}</p>
         {quote.executionUnlocked
           ? <Link href={`/m/driver/bookings/${encodeURIComponent(quote.jobId)}`}>View booking</Link>
-          : <Link href={`/driver/loads/${encodeURIComponent(quote.jobId)}`}>Job details</Link>}
+          : <Link href={`/m/driver/jobs/${encodeURIComponent(quote.jobId)}`}>Job details</Link>}
         {submitted && !quote.executionUnlocked ? <div className="xd-mobile-actions">
           <button type="button" disabled={Boolean(pending)} onClick={() => editing === quote.id ? setEditing(null) : startEdit(quote)}>
             {editing === quote.id ? 'Cancel edit' : 'Edit quote'}
